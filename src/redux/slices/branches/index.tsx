@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../../store';
 
 export interface Branch {
@@ -29,7 +29,7 @@ const branchSlice = createSlice({
   name: 'branches',
   initialState,
   reducers: {
-    addBranch: (state, action) => {
+    addBranch: (state, action: PayloadAction<Omit<Branch, 'id' | 'branchcode'>>) => {
       const newId = crypto.randomUUID();
       const branchcode = `#BRC${String(state.branches.length + 1).padStart(4, '0')}`;
       const newBranch = {
@@ -37,11 +37,23 @@ const branchSlice = createSlice({
         id: newId,
         branchcode,
       };
-      console.log('New Branch Added:', newBranch);
       state.branches.push(newBranch);
     },
 
-    editBranch: (state, action) => {
+    addBranches: (state, action: PayloadAction<Omit<Branch, 'id' | 'branchcode'>[]>) => {
+      action.payload.forEach((branchData) => {
+        const newId = crypto.randomUUID();
+        const branchcode = `#BRC${String(state.branches.length + 1).padStart(4, '0')}`;
+        const newBranch = {
+          ...branchData,
+          id: newId,
+          branchcode,
+        };
+        state.branches.push(newBranch);
+      });
+    },
+
+    editBranch: (state, action: PayloadAction<Branch>) => {
       const index = state.branches.findIndex(branch => branch.id === action.payload.id);
       if (index !== -1) {
         const existingBranch = state.branches[index];
@@ -52,13 +64,13 @@ const branchSlice = createSlice({
       }
     },
 
-    deleteBranch: (state, action) => {
+    deleteBranch: (state, action: PayloadAction<string>) => {
       state.branches = state.branches.filter(branch => branch.id !== action.payload);
     },
   },
 });
 
-export const { addBranch, editBranch, deleteBranch } = branchSlice.actions;
+export const { addBranch, addBranches, editBranch, deleteBranch } = branchSlice.actions;
 
 export const getBranchById = (state: RootState, id: string) =>
   state.branches.branches.find((branch: Branch) => branch.id === id);

@@ -32,7 +32,7 @@ const Button: React.FC<ButtonProps> = ({
   const isDisabled = disabled || isLoading;
 
   const buttonClass = clsx(
-    'rounded px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors duration-200',
+    'rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors duration-200',
     variantStyles[variant],
     fullWidth && 'w-full',
     isDisabled && 'opacity-50 cursor-not-allowed',

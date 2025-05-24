@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import HomeLayout from "../../../layouts/home";
-import { FaStore, FaPhone, FaLock, FaMapMarkerAlt, FaEnvelope, FaCity, FaLocationArrow, FaMobileAlt, FaImage } from "react-icons/fa";
+import { FaStore, FaPhone, FaLock, FaMapMarkerAlt, FaEnvelope, FaCity, FaLocationArrow, FaMobileAlt } from "react-icons/fa";
 import Button from "../../../components/button";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { addBranch, editBranch, getBranchById } from "../../../redux/slices/branches";
+import React from "react";
 
 const AddEditBranch = () => {
   const { id } = useParams<{ id?: string }>();
@@ -14,6 +15,11 @@ const AddEditBranch = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const branch = useAppSelector((state) => (id ? getBranchById(state, id) : null));
+
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     branchname: "",
@@ -32,22 +38,31 @@ const AddEditBranch = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    if (isEdit && branch) {
-      setFormData({
-        branchname: branch.branchname,
-        mobile: branch.mobile,
-        password: branch.password,
-        logo: branch.logo,
-        location: branch.location,
-        address: branch.address,
-        city: branch.city,
-        pincode: branch.pincode,
-        phone: branch.phone,
-        email: branch.email,
-        status: branch.status,
-      });
-    }
-  }, [isEdit, branch]);
+  if (isEdit && branch) {
+    console.log("Branch data:", branch);
+
+    setFormData({
+      branchname: branch.branchname,
+      mobile: branch.mobile,
+      password: branch.password,
+      logo: branch.logo,
+      location: branch.location,
+      address: branch.address,
+      city: branch.city,
+      pincode: branch.pincode,
+      phone: branch.phone,
+      email: branch.email,
+      status: branch.status,
+    });
+
+    const imageUrl = branch.logo
+      ? `http://localhost:5173/uploads/${branch.logo}`
+      : null;
+
+    console.log("Preview image URL:", imageUrl);
+    setPreviewUrl(imageUrl);
+  }
+}, [isEdit, branch]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -58,6 +73,27 @@ const AddEditBranch = () => {
       ...prev,
       [e.target.name]: "",
     }));
+  };
+
+  // Open file picker when clicking the logo area/button
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setFormData((prev) => ({
+        ...prev,
+        logo: "", // clear URL if user selected a new file
+      }));
+    } else {
+      setPreviewUrl(null);
+    }
   };
 
   const validate = () => {
@@ -76,10 +112,32 @@ const AddEditBranch = () => {
       return;
     }
 
+    const payload = {
+      branchname: formData.branchname,
+      mobile: formData.mobile,
+      password: formData.password,
+      location: formData.location,
+      address: formData.address,
+      city: formData.city,
+      pincode: formData.pincode,
+      phone: formData.phone,
+      email: formData.email,
+      status: formData.status,
+      logo: selectedFile ? selectedFile.name : "",
+    };
+
+    console.log("Payload to dispatch:", payload);
+
     if (isEdit) {
-      dispatch(editBranch({ id: id!, ...formData }));
+      dispatch(editBranch({
+        id: id!,
+        branchcode: "",
+        ...payload,
+      }));
     } else {
-      dispatch(addBranch(formData));
+      dispatch(addBranch({
+        ...payload,
+      }));
     }
 
     navigate("/branches");
@@ -100,7 +158,18 @@ const AddEditBranch = () => {
               <FormField label="Branch Name" name="branchname" value={formData.branchname} onChange={handleChange} icon={<FaStore />} placeholder="Branch Name" error={errors.branchname} />
               <FormField label="Mobile Number" name="mobile" value={formData.mobile} onChange={handleChange} icon={<FaMobileAlt />} placeholder="Mobile Number" error={errors.mobile} />
               <FormField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} icon={<FaLock />} placeholder="Password" error={errors.password} />
-              <FormField label="Branch Logo URL" name="logo" value={formData.logo} onChange={handleChange} icon={<FaImage />} placeholder="Logo URL" />
+
+              <FormField
+                label="Branch Logo"
+                name="logo"
+                type="file"
+                placeholder="Upload Logo"
+                accept="image/*"
+                previewUrl={previewUrl}
+                onChange={handleFileChange}
+                onClick={openFilePicker}
+              />
+
               <FormField label="Location" name="location" value={formData.location} onChange={handleChange} icon={<FaMapMarkerAlt />} placeholder="Location" />
             </div>
           </fieldset>
