@@ -12,6 +12,7 @@ import Categories from "../pages/categories";
 import Sizes from "../pages/sizes";
 import Brands from "../pages/brands";
 import Models from "../pages/models";
+import ProductGroups from "../pages/productgroups";
 
 const AppRoutes = () => {
     return (
@@ -110,6 +111,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Models />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/productgroups"
+          element={
+            <ProtectedRoutes>
+              <ProductGroups />
             </ProtectedRoutes>
           }
         />

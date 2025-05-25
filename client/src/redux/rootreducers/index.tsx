@@ -5,6 +5,7 @@ import categoriesReducer from "../slices/categories";
 import sizesReducer from "../slices/sizes";
 import brandsReducer from "../slices/brands";
 import modelsReducer from "../slices/models";
+import productgroupsReducer from "../slices/productgroups";
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
@@ -16,6 +17,7 @@ const appReducer = combineReducers({
   sizes: sizesReducer,
   brands: brandsReducer,
   models: modelsReducer,
+  productgroups: productgroupsReducer,
   loader: loaderReducer,
   message: messageReducer,
 });
