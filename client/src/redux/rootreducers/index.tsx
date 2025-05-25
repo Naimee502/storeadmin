@@ -6,6 +6,7 @@ import sizesReducer from "../slices/sizes";
 import brandsReducer from "../slices/brands";
 import modelsReducer from "../slices/models";
 import productgroupsReducer from "../slices/productgroups";
+import accountgroupsReducer from "../slices/accountgroups";
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
@@ -18,6 +19,7 @@ const appReducer = combineReducers({
   brands: brandsReducer,
   models: modelsReducer,
   productgroups: productgroupsReducer,
+  accountgroups: accountgroupsReducer,
   loader: loaderReducer,
   message: messageReducer,
 });

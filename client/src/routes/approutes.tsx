@@ -13,6 +13,7 @@ import Sizes from "../pages/sizes";
 import Brands from "../pages/brands";
 import Models from "../pages/models";
 import ProductGroups from "../pages/productgroups";
+import AccountGroups from "../pages/accountgroups";
 
 const AppRoutes = () => {
     return (
@@ -119,6 +120,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <ProductGroups />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accountgroups"
+          element={
+            <ProtectedRoutes>
+              <AccountGroups />
             </ProtectedRoutes>
           }
         />

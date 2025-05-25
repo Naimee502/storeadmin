@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaCodeBranch, FaHome, FaLayerGroup, FaRulerCombined, FaTags } from 'react-icons/fa';
-import { GiCarWheel } from 'react-icons/gi';
+import { FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUsers } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
@@ -55,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           to="/models"
           className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
         >
-          <GiCarWheel className="text-lg sm:text-xl" />
+          <FaMobileAlt className="text-lg sm:text-xl" />
           <span className="truncate">Models</span>
         </Link>
         <Link
@@ -64,6 +63,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaLayerGroup className="text-lg sm:text-xl" />
           <span className="truncate">Product Groups</span>
+        </Link>
+        <Link
+          to="/accountgroups"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaUsers className="text-lg sm:text-xl" />  {/* or replace with another icon you prefer */}
+          <span className="truncate">Account Groups</span>
         </Link>
       </div>
     </aside>
