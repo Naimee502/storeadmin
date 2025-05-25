@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaCodeBranch, FaHome, FaRulerCombined, FaTags } from 'react-icons/fa';
+import { GiCarWheel } from 'react-icons/gi';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
@@ -49,6 +50,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <MdBrandingWatermark className="text-lg sm:text-xl" />
           <span className="truncate">Brands</span>
+        </Link>
+        <Link
+          to="/models"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <GiCarWheel className="text-lg sm:text-xl" />
+          <span className="truncate">Models</span>
         </Link>
       </div>
     </aside>

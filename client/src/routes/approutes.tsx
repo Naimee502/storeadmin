@@ -11,6 +11,7 @@ import AddEditBranch from "../pages/branches/addedit";
 import Categories from "../pages/categories";
 import Sizes from "../pages/sizes";
 import Brands from "../pages/brands";
+import Models from "../pages/models";
 
 const AppRoutes = () => {
     return (
@@ -101,6 +102,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Brands />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/models"
+          element={
+            <ProtectedRoutes>
+              <Models />
             </ProtectedRoutes>
           }
         />
