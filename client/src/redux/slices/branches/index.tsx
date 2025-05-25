@@ -30,10 +30,13 @@ const branchSlice = createSlice({
   reducers: {
     addBranches: (state, action: PayloadAction<Branch[]>) => {
       state.branches.push(...action.payload);
-    }
+    },
+    clearBranches: (state) => {
+      state.branches = [];
+    },
   },
 });
 
-export const { addBranches } = branchSlice.actions;
+export const { addBranches, clearBranches } = branchSlice.actions;
 
 export default branchSlice.reducer;

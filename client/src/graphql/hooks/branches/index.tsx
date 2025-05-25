@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client';
 import { ADD_BRANCH, DELETE_BRANCH, EDIT_BRANCH } from '../../mutations/branches';
-import { GET_BRANCH_BY_ID, GET_BRANCHES } from '../../queries';
+import { GET_BRANCH_BY_ID, GET_BRANCHES } from '../../queries/branches';
 
 export const useBranchMutations = () => {
   const [addBranchMutation] = useMutation(ADD_BRANCH);

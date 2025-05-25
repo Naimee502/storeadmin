@@ -10,10 +10,20 @@ import {
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
+import FormField from "../formfiled";
+import FormSwitch from "../formswitch";
+import Button from "../button";
 
 interface Column {
     label: string;
     key: string;
+}
+
+interface FormField {
+    name: string;
+    label: string;
+    type: string;
+    placeholder?: string;
 }
 
 interface DataTableProps {
@@ -35,6 +45,14 @@ interface DataTableProps {
     onImport?: () => void;
     onExport?: () => void;
     isLoading?: boolean;
+
+    // New form-related props:
+    formFields?: FormField[];
+    formValues?: { [key: string]: any };
+    formErrors?: { [key: string]: string };
+    onFormChange?: (name: string, value: string) => void;
+    onFormSubmit?: () => void;
+    onActiveToggle?: (checked: boolean) => void;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -56,6 +74,14 @@ const DataTable: React.FC<DataTableProps> = ({
     onImport,
     onExport,
     isLoading = false,
+
+    // Form props with defaults
+    formFields,
+    formValues,
+    formErrors,
+    onFormChange,
+    onFormSubmit,
+    onActiveToggle,
 }) => {
     const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useState(1);
@@ -96,156 +122,201 @@ const DataTable: React.FC<DataTableProps> = ({
 
     return (
         <div className="relative">
-        {isLoading && <Loader fullScreen />}
-        <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
-            <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
+            {isLoading && <Loader fullScreen />}
+            <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
+                <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
 
-            {/* Top Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                {/* Entries dropdown */}
-                <div className="flex items-center gap-1 sm:gap-2">
-                    Show
-                    <select
-                        value={entriesPerPage}
-                        onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                        className="border rounded px-2 py-1"
-                    >
-                        {entriesOptions.map((num) => (
-                            <option key={num} value={num}>
-                                {num}
-                            </option>
-                        ))}
-                    </select>
-                    entries
-                </div>
+                {/* Top Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    {/* Entries dropdown */}
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        Show
+                        <select
+                            value={entriesPerPage}
+                            onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                            className="border rounded px-2 py-1"
+                        >
+                            {entriesOptions.map((num) => (
+                                <option key={num} value={num}>
+                                    {num}
+                                </option>
+                            ))}
+                        </select>
+                        entries
+                    </div>
 
-                {/* Search Input */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
-                    <label className="text-sm">Search:</label>
-                    <div className="relative w-full sm:w-64">
-                        <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-                        <input
-                            type="text"
-                            value={globalSearch}
-                            onChange={(e) => setGlobalSearch(e.target.value)}
-                            className="w-full pl-6 pr-3 py-1 border rounded text-xs sm:text-sm focus:outline-none"
-                            placeholder="Search..."
-                        />
+                    {/* Search Input */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
+                        <label className="text-sm">Search:</label>
+                        <div className="relative w-full sm:w-64">
+                            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+                            <input
+                                type="text"
+                                value={globalSearch}
+                                onChange={(e) => setGlobalSearch(e.target.value)}
+                                className="w-full pl-6 pr-3 py-1 border rounded text-xs sm:text-sm focus:outline-none"
+                                placeholder="Search..."
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Action Buttons below search, right aligned */}
-            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full">
-                {showImport && (
-                    <button
-                        onClick={onImport}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-blue-600 text-black rounded hover:bg-blue-700"
-                    >
-                        <FaFileImport /> Import
-                    </button>
-                )}
-                {showExport && (
-                    <button
-                        onClick={onExport}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-green-600 text-black rounded hover:bg-green-700"
-                    >
-                        <FaFileExport /> Export
-                    </button>
-                )}
-                {showAdd && (
-                    <button
-                        onClick={onAdd}
-                        className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-indigo-600 text-black rounded hover:bg-indigo-700"
-                    >
-                        <FaPlus /> Add New
-                    </button>
-                )}
-            </div>
-
-            {/* Table */}
-            <div className="overflow-auto border rounded">
-                <table className="min-w-full text-xs sm:text-sm text-left">
-                    <thead className="bg-gray-100 text-gray-700">
-                        <tr>
-                            {columns.map((col) => (
-                                <th key={col.key} className="px-3 sm:px-4 py-1 sm:py-2 whitespace-nowrap">
-                                    <div className="flex items-center gap-1">
-                                        {col.label}
-                                        <FaFilter className="text-gray-400 text-xs" />
-                                    </div>
-                                </th>
-                            ))}
-                            <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>
-                        </tr>
-                        <tr>
-                            {columns.map((col) => (
-                                <th key={col.key} className="px-3 sm:px-4 py-1">
-                                    <input
-                                        type="text"
-                                        value={filters[col.key] || ""}
-                                        onChange={(e) => handleFilterChange(col.key, e.target.value)}
-                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none"
-                                        placeholder={`Search ${col.label}`}
-                                    />
-                                </th>
-                            ))}
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedData.map((row, idx) => (
-                            <tr key={idx} className="border-t">
-                                {columns.map((col) => (
-                                    <td key={col.key} className="px-3 sm:px-4 py-2 whitespace-nowrap">
-                                        {row[col.key]}
-                                    </td>
-                                ))}
-                                <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
-                                    {showView && (
-                                        <button onClick={() => onView?.(row)}>
-                                            <FaEye />
-                                        </button>
-                                    )}
-                                    {showEdit && (
-                                        <button onClick={() => onEdit?.(row)}>
-                                            <FaEdit />
-                                        </button>
-                                    )}
-                                    {showDelete && (
-                                        <button
-                                            onClick={() => onDelete?.(row)}
-                                            className="text-red-500"
-                                        >
-                                            <FaTrash />
-                                        </button>
-                                    )}
-                                </td>
-                            </tr>
+                {/* Conditional Form */}
+                {!showAdd && formFields && formValues && onFormChange && onFormSubmit && (
+                    <div className="flex flex-row gap-4 w-full sm:w-full items-center">
+                        {formFields.map((field) => (
+                            <FormField
+                                key={field.name}
+                                label={field.label}
+                                name={field.name}
+                                type={field.type}
+                                value={formValues[field.name] || ""}
+                                onChange={(e: any) => onFormChange(field.name, e.target.value)}
+                                error={formErrors ? formErrors[field.name] : undefined}
+                                placeholder={field.placeholder}
+                                className="flex-1"
+                            />
                         ))}
-                    </tbody>
-                </table>
-            </div>
 
-            {/* Pagination */}
-            <div className="flex justify-end items-center gap-1 sm:gap-2 text-xs sm:text-sm mt-3">
-                <button
-                    onClick={() => changePage("prev")}
-                    className="px-2 sm:px-3 py-1 border rounded hover:bg-gray-200"
-                >
-                    &lt; Previous
-                </button>
-                <span className="w-6 sm:w-8 h-6 sm:h-8 flex items-center justify-center bg-blue-600 text-white rounded-full">
-                    {currentPage}
-                </span>
-                <button
-                    onClick={() => changePage("next")}
-                    className="px-2 sm:px-3 py-1 border rounded hover:bg-gray-200"
-                >
-                    Next &gt;
-                </button>
+                        {/* Active/Inactive Switch */}
+                        <fieldset className="flex items-center max-w-xs">
+                            <legend className="text-sm sm:text-base font-medium">Status</legend>
+                            <FormSwitch
+                                label=""
+                                name="status"
+                                checked={Boolean(formValues.status)}
+                                onChange={(checked) => onFormChange("status", checked)}
+                            />
+                        </fieldset>
+
+                        {/* Save / Update Button */}
+                        <Button
+                            variant="outline"
+                            onClick={onFormSubmit}
+                            className="whitespace-nowrap"
+                        >
+                            Save
+                        </Button>
+                    </div>
+                )}
+
+                {/* Show Action Buttons if form is not showing */}
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full sm:w-auto">
+                    {showImport && (
+                        <button
+                            onClick={onImport}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-blue-600 text-black rounded hover:bg-blue-700"
+                        >
+                            <FaFileImport /> Import
+                        </button>
+                    )}
+                    {showExport && (
+                        <button
+                            onClick={onExport}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-green-600 text-black rounded hover:bg-green-700"
+                        >
+                            <FaFileExport /> Export
+                        </button>
+                    )}
+                    {showAdd && (
+                        <button
+                            onClick={onAdd}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-indigo-600 text-black rounded hover:bg-indigo-700"
+                        >
+                            <FaPlus /> Add New
+                        </button>
+                    )}
+                </div>
+
+                {/* Table */}
+                <div className="overflow-auto border rounded">
+                    <table className="min-w-full text-xs sm:text-sm text-left">
+                        <thead className="bg-gray-100 text-gray-700">
+                            <tr>
+                                {columns.map((col) => (
+                                    <th
+                                        key={col.key}
+                                        className="px-3 sm:px-4 py-1 sm:py-2 whitespace-nowrap"
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            {col.label}
+                                            <FaFilter className="text-gray-400 text-xs" />
+                                        </div>
+                                    </th>
+                                ))}
+                                <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>
+                            </tr>
+                            <tr>
+                                {columns.map((col) => (
+                                    <th key={col.key} className="px-3 sm:px-4 py-1">
+                                        <input
+                                            type="text"
+                                            value={filters[col.key] || ""}
+                                            onChange={(e) => handleFilterChange(col.key, e.target.value)}
+                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none"
+                                            placeholder={`Search ${col.label}`}
+                                        />
+                                    </th>
+                                ))}
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paginatedData.map((row, idx) => (
+                                <tr key={idx} className="border-t">
+                                    {columns.map((col) => (
+                                        <td
+                                            key={col.key}
+                                            className="px-3 sm:px-4 py-2 whitespace-nowrap"
+                                        >
+                                            {row[col.key]}
+                                        </td>
+                                    ))}
+                                    <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
+                                        {showView && (
+                                            <button onClick={() => onView?.(row)}>
+                                                <FaEye />
+                                            </button>
+                                        )}
+                                        {showEdit && (
+                                            <button onClick={() => onEdit?.(row)}>
+                                                <FaEdit />
+                                            </button>
+                                        )}
+                                        {showDelete && (
+                                            <button
+                                                onClick={() => onDelete?.(row)}
+                                                className="text-red-500"
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex justify-end items-center gap-1 sm:gap-2 text-xs sm:text-sm mt-3">
+                    <button
+                        onClick={() => changePage("prev")}
+                        className="px-2 sm:px-3 py-1 border rounded hover:bg-gray-200"
+                    >
+                        &lt; Previous
+                    </button>
+                    <span className="w-6 sm:w-8 h-6 sm:h-8 flex items-center justify-center bg-blue-600 text-white rounded-full">
+                        {currentPage}
+                    </span>
+                    <button
+                        onClick={() => changePage("next")}
+                        className="px-2 sm:px-3 py-1 border rounded hover:bg-gray-200"
+                    >
+                        Next &gt;
+                    </button>
+                </div>
             </div>
-        </div>
         </div>
     );
 };

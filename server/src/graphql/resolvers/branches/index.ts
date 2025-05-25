@@ -1,6 +1,6 @@
 import { Branch } from "../../../models/branches";
 
-export const resolvers = {
+export const branchResolvers = {
   Query: {
     getBranches: async () => {
       const branches = await Branch.find();

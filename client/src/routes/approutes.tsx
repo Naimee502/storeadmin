@@ -8,6 +8,7 @@ import Settings from "../pages/settings";
 import ForgotPassword from "../pages/forgotpassword";
 import Branches from "../pages/branches";
 import AddEditBranch from "../pages/branches/addedit";
+import Categories from "../pages/categories";
 
 const AppRoutes = () => {
     return (
@@ -74,6 +75,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditBranch />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <ProtectedRoutes>
+              <Categories />
             </ProtectedRoutes>
           }
         />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCodeBranch, FaHome } from 'react-icons/fa';
+import { FaCodeBranch, FaHome, FaTags } from 'react-icons/fa';
 import { Link } from 'react-router';
 
 interface SidebarProps {
@@ -27,6 +27,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaCodeBranch className="text-lg sm:text-xl" />
           <span className="truncate">Branches</span>
+        </Link>
+        <Link
+          to="/categories"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaTags className="text-lg sm:text-xl" />
+          <span className="truncate">Categories</span>
         </Link>
       </div>
     </aside>

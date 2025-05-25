@@ -132,10 +132,10 @@ const Branches = () => {
         />
 
         <DataTable
-          title="Branch List"
+          title="Manage Branches"
           columns={columns}
           data={tableData}
-          showView={true}
+          showView={false}
           showEdit={true}
           showDelete={true}
           showImport={true}
