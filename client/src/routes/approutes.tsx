@@ -9,6 +9,8 @@ import ForgotPassword from "../pages/forgotpassword";
 import Branches from "../pages/branches";
 import AddEditBranch from "../pages/branches/addedit";
 import Categories from "../pages/categories";
+import Sizes from "../pages/sizes";
+import Brands from "../pages/brands";
 
 const AppRoutes = () => {
     return (
@@ -83,6 +85,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Categories />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/sizes"
+          element={
+            <ProtectedRoutes>
+              <Sizes />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/brands"
+          element={
+            <ProtectedRoutes>
+              <Brands />
             </ProtectedRoutes>
           }
         />

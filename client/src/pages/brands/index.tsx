@@ -5,45 +5,40 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useCategoriesQuery, useCategoryMutations } from "../../graphql/hooks/categories";
+import { useBrandsQuery, useBrandMutations } from "../../graphql/hooks/brands";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addCategories } from "../../redux/slices/categories";
+import { addBrands } from "../../redux/slices/brands";  
 
-
-const Categories = () => {
+const Brands = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data, refetch } = useCategoriesQuery();
-  const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } = useCategoryMutations();
-  const categoryList = data?.getCategories || [];
+  const { data, refetch } = useBrandsQuery();
+  const { addBrandMutation, editBrandMutation, deleteBrandMutation } = useBrandMutations();
+  const brandList = data?.getBrands || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  // Form state for add/edit
-  const [formValues, setFormValues] = useState({ categoryname: "", status: true });
-  const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
+  const [formValues, setFormValues] = useState({ brandname: "", status: true });
+  const [formErrors, setFormErrors] = useState<{ brandname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change
   const handleFormChange = (name: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Simple validation
   const validateForm = () => {
-    const errors: { categoryname?: string } = {};
-    if (!formValues.categoryname.trim()) {
-      errors.categoryname = "Category name is required";
+    const errors: { brandname?: string } = {};
+    if (!formValues.brandname.trim()) {
+      errors.brandname = "Brand name is required";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Handle Edit button click: populate form and open form
   const handleEdit = (row: any) => {
-    setFormValues({ categoryname: row.categoryname, status: row.status === "Active" });
+    setFormValues({ brandname: row.brandname, status: row.status === "Active" });
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -53,11 +48,11 @@ const Categories = () => {
       dispatch(showLoading());
       try {
         const { data } = await refetch();
-        if (data?.categories) {
-          dispatch(addCategories(data.categories));
+        if (data?.getBrands) {
+          dispatch(addBrands(data.getBrands));
         }
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Error fetching brands:", error);
       } finally {
         dispatch(hideLoading());
       }
@@ -70,73 +65,69 @@ const Categories = () => {
     if (!validateForm()) return;
     try {
       if (isEditing && editingId) {
-        // Update mutation
-        await editCategoryMutation({
+        await editBrandMutation({
           variables: {
             id: editingId,
             input: {
-              categoryname: formValues.categoryname,
+              brandname: formValues.brandname,
               status: formValues.status,
             },
           },
         });
-        dispatch(showMessage({ message: "Category updated successfully.", type: "success" }));
+        dispatch(showMessage({ message: "Brand updated successfully.", type: "success" }));
       } else {
-        // Add mutation
-        await addCategoryMutation({
+        await addBrandMutation({
           variables: {
             input: {
-              categoryname: formValues.categoryname,
+              brandname: formValues.brandname,
               status: formValues.status,
             },
           },
         });
-        dispatch(showMessage({ message: "Category added successfully.", type: "success" }));
+        dispatch(showMessage({ message: "Brand added successfully.", type: "success" }));
       }
 
       await refetch();
-      setFormValues({ categoryname: "", status: true });
+      setFormValues({ brandname: "", status: true });
       setIsEditing(false);
       setEditingId(null);
-    } catch (error) {
+    } catch (error: any) {
       if (error?.message?.includes("E11000")) {
-        const duplicateField = error?.message?.includes("categoryname")
-        ? "Category name"
-        : "Field";
-        dispatch(showMessage({ message: `${duplicateField} already exists.`, type: 'error' }));
+        const duplicateField = error?.message?.includes("brandname") ? "Brand name" : "Field";
+        dispatch(showMessage({ message: `${duplicateField} already exists.`, type: "error" }));
       } else {
-        dispatch(showMessage({ message: 'Failed to save category. Please try again.', type: 'error' }));
+        dispatch(showMessage({ message: "Failed to save brand. Please try again.", type: "error" }));
       }
     }
   };
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
-    { label: "Category Code", key: "categorycode" },
-    { label: "Category Name", key: "categoryname" },
+    { label: "Brand Code", key: "brandcode" },
+    { label: "Brand Name", key: "brandname" },
     { label: "Status", key: "status" },
   ];
 
-  const tableData = categoryList.map((category: any, index: number) => ({
-    ...category,
+  const tableData = brandList.map((brand: any, index: number) => ({
+    ...brand,
     seqNo: index + 1,
-    status: category.status ? "Active" : "Inactive",
+    status: brand.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = categoryList.map((cat: any, index: number) => ({
+    const exportData = brandList.map((brand: any, index: number) => ({
       ID: index + 1,
-      CategoryName: cat.categoryname || "-",
-      Status: cat.status ? "true" : "false",
+      BrandName: brand.brandname || "-",
+      Status: brand.status ? "true" : "false",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Categories");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Brands");
 
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const dataBlob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(dataBlob, "categories.xlsx");
+    saveAs(dataBlob, "brands.xlsx");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,13 +141,13 @@ const Categories = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-      const importedCategories = jsonData.map((row) => ({
-        categoryname: row.CategoryName || "",
+      const importedBrands = jsonData.map((row) => ({
+        brandname: row.BrandName || "",
         status: row.Status === "true" || row.Status === "1" || row.Status === true,
       }));
 
-      // You can dispatch import API here (optional)
-      console.log("Imported Categories:", importedCategories);
+      // TODO: Dispatch import mutation if needed
+      console.log("Imported Brands:", importedBrands);
     };
 
     reader.readAsArrayBuffer(file);
@@ -179,7 +170,7 @@ const Categories = () => {
         />
 
         <DataTable
-          title="Manage Categories"
+          title="Manage Brands"
           columns={columns}
           data={tableData}
           showView={false}
@@ -191,25 +182,25 @@ const Categories = () => {
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {
-            if (window.confirm(`Are you sure you want to delete "${row.categoryname}"?`)) {
+            if (window.confirm(`Are you sure you want to delete "${row.brandname}"?`)) {
               try {
-                await deleteCategoryMutation({ variables: { id: row.id } });
+                await deleteBrandMutation({ variables: { id: row.id } });
                 await refetch();
-                dispatch(showMessage({ message: "Category deleted.", type: "success" }));
+                dispatch(showMessage({ message: "Brand deleted.", type: "success" }));
               } catch (error) {
                 console.error(error);
-                dispatch(showMessage({ message: "Failed to delete category.", type: "error" }));
+                dispatch(showMessage({ message: "Failed to delete brand.", type: "error" }));
               }
             }
           }}
           onImport={handleImportClick}
           onExport={handleExport}
-          onAdd={() => navigate("/categories")}
+          onAdd={() => navigate("/brands")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
           formFields={[
-            { name: "categoryname", label: "Category Name", type: 'text', placeholder: "Enter category name" },
+            { name: "brandname", label: "Brand Name", type: "text", placeholder: "Enter brand name" },
           ]}
           formValues={formValues}
           formErrors={formErrors}
@@ -221,4 +212,4 @@ const Categories = () => {
   );
 };
 
-export default Categories;
+export default Brands;

@@ -1,5 +1,6 @@
 import React from 'react';
-import { FaCodeBranch, FaHome, FaTags } from 'react-icons/fa';
+import { FaCodeBranch, FaHome, FaRulerCombined, FaTags } from 'react-icons/fa';
+import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
 interface SidebarProps {
@@ -34,6 +35,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaTags className="text-lg sm:text-xl" />
           <span className="truncate">Categories</span>
+        </Link>
+        <Link
+          to="/sizes"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaRulerCombined className="text-lg sm:text-xl" />
+          <span className="truncate">Sizes</span>
+        </Link>
+        <Link
+          to="/brands"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <MdBrandingWatermark className="text-lg sm:text-xl" />
+          <span className="truncate">Brands</span>
         </Link>
       </div>
     </aside>

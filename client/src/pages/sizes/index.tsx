@@ -5,45 +5,40 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useCategoriesQuery, useCategoryMutations } from "../../graphql/hooks/categories";
+import { useSizesQuery, useSizeMutations } from "../../graphql/hooks/sizes";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addCategories } from "../../redux/slices/categories";
+import { addSizes } from "../../redux/slices/sizes";
 
-
-const Categories = () => {
+const Sizes = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data, refetch } = useCategoriesQuery();
-  const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } = useCategoryMutations();
-  const categoryList = data?.getCategories || [];
+  const { data, refetch } = useSizesQuery();
+  const { addSizeMutation, editSizeMutation, deleteSizeMutation } = useSizeMutations();
+  const sizeList = data?.getSizes || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  // Form state for add/edit
-  const [formValues, setFormValues] = useState({ categoryname: "", status: true });
-  const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
+  const [formValues, setFormValues] = useState({ sizename: "", status: true });
+  const [formErrors, setFormErrors] = useState<{ sizename?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change
   const handleFormChange = (name: string, value: string | boolean) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Simple validation
   const validateForm = () => {
-    const errors: { categoryname?: string } = {};
-    if (!formValues.categoryname.trim()) {
-      errors.categoryname = "Category name is required";
+    const errors: { sizename?: string } = {};
+    if (!formValues.sizename.trim()) {
+      errors.sizename = "Size name is required";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Handle Edit button click: populate form and open form
   const handleEdit = (row: any) => {
-    setFormValues({ categoryname: row.categoryname, status: row.status === "Active" });
+    setFormValues({ sizename: row.sizename, status: row.status === "Active" });
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -53,11 +48,11 @@ const Categories = () => {
       dispatch(showLoading());
       try {
         const { data } = await refetch();
-        if (data?.categories) {
-          dispatch(addCategories(data.categories));
+        if (data?.getSizes) {
+          dispatch(addSizes(data.getSizes));
         }
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Error fetching sizes:", error);
       } finally {
         dispatch(hideLoading());
       }
@@ -70,73 +65,69 @@ const Categories = () => {
     if (!validateForm()) return;
     try {
       if (isEditing && editingId) {
-        // Update mutation
-        await editCategoryMutation({
+        await editSizeMutation({
           variables: {
             id: editingId,
             input: {
-              categoryname: formValues.categoryname,
+              sizename: formValues.sizename,
               status: formValues.status,
             },
           },
         });
-        dispatch(showMessage({ message: "Category updated successfully.", type: "success" }));
+        dispatch(showMessage({ message: "Size updated successfully.", type: "success" }));
       } else {
-        // Add mutation
-        await addCategoryMutation({
+        await addSizeMutation({
           variables: {
             input: {
-              categoryname: formValues.categoryname,
+              sizename: formValues.sizename,
               status: formValues.status,
             },
           },
         });
-        dispatch(showMessage({ message: "Category added successfully.", type: "success" }));
+        dispatch(showMessage({ message: "Size added successfully.", type: "success" }));
       }
 
       await refetch();
-      setFormValues({ categoryname: "", status: true });
+      setFormValues({ sizename: "", status: true });
       setIsEditing(false);
       setEditingId(null);
     } catch (error) {
       if (error?.message?.includes("E11000")) {
-        const duplicateField = error?.message?.includes("categoryname")
-        ? "Category name"
-        : "Field";
-        dispatch(showMessage({ message: `${duplicateField} already exists.`, type: 'error' }));
+        const duplicateField = error?.message?.includes("sizename") ? "Size name" : "Field";
+        dispatch(showMessage({ message: `${duplicateField} already exists.`, type: "error" }));
       } else {
-        dispatch(showMessage({ message: 'Failed to save category. Please try again.', type: 'error' }));
+        dispatch(showMessage({ message: "Failed to save size. Please try again.", type: "error" }));
       }
     }
   };
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
-    { label: "Category Code", key: "categorycode" },
-    { label: "Category Name", key: "categoryname" },
+    { label: "Size Code", key: "sizecode" },
+    { label: "Size Name", key: "sizename" },
     { label: "Status", key: "status" },
   ];
 
-  const tableData = categoryList.map((category: any, index: number) => ({
-    ...category,
+  const tableData = sizeList.map((size: any, index: number) => ({
+    ...size,
     seqNo: index + 1,
-    status: category.status ? "Active" : "Inactive",
+    status: size.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = categoryList.map((cat: any, index: number) => ({
+    const exportData = sizeList.map((size: any, index: number) => ({
       ID: index + 1,
-      CategoryName: cat.categoryname || "-",
-      Status: cat.status ? "true" : "false",
+      SizeName: size.sizename || "-",
+      Status: size.status ? "true" : "false",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Categories");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sizes");
 
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const dataBlob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(dataBlob, "categories.xlsx");
+    saveAs(dataBlob, "sizes.xlsx");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,13 +141,13 @@ const Categories = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-      const importedCategories = jsonData.map((row) => ({
-        categoryname: row.CategoryName || "",
+      const importedSizes = jsonData.map((row) => ({
+        sizename: row.SizeName || "",
         status: row.Status === "true" || row.Status === "1" || row.Status === true,
       }));
 
-      // You can dispatch import API here (optional)
-      console.log("Imported Categories:", importedCategories);
+      // Dispatch import mutation if needed
+      console.log("Imported Sizes:", importedSizes);
     };
 
     reader.readAsArrayBuffer(file);
@@ -179,7 +170,7 @@ const Categories = () => {
         />
 
         <DataTable
-          title="Manage Categories"
+          title="Manage Sizes"
           columns={columns}
           data={tableData}
           showView={false}
@@ -191,25 +182,25 @@ const Categories = () => {
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {
-            if (window.confirm(`Are you sure you want to delete "${row.categoryname}"?`)) {
+            if (window.confirm(`Are you sure you want to delete "${row.sizename}"?`)) {
               try {
-                await deleteCategoryMutation({ variables: { id: row.id } });
+                await deleteSizeMutation({ variables: { id: row.id } });
                 await refetch();
-                dispatch(showMessage({ message: "Category deleted.", type: "success" }));
+                dispatch(showMessage({ message: "Size deleted.", type: "success" }));
               } catch (error) {
                 console.error(error);
-                dispatch(showMessage({ message: "Failed to delete category.", type: "error" }));
+                dispatch(showMessage({ message: "Failed to delete size.", type: "error" }));
               }
             }
           }}
           onImport={handleImportClick}
           onExport={handleExport}
-          onAdd={() => navigate("/categories")}
+          onAdd={() => navigate("/sizes")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
           formFields={[
-            { name: "categoryname", label: "Category Name", type: 'text', placeholder: "Enter category name" },
+            { name: "sizename", label: "Size Name", type: "text", placeholder: "Enter size name" },
           ]}
           formValues={formValues}
           formErrors={formErrors}
@@ -221,4 +212,4 @@ const Categories = () => {
   );
 };
 
-export default Categories;
+export default Sizes;

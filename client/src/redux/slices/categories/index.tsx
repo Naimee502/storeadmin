@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 interface Category {
   id: string;
+  categorycode: string;
   categoryname: string;
   status: boolean;
 }
