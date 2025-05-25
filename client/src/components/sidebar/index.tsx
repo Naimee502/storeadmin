@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUsers } from 'react-icons/fa';
+import { FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUser, FaUsers } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
@@ -70,6 +70,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaUsers className="text-lg sm:text-xl" />  {/* or replace with another icon you prefer */}
           <span className="truncate">Account Groups</span>
+        </Link>
+        <Link
+          to="/accounts"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaUser className="text-lg sm:text-xl" />
+          <span className="truncate">Accounts</span>
         </Link>
       </div>
     </aside>

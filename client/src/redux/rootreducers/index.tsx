@@ -7,6 +7,7 @@ import brandsReducer from "../slices/brands";
 import modelsReducer from "../slices/models";
 import productgroupsReducer from "../slices/productgroups";
 import accountgroupsReducer from "../slices/accountgroups";
+import accountsReducer from "../slices/accounts";
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
@@ -20,6 +21,7 @@ const appReducer = combineReducers({
   models: modelsReducer,
   productgroups: productgroupsReducer,
   accountgroups: accountgroupsReducer,
+  accounts: accountsReducer,
   loader: loaderReducer,
   message: messageReducer,
 });

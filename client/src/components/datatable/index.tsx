@@ -81,7 +81,6 @@ const DataTable: React.FC<DataTableProps> = ({
     formErrors,
     onFormChange,
     onFormSubmit,
-    onActiveToggle,
 }) => {
     const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useState(1);
@@ -164,7 +163,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 {/* Conditional Form */}
                 {!showAdd && formFields && formValues && onFormChange && onFormSubmit && (
                     <div className="flex flex-row gap-4 w-full sm:w-full items-center">
-                        {formFields.map((field) => (
+                        {formFields?.map((field) => (
                             <FormField
                                 key={field.name}
                                 label={field.label}

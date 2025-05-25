@@ -14,6 +14,7 @@ import Brands from "../pages/brands";
 import Models from "../pages/models";
 import ProductGroups from "../pages/productgroups";
 import AccountGroups from "../pages/accountgroups";
+import Accounts from "../pages/accounts";
 
 const AppRoutes = () => {
     return (
@@ -128,6 +129,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AccountGroups />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accounts"
+          element={
+            <ProtectedRoutes>
+              <Accounts />
             </ProtectedRoutes>
           }
         />
