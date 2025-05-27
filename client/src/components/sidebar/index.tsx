@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUser, FaUsers } from 'react-icons/fa';
+import { FaBalanceScale, FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUser, FaUsers } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
@@ -63,6 +63,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaLayerGroup className="text-lg sm:text-xl" />
           <span className="truncate">Product Groups</span>
+        </Link>
+        <Link
+          to="/units"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaBalanceScale className="text-lg sm:text-xl" />
+          <span className="truncate">Units</span>
         </Link>
         <Link
           to="/accountgroups"

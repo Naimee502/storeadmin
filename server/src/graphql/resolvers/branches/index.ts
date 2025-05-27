@@ -3,7 +3,7 @@ import { Branch } from "../../../models/branches";
 export const branchResolvers = {
   Query: {
     getBranches: async () => {
-      const branches = await Branch.find();
+      const branches = await Branch.find({ status: true });
       return branches;
     },
     getBranch: async (_: any, { id }: { id: string }) => await Branch.findById(id),
@@ -20,7 +20,7 @@ export const branchResolvers = {
       await Branch.findByIdAndUpdate(id, input, { new: true }),
 
     deleteBranch: async (_: any, { id }: any) => {
-      const result = await Branch.findByIdAndDelete(id);
+      const result = await Branch.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

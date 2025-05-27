@@ -3,7 +3,7 @@ import { Model } from "../../../models/models";
 export const modelResolvers = {
   Query: {
     getModels: async () => {
-      const models = await Model.find();
+      const models = await Model.find({ status: true });
       return models;
     },
     getModelById: async (_: any, { id }: { id: string }) => {
@@ -18,7 +18,7 @@ export const modelResolvers = {
       return await Model.findByIdAndUpdate(id, input, { new: true });
     },
     deleteModel: async (_: any, { id }: any) => {
-      const result = await Model.findByIdAndDelete(id);
+      const result = await Model.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

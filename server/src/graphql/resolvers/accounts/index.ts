@@ -3,7 +3,7 @@ import { Account } from "../../../models/accounts";
 export const accountResolvers = {
   Query: {
     getAccounts: async () => {
-      const accounts = await Account.find();
+      const accounts = await Account.find({ status: true });
       return accounts;
     },
     getAccountById: async (_: any, { id }: { id: string }) => {
@@ -18,7 +18,7 @@ export const accountResolvers = {
       return await Account.findByIdAndUpdate(id, input, { new: true });
     },
     deleteAccount: async (_: any, { id }: any) => {
-      const result = await Account.findByIdAndDelete(id);
+      const result = await Account.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

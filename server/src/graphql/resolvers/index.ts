@@ -6,5 +6,6 @@ import { categoryResolvers } from "./categories";
 import { modelResolvers } from "./models";
 import { productGroupResolvers } from "./productgroups";
 import { sizeResolvers } from "./size";
+import { unitResolvers } from "./units";
 
-export const resolvers = [branchResolvers, categoryResolvers, sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountResolvers];
+export const resolvers = [branchResolvers, categoryResolvers, sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountResolvers, unitResolvers];

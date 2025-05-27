@@ -3,7 +3,7 @@ import { Category } from "../../../models/categories";
 export const categoryResolvers = {
   Query: {
     getCategories: async () => {
-        const categories = await Category.find();
+        const categories = await Category.find({ status: true });
         return categories;
     },
     getCategoryById: async (_: any, { id }: { id: string }) => {
@@ -16,7 +16,7 @@ export const categoryResolvers = {
       return await Category.findByIdAndUpdate(id, input, { new: true });
     },
     deleteCategory: async (_: any, { id }: any) => {
-      const result = await Category.findByIdAndDelete(id);
+      const result = await Category.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

@@ -3,7 +3,7 @@ import { Brand } from "../../../models/brands";
 export const brandResolvers = {
   Query: {
     getBrands: async () => {
-      const brands = await Brand.find();
+      const brands = await Brand.find({ status: true });
       return brands;
     },
     getBrandById: async (_: any, { id }: { id: string }) => {
@@ -18,7 +18,7 @@ export const brandResolvers = {
       return await Brand.findByIdAndUpdate(id, input, { new: true });
     },
     deleteBrand: async (_: any, { id }: any) => {
-      const result = await Brand.findByIdAndDelete(id);
+      const result = await Brand.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

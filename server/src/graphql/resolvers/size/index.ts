@@ -3,7 +3,7 @@ import { Size } from "../../../models/size";
 export const sizeResolvers = {
   Query: {
     getSizes: async () => {
-      const sizes = await Size.find();
+      const sizes = await Size.find({ status: true });
       return sizes;
     },
     getSizeById: async (_: any, { id }: { id: string }) => {
@@ -18,7 +18,7 @@ export const sizeResolvers = {
       return await Size.findByIdAndUpdate(id, input, { new: true });
     },
     deleteSize: async (_: any, { id }: any) => {
-      const result = await Size.findByIdAndDelete(id);
+      const result = await Size.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },

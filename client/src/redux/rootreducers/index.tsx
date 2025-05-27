@@ -2,6 +2,7 @@ import { combineReducers } from '@reduxjs/toolkit';
 import authReducer from '../slices/auth';
 import brachesReducer from '../slices/branches';
 import categoriesReducer from "../slices/categories";
+import unitsReducer from "../slices/units";
 import sizesReducer from "../slices/sizes";
 import brandsReducer from "../slices/brands";
 import modelsReducer from "../slices/models";
@@ -16,6 +17,7 @@ const appReducer = combineReducers({
   auth: authReducer,
   branches : brachesReducer,
   categories: categoriesReducer,
+  units: unitsReducer,
   sizes: sizesReducer,
   brands: brandsReducer,
   models: modelsReducer,

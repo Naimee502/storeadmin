@@ -3,7 +3,7 @@ import { AccountGroup } from "../../../models/accountgroups";
 export const accountGroupResolvers = {
   Query: {
     getAccountGroups: async () => {
-      const accountGroups = await AccountGroup.find();
+      const accountGroups = await AccountGroup.find({ status: true });
       return accountGroups;
     },
     getAccountGroupById: async (_: any, { id }: { id: string }) => {
@@ -18,7 +18,7 @@ export const accountGroupResolvers = {
       return await AccountGroup.findByIdAndUpdate(id, input, { new: true });
     },
     deleteAccountGroup: async (_: any, { id }: any) => {
-      const result = await AccountGroup.findByIdAndDelete(id);
+      const result = await AccountGroup.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
   },
