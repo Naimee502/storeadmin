@@ -8,5 +8,6 @@ import { productGroupTypeDefs } from "./productgroups";
 import { salesmenAccountTypeDefs } from "./salesmenaccount";
 import { sizeTypeDefs } from "./size";
 import { unitTypeDefs } from "./units";
+import { uploadTypeDefs } from "./uploads";
 
-export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs];
+export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs, uploadTypeDefs];

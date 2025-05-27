@@ -16,16 +16,17 @@ import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import FormSwitch from "../../components/formswitch";
 import { FaEnvelope, FaMobileAlt, FaUser, FaHome, FaPercent } from "react-icons/fa";
+import { useImageUpload } from "../../graphql/hooks/uploads";
 
 type FormValues = {
-  name: string;
-  mobile: string;
-  email: string;
-  password: string;
-  profilepicture: "";
-  address: string;
-  commission: string;
-  status: boolean;
+    name: string;
+    mobile: string;
+    email: string;
+    password: string;
+    profilepicture: "";
+    address: string;
+    commission: string;
+    status: boolean;
 };
 
 const SalesmenAccount = () => {
@@ -37,19 +38,20 @@ const SalesmenAccount = () => {
     const { data, refetch } = useSalesmenQuery();
     const { addSalesmanMutation, editSalesmanMutation, deleteSalesmanMutation } = useSalesmanMutations();
     const salesmenList = data?.getSalesmenAccounts || [];
-      console.log('Salesmen data:', JSON.stringify(data));
+    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const { uploadImageMutation, imagedata, loading, error } = useImageUpload();
 
     const isLoading = useAppSelector((state) => state.loader.isLoading);
 
     const [formValues, setFormValues] = useState<FormValues>({
-    name: "",
-    mobile: "",
-    email: "",
-    password: "",
-    profilepicture: "",
-    address: "",
-    commission: "",
-    status: true,
+        name: "",
+        mobile: "",
+        email: "",
+        password: "",
+        profilepicture: "",
+        address: "",
+        commission: "",
+        status: true,
     });
 
     const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -71,8 +73,6 @@ const SalesmenAccount = () => {
     };
 
     const handleEdit = (row: any) => {
-        console.log("Editing Row:", row); // ✅ This will show the full row object
-
         setFormValues({
             name: row.name || "",
             mobile: row.mobile || "",
@@ -107,8 +107,24 @@ const SalesmenAccount = () => {
         fetchAndDispatch();
     }, [dispatch, refetch]);
 
+    const uploadProfilePicture = async () => {
+        if (!selectedFile) {
+            console.warn("No file selected.");
+            return;
+        }
+        try {
+            await uploadImageMutation({ variables: { file: selectedFile } });
+            setSelectedFile(null);
+        } catch (err) {
+            console.error("Upload failed", err);
+        }
+    };
+
     const handleFormSubmit = async () => {
         if (!validateForm()) return;
+        if (selectedFile) {
+            await uploadProfilePicture();
+        }
         try {
             if (isEditing && editingId) {
                 await editSalesmanMutation({
@@ -118,7 +134,7 @@ const SalesmenAccount = () => {
                             name: formValues.name,
                             mobile: formValues.mobile,
                             email: formValues.email,
-                            password: formValues.password || undefined, 
+                            password: formValues.password || undefined,
                             profilepicture: formValues.profilepicture,
                             address: formValues.address,
                             commission: formValues.commission,
@@ -128,7 +144,6 @@ const SalesmenAccount = () => {
                 });
                 dispatch(showMessage({ message: "Salesman updated successfully.", type: "success" }));
             } else {
-                console.log("Adding new salesman with values:", JSON.stringify(formValues));
                 await addSalesmanMutation({
                     variables: {
                         input: {
@@ -157,6 +172,7 @@ const SalesmenAccount = () => {
                 commission: "",
                 status: true,
             });
+            setSelectedFile(null);
             setIsEditing(false);
             setEditingId(null);
         } catch (error: any) {
@@ -304,10 +320,11 @@ const SalesmenAccount = () => {
                                 accept="image/*"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
+                                    setSelectedFile(file);
                                     handleFormChange("profilepicture", file ? file.name : "");
                                 }}
                                 previewUrl={formValues.profilepicture ? URL.createObjectURL(new File([], formValues.profilepicture)) : ""}
-                                />
+                            />
 
                             <FormField
                                 label="Address"
@@ -333,10 +350,10 @@ const SalesmenAccount = () => {
                                 <fieldset className="flex items-center space-x-2">
                                     <legend className="text-sm sm:text-base font-medium">Status</legend>
                                     <FormSwitch
-                                    label=""
-                                    name="status"
-                                    checked={Boolean(formValues.status)}
-                                    onChange={(checked) => handleFormChange("status", checked)}
+                                        label=""
+                                        name="status"
+                                        checked={Boolean(formValues.status)}
+                                        onChange={(checked) => handleFormChange("status", checked)}
                                     />
                                 </fieldset>
 
@@ -348,19 +365,19 @@ const SalesmenAccount = () => {
                     </form>
                 </div>
 
-                    <DataTable
-                        title="Manage Salesmen Accounts"
-                        columns={columns}
-                        data={tableData}
-                        showView={false}
-                        showEdit={true}
-                        showDelete={true}
-                        showImport={true}
-                        showExport={true}
-                        showAdd={false}
-                        onView={(row) => console.log("View", row)}
-                        onEdit={handleEdit}
-                        onDelete={async (row: any) => {
+                <DataTable
+                    title="Manage Salesmen Accounts"
+                    columns={columns}
+                    data={tableData}
+                    showView={false}
+                    showEdit={true}
+                    showDelete={true}
+                    showImport={true}
+                    showExport={true}
+                    showAdd={false}
+                    onView={(row) => console.log("View", row)}
+                    onEdit={handleEdit}
+                    onDelete={async (row: any) => {
                         try {
                             await deleteSalesmanMutation({ variables: { id: row.id } });
                             dispatch(showMessage({ message: "Salesman deleted", type: "success" }));
@@ -368,10 +385,10 @@ const SalesmenAccount = () => {
                         } catch (error) {
                             dispatch(showMessage({ message: "Failed to delete salesman", type: "error" }));
                         }
-                        }}
-                        onImport={handleImportClick}
-                        onExport={handleExport}
-                    />
+                    }}
+                    onImport={handleImportClick}
+                    onExport={handleExport}
+                />
             </div>
         </HomeLayout>
     );
