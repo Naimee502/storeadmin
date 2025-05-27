@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaBalanceScale, FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUser, FaUsers } from 'react-icons/fa';
+import { FaBalanceScale, FaCodeBranch, FaHome, FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags, FaUser, FaUsers, FaUserTie } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
 
@@ -84,6 +84,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         >
           <FaUser className="text-lg sm:text-xl" />
           <span className="truncate">Accounts</span>
+        </Link>
+        <Link
+          to="/salesmenaccount"
+          className="flex items-center gap-3 px-3 py-2 rounded hover:bg-[#34495e] text-white transition-colors text-sm sm:text-base"
+        >
+          <FaUserTie className="text-lg sm:text-xl" />
+          <span className="truncate">Salesmen Accounts</span>
         </Link>
       </div>
     </aside>

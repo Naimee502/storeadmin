@@ -5,7 +5,8 @@ import { brandTypeDefs } from "./brands";
 import { categoryTypeDefs } from "./categories";
 import { modelTypeDefs } from "./models";
 import { productGroupTypeDefs } from "./productgroups";
+import { salesmenAccountTypeDefs } from "./salesmenaccount";
 import { sizeTypeDefs } from "./size";
 import { unitTypeDefs } from "./units";
 
-export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs];
+export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs];

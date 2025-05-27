@@ -9,13 +9,13 @@ import modelsReducer from "../slices/models";
 import productgroupsReducer from "../slices/productgroups";
 import accountgroupsReducer from "../slices/accountgroups";
 import accountsReducer from "../slices/accounts";
+import salesmenAccountReducer from "../slices/salesmenaccount"; 
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
-
 const appReducer = combineReducers({
   auth: authReducer,
-  branches : brachesReducer,
+  branches: brachesReducer,
   categories: categoriesReducer,
   units: unitsReducer,
   sizes: sizesReducer,
@@ -24,11 +24,12 @@ const appReducer = combineReducers({
   productgroups: productgroupsReducer,
   accountgroups: accountgroupsReducer,
   accounts: accountsReducer,
+  salesmenaccount: salesmenAccountReducer, 
   loader: loaderReducer,
   message: messageReducer,
 });
 
-const rootReducer = (state:any, action:any) => {
+const rootReducer = (state: any, action: any) => {
   if (action.type === 'LOGOUT') {
     state = undefined;
   }
