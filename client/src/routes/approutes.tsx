@@ -19,6 +19,8 @@ import Units from "../pages/units";
 import SalesmenAccount from "../pages/salesmenaccount";
 import Products from "../pages/products";
 import AddEditProduct from "../pages/products/addedit";
+import SalesInvoices from "../pages/salesinvoice";
+import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
 
 const AppRoutes = () => {
     return (
@@ -181,6 +183,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditProduct />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesinvoice"
+          element={
+            <ProtectedRoutes>
+              <SalesInvoices />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesinvoice/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditSalesInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesinvoice/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditSalesInvoice />
             </ProtectedRoutes>
           }
         />

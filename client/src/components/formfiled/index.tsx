@@ -48,6 +48,7 @@ interface FormFieldProps {
   multiline?: boolean;
   searchable?: boolean;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }
 
 const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
@@ -80,6 +81,7 @@ const FormField: React.FC<FormFieldProps> = ({
   multiline = false,
   searchable = false,
   icon,
+  disabled
 }) => {
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
@@ -95,6 +97,7 @@ const FormField: React.FC<FormFieldProps> = ({
           name={name}
           value={value}
           onChange={onChange}
+          disabled={disabled}
           placeholder={placeholder}
           className={`w-full p-2 text-sm outline-none bg-transparent ${className}`}
         />
@@ -107,6 +110,7 @@ const FormField: React.FC<FormFieldProps> = ({
           inputId={name}
           name={name}
           options={options}
+          isDisabled={disabled}
           value={options.find((opt) => opt.value === value) || null}
           onChange={(selected) => {
             const syntheticEvent = {
@@ -127,6 +131,7 @@ const FormField: React.FC<FormFieldProps> = ({
           name={name}
           value={value}
           onChange={onChange}
+          disabled={disabled}
           className={`w-full text-sm bg-transparent outline-none ${className}`}
         >
           <option value="">Select {label}</option>
@@ -185,6 +190,7 @@ const FormField: React.FC<FormFieldProps> = ({
             name={name}
             accept={accept}
             onChange={onChange}
+            disabled={disabled}
             className="text-sm"
           />
           {previewUrl && (
@@ -205,6 +211,7 @@ const FormField: React.FC<FormFieldProps> = ({
         type={type}
         value={value}
         onChange={onChange}
+        disabled={disabled}
         placeholder={placeholder ?? (type === "number" ? "0" : placeholder)}
         accept={accept}
         className={`w-full text-sm bg-transparent outline-none ${className}`}
