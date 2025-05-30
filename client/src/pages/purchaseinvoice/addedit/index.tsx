@@ -7,24 +7,23 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductsQuery } from "../../../graphql/hooks/products";
-import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../graphql/hooks/salesinvoice";
+import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 
-const AddEditSalesInvoice = () => {
+const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
-  console.log("ID",id)
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { addSalesInvoiceMutation, editSalesInvoiceMutation } = useSalesInvoiceMutations();
+  const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
 
   const branchId = localStorage.getItem("branchid") || "";
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState("");
   const [taxOrSupplyType, setTaxOrSupplyType] = useState("");
-  const [billDate, setBillDate] = useState("2025-05-30");
+  const [billDate, setBillDate] = useState(new Date().toISOString().slice(0, 10)); // today date yyyy-mm-dd
   const [billType, setBillType] = useState("");
   const [billNumber, setBillNumber] = useState("000001");
   const [notes, setNotes] = useState("");
@@ -37,7 +36,7 @@ const AddEditSalesInvoice = () => {
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
 
-  // Party Accounts
+  // Party Accounts (suppliers maybe)
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountOptions = accountsList.map((acc: any) => ({
@@ -56,40 +55,37 @@ const AddEditSalesInvoice = () => {
   }, [productData?.getProducts]);
 
   // Fetch invoice if editing
-  const { data } = useSalesInvoiceByIDQuery(id || "");
+  const { data } = usePurchaseInvoiceByIDQuery(id || "");
 
- useEffect(() => {
-  if (!isEdit) {
-    handleNewInvoice();
-  } else if (data?.getSalesInvoice) {
-    const invoice = data.getSalesInvoice;
+  useEffect(() => {
+    if (!isEdit) {
+      handleNewInvoice();
+    } else if (data?.getPurchaseInvoice) {
+      const invoice = data.getPurchaseInvoice;
 
-    // Set all main invoice fields
-    setPaymentType(invoice.paymenttype || "");
-    setPartyAccount(invoice.partyacc || "");
-    setTaxOrSupplyType(invoice.taxorsupplytype || "");
-    setBillDate(invoice.billdate || "");
-    setBillType(invoice.billtype || "");
-    setBillNumber(invoice.billnumber || "");
-    setNotes(invoice.notes || "");
-    setInvoiceType(invoice.invoicetype || "");
-    setTaxPercent(invoice.totalgst || 0);
-    setStatus(invoice.status ?? true);
+      setPaymentType(invoice.paymenttype || "");
+      setPartyAccount(invoice.partyacc || "");
+      setTaxOrSupplyType(invoice.taxorsupplytype || "");
+      setBillDate(invoice.billdate || "");
+      setBillType(invoice.billtype || "");
+      setBillNumber(invoice.billnumber || "");
+      setNotes(invoice.notes || "");
+      setInvoiceType(invoice.invoicetype || "");
+      setTaxPercent(invoice.totalgst || 0);
+      setStatus(invoice.status ?? true);
 
-    // Map products and set in parent state (with productname)
-    const mappedProducts = invoice.products.map((p: any) => ({
-      productid: p.id,
-      productname: productsList.find((prod: any) => prod.id === p.id)?.name || "",
-      quantity: p.qty,
-      rate: p.rate,
-      total: p.amount,
-      discount: p.discount || 0,
-      gst: p.gst,
-    }));
-    setProducts(mappedProducts);
-  }
-}, [isEdit, data, productsList]);
-
+      const mappedProducts = invoice.products.map((p: any) => ({
+        productid: p.id,
+        productname: productsList.find((prod: any) => prod.id === p.id)?.name || "",
+        quantity: p.qty,
+        rate: p.rate,
+        total: p.amount,
+        discount: p.discount || 0,
+        gst: p.gst,
+      }));
+      setProducts(mappedProducts);
+    }
+  }, [isEdit, data, productsList]);
 
   const handleNewInvoice = () => {
     setBillNumber((prev) => {
@@ -103,7 +99,7 @@ const AddEditSalesInvoice = () => {
     setTaxPercent(isNaN(value) ? 0 : value);
   };
 
-   const handleProductsChange = (updatedProducts: InvoiceProduct[]) => {
+  const handleProductsChange = (updatedProducts: InvoiceProduct[]) => {
     setProducts(updatedProducts);
   };
 
@@ -151,17 +147,17 @@ const AddEditSalesInvoice = () => {
       })),
       status,
     };
-    console.log("SalesInvoiceInput:", JSON.stringify(input));
+    console.log("PurchaseInvoiceInput:", JSON.stringify(input));
 
     try {
       if (isEdit && id) {
-        await editSalesInvoiceMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Invoice updated successfully", type: "success" }));
+        await editPurchaseInvoiceMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: "Purchase Invoice updated successfully", type: "success" }));
       } else {
-        await addSalesInvoiceMutation({ variables: { input } });
-        dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
+        await addPurchaseInvoiceMutation({ variables: { input } });
+        dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
-      navigate("/salesinvoice");
+      navigate("/purchaseinvoice");
     } catch (error: any) {
       console.error("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));
@@ -172,7 +168,7 @@ const AddEditSalesInvoice = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
         <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Sales Invoice" : "Add Sales Invoice"}
+          {isEdit ? "Edit Purchase Invoice" : "Add Purchase Invoice"}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -277,30 +273,23 @@ const AddEditSalesInvoice = () => {
             setProducts={setProducts}
             productsList={productsList || []}
             onProductsChange={handleProductsChange}
-            type="sales"
+            type="purchase"
           />
 
           {/* Summary */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <FormField label="Products Total" name="productsTotal" onChange={()=> ""} type="text" value={productsTotal.toFixed(2)} disabled />
-              <FormField label="Total Discount" name="totalDiscount" onChange={()=> ""} type="text" value={totalDiscount.toFixed(2)} disabled />
-              <FormField
-                label="Tax %"
-                name="taxPercent"
-                type="number"
-                value={taxPercent}
-                onChange={()=>''}
-                disabled
-              />
-              <FormField label="Tax Amount" name="taxAmount" onChange={()=> ""} type="text" value={taxAmount.toFixed(2)} disabled />
-              <FormField label="Grand Total" name="grandTotal" onChange={()=> ""} type="text" value={grandTotal.toFixed(2)} disabled />
+              <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />
+              <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />
+              <FormField label="Tax %" name="taxPercent" type="number" value={taxPercent} onChange={handleTaxChange} />
+              <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />
+              <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />
             </div>
           </fieldset>
 
           <div className="mt-6 flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate("/salesinvoice")}>
+            <Button type="button" variant="outline" onClick={() => navigate("/purchaseinvoice")}>
               Cancel
             </Button>
             <Button type="submit" variant="outline" disabled={products.length === 0}>
@@ -313,4 +302,4 @@ const AddEditSalesInvoice = () => {
   );
 };
 
-export default AddEditSalesInvoice;
+export default AddEditPurchaseInvoice;

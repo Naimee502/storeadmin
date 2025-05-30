@@ -23,6 +23,7 @@ type ProductSectionProps = {
   setProducts: React.Dispatch<React.SetStateAction<InvoiceProduct[]>>;
   productsList: ProductOption[];
   onProductsChange: (products: InvoiceProduct[]) => void;
+  type: "purchase" | "sales";
 };
 
 const ProductSection: React.FC<ProductSectionProps> = ({
@@ -30,6 +31,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   setProducts,
   productsList,
   onProductsChange,
+  type,
 }) => {
   const [currentProduct, setCurrentProduct] = useState<Partial<InvoiceProduct>>({});
 
@@ -42,10 +44,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
     if (name === "productid") {
       const selectedProduct = productsList.find((p) => p.id === value);
-      if (selectedProduct?.currentstock === 0) {
+      if (type === "sales" && selectedProduct?.currentstock === 0) {
         alert("This product is out of stock and cannot be selected.");
-        // Prevent updating productid in currentProduct
-        return;
+        return; // Prevent selecting out of stock product for sales
       }
     }
 

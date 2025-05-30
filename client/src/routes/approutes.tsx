@@ -21,6 +21,8 @@ import Products from "../pages/products";
 import AddEditProduct from "../pages/products/addedit";
 import SalesInvoices from "../pages/salesinvoice";
 import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
+import PurchaseInvoices from "../pages/purchaseinvoice";
+import AddEditPurchaseInvoice from "../pages/purchaseinvoice/addedit";
 
 const AppRoutes = () => {
     return (
@@ -207,6 +209,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditSalesInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/purchaseinvoice"
+          element={
+            <ProtectedRoutes>
+              <PurchaseInvoices />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/purchaseinvoice/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditPurchaseInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/purchaseinvoice/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditPurchaseInvoice />
             </ProtectedRoutes>
           }
         />

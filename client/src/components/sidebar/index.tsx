@@ -11,7 +11,8 @@ import {
   FaUser,
   FaUsers,
   FaUserTie,
-  FaFileInvoiceDollar, // <- added icon for Sales Invoices
+  FaFileInvoiceDollar,
+  FaReceipt, // <- added icon for Sales Invoices
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
@@ -44,6 +45,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       to: '/salesinvoice',      
       label: 'Sales Invoices',
       icon: <FaFileInvoiceDollar className="text-lg sm:text-xl" />
+    },
+    {
+      to: '/purchaseinvoice',
+      label: 'Purchase Invoices',
+      icon: <FaReceipt className="text-lg sm:text-xl" />
     }
   ];
 
