@@ -5,9 +5,10 @@ import { brandResolvers } from "./brands";
 import { categoryResolvers } from "./categories";
 import { modelResolvers } from "./models";
 import { productGroupResolvers } from "./productgroups";
+import { productResolvers } from "./products";
 import { salesmenAccountResolvers } from "./salesmenaccount";
 import { sizeResolvers } from "./size";
 import { unitResolvers } from "./units";
 import { uploadResolvers } from "./uploads";
 
-export const resolvers = [branchResolvers, categoryResolvers, sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountResolvers, unitResolvers, salesmenAccountResolvers, uploadResolvers];
+export const resolvers = [branchResolvers, categoryResolvers, sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountResolvers, unitResolvers, salesmenAccountResolvers, uploadResolvers, productResolvers];

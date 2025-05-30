@@ -1,10 +1,4 @@
 import React from 'react';
-import type {
-  InputHTMLAttributes,
-  TextareaHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-} from 'react';
 import {
   FaCalendarAlt,
   FaClock,
@@ -18,49 +12,45 @@ import {
   FaImage,
   FaCaretDown,
 } from 'react-icons/fa';
+import Select from 'react-select';
 
-interface RadioOption {
-  label: string;
-  value: string;
-}
-
-type InputTypes =
+type InputType =
   | 'text'
   | 'email'
   | 'password'
   | 'date'
   | 'time'
   | 'number'
+  | 'tel'
+  | 'url'
   | 'checkbox'
   | 'radio'
   | 'file'
-  | 'url'
-  | 'tel'
-  | 'select'; // ✅ Added 'select' support
+  | 'select';
 
-interface BaseProps {
+interface Option {
   label: string;
-  name: string;
-  type?: InputTypes;
-  accept?: string;
-  icon?: ReactNode;
-  error?: string;
-  options?: RadioOption[]; // for radio and select
-  multiline?: boolean;
-  maxLength?: number;
-  className?: string;
-  previewUrl?: string | null; // For file preview
+  value: string;
 }
 
-// Unified props for input, textarea, and select
-type FormFieldProps = BaseProps &
-  (
-    | (InputHTMLAttributes<HTMLInputElement> & { multiline?: false })
-    | (TextareaHTMLAttributes<HTMLTextAreaElement> & { multiline: true })
-    | (SelectHTMLAttributes<HTMLSelectElement> & { type: 'select' })
-  );
+interface FormFieldProps {
+  label: string;
+  name: string;
+  type?: InputType;
+  value?: any;
+  onChange: (e: React.ChangeEvent<any>) => void;
+  options?: Option[];
+  error?: string;
+  placeholder?: string;
+  accept?: string;
+  className?: string;
+  previewUrl?: string | null;
+  multiline?: boolean;
+  searchable?: boolean;
+  icon?: React.ReactNode;
+}
 
-const defaultIcons: Partial<Record<InputTypes, ReactNode>> = {
+const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
   text: <FaHashtag />,
   email: <FaEnvelope />,
   password: <FaLock />,
@@ -72,136 +62,179 @@ const defaultIcons: Partial<Record<InputTypes, ReactNode>> = {
   checkbox: <FaCheckSquare />,
   radio: <FaDotCircle />,
   file: <FaImage />,
-  select: <FaCaretDown />, // ✅ Icon for select dropdown
+  select: <FaCaretDown />,
 };
 
 const FormField: React.FC<FormFieldProps> = ({
   label,
   name,
   type = 'text',
-  accept,
-  icon,
+  value,
+  onChange,
+  options = [],
   error,
-  options,
-  multiline = false,
-  maxLength,
+  placeholder,
+  accept,
   className = '',
   previewUrl = null,
-  ...props
+  multiline = false,
+  searchable = false,
+  icon,
 }) => {
-  const isRadio = type === 'radio' && options;
   const isCheckbox = type === 'checkbox';
+  const isRadio = type === 'radio';
   const isFile = type === 'file';
-  const isSelect = type === 'select' && options;
+  const isSelect = type === 'select' && options.length > 0;
   const finalIcon = icon ?? defaultIcons[type];
 
-  // === Text, Number, Date, etc. ===
-  const inputBase = (
-    <div
-      className={`flex items-center border rounded-lg px-2 py-1 sm:px-3 sm:py-2 focus-within:ring-2 focus-within:ring-blue-500 ${
-        isCheckbox || isRadio ? 'max-w-max' : 'flex-1'
-      } ${error ? 'border-red-500' : ''}`}
-    >
-      {finalIcon && !multiline && (
-        <span className="text-gray-400 mr-1 sm:mr-2 text-xs sm:text-sm">{finalIcon}</span>
-      )}
-
-      {multiline ? (
+  const renderInput = () => {
+    if (multiline) {
+      return (
         <textarea
           id={name}
           name={name}
-          maxLength={maxLength}
-          className={`w-full outline-none bg-transparent text-xs sm:text-sm resize-none ${className}`}
-          {...(props as TextareaHTMLAttributes<HTMLTextAreaElement>)}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full p-2 text-sm outline-none bg-transparent ${className}`}
         />
-      ) : (
-        <>
-          <input
-            id={name}
-            name={name}
-            type={type}
-            accept={accept}
-            maxLength={maxLength}
-            className={`${
-              isCheckbox || isRadio
-                ? 'h-4 w-4 sm:h-5 sm:w-5'
-                : 'flex-grow outline-none bg-transparent text-xs sm:text-sm'
-            } ${className}`}
-            {...(props as InputHTMLAttributes<HTMLInputElement>)}
-          />
+      );
+    }
 
-          {isFile && previewUrl && (
-            <img
-              src={previewUrl}
-              alt="preview"
-              className="ml-2 h-6 w-6 object-cover rounded"
-              style={{ flexShrink: 0 }}
-            />
-          )}
+    if (isSelect && searchable) {
+      return (
+        <Select
+          inputId={name}
+          name={name}
+          options={options}
+          value={options.find((opt) => opt.value === value) || null}
+          onChange={(selected) => {
+            const syntheticEvent = {
+              target: { name, value: selected?.value || '' },
+            } as React.ChangeEvent<HTMLInputElement>;
+            onChange(syntheticEvent);
+          }}
+          isClearable
+          isSearchable
+        />
+      );
+    }
 
-          {isFile && !previewUrl && finalIcon && (
-            <span className="text-gray-400 ml-2 text-xs sm:text-sm">{finalIcon}</span>
-          )}
-        </>
-      )}
-    </div>
-  );
+    if (isSelect && !searchable) {
+      return (
+        <select
+          id={name}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className={`w-full text-sm bg-transparent outline-none ${className}`}
+        >
+          <option value="">Select {label}</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
 
-  // === Select Field ===
-  const selectBase = (
-    <div
-      className={`flex items-center border rounded-lg px-2 py-1 sm:px-3 sm:py-2 focus-within:ring-2 focus-within:ring-blue-500 ${
-        error ? 'border-red-500' : ''
-      }`}
-    >
-      {finalIcon && (
-        <span className="text-gray-400 mr-2 text-xs sm:text-sm">{finalIcon}</span>
-      )}
-
-      <select
-        id={name}
-        name={name}
-        className={`w-full outline-none bg-transparent text-xs sm:text-sm appearance-none ${className}`}
-        {...(props as SelectHTMLAttributes<HTMLSelectElement>)}
-      >
-        <option value="">Select {label}</option>
-        {options?.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  return (
-    <div className="flex flex-col w-full">
-      <label htmlFor={name} className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-        {label}
-      </label>
-
-      {isRadio ? (
-        <div className="flex flex-wrap items-center space-x-4">
-          {options?.map((opt) => (
-            <label key={opt.value} className="flex items-center space-x-2">
+    if (isRadio) {
+      return (
+        <div className="flex flex-wrap gap-4">
+          {options.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 text-sm">
               <input
                 type="radio"
                 name={name}
                 value={opt.value}
-                className={`h-4 w-4 sm:h-5 sm:w-5 ${error ? 'border-red-500' : ''}`}
-                {...(props as InputHTMLAttributes<HTMLInputElement>)}
+                checked={value === opt.value}
+                onChange={onChange}
               />
-              <span className="text-xs sm:text-sm text-gray-700">{opt.label}</span>
+              {opt.label}
             </label>
           ))}
         </div>
-      ) : isSelect ? (
-        selectBase
+      );
+    }
+
+    if (isCheckbox) {
+      return (
+        <input
+          type="checkbox"
+          id={name}
+          name={name}
+          checked={Boolean(value)}
+          onChange={(e) =>
+            onChange({
+              ...e,
+              target: { ...e.target, name, value: e.target.checked },
+            })
+          }
+          className="h-5 w-5"
+        />
+      );
+    }
+
+    if (isFile) {
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            id={name}
+            name={name}
+            accept={accept}
+            onChange={onChange}
+            className="text-sm"
+          />
+          {previewUrl && (
+            <img
+              src={previewUrl}
+              alt="Preview"
+              className="w-8 h-8 object-cover rounded"
+            />
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <input
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder ?? (type === "number" ? "0" : placeholder)}
+        accept={accept}
+        className={`w-full text-sm bg-transparent outline-none ${className}`}
+      />
+    );
+  };
+
+  return (
+    <div className="flex flex-col w-full gap-1">
+      <label htmlFor={name} className="text-sm font-medium text-gray-700">
+        {label}
+      </label>
+
+      {/* Don't wrap react-select with border or icon */}
+      {isSelect && searchable ? (
+        renderInput()
       ) : (
-        inputBase
+        <div
+          className={`flex items-center gap-2 border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 ${
+            error ? 'border-red-500' : 'border-gray-300'
+          }`}
+        >
+          {!isCheckbox && !isRadio && finalIcon && (
+            <span className="text-gray-400">{finalIcon}</span>
+          )}
+          {renderInput()}
+        </div>
       )}
 
-      {error && <p className="text-red-600 text-xs sm:text-sm mt-1">{error}</p>}
+      {error && <p className="text-red-600 text-xs">{error}</p>}
     </div>
   );
 };

@@ -10,6 +10,7 @@ import productgroupsReducer from "../slices/productgroups";
 import accountgroupsReducer from "../slices/accountgroups";
 import accountsReducer from "../slices/accounts";
 import salesmenAccountReducer from "../slices/salesmenaccount"; 
+import productsReducer from "../slices/products";
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
@@ -25,6 +26,7 @@ const appReducer = combineReducers({
   accountgroups: accountgroupsReducer,
   accounts: accountsReducer,
   salesmenaccount: salesmenAccountReducer, 
+  products: productsReducer,
   loader: loaderReducer,
   message: messageReducer,
 });

@@ -23,7 +23,7 @@ type FormValues = {
     mobile: string;
     email: string;
     password: string;
-    profilepicture: "";
+    profilepicture: string;
     address: string;
     commission: string;
     status: boolean;
@@ -73,6 +73,7 @@ const SalesmenAccount = () => {
     };
 
     const handleEdit = (row: any) => {
+        console.log("Editing row:", JSON.stringify(row));
         setFormValues({
             name: row.name || "",
             mobile: row.mobile || "",
@@ -83,7 +84,6 @@ const SalesmenAccount = () => {
             commission: row.commission || "",
             status: !!row.status,
         });
-
         setIsEditing(true);
         setEditingId(row.id);
     };
@@ -107,70 +107,70 @@ const SalesmenAccount = () => {
         fetchAndDispatch();
     }, [dispatch, refetch]);
 
-    const uploadProfilePicture = async () => {
+    const uploadProfilePicture = async (): Promise<string | null> => {
         if (!selectedFile) {
             console.warn("No file selected.");
-            return;
+            return null;
         }
         try {
-            await uploadImageMutation({ variables: { file: selectedFile } });
+            const { data } = await uploadImageMutation({
+            variables: { file: selectedFile },
+            });
+
+            const uniqueUrl = data?.uploadImage?.url;
+ 
             setSelectedFile(null);
+            return uniqueUrl || null;
         } catch (err) {
             console.error("Upload failed", err);
+            return null;
         }
     };
 
     const handleFormSubmit = async () => {
         if (!validateForm()) return;
+
+        let uploadedUrl = formValues.profilepicture;
+
         if (selectedFile) {
-            await uploadProfilePicture();
+            const url = await uploadProfilePicture();
+            if (url) uploadedUrl = url;
         }
+
         try {
+            const payload = {
+            name: formValues.name,
+            mobile: formValues.mobile,
+            email: formValues.email,
+            password: formValues.password || undefined,
+            profilepicture: uploadedUrl,
+            address: formValues.address,
+            commission: formValues.commission,
+            status: Boolean(formValues.status),
+            };
+
+            console.log("Form Values:", JSON.stringify(payload));
+
             if (isEditing && editingId) {
-                await editSalesmanMutation({
-                    variables: {
-                        id: editingId,
-                        input: {
-                            name: formValues.name,
-                            mobile: formValues.mobile,
-                            email: formValues.email,
-                            password: formValues.password || undefined,
-                            profilepicture: formValues.profilepicture,
-                            address: formValues.address,
-                            commission: formValues.commission,
-                            status: Boolean(formValues.status),
-                        },
-                    },
-                });
-                dispatch(showMessage({ message: "Salesman updated successfully.", type: "success" }));
+            await editSalesmanMutation({
+                variables: { id: editingId, input: payload },
+            });
+            dispatch(showMessage({ message: "Salesman updated successfully.", type: "success" }));
             } else {
-                await addSalesmanMutation({
-                    variables: {
-                        input: {
-                            name: formValues.name,
-                            mobile: formValues.mobile,
-                            email: formValues.email,
-                            password: formValues.password,
-                            profilepicture: formValues.profilepicture,
-                            address: formValues.address,
-                            commission: formValues.commission,
-                            status: Boolean(formValues.status),
-                        },
-                    },
-                });
-                dispatch(showMessage({ message: "Salesman added successfully.", type: "success" }));
+            await addSalesmanMutation({ variables: { input: payload } });
+            dispatch(showMessage({ message: "Salesman added successfully.", type: "success" }));
             }
 
             await refetch();
             setFormValues({
-                name: "",
-                mobile: "",
-                email: "",
-                password: "",
-                profilepicture: "",
-                address: "",
-                commission: "",
-                status: true,
+            name: "",
+            mobile: "",
+            email: "",
+            password: "",
+            profilepicture: "",
+            address: "",
+            commission: "",
+            status: true,
             });
             setSelectedFile(null);
             setIsEditing(false);
@@ -321,9 +321,14 @@ const SalesmenAccount = () => {
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
                                     setSelectedFile(file);
-                                    handleFormChange("profilepicture", file ? file.name : "");
                                 }}
-                                previewUrl={formValues.profilepicture ? URL.createObjectURL(new File([], formValues.profilepicture)) : ""}
+                                previewUrl={
+                                selectedFile
+                                    ? URL.createObjectURL(selectedFile)
+                                    : formValues.profilepicture
+                                    ? formValues.profilepicture
+                                    : ""
+                                }
                             />
 
                             <FormField

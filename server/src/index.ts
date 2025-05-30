@@ -16,7 +16,16 @@ const startServer = async () => {
 
   await connectDB();
 
-  const server = new ApolloServer({ typeDefs, resolvers });
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => {
+      const branchid = req.headers['x-branch-id'];
+      console.log('--- Apollo Context ---');
+      console.log('branchid from header:', branchid);
+      return { branchid };
+    },
+  });
   await server.start();
 
   // Apply upload middleware + cors ONLY on /graphql route BEFORE apollo middleware
@@ -25,6 +34,7 @@ const startServer = async () => {
     cors({
       origin: 'http://localhost:5173',
       credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
     }),
     graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 })
   );

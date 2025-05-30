@@ -1,14 +1,28 @@
-import createUploadLink from "apollo-upload-client/createUploadLink.mjs";
-import { ApolloClient, InMemoryCache } from '@apollo/client';
+// client/apolloClient.ts
+import { ApolloClient, InMemoryCache, ApolloLink } from '@apollo/client';
+import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
+import { setContext } from '@apollo/client/link/context';
 
-// Create the upload link outside
+// Create the upload link
 const httpLink = createUploadLink({
   uri: 'http://localhost:4000/graphql',
 });
 
-// Pass it into the ApolloClient
+// Set custom header
+const authLink = setContext((_, { headers }) => {
+  const branchid = localStorage.getItem('branchid');
+  console.log('Sending x-branch-id in header:', branchid);
+  return {
+    headers: {
+      ...headers,
+      'x-branch-id': branchid ?? '',
+    },
+  };
+});
+
+// Combine auth and upload links
 const client = new ApolloClient({
-  link: httpLink,
+  link: ApolloLink.from([authLink, httpLink]),
   cache: new InMemoryCache(),
 });
 

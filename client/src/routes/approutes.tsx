@@ -17,6 +17,8 @@ import AccountGroups from "../pages/accountgroups";
 import Accounts from "../pages/accounts";
 import Units from "../pages/units";
 import SalesmenAccount from "../pages/salesmenaccount";
+import Products from "../pages/products";
+import AddEditProduct from "../pages/products/addedit";
 
 const AppRoutes = () => {
     return (
@@ -155,6 +157,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <SalesmenAccount />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoutes>
+              <Products />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/products/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditProduct />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/products/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditProduct />
             </ProtectedRoutes>
           }
         />

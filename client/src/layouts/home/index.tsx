@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/header';
 import { useAuth } from '../../contexts/auth';
@@ -13,10 +13,11 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
   };
-
+  
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' });
     persistor.purge();
+    localStorage.removeItem('branchid');
     logout();
   };
 
