@@ -28,6 +28,7 @@ export const salesmenAccountTypeDefs = gql`
 
   type Query {
     getSalesmenAccounts: [SalesmenAccount!]!
+    getDeletedSalesmenAccounts: [SalesmenAccount!]!
     getSalesmanAccountById(id: ID!): SalesmenAccount
   }
 
@@ -35,5 +36,6 @@ export const salesmenAccountTypeDefs = gql`
     addSalesmanAccount(input: SalesmenAccountInput!): SalesmenAccount!
     editSalesmanAccount(id: ID!, input: SalesmenAccountInput!): SalesmenAccount!
     deleteSalesmanAccount(id: ID!): Boolean!
+    resetSalesmanAccount(id: ID!): Boolean!
   }
 `;

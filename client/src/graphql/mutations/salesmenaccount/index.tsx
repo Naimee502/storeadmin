@@ -37,3 +37,9 @@ export const DELETE_SALESMAN = gql`
     deleteSalesmanAccount(id: $id)
   }
 `;
+
+export const RESET_SALESMAN = gql`
+  mutation ResetSalesman($id: ID!) {
+    resetSalesmanAccount(id: $id)
+  }
+`;

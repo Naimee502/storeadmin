@@ -34,6 +34,7 @@ import DeletedProductGroups from "../pages/productgroups/deletedentries";
 import DeletedSizes from "../pages/sizes/deletedentries";
 import DeletedUnits from "../pages/units/deletedentries";
 import DeletedProducts from "../pages/products/deletedentries";
+import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -244,6 +245,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <SalesmenAccount />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesmenaccount/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedSalesmenAccounts />
             </ProtectedRoutes>
           }
         />

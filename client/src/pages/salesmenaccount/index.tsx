@@ -68,6 +68,7 @@ const SalesmenAccount = () => {
         if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
         if (!formValues.email.trim()) errors.email = "Email is required";
         if (!formValues.password.trim() && !isEditing) errors.password = "Password is required";
+        if (!formValues.commission.trim() && !isEditing) errors.commission = "Commission is required";
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -348,6 +349,7 @@ const SalesmenAccount = () => {
                                 value={formValues.commission}
                                 onChange={(e) => handleFormChange('commission', e.target.value)}
                                 icon={<FaPercent />}
+                                 error={formErrors.commission}
                                 placeholder="Enter commission %"
                             />
 
@@ -377,20 +379,30 @@ const SalesmenAccount = () => {
                     showView={false}
                     showEdit={true}
                     showDelete={true}
-                    showImport={true}
-                    showExport={true}
+                    showImport={false}
+                    showExport={false}
                     showAdd={false}
                     onView={(row) => console.log("View", row)}
                     onEdit={handleEdit}
                     onDelete={async (row: any) => {
-                        try {
+                            if (window.confirm(
+                                `Are you sure you want to delete salesman "${row.name}"?`
+                            )) {
+                            try {
                             await deleteSalesmanMutation({ variables: { id: row.id } });
-                            dispatch(showMessage({ message: "Salesman deleted", type: "success" }));
+                            dispatch(
+                                showMessage({ message: "Salesman deleted successfully.", type: "success" })
+                            );
                             await refetch();
-                        } catch (error) {
-                            dispatch(showMessage({ message: "Failed to delete salesman", type: "error" }));
+                            } catch (error) {
+                            console.error("Delete error:", error);
+                            dispatch(
+                                showMessage({ message: "Failed to delete salesman.", type: "error" })
+                            );
+                            }
                         }
                     }}
+                    onShowDeleted={() =>navigate("/salesmenaccount/deletedentries")}
                     onImport={handleImportClick}
                     onExport={handleExport}
                 />

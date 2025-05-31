@@ -18,6 +18,23 @@ export const GET_SALESMEN = gql`
   }
 `;
 
+export const GET_DELETED_SALESMEN = gql`
+  query GetDeletedSalesmen {
+    getDeletedSalesmenAccounts {
+      id
+      salesmancode
+      name
+      mobile
+      email
+      password
+      profilepicture
+      address
+      commission
+      status
+    }
+  }
+`;
+
 export const GET_SALESMAN_BY_ID = gql`
   query GetSalesmanById($id: ID!) {
     getSalesmanAccountById(id: $id) {
