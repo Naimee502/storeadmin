@@ -35,6 +35,7 @@ import DeletedSizes from "../pages/sizes/deletedentries";
 import DeletedUnits from "../pages/units/deletedentries";
 import DeletedProducts from "../pages/products/deletedentries";
 import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
+import DeletedTransferStocks from "../pages/transferstock/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -341,6 +342,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <TransferStock />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transferstock/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedTransferStocks />
             </ProtectedRoutes>
           }
         />

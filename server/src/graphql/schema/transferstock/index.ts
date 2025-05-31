@@ -22,6 +22,7 @@ export const transferStockTypeDefs = gql`
 
   type Query {
     getTransferStocks: [TransferStock!]!
+    getDeletedTransferStocks: [TransferStock!]!
     getTransferStockById(id: ID!): TransferStock
   }
 
@@ -29,5 +30,6 @@ export const transferStockTypeDefs = gql`
     addTransferStock(input: TransferStockInput!): TransferStock!
     editTransferStock(id: ID!, input: TransferStockInput!): TransferStock!
     deleteTransferStock(id: ID!): Boolean!
+    resetTransferStock(id: ID!): Boolean!
   }
 `;

@@ -10,11 +10,12 @@ import { FaCubes, FaExchangeAlt, FaCalendarAlt } from "react-icons/fa";
 import { showMessage } from "../../redux/slices/message";
 import { useAppDispatch } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
+import { useNavigate } from "react-router";
 
 type FormValues = {
   tobranchid: string;
   productid: string;
-  transferqty: number|undefined;
+  transferqty: number | undefined;
   transferdate: string;
   status: boolean;
 };
@@ -25,7 +26,7 @@ type TransferStockRow = {
   tobranchname: string;
   productid: string;
   productname: string;
-  transferqty: number|undefined;
+  transferqty: number | undefined;
   transferdate: string;
   status: boolean;
 };
@@ -33,6 +34,7 @@ type TransferStockRow = {
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const TransferStock = () => {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fromBranchId = localStorage.getItem("branchid") || "";
 
@@ -49,7 +51,7 @@ const TransferStock = () => {
   const products = productsData?.getProducts || [];
   const transferStocks: TransferStockRow[] = transfersData?.getTransferStocks || [];
 
-  const toBranchOptions = branches.filter((branch:any) => branch.id !== fromBranchId);
+  const toBranchOptions = branches.filter((branch: any) => branch.id !== fromBranchId);
 
   const [formValues, setFormValues] = useState<FormValues>({
     tobranchid: "",
@@ -62,6 +64,12 @@ const TransferStock = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+   useEffect(() => {
+    if (transfersData?.getTransferStocks) {
+      refetch();
+    }
+  }, [transferStocks, refetch]);
 
   const handleFormChange = (name: keyof FormValues, value: string | number | boolean) => {
     setFormValues((prev) => ({
@@ -118,13 +126,7 @@ const TransferStock = () => {
   };
 
   const handleDelete = async (row: TransferStockRow) => {
-    try {
-      await deleteTransferStockMutation({ variables: { id: row.id } });
-      dispatch(showMessage({ message: "Transfer stock deleted", type: "success" }));
-      await refetch();
-    } catch (error) {
-      dispatch(showMessage({ message: "Failed to delete transfer stock", type: "error" }));
-    }
+
   };
 
   const resetForm = () => {
@@ -193,7 +195,7 @@ const TransferStock = () => {
                 value={formValues.tobranchid}
                 onChange={(e) => handleFormChange("tobranchid", e.target.value)}
                 error={formErrors.tobranchid}
-                options={toBranchOptions.map((branch:any) => ({
+                options={toBranchOptions.map((branch: any) => ({
                   label: `${branch.branchname} - ${branch.branchcode}`,
                   value: branch.id,
                 }))}
@@ -270,7 +272,18 @@ const TransferStock = () => {
           showExport={false}
           showAdd={false}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onDelete={async (row) => {
+            if (window.confirm(`Are you sure you want to deleted transfer stock "${row.productid}"?`)) {
+              try {
+                await deleteTransferStockMutation({ variables: { id: row.id } });
+                dispatch(showMessage({ message: "Transfer stock deleted", type: "success" }));
+                await refetch();
+              } catch (error) {
+                dispatch(showMessage({ message: "Failed to delete transfer stock", type: "error" }));
+              }
+            }
+          }}
+          onShowDeleted={() => navigate("/transferstock/deletedentries")}
         />
       </div>
     </HomeLayout>

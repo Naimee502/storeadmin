@@ -6,6 +6,10 @@ export const transferStockResolvers = {
       const transfers = await TransferStock.find({ status: true });
       return transfers;
     },
+    getDeletedTransferStocks: async () => {
+      const deletedTransfers = await TransferStock.find({ status: false });
+      return deletedTransfers;
+    },
     getTransferStockById: async (_: any, { id }: { id: string }) => {
       return await TransferStock.findById(id);
     },
@@ -19,6 +23,10 @@ export const transferStockResolvers = {
     },
     deleteTransferStock: async (_: any, { id }: any) => {
       const result = await TransferStock.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+    resetTransferStock: async (_: any, { id }: { id: string }) => {
+      const result = await TransferStock.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

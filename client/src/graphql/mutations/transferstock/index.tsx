@@ -34,3 +34,9 @@ export const DELETE_TRANSFER_STOCK = gql`
     deleteTransferStock(id: $id)
   }
 `;
+
+export const RESET_TRANSFER_STOCK = gql`
+  mutation ResetTransferStock($id: ID!) {
+    resetTransferStock(id: $id)
+  }
+`;
