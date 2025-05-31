@@ -24,6 +24,7 @@ import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
 import PurchaseInvoices from "../pages/purchaseinvoice";
 import AddEditPurchaseInvoice from "../pages/purchaseinvoice/addedit";
 import TransferStock from "../pages/transferstock";
+import DeletedAccountGroups from "../pages/accountgroups/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -146,6 +147,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AccountGroups />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accountgroups/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedAccountGroups />
             </ProtectedRoutes>
           }
         />

@@ -15,6 +15,7 @@ export const accountGroupTypeDefs = gql`
 
   type Query {
     getAccountGroups: [AccountGroup!]!
+    getDeletedAccountGroups: [AccountGroup!]!
     getAccountGroupById(id: ID!): AccountGroup
   }
 
@@ -22,5 +23,6 @@ export const accountGroupTypeDefs = gql`
     addAccountGroup(input: AccountGroupInput!): AccountGroup!
     editAccountGroup(id: ID!, input: AccountGroupInput!): AccountGroup!
     deleteAccountGroup(id: ID!): Boolean!
+    resetAccountGroup(id: ID!): Boolean!
   }
 `;

@@ -179,10 +179,10 @@ const AccountGroups = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showDeleted={true}
+          showImport={false}
+          showExport={false}
           showAdd={false}
-          onView={(row) => console.log("View", row)}
           onEdit={handleEdit}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete "${row.accountgroupname}"?`)) {
@@ -196,6 +196,7 @@ const AccountGroups = () => {
               }
             }
           }}
+          onShowDeleted={() =>navigate("/accountgroups/deletedentries")}
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/accountgroups")}

@@ -26,3 +26,9 @@ export const DELETE_ACCOUNTGROUP = gql`
     deleteAccountGroup(id: $id)
   }
 `;
+
+export const RESET_ACCOUNTGROUP = gql`
+  mutation ResetAccountGroup($id: ID!) {
+    resetAccountGroup(id: $id)
+  }
+`;

@@ -12,6 +12,17 @@ export const GET_ACCOUNTGROUPS = gql`
   }
 `;
 
+export const GET_DELETED_ACCOUNTGROUPS = gql`
+  query GetDeletedAccountGroups {
+    getDeletedAccountGroups {
+      id
+      accountgroupcode
+      accountgroupname
+      status
+    }
+  }
+`;
+
 export const GET_ACCOUNTGROUP_BY_ID = gql`
   query GetAccountGroupById($id: ID!) {
     getAccountGroupById(id: $id) {

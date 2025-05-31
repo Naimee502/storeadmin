@@ -6,6 +6,10 @@ export const accountGroupResolvers = {
       const accountGroups = await AccountGroup.find({ status: true });
       return accountGroups;
     },
+    getDeletedAccountGroups: async () => {
+      const accountGroups = await AccountGroup.find({ status: false });
+      return accountGroups;
+    },
     getAccountGroupById: async (_: any, { id }: { id: string }) => {
       return await AccountGroup.findById(id);
     },
@@ -21,5 +25,9 @@ export const accountGroupResolvers = {
       const result = await AccountGroup.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
+    resetAccountGroup: async (_: any, { id }: any) => {
+      const result = await AccountGroup.findByIdAndUpdate(id, { status: true }, { new: true });
+      return !!result;
+    }
   },
 };

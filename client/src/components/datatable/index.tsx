@@ -7,6 +7,10 @@ import {
     FaTrash,
     FaEdit,
     FaFilter,
+    FaTrashRestore,
+    FaUndo,
+    FaPrint,
+    FaBarcode,
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
@@ -34,6 +38,10 @@ interface DataTableProps {
     showEdit?: boolean;
     showDelete?: boolean;
     showAdd?: boolean;
+    showReset?: boolean;
+    showPrint?: boolean;
+    showBarcode?: boolean;
+    showDeleted?: boolean;
     showImport?: boolean;
     showExport?: boolean;
     entriesOptions?: number[];
@@ -42,6 +50,10 @@ interface DataTableProps {
     onEdit?: (row: any) => void;
     onDelete?: (row: any) => void;
     onAdd?: () => void;
+    onReset?: (row: any) => void;
+    onPrint?: (row: any) => void;
+    onBarcode?: (row: any) => void;
+    onShowDeleted?: () => void;
     onImport?: () => void;
     onExport?: () => void;
     isLoading?: boolean;
@@ -63,6 +75,10 @@ const DataTable: React.FC<DataTableProps> = ({
     showEdit = true,
     showDelete = true,
     showAdd = true,
+    showReset = false,
+    showPrint = false,
+    showBarcode = false,
+    showDeleted = true,
     showImport = true,
     showExport = true,
     entriesOptions = [5, 10, 25, 50],
@@ -71,6 +87,10 @@ const DataTable: React.FC<DataTableProps> = ({
     onEdit,
     onDelete,
     onAdd,
+    onReset,
+    onPrint,
+    onBarcode,
+    onShowDeleted,
     onImport,
     onExport,
     isLoading = false,
@@ -217,6 +237,14 @@ const DataTable: React.FC<DataTableProps> = ({
                             <FaFileExport /> Export
                         </button>
                     )}
+                    {showDeleted && (
+                        <button
+                            onClick={onShowDeleted}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-red-600 text-black rounded hover:bg-red-700"
+                        >
+                            <FaTrashRestore /> Deleted Entries
+                        </button>
+                    )}
                     {showAdd && (
                         <button
                             onClick={onAdd}
@@ -273,21 +301,33 @@ const DataTable: React.FC<DataTableProps> = ({
                                     ))}
                                     <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
                                         {showView && (
-                                            <button onClick={() => onView?.(row)}>
+                                            <button onClick={() => onView?.(row)} title="View">
                                                 <FaEye />
                                             </button>
                                         )}
                                         {showEdit && (
-                                            <button onClick={() => onEdit?.(row)}>
+                                            <button onClick={() => onEdit?.(row)} title="Edit">
                                                 <FaEdit />
                                             </button>
                                         )}
                                         {showDelete && (
-                                            <button
-                                                onClick={() => onDelete?.(row)}
-                                                className="text-red-500"
-                                            >
+                                            <button onClick={() => onDelete?.(row)} title="Delete" className="text-red-500">
                                                 <FaTrash />
+                                            </button>
+                                        )}
+                                        {showReset && (
+                                            <button onClick={() => onReset?.(row)} title="Reset" className="text-yellow-600">
+                                                <FaUndo />
+                                            </button>
+                                        )}
+                                        {showPrint && (
+                                            <button onClick={() => onPrint?.(row)} title="Print" className="text-green-600">
+                                                <FaPrint />
+                                            </button>
+                                        )}
+                                        {showBarcode && (
+                                            <button onClick={() => onBarcode?.(row)} title="Barcode" className="text-purple-600">
+                                                <FaBarcode />
                                             </button>
                                         )}
                                     </td>
