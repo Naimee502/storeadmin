@@ -12,7 +12,7 @@ import {
   FaUsers,
   FaUserTie,
   FaFileInvoiceDollar,
-  FaReceipt, // <- added icon for Sales Invoices
+  FaReceipt,
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
@@ -25,11 +25,18 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const { type } = useAppSelector((state) => state.auth);
 
+  // Separate Home link
+  const homeLink = {
+    to: '/home',
+    label: 'Home',
+    icon: <FaHome className="text-lg sm:text-xl" />
+  };
+
   const commonLinks = [
     {
-      to: '/home',
-      label: 'Home',
-      icon: <FaHome className="text-lg sm:text-xl" />
+      to: '/accounts',
+      label: 'Accounts',
+      icon: <FaUser className="text-lg sm:text-xl" />
     },
     {
       to: '/products',
@@ -37,12 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       icon: <FaBoxOpen className="text-lg sm:text-xl" />
     },
     {
-      to: '/accounts',
-      label: 'Accounts',
-      icon: <FaUser className="text-lg sm:text-xl" />
-    },
-    {
-      to: '/salesinvoice',      
+      to: '/salesinvoice',
       label: 'Sales Invoices',
       icon: <FaFileInvoiceDollar className="text-lg sm:text-xl" />
     },
@@ -95,18 +97,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       icon: <FaUsers className="text-lg sm:text-xl" />
     },
     {
-      to: '/accounts',
-      label: 'Accounts',
-      icon: <FaUser className="text-lg sm:text-xl" />
-    },
-    {
       to: '/salesmenaccount',
       label: 'Salesmen Accounts',
       icon: <FaUserTie className="text-lg sm:text-xl" />
     }
   ];
 
-  const sidebarItems = type === 'branch' ? commonLinks : [...adminLinks, ...commonLinks];
+  // Filter out Products, SalesInvoice, and PurchaseInvoice links for admin users
+  const filteredCommonLinks = commonLinks.filter(link => 
+    !['/products', '/salesinvoice', '/purchaseinvoice'].includes(link.to)
+  );
+
+  const sidebarItems = type === 'branch' 
+    ? [homeLink, ...commonLinks] 
+    : [homeLink, ...adminLinks, ...filteredCommonLinks];
 
   return (
     <aside

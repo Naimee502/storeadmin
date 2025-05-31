@@ -15,6 +15,7 @@ const PurchaseInvoices = () => {
   const { data, refetch } = usePurchaseInvoicesQuery();
   const { deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
   const invoiceList = data?.getPurchaseInvoices || [];
+  console.log("PurchaseInvoiceList:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const { data: accountData } = useAccountsQuery();
@@ -26,8 +27,9 @@ const PurchaseInvoices = () => {
       dispatch(showLoading());
       try {
         const { data } = await refetch();
-        if (data?.purchaseinvoices) {
-          dispatch(addPurchaseInvoices(data.purchaseinvoices));
+        console.log("data",JSON.stringify(data));
+        if (data?.getPurchaseInvoices) {
+          dispatch(addPurchaseInvoices(data.getPurchaseInvoices));
         }
       } catch (error) {
         console.error("Error fetching invoices:", error);
@@ -60,7 +62,7 @@ const PurchaseInvoices = () => {
       totalitem: invoice.products.length,
       totalqty,
       billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
-      status: "Active",
+      status: invoice.status ? "Active" : "Inactive",
       partyacc: account ? `${account.name} - ${account.mobile}` : invoice.partyacc,
     };
   });

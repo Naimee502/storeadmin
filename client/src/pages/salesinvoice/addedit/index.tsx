@@ -8,7 +8,7 @@ import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductsQuery } from "../../../graphql/hooks/products";
 import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../graphql/hooks/salesinvoice";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 
@@ -36,6 +36,9 @@ const AddEditSalesInvoice = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+  const salesInvoices = useAppSelector(
+      (state) => state.salesinvoice.invoices
+    );
 
   // Party Accounts
   const { data: accountData } = useAccountsQuery();
@@ -46,7 +49,7 @@ const AddEditSalesInvoice = () => {
   }));
 
   // Product List
-  const { data: productData } = useProductsQuery();
+  const { data: productData, refetch } = useProductsQuery();
   const productsList = useMemo(() => {
     return (productData?.getProducts || []).map((product: any) => ({
       id: product.id,
@@ -60,7 +63,16 @@ const AddEditSalesInvoice = () => {
 
  useEffect(() => {
   if (!isEdit) {
-    handleNewInvoice();
+    if (salesInvoices.length > 0) {
+        const billNumbers = salesInvoices.map((inv) => inv.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (
+          parseInt(lastBillNumber || "0", 10) + 1
+        ).toString().padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
   } else if (data?.getSalesInvoice) {
     const invoice = data.getSalesInvoice;
 
@@ -88,15 +100,7 @@ const AddEditSalesInvoice = () => {
     }));
     setProducts(mappedProducts);
   }
-}, [isEdit, data, productsList]);
-
-
-  const handleNewInvoice = () => {
-    setBillNumber((prev) => {
-      const next = (parseInt(prev, 10) + 1).toString().padStart(6, "0");
-      return next;
-    });
-  };
+}, [isEdit, data, productsList, salesInvoices]);
 
   const handleTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
@@ -161,6 +165,7 @@ const AddEditSalesInvoice = () => {
         await addSalesInvoiceMutation({ variables: { input } });
         dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
       }
+      await refetch();
       navigate("/salesinvoice");
     } catch (error: any) {
       console.error("Error:", error);

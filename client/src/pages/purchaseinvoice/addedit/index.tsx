@@ -8,7 +8,7 @@ import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductsQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 
@@ -35,6 +35,9 @@ const AddEditPurchaseInvoice = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+  const purchaseInvoices = useAppSelector(
+    (state) => state.purchaseinvoice.invoices
+  );
 
   // Party Accounts (suppliers maybe)
   const { data: accountData } = useAccountsQuery();
@@ -45,7 +48,7 @@ const AddEditPurchaseInvoice = () => {
   }));
 
   // Product List
-  const { data: productData } = useProductsQuery();
+  const { data: productData, refetch } = useProductsQuery();
   const productsList = useMemo(() => {
     return (productData?.getProducts || []).map((product: any) => ({
       id: product.id,
@@ -59,7 +62,16 @@ const AddEditPurchaseInvoice = () => {
 
   useEffect(() => {
     if (!isEdit) {
-      handleNewInvoice();
+      if (purchaseInvoices.length > 0) {
+        const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (
+          parseInt(lastBillNumber || "0", 10) + 1
+        ).toString().padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
     } else if (data?.getPurchaseInvoice) {
       const invoice = data.getPurchaseInvoice;
 
@@ -85,7 +97,7 @@ const AddEditPurchaseInvoice = () => {
       }));
       setProducts(mappedProducts);
     }
-  }, [isEdit, data, productsList]);
+  }, [isEdit, data, productsList, purchaseInvoices]);
 
   const handleNewInvoice = () => {
     setBillNumber((prev) => {
@@ -157,6 +169,7 @@ const AddEditPurchaseInvoice = () => {
         await addPurchaseInvoiceMutation({ variables: { input } });
         dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
+      await refetch();
       navigate("/purchaseinvoice");
     } catch (error: any) {
       console.error("Error:", error);
