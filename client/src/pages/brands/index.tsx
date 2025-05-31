@@ -176,8 +176,8 @@ const Brands = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={false}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
@@ -196,6 +196,7 @@ const Brands = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/brands")}
+          onShowDeleted={() =>navigate("/brands/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}

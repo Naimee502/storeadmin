@@ -16,11 +16,13 @@ export const brandTypeDefs = gql`
   type Query {
     getBrands: [Brand!]!
     getBrandById(id: ID!): Brand
+    getDeletedBrands: [Brand!]!
   }
 
   type Mutation {
     addBrand(input: BrandInput!): Brand!
     editBrand(id: ID!, input: BrandInput!): Brand!
     deleteBrand(id: ID!): Boolean!
+    resetBrand(id: ID!): Boolean!
   }
 `;

@@ -25,3 +25,9 @@ export const DELETE_BRAND = gql`
     deleteBrand(id: $id)
   }
 `;
+
+export const RESET_BRAND = gql`
+  mutation ResetBrand($id: ID!) {
+    resetBrand(id: $id)
+  }
+`;

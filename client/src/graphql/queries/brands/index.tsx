@@ -11,6 +11,17 @@ export const GET_BRANDS = gql`
   }
 `;
 
+export const GET_DELETED_BRANDS = gql`
+  query GetDeletedBrands {
+    getDeletedBrands {
+      id
+      brandcode
+      brandname
+      status
+    }
+  }
+`;
+
 export const GET_BRAND_BY_ID = gql`
   query GetBrandById($id: ID!) {
     getBrandById(id: $id) {

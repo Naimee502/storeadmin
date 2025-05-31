@@ -27,6 +27,7 @@ import TransferStock from "../pages/transferstock";
 import DeletedAccountGroups from "../pages/accountgroups/deletedentries";
 import DeletedAccounts from "../pages/accounts/deletedentries";
 import DeletedBranches from "../pages/branches/deletedentries";
+import DeletedBrands from "../pages/brands/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -125,6 +126,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Brands />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/brands/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedBrands />
             </ProtectedRoutes>
           }
         />

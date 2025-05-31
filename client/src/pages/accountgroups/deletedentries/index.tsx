@@ -15,7 +15,6 @@ const DeletedAccountGroups = () => {
   const { data, refetch } = useDeletedAccountGroupsQuery();
   const { resetAccountGroupMutation } = useAccountGroupMutations();
   const accountGroupList = data?.getDeletedAccountGroups || [];
-  console.log("DELETEDA:",JSON.stringify(accountGroupList));
 
   useEffect(() => {
     if (!data || !data.getDeletedAccountGroups || data.getDeletedAccountGroups.length === 0) {
