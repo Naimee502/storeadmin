@@ -58,6 +58,7 @@ export const purchaseInvoiceTypeDefs = gql`
 
   type Query {
     getPurchaseInvoices: [PurchaseInvoice!]!
+    getDeletedPurchaseInvoices: [PurchaseInvoice!]!
     getPurchaseInvoice(id: ID!): PurchaseInvoice
   }
 
@@ -66,5 +67,6 @@ export const purchaseInvoiceTypeDefs = gql`
     addPurchaseInvoices(inputs: [PurchaseInvoiceInput!]!): [PurchaseInvoice!]!
     editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
     deletePurchaseInvoice(id: ID!): Boolean!
+    resetPurchaseInvoice(id: ID!): Boolean!
   }
 `;

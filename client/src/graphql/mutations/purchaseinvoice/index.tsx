@@ -63,3 +63,9 @@ export const DELETE_PURCHASE_INVOICE = gql`
     deletePurchaseInvoice(id: $id)
   }
 `;
+
+export const RESET_PURCHASE_INVOICE = gql`
+  mutation ResetPurchaseInvoice($id: ID!) {
+    resetPurchaseInvoice(id: $id)
+  }
+`;

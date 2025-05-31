@@ -37,6 +37,7 @@ import DeletedProducts from "../pages/products/deletedentries";
 import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
 import DeletedTransferStocks from "../pages/transferstock/deletedentries";
 import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
+import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -327,6 +328,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <PurchaseInvoices />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/purchaseinvoice/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedPurchaseInvoices />
             </ProtectedRoutes>
           }
         />

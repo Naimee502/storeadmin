@@ -6,9 +6,12 @@ export const purchaseInvoiceResolvers = {
       const invoices = await PurchaseInvoice.find({ status: true });
       return invoices;
     },
+    getDeletedPurchaseInvoices: async () => {
+      return await PurchaseInvoice.find({ status: false });
+    },
     getPurchaseInvoice: async (_: any, { id }: { id: string }) =>
       await PurchaseInvoice.findById(id),
-  },
+    },
   Mutation: {
     addPurchaseInvoice: async (_: any, { input }: any) => {
       try {
@@ -30,6 +33,11 @@ export const purchaseInvoiceResolvers = {
 
     deletePurchaseInvoice: async (_: any, { id }: any) => {
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+
+    resetPurchaseInvoice: async (_: any, { id }: { id: string }) => {
+      const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

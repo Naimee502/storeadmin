@@ -95,6 +95,7 @@ const PurchaseInvoices = () => {
             }
           }}
           onAdd={() => navigate("/purchaseinvoice/addedit")}
+           onShowDeleted={() =>navigate("/purchaseinvoice/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}

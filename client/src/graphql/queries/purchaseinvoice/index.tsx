@@ -29,6 +29,35 @@ export const GET_PURCHASE_INVOICES = gql`
   }
 `;
 
+export const GET_DELETED_PURCHASE_INVOICES = gql`
+  query GetDeletedPurchaseInvoices {
+    getDeletedPurchaseInvoices {
+      id
+      branchid
+      paymenttype
+      partyacc
+      taxorsupplytype
+      billdate
+      billtype
+      billnumber
+      notes
+      invoicetype
+      subtotal
+      totaldiscount
+      totalgst
+      totalamount
+      products {
+        id
+        gst
+        qty
+        rate
+        amount
+      }
+      status
+    }
+  }
+`;
+
 export const GET_PURCHASE_INVOICE_BY_ID = gql`
   query GetPurchaseInvoiceById($id: ID!) {
     getPurchaseInvoice(id: $id) {
