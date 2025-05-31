@@ -27,6 +27,7 @@ export const accountTypeDefs = gql`
 
   type Query {
     getAccounts: [Account!]!
+    getDeletedAccounts: [Account!]!
     getAccountById(id: ID!): Account
   }
 
@@ -34,5 +35,6 @@ export const accountTypeDefs = gql`
     addAccount(input: AccountInput!): Account!
     editAccount(id: ID!, input: AccountInput!): Account!
     deleteAccount(id: ID!): Boolean!
+    resetAccount(id: ID!): Boolean!   
   }
 `;

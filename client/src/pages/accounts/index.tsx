@@ -360,8 +360,8 @@ const Accounts = () => {
                     showView={false}
                     showEdit={true}
                     showDelete={true}
-                    showImport={true}
-                    showExport={true}
+                    showImport={false}
+                    showExport={false}
                     showAdd={false}
                     onView={(row) => console.log("View", row)}
                     onEdit={handleEdit}
@@ -374,6 +374,7 @@ const Accounts = () => {
                             dispatch(showMessage({ message: "Failed to delete account.", type: "error" }));
                         }
                     }}
+                    onShowDeleted={() =>navigate("/accounts/deletedentries")}
                     onImport={handleImportClick}
                     onExport={handleExport}
                 />

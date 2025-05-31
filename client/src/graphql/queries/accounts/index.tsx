@@ -18,6 +18,23 @@ export const GET_ACCOUNTS = gql`
   }
 `;
 
+export const GET_DELETED_ACCOUNTS = gql`
+  query GetDeletedAccounts {
+    getDeletedAccounts {
+      id
+      accountcode
+      name
+      accountgroupid
+      mobile
+      email
+      address
+      city
+      pincode
+      status
+    }
+  }
+`;
+
 export const GET_ACCOUNT_BY_ID = gql`
   query GetAccountById($id: ID!) {
     getAccountById(id: $id) {

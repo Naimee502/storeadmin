@@ -38,3 +38,9 @@ export const DELETE_ACCOUNT = gql`
     deleteAccount(id: $id)
   }
 `;
+
+export const RESET_ACCOUNT = gql`
+  mutation ResetAccount($id: ID!) {
+    resetAccount(id: $id)
+  }
+`;
