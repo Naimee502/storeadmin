@@ -26,3 +26,9 @@ export const DELETE_SIZE = gql`
     deleteSize(id: $id)
   }
 `;
+
+export const RESET_SIZE = gql`
+  mutation ResetSize($id: ID!) {
+    resetSize(id: $id)
+  }
+`;

@@ -6,6 +6,10 @@ export const sizeResolvers = {
       const sizes = await Size.find({ status: true });
       return sizes;
     },
+    getDeletedSizes: async () => {
+      const deletedSizes = await Size.find({ status: false });
+      return deletedSizes;
+    },
     getSizeById: async (_: any, { id }: { id: string }) => {
       return await Size.findById(id);
     },
@@ -19,6 +23,10 @@ export const sizeResolvers = {
     },
     deleteSize: async (_: any, { id }: any) => {
       const result = await Size.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+    resetSize: async (_: any, { id }: any) => {
+      const result = await Size.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

@@ -15,6 +15,7 @@ export const sizeTypeDefs = gql`
 
   type Query {
     getSizes: [Size!]!
+    getDeletedSizes: [Size!]!
     getSizeById(id: ID!): Size
   }
 
@@ -22,5 +23,6 @@ export const sizeTypeDefs = gql`
     addSize(input: SizeInput!): Size!
     editSize(id: ID!, input: SizeInput!): Size!
     deleteSize(id: ID!): Boolean!
+    resetSize(id: ID!): Boolean! 
   }
 `;
