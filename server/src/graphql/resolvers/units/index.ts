@@ -6,6 +6,10 @@ export const unitResolvers = {
       const units = await Unit.find({ status: true });
       return units;
     },
+    getDeletedUnits: async () => {
+      const deletedUnits = await Unit.find({ status: false });
+      return deletedUnits;
+    },
     getUnitById: async (_: any, { id }: { id: string }) => {
       return await Unit.findById(id);
     },
@@ -19,6 +23,10 @@ export const unitResolvers = {
     },
     deleteUnit: async (_: any, { id }: any) => {
       const result = await Unit.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+    resetUnit: async (_: any, { id }: any) => {
+      const result = await Unit.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

@@ -15,6 +15,7 @@ export const unitTypeDefs = gql`
 
   type Query {
     getUnits: [Unit!]!
+    getDeletedUnits: [Unit!]!
     getUnitById(id: ID!): Unit
   }
 
@@ -22,5 +23,6 @@ export const unitTypeDefs = gql`
     addUnit(input: UnitInput!): Unit!
     editUnit(id: ID!, input: UnitInput!): Unit!
     deleteUnit(id: ID!): Boolean!
+    resetUnit(id: ID!): Boolean!
   }
 `;

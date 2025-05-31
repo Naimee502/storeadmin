@@ -12,6 +12,17 @@ export const GET_UNITS = gql`
   }
 `;
 
+export const GET_DELETED_UNITS = gql`
+  query GetDeletedUnits {
+    getDeletedUnits {
+      id
+      unitcode
+      unitname
+      status
+    }
+  }
+`;
+
 export const GET_UNIT_BY_ID = gql`
   query GetUnitById($id: ID!) {
     getUnitById(id: $id) {

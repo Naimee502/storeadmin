@@ -26,3 +26,9 @@ export const DELETE_UNIT = gql`
     deleteUnit(id: $id)
   }
 `;
+
+export const RESET_UNIT = gql`
+  mutation ResetUnit($id: ID!) {
+    resetUnit(id: $id)
+  }
+`;

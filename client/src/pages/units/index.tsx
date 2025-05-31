@@ -168,8 +168,8 @@ const Units = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={false}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
@@ -188,6 +188,7 @@ const Units = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/units")}
+          onShowDeleted={() =>navigate("/units/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
