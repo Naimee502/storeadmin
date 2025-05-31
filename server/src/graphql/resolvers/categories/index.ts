@@ -9,6 +9,10 @@ export const categoryResolvers = {
     getCategoryById: async (_: any, { id }: { id: string }) => {
       return await Category.findById(id);
     },
+    getDeletedCategories: async () => {
+      const categories = await Category.find({ status: false });
+      return categories;
+    },
   },
   Mutation: {
     addCategory: async (_: any, { input }: any) => await Category.create(input),
@@ -17,6 +21,10 @@ export const categoryResolvers = {
     },
     deleteCategory: async (_: any, { id }: any) => {
       const result = await Category.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+    resetCategory: async (_: any, { id }: any) => {
+      const result = await Category.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

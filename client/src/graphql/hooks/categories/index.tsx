@@ -1,18 +1,39 @@
 import { useMutation, useQuery } from '@apollo/client';
-import { ADD_CATEGORY, DELETE_CATEGORY, EDIT_CATEGORY } from '../../mutations/categories';
-import { GET_CATEGORIES, GET_CATEGORY_BY_ID } from '../../queries/categories';
+import { 
+  ADD_CATEGORY, 
+  DELETE_CATEGORY, 
+  EDIT_CATEGORY, 
+  RESET_CATEGORY // import reset mutation
+} from '../../mutations/categories';
+import { 
+  GET_CATEGORIES, 
+  GET_CATEGORY_BY_ID, 
+  GET_DELETED_CATEGORIES // import deleted categories query
+} from '../../queries/categories';
 
 export const useCategoryMutations = () => {
   const [addCategoryMutation] = useMutation(ADD_CATEGORY);
   const [editCategoryMutation] = useMutation(EDIT_CATEGORY);
   const [deleteCategoryMutation] = useMutation(DELETE_CATEGORY);
+  const [resetCategoryMutation] = useMutation(RESET_CATEGORY); // added reset mutation
 
-  return { addCategoryMutation, editCategoryMutation, deleteCategoryMutation };
+  return { addCategoryMutation, editCategoryMutation, deleteCategoryMutation, resetCategoryMutation };
 };
 
 export const useCategoriesQuery = () => {
   const { data, loading, error, refetch } = useQuery(GET_CATEGORIES);
-  
+
+  return {
+    data,
+    loading,
+    error,
+    refetch,
+  };
+};
+
+export const useDeletedCategoriesQuery = () => {
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_CATEGORIES);
+
   return {
     data,
     loading,
@@ -29,3 +50,4 @@ export const useCategoryByIDQuery = (id: string) => {
 
   return { data, loading, error };
 };
+

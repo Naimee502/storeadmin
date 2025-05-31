@@ -26,3 +26,9 @@ export const DELETE_CATEGORY = gql`
     deleteCategory(id: $id)
   }
 `;
+
+export const RESET_CATEGORY = gql`
+  mutation ResetCategory($id: ID!) {
+    resetCategory(id: $id)
+  }
+`;

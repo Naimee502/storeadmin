@@ -16,11 +16,13 @@ export const categoryTypeDefs = gql`
   type Query {
     getCategories: [Category!]!
     getCategoryById(id: ID!): Category
+    getDeletedCategories: [Category!]! 
   }
 
   type Mutation {
     addCategory(input: CategoryInput!): Category!
     editCategory(id: ID!, input: CategoryInput!): Category!
     deleteCategory(id: ID!): Boolean!
+    resetCategory(id: ID!): Boolean! 
   }
 `;
