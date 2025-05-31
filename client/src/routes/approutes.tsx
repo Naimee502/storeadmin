@@ -26,6 +26,7 @@ import AddEditPurchaseInvoice from "../pages/purchaseinvoice/addedit";
 import TransferStock from "../pages/transferstock";
 import DeletedAccountGroups from "../pages/accountgroups/deletedentries";
 import DeletedAccounts from "../pages/accounts/deletedentries";
+import DeletedBranches from "../pages/branches/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -92,6 +93,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditBranch />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/branches/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedBranches />
             </ProtectedRoutes>
           }
         />

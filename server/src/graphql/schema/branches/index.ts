@@ -34,12 +34,14 @@ export const branchTypeDefs = gql`
   type Query {
     getBranches: [Branch!]!
     getBranch(id: ID!): Branch
+    getDeletedBranches: [Branch!]!
   }
 
   type Mutation {
     addBranch(input: BranchInput!): Branch!
-    addBranches(inputs: [BranchInput!]!): [Branch!]! 
+    addBranches(inputs: [BranchInput!]!): [Branch!]!
     editBranch(id: ID!, input: BranchInput!): Branch!
     deleteBranch(id: ID!): Boolean!
+    resetBranch(id: ID!): Boolean!
   }
 `;

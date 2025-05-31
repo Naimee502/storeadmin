@@ -138,8 +138,8 @@ const Branches = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={true}
           onView={() => console.log("View button clicked")}
           onEdit={(row) => navigate(`/branches/addedit/${row.id}`)}
@@ -160,6 +160,7 @@ const Branches = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/branches/addedit")}
+          onShowDeleted={() =>navigate("/branches/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}

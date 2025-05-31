@@ -44,3 +44,9 @@ export const DELETE_BRANCH = gql`
     deleteBranch(id: $id)
   }
 `;
+
+export const RESET_BRANCH = gql`
+  mutation ResetBranch($id: ID!) {
+    resetBranch(id: $id)
+  }
+`;
