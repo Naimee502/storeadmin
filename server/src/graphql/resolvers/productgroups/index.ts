@@ -6,6 +6,10 @@ export const productGroupResolvers = {
       const productGroups = await ProductGroup.find({ status: true });
       return productGroups;
     },
+    getDeletedProductGroups: async () => {
+      const deletedGroups = await ProductGroup.find({ status: false });
+      return deletedGroups;
+    },
     getProductGroupById: async (_: any, { id }: { id: string }) => {
       return await ProductGroup.findById(id);
     },
@@ -19,6 +23,10 @@ export const productGroupResolvers = {
     },
     deleteProductGroup: async (_: any, { id }: any) => {
       const result = await ProductGroup.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+     resetProductGroup: async (_: any, { id }: any) => {
+      const result = await ProductGroup.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

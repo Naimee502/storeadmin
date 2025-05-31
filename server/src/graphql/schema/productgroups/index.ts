@@ -15,6 +15,7 @@ export const productGroupTypeDefs = gql`
 
   type Query {
     getProductGroups: [ProductGroup!]!
+    getDeletedProductGroups: [ProductGroup!]! 
     getProductGroupById(id: ID!): ProductGroup
   }
 
@@ -22,5 +23,6 @@ export const productGroupTypeDefs = gql`
     addProductGroup(input: ProductGroupInput!): ProductGroup!
     editProductGroup(id: ID!, input: ProductGroupInput!): ProductGroup!
     deleteProductGroup(id: ID!): Boolean!
+    resetProductGroup(id: ID!): Boolean!        
   }
 `;

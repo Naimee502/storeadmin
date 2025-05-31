@@ -26,3 +26,9 @@ export const DELETE_PRODUCTGROUP = gql`
     deleteProductGroup(id: $id)
   }
 `;
+
+export const RESET_PRODUCTGROUP = gql`
+  mutation ResetProductGroup($id: ID!) {
+    resetProductGroup(id: $id)
+  }
+`;

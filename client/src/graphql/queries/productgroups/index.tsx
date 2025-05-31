@@ -12,6 +12,17 @@ export const GET_PRODUCTGROUPS = gql`
   }
 `;
 
+export const GET_DELETED_PRODUCTGROUPS = gql`
+  query GetDeletedProductGroups {
+    getDeletedProductGroups {
+      id
+      productgroupcode
+      productgroupname
+      status
+    }
+  }
+`;
+
 export const GET_PRODUCTGROUP_BY_ID = gql`
   query GetProductGroupById($id: ID!) {
     getProductGroupById(id: $id) {

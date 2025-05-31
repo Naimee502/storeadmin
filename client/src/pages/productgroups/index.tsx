@@ -176,8 +176,8 @@ const ProductGroups = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={false}
           onView={(row) => console.log("View", row)}
           onEdit={handleEdit}
@@ -196,6 +196,7 @@ const ProductGroups = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/productgroups")}
+           onShowDeleted={() =>navigate("/productgroups/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
