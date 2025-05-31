@@ -20,9 +20,8 @@ const startServer = async () => {
     typeDefs,
     resolvers,
     context: ({ req }) => {
+      console.log("📥 Request to GraphQL:", req.body)
       const branchid = req.headers['x-branch-id'];
-      console.log('--- Apollo Context ---');
-      console.log('branchid from header:', branchid);
       return { branchid };
     },
   });

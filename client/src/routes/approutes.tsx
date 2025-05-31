@@ -23,6 +23,7 @@ import SalesInvoices from "../pages/salesinvoice";
 import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
 import PurchaseInvoices from "../pages/purchaseinvoice";
 import AddEditPurchaseInvoice from "../pages/purchaseinvoice/addedit";
+import TransferStock from "../pages/transferstock";
 
 const AppRoutes = () => {
     return (
@@ -233,6 +234,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditPurchaseInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transferstock"
+          element={
+            <ProtectedRoutes>
+              <TransferStock />
             </ProtectedRoutes>
           }
         />

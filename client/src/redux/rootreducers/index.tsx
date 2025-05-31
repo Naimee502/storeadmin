@@ -13,6 +13,7 @@ import salesmenAccountReducer from "../slices/salesmenaccount";
 import productsReducer from "../slices/products";
 import salesinvoiceReducer from "../slices/salesinvoice"
 import purchaseInvoiceReducer from '../slices/purchaseinvoice';
+import transferStockReducer from '../slices/transferstock';
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
 
@@ -31,6 +32,7 @@ const appReducer = combineReducers({
   products: productsReducer,
   salesinvoice: salesinvoiceReducer,
   purchaseinvoice: purchaseInvoiceReducer,
+  transferStock: transferStockReducer,  
   loader: loaderReducer,
   message: messageReducer,
 });

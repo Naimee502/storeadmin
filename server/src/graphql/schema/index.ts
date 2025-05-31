@@ -10,7 +10,8 @@ import { purchaseInvoiceTypeDefs } from "./purchaseinvoice";
 import { salesInvoiceTypeDefs } from "./salesinvoice";
 import { salesmenAccountTypeDefs } from "./salesmenaccount";
 import { sizeTypeDefs } from "./size";
+import { transferStockTypeDefs } from "./transferstock";
 import { unitTypeDefs } from "./units";
 import { uploadTypeDefs } from "./uploads";
 
-export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs, uploadTypeDefs, productTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs];
+export const typeDefs = [branchTypeDefs, categoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs, uploadTypeDefs, productTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs, transferStockTypeDefs];

@@ -13,6 +13,7 @@ import {
   FaUserTie,
   FaFileInvoiceDollar,
   FaReceipt,
+  FaExchangeAlt,
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link } from 'react-router';
@@ -34,6 +35,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
 
   const commonLinks = [
     {
+      to: '/salesmenaccount',
+      label: 'Salesmen Accounts',
+      icon: <FaUserTie className="text-lg sm:text-xl" />
+    },
+    {
       to: '/accounts',
       label: 'Accounts',
       icon: <FaUser className="text-lg sm:text-xl" />
@@ -52,6 +58,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       to: '/purchaseinvoice',
       label: 'Purchase Invoices',
       icon: <FaReceipt className="text-lg sm:text-xl" />
+    },
+    {
+      to: '/transferstock',
+      label: 'Transfer Stock',
+       icon: <FaExchangeAlt className="text-lg sm:text-xl" />,
     }
   ];
 
@@ -95,17 +106,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       to: '/accountgroups',
       label: 'Account Groups',
       icon: <FaUsers className="text-lg sm:text-xl" />
-    },
-    {
-      to: '/salesmenaccount',
-      label: 'Salesmen Accounts',
-      icon: <FaUserTie className="text-lg sm:text-xl" />
     }
   ];
 
   // Filter out Products, SalesInvoice, and PurchaseInvoice links for admin users
   const filteredCommonLinks = commonLinks.filter(link => 
-    !['/products', '/salesinvoice', '/purchaseinvoice'].includes(link.to)
+    !['/products', '/salesinvoice', '/purchaseinvoice', '/transferstock', '/accounts', '/salesmenaccount'].includes(link.to)
   );
 
   const sidebarItems = type === 'branch' 

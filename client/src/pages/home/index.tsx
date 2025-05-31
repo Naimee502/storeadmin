@@ -3,7 +3,6 @@ import { useAppSelector } from "../../redux/hooks";
 
 const Home = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  console.log("BranchData",branch)
 
   const displayName =
     type === "admin" ? admin?.name :

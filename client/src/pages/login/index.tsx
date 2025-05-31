@@ -66,7 +66,6 @@ const Login = () => {
       );
 
       if (matchedBranch) {
-        console.log("matchbranch", matchedBranch);
         // ✅ Store branchid in localStorage
         localStorage.setItem('branchid', matchedBranch.id);
 
