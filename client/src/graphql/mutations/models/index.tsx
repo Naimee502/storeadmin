@@ -25,3 +25,9 @@ export const DELETE_MODEL = gql`
     deleteModel(id: $id)
   }
 `;
+
+export const RESET_MODEL = gql`
+  mutation ResetModel($id: ID!) {
+    resetModel(id: $id)
+  }
+`;

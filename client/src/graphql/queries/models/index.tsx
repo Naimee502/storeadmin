@@ -11,6 +11,17 @@ export const GET_MODELS = gql`
   }
 `;
 
+export const GET_DELETED_MODELS = gql`
+  query GetDeletedModels {
+    getDeletedModels {
+      id
+      modelcode
+      modelname
+      status
+    }
+  }
+`;
+
 export const GET_MODEL_BY_ID = gql`
   query GetModelById($id: ID!) {
     getModelById(id: $id) {

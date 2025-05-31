@@ -6,6 +6,10 @@ export const modelResolvers = {
       const models = await Model.find({ status: true });
       return models;
     },
+    getDeletedModels: async () => {
+      const deletedModels = await Model.find({ status: false });
+      return deletedModels;
+    },
     getModelById: async (_: any, { id }: { id: string }) => {
       return await Model.findById(id);
     },
@@ -19,6 +23,10 @@ export const modelResolvers = {
     },
     deleteModel: async (_: any, { id }: any) => {
       const result = await Model.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+    resetModel: async (_: any, { id }: any) => {
+      const result = await Model.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

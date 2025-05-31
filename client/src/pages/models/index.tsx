@@ -176,8 +176,8 @@ const Models = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={false}
           onView={(row) => console.log("View", row)}
           onEdit={handleEdit}
@@ -196,6 +196,7 @@ const Models = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/models")}
+          onShowDeleted={() =>navigate("/models/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}

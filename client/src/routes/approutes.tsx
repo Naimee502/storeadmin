@@ -29,6 +29,7 @@ import DeletedAccounts from "../pages/accounts/deletedentries";
 import DeletedBranches from "../pages/branches/deletedentries";
 import DeletedBrands from "../pages/brands/deletedentries";
 import DeletedCategories from "../pages/categories/deletedentries";
+import DeletedModels from "../pages/models/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -151,6 +152,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Models />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/models/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedModels />
             </ProtectedRoutes>
           }
         />

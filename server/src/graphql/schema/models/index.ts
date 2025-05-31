@@ -15,6 +15,7 @@ export const modelTypeDefs = gql`
 
   type Query {
     getModels: [Model!]!
+    getDeletedModels: [Model!]!
     getModelById(id: ID!): Model
   }
 
@@ -22,5 +23,6 @@ export const modelTypeDefs = gql`
     addModel(input: ModelInput!): Model!
     editModel(id: ID!, input: ModelInput!): Model!
     deleteModel(id: ID!): Boolean!
+    resetModel(id: ID!): Boolean! 
   }
 `;
