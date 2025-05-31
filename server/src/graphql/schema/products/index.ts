@@ -56,6 +56,7 @@ export const productTypeDefs = gql`
 
   type Query {
     getProducts: [Product!]!
+    getDeletedProducts: [Product!]!
     getProduct(id: ID!): Product
   }
 
@@ -64,5 +65,6 @@ export const productTypeDefs = gql`
     addProducts(inputs: [ProductInput!]!): [Product!]!
     editProduct(id: ID!, input: ProductInput!): Product!
     deleteProduct(id: ID!): Boolean!
+    resetProduct(id: ID!): Boolean!
   }
 `;

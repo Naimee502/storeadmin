@@ -62,6 +62,7 @@ const Accounts = () => {
         const errors: { [key: string]: string } = {};
         if (!formValues.name.trim()) errors.name = "Name is required";
         if (!formValues.accountgroupid) errors.accountgroupid = "Account group is required";
+        if (!formValues.mobile) errors.mobile = "Mobile is required";
         // You can add more validation here
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
@@ -292,6 +293,7 @@ const Accounts = () => {
                                 type="text"
                                 value={formValues.mobile}
                                 onChange={(e) => handleFormChange('mobile', e.target.value)}
+                                error={formErrors.mobile}
                                 icon={<FaMobileAlt />} placeholder="Mobile Number"
                             />
 

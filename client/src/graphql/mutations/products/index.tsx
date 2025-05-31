@@ -65,3 +65,9 @@ export const DELETE_PRODUCT = gql`
     deleteProduct(id: $id)
   }
 `;
+
+export const RESET_PRODUCT = gql`
+  mutation ResetProduct($id: ID!) {
+    resetProduct(id: $id)
+  }
+`;

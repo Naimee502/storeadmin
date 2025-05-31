@@ -19,7 +19,7 @@ const Products = () => {
   const { deleteProductMutation } = useProductMutations();
   const productList = data?.getProducts || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-  const { data: unitData } = useUnitsQuery();
+  const { data: unitData, refetch: refetchUnits } = useUnitsQuery();
   const unitList = unitData?.getUnits || [];
 
   useEffect(() => {
@@ -57,7 +57,7 @@ const Products = () => {
     ...product,
     seqNo: index + 1,
     name: product.name,
-    salesunit: matchedUnit?.name || "-", // 👈 Show unit name here
+    salesunit: matchedUnit?.unitname || "-", // 👈 Show unit name here
     status: product.status ? "Active" : "Inactive",
   };
 });
@@ -132,8 +132,8 @@ const Products = () => {
           showView={false}
           showEdit={true}
           showDelete={true}
-          showImport={true}
-          showExport={true}
+          showImport={false}
+          showExport={false}
           showAdd={true}
           onView={() => console.log("View clicked")}
           onEdit={(row) => 
@@ -157,6 +157,7 @@ const Products = () => {
               }
             }
           }}
+          onShowDeleted={() =>navigate("/products/deletedentries")}
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/products/addedit")}

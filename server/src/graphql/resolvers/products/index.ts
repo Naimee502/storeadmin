@@ -48,6 +48,46 @@ export const productResolvers = {
       });
     },
 
+    getDeletedProducts: async (_parent: any, _args: any, context: Context) => {
+      const deletedProducts = await Product.find({ status: false }).lean();
+
+      if (!context.branchid) {
+        return deletedProducts.map((p) => ({
+          id: p._id.toString(),
+          ...p,
+          openingstock: null,
+          openingstockamount: null,
+          currentstock: null,
+          currentstockamount: null,
+          minimumstock: null,
+        }));
+      }
+
+      const productIds = deletedProducts.map((p) => p._id);
+      const stocks = await ProductBranchStock.find({
+        branchid: context.branchid,
+        productid: { $in: productIds },
+      }).lean();
+
+      const stockMap = new Map<string, any>();
+      stocks.forEach((stock) => {
+        stockMap.set(stock.productid.toString(), stock);
+      });
+
+      return deletedProducts.map((p) => {
+        const stock = stockMap.get(p._id.toString());
+        return {
+          id: p._id.toString(),
+          ...p,
+          openingstock: stock?.openingstock ?? null,
+          openingstockamount: stock?.openingstockamount ?? null,
+          currentstock: stock?.currentstock ?? null,
+          currentstockamount: stock?.currentstockamount ?? null,
+          minimumstock: stock?.minimumstock ?? null,
+        };
+      });
+    },
+
     getProduct: async (_parent: any, { id }: { id: string }, context: Context) => {
       const product = await Product.findOne({ _id: id, status: true }).lean();
       if (!product) {
@@ -141,6 +181,11 @@ export const productResolvers = {
 
     deleteProduct: async (_parent: any, { id }: any) => {
       const result = await Product.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+
+    resetProduct: async (_parent: any, { id }: { id: string }) => {
+      const result = await Product.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

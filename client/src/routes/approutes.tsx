@@ -33,6 +33,7 @@ import DeletedModels from "../pages/models/deletedentries";
 import DeletedProductGroups from "../pages/productgroups/deletedentries";
 import DeletedSizes from "../pages/sizes/deletedentries";
 import DeletedUnits from "../pages/units/deletedentries";
+import DeletedProducts from "../pages/products/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -251,6 +252,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Products />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/products/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedProducts />
             </ProtectedRoutes>
           }
         />
