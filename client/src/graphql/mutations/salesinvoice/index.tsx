@@ -63,3 +63,9 @@ export const DELETE_SALES_INVOICE = gql`
     deleteSalesInvoice(id: $id)
   }
 `;
+
+export const RESET_SALES_INVOICE = gql`
+  mutation ResetSalesInvoice($id: ID!) {
+    resetSalesInvoice(id: $id)
+  }
+`;

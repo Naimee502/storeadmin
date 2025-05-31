@@ -6,6 +6,10 @@ export const salesInvoiceResolvers = {
       const invoices = await SalesInvoice.find({ status: true });
       return invoices;
     },
+    getDeletedSalesInvoices: async () => {
+      const deletedInvoices = await SalesInvoice.find({ status: false });
+      return deletedInvoices;
+    },
     getSalesInvoice: async (_: any, { id }: { id: string }) =>
       await SalesInvoice.findById(id),
   },
@@ -30,6 +34,11 @@ export const salesInvoiceResolvers = {
 
     deleteSalesInvoice: async (_: any, { id }: any) => {
       const result = await SalesInvoice.findByIdAndUpdate(id, { status: false }, { new: true });
+      return !!result;
+    },
+
+    resetSalesInvoice: async (_: any, { id }: { id: string }) => {
+      const result = await SalesInvoice.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
   },

@@ -58,6 +58,7 @@ export const salesInvoiceTypeDefs = gql`
 
   type Query {
     getSalesInvoices: [SalesInvoice!]!
+    getDeletedSalesInvoices: [SalesInvoice!]!
     getSalesInvoice(id: ID!): SalesInvoice
   }
 
@@ -66,5 +67,6 @@ export const salesInvoiceTypeDefs = gql`
     addSalesInvoices(inputs: [SalesInvoiceInput!]!): [SalesInvoice!]!
     editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
     deleteSalesInvoice(id: ID!): Boolean!
+    resetSalesInvoice(id: ID!): Boolean!
   }
 `;

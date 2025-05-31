@@ -36,6 +36,7 @@ import DeletedUnits from "../pages/units/deletedentries";
 import DeletedProducts from "../pages/products/deletedentries";
 import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
 import DeletedTransferStocks from "../pages/transferstock/deletedentries";
+import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -302,6 +303,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditSalesInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesinvoice/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedSalesInvoices />
             </ProtectedRoutes>
           }
         />

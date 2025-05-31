@@ -95,6 +95,7 @@ const SalesInvoices = () => {
             }
           }}
           onAdd={() => navigate("/salesinvoice/addedit")}
+          onShowDeleted={() =>navigate("/salesinvoice/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
