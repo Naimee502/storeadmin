@@ -40,7 +40,7 @@ const AddEditPurchaseInvoice = () => {
   );
 
   // Party Accounts (suppliers maybe)
-  const { data: accountData } = useAccountsQuery();
+  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountOptions = accountsList.map((acc: any) => ({
     value: acc.id,
@@ -59,6 +59,12 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch invoice if editing
   const { data } = usePurchaseInvoiceByIDQuery(id || "");
+
+  useEffect(() => {
+        if (accountData?.getAccounts) {
+          accountRefetch();
+        }
+      }, [accountData, refetch]);
 
   useEffect(() => {
     if (!isEdit) {
@@ -211,7 +217,7 @@ const AddEditPurchaseInvoice = () => {
                   options={accountOptions}
                   searchable
                 />
-                <Button type="button" variant="outline" onClick={() => alert("Add Account")}>
+                <Button type="button" variant="outline" onClick={() => navigate('/accounts')}>
                   +
                 </Button>
               </div>
