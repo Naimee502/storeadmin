@@ -2,13 +2,24 @@ import { SalesInvoice } from "../../../models/salesinvoice";
 
 export const salesInvoiceResolvers = {
   Query: {
-    getSalesInvoices: async () => {
-      const invoices = await SalesInvoice.find({ status: true });
-      return invoices;
+   getSalesInvoices: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: true };
+
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+
+      return await SalesInvoice.find(query);
     },
-    getDeletedSalesInvoices: async () => {
-      const deletedInvoices = await SalesInvoice.find({ status: false });
-      return deletedInvoices;
+
+    getDeletedSalesInvoices: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: false };
+
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+
+      return await SalesInvoice.find(query);
     },
     getSalesInvoice: async (_: any, { id }: { id: string }) =>
       await SalesInvoice.findById(id),

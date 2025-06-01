@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_SALES_INVOICES = gql`
-  query GetSalesInvoices {
-    getSalesInvoices {
+  query GetSalesInvoices($branchid: String) {
+    getSalesInvoices(branchid: $branchid) {
       id
       branchid
       paymenttype
@@ -30,8 +30,8 @@ export const GET_SALES_INVOICES = gql`
 `;
 
 export const GET_DELETED_SALES_INVOICES = gql`
-  query GetDeletedSalesInvoices {
-    getDeletedSalesInvoices {
+  query GetDeletedSalesInvoices($branchid: String) {
+    getDeletedSalesInvoices(branchid: $branchid) {
       id
       branchid
       paymenttype

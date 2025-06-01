@@ -26,13 +26,19 @@ export const useSalesInvoiceMutations = () => {
   };
 };
 
-export const useSalesInvoicesQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES);
+export const useSalesInvoicesQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
+    variables: { branchid },
+  });
+
   return { data, loading, error, refetch };
 };
 
-export const useDeletedSalesInvoicesQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_SALES_INVOICES);
+export const useDeletedSalesInvoicesQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_SALES_INVOICES, {
+    variables: { branchid },
+  });
+
   return { data, loading, error, refetch };
 };
 
