@@ -11,6 +11,7 @@ import { showMessage } from "../../redux/slices/message";
 import { useAppDispatch } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
+import { hideLoading, showLoading } from "../../redux/slices/loader";
 
 type FormValues = {
   tobranchid: string;
@@ -92,7 +93,7 @@ const TransferStock = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-
+    dispatch(showLoading());
     const payload = {
       frombranchid: fromBranchId,
       ...formValues,
@@ -110,6 +111,8 @@ const TransferStock = () => {
       resetForm();
     } catch (err) {
       dispatch(showMessage({ message: "Operation failed!", type: "error" }));
+    } finally {
+      dispatch(hideLoading());
     }
   };
 

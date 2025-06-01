@@ -68,6 +68,7 @@ const Categories = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         // Update mutation
@@ -107,6 +108,8 @@ const Categories = () => {
       } else {
         dispatch(showMessage({ message: 'Failed to save category. Please try again.', type: 'error' }));
       }
+    } finally {
+          dispatch(hideLoading());
     }
   };
 

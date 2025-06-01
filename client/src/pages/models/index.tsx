@@ -63,6 +63,7 @@ const Models = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editModelMutation({
@@ -98,6 +99,8 @@ const Models = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save model. Please try again.", type: "error" }));
       }
+    } finally {
+        dispatch(hideLoading());
     }
   };
 

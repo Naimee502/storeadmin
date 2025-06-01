@@ -17,6 +17,7 @@
     "apollo-upload-client": "^18.0.1",
     "chart.js": "^4.4.9",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
     "file-saver": "^2.0.5",
     "graphql": "^16.11.0",
     "number-to-words": "^1.2.4",

@@ -66,6 +66,7 @@ const AccountGroups = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editAccountGroupMutation({
@@ -101,6 +102,8 @@ const AccountGroups = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save account group. Please try again.", type: "error" }));
       }
+    } finally {
+      dispatch(hideLoading());
     }
   };
 

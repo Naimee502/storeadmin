@@ -63,6 +63,7 @@ const Brands = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editBrandMutation({
@@ -98,6 +99,8 @@ const Brands = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save brand. Please try again.", type: "error" }));
       }
+    } finally {
+          dispatch(hideLoading());
     }
   };
 

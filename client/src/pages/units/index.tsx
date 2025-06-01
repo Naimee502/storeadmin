@@ -63,6 +63,7 @@ const Units = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editUnitMutation({
@@ -91,6 +92,8 @@ const Units = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save unit. Please try again.", type: "error" }));
       }
+    } finally {
+        dispatch(hideLoading());
     }
   };
 

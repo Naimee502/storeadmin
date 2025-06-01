@@ -63,6 +63,7 @@ const ProductGroups = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+    dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editProductGroupMutation({
@@ -98,6 +99,8 @@ const ProductGroups = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save product group. Please try again.", type: "error" }));
       }
+    } finally {
+        dispatch(hideLoading());
     }
   };
 

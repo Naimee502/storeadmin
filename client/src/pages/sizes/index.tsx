@@ -63,6 +63,7 @@ const Sizes = () => {
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
+     dispatch(showLoading());
     try {
       if (isEditing && editingId) {
         await editSizeMutation({
@@ -98,6 +99,8 @@ const Sizes = () => {
       } else {
         dispatch(showMessage({ message: "Failed to save size. Please try again.", type: "error" }));
       }
+    } finally {
+        dispatch(hideLoading());
     }
   };
 

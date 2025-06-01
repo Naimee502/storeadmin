@@ -49,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({
       {/* Dropdown Menu */}
       <div className="ml-auto relative space-x-3">
         {/* Admin Branch Selector */}
-        {!isAdmin && (
+        {/* {!isAdmin && (
           <select
             className="ml-4 text-white bg-[#2c3e50] border border-white rounded px-6 py-1 text-sm sm:text-base focus:outline-none hover:border-2"
             value={selectedBranchId}
@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({
               </option>
             ))}
           </select>
-        )}
+        )} */}
         <Menu as="div" className="relative inline-block text-left">
           <Menu.Button className="flex items-center px-3 py-2 text-black hover:bg-gray-700 rounded-md">
             <FaChevronDown className="mr-1" />
