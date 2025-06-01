@@ -2,15 +2,17 @@ import mongoose from 'mongoose';
 
 const salesmenAccountSchema = new mongoose.Schema(
   {
+    branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
     salesmancode: { type: String, unique: true },
     name: { type: String, required: true },
     mobile: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     profilepicture: { type: String },
+    productimageurl: { type: String },
     address: { type: String },
     commission: { type: String },
-    status: Boolean,
+    status: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

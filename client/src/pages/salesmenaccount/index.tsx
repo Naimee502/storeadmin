@@ -19,11 +19,13 @@ import { FaEnvelope, FaMobileAlt, FaUser, FaHome, FaPercent } from "react-icons/
 import { useImageUpload } from "../../graphql/hooks/uploads";
 
 type FormValues = {
+    branchid: string;
     name: string;
     mobile: string;
     email: string;
     password: string;
     profilepicture: string;
+    productimageurl: string;
     address: string;
     commission: string;
     status: boolean;
@@ -35,7 +37,8 @@ const SalesmenAccount = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch salesmen data
-    const { data, refetch } = useSalesmenQuery();
+    const branchid = localStorage.getItem("branchid") || "";
+    const { data, refetch } = useSalesmenQuery(branchid);
     const { addSalesmanMutation, editSalesmanMutation, deleteSalesmanMutation } = useSalesmanMutations();
     const salesmenList = data?.getSalesmenAccounts || [];
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -44,11 +47,13 @@ const SalesmenAccount = () => {
     const isLoading = useAppSelector((state) => state.loader.isLoading);
 
     const [formValues, setFormValues] = useState<FormValues>({
+        branchid:"",
         name: "",
         mobile: "",
         email: "",
         password: "",
         profilepicture: "",
+        productimageurl: "",
         address: "",
         commission: "",
         status: true,
@@ -76,11 +81,13 @@ const SalesmenAccount = () => {
     const handleEdit = (row: any) => {
         console.log("Editing row:", JSON.stringify(row));
         setFormValues({
+            branchid:row.branchid || "",
             name: row.name || "",
             mobile: row.mobile || "",
             email: row.email || "",
             password: row.password || "",
             profilepicture: row.profilepicture || "",
+            productimageurl: row.productimageurl || "",
             address: row.address || "",
             commission: row.commission || "",
             status: !!row.status,
@@ -94,7 +101,7 @@ const SalesmenAccount = () => {
         const fetchAndDispatch = async () => {
             dispatch(showLoading());
             try {
-                const { data } = await refetch();
+                refetch();
                 if (data?.getSalesmen) {
                     dispatch(addSalesmen(data.getSalesmen));
                 }
@@ -119,7 +126,6 @@ const SalesmenAccount = () => {
             });
 
             const uniqueUrl = data?.uploadImage?.url;
- 
             setSelectedFile(null);
             return uniqueUrl || null;
         } catch (err) {
@@ -131,6 +137,8 @@ const SalesmenAccount = () => {
     const handleFormSubmit = async () => {
         if (!validateForm()) return;
 
+        dispatch(showLoading());
+
         let uploadedUrl = formValues.profilepicture;
 
         if (selectedFile) {
@@ -140,11 +148,13 @@ const SalesmenAccount = () => {
 
         try {
             const payload = {
+            branchid: branchid,
             name: formValues.name,
             mobile: formValues.mobile,
             email: formValues.email,
             password: formValues.password || undefined,
-            profilepicture: uploadedUrl,
+            profilepicture: formValues.profilepicture,
+            productimageurl: uploadedUrl,
             address: formValues.address,
             commission: formValues.commission,
             status: Boolean(formValues.status),
@@ -164,11 +174,13 @@ const SalesmenAccount = () => {
 
             await refetch();
             setFormValues({
+            branchid:'',
             name: "",
             mobile: "",
             email: "",
             password: "",
             profilepicture: "",
+            productimageurl:"",
             address: "",
             commission: "",
             status: true,
@@ -179,6 +191,8 @@ const SalesmenAccount = () => {
         } catch (error: any) {
             console.error("Error saving salesman:", error);
             dispatch(showMessage({ message: "Failed to save salesman. Please try again.", type: "error" }));
+        } finally {
+            dispatch(hideLoading());
         }
     };
 
@@ -322,12 +336,16 @@ const SalesmenAccount = () => {
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
                                     setSelectedFile(file);
+                                    setFormValues((prev) => ({
+                                    ...prev,
+                                    profilepicture: file.name,
+                                    }));
                                 }}
                                 previewUrl={
                                 selectedFile
                                     ? URL.createObjectURL(selectedFile)
-                                    : formValues.profilepicture
-                                    ? formValues.profilepicture
+                                    : formValues.productimageurl
+                                    ? formValues.productimageurl
                                     : ""
                                 }
                             />
@@ -405,6 +423,7 @@ const SalesmenAccount = () => {
                     onShowDeleted={() =>navigate("/salesmenaccount/deletedentries")}
                     onImport={handleImportClick}
                     onExport={handleExport}
+                    isLoading={isLoading}
                 />
             </div>
         </HomeLayout>

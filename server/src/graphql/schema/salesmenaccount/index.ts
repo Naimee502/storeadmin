@@ -1,34 +1,37 @@
-// server/src/graphql/typeDefs/salesmenAccountTypeDefs.ts
 import { gql } from 'apollo-server-express';
 
 export const salesmenAccountTypeDefs = gql`
   type SalesmenAccount {
     id: ID!
+    branchid: ID!         
     salesmancode: String
     name: String!
     mobile: String!
     email: String!
     password: String!
     profilepicture: String!
+    productimageurl: String!
     address: String!
     commission: String!
     status: Boolean!
   }
 
   input SalesmenAccountInput {
+    branchid: ID!         
     name: String!
     mobile: String!
     email: String!
     password: String!
     profilepicture: String!
+    productimageurl: String!
     address: String!
     commission: String!
     status: Boolean!
   }
 
   type Query {
-    getSalesmenAccounts: [SalesmenAccount!]!
-    getDeletedSalesmenAccounts: [SalesmenAccount!]!
+    getSalesmenAccounts(branchid: ID): [SalesmenAccount!]!
+    getDeletedSalesmenAccounts(branchid: ID): [SalesmenAccount!]!
     getSalesmanAccountById(id: ID!): SalesmenAccount
   }
 

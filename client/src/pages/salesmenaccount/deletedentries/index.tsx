@@ -12,7 +12,8 @@ import { useEffect } from "react";
 const DeletedSalesmenAccounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { data, refetch } = useDeletedSalesmenQuery();
+  const branchid = localStorage.getItem("branchid") || "";
+  const { data, refetch } = useDeletedSalesmenQuery(branchid);
   const { resetSalesmanMutation } = useSalesmanMutations();
   const salesmenList = data?.getDeletedSalesmenAccounts || [];
 

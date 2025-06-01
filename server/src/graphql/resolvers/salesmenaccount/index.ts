@@ -2,13 +2,20 @@ import { SalesmenAccount } from "../../../models/salesmenaccount";
 
 export const salesmenAccountResolvers = {
   Query: {
-    getSalesmenAccounts: async () => {
-      const accounts = await SalesmenAccount.find({ status: true });
-      return accounts;
+    getSalesmenAccounts: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: true };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await SalesmenAccount.find(query);
     },
-    getDeletedSalesmenAccounts: async () => {
-      const deletedAccounts = await SalesmenAccount.find({ status: false });
-      return deletedAccounts;
+
+    getDeletedSalesmenAccounts: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: false };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await SalesmenAccount.find(query);
     },
     getSalesmanAccountById: async (_: any, { id }: { id: string }) => {
       return await SalesmenAccount.findById(id);

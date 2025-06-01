@@ -22,17 +22,21 @@ export const useSalesmanMutations = () => {
     addSalesmanMutation,
     editSalesmanMutation,
     deleteSalesmanMutation,
-    resetSalesmanMutation, // ✅ new mutation
+    resetSalesmanMutation,
   };
 };
 
-export const useSalesmenQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_SALESMEN);
+export const useSalesmenQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_SALESMEN, {
+    variables: { branchid },
+  });
   return { data, loading, error, refetch };
 };
 
-export const useDeletedSalesmenQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_SALESMEN);
+export const useDeletedSalesmenQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_SALESMEN, {
+    variables: { branchid },
+  });
   return { data, loading, error, refetch };
 };
 
@@ -43,4 +47,3 @@ export const useSalesmanByIDQuery = (id: string) => {
   });
   return { data, loading, error };
 };
-
