@@ -17,7 +17,8 @@ const DeletedAccounts = () => {
   const dispatch = useAppDispatch();
 
   // Fetch deleted accounts
-  const { data, refetch } = useDeletedAccountsQuery();
+    const branchid = localStorage.getItem("branchid") || "";
+  const { data, refetch } = useDeletedAccountsQuery(branchid);
   // Fetch account groups for displaying name instead of ID
   const { data: accountGroupsData } = useAccountGroupsQuery();
   const { resetAccountMutation } = useAccountMutations();

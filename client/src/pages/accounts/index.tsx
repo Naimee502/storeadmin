@@ -26,7 +26,8 @@ const Accounts = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch accounts data
-    const { data, refetch } = useAccountsQuery();
+    const branchid = localStorage.getItem("branchid") || "";
+    const { data, refetch } = useAccountsQuery(branchid);
     // Fetch account groups for dropdown
     const { data: accountGroupsData } = useAccountGroupsQuery();
 
@@ -38,6 +39,7 @@ const Accounts = () => {
 
     // Form state including accountgroupid for dropdown selection
     const [formValues, setFormValues] = useState({
+        branchid: "",
         name: "",
         accountgroupid: "",   // dropdown value
         mobile: "",
@@ -63,6 +65,7 @@ const Accounts = () => {
         if (!formValues.name.trim()) errors.name = "Name is required";
         if (!formValues.accountgroupid) errors.accountgroupid = "Account group is required";
         if (!formValues.mobile) errors.mobile = "Mobile is required";
+         if (!formValues.email) errors.email = "Email is required";
         // You can add more validation here
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
@@ -71,6 +74,7 @@ const Accounts = () => {
     // Populate form for editing
     const handleEdit = (row: any) => {
         setFormValues({
+            branchid: row.name,
             name: row.name,
             accountgroupid: row.accountgroupid,
             mobile: row.mobile || "",
@@ -106,12 +110,14 @@ const Accounts = () => {
     // Handle add or edit submit
     const handleFormSubmit = async () => {
         if (!validateForm()) return;
+        dispatch(showLoading());
         try {
             if (isEditing && editingId) {
                 await editAccountMutation({
                     variables: {
                         id: editingId,
                         input: {
+                            branchid: branchid,
                             name: formValues.name,
                             accountgroupid: formValues.accountgroupid,
                             mobile: formValues.mobile,
@@ -128,6 +134,7 @@ const Accounts = () => {
                 await addAccountMutation({
                     variables: {
                         input: {
+                            branchid: branchid,
                             name: formValues.name,
                             accountgroupid: formValues.accountgroupid,
                             mobile: formValues.mobile,
@@ -144,6 +151,7 @@ const Accounts = () => {
 
             await refetch();
             setFormValues({
+                branchid: "",
                 name: "",
                 accountgroupid: "",
                 mobile: "",
@@ -158,6 +166,8 @@ const Accounts = () => {
         } catch (error: any) {
             console.error("Error saving account:", error);
             dispatch(showMessage({ message: "Failed to save account. Please try again.", type: "error" }));
+        } finally {
+            dispatch(hideLoading());
         }
     };
 
@@ -303,6 +313,7 @@ const Accounts = () => {
                                 type="email"
                                 value={formValues.email}
                                 onChange={(e) => handleFormChange('email', e.target.value)}
+                                error={formErrors.email}
                                 icon={<FaEnvelope />} placeholder="Email"
                             />
 
@@ -379,6 +390,7 @@ const Accounts = () => {
                     onShowDeleted={() =>navigate("/accounts/deletedentries")}
                     onImport={handleImportClick}
                     onExport={handleExport}
+                    isLoading={isLoading}
                 />
             </div>
         </HomeLayout>

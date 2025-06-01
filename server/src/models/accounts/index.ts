@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const accountSchema = new mongoose.Schema(
   {
+    branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
     accountcode: { type: String, unique: true },
     name: { type: String, required: true },
     accountgroupid: { type: String, required: true },

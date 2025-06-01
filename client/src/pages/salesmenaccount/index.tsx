@@ -188,7 +188,9 @@ const SalesmenAccount = () => {
             setSelectedFile(null);
             setIsEditing(false);
             setEditingId(null);
+            dispatch(hideLoading);
         } catch (error: any) {
+            dispatch(hideLoading);
             console.error("Error saving salesman:", error);
             dispatch(showMessage({ message: "Failed to save salesman. Please try again.", type: "error" }));
         } finally {

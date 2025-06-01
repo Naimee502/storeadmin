@@ -11,7 +11,6 @@ import {
   GET_DELETED_ACCOUNTS,
 } from '../../queries/accounts';
 
-// ✅ Mutations: Add, Edit, Delete, Reset
 export const useAccountMutations = () => {
   const [addAccountMutation] = useMutation(ADD_ACCOUNT);
   const [editAccountMutation] = useMutation(EDIT_ACCOUNT);
@@ -26,9 +25,10 @@ export const useAccountMutations = () => {
   };
 };
 
-// ✅ Active accounts query
-export const useAccountsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS);
+export const useAccountsQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS, {
+    variables: { branchid },
+  });
 
   return {
     data,
@@ -38,9 +38,10 @@ export const useAccountsQuery = () => {
   };
 };
 
-// ✅ Deleted accounts query
-export const useDeletedAccountsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTS);
+export const useDeletedAccountsQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTS, {
+    variables: { branchid },
+  });
 
   return {
     data,
@@ -50,7 +51,6 @@ export const useDeletedAccountsQuery = () => {
   };
 };
 
-// ✅ Single account by ID
 export const useAccountByIDQuery = (id: string) => {
   const { data, loading, error } = useQuery(GET_ACCOUNT_BY_ID, {
     variables: { id },

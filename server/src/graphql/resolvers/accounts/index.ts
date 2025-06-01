@@ -2,11 +2,19 @@ import { Account } from "../../../models/accounts";
 
 export const accountResolvers = {
   Query: {
-    getAccounts: async () => {
-      return await Account.find({ status: true });
+    getAccounts: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: true };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await Account.find(query);
     },
-    getDeletedAccounts: async () => {
-      return await Account.find({ status: false });
+    getDeletedAccounts: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: false };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await Account.find(query);
     },
     getAccountById: async (_: any, { id }: { id: string }) => {
       return await Account.findById(id);

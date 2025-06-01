@@ -12,6 +12,7 @@ export const accountTypeDefs = gql`
     city: String
     pincode: String
     status: Boolean!
+    branchid: String
   }
 
   input AccountInput {
@@ -23,11 +24,12 @@ export const accountTypeDefs = gql`
     city: String
     pincode: String
     status: Boolean!
+    branchid: String
   }
 
   type Query {
-    getAccounts: [Account!]!
-    getDeletedAccounts: [Account!]!
+    getAccounts(branchid: String): [Account!]!
+    getDeletedAccounts(branchid: String): [Account!]!
     getAccountById(id: ID!): Account
   }
 
@@ -35,6 +37,6 @@ export const accountTypeDefs = gql`
     addAccount(input: AccountInput!): Account!
     editAccount(id: ID!, input: AccountInput!): Account!
     deleteAccount(id: ID!): Boolean!
-    resetAccount(id: ID!): Boolean!   
+    resetAccount(id: ID!): Boolean!
   }
 `;

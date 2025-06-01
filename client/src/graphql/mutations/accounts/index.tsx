@@ -13,6 +13,7 @@ export const ADD_ACCOUNT = gql`
       city
       pincode
       status
+      branchid
     }
   }
 `;
@@ -29,6 +30,7 @@ export const EDIT_ACCOUNT = gql`
       city
       pincode
       status
+      branchid
     }
   }
 `;
