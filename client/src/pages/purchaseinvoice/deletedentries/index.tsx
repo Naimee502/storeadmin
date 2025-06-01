@@ -13,12 +13,12 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 const DeletedPurchaseInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-
-  const { data, refetch } = useDeletedPurchaseInvoicesQuery();
+  const branchid = localStorage.getItem("branchid") || "";
+  const { data, refetch } = useDeletedPurchaseInvoicesQuery(branchid);
   const { resetPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
 
   const invoiceList = data?.getDeletedPurchaseInvoices || [];
-
+  
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));

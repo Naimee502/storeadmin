@@ -57,8 +57,8 @@ export const purchaseInvoiceTypeDefs = gql`
   }
 
   type Query {
-    getPurchaseInvoices: [PurchaseInvoice!]!
-    getDeletedPurchaseInvoices: [PurchaseInvoice!]!
+    getPurchaseInvoices(branchid: String): [PurchaseInvoice!]!
+    getDeletedPurchaseInvoices(branchid: String): [PurchaseInvoice!]!
     getPurchaseInvoice(id: ID!): PurchaseInvoice
   }
 

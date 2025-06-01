@@ -2,12 +2,19 @@ import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 
 export const purchaseInvoiceResolvers = {
   Query: {
-    getPurchaseInvoices: async () => {
-      const invoices = await PurchaseInvoice.find({ status: true });
-      return invoices;
+     getPurchaseInvoices: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: true };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await PurchaseInvoice.find(query);
     },
-    getDeletedPurchaseInvoices: async () => {
-      return await PurchaseInvoice.find({ status: false });
+    getDeletedPurchaseInvoices: async (_: any, args: { branchid?: string }) => {
+      const query: any = { status: false };
+      if (args.branchid) {
+        query.branchid = args.branchid;
+      }
+      return await PurchaseInvoice.find(query);
     },
     getPurchaseInvoice: async (_: any, { id }: { id: string }) =>
       await PurchaseInvoice.findById(id),

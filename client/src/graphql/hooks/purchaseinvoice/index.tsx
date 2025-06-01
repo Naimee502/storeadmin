@@ -25,13 +25,19 @@ export const usePurchaseInvoiceMutations = () => {
   };
 };
 
-export const usePurchaseInvoicesQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES);
+export const usePurchaseInvoicesQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES, {
+    variables: { branchid },
+  });
+
   return { data, loading, error, refetch };
 };
 
-export const useDeletedPurchaseInvoicesQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_PURCHASE_INVOICES);
+export const useDeletedPurchaseInvoicesQuery = (branchid?: string) => {
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_PURCHASE_INVOICES, {
+    variables: { branchid },
+  });
+
   return { data, loading, error, refetch };
 };
 
