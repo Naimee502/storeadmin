@@ -67,9 +67,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         const scannedBarcode = buffer.trim();
-
+        console.log(scannedBarcode)
+        console.log("🔍 Barcode detected:", JSON.stringify(productsList));
         if (scannedBarcode.length > 0) {
           const matchedProduct = productsList.find((p) => p.barcode === scannedBarcode);
+         
           if (matchedProduct) {
             setCurrentProduct((prev) => ({
               ...prev,
@@ -158,6 +160,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormField
+          key={currentProduct.productid || "product"}
           label="Product"
           name="productid"
           type="select"
@@ -166,6 +169,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           options={productsList.map((p) => ({ value: p.id, label: p.name }))}
           searchable
         />
+        
 
         <FormField
           label="Quantity"

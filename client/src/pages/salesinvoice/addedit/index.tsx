@@ -54,7 +54,8 @@ const AddEditSalesInvoice = () => {
     return (productData?.getProducts || []).map((product: any) => ({
       id: product.id,
       name: `${product.name} - ${product.currentstock}`,
-      currentstock: product.currentstock
+      currentstock: product.currentstock,
+      barcode: product.barcode
     }));
   }, [productData?.getProducts]);
 
