@@ -11,7 +11,6 @@ const httpLink = createUploadLink({
 // Set custom header
 const authLink = setContext((_, { headers }) => {
   const branchid = localStorage.getItem('branchid');
-  console.log('Sending x-branch-id in header:', branchid);
   return {
     headers: {
       ...headers,

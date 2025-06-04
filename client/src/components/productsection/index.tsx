@@ -16,6 +16,7 @@ type ProductOption = {
   id: string;
   name: string;
   currentstock: number;
+  barcode?: string;
 };
 
 type ProductSectionProps = {
@@ -57,6 +58,50 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         : value,
     }));
   };
+
+  // Fixed barcode scanning effect
+ useEffect(() => {
+    let buffer = "";
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        const scannedBarcode = buffer.trim();
+
+        if (scannedBarcode.length > 0) {
+          const matchedProduct = productsList.find((p) => p.barcode === scannedBarcode);
+          if (matchedProduct) {
+            setCurrentProduct((prev) => ({
+              ...prev,
+              productid: matchedProduct.id,
+            }));
+          }
+        }
+
+        buffer = "";
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      } else if (e.key.length === 1) {
+        // Add single character keys to buffer
+        buffer += e.key;
+
+        // Reset buffer if no keys pressed within 100ms
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          buffer = "";
+          timer = null;
+        }, 100);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (timer) clearTimeout(timer);
+    };
+  }, [productsList]);
 
   const calculateLineTotal = () => {
     const qty = currentProduct.quantity || 0;
