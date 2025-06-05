@@ -11,6 +11,7 @@ export interface InvoiceProduct {
 export interface SalesInvoice {
   id: string;
   branchid: string;
+  salesmenid: string;
   paymenttype: string;
   partyacc: string;
   taxorsupplytype: string;

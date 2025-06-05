@@ -18,6 +18,7 @@ import { useUnitsQuery } from "../../../graphql/hooks/units";
 import BarcodeImage from "../../../components/barcode";
 
 type FormData = {
+  branchid:string;
   name: string;
   productimage: string;
   productimageurl: string;
@@ -49,7 +50,7 @@ const AddEditProduct = () => {
     const isEdit = Boolean(id);
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-
+    const branchId = localStorage.getItem("branchid") || "";
     const { data } = useProductByIDQuery(id || "");
     const { addProductMutation, editProductMutation } = useProductMutations();
 
@@ -61,6 +62,7 @@ const AddEditProduct = () => {
     const { data: unitData } = useUnitsQuery();
 
     const [formData, setFormData] = useState<FormData>({
+        branchid: branchId,
         name: "",
         productimage: "",
         productimageurl: "",
@@ -91,6 +93,7 @@ const AddEditProduct = () => {
         if (isEdit && data?.getProduct) {
             const p = data.getProduct;
             setFormData({
+                branchid:branchId,
                 name: p.name || "",
                 productimage: p.productimage || "",
                 productimageurl: p.productimageurl || "",

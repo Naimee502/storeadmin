@@ -4,6 +4,7 @@ export const GET_PRODUCTS = gql`
   query GetProducts {
     getProducts {
       id
+      branchid
       name
       barcode
       productcode
@@ -34,6 +35,7 @@ export const GET_DELETED_PRODUCTS = gql`
   query GetDeletedProducts {
     getDeletedProducts {
       id
+      branchid
       name
       barcode
       productcode

@@ -6,6 +6,7 @@ export const ADD_PRODUCT = gql`
   mutation AddProduct($input: ProductInput!) {
     addProduct(input: $input) {
       id
+      branchid
       name
       productimage
       productimageurl
@@ -35,6 +36,7 @@ export const EDIT_PRODUCT = gql`
   mutation EditProduct($id: ID!, $input: ProductInput!) {
     editProduct(id: $id, input: $input) {
       id
+      branchid
       name
       productimage
       productimageurl

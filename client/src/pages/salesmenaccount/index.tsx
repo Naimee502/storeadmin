@@ -15,7 +15,7 @@ import { addSalesmen } from "../../redux/slices/salesmenaccount"; // salesmen re
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import FormSwitch from "../../components/formswitch";
-import { FaEnvelope, FaMobileAlt, FaUser, FaHome, FaPercent } from "react-icons/fa";
+import { FaEnvelope, FaMobileAlt, FaUser, FaHome, FaPercent, FaBullseye } from "react-icons/fa";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 
 type FormValues = {
@@ -28,6 +28,7 @@ type FormValues = {
     productimageurl: string;
     address: string;
     commission: string;
+    target: string;
     status: boolean;
 };
 
@@ -56,6 +57,7 @@ const SalesmenAccount = () => {
         productimageurl: "",
         address: "",
         commission: "",
+        target: "",
         status: true,
     });
 
@@ -63,7 +65,7 @@ const SalesmenAccount = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const handleFormChange = (name: string, value: string | boolean) => {
+    const handleFormChange = (name: string, value: string | number | boolean) => {
         setFormValues((prev) => ({ ...prev, [name]: value }));
     };
 
@@ -90,6 +92,7 @@ const SalesmenAccount = () => {
             productimageurl: row.productimageurl || "",
             address: row.address || "",
             commission: row.commission || "",
+            target: row.target || "",
             status: !!row.status,
         });
         setIsEditing(true);
@@ -157,6 +160,7 @@ const SalesmenAccount = () => {
             productimageurl: uploadedUrl,
             address: formValues.address,
             commission: formValues.commission,
+            target: formValues.target,
             status: Boolean(formValues.status),
             };
 
@@ -183,6 +187,7 @@ const SalesmenAccount = () => {
             productimageurl:"",
             address: "",
             commission: "",
+            target: "",
             status: true,
             });
             setSelectedFile(null);
@@ -370,7 +375,18 @@ const SalesmenAccount = () => {
                                 onChange={(e) => handleFormChange('commission', e.target.value)}
                                 icon={<FaPercent />}
                                  error={formErrors.commission}
-                                placeholder="Enter commission %"
+                                placeholder="Enter commission"
+                            />
+
+                            <FormField
+                                label="Target Amount"
+                                name="target"
+                                type="number"
+                                value={formValues.target}
+                                onChange={(e) => handleFormChange('target', e.target.value)}
+                                icon={<FaBullseye />} 
+                                error={formErrors.target}
+                                placeholder="Enter target amount"
                             />
 
                             <div className="flex items-center max-w-full space-x-4 mt-4">

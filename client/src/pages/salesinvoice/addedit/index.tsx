@@ -11,6 +11,7 @@ import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../gra
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
+import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -24,9 +25,16 @@ const AddEditSalesInvoice = () => {
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState("");
   const [taxOrSupplyType, setTaxOrSupplyType] = useState("");
-  const [billDate, setBillDate] = useState("2025-05-30");
+  const [billDate, setBillDate] = useState(() => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+  });
   const [billType, setBillType] = useState("");
   const [billNumber, setBillNumber] = useState("000001");
+  const [salesmenAccount, setSalesmenAccount] = useState("");
   const [notes, setNotes] = useState("");
   const [invoiceType, setInvoiceType] = useState("");
   const [products, setProducts] = useState<InvoiceProduct[]>([]);
@@ -46,6 +54,12 @@ const AddEditSalesInvoice = () => {
   const accountOptions = accountsList.map((acc: any) => ({
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
+  }));
+   const { data: salesmenAccountData, refetch: salesmenAccountRefetch } = useSalesmenQuery(branchId);
+   const salesmenList = salesmenAccountData?.getSalesmenAccounts || [];
+   const salesmendAccountOptions = salesmenList.map((salesmenacc: any) => ({
+    value: salesmenacc.id,
+    label: `${salesmenacc.name} - ${salesmenacc.mobile}`,
   }));
 
   // Product List
@@ -84,6 +98,7 @@ const AddEditSalesInvoice = () => {
     const invoice = data.getSalesInvoice;
 
     // Set all main invoice fields
+    setSalesmenAccount(invoice.salesmenid || "");
     setPaymentType(invoice.paymenttype || "");
     setPartyAccount(invoice.partyacc || "");
     setTaxOrSupplyType(invoice.taxorsupplytype || "");
@@ -140,6 +155,7 @@ const AddEditSalesInvoice = () => {
 
     const input = {
       branchid: branchId,
+      salesmenid: salesmenAccount,
       paymenttype: paymentType,
       partyacc: partyAccount,
       taxorsupplytype: taxOrSupplyType,
@@ -267,6 +283,20 @@ const AddEditSalesInvoice = () => {
                   { value: "other", label: "Other" },
                 ]}
               />
+              <div className="flex items-end gap-2">
+                <FormField
+                  label="Salesmen Account (Name - Mobile)"
+                  name="salesmenAccount"
+                  type="select"
+                  value={salesmenAccount}
+                  onChange={(e) => setSalesmenAccount(e.target.value)}
+                  options={salesmendAccountOptions}
+                  searchable
+                />
+                <Button type="button" variant="outline" onClick={() => navigate('/salesmenaccount')}>
+                  +
+                </Button>
+              </div>
               <FormField
                 label="Notes"
                 name="notes"

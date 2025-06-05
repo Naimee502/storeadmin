@@ -13,6 +13,7 @@ export const ADD_SALESMAN = gql`
       productimageurl
       address
       commission
+      target
       status
     }
   }
@@ -31,6 +32,7 @@ export const EDIT_SALESMAN = gql`
       productimageurl
       address
       commission
+      target
       status
     }
   }

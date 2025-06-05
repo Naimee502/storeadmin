@@ -5,6 +5,7 @@ export const ADD_SALES_INVOICE = gql`
     addSalesInvoice(input: $input) {
       id
       branchid
+      salesmenid
       paymenttype
       partyacc
       taxorsupplytype
@@ -34,6 +35,7 @@ export const EDIT_SALES_INVOICE = gql`
     editSalesInvoice(id: $id, input: $input) {
       id
       branchid
+      salesmenid
       paymenttype
       partyacc
       taxorsupplytype

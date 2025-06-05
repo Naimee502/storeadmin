@@ -5,6 +5,7 @@ export const GET_SALES_INVOICES = gql`
     getSalesInvoices(branchid: $branchid) {
       id
       branchid
+      salesmenid
       paymenttype
       partyacc
       taxorsupplytype
@@ -34,6 +35,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
     getDeletedSalesInvoices(branchid: $branchid) {
       id
       branchid
+      salesmenid
       paymenttype
       partyacc
       taxorsupplytype
@@ -63,6 +65,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
     getSalesInvoice(id: $id) {
       id
       branchid
+      salesmenid
       paymenttype
       partyacc
       taxorsupplytype

@@ -58,7 +58,7 @@ const TransferStock = () => {
     tobranchid: "",
     productid: "",
     transferqty: undefined,
-    transferdate: "",
+    transferdate: new Date().toISOString().slice(0, 10),
     status: true,
   });
 
@@ -126,10 +126,6 @@ const TransferStock = () => {
     });
     setIsEditing(true);
     setEditingId(row.id);
-  };
-
-  const handleDelete = async (row: TransferStockRow) => {
-
   };
 
   const resetForm = () => {

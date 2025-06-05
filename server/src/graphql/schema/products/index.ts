@@ -3,6 +3,7 @@ import { gql } from 'apollo-server-express';
 export const productTypeDefs = gql`
   type Product {
     id: ID!
+    branchid: ID!
     productcode: String!          
     name: String!
     barcode: String!               
@@ -31,6 +32,7 @@ export const productTypeDefs = gql`
   }
 
   input ProductInput {
+    branchid: ID!
     name: String!
     productimage: String
     productimageurl: String

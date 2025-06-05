@@ -12,6 +12,7 @@ const salesmenAccountSchema = new mongoose.Schema(
     productimageurl: { type: String },
     address: { type: String },
     commission: { type: String },
+    target: { type: String },
     status: { type: Boolean, default: true },
   },
   { timestamps: true }

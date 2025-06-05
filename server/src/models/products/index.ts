@@ -3,6 +3,7 @@ import { Branch } from '../branches';
 import { ProductBranchStock } from '../productbranchstock';
 
 const productSchema = new mongoose.Schema({
+   branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   productcode: { type: String, unique: true },
   name: { type: String, required: true },
   barcode: { type: String, unique: true, sparse: true },
@@ -72,15 +73,19 @@ productSchema.post('save', async function (doc, next) {
   try {
     const branches = await Branch.find({ status: true });
 
-    const stockEntries = branches.map(branch => ({
-      productid: doc._id,
-      branchid: branch._id,
-      openingstock: doc.openingstock,
-      openingstockamount: doc.openingstockamount,
-      currentstock: doc.currentstock,
-      currentstockamount: doc.currentstockamount,
-      minimumstock: doc.minimumstock
-    }));
+    const stockEntries = branches.map(branch => {
+      const isCurrentBranch = branch._id.toString() === doc.branchid?.toString();
+
+      return {
+        productid: doc._id,
+        branchid: branch._id,
+        openingstock: isCurrentBranch ? doc.openingstock : 0,
+        openingstockamount: isCurrentBranch ? doc.openingstockamount : 0,
+        currentstock: isCurrentBranch ? doc.currentstock : 0,
+        currentstockamount: isCurrentBranch ? doc.currentstockamount : 0,
+        minimumstock: doc.minimumstock ?? 0
+      };
+    });
 
     await ProductBranchStock.insertMany(stockEntries);
   } catch (err) {

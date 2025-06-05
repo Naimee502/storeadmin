@@ -22,6 +22,7 @@ export const salesInvoiceTypeDefs = gql`
   type SalesInvoice {
     id: ID!
     branchid: ID!
+    salesmenid: ID!
     paymenttype: String!
     partyacc: String!
     taxorsupplytype: String!
@@ -40,6 +41,7 @@ export const salesInvoiceTypeDefs = gql`
 
   input SalesInvoiceInput {
     branchid: ID!
+    salesmenid: ID!
     paymenttype: String!
     partyacc: String!
     taxorsupplytype: String!

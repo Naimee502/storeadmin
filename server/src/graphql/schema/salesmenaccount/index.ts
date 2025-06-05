@@ -13,6 +13,7 @@ export const salesmenAccountTypeDefs = gql`
     productimageurl: String!
     address: String!
     commission: String!
+    target: String!
     status: Boolean!
   }
 
@@ -26,6 +27,7 @@ export const salesmenAccountTypeDefs = gql`
     productimageurl: String!
     address: String!
     commission: String!
+    target: String!
     status: Boolean!
   }
 

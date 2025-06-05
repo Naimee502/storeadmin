@@ -15,6 +15,7 @@ export const GET_SALESMEN = gql`
       productimageurl
       address
       commission
+      target
       status
     }
   }
@@ -34,6 +35,7 @@ export const GET_DELETED_SALESMEN = gql`
       productimageurl
       address
       commission
+      target
       status
     }
   }
@@ -53,6 +55,7 @@ export const GET_SALESMAN_BY_ID = gql`
       productimageurl
       address
       commission
+      target
       status
     }
   }

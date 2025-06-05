@@ -10,6 +10,7 @@ export interface Salesman {
   profilepicture: string;
   address: string;
   commission: string;
+  target: string;
   status: boolean;
 }
 

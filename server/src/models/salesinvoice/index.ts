@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { ProductBranchStock } from '../productbranchstock';
 
 const salesInvoiceSchema = new mongoose.Schema({
+  salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesmenAccount', required: true },
   paymenttype: { type: String, required: true },
   partyacc: { type: String, required: true },
   taxorsupplytype: { type: String, required: true },
