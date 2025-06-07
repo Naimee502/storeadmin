@@ -47,13 +47,13 @@ export interface SalesInvoice {
   billdate: string;
   products: SalesInvoiceProduct[];
   totalamount?: number;
-  salesmanid?: string;
+  salesmenid?: string;
 }
 
 export interface Product {
   id: string;
   productname: string;
-  category?: string;
+  categoryid?: string;
   openingstock?: number;
 }
 

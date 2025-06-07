@@ -50,25 +50,6 @@ const Home: React.FC = () => {
   const { data: salesInvoiceData } = useSalesInvoicesQuery(type === "branch" ? branchId : undefined);
   const { data: transferStockData } = useTransferStocksQuery();
 
-  const categoryList = categoryData?.getCategories || [];
-  const productList = productData?.getProducts || [];
-
-  useEffect(() => {
-    console.log("Customer Data:", JSON.stringify(customerData, null, 2));
-    console.log("Category Data:", JSON.stringify(categoryList, null, 2));
-    console.log("Salesmen Data:", JSON.stringify(salesmenData, null, 2));
-    console.log("Product Data:", JSON.stringify(productList, null, 2));
-    console.log("Sales Invoice Data:", JSON.stringify(salesInvoiceData, null, 2));
-    console.log("Transfer Stock Data:", JSON.stringify(transferStockData, null, 2));
-  }, [
-    customerData,
-    categoryList,
-    salesmenData,
-    productList,
-    salesInvoiceData,
-    transferStockData,
-  ]);
-
   return (
     <HomeLayout>
       <div className="p-6 space-y-6">

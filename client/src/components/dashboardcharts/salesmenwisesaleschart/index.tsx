@@ -1,5 +1,3 @@
-// components/dashboardcharts/salesmenwisesaleschart.tsx
-
 import React, { useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import type { SalesInvoice, Salesman } from "..";
@@ -9,57 +7,73 @@ interface Props {
   salesmen: Salesman[];
 }
 
-const SalesmenWiseSalesChart: React.FC<Props> = ({
-  salesInvoices,
-  salesmen,
-}) => {
-  const [selectedSalesman, setSelectedSalesman] = useState<string>("All");
+const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
+  // Use salesman ID as selected value
+  const [selectedSalesmanId, setSelectedSalesmanId] = useState<string>("All");
 
-  const salesmenChartData = useMemo(() => {
-    const salesmenMap = new Map(salesmen.map((s) => [s.id, s.name]));
-    const salesBySalesmen: Record<string, number> = {};
-
-    salesInvoices.forEach((inv) => {
-      const name = salesmenMap.get(inv.salesmanid ?? "") || "Others";
-      salesBySalesmen[name] = (salesBySalesmen[name] || 0) + (inv.totalamount ?? 0);
+  // Map salesman ID → name
+  const salesmenMap = useMemo(() => {
+    const map = new Map<string, string>();
+    salesmen.forEach((s) => {
+      map.set(s.id, s.name);
     });
+    
+    return map;
+  }, [salesmen]);
 
-    return {
-      labels: Object.keys(salesBySalesmen),
-      datasets: [
-        {
-          label: "Sales by Salesman (₹)",
-          data: Object.values(salesBySalesmen),
-          backgroundColor: [
-            "#6366f1",
-            "#10b981",
-            "#f59e0b",
-            "#ef4444",
-            "#3b82f6",
-            "#ec4899",
-          ],
-        },
-      ],
-    };
-  }, [salesInvoices, salesmen]);
+  // Aggregate sales by salesman ID
+  const salesBySalesmen = useMemo(() => {
+  const salesMap: Record<string, number> = {};
 
-  const filteredChartData =
-    selectedSalesman === "All"
-      ? salesmenChartData
-      : {
-          labels: [selectedSalesman],
-          datasets: [
-            {
-              label: `Sales for ${selectedSalesman} (₹)`,
-              data: [
-                salesmenChartData.datasets[0].data[
-                  salesmenChartData.labels.indexOf(selectedSalesman)
-                ] || 0,
-              ],
-              backgroundColor: ["#6366f1"],
-            },
-          ],
-        };
+  salesInvoices.forEach((inv) => {
+    // Use salesmenid here (with double m) to match your data!
+    const salesmanId = inv.salesmenid ?? "others";
+    const amount = inv.totalamount ?? 0;
+   
+    salesMap[salesmanId] = (salesMap[salesmanId] || 0) + amount;
+  });
+
+  return salesMap;
+}, [salesInvoices]);
+
+  // Prepare chart data based on selected salesman ID
+  const filteredChartData = useMemo(() => {
+    
+    if (selectedSalesmanId === "All") {
+      // Aggregate total sales for all salesmen
+      const totalSales = Object.values(salesBySalesmen).reduce(
+        (sum, val) => sum + val,
+        0
+      );
+      
+      return {
+        labels: ["All Salesmen"],
+        datasets: [
+          {
+            label: "Sales for All Salesmen (₹)",
+            data: [totalSales],
+            backgroundColor: ["#6366f1"],
+          },
+        ],
+      };
+    } else {
+      // Sales for selected salesman ID
+      const label = salesmenMap.get(selectedSalesmanId) || "Unknown";
+      const value = salesBySalesmen[selectedSalesmanId] || 0;
+      
+
+      return {
+        labels: [label],
+        datasets: [
+          {
+            label: `Sales for ${label} (₹)`,
+            data: [value],
+            backgroundColor: ["#6366f1"],
+          },
+        ],
+      };
+    }
+  }, [selectedSalesmanId, salesBySalesmen, salesmenMap]);
 
   return (
     <div className="bg-white p-4 rounded-xl shadow">
@@ -67,13 +81,13 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({
 
       <select
         className="mb-4 border rounded p-2 w-full"
-        value={selectedSalesman}
-        onChange={(e) => setSelectedSalesman(e.target.value)}
+        value={selectedSalesmanId}
+        onChange={(e) => setSelectedSalesmanId(e.target.value)}
       >
         <option value="All">All Salesmen</option>
         {salesmen.length > 0 ? (
           salesmen.map((s) => (
-            <option key={s.id} value={s.name}>
+            <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))
