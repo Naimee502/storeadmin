@@ -7,6 +7,7 @@ export interface Branch {
   mobile: string;
   password: string;
   logo: string;
+  imageurl: string;
   location: string;
   address: string;
   city: string;

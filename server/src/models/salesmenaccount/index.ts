@@ -9,7 +9,7 @@ const salesmenAccountSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     profilepicture: { type: String },
-    productimageurl: { type: String },
+    imageurl: { type: String },
     address: { type: String },
     commission: { type: String },
     target: { type: String },

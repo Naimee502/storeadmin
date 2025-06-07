@@ -9,6 +9,7 @@ export const GET_BRANCHES = gql`
       mobile
       password
       logo
+      imageurl
       location
       address
       city
@@ -29,6 +30,7 @@ export const GET_DELETED_BRANCHES = gql`
       mobile
       password
       logo
+      imageurl
       location
       address
       city
@@ -49,6 +51,7 @@ export const GET_BRANCH_BY_ID = gql`
       mobile
       password
       logo
+      imageurl
       location
       address
       city

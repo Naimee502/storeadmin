@@ -12,7 +12,7 @@ export const GET_SALESMEN = gql`
       email
       password
       profilepicture
-      productimageurl
+      imageurl
       address
       commission
       target
@@ -32,7 +32,7 @@ export const GET_DELETED_SALESMEN = gql`
       email
       password
       profilepicture
-      productimageurl
+      imageurl
       address
       commission
       target
@@ -52,7 +52,7 @@ export const GET_SALESMAN_BY_ID = gql`
       email
       password
       profilepicture
-      productimageurl
+      imageurl
       address
       commission
       target

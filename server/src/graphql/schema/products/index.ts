@@ -8,7 +8,7 @@ export const productTypeDefs = gql`
     name: String!
     barcode: String!               
     productimage: String
-    productimageurl: String
+    imageurl: String
     categoryid: ID!
     productgroupnameid: ID!
     modelid: ID!
@@ -35,7 +35,7 @@ export const productTypeDefs = gql`
     branchid: ID!
     name: String!
     productimage: String
-    productimageurl: String
+    imageurl: String
     categoryid: ID!
     productgroupnameid: ID!
     modelid: ID!

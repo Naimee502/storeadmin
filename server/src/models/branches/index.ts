@@ -8,6 +8,7 @@ const branchSchema = new mongoose.Schema({
   mobile: { type: String, unique: true },  
   password: String,
   logo: String,
+  imageurl: { type: String },
   location: String,
   address: String,
   city: String,

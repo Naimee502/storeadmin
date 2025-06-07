@@ -6,7 +6,7 @@ export interface Product {
   productcode: string;
   barcode: string;
   productimage: string;
-  productimageurl: string;
+  imageurl: string;
   categoryid: string;
   productgroupnameid: string;
   modelid: string;

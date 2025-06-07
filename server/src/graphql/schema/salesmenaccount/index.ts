@@ -10,7 +10,7 @@ export const salesmenAccountTypeDefs = gql`
     email: String!
     password: String!
     profilepicture: String!
-    productimageurl: String!
+    imageurl: String!
     address: String!
     commission: String!
     target: String!
@@ -24,7 +24,7 @@ export const salesmenAccountTypeDefs = gql`
     email: String!
     password: String!
     profilepicture: String!
-    productimageurl: String!
+    imageurl: String!
     address: String!
     commission: String!
     target: String!

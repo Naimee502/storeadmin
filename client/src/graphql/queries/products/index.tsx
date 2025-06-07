@@ -9,6 +9,7 @@ export const GET_PRODUCTS = gql`
       barcode
       productcode
       productimage
+      imageurl
       categoryid
       productgroupnameid
       modelid
@@ -40,6 +41,7 @@ export const GET_DELETED_PRODUCTS = gql`
       barcode
       productcode
       productimage
+      imageurl
       categoryid
       productgroupnameid
       modelid
@@ -70,6 +72,7 @@ export const GET_PRODUCT_BY_ID = gql`
       barcode
       productcode
       productimage
+      imageurl
       categoryid
       productgroupnameid
       modelid

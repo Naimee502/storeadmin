@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   barcode: { type: String, unique: true, sparse: true },
   productimage: String,
-  productimageurl: String,
+  imageurl: String,
   categoryid: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
   productgroupnameid: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductGroupName', required: true },
   modelid: { type: mongoose.Schema.Types.ObjectId, ref: 'Model', required: true },

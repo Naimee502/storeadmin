@@ -25,7 +25,7 @@ type FormValues = {
     email: string;
     password: string;
     profilepicture: string;
-    productimageurl: string;
+    imageurl: string;
     address: string;
     commission: string;
     target: string;
@@ -54,7 +54,7 @@ const SalesmenAccount = () => {
         email: "",
         password: "",
         profilepicture: "",
-        productimageurl: "",
+        imageurl: "",
         address: "",
         commission: "",
         target: "",
@@ -89,7 +89,7 @@ const SalesmenAccount = () => {
             email: row.email || "",
             password: row.password || "",
             profilepicture: row.profilepicture || "",
-            productimageurl: row.productimageurl || "",
+            imageurl: row.imageurl || "",
             address: row.address || "",
             commission: row.commission || "",
             target: row.target || "",
@@ -157,7 +157,7 @@ const SalesmenAccount = () => {
             email: formValues.email,
             password: formValues.password || undefined,
             profilepicture: formValues.profilepicture,
-            productimageurl: uploadedUrl,
+            imageurl: uploadedUrl,
             address: formValues.address,
             commission: formValues.commission,
             target: formValues.target,
@@ -184,7 +184,7 @@ const SalesmenAccount = () => {
             email: "",
             password: "",
             profilepicture: "",
-            productimageurl:"",
+            imageurl:"",
             address: "",
             commission: "",
             target: "",
@@ -351,8 +351,8 @@ const SalesmenAccount = () => {
                                 previewUrl={
                                 selectedFile
                                     ? URL.createObjectURL(selectedFile)
-                                    : formValues.productimageurl
-                                    ? formValues.productimageurl
+                                    : formValues.imageurl
+                                    ? formValues.imageurl
                                     : ""
                                 }
                             />

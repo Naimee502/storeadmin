@@ -10,7 +10,7 @@ export const ADD_SALESMAN = gql`
       email
       password
       profilepicture
-      productimageurl
+      imageurl
       address
       commission
       target
@@ -29,7 +29,7 @@ export const EDIT_SALESMAN = gql`
       email
       password
       profilepicture
-      productimageurl
+      imageurl
       address
       commission
       target

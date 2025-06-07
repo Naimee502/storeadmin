@@ -8,6 +8,7 @@ export const ADD_BRANCH = gql`
       mobile
       password
       logo
+      imageurl
       location
       address
       city
@@ -28,6 +29,7 @@ export const EDIT_BRANCH = gql`
       mobile
       password
       logo
+      imageurl
       location
       address
       city

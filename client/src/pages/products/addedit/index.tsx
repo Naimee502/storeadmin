@@ -16,30 +16,31 @@ import { useBrandsQuery } from "../../../graphql/hooks/brands";
 import { useSizesQuery } from "../../../graphql/hooks/sizes";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
 import BarcodeImage from "../../../components/barcode";
+import { useImageUpload } from "../../../graphql/hooks/uploads";
 
 type FormData = {
-  branchid:string;
-  name: string;
-  productimage: string;
-  productimageurl: string;
-  categoryid: string;
-  productgroupnameid: string;
-  modelid: string;
-  brandid: string;
-  sizeid: string;
-  purchaseunitid: string;
-  purchaserate?: number;
-  salesunitid: string;
-  salesrate?: number;
-  gst?: number;
-  openingstock?: number;
-  openingstockamount?: number;
-  currentstock?: number;
-  currentstockamount?: number;
-  minimumstock?: number;
-  description: string;
-  productlikecount?: number;
-  status: boolean;
+    branchid: string;
+    name: string;
+    productimage: string;
+    imageurl: string;
+    categoryid: string;
+    productgroupnameid: string;
+    modelid: string;
+    brandid: string;
+    sizeid: string;
+    purchaseunitid: string;
+    purchaserate?: number;
+    salesunitid: string;
+    salesrate?: number;
+    gst?: number;
+    openingstock?: number;
+    openingstockamount?: number;
+    currentstock?: number;
+    currentstockamount?: number;
+    minimumstock?: number;
+    description: string;
+    productlikecount?: number;
+    status: boolean;
 };
 
 
@@ -53,6 +54,8 @@ const AddEditProduct = () => {
     const branchId = localStorage.getItem("branchid") || "";
     const { data } = useProductByIDQuery(id || "");
     const { addProductMutation, editProductMutation } = useProductMutations();
+    const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const { uploadImageMutation, imagedata, loading, error } = useImageUpload();
 
     const { data: categoryData } = useCategoriesQuery();
     const { data: groupData } = useProductGroupsQuery();
@@ -65,7 +68,7 @@ const AddEditProduct = () => {
         branchid: branchId,
         name: "",
         productimage: "",
-        productimageurl: "",
+        imageurl: "",
         categoryid: "",
         productgroupnameid: "",
         modelid: "",
@@ -93,10 +96,10 @@ const AddEditProduct = () => {
         if (isEdit && data?.getProduct) {
             const p = data.getProduct;
             setFormData({
-                branchid:branchId,
+                branchid: branchId,
                 name: p.name || "",
                 productimage: p.productimage || "",
-                productimageurl: p.productimageurl || "",
+                imageurl: p.imageurl || "",
 
                 categoryid: p.categoryid || "",
                 productgroupnameid: p.productgroupnameid || "",
@@ -136,24 +139,6 @@ const AddEditProduct = () => {
         }));
     };
 
-    // Handle file input (product image)
-    const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-
-            // You can either upload this file to server or convert to base64 here:
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    productimage: reader.result as string, // base64 string
-                    productimageurl: URL.createObjectURL(file), // for preview purposes
-                }));
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
     // Simple validation
     const validate = () => {
         const newErrors: { [key: string]: string } = {};
@@ -163,6 +148,25 @@ const AddEditProduct = () => {
         return newErrors;
     };
 
+    const uploadProfilePicture = async (): Promise<string | null> => {
+        if (!selectedFile) {
+            console.warn("No file selected.");
+            return null;
+        }
+        try {
+            const { data } = await uploadImageMutation({
+                variables: { file: selectedFile },
+            });
+
+            const uniqueUrl = data?.uploadImage?.url;
+            setSelectedFile(null);
+            return uniqueUrl || null;
+        } catch (err) {
+            console.error("Upload failed", err);
+            return null;
+        }
+    };
+
     // Submit form handler
     const handleSubmit = async () => {
         const validationErrors = validate();
@@ -170,25 +174,29 @@ const AddEditProduct = () => {
             setErrors(validationErrors);
             return;
         }
-        console.log("Submitting form with data:", JSON.stringify(formData));
+        let uploadedUrl = formData.productimage;
+
+        if (selectedFile) {
+            const url = await uploadProfilePicture();
+            if (url) uploadedUrl = url;
+        }
+        const payload = {
+            ...formData,
+            imageurl: uploadedUrl, 
+        };
         try {
             if (isEdit && id) {
                 await editProductMutation({
                     variables: {
                         id,
-                        input: {
-                            ...formData,
-                            
-                        },
+                        input: payload,
                     },
                 });
                 dispatch(showMessage({ message: "Product updated successfully!", type: "success" }));
             } else {
                 await addProductMutation({
                     variables: {
-                        input: {
-                            ...formData,
-                        },
+                        input: payload,
                     },
                 });
                 dispatch(showMessage({ message: "Product added successfully!", type: "success" }));
@@ -242,16 +250,16 @@ const AddEditProduct = () => {
                         label: item[labelKey],
                     }))}
                     error={errors[name as string]}
-                    searchable={true} 
+                    searchable={true}
                 />
                 <Button
                     variant="outline"
                     className="h-[46px] mt-6"
                     onClick={() => {
-                    const route = routeMap[label];
-                    if (route) navigate(route);
-                    else alert(`No route configured for ${label}`);
-                }}
+                        const route = routeMap[label];
+                        if (route) navigate(route);
+                        else alert(`No route configured for ${label}`);
+                    }}
                 >
                     <FaPlus />
                 </Button>
@@ -283,23 +291,28 @@ const AddEditProduct = () => {
                             </div>
                         )}
 
-                        <div>
-                            <label className="block mb-1 font-medium">Product Image</label>
-                            <input
-                                name="productimage"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                className="border rounded-md p-2 w-full"
-                            />
-                            {formData.productimageurl && (
-                                <img
-                                    src={formData.productimageurl}
-                                    alt="Product Preview"
-                                    className="mt-2 max-h-40 object-contain"
-                                />
-                            )}
-                        </div>
+                        <FormField
+                            label="Product Image"
+                            name="productimage"
+                            type="file"
+                            placeholder="Upload Product Image"
+                            accept="image/*"
+                            onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setSelectedFile(file);
+                            setFormData((prev) => ({
+                                ...prev,
+                                productimage: file.name,
+                            }));
+                            }}
+                            previewUrl={
+                            selectedFile
+                                ? URL.createObjectURL(selectedFile)
+                                : formData.imageurl
+                                ? formData.imageurl
+                                : ""
+                            }
+                        />
 
                         {renderSelectDropdown("Category", "categoryid", categoryData?.getCategories || [])}
                         {renderSelectDropdown("Brand", "brandid", brandData?.getBrands || [])}

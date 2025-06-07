@@ -114,6 +114,10 @@ const Products = () => {
     fileInputRef.current?.click();
   };
 
+  const hanldePrint = () => {
+
+  }
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
@@ -134,6 +138,7 @@ const Products = () => {
           showDelete={true}
           showImport={false}
           showExport={false}
+          showPrint={true}
           showAdd={true}
           onView={() => console.log("View clicked")}
           onEdit={(row) => 
@@ -160,6 +165,7 @@ const Products = () => {
           onShowDeleted={() =>navigate("/products/deletedentries")}
           onImport={handleImportClick}
           onExport={handleExport}
+          onPrint={hanldePrint}
           onAdd={() => navigate("/products/addedit")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

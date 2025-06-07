@@ -9,7 +9,7 @@ export const ADD_PRODUCT = gql`
       branchid
       name
       productimage
-      productimageurl
+      imageurl
       categoryid
       productgroupnameid
       modelid
@@ -39,7 +39,7 @@ export const EDIT_PRODUCT = gql`
       branchid
       name
       productimage
-      productimageurl
+      imageurl
       categoryid
       productgroupnameid
       modelid

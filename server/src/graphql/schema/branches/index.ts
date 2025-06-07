@@ -7,7 +7,8 @@ export const branchTypeDefs = gql`
     branchname: String!
     mobile: String!
     password: String!
-    logo: String
+    logo: String!
+    imageurl: String!
     location: String!
     address: String!
     city: String!
@@ -21,7 +22,8 @@ export const branchTypeDefs = gql`
     branchname: String!
     mobile: String!
     password: String!
-    logo: String
+    logo: String!
+    imageurl: String!
     location: String!
     address: String!
     city: String!

@@ -9,44 +9,45 @@ import React from "react";
 import { useBranchByIDQuery, useBranchMutations } from "../../../graphql/hooks/branches";
 import { useAppDispatch } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { useImageUpload } from "../../../graphql/hooks/uploads";
 
 const AddEditBranch = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
- 
+
   const { data } = useBranchByIDQuery(id || "");
 
   useEffect(() => {
-  if (isEdit && data?.getBranch) {
-    const branch = data.getBranch;
-    setFormData({
-      branchname: branch.branchname || "",
-      mobile: branch.mobile || "",
-      password: branch.password || "",
-      logo: branch.logo || "",
-      location: branch.location || "",
-      address: branch.address || "",
-      city: branch.city || "",
-      pincode: branch.pincode || "",
-      phone: branch.phone || "",
-      email: branch.email || "",
-      status: branch.status ?? true,
-    });
-  }
-}, [isEdit, data]);
+    if (isEdit && data?.getBranch) {
+      const branch = data.getBranch;
+      setFormData({
+        branchname: branch.branchname || "",
+        mobile: branch.mobile || "",
+        password: branch.password || "",
+        logo: branch.logo || "",
+        imageurl: branch.imageurl || "",
+        location: branch.location || "",
+        address: branch.address || "",
+        city: branch.city || "",
+        pincode: branch.pincode || "",
+        phone: branch.phone || "",
+        email: branch.email || "",
+        status: branch.status ?? true,
+      });
+    }
+  }, [isEdit, data]);
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImageMutation, imagedata, loading, error } = useImageUpload();
 
   const [formData, setFormData] = useState({
     branchname: "",
     mobile: "",
     password: "",
     logo: "",
+    imageurl: "",
     location: "",
     address: "",
     city: "",
@@ -71,27 +72,6 @@ const AddEditBranch = () => {
     }));
   };
 
-  // Open file picker when clicking the logo area/button
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setSelectedFile(file);
-
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setFormData((prev) => ({
-        ...prev,
-        logo: "", // clear URL if user selected a new file
-      }));
-    } else {
-      setPreviewUrl(null);
-    }
-  };
-
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.branchname.trim()) newErrors.branchname = "Branch name is required";
@@ -101,6 +81,25 @@ const AddEditBranch = () => {
     return newErrors;
   };
 
+  const uploadProfilePicture = async (): Promise<string | null> => {
+    if (!selectedFile) {
+      console.warn("No file selected.");
+      return null;
+    }
+    try {
+      const { data } = await uploadImageMutation({
+        variables: { file: selectedFile },
+      });
+
+      const uniqueUrl = data?.uploadImage?.url;
+      setSelectedFile(null);
+      return uniqueUrl || null;
+    } catch (err) {
+      console.error("Upload failed", err);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
@@ -108,11 +107,19 @@ const AddEditBranch = () => {
       return;
     }
 
+    let uploadedUrl = formData.logo;
+
+    if (selectedFile) {
+      const url = await uploadProfilePicture();
+      if (url) uploadedUrl = url;
+    }
+
     const payload = {
       branchname: formData.branchname,
       mobile: formData.mobile,
       password: formData.password,
-      logo: selectedFile ? selectedFile.name : "",
+      logo: formData.logo,
+      imageurl: uploadedUrl,
       location: formData.location,
       address: formData.address,
       city: formData.city,
@@ -136,8 +143,8 @@ const AddEditBranch = () => {
         const duplicateField = error.message.includes("mobile")
           ? "Mobile number"
           : error.message.includes("email")
-          ? "Email address"
-          : "Field";
+            ? "Email address"
+            : "Field";
 
         dispatch(showMessage({ message: `${duplicateField} already exists.`, type: 'error' }));
       } else {
@@ -169,9 +176,21 @@ const AddEditBranch = () => {
                 type="file"
                 placeholder="Upload Logo"
                 accept="image/*"
-                previewUrl={previewUrl}
-                onChange={handleFileChange}
-                onClick={openFilePicker}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setSelectedFile(file);
+                  setFormData((prev) => ({
+                    ...prev,
+                    logo: file.name,
+                  }));
+                }}
+                previewUrl={
+                  selectedFile
+                    ? URL.createObjectURL(selectedFile)
+                    : formData.imageurl
+                      ? formData.imageurl
+                      : ""
+                }
               />
 
               <FormField label="Location" name="location" value={formData.location} onChange={handleChange} icon={<FaMapMarkerAlt />} placeholder="Location" />
