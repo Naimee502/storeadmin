@@ -85,7 +85,7 @@ const DeletedPurchaseInvoices = () => {
                     type: "success",
                   })
                 );
-                navigate("/purchaseinvoice");
+                navigate(-1);
               } catch (error) {
                 console.error(error);
                 dispatch(

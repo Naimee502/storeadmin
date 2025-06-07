@@ -42,7 +42,7 @@ const DeletedProducts = () => {
     ...product,
     seqNo: index + 1,
     name: product.name,
-    salesunit: matchedUnit?.unitname || "-", // 👈 Show unit name here
+    salesunit: matchedUnit?.unitname || "-",
     status: product.status ? "Active" : "Inactive",
   };
 });
@@ -77,7 +77,7 @@ const DeletedProducts = () => {
                     type: "success",
                   })
                 );
-                navigate("/products");
+                navigate(-1);
               } catch (error) {
                 console.error(error);
                 dispatch(

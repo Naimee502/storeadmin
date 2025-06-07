@@ -69,6 +69,7 @@ const AddEditSalesInvoice = () => {
       id: product.id,
       name: `${product.name} - ${product.currentstock}`,
       currentstock: product.currentstock,
+      salesrate: product.salesrate,
       barcode: product.barcode
     }));
   }, [productData?.getProducts]);
@@ -189,9 +190,9 @@ const AddEditSalesInvoice = () => {
         dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
       }
       await refetch();
-      navigate("/salesinvoice");
-    } catch (error: any) {
-      console.error("Error:", error);
+      navigate(-1);
+    } catch (error : any) {
+      console.error ("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));
     }
   };
@@ -342,7 +343,7 @@ const AddEditSalesInvoice = () => {
           </fieldset>
 
           <div className="mt-6 flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate("/salesinvoice")}>
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
             <Button type="submit" variant="outline" disabled={products.length === 0}>

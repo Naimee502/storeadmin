@@ -146,7 +146,7 @@ const Products = () => {
             })
           }
           onDelete={async (row) => {
-            if (window.confirm(`Are you sure you want to delete product "${row.productname}"?`)) {
+            if (window.confirm(`Are you sure you want to delete product "${row.name}"?`)) {
               try {
                 await deleteProductMutation({ variables: { id: row.id } });
                 await refetch();

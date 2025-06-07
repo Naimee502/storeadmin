@@ -17,6 +17,8 @@ type ProductOption = {
   name: string;
   currentstock: number;
   barcode?: string;
+  purchaserate?: number;
+  salesrate?: number;
 };
 
 type ProductSectionProps = {
@@ -36,6 +38,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 }) => {
   const [currentProduct, setCurrentProduct] = useState<Partial<InvoiceProduct>>({});
 
+  const selectedProduct = productsList.find(
+    (p) => p.id === currentProduct.productid
+  );
+
   useEffect(() => {
     onProductsChange(products);
   }, [products, onProductsChange]);
@@ -44,10 +50,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     const { name, value } = e.target;
 
     if (name === "productid") {
-      const selectedProduct = productsList.find((p) => p.id === value);
-      if (type === "sales" && selectedProduct?.currentstock === 0) {
+      const selected = productsList.find((p) => p.id === value);
+      if (type === "sales" && selected?.currentstock === 0) {
         alert("This product is out of stock and cannot be selected.");
-        return; // Prevent selecting out of stock product for sales
+        return;
       }
     }
 
@@ -59,19 +65,30 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     }));
   };
 
-  // Fixed barcode scanning effect
- useEffect(() => {
+  useEffect(() => {
+    if (selectedProduct) {
+      console.log("Rate", JSON.stringify(selectedProduct))
+      const updatedRate =
+        type === "sales"
+          ? selectedProduct.salesrate ?? 0
+          : selectedProduct.purchaserate ?? 0;
+
+      setCurrentProduct((prev) => ({
+        ...prev,
+        rate: updatedRate,
+      }));
+    }
+  }, [type, selectedProduct]);
+
+  useEffect(() => {
     let buffer = "";
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         const scannedBarcode = buffer.trim();
-        console.log(scannedBarcode)
-        console.log("🔍 Barcode detected:", JSON.stringify(productsList));
         if (scannedBarcode.length > 0) {
           const matchedProduct = productsList.find((p) => p.barcode === scannedBarcode);
-         
           if (matchedProduct) {
             setCurrentProduct((prev) => ({
               ...prev,
@@ -79,17 +96,13 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }));
           }
         }
-
         buffer = "";
         if (timer) {
           clearTimeout(timer);
           timer = null;
         }
       } else if (e.key.length === 1) {
-        // Add single character keys to buffer
         buffer += e.key;
-
-        // Reset buffer if no keys pressed within 100ms
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
           buffer = "";
@@ -113,7 +126,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
     const subtotal = qty * rate - discount;
     const taxAmount = (subtotal * gst) / 100;
-
     return subtotal + taxAmount;
   };
 
@@ -169,7 +181,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           options={productsList.map((p) => ({ value: p.id, label: p.name }))}
           searchable
         />
-        
 
         <FormField
           label="Quantity"
@@ -185,6 +196,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           type="number"
           value={currentProduct.rate ?? ""}
           onChange={handleChange}
+          disabled
         />
 
         <FormField

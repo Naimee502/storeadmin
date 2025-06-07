@@ -54,6 +54,7 @@ const AddEditPurchaseInvoice = () => {
       id: product.id,
       name: `${product.name} - ${product.currentstock}`,
       currentstock: product.currentstock,
+      purchaserate: product.purchaserate,
       barcode: product.barcode
     }));
   }, [productData?.getProducts]);
@@ -177,7 +178,7 @@ const AddEditPurchaseInvoice = () => {
         dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
       await refetch();
-      navigate("/purchaseinvoice");
+      navigate(-1);
     } catch (error: any) {
       console.error("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));

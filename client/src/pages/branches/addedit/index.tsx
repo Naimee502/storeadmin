@@ -130,7 +130,7 @@ const AddEditBranch = () => {
         await addBranchMutation({ variables: { input: payload } });
         dispatch(showMessage({ message: 'Branch added successfully!', type: 'success' }));
       }
-      navigate("/branches");
+      navigate(-1);
     } catch (error) {
       if (error?.message?.includes("E11000")) {
         const duplicateField = error.message.includes("mobile")

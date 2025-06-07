@@ -147,6 +147,7 @@ const TransferStock = () => {
     { label: "To Branch", key: "tobranchid" },
     { label: "Product", key: "productid" },
     { label: "Qty", key: "transferqty" },
+    { label: "Purchase Rate", key: "purchaserate" },
     { label: "Date", key: "transferdate" },
     {
       label: "Status",
@@ -166,6 +167,7 @@ const TransferStock = () => {
       frombranchid: fromBranch?.branchname,
       tobranchid: toBranch?.branchname || stock.tobranchid,
       productid: product?.name || stock.productid,
+      purchaserate: product?.purchaserate,
       status: stock.status ? "Active" : "Inactive",
     };
   });

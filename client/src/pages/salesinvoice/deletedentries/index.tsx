@@ -86,7 +86,7 @@ const DeletedSalesInvoices = () => {
                     type: "success",
                   })
                 );
-                navigate("/salesinvoice");
+                navigate(-1);
               } catch (error) {
                 console.error(error);
                 dispatch(

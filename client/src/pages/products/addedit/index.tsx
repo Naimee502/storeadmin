@@ -193,7 +193,7 @@ const AddEditProduct = () => {
                 });
                 dispatch(showMessage({ message: "Product added successfully!", type: "success" }));
             }
-            navigate("/products");
+            navigate(-1);
         } catch (error) {
             dispatch(showMessage({ message: "Failed to save product. Try again.", type: "error" }));
         }
@@ -356,14 +356,14 @@ const AddEditProduct = () => {
                             error={errors.salesrate}
                         />
 
-                        <FormField
+                        {/* <FormField
                             label="GST (%)"
                             name="gst"
                             type="number"
                             value={formData.gst}
                             onChange={handleChange}
                             error={errors.gst}
-                        />
+                        /> */}
                     </fieldset>
 
                     <fieldset className="border rounded-xl p-4 space-y-4">

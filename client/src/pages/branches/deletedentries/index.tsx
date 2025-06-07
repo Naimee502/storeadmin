@@ -64,7 +64,7 @@ const DeletedBranches = () => {
                 await resetBranchMutation({ variables: { id: row.id } });
                 await refetch();
                 dispatch(showMessage({ message: "Branch reset successfully.", type: "success" }));
-                navigate("/branches");
+                navigate(-1);
               } catch (error) {
                 console.error(error);
                 dispatch(showMessage({ message: "Failed to reset branch.", type: "error" }));

@@ -36,6 +36,7 @@ const DeletedTransferStocks = () => {
     { label: "To Branch ID", key: "tobranchid" },
     { label: "Product ID", key: "productid" },
     { label: "Transfer Qty", key: "transferqty" },
+    { label: "Purchase Rate", key: "purchaserate" },
     { label: "Transfer Date", key: "transferdate" },
     { label: "Status", key: "status" },
   ];
@@ -51,7 +52,7 @@ const DeletedTransferStocks = () => {
       frombranchid: fromBranch?.branchname || item.frombranchid,
       tobranchid: toBranch?.branchname || item.tobranchid,
       productid: product?.name || item.productid,
-      transferdate: new Date(item.transferdate).toLocaleDateString(),
+      purchaserate: product?.purchaserate,
       status: item.status ? "Active" : "Inactive",
     };
   });
