@@ -5,7 +5,7 @@ import { setContext } from '@apollo/client/link/context';
 
 // Create the upload link
 const httpLink = createUploadLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: import.meta.env.VITE_GRAPHQL_ENDPOINT,
 });
 
 // Set custom header

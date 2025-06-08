@@ -31,7 +31,7 @@ const startServer = async () => {
   app.use(
     '/graphql',
     cors({
-      origin: 'http://localhost:5173',
+      origin: ['http://13.220.211.75', 'http://localhost:5173'], // allow both local + production
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
     }),
