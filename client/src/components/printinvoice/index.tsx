@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import { toWords } from 'number-to-words';
+import { useAppSelector } from "../../redux/hooks";
 
 interface Product {
   productname: string;
@@ -30,7 +31,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
   ({ invoice }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
-
+    const branch = useAppSelector((state) => state.auth.branch);
     return (
       <div
         ref={localRef}
@@ -64,13 +65,13 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             {/* Header */}
             <tr>
               <td colSpan={7} className="text-center text-lg font-bold">
-                Jay Balaji Mobile Accessories (Kalawad Road)
+                {branch.branchname}
               </td>
             </tr>
             <tr>
               <td colSpan={7} className="text-center">
-                Sagar Complex B/s Krishan Medical Store Kalawad Road<br />
-                RAJKOT - 04 M-9104345676
+                 {branch.address}<br />
+                 {branch.city} - {branch.phone || branch.mobile}
               </td>
             </tr>
             <tr>
@@ -78,19 +79,6 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
               <td colSpan={4} className="text-right font-semibold">TAX INVOICE &nbsp;&nbsp;&nbsp; Original</td>
             </tr>
 
-            {/* Product Table Header */}
-            <tr className="text-center font-semibold">
-              <th>SrNo</th>
-              <th>Product Name</th>
-              <th>HSN/SAC</th>
-              <th>Quantity</th>
-              <th>Rate</th>
-              <th>GST</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-
-          <tbody>
             {/* Party and Invoice Info */}
             <tr>
               <td colSpan={2}><strong>M/S. :</strong> {invoice.partyname || "---"}</td>
@@ -102,6 +90,21 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
               <td colSpan={2}><strong>Date:</strong> {invoice.billdate}</td>
               <td colSpan={3}><strong>Party A/c:</strong> {invoice.partyacc}</td>
             </tr>
+          </thead>
+
+          <tbody>
+
+           {/* Product Table Header */}
+            <tr className="text-center font-semibold">
+              <th>SrNo</th>
+              <th>Product Name</th>
+              <th>HSN/SAC</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>GST</th>
+              <th>Amount</th>
+            </tr>
+            
 
             {/* Product Rows */}
             {invoice.products.map((item, idx) => (
