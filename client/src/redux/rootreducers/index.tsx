@@ -1,5 +1,6 @@
 import { combineReducers } from '@reduxjs/toolkit';
 import authReducer from '../slices/auth';
+import selectedBranchReducer from "../slices/branch";
 import brachesReducer from '../slices/branches';
 import categoriesReducer from "../slices/categories";
 import unitsReducer from "../slices/units";
@@ -19,6 +20,7 @@ import messageReducer from '../slices/message';
 
 const appReducer = combineReducers({
   auth: authReducer,
+  selectedBranch: selectedBranchReducer,
   branches: brachesReducer,
   categories: categoriesReducer,
   units: unitsReducer,

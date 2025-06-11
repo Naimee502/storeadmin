@@ -10,20 +10,46 @@ export const productResolvers = {
   Query: {
     getProducts: async (_parent: any, _args: any, context: Context) => {
       const products = await Product.find({ status: true }).lean();
+      const productIds = products.map((p) => p._id);
 
       if (!context.branchid) {
-        return products.map((p) => ({
-          id: p._id.toString(),
-          ...p,
-          openingstock: null,
-          openingstockamount: null,
-          currentstock: null,
-          currentstockamount: null,
-          minimumstock: null,
-        }));
+        const aggregatedStocks = await ProductBranchStock.aggregate([
+          {
+            $match: {
+              productid: { $in: productIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$productid",
+              openingstock: { $sum: "$openingstock" },
+              openingstockamount: { $sum: "$openingstockamount" },
+              currentstock: { $sum: "$currentstock" },
+              currentstockamount: { $sum: "$currentstockamount" },
+              minimumstock: { $sum: "$minimumstock" },
+            },
+          },
+        ]);
+
+        const stockMap = new Map<string, any>();
+        aggregatedStocks.forEach((s) => {
+          stockMap.set(s._id.toString(), s);
+        });
+
+        return products.map((p) => {
+          const stock = stockMap.get(p._id.toString());
+          return {
+            id: p._id.toString(),
+            ...p,
+            openingstock: stock?.openingstock ?? 0,
+            openingstockamount: stock?.openingstockamount ?? 0,
+            currentstock: stock?.currentstock ?? 0,
+            currentstockamount: stock?.currentstockamount ?? 0,
+            minimumstock: stock?.minimumstock ?? 0,
+          };
+        });
       }
 
-      const productIds = products.map((p) => p._id);
       const stocks = await ProductBranchStock.find({
         branchid: context.branchid,
         productid: { $in: productIds },
@@ -50,20 +76,46 @@ export const productResolvers = {
 
     getDeletedProducts: async (_parent: any, _args: any, context: Context) => {
       const deletedProducts = await Product.find({ status: false }).lean();
+      const productIds = deletedProducts.map((p) => p._id);
 
       if (!context.branchid) {
-        return deletedProducts.map((p) => ({
-          id: p._id.toString(),
-          ...p,
-          openingstock: null,
-          openingstockamount: null,
-          currentstock: null,
-          currentstockamount: null,
-          minimumstock: null,
-        }));
+        const aggregatedStocks = await ProductBranchStock.aggregate([
+          {
+            $match: {
+              productid: { $in: productIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$productid",
+              openingstock: { $sum: "$openingstock" },
+              openingstockamount: { $sum: "$openingstockamount" },
+              currentstock: { $sum: "$currentstock" },
+              currentstockamount: { $sum: "$currentstockamount" },
+              minimumstock: { $sum: "$minimumstock" },
+            },
+          },
+        ]);
+
+        const stockMap = new Map<string, any>();
+        aggregatedStocks.forEach((s) => {
+          stockMap.set(s._id.toString(), s);
+        });
+
+        return deletedProducts.map((p) => {
+          const stock = stockMap.get(p._id.toString());
+          return {
+            id: p._id.toString(),
+            ...p,
+            openingstock: stock?.openingstock ?? 0,
+            openingstockamount: stock?.openingstockamount ?? 0,
+            currentstock: stock?.currentstock ?? 0,
+            currentstockamount: stock?.currentstockamount ?? 0,
+            minimumstock: stock?.minimumstock ?? 0,
+          };
+        });
       }
 
-      const productIds = deletedProducts.map((p) => p._id);
       const stocks = await ProductBranchStock.find({
         branchid: context.branchid,
         productid: { $in: productIds },
@@ -90,19 +142,35 @@ export const productResolvers = {
 
     getProduct: async (_parent: any, { id }: { id: string }, context: Context) => {
       const product = await Product.findOne({ _id: id, status: true }).lean();
-      if (!product) {
-        return null;
-      }
+      if (!product) return null;
 
       if (!context.branchid) {
+        const aggregatedStock = await ProductBranchStock.aggregate([
+          {
+            $match: { productid: new Types.ObjectId(id) },
+          },
+          {
+            $group: {
+              _id: "$productid",
+              openingstock: { $sum: "$openingstock" },
+              openingstockamount: { $sum: "$openingstockamount" },
+              currentstock: { $sum: "$currentstock" },
+              currentstockamount: { $sum: "$currentstockamount" },
+              minimumstock: { $sum: "$minimumstock" },
+            },
+          },
+        ]);
+
+        const stock = aggregatedStock[0] || {};
+
         return {
           id: product._id.toString(),
           ...product,
-          openingstock: null,
-          openingstockamount: null,
-          currentstock: null,
-          currentstockamount: null,
-          minimumstock: null,
+          openingstock: stock.openingstock ?? 0,
+          openingstockamount: stock.openingstockamount ?? 0,
+          currentstock: stock.currentstock ?? 0,
+          currentstockamount: stock.currentstockamount ?? 0,
+          minimumstock: stock.minimumstock ?? 0,
         };
       }
 
@@ -121,7 +189,6 @@ export const productResolvers = {
         minimumstock: stock?.minimumstock ?? null,
       };
     },
-
   },
 
   Mutation: {

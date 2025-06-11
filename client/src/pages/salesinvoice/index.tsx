@@ -15,6 +15,7 @@ import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { useProductsQuery } from "../../graphql/hooks/products";
 
+
 const SalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -50,7 +51,6 @@ const SalesInvoices = () => {
     },
   });
 
-  // Fetch data on mount
   useEffect(() => {
     const fetchInvoices = async () => {
       dispatch(showLoading());
@@ -180,6 +180,7 @@ const SalesInvoices = () => {
             <PrintableInvoice ref={componentRef} invoice={printInvoice} />
           </div>
         )}
+
       </div>
     </HomeLayout>
   );

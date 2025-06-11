@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -10,6 +10,9 @@ import { useProductsQuery, useProductMutations } from "../../graphql/hooks/produ
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useUnitsQuery } from "../../graphql/hooks/units";
+import BarcodeModal from "../../components/barcodemodal";
+import PrintableBarcode from "../../components/printbarcode";
+import { useReactToPrint } from "react-to-print";
 
 const Products = () => {
   const navigate = useNavigate();
@@ -21,6 +24,12 @@ const Products = () => {
   const isLoading = useAppSelector((state) => state.loader.isLoading);
   const { data: unitData, refetch: refetchUnits } = useUnitsQuery();
   const unitList = unitData?.getUnits || [];
+
+  
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
+  const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+  const [barcodeQty, setBarcodeQty] = useState<number>(0);
+  const barcodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchAndDispatch = async () => {
@@ -39,6 +48,16 @@ const Products = () => {
 
     fetchAndDispatch();
   }, [dispatch, refetch]);
+
+
+  const handleBarcodePrint = useReactToPrint({
+      contentRef: barcodeRef,
+      documentTitle: "Barcodes",
+      onAfterPrint: () => {
+        setBarcodeProduct(null);
+        setBarcodeQty(0);
+      },
+  });
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
@@ -114,10 +133,6 @@ const Products = () => {
     fileInputRef.current?.click();
   };
 
-  const hanldePrint = () => {
-
-  }
-
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
@@ -140,6 +155,7 @@ const Products = () => {
           showExport={false}
           showPrint={true}
           showAdd={true}
+          showBarcode={true}
           onView={() => console.log("View clicked")}
           onEdit={(row) => 
             navigate(`/products/addedit/${row.id}`, {
@@ -165,12 +181,31 @@ const Products = () => {
           onShowDeleted={() =>navigate("/products/deletedentries")}
           onImport={handleImportClick}
           onExport={handleExport}
-          onPrint={hanldePrint}
+          onBarcode={(row) => {
+            console.log("Barcode", JSON.stringify(row));
+            setBarcodeProduct(row);
+            setBarcodeModalOpen(true);
+          }}
           onAdd={() => navigate("/products/addedit")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
         />
+
+        <BarcodeModal
+          isOpen={barcodeModalOpen}
+          onClose={() => setBarcodeModalOpen(false)}
+          onPrint={(qty) => {
+            setBarcodeQty(qty);
+            setTimeout(() => handleBarcodePrint?.(), 500); // give React time to render
+          }}
+        />
+
+        {barcodeProduct && barcodeQty > 0 && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+            <PrintableBarcode ref={barcodeRef} product={barcodeProduct} quantity={barcodeQty} />
+          </div>
+        )}
       </div>
     </HomeLayout>
   );

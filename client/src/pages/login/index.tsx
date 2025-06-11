@@ -8,6 +8,7 @@ import { saveAuthData } from "../../redux/slices/auth";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
+import { setBranchId } from "../../redux/slices/branch";
 
 const Login = () => {
   const dispatch = useAppDispatch();
@@ -68,7 +69,7 @@ const Login = () => {
       if (matchedBranch) {
         // ✅ Store branchid in localStorage
         localStorage.setItem('branchid', matchedBranch.id);
-
+        dispatch(setBranchId(matchedBranch.id));
         // 1. Save branch info in Redux (you already do this)
         dispatch(saveAuthData({ type: "branch", branch: matchedBranch }));
 

@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/auth';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { persistor } from '../../redux/store';
 import { useBranchesQuery } from '../../graphql/hooks/branches';
+import { setBranchId } from '../../redux/slices/branch';
 
 const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch()
@@ -38,7 +39,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         selectedBranchId={selectedBranchId}
         onBranchChange={(id) => {
           setSelectedBranchId(id);
-          localStorage.setItem("branchid", id);
+          dispatch(setBranchId(id));
         }}
       />
       <div className="flex flex-1">

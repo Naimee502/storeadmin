@@ -24,7 +24,6 @@ import StatsCards from "../../components/statuscards";
 import DashboardCharts from "../../components/dashboardcharts";
 import RecentOrders from "../../components/recentorders";
 
-
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -39,16 +38,30 @@ ChartJS.register(
 
 const Home: React.FC = () => {
   const { type } = useAppSelector((state) => state.auth);
+  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-  const branchId = localStorage.getItem("branchid") || "";
+  // GraphQL query hooks with refetch support
+  const { data: customerData, refetch: refetchCustomers } = useAccountsQuery(branchId);
+  const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
+  const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery(branchId);
+  const { data: productData, refetch: refetchProducts } = useProductsQuery();
+  const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery(branchId);
+  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery();
 
-  // Fetch data queries
-  const { data: customerData } = useAccountsQuery(type === "branch" ? branchId : undefined);
-  const { data: categoryData } = useCategoriesQuery();
-  const { data: salesmenData } = useSalesmenQuery(type === "branch" ? branchId : undefined);
-  const { data: productData } = useProductsQuery();
-  const { data: salesInvoiceData } = useSalesInvoicesQuery(type === "branch" ? branchId : undefined);
-  const { data: transferStockData } = useTransferStocksQuery();
+  // Refetch all data when branch ID changes
+  useEffect(() => {
+    console.log("Branch ID changed:", branchId);
+
+    if (type === "branch") {
+      refetchCustomers();
+      refetchSalesmen();
+      refetchSalesInvoices();
+    }
+
+    refetchTransferStock();
+    refetchCategories();
+    refetchProducts();
+  }, [branchId, type]);
 
   return (
     <HomeLayout>
