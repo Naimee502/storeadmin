@@ -10,14 +10,7 @@ interface BarcodeModalProps {
 }
 
 const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, onClose, onPrint }) => {
-  const [qty, setQty] = useState(1);
-
-  // Reset qty only when modal is opened
-  useEffect(() => {
-    if (isOpen) {
-      setQty(0);
-    }
-  }, [isOpen]);
+  const [qty, setQty] = useState<number>(1);
 
   const handlePrint = () => {
   if (qty <= 0) {
@@ -27,6 +20,7 @@ const BarcodeModal: React.FC<BarcodeModalProps> = ({ isOpen, onClose, onPrint })
 
   onPrint(qty);
   onClose();
+  setQty(1);
 };
 
   return (
