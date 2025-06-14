@@ -8,7 +8,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 
 // Register chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -50,9 +50,16 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices }) => {
       existing.count += totalSales;
     });
 
-    const labels = Array.from(map.keys());
-    const revenues = Array.from(map.values()).map((v) => v.revenue);
-    const salesCounts = Array.from(map.values()).map((v) => v.count);
+    // Sort by actual date object
+    const sortedEntries = Array.from(map.entries()).sort(
+      ([dateA], [dateB]) =>
+        new Date(parse(dateA, "MMM dd", new Date())).getTime() -
+        new Date(parse(dateB, "MMM dd", new Date())).getTime()
+    );
+
+    const labels = sortedEntries.map(([date]) => date);
+    const revenues = sortedEntries.map(([, value]) => value.revenue);
+    const salesCounts = sortedEntries.map(([, value]) => value.count);
 
     return { labels, revenues, salesCounts };
   }, [salesInvoices]);
@@ -101,7 +108,7 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices }) => {
         display: true,
         position: "right" as const,
         grid: {
-          drawOnChartArea: false, // Prevent grid lines overlapping
+          drawOnChartArea: false,
         },
         title: {
           display: true,

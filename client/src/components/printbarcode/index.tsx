@@ -32,7 +32,7 @@ const PrintableBarcode = forwardRef<HTMLDivElement, PrintableBarcodeProps>(
             .sticker-row {
               display: flex;
               margin-bottom: 4mm;
-              margin-left: 20mm;
+              margin-left: 14mm;
               break-inside: avoid;
             }
             .sticker {

@@ -38,6 +38,7 @@ const AddEditPurchaseInvoice = () => {
   const purchaseInvoices = useAppSelector(
     (state) => state.purchaseinvoice.invoices
   );
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Party Accounts (suppliers maybe)
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
@@ -135,8 +136,31 @@ const AddEditPurchaseInvoice = () => {
     setGrandTotal(grandTotalCalc);
   }, [products, taxPercent]);
 
+  const validate = () => {
+  const newErrors: { [key: string]: string } = {};
+
+  if (!paymentType) newErrors.paymentType = "Payment type is required";
+  if (!partyAccount) newErrors.partyAccount = "Party account is required";
+  if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
+  if (!billDate) newErrors.billDate = "Bill date is required";
+  if (!billType) newErrors.billType = "Bill type is required";
+  if (!billNumber) newErrors.billNumber = "Bill number is required";
+  if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
+  if (!products || products.length === 0) newErrors.products = "At least one product is required";
+
+  return newErrors;
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors({});
 
     if (products.length === 0) {
       alert("Please add at least one product");
@@ -208,6 +232,7 @@ const AddEditPurchaseInvoice = () => {
                   { value: "debit", label: "Debit" },
                   { value: "online", label: "Online" },
                 ]}
+                 error={errors.paymentType}
               />
               <div className="flex items-end gap-2">
                 <FormField
@@ -218,6 +243,7 @@ const AddEditPurchaseInvoice = () => {
                   onChange={(e) => setPartyAccount(e.target.value)}
                   options={accountOptions}
                   searchable
+                  error={errors.partyAccount}
                 />
                 <Button type="button" variant="outline" onClick={() => navigate('/accounts')}>
                   +
@@ -234,6 +260,7 @@ const AddEditPurchaseInvoice = () => {
                   { value: "billOfSupply", label: "Bill of Supply" },
                   { value: "other", label: "Other" },
                 ]}
+                error={errors.taxOrSupplyType}
               />
               <FormField
                 label="Bill Date"
@@ -252,6 +279,7 @@ const AddEditPurchaseInvoice = () => {
                   { value: "tax", label: "Tax" },
                   { value: "bill", label: "Bill" },
                 ]}
+                error={errors.billType}
               />
               <FormField
                 label="Bill Number"
@@ -271,6 +299,7 @@ const AddEditPurchaseInvoice = () => {
                   { value: "regular", label: "Regular" },
                   { value: "other", label: "Other" },
                 ]}
+                 error={errors.invoiceType}
               />
               <FormField
                 label="Notes"
