@@ -3,9 +3,10 @@ import JsBarcode from "jsbarcode";
 
 interface BarcodeImageProps {
   value: string;
+  align?: "start" | "center"; 
 }
 
-const BarcodeImage: React.FC<BarcodeImageProps> = ({ value }) => {
+const BarcodeImage: React.FC<BarcodeImageProps> = ({ value, align = "center" }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -25,7 +26,7 @@ const BarcodeImage: React.FC<BarcodeImageProps> = ({ value }) => {
   }, [value]);
 
   return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
+    <div style={{ display: "flex", justifyContent: align === "start" ? "flex-start" : "center" }}>
       <svg
         ref={svgRef}
         style={{

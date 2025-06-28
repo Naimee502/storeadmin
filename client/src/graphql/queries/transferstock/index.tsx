@@ -2,8 +2,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_TRANSFER_STOCKS = gql`
-  query GetTransferStocks {
-    getTransferStocks {
+  query GetTransferStocks($frombranchid: ID) {
+    getTransferStocks(frombranchid: $frombranchid) {
       id
       frombranchid
       tobranchid
@@ -16,8 +16,8 @@ export const GET_TRANSFER_STOCKS = gql`
 `;
 
 export const GET_DELETED_TRANSFER_STOCKS = gql`
-  query GetDeletedTransferStocks {
-    getDeletedTransferStocks {
+  query GetDeletedTransferStocks($frombranchid: ID) {
+    getDeletedTransferStocks(frombranchid: $frombranchid) {
       id
       frombranchid
       tobranchid

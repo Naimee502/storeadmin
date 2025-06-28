@@ -18,11 +18,12 @@ export const ADD_PURCHASE_INVOICE = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount
       }
       status
     }
@@ -47,11 +48,12 @@ export const EDIT_PURCHASE_INVOICE = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount
       }
       status
     }

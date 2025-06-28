@@ -112,10 +112,9 @@ const AddEditSalesInvoice = () => {
     setTaxPercent(invoice.totalgst || 0);
     setStatus(invoice.status ?? true);
 
-    // Map products and set in parent state (with productname)
     const mappedProducts = invoice.products.map((p: any) => ({
-      productid: p.id,
-      productname: productsList.find((prod: any) => prod.id === p.id)?.name || "",
+      productid: p.productid, // ✅ changed from p.id
+      productname: productsList.find((prod: any) => prod.id === p.productid)?.name || "",
       quantity: p.qty,
       rate: p.rate,
       total: p.amount,
@@ -190,7 +189,7 @@ const AddEditSalesInvoice = () => {
       totalgst: taxAmount,
       totalamount: grandTotal,
       products: products.map((p) => ({
-        id: p.productid,
+        productid: p.productid,
         qty: p.quantity,
         rate: p.rate,
         gst: p.gst,

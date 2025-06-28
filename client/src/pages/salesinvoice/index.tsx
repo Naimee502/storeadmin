@@ -25,6 +25,8 @@ const SalesInvoices = () => {
   const invoiceList = data?.getSalesInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
+  console.log("Sales Invoices Data:", JSON.stringify(invoiceList, null, 2));
+
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
@@ -101,9 +103,9 @@ const SalesInvoices = () => {
     );
 
     const account = accountsMap.get(invoice.partyacc);
-    
+
     const productname = invoice.products
-      .map((p: any) => productMap.get(p.id) || "Unknown")
+      .map((p: any) => productMap.get(p.productid) || "Unknown")
       .join(", ");
 
     return {

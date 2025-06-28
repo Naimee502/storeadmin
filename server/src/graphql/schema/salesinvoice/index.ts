@@ -2,21 +2,21 @@ import { gql } from 'apollo-server-express';
 
 export const salesInvoiceTypeDefs = gql`
   type SalesInvoiceProduct {
-    id: ID!
+    productid: ID!
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
-    discount: Float!   # <-- ADD THIS
+    discount: Float!
   }
 
   input SalesInvoiceProductInput {
-    id: ID!
+    productid: ID!
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
-    discount: Float!   # <-- ADD THIS
+    discount: Float!   
   }
 
   type SalesInvoice {

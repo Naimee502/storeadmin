@@ -126,6 +126,16 @@ const AddEditProduct = () => {
         }
     }, [isEdit, data]);
 
+    useEffect(() => {
+        const openingAmount = (formData.openingstock || 0) * (formData.purchaserate || 0);
+        const currentAmount = (formData.currentstock || 0) * (formData.purchaserate || 0);
+        setFormData((prev) => ({
+            ...prev,
+            openingstockamount: openingAmount,
+            currentstockamount: currentAmount,
+        }));
+    }, [formData.openingstock, formData.currentstock, formData.purchaserate]);
+
     // Handle input change (text, number, textarea)
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -287,11 +297,11 @@ const AddEditProduct = () => {
                         {isEdit && (
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-medium">Barcode</label>
-                                <BarcodeImage value={barcode || ""} />
+                                <BarcodeImage value={barcode || ""} align="start"/>
                             </div>
                         )}
 
-                        <FormField
+                        {/* <FormField
                             label="Product Image"
                             name="productimage"
                             type="file"
@@ -312,7 +322,7 @@ const AddEditProduct = () => {
                                 ? formData.imageurl
                                 : ""
                             }
-                        />
+                        /> */}
 
                         {renderSelectDropdown("Category", "categoryid", categoryData?.getCategories || [])}
                         {renderSelectDropdown("Brand", "brandid", brandData?.getBrands || [])}
@@ -395,8 +405,9 @@ const AddEditProduct = () => {
                             name="openingstockamount"
                             type="number"
                             value={formData.openingstockamount}
-                            onChange={handleChange}
+                             onChange={() => {}}
                             error={errors.openingstockamount}
+                            disabled
                         />
                         <FormField
                             label="Current Stock"
@@ -411,8 +422,9 @@ const AddEditProduct = () => {
                             name="currentstockamount"
                             type="number"
                             value={formData.currentstockamount}
-                            onChange={handleChange}
+                            onChange={() => {}}
                             error={errors.currentstockamount}
+                            disabled
                         />
                         <FormField
                             label="Minimum Stock"

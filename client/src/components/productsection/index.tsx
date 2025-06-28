@@ -37,6 +37,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   type,
 }) => {
   const [currentProduct, setCurrentProduct] = useState<Partial<InvoiceProduct>>({});
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
   const selectedProduct = productsList.find(
     (p) => p.id === currentProduct.productid
@@ -52,7 +53,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     if (name === "productid") {
       const selected = productsList.find((p) => p.id === value);
       if (type === "sales" && selected?.currentstock === 0) {
-        alert("This product is out of stock and cannot be selected.");
+        alert("⚠️ This product is out of stock and cannot be selected.");
         return;
       }
     }
@@ -67,7 +68,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   useEffect(() => {
     if (selectedProduct) {
-      console.log("Rate", JSON.stringify(selectedProduct))
       const updatedRate =
         type === "sales"
           ? selectedProduct.salesrate ?? 0
@@ -129,12 +129,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     return subtotal + taxAmount;
   };
 
-  const addProduct = () => {
-    const isDuplicate = products.some(p => p.productid === currentProduct.productid);
-    if (isDuplicate) {
-      alert("Product already added.");
-      return;
-    }
+  const handleAddOrUpdateProduct = () => {
     if (!currentProduct.productid) {
       alert("Please select a product");
       return;
@@ -148,7 +143,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       productsList.find((p) => p.id === currentProduct.productid)?.name || "";
     const total = calculateLineTotal();
 
-    const newProduct: InvoiceProduct = {
+    const updatedProduct: InvoiceProduct = {
       productid: currentProduct.productid!,
       productname: productName,
       quantity: currentProduct.quantity!,
@@ -158,12 +153,35 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       total,
     };
 
-    setProducts((prev) => [...prev, newProduct]);
+    if (editIndex !== null) {
+      setProducts((prev) =>
+        prev.map((p, i) => (i === editIndex ? updatedProduct : p))
+      );
+      setEditIndex(null);
+    } else {
+      const isDuplicate = products.some((p) => p.productid === currentProduct.productid);
+      if (isDuplicate) {
+        alert("Product already added.");
+        return;
+      }
+      setProducts((prev) => [...prev, updatedProduct]);
+    }
+
     setCurrentProduct({});
   };
 
   const removeProduct = (index: number) => {
     setProducts((prev) => prev.filter((_, i) => i !== index));
+    if (editIndex === index) {
+      setEditIndex(null);
+      setCurrentProduct({});
+    }
+  };
+
+  const editProduct = (index: number) => {
+    const productToEdit = products[index];
+    setCurrentProduct({ ...productToEdit });
+    setEditIndex(index);
   };
 
   return (
@@ -222,9 +240,23 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         </div>
       </div>
 
-      <Button onClick={addProduct} variant="outline" type="button">
-        Add Product
-      </Button>
+      <div className="flex items-center gap-4">
+        <Button onClick={handleAddOrUpdateProduct} variant="outline" type="button">
+          {editIndex !== null ? "Update Product" : "Add Product"}
+        </Button>
+        {editIndex !== null && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setEditIndex(null);
+              setCurrentProduct({});
+            }}
+          >
+            Cancel Edit
+          </Button>
+        )}
+      </div>
 
       <fieldset className="border rounded-xl p-4 mt-4">
         <legend className="text-sm font-medium px-2">Products List</legend>
@@ -253,7 +285,14 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                   <td className="border border-gray-300 p-2">{(p.discount ?? 0).toFixed(2)}</td>
                   <td className="border border-gray-300 p-2">{(p.gst ?? 0).toFixed(2)}</td>
                   <td className="border border-gray-300 p-2">{p.total.toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2">
+                  <td className="border border-gray-300 p-2 space-x-2">
+                    <button
+                      className="text-blue-500 hover:text-blue-700"
+                      onClick={() => editProduct(index)}
+                      type="button"
+                    >
+                      Edit
+                    </button>
                     <button
                       className="text-red-500 hover:text-red-700"
                       onClick={() => removeProduct(index)}

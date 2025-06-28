@@ -46,7 +46,7 @@ const Home: React.FC = () => {
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery(branchId);
   const { data: productData, refetch: refetchProducts } = useProductsQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery(branchId);
-  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery();
+  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(branchId);
 
   // Refetch all data when branch ID changes
   useEffect(() => {

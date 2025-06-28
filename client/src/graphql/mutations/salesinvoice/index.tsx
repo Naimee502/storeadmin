@@ -19,11 +19,12 @@ export const ADD_SALES_INVOICE = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount
       }
       status
     }
@@ -49,16 +50,18 @@ export const EDIT_SALES_INVOICE = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount
       }
       status
     }
   }
 `;
+
 
 export const DELETE_SALES_INVOICE = gql`
   mutation DeleteSalesInvoice($id: ID!) {

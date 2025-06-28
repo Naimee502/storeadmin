@@ -18,11 +18,12 @@ export const GET_PURCHASE_INVOICES = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount  
       }
       status
     }
@@ -47,11 +48,12 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount  
       }
       status
     }
@@ -76,11 +78,12 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       totalgst
       totalamount
       products {
-        id
+        productid
         gst
         qty
         rate
         amount
+        discount  
       }
       status
     }

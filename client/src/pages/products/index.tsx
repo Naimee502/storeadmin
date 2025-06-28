@@ -153,7 +153,7 @@ const Products = () => {
           showDelete={true}
           showImport={false}
           showExport={false}
-          showPrint={true}
+          showPrint={false}
           showAdd={true}
           showBarcode={true}
           onView={() => console.log("View clicked")}

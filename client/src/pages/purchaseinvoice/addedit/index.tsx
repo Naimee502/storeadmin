@@ -96,8 +96,8 @@ const AddEditPurchaseInvoice = () => {
       setStatus(invoice.status ?? true);
 
       const mappedProducts = invoice.products.map((p: any) => ({
-        productid: p.id,
-        productname: productsList.find((prod: any) => prod.id === p.id)?.name || "",
+        productid: p.productid, 
+        productname: productsList.find((prod: any) => prod.id === p.productid)?.name || "",
         quantity: p.qty,
         rate: p.rate,
         total: p.amount,
@@ -182,7 +182,7 @@ const AddEditPurchaseInvoice = () => {
       totalgst: taxAmount,
       totalamount: grandTotal,
       products: products.map((p) => ({
-        id: p.productid,
+        productid: p.productid,
         qty: p.quantity,
         rate: p.rate,
         gst: p.gst,

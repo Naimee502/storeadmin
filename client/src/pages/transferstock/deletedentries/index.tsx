@@ -14,14 +14,14 @@ import { useProductsQuery } from "../../../graphql/hooks/products";
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { data, refetch } = useDeletedTransferStocksQuery();
+  const fromBranchId = localStorage.getItem("branchid") || "";
+  const { data, refetch } = useDeletedTransferStocksQuery(fromBranchId);
   const { resetTransferStockMutation } = useTransferStockMutations();
   const transferStockList = data?.getDeletedTransferStocks || [];
   const { data: branchesData } = useBranchesQuery();
   const { data: productsData } = useProductsQuery();
   const branches = branchesData?.getBranches || [];
   const products = productsData?.getProducts || [];
-  const fromBranchId = localStorage.getItem("branchid") || "";
   const toBranchOptions = branches.filter((branch: any) => branch.id !== fromBranchId);
 
   useEffect(() => {

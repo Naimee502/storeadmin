@@ -41,7 +41,7 @@ const TransferStock = () => {
 
   const { data: branchesData } = useBranchesQuery();
   const { data: productsData } = useProductsQuery();
-  const { data: transfersData, refetch } = useTransferStocksQuery();
+  const { data: transfersData, refetch } = useTransferStocksQuery(fromBranchId);
   const {
     addTransferStockMutation,
     editTransferStockMutation,
@@ -51,8 +51,6 @@ const TransferStock = () => {
   const branches = branchesData?.getBranches || [];
   const products = productsData?.getProducts || [];
   const transferStocks: TransferStockRow[] = transfersData?.getTransferStocks || [];
-
-  const toBranchOptions = branches.filter((branch: any) => branch.id !== fromBranchId);
 
   const [formValues, setFormValues] = useState<FormValues>({
     tobranchid: "",
@@ -66,11 +64,9 @@ const TransferStock = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-   useEffect(() => {
-    if (transfersData?.getTransferStocks) {
-      refetch();
-    }
-  }, [transferStocks, refetch]);
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   const handleFormChange = (name: keyof FormValues, value: string | number | boolean) => {
     setFormValues((prev) => ({
@@ -94,10 +90,7 @@ const TransferStock = () => {
     e.preventDefault();
     if (!validateForm()) return;
     dispatch(showLoading());
-    const payload = {
-      frombranchid: fromBranchId,
-      ...formValues,
-    };
+    const payload = { frombranchid: fromBranchId, ...formValues };
 
     try {
       if (isEditing && editingId) {
@@ -109,7 +102,7 @@ const TransferStock = () => {
       }
       await refetch();
       resetForm();
-    } catch (err) {
+    } catch {
       dispatch(showMessage({ message: "Operation failed!", type: "error" }));
     } finally {
       dispatch(hideLoading());
@@ -122,7 +115,7 @@ const TransferStock = () => {
       productid: row.productid,
       transferqty: row.transferqty,
       transferdate: row.transferdate,
-      status: row.status,
+      status: row.status === true || row.status === "Active",
     });
     setIsEditing(true);
     setEditingId(row.id);
@@ -133,7 +126,7 @@ const TransferStock = () => {
       tobranchid: "",
       productid: "",
       transferqty: undefined,
-      transferdate: "",
+      transferdate: new Date().toISOString().slice(0, 10),
       status: true,
     });
     setFormErrors({});
@@ -143,9 +136,9 @@ const TransferStock = () => {
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
-    { label: "From Branch", key: "frombranchid" }, // or "frombranchname" if you have that
-    { label: "To Branch", key: "tobranchid" },
-    { label: "Product", key: "productid" },
+    { label: "From Branch", key: "frombranchid" },
+    { label: "To Branch", key: "tobranchname" },
+    { label: "Product", key: "productname" },
     { label: "Qty", key: "transferqty" },
     { label: "Purchase Rate", key: "purchaserate" },
     { label: "Date", key: "transferdate" },
@@ -165,12 +158,22 @@ const TransferStock = () => {
       ...stock,
       seqNo: index + 1,
       frombranchid: fromBranch?.branchname,
-      tobranchid: toBranch?.branchname || stock.tobranchid,
-      productid: product?.name || stock.productid,
+      tobranchname: toBranch?.branchname || stock.tobranchid,
+      productname: product?.name || stock.productid,
       purchaserate: product?.purchaserate,
       status: stock.status ? "Active" : "Inactive",
     };
   });
+
+  const toBranchOptions = branches
+    .filter((b) => b.id !== fromBranchId || b.id === formValues.tobranchid)
+    .map((b) => ({ label: `${b.branchname} - ${b.branchcode}`, value: b.id }));
+
+  const productOptions = products.map((p) => ({
+    label: `${p.name} - ${p.currentstock}${p.currentstock === 0 ? " (Out of Stock)" : ""}`,
+    value: p.id,
+    disabled: p.currentstock === 0 && p.id !== formValues.productid,
+  }));
 
   if (!fromBranchId) {
     return (
@@ -196,10 +199,7 @@ const TransferStock = () => {
                 value={formValues.tobranchid}
                 onChange={(e) => handleFormChange("tobranchid", e.target.value)}
                 error={formErrors.tobranchid}
-                options={toBranchOptions.map((branch: any) => ({
-                  label: `${branch.branchname} - ${branch.branchcode}`,
-                  value: branch.id,
-                }))}
+                options={toBranchOptions}
                 icon={<FaExchangeAlt />}
               />
 
@@ -209,21 +209,16 @@ const TransferStock = () => {
                 type="select"
                 value={formValues.productid}
                 onChange={(e) => {
-                  const selectedProductId = e.target.value;
-                  const selectedProduct = products.find((p: any) => p.id === selectedProductId);
-
-                  if (selectedProduct?.currentstock === 0) {
-                    return; // Prevent selection
+                  const id = e.target.value;
+                  const p = products.find((x) => x.id === id);
+                  if (p?.currentstock === 0 && id !== formValues.productid) {
+                    alert("⚠️ This product is out of stock and cannot be selected.");
+                    return;
                   }
-
-                  handleFormChange("productid", selectedProductId);
+                  handleFormChange("productid", id);
                 }}
                 error={formErrors.productid}
-                options={products.map((product: any) => ({
-                  label: `${product.name} - ${product.currentstock}${product.currentstock === 0 ? ' (Out of Stock)' : ''}`,
-                  value: product.id,
-                  disabled: product.currentstock === 0, // Prevent selection if stock is 0
-                }))}
+                options={productOptions}
                 icon={<FaCubes />}
               />
 
@@ -274,7 +269,7 @@ const TransferStock = () => {
           showAdd={false}
           onEdit={handleEdit}
           onDelete={async (row) => {
-            if (window.confirm(`Are you sure you want to deleted transfer stock "${row.productid}"?`)) {
+            if (window.confirm(`Are you sure you want to delete transfer stock for product "${row.productname}"?`)) {
               try {
                 await deleteTransferStockMutation({ variables: { id: row.id } });
                 dispatch(showMessage({ message: "Transfer stock deleted", type: "success" }));

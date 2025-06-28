@@ -9,6 +9,7 @@ import {
   FaArchive,
   FaExclamationTriangle,
 } from "react-icons/fa";
+import { useNavigate } from "react-router";
 
 interface Product {
   openingstock?: number;
@@ -57,6 +58,8 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   transferStockData,
   branchId,
 }) => {
+  const navigate = useNavigate(); // ✅ Step 2
+
   const customers = customerData?.getAccounts ?? [];
   const products = productData?.getProducts ?? [];
   const invoices = salesInvoiceData?.getSalesInvoices ?? [];
@@ -80,14 +83,10 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     return invoiceSum + productsTotal;
   }, 0);
 
-  const totalOpeningStock = products.reduce(
-    (sum, product) => sum + (product.openingstock ?? 0),
+  const totalCurrentStock = products.reduce(
+    (sum, product) => sum + (product.currentstock ?? 0),
     0
   );
-
-  const totalIncomingTransfer = transfers
-    .filter((ts) => ts.tobranchid === branchId && ts.status === true)
-    .reduce((sum, ts) => sum + (ts.transferqty ?? 0), 0);
 
   const totalOutgoingTransfer = transfers
     .filter((ts) => ts.frombranchid === branchId && ts.status === true)
@@ -102,24 +101,30 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     (product) => product.currentstock < product.minimumstock
   ).length;
 
-  const stockIn = totalOpeningStock + totalIncomingTransfer;
-  const stockOut = totalOutgoingTransfer + totalSalesQuantity;
+  const stockIn = totalCurrentStock;
+  const salesStockOut = totalSalesQuantity;
+  const transferStockOut = totalOutgoingTransfer;
 
   const stats = [
-    { label: "Customers", value: customerCount, icon: <FaUsers className="text-blue-500" /> },
-    { label: "Orders", value: totalOrders, icon: <FaShoppingCart className="text-green-500" /> },
-    { label: "Sales", value: `₹${totalSales.toFixed(2)}`, icon: <FaDollarSign className="text-yellow-500" /> },
-    { label: "Revenue", value: `₹${totalRevenue.toFixed(2)}`, icon: <FaChartLine className="text-purple-500" /> },
-    { label: "Stock In", value: stockIn, icon: <FaBoxes className="text-indigo-500" /> },
-    { label: "Stock Out", value: stockOut, icon: <FaBoxOpen className="text-rose-500" /> },
-    { label: "Total Products", value: totalProducts, icon: <FaArchive className="text-teal-500" /> },
-    { label: "Low Stock", value: lowStockCount, icon: <FaExclamationTriangle className="text-red-500" /> },
+    { label: "Customers", value: customerCount, icon: <FaUsers className="text-blue-500" />, path: "/accounts" },
+    { label: "Orders", value: totalOrders, icon: <FaShoppingCart className="text-green-500" />, path: "/salesinvoice" },
+    { label: "Sales", value: `₹${totalSales.toFixed(2)}`, icon: <FaDollarSign className="text-yellow-500" />, path: "/salesinvoice" },
+    { label: "Revenue", value: `₹${totalRevenue.toFixed(2)}`, icon: <FaChartLine className="text-purple-500" />, path: "/salesinvoice" },
+    { label: "Stock In", value: stockIn, icon: <FaBoxes className="text-indigo-500" />, path: "/products" },
+    { label: "Sales Stock Out", value: salesStockOut, icon: <FaBoxOpen className="text-rose-500" />, path: "/salesinvoice" },
+    { label: "Transfer Stock Out", value: transferStockOut, icon: <FaBoxOpen className="text-orange-500" />, path: "/transferstock" },
+    { label: "Total Products", value: totalProducts, icon: <FaArchive className="text-teal-500" />, path: "/products" },
+    { label: "Low Stock", value: lowStockCount, icon: <FaExclamationTriangle className="text-red-500" />, path: "/products" },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((item) => (
-        <div key={item.label} className="flex items-center p-4 bg-white shadow rounded-xl">
+        <div
+          key={item.label}
+          onClick={() => navigate(item.path)} // ✅ Step 3
+          className="flex items-center p-4 bg-white shadow rounded-xl cursor-pointer hover:shadow-md transition"
+        >
           <div className="text-3xl mr-4">{item.icon}</div>
           <div>
             <p className="text-sm text-gray-500">{item.label}</p>

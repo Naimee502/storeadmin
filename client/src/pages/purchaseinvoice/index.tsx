@@ -91,11 +91,17 @@ const PurchaseInvoices = () => {
   ];
 
   const tableData = invoiceList.map((invoice: any, index: number) => {
-    const totalqty = invoice.products.reduce((sum: number, p: any) => sum + (p.qty || 0), 0);
+    const totalqty = invoice.products.reduce(
+      (sum: number, p: any) => sum + (p.qty || 0),
+      0
+    );
+
     const account = accountsMap.get(invoice.partyacc);
+
     const productname = invoice.products
-      .map((p: any) => productMap.get(p.id) || "Unknown")
+      .map((p: any) => productMap.get(p.productid) || "Unknown")
       .join(", ");
+
     return {
       ...invoice,
       seqNo: index + 1,
@@ -103,7 +109,9 @@ const PurchaseInvoices = () => {
       totalqty,
       billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
       status: invoice.status ? "Active" : "Inactive",
-      partyacc: account ? `${account.name} - ${account.mobile}` : invoice.partyacc,
+      partyacc: account
+        ? `${account.name} - ${account.mobile}`
+        : invoice.partyacc,
       productname,
     };
   });

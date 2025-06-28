@@ -21,8 +21,8 @@ export const transferStockTypeDefs = gql`
   }
 
   type Query {
-    getTransferStocks: [TransferStock!]!
-    getDeletedTransferStocks: [TransferStock!]!
+    getTransferStocks(frombranchid: ID): [TransferStock!]!
+    getDeletedTransferStocks(frombranchid: ID): [TransferStock!]!
     getTransferStockById(id: ID!): TransferStock
   }
 

@@ -18,20 +18,18 @@ const salesInvoiceSchema = new mongoose.Schema({
   branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   products: [
     {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+      productid: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
       gst: { type: Number, required: true },
       qty: { type: Number, required: true },
       rate: { type: Number, required: true },
       amount: { type: Number, required: true },
+      discount: { type: Number, default: 0 },
     }
   ],
-
   status: { type: Boolean, default: true },
 }, { timestamps: true });
 
-/**
- * After saving an invoice, reduce stock quantities in ProductBranchStock collection
- */
+// 🔻 POST-SAVE STOCK DECREMENT
 salesInvoiceSchema.post('save', async function(doc, next) {
   try {
     const branchid = doc.branchid;
@@ -43,8 +41,12 @@ salesInvoiceSchema.post('save', async function(doc, next) {
 
     const bulkOps = doc.products.map(product => ({
       updateOne: {
-        filter: { productid: product.id, branchid },
-        update: { $inc: { currentstock: -product.qty } }
+        filter: {
+          productid: new mongoose.Types.ObjectId(product.productid),
+          branchid: new mongoose.Types.ObjectId(branchid),
+        },
+        update: { $inc: { currentstock: -product.qty } },
+        upsert: false,
       }
     }));
 
@@ -59,4 +61,42 @@ salesInvoiceSchema.post('save', async function(doc, next) {
   }
 });
 
-export const SalesInvoice = mongoose.model('SalesInvoice', salesInvoiceSchema);
+// 🔻 STATIC: ADJUST STOCK ON EDIT
+salesInvoiceSchema.statics.adjustStock = async function (oldInvoice: any, newInvoice: any) {
+  const branchid = newInvoice.branchid;
+  if (!branchid) return;
+
+  const stockAdjustments: Record<string, number> = {};
+
+  for (const p of oldInvoice.products) {
+    const key = p.productid.toString(); 
+    stockAdjustments[key] = (stockAdjustments[key] || 0) + p.qty;
+  }
+
+  for (const p of newInvoice.products) {
+    const key = p.productid.toString();
+    stockAdjustments[key] = (stockAdjustments[key] || 0) - p.qty;
+  }
+
+  const bulkOps = Object.entries(stockAdjustments).map(([productid, qtyChange]) => ({
+    updateOne: {
+      filter: {
+        productid: new mongoose.Types.ObjectId(productid),
+        branchid: new mongoose.Types.ObjectId(branchid),
+      },
+      update: { $inc: { currentstock: qtyChange } },
+      upsert: false // ❌ Only update existing stock
+    }
+  }));
+
+  if (bulkOps.length > 0) {
+    const result = await ProductBranchStock.bulkWrite(bulkOps);
+    console.log('Adjust stock bulkWrite result:', result);
+  }
+};
+
+interface SalesInvoiceModel extends mongoose.Model<any> {
+  adjustStock: (oldInvoice: any, newInvoice: any) => Promise<void>;
+}
+
+export const SalesInvoice = mongoose.model<any, SalesInvoiceModel>('SalesInvoice', salesInvoiceSchema);

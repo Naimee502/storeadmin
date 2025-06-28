@@ -2,21 +2,21 @@ import { gql } from 'apollo-server-express';
 
 export const purchaseInvoiceTypeDefs = gql`
   type PurchaseInvoiceProduct {
-    id: ID!
-    gst: Float!
-    qty: Int!
-    rate: Float!
-    amount: Float!
-    discount: Float!   # <-- same discount field
-  }
-
-  input PurchaseInvoiceProductInput {
-    id: ID!
+    productid: ID!
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
     discount: Float!
+  }
+
+  input PurchaseInvoiceProductInput {
+    productid: ID!
+    gst: Float!
+    qty: Int!
+    rate: Float!
+    amount: Float!
+    discount: Float!   
   }
 
   type PurchaseInvoice {
