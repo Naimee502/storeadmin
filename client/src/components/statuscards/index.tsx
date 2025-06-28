@@ -8,6 +8,9 @@ import {
   FaBoxOpen,
   FaArchive,
   FaExclamationTriangle,
+  FaClipboardList,
+  FaHandHoldingUsd,
+  FaTruckLoading,
 } from "react-icons/fa";
 import { useNavigate } from "react-router";
 
@@ -21,6 +24,7 @@ interface ProductInInvoice {
   qty?: number;
   amount?: number;
   rate?: number;
+  discount?: number;
 }
 
 interface PurchaseInvoice {
@@ -69,7 +73,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   transferStockData,
   branchId,
 }) => {
-  const navigate = useNavigate(); // ✅ Step 2
+  const navigate = useNavigate();
 
   const customers = customerData?.getAccounts ?? [];
   const products = productData?.getProducts ?? [];
@@ -104,14 +108,21 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     .filter((ts) => ts.frombranchid === branchId && ts.status === true)
     .reduce((sum, ts) => sum + (ts.transferqty ?? 0), 0);
 
-  const purchaseStockIn = purchaseinvoices.reduce((acc, invoice) => {
-    return acc + invoice.products.reduce((sum, p) => sum + (p.qty ?? 0), 0);
-  }, 0);
-
   const totalSalesQuantity = invoices.reduce((acc, invoice) => {
     const invoiceQty = invoice.products.reduce((pSum, product) => pSum + (product.qty ?? 0), 0);
     return acc + invoiceQty;
   }, 0);
+
+  const purchaseStockIn = purchaseinvoices.reduce((acc, invoice) => {
+    return acc + invoice.products.reduce((sum, p) => sum + (p.qty ?? 0), 0);
+  }, 0);
+
+  const purchaseOrderCount = purchaseinvoices.length;
+
+  const totalPurchases = purchaseinvoices.reduce(
+    (acc, invoice) => acc + (invoice.totalamount ?? 0),
+    0
+  );
 
   const lowStockCount = products.filter(
     (product) => product.currentstock < product.minimumstock
@@ -123,9 +134,11 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 
   const stats = [
     { label: "Customers", value: customerCount, icon: <FaUsers className="text-blue-500" />, path: "/accounts" },
-    { label: "Orders", value: totalOrders, icon: <FaShoppingCart className="text-green-500" />, path: "/salesinvoice" },
+    { label: "Sales Orders", value: totalOrders, icon: <FaShoppingCart className="text-green-500" />, path: "/salesinvoice" },
     { label: "Sales", value: `₹${totalSales.toFixed(2)}`, icon: <FaDollarSign className="text-yellow-500" />, path: "/salesinvoice" },
     { label: "Revenue", value: `₹${totalRevenue.toFixed(2)}`, icon: <FaChartLine className="text-purple-500" />, path: "/salesinvoice" },
+    { label: "Purchase Orders", value: purchaseOrderCount, icon: <FaTruckLoading className="text-lime-500" />, path: "/purchaseinvoice" },
+    { label: "Purchases", value: `₹${totalPurchases.toFixed(2)}`, icon: <FaHandHoldingUsd className="text-amber-600" />, path: "/purchaseinvoice" },
     { label: "Purchase Stock In", value: purchaseStockIn, icon: <FaBoxOpen className="text-green-500" />, path: "/purchaseinvoice" },
     { label: "Sales Stock Out", value: salesStockOut, icon: <FaBoxOpen className="text-rose-500" />, path: "/salesinvoice" },
     { label: "Transfer Stock Out", value: transferStockOut, icon: <FaBoxOpen className="text-orange-500" />, path: "/transferstock" },
@@ -139,7 +152,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       {stats.map((item) => (
         <div
           key={item.label}
-          onClick={() => navigate(item.path)} // ✅ Step 3
+          onClick={() => navigate(item.path)}
           className="flex items-center p-4 bg-white shadow rounded-xl cursor-pointer hover:shadow-md transition"
         >
           <div className="text-3xl mr-4">{item.icon}</div>

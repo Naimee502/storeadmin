@@ -28,10 +28,15 @@ interface Invoice {
   products: InvoiceProduct[];
 }
 
+interface PurchaseInvoice {
+  products: InvoiceProduct[];
+}
+
 interface Props {
   products: Product[];
   transfers: Transfer[];
   invoices: Invoice[];
+  purchaseInvoices: PurchaseInvoice[];
   branchId: string;
 }
 
@@ -39,15 +44,14 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
   products,
   transfers,
   invoices,
+  purchaseInvoices,
   branchId,
 }) => {
-  const { stockIn, salesStockOut, transferStockOut } = useMemo(() => {
-    const totalCurrentStock = products.reduce(
+  const { purchaseStockIn, salesStockOut, transferStockOut, currentStock } = useMemo(() => {
+    const currentStock = products.reduce(
       (sum, p) => sum + (p.currentstock ?? 0),
       0
     );
-
-    const stockIn = totalCurrentStock;
 
     const transferStockOut = transfers
       .filter((t) => t.frombranchid === branchId && t.status)
@@ -58,18 +62,23 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
       0
     );
 
-    return { stockIn, salesStockOut, transferStockOut };
-  }, [products, transfers, invoices, branchId]);
+    const purchaseStockIn = purchaseInvoices.reduce(
+      (acc, inv) => acc + inv.products.reduce((s, p) => s + (p.qty ?? 0), 0),
+      0
+    );
+
+    return { purchaseStockIn, salesStockOut, transferStockOut, currentStock };
+  }, [products, transfers, invoices, purchaseInvoices, branchId]);
 
   const doughnutData = {
-    labels: ["Stock In", "Sales Stock Out", "Transfer Stock Out"],
+    labels: ["Purchase Stock In", "Sales Stock Out", "Transfer Stock Out"],
     datasets: [
       {
-        data: [stockIn, salesStockOut, transferStockOut],
+        data: [purchaseStockIn, salesStockOut, transferStockOut],
         backgroundColor: [
-          "rgba(75, 192, 192, 0.6)",   
-          "rgba(255, 99, 132, 0.6)",   
-          "rgba(255, 159, 64, 0.6)",  
+          "rgba(75, 192, 192, 0.6)",   // Teal
+          "rgba(255, 99, 132, 0.6)",   // Red
+          "rgba(255, 159, 64, 0.6)",   // Orange
         ],
         borderColor: [
           "rgba(75, 192, 192, 1)",
@@ -85,16 +94,23 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
     <div className="bg-white p-4 rounded-xl shadow">
       <h2 className="text-md font-semibold mb-2">📦 Stock In / Out Summary</h2>
       <Doughnut data={doughnutData} />
-      <div className="mt-4 text-center text-sm font-medium space-y-1">
-        <p>
-          Total Stock In: <span className="text-teal-600">{stockIn}</span>
-        </p>
-        <p>
-          Sales Stock Out: <span className="text-red-600">{salesStockOut}</span>
-        </p>
-        <p>
-          Transfer Stock Out: <span className="text-orange-500">{transferStockOut}</span>
-        </p>
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm">
+        <div className="bg-green-50 rounded-xl p-3 shadow-sm">
+          <p className="text-xs text-gray-500 mb-1">Purchase Stock In</p>
+          <p className="text-2xl font-bold text-green-600">{purchaseStockIn}</p>
+        </div>
+        <div className="bg-red-50 rounded-xl p-3 shadow-sm">
+          <p className="text-xs text-gray-500 mb-1">Sales Stock Out</p>
+          <p className="text-2xl font-bold text-red-600">{salesStockOut}</p>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-3 shadow-sm">
+          <p className="text-xs text-gray-500 mb-1">Transfer Stock Out</p>
+          <p className="text-2xl font-bold text-orange-500">{transferStockOut}</p>
+        </div>
+        <div className="bg-indigo-50 rounded-xl p-3 shadow-sm">
+          <p className="text-xs text-gray-500 mb-1">Current Stock</p>
+          <p className="text-2xl font-bold text-indigo-600">{currentStock}</p>
+        </div>
       </div>
     </div>
   );

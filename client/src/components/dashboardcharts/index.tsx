@@ -50,11 +50,21 @@ export interface SalesInvoice {
   salesmenid?: string;
 }
 
+export interface PurchaseInvoiceProduct {
+  qty?: number;
+}
+
+export interface PurchaseInvoice {
+  products: PurchaseInvoiceProduct[];
+}
+
 export interface Product {
   id: string;
   productname: string;
   categoryid?: string;
   openingstock?: number;
+  currentstock?: number;
+  minimumstock?: number;
 }
 
 export interface TransferStock {
@@ -81,6 +91,7 @@ export interface Category {
 
 export interface DashboardChartsProps {
   salesInvoiceData?: { getSalesInvoices: SalesInvoice[] };
+  purchaseInvoiceData?: { getPurchaseInvoices: PurchaseInvoice[] };
   productData?: { getProducts: Product[] };
   transferStockData?: { getTransferStocks: TransferStock[] };
   salesmenData?: { getSalesmenAccounts: Salesman[] };
@@ -90,6 +101,7 @@ export interface DashboardChartsProps {
 
 const DashboardCharts: React.FC<DashboardChartsProps> = ({
   salesInvoiceData,
+  purchaseInvoiceData,
   productData,
   transferStockData,
   salesmenData,
@@ -97,12 +109,12 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   branchId,
 }) => {
   const invoices = salesInvoiceData?.getSalesInvoices ?? [];
+  const purchaseInvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
   const products = productData?.getProducts ?? [];
   const transfers = transferStockData?.getTransferStocks ?? [];
   const salesmen = salesmenData?.getSalesmenAccounts ?? [];
   const categories = categoryData?.getCategories ?? [];
 
-  // Pre-calculate salesmen name map for subcomponents if needed
   useMemo(() => {
     return new Map(salesmen.map((s) => [s.id, s.name]));
   }, [salesmen]);
@@ -117,6 +129,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
           products={products}
           transfers={transfers}
           invoices={invoices}
+          purchaseInvoices={purchaseInvoices}
           branchId={branchId}
         />
         <ProfitLossChart salesInvoices={invoices} />

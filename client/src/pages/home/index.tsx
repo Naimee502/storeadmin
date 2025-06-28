@@ -79,6 +79,7 @@ const Home: React.FC = () => {
         />
 
         <DashboardCharts
+          purchaseInvoiceData={purchaseInvoiceData}
           salesInvoiceData={salesInvoiceData}
           productData={productData}
           transferStockData={transferStockData}
