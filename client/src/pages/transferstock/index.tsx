@@ -8,7 +8,7 @@ import Button from "../../components/button";
 import FormSwitch from "../../components/formswitch";
 import { FaCubes, FaExchangeAlt, FaCalendarAlt } from "react-icons/fa";
 import { showMessage } from "../../redux/slices/message";
-import { useAppDispatch } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
@@ -23,6 +23,7 @@ type FormValues = {
 
 type TransferStockRow = {
   id: string;
+  frombranchid: string;
   tobranchid: string;
   tobranchname: string;
   productid: string;
@@ -37,11 +38,13 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 const TransferStock = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const fromBranchId = localStorage.getItem("branchid") || "";
-
+  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const frombranchid = branchId ? branchId : undefined;
+  const { data: transfersData, refetch } = useTransferStocksQuery(frombranchid);
+  
   const { data: branchesData } = useBranchesQuery();
   const { data: productsData } = useProductsQuery();
-  const { data: transfersData, refetch } = useTransferStocksQuery(fromBranchId);
+
   const {
     addTransferStockMutation,
     editTransferStockMutation,
@@ -90,7 +93,7 @@ const TransferStock = () => {
     e.preventDefault();
     if (!validateForm()) return;
     dispatch(showLoading());
-    const payload = { frombranchid: fromBranchId, ...formValues };
+    const payload = { frombranchid: frombranchid, ...formValues };
 
     try {
       if (isEditing && editingId) {
@@ -115,7 +118,7 @@ const TransferStock = () => {
       productid: row.productid,
       transferqty: row.transferqty,
       transferdate: row.transferdate,
-      status: row.status === true || row.status === "Active",
+      status: typeof row.status === "string" ? row.status === "Active" : !!row.status,
     });
     setIsEditing(true);
     setEditingId(row.id);
@@ -150,14 +153,14 @@ const TransferStock = () => {
   ];
 
   const tableData = transferStocks.map((stock, index) => {
-    const fromBranch = branches.find((b) => b.id === fromBranchId);
+    const fromBranch = branches.find((b) => b.id === stock.frombranchid); 
     const toBranch = branches.find((b) => b.id === stock.tobranchid);
     const product = products.find((p) => p.id === stock.productid);
 
     return {
       ...stock,
       seqNo: index + 1,
-      frombranchid: fromBranch?.branchname,
+      frombranchid: fromBranch?.branchname || stock.frombranchid, 
       tobranchname: toBranch?.branchname || stock.tobranchid,
       productname: product?.name || stock.productid,
       purchaserate: product?.purchaserate,
@@ -166,7 +169,7 @@ const TransferStock = () => {
   });
 
   const toBranchOptions = branches
-    .filter((b) => b.id !== fromBranchId || b.id === formValues.tobranchid)
+    .filter((b) => b.id !== frombranchid || b.id === formValues.tobranchid)
     .map((b) => ({ label: `${b.branchname} - ${b.branchcode}`, value: b.id }));
 
   const productOptions = products.map((p) => ({
@@ -174,16 +177,6 @@ const TransferStock = () => {
     value: p.id,
     disabled: p.currentstock === 0 && p.id !== formValues.productid,
   }));
-
-  if (!fromBranchId) {
-    return (
-      <HomeLayout>
-        <div className="p-6 text-red-600 font-semibold">
-          Branch ID is missing in localStorage. Please log in again.
-        </div>
-      </HomeLayout>
-    );
-  }
 
   return (
     <HomeLayout>

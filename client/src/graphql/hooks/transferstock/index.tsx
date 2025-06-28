@@ -27,8 +27,7 @@ export const useTransferStockMutations = () => {
 
 export const useTransferStocksQuery = (frombranchid?: string) => {
   const { data, loading, error, refetch } = useQuery(GET_TRANSFER_STOCKS, {
-    variables: { frombranchid },
-    skip: !frombranchid,
+    variables: { frombranchid }
   });
 
   return {
@@ -41,8 +40,7 @@ export const useTransferStocksQuery = (frombranchid?: string) => {
 
 export const useDeletedTransferStocksQuery = (frombranchid?: string) => {
   const { data, loading, error, refetch } = useQuery(GET_DELETED_TRANSFER_STOCKS, {
-    variables: { frombranchid },
-    skip: !frombranchid,
+    variables: { frombranchid }
   });
 
   return {

@@ -1,4 +1,4 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -14,15 +14,15 @@ import { useProductsQuery } from "../../../graphql/hooks/products";
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const fromBranchId = localStorage.getItem("branchid") || "";
-  const { data, refetch } = useDeletedTransferStocksQuery(fromBranchId);
+  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const frombranchid = branchId ? branchId : undefined;
+  const { data, refetch } = useDeletedTransferStocksQuery(frombranchid);
   const { resetTransferStockMutation } = useTransferStockMutations();
   const transferStockList = data?.getDeletedTransferStocks || [];
   const { data: branchesData } = useBranchesQuery();
   const { data: productsData } = useProductsQuery();
   const branches = branchesData?.getBranches || [];
   const products = productsData?.getProducts || [];
-  const toBranchOptions = branches.filter((branch: any) => branch.id !== fromBranchId);
 
   useEffect(() => {
     if (!data || !data.getDeletedTransferStocks || data.getDeletedTransferStocks.length === 0) {
@@ -41,19 +41,19 @@ const DeletedTransferStocks = () => {
     { label: "Status", key: "status" },
   ];
 
-    const tableData = transferStockList.map((item: any, index: number) => {
-    const fromBranch = toBranchOptions.find((b: any) => b.id === item.frombranchid);
-    const toBranch = branches.find((b: any) => b.id === item.tobranchid);
-    const product = products.find((p: any) => p.id === item.productid);
+  const tableData = transferStockList.map((stock, index) => {
+    const fromBranch = branches.find((b) => b.id === stock.frombranchid); 
+    const toBranch = branches.find((b) => b.id === stock.tobranchid);
+    const product = products.find((p) => p.id === stock.productid);
 
     return {
-      ...item,
+      ...stock,
       seqNo: index + 1,
-      frombranchid: fromBranch?.branchname || item.frombranchid,
-      tobranchid: toBranch?.branchname || item.tobranchid,
-      productid: product?.name || item.productid,
+      frombranchid: fromBranch?.branchname || stock.frombranchid, 
+      tobranchname: toBranch?.branchname || stock.tobranchid,
+      productname: product?.name || stock.productid,
       purchaserate: product?.purchaserate,
-      status: item.status ? "Active" : "Inactive",
+      status: stock.status ? "Active" : "Inactive",
     };
   });
 
@@ -75,7 +75,7 @@ const DeletedTransferStocks = () => {
           onReset={async (row) => {
             if (
               window.confirm(
-                `Are you sure you want to reset deleted transfer stock "${row.productid}"?`
+                `Are you sure you want to reset deleted transfer stock "${row.productname}"?`
               )
             ) {
               try {

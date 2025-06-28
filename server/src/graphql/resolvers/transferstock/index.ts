@@ -1,10 +1,20 @@
+import mongoose from "mongoose";
 import { TransferStock } from "../../../models/transferstock";
 
 export const transferStockResolvers = {
   Query: {
     getTransferStocks: async (_: any, { frombranchid }: { frombranchid?: string }) => {
       const filter: any = { status: true };
-      if (frombranchid) filter.frombranchid = frombranchid;
+      
+      if (frombranchid) {
+        try {
+          filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
+        } catch (err) {
+          console.error("Invalid frombranchid:", frombranchid);
+          return []; // Return empty if it's not a valid ObjectId
+        }
+      }
+
       return await TransferStock.find(filter);
     },
     getDeletedTransferStocks: async (_: any, { frombranchid }: { frombranchid?: string }) => {
@@ -20,7 +30,7 @@ export const transferStockResolvers = {
   Mutation: {
     addTransferStock: async (_: any, { input }: any) => {
       const newDoc = await TransferStock.create(input);
-      await TransferStock.adjustStock(null, newDoc); 
+      await TransferStock.adjustStock(null, newDoc);
       return newDoc;
     },
 

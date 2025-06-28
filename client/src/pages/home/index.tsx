@@ -42,13 +42,16 @@ const Home: React.FC = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   // GraphQL query hooks with refetch support
-  const { data: customerData, refetch: refetchCustomers } = useAccountsQuery(branchId);
+  
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
-  const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery(branchId);
   const { data: productData, refetch: refetchProducts } = useProductsQuery();
+
+  const { data: customerData, refetch: refetchCustomers } = useAccountsQuery(branchId);
+  const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery(branchId);
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery(branchId);
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery(branchId);
-  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(branchId);
+  const frombranchid = branchId ? branchId : undefined;
+  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(frombranchid);
 
   // Refetch all data when branch ID changes
   useEffect(() => {
@@ -59,6 +62,7 @@ const Home: React.FC = () => {
       refetchSalesmen();
       refetchSalesInvoices();
       refetchPurchaseInvoices();
+      refetchTransferStock();
     }
 
     refetchTransferStock();

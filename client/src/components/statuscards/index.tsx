@@ -15,6 +15,8 @@ import {
 import { useNavigate } from "react-router";
 
 interface Product {
+  id: string;
+  branchid: string;
   openingstock?: number;
   currentstock: number;
   minimumstock: number;
@@ -50,6 +52,7 @@ interface TransferStock {
   status: boolean;
   frombranchid: string;
   tobranchid: string;
+  productid: string;
 }
 
 interface Account {
@@ -99,14 +102,36 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     return invoiceSum + productsTotal;
   }, 0);
 
-  const totalCurrentStock = products.reduce(
-    (sum, product) => sum + (product.currentstock ?? 0),
-    0
-  );
+  let totalCurrentStock = 0;
 
-  const totalOutgoingTransfer = transfers
-    .filter((ts) => ts.frombranchid === branchId && ts.status === true)
-    .reduce((sum, ts) => sum + (ts.transferqty ?? 0), 0);
+  if (branchId === "" || !branchId) {
+    totalCurrentStock = products.reduce((sum, product) => {
+      // Total quantity transferred out from this branch for this product
+      const transferredOutQty = transfers
+        .filter(
+          (t) =>
+            t.status === true &&
+            t.frombranchid === product.branchid &&
+            t.productid === product.id
+        )
+        .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
+
+      const netStock = (product.currentstock ?? 0) - transferredOutQty;
+
+      return sum + netStock;
+    }, 0);
+  } else {
+    totalCurrentStock = products.reduce((sum, product) => {
+      return sum + (product.currentstock ?? 0);
+    }, 0);
+  }
+
+  const totalOutgoingTransfer = (transfers ?? []).reduce((sum, ts) => {
+    const isMatch = !branchId || String(ts.frombranchid) === branchId;
+    return isMatch && ts.status === true
+      ? sum + (ts.transferqty ?? 0)
+      : sum;
+  }, 0);
 
   const totalSalesQuantity = invoices.reduce((acc, invoice) => {
     const invoiceQty = invoice.products.reduce((pSum, product) => pSum + (product.qty ?? 0), 0);
