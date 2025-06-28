@@ -23,6 +23,15 @@ interface ProductInInvoice {
   rate?: number;
 }
 
+interface PurchaseInvoice {
+  totalamount: number;
+  paymenttype: string;
+  billtype: string;
+  billnumber: string;
+  status: boolean;
+  products: ProductInInvoice[];
+}
+
 interface SalesInvoice {
   totalamount: number;
   paymenttype: string;
@@ -46,6 +55,7 @@ interface Account {
 interface StatsCardsProps {
   customerData: { getAccounts: Account[] };
   productData: { getProducts: Product[] };
+  purchaseInvoiceData: { getPurchaseInvoices: PurchaseInvoice[] };
   salesInvoiceData: { getSalesInvoices: SalesInvoice[] };
   transferStockData: { getTransferStocks: TransferStock[] };
   branchId: string;
@@ -55,6 +65,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   customerData,
   productData,
   salesInvoiceData,
+  purchaseInvoiceData,
   transferStockData,
   branchId,
 }) => {
@@ -62,6 +73,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 
   const customers = customerData?.getAccounts ?? [];
   const products = productData?.getProducts ?? [];
+  const purchaseinvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
   const invoices = salesInvoiceData?.getSalesInvoices ?? [];
   const transfers = transferStockData?.getTransferStocks ?? [];
 
@@ -92,6 +104,10 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     .filter((ts) => ts.frombranchid === branchId && ts.status === true)
     .reduce((sum, ts) => sum + (ts.transferqty ?? 0), 0);
 
+  const purchaseStockIn = purchaseinvoices.reduce((acc, invoice) => {
+    return acc + invoice.products.reduce((sum, p) => sum + (p.qty ?? 0), 0);
+  }, 0);
+
   const totalSalesQuantity = invoices.reduce((acc, invoice) => {
     const invoiceQty = invoice.products.reduce((pSum, product) => pSum + (product.qty ?? 0), 0);
     return acc + invoiceQty;
@@ -110,10 +126,11 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     { label: "Orders", value: totalOrders, icon: <FaShoppingCart className="text-green-500" />, path: "/salesinvoice" },
     { label: "Sales", value: `₹${totalSales.toFixed(2)}`, icon: <FaDollarSign className="text-yellow-500" />, path: "/salesinvoice" },
     { label: "Revenue", value: `₹${totalRevenue.toFixed(2)}`, icon: <FaChartLine className="text-purple-500" />, path: "/salesinvoice" },
-    { label: "Stock In", value: stockIn, icon: <FaBoxes className="text-indigo-500" />, path: "/products" },
+    { label: "Purchase Stock In", value: purchaseStockIn, icon: <FaBoxOpen className="text-green-500" />, path: "/purchaseinvoice" },
     { label: "Sales Stock Out", value: salesStockOut, icon: <FaBoxOpen className="text-rose-500" />, path: "/salesinvoice" },
     { label: "Transfer Stock Out", value: transferStockOut, icon: <FaBoxOpen className="text-orange-500" />, path: "/transferstock" },
     { label: "Total Products", value: totalProducts, icon: <FaArchive className="text-teal-500" />, path: "/products" },
+    { label: "Stock", value: stockIn, icon: <FaBoxes className="text-indigo-500" />, path: "/products" },
     { label: "Low Stock", value: lowStockCount, icon: <FaExclamationTriangle className="text-red-500" />, path: "/products" },
   ];
 

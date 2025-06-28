@@ -23,6 +23,7 @@ import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import StatsCards from "../../components/statuscards";
 import DashboardCharts from "../../components/dashboardcharts";
 import RecentOrders from "../../components/recentorders";
+import { usePurchaseInvoicesQuery } from "../../graphql/hooks/purchaseinvoice";
 
 ChartJS.register(
   CategoryScale,
@@ -45,6 +46,7 @@ const Home: React.FC = () => {
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery(branchId);
   const { data: productData, refetch: refetchProducts } = useProductsQuery();
+  const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery(branchId);
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery(branchId);
   const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(branchId);
 
@@ -56,6 +58,7 @@ const Home: React.FC = () => {
       refetchCustomers();
       refetchSalesmen();
       refetchSalesInvoices();
+      refetchPurchaseInvoices();
     }
 
     refetchTransferStock();
@@ -70,6 +73,7 @@ const Home: React.FC = () => {
           customerData={customerData}
           productData={productData}
           salesInvoiceData={salesInvoiceData}
+          purchaseInvoiceData={purchaseInvoiceData}
           transferStockData={transferStockData}
           branchId={branchId}
         />
