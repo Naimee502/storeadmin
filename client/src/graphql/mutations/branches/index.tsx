@@ -4,6 +4,7 @@ export const ADD_BRANCH = gql`
   mutation AddBranch($input: BranchInput!) {
     addBranch(input: $input) {
       id
+      branchcode
       branchname
       mobile
       password
@@ -16,6 +17,16 @@ export const ADD_BRANCH = gql`
       phone
       email
       status
+      admin {
+        id
+        name
+        email
+        subscribed
+        subscriptionType
+        subscribedAt
+        subscriptionEnd
+        transactionId
+      }
     }
   }
 `;
@@ -37,6 +48,16 @@ export const EDIT_BRANCH = gql`
       phone
       email
       status
+      admin {
+        id
+        name
+        email
+        subscribed
+        subscriptionType
+        subscribedAt
+        subscriptionEnd
+        transactionId
+      }
     }
   }
 `;

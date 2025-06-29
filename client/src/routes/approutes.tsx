@@ -38,11 +38,29 @@ import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
 import DeletedTransferStocks from "../pages/transferstock/deletedentries";
 import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
 import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
+import AdminRegister from "../pages/adminregister";
+import Subscription from "../pages/subscription";
 
 const AppRoutes = () => {
     return (
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/register"
+          element={
+            <PublicRoutes>
+              <AdminRegister />
+            </PublicRoutes>
+          }
+        />
+        <Route
+          path="/subscription"
+          element={
+            <PublicRoutes>
+              <Subscription />
+            </PublicRoutes>
+          }
+        />
         <Route
           path="/login"
           element={

@@ -16,6 +16,12 @@ const branchSchema = new mongoose.Schema({
   phone: String,
   email: { type: String, unique: true },
   status: Boolean,
+
+  admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true
+  },  
 }, { timestamps: true });
 
 branchSchema.pre('save', async function (next) {

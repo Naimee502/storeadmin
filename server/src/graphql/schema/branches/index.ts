@@ -1,6 +1,17 @@
 import { gql } from 'apollo-server-express';
 
 export const branchTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type Branch {
     id: ID!
     branchcode: String!
@@ -16,6 +27,7 @@ export const branchTypeDefs = gql`
     phone: String!
     email: String!
     status: Boolean!
+    admin: Admin  
   }
 
   input BranchInput {
@@ -31,12 +43,13 @@ export const branchTypeDefs = gql`
     phone: String!
     email: String!
     status: Boolean!
+    admin: ID  
   }
 
   type Query {
-    getBranches: [Branch!]!
-    getBranch(id: ID!): Branch
-    getDeletedBranches: [Branch!]!
+    getBranches(adminId: ID): [Branch!]!
+    getBranch(id: ID!, adminId: ID): Branch
+    getDeletedBranches(adminId: ID): [Branch!]!
   }
 
   type Mutation {

@@ -2,41 +2,54 @@ import { Branch } from "../../../models/branches";
 
 export const branchResolvers = {
   Query: {
-    // Get all active branches (status: true)
-    getBranches: async () => {
-      const branches = await Branch.find({ status: true });
-      return branches;
-    },
-    // Get one branch by id
-    getBranch: async (_: any, { id }: { id: string }) => await Branch.findById(id),
+    // Get all active branches (optionally filter by admin)
+    getBranches: async (_: any, { adminId }: { adminId?: string }) => {
+      const filter: any = { status: true };
+      if (adminId) filter.admin = adminId;
 
-    // New: Get all deleted (soft deleted) branches (status: false)
-    getDeletedBranches: async () => {
-      const branches = await Branch.find({ status: false });
-      return branches;
+      return await Branch.find(filter).populate("admin");
+    },
+
+    // Get one branch (optionally ensure admin owns it)
+    getBranch: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
+      const filter: any = { _id: id };
+      if (adminId) filter.admin = adminId;
+
+      return await Branch.findOne(filter).populate("admin");
+    },
+
+    // Get deleted branches (optionally filter by admin)
+    getDeletedBranches: async (_: any, { adminId }: { adminId?: string }) => {
+      const filter: any = { status: false };
+      if (adminId) filter.admin = adminId;
+
+      return await Branch.find(filter).populate("admin");
     },
   },
+
   Mutation: {
-    addBranch: async (_: any, { input }: any) => await Branch.create(input),
+    addBranch: async (_: any, { input }: any) => {
+      const branch = await Branch.create(input);
+      return await Branch.findById(branch._id).populate('admin'); 
+    },
 
     addBranches: async (_: any, { inputs }: { inputs: any[] }) => {
       const createdBranches = await Branch.insertMany(inputs);
-      return createdBranches;
+      const branchIds = createdBranches.map(branch => branch._id);
+      return await Branch.find({ _id: { $in: branchIds } }).populate('admin'); 
     },
 
     editBranch: async (_: any, { id, input }: any) =>
-      await Branch.findByIdAndUpdate(id, input, { new: true }),
+      await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin'), 
 
-    // Soft delete: mark status as false
     deleteBranch: async (_: any, { id }: any) => {
       const result = await Branch.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
 
-    // New: Reset branch to default values
     resetBranch: async (_: any, { id }: any) => {
-       const result = await Branch.findByIdAndUpdate(id, { status: true }, { new: true });
-       return !!result;
+      const result = await Branch.findByIdAndUpdate(id, { status: true }, { new: true });
+      return !!result;
     },
   },
 };

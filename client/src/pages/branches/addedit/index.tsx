@@ -7,7 +7,7 @@ import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import React from "react";
 import { useBranchByIDQuery, useBranchMutations } from "../../../graphql/hooks/branches";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useImageUpload } from "../../../graphql/hooks/uploads";
 
@@ -16,6 +16,7 @@ const AddEditBranch = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { admin } = useAppSelector((state) => state.auth);
 
   const { data } = useBranchByIDQuery(id || "");
 
@@ -35,6 +36,7 @@ const AddEditBranch = () => {
         phone: branch.phone || "",
         email: branch.email || "",
         status: branch.status ?? true,
+        admin: branch.admin?.id || "",
       });
     }
   }, [isEdit, data]);
@@ -55,6 +57,7 @@ const AddEditBranch = () => {
     phone: "",
     email: "",
     status: true,
+    admin: "",
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -127,6 +130,7 @@ const AddEditBranch = () => {
       phone: formData.phone,
       email: formData.email,
       status: formData.status,
+      admin: admin?.id
     };
 
     try {
