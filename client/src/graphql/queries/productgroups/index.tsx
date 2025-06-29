@@ -8,6 +8,11 @@ export const GET_PRODUCTGROUPS = gql`
       productgroupcode
       productgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -19,6 +24,11 @@ export const GET_DELETED_PRODUCTGROUPS = gql`
       productgroupcode
       productgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -30,6 +40,11 @@ export const GET_PRODUCTGROUP_BY_ID = gql`
       productgroupcode
       productgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

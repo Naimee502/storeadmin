@@ -1,4 +1,3 @@
-// src/mutations/productgroups.ts
 import { gql } from '@apollo/client';
 
 export const ADD_PRODUCTGROUP = gql`
@@ -7,6 +6,11 @@ export const ADD_PRODUCTGROUP = gql`
       id
       productgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -17,6 +21,11 @@ export const EDIT_PRODUCTGROUP = gql`
       id
       productgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

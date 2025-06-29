@@ -3,30 +3,35 @@ import {
   ADD_PRODUCTGROUP,
   DELETE_PRODUCTGROUP,
   EDIT_PRODUCTGROUP,
-  RESET_PRODUCTGROUP, // add this import
+  RESET_PRODUCTGROUP,
 } from '../../mutations/productgroups';
 import {
   GET_DELETED_PRODUCTGROUPS,
   GET_PRODUCTGROUPS,
   GET_PRODUCTGROUP_BY_ID,
 } from '../../queries/productgroups';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useProductGroupMutations = () => {
   const [addProductGroupMutation] = useMutation(ADD_PRODUCTGROUP);
   const [editProductGroupMutation] = useMutation(EDIT_PRODUCTGROUP);
   const [deleteProductGroupMutation] = useMutation(DELETE_PRODUCTGROUP);
-  const [resetProductGroupMutation] = useMutation(RESET_PRODUCTGROUP); // new mutation hook
+  const [resetProductGroupMutation] = useMutation(RESET_PRODUCTGROUP);
 
   return {
     addProductGroupMutation,
     editProductGroupMutation,
     deleteProductGroupMutation,
-    resetProductGroupMutation, // expose it here
+    resetProductGroupMutation,
   };
 };
 
 export const useProductGroupsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_PRODUCTGROUPS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCTGROUPS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -37,7 +42,11 @@ export const useProductGroupsQuery = () => {
 };
 
 export const useDeletedProductGroupsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTGROUPS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTGROUPS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -48,8 +57,10 @@ export const useDeletedProductGroupsQuery = () => {
 };
 
 export const useProductGroupByIDQuery = (id: string) => {
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
   const { data, loading, error } = useQuery(GET_PRODUCTGROUP_BY_ID, {
-    variables: { id },
+    variables: { id, adminId },
     skip: !id,
   });
 
