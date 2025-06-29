@@ -10,6 +10,7 @@ import {
   GET_DELETED_BRANDS,
   GET_BRAND_BY_ID,
 } from '../../queries/brands';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useBrandMutations = () => {
   const [addBrandMutation] = useMutation(ADD_BRAND);
@@ -26,7 +27,11 @@ export const useBrandMutations = () => {
 };
 
 export const useBrandsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_BRANDS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_BRANDS, {
+    variables: { adminId }, 
+  });
 
   return {
     data,
@@ -37,7 +42,11 @@ export const useBrandsQuery = () => {
 };
 
 export const useDeletedBrandsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_BRANDS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_BRANDS, {
+    variables: { adminId }, // pass adminId optionally
+  });
 
   return {
     data,
@@ -48,8 +57,10 @@ export const useDeletedBrandsQuery = () => {
 };
 
 export const useBrandByIDQuery = (id: string) => {
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
   const { data, loading, error } = useQuery(GET_BRAND_BY_ID, {
-    variables: { id },
+    variables: { id, adminId }, // pass both id and optional adminId
     skip: !id,
   });
 

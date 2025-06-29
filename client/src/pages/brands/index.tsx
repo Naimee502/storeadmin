@@ -14,6 +14,7 @@ const Brands = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { admin } = useAppSelector((state) => state.auth);
   const { data, refetch } = useBrandsQuery();
   const { addBrandMutation, editBrandMutation, deleteBrandMutation } = useBrandMutations();
   const brandList = data?.getBrands || [];
@@ -72,6 +73,7 @@ const Brands = () => {
             input: {
               brandname: formValues.brandname,
               status: formValues.status,
+              admin: admin?.id
             },
           },
         });
@@ -82,6 +84,7 @@ const Brands = () => {
             input: {
               brandname: formValues.brandname,
               status: formValues.status,
+              admin: admin?.id
             },
           },
         });

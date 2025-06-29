@@ -6,6 +6,11 @@ export const ADD_BRAND = gql`
       id
       brandname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -16,6 +21,11 @@ export const EDIT_BRAND = gql`
       id
       brandname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

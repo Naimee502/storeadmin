@@ -14,7 +14,7 @@ const Sizes = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-    const { admin } = useAppSelector((state) => state.auth);
+  const { admin } = useAppSelector((state) => state.auth);
   const { data, refetch } = useSizesQuery();
   const { addSizeMutation, editSizeMutation, deleteSizeMutation } = useSizeMutations();
   const sizeList = data?.getSizes || [];

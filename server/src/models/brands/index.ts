@@ -5,6 +5,12 @@ const brandSchema = new mongoose.Schema(
     brandcode: { type: String, unique: true },
     brandname: { type: String, required: true, unique: true },
     status: Boolean,
+
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true
+    },
   },
   { timestamps: true }
 );

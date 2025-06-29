@@ -2,34 +2,45 @@ import { Brand } from "../../../models/brands";
 
 export const brandResolvers = {
   Query: {
-    // Get all active brands
-    getBrands: async () => {
-      const brands = await Brand.find({ status: true });
-      return brands;
+    // Get all active brands for optional admin
+    getBrands: async (_: any, { adminId }: { adminId?: string }) => {
+      const query: any = { status: true };
+      if (adminId) query.admin = adminId;
+      return await Brand.find(query).populate("admin"); // ✅ FIXED
     },
-    // Get one brand by id
-    getBrandById: async (_: any, { id }: { id: string }) => {
-      return await Brand.findById(id);
+
+    // Get one brand by id for optional admin
+    getBrandById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
+      const query: any = { _id: id };
+      if (adminId) query.admin = adminId;
+      return await Brand.findOne(query).populate("admin"); // ✅ FIXED
     },
-    // Get all deleted (soft deleted) brands
-    getDeletedBrands: async () => {
-      const brands = await Brand.find({ status: false });
-      return brands;
+
+    // Get all deleted brands for optional admin
+    getDeletedBrands: async (_: any, { adminId }: { adminId?: string }) => {
+      const query: any = { status: false };
+      if (adminId) query.admin = adminId;
+      return await Brand.find(query).populate("admin"); // ✅ FIXED
     },
   },
+
   Mutation: {
     addBrand: async (_: any, { input }: any) => {
-      return await Brand.create(input);
+      const brand = await Brand.create(input);
+      return await Brand.findById(brand._id).populate("admin");
     },
+
     editBrand: async (_: any, { id, input }: any) => {
-      return await Brand.findByIdAndUpdate(id, input, { new: true });
+      return await Brand.findByIdAndUpdate(id, input, { new: true }).populate("admin");
     },
-    // Soft delete brand (mark status as false)
+
+    // Soft delete brand
     deleteBrand: async (_: any, { id }: any) => {
       const result = await Brand.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
-    // Reset brand (mark status as true)
+
+    // Restore brand
     resetBrand: async (_: any, { id }: any) => {
       const result = await Brand.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
