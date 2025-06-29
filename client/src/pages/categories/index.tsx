@@ -15,6 +15,7 @@ const Categories = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { admin } = useAppSelector((state) => state.auth);
   const { data, refetch } = useCategoriesQuery();
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } = useCategoryMutations();
   const categoryList = data?.getCategories || [];
@@ -78,6 +79,7 @@ const Categories = () => {
             input: {
               categoryname: formValues.categoryname,
               status: formValues.status,
+              admin: admin?.id
             },
           },
         });
@@ -89,6 +91,7 @@ const Categories = () => {
             input: {
               categoryname: formValues.categoryname,
               status: formValues.status,
+              admin: admin?.id
             },
           },
         });

@@ -1,35 +1,50 @@
-// queries/categories.ts
 import { gql } from '@apollo/client';
 
 export const GET_CATEGORIES = gql`
-  query GetCategories {
-    getCategories {
+  query GetCategories($adminId: ID) {
+    getCategories(adminId: $adminId) {
       id
       categorycode
       categoryname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_DELETED_CATEGORIES = gql`
-  query GetDeletedCategories {
-    getDeletedCategories {
+  query GetDeletedCategories($adminId: ID) {
+    getDeletedCategories(adminId: $adminId) {
       id
       categorycode
       categoryname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_CATEGORY_BY_ID = gql`
-  query GetCategoryById($id: ID!) {
-    getCategoryById(id: $id) {
+  query GetCategoryById($id: ID!, $adminId: ID) {
+    getCategoryById(id: $id, adminId: $adminId) {
       id
       categorycode
       categoryname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
+

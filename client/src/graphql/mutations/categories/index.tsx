@@ -1,4 +1,3 @@
-// mutations/categories.ts
 import { gql } from '@apollo/client';
 
 export const ADD_CATEGORY = gql`
@@ -7,6 +6,11 @@ export const ADD_CATEGORY = gql`
       id
       categoryname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -17,6 +21,11 @@ export const EDIT_CATEGORY = gql`
       id
       categoryname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

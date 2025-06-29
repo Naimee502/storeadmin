@@ -2,29 +2,45 @@ import { Size } from "../../../models/size";
 
 export const sizeResolvers = {
   Query: {
-    getSizes: async () => {
-      const sizes = await Size.find({ status: true });
-      return sizes;
+    // Get all active sizes (optionally filtered by admin)
+    getSizes: async (_: any, { adminId }: { adminId?: string }) => {
+      const filter: any = { status: true };
+      if (adminId) filter.admin = adminId;
+      return await Size.find(filter).populate("admin");
     },
-    getDeletedSizes: async () => {
-      const deletedSizes = await Size.find({ status: false });
-      return deletedSizes;
+
+    // Get deleted sizes (optionally filtered by admin)
+    getDeletedSizes: async (_: any, { adminId }: { adminId?: string }) => {
+      const filter: any = { status: false };
+      if (adminId) filter.admin = adminId;
+      return await Size.find(filter).populate("admin");
     },
-    getSizeById: async (_: any, { id }: { id: string }) => {
-      return await Size.findById(id);
+
+    // Get one size by ID (optionally check for admin)
+    getSizeById: async (_: any, { id, adminId }: { id: string, adminId?: string }) => {
+      const filter: any = { _id: id };
+      if (adminId) filter.admin = adminId;
+      return await Size.findOne(filter).populate("admin");
     },
   },
+
   Mutation: {
+    // Add a size with admin reference
     addSize: async (_: any, { input }: any) => {
-      return await Size.create(input);
+      const size = await Size.create(input);
+      return await Size.findById(size._id).populate("admin");
     },
+
+    // Edit and return populated size
     editSize: async (_: any, { id, input }: any) => {
-      return await Size.findByIdAndUpdate(id, input, { new: true });
+      return await Size.findByIdAndUpdate(id, input, { new: true }).populate("admin");
     },
+
     deleteSize: async (_: any, { id }: any) => {
       const result = await Size.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
+
     resetSize: async (_: any, { id }: any) => {
       const result = await Size.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;

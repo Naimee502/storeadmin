@@ -1,4 +1,3 @@
-// mutations/sizes.ts
 import { gql } from '@apollo/client';
 
 export const ADD_SIZE = gql`
@@ -7,6 +6,11 @@ export const ADD_SIZE = gql`
       id
       sizename
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -17,6 +21,11 @@ export const EDIT_SIZE = gql`
       id
       sizename
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
