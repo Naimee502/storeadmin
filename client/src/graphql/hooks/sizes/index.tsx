@@ -27,7 +27,10 @@ export const useSizeMutations = () => {
 };
 
 export const useSizesQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SIZES, {
     variables: { adminId },
@@ -42,7 +45,10 @@ export const useSizesQuery = () => {
 };
 
 export const useDeletedSizesQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SIZES, {
     variables: { adminId },
@@ -57,7 +63,10 @@ export const useDeletedSizesQuery = () => {
 };
 
 export const useSizeByIDQuery = (id: string) => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_SIZE_BY_ID, {
     variables: { id, adminId },

@@ -5,6 +5,12 @@ const accountGroupSchema = new mongoose.Schema(
     accountgroupcode: { type: String, unique: true },
     accountgroupname: { type: String, required: true, unique: true },
     status: Boolean,
+    
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true
+    },
   },
   { timestamps: true }
 );

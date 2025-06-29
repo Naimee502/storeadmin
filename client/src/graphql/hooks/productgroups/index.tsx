@@ -27,7 +27,10 @@ export const useProductGroupMutations = () => {
 };
 
 export const useProductGroupsQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PRODUCTGROUPS, {
     variables: { adminId },
@@ -42,7 +45,10 @@ export const useProductGroupsQuery = () => {
 };
 
 export const useDeletedProductGroupsQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTGROUPS, {
     variables: { adminId },
@@ -57,7 +63,10 @@ export const useDeletedProductGroupsQuery = () => {
 };
 
 export const useProductGroupByIDQuery = (id: string) => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_PRODUCTGROUP_BY_ID, {
     variables: { id, adminId },

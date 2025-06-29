@@ -14,6 +14,8 @@ const Units = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef(null);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const { data, refetch } = useUnitsQuery();
   const { addUnitMutation, editUnitMutation, deleteUnitMutation } = useUnitMutations();
   const unitList = data?.getUnits || [];
@@ -69,14 +71,14 @@ const Units = () => {
         await editUnitMutation({
           variables: {
             id: editingId,
-            input: { unitname: formValues.unitname, status: formValues.status },
+            input: { unitname: formValues.unitname, status: formValues.status, admin: adminId },
           },
         });
         dispatch(showMessage({ message: "Unit updated successfully.", type: "success" }));
       } else {
         await addUnitMutation({
           variables: {
-            input: { unitname: formValues.unitname, status: formValues.status },
+            input: { unitname: formValues.unitname, status: formValues.status, admin: adminId },
           },
         });
         dispatch(showMessage({ message: "Unit added successfully.", type: "success" }));

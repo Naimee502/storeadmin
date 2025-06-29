@@ -1,4 +1,3 @@
-// src/queries/accountgroups.ts
 import { gql } from '@apollo/client';
 
 export const GET_ACCOUNTGROUPS = gql`
@@ -8,6 +7,11 @@ export const GET_ACCOUNTGROUPS = gql`
       accountgroupcode
       accountgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -19,6 +23,11 @@ export const GET_DELETED_ACCOUNTGROUPS = gql`
       accountgroupcode
       accountgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -30,6 +39,11 @@ export const GET_ACCOUNTGROUP_BY_ID = gql`
       accountgroupcode
       accountgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

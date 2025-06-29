@@ -28,7 +28,10 @@ export const useModelMutations = () => {
 };
 
 export const useModelsQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_MODELS, {
     variables: { adminId },
@@ -44,7 +47,10 @@ export const useModelsQuery = () => {
 };
 
 export const useDeletedModelsQuery = () => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_MODELS, {
     variables: { adminId },
@@ -60,7 +66,10 @@ export const useDeletedModelsQuery = () => {
 };
 
 export const useModelByIDQuery = (id: string) => {
-  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_MODEL_BY_ID, {
     variables: { id, adminId },

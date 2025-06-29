@@ -1,4 +1,3 @@
-// src/mutations/accountgroups.ts
 import { gql } from '@apollo/client';
 
 export const ADD_ACCOUNTGROUP = gql`
@@ -7,6 +6,11 @@ export const ADD_ACCOUNTGROUP = gql`
       id
       accountgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -17,6 +21,11 @@ export const EDIT_ACCOUNTGROUP = gql`
       id
       accountgroupname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

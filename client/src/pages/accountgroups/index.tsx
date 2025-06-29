@@ -17,6 +17,8 @@ const AccountGroups = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const { data, refetch } = useAccountGroupsQuery();
   const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } = useAccountGroupMutations();
   const accountGroupList = data?.getAccountGroups || [];
@@ -75,6 +77,7 @@ const AccountGroups = () => {
             input: {
               accountgroupname: formValues.accountgroupname,
               status: formValues.status,
+              admin: adminId
             },
           },
         });
@@ -85,6 +88,7 @@ const AccountGroups = () => {
             input: {
               accountgroupname: formValues.accountgroupname,
               status: formValues.status,
+              admin: adminId
             },
           },
         });

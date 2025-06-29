@@ -7,6 +7,11 @@ export const ADD_UNIT = gql`
       id
       unitname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -17,6 +22,11 @@ export const EDIT_UNIT = gql`
       id
       unitname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

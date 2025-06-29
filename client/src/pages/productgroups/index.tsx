@@ -14,7 +14,8 @@ const ProductGroups = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { admin } = useAppSelector((state) => state.auth);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const { data, refetch } = useProductGroupsQuery();
   const { addProductGroupMutation, editProductGroupMutation, deleteProductGroupMutation } = useProductGroupMutations();
   const productGroupList = data?.getProductGroups || [];
@@ -73,7 +74,7 @@ const ProductGroups = () => {
             input: {
               productgroupname: formValues.productgroupname,
               status: formValues.status,
-              admin: admin?.id
+              admin: adminId
             },
           },
         });
@@ -84,7 +85,7 @@ const ProductGroups = () => {
             input: {
               productgroupname: formValues.productgroupname,
               status: formValues.status,
-              admin: admin?.id
+              admin: adminId
             },
           },
         });

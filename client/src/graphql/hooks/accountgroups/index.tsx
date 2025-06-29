@@ -1,4 +1,3 @@
-// src/hooks/accountgroups.ts
 import { useMutation, useQuery } from '@apollo/client';
 import {
   ADD_ACCOUNTGROUP,
@@ -11,6 +10,7 @@ import {
   GET_ACCOUNTGROUP_BY_ID,
   GET_DELETED_ACCOUNTGROUPS,
 } from '../../queries/accountgroups';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useAccountGroupMutations = () => {
   const [addAccountGroupMutation] = useMutation(ADD_ACCOUNTGROUP);
@@ -27,7 +27,14 @@ export const useAccountGroupMutations = () => {
 };
 
 export const useAccountGroupsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTGROUPS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTGROUPS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -38,7 +45,14 @@ export const useAccountGroupsQuery = () => {
 };
 
 export const useDeletedAccountGroupsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTGROUPS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTGROUPS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -49,8 +63,13 @@ export const useDeletedAccountGroupsQuery = () => {
 };
 
 export const useAccountGroupByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
   const { data, loading, error } = useQuery(GET_ACCOUNTGROUP_BY_ID, {
-    variables: { id },
+    variables: { id, adminId },
     skip: !id,
   });
 

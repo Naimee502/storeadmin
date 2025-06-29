@@ -3,13 +3,14 @@ import {
   ADD_UNIT,
   DELETE_UNIT,
   EDIT_UNIT,
-  RESET_UNIT,        // Import the reset mutation
+  RESET_UNIT,
 } from '../../mutations/units';
 import {
   GET_UNITS,
   GET_UNIT_BY_ID,
-  GET_DELETED_UNITS, // Query for deleted units
+  GET_DELETED_UNITS,
 } from '../../queries/units';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useUnitMutations = () => {
   const [addUnitMutation] = useMutation(ADD_UNIT);
@@ -26,7 +27,14 @@ export const useUnitMutations = () => {
 };
 
 export const useUnitsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_UNITS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_UNITS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -37,7 +45,14 @@ export const useUnitsQuery = () => {
 };
 
 export const useDeletedUnitsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_UNITS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_UNITS, {
+    variables: { adminId },
+  });
 
   return {
     data,
@@ -48,11 +63,15 @@ export const useDeletedUnitsQuery = () => {
 };
 
 export const useUnitByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
   const { data, loading, error } = useQuery(GET_UNIT_BY_ID, {
-    variables: { id },
+    variables: { id, adminId },
     skip: !id,
   });
 
   return { data, loading, error };
 };
-

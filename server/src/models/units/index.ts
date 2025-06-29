@@ -5,6 +5,12 @@ const unitSchema = new mongoose.Schema(
     unitcode: { type: String, unique: true },
     unitname: { type: String, required: true, unique: true },
     status: Boolean,
+
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true
+    },
   },
   { timestamps: true }
 );
