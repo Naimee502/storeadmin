@@ -1,6 +1,17 @@
 import { useMutation, useQuery } from '@apollo/client';
-import { ADD_MODEL, DELETE_MODEL, EDIT_MODEL, RESET_MODEL } from '../../mutations/models';
-import { GET_MODELS, GET_MODEL_BY_ID, GET_DELETED_MODELS } from '../../queries/models';
+
+import {
+  ADD_MODEL,
+  DELETE_MODEL,
+  EDIT_MODEL,
+  RESET_MODEL,
+} from '../../mutations/models';
+import {
+  GET_MODELS,
+  GET_MODEL_BY_ID,
+  GET_DELETED_MODELS,
+} from '../../queries/models';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useModelMutations = () => {
   const [addModelMutation] = useMutation(ADD_MODEL);
@@ -8,11 +19,21 @@ export const useModelMutations = () => {
   const [deleteModelMutation] = useMutation(DELETE_MODEL);
   const [resetModelMutation] = useMutation(RESET_MODEL);
 
-  return { addModelMutation, editModelMutation, deleteModelMutation, resetModelMutation };
+  return {
+    addModelMutation,
+    editModelMutation,
+    deleteModelMutation,
+    resetModelMutation,
+  };
 };
 
 export const useModelsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_MODELS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_MODELS, {
+    variables: { adminId },
+    skip: !adminId,
+  });
 
   return {
     data,
@@ -23,7 +44,12 @@ export const useModelsQuery = () => {
 };
 
 export const useDeletedModelsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_MODELS);
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_MODELS, {
+    variables: { adminId },
+    skip: !adminId,
+  });
 
   return {
     data,
@@ -34,12 +60,12 @@ export const useDeletedModelsQuery = () => {
 };
 
 export const useModelByIDQuery = (id: string) => {
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
   const { data, loading, error } = useQuery(GET_MODEL_BY_ID, {
-    variables: { id },
-    skip: !id,
+    variables: { id, adminId },
+    skip: !id || !adminId,
   });
 
   return { data, loading, error };
 };
-
-

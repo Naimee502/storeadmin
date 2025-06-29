@@ -5,6 +5,12 @@ const modelSchema = new mongoose.Schema(
     modelcode: { type: String, unique: true },
     modelname: { type: String, required: true, unique: true },
     status: Boolean,
+
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true
+    },
   },
   { timestamps: true }
 );

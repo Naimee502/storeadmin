@@ -6,6 +6,11 @@ export const ADD_MODEL = gql`
       id
       modelname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -16,6 +21,11 @@ export const EDIT_MODEL = gql`
       id
       modelname
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
