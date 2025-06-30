@@ -11,6 +11,7 @@ import {
   GET_SALES_INVOICE_BY_ID,
   GET_DELETED_SALES_INVOICES
 } from '../../queries/salesinvoice';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useSalesInvoiceMutations = () => {
   const [addSalesInvoiceMutation] = useMutation(ADD_SALES_INVOICE);
@@ -26,25 +27,41 @@ export const useSalesInvoiceMutations = () => {
   };
 };
 
-export const useSalesInvoicesQuery = (branchid?: string) => {
+export const useSalesInvoicesQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+
   const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
-    variables: { branchid },
+    variables: { adminId, branchid },
   });
 
   return { data, loading, error, refetch };
 };
 
-export const useDeletedSalesInvoicesQuery = (branchid?: string) => {
+export const useDeletedSalesInvoicesQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+  
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SALES_INVOICES, {
-    variables: { branchid },
+    variables: { adminId, branchid },
   });
 
   return { data, loading, error, refetch };
 };
 
 export const useSalesInvoiceByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+
   const { data, loading, error } = useQuery(GET_SALES_INVOICE_BY_ID, {
-    variables: { id },
+    variables: { id, adminId },
     skip: !id,
   });
   return { data, loading, error };

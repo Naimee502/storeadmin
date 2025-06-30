@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_SALES_INVOICES = gql`
-  query GetSalesInvoices($branchid: String) {
-    getSalesInvoices(branchid: $branchid) {
+  query GetSalesInvoices($adminId: ID, $branchid: String) {
+    getSalesInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       salesmenid
@@ -27,13 +27,18 @@ export const GET_SALES_INVOICES = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_DELETED_SALES_INVOICES = gql`
-  query GetDeletedSalesInvoices($branchid: String) {
-    getDeletedSalesInvoices(branchid: $branchid) {
+  query GetDeletedSalesInvoices($adminId: ID, $branchid: String) {
+    getDeletedSalesInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       salesmenid
@@ -58,13 +63,18 @@ export const GET_DELETED_SALES_INVOICES = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_SALES_INVOICE_BY_ID = gql`
-  query GetSalesInvoiceById($id: ID!) {
-    getSalesInvoice(id: $id) {
+  query GetSalesInvoiceById($id: ID!, $adminId: ID) {
+    getSalesInvoice(id: $id, adminId: $adminId) {
       id
       branchid
       salesmenid
@@ -89,6 +99,11 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         discount  
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

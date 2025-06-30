@@ -1,6 +1,17 @@
 import { gql } from 'apollo-server-express';
 
 export const salesInvoiceTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type SalesInvoiceProduct {
     productid: ID!
     gst: Float!
@@ -37,6 +48,7 @@ export const salesInvoiceTypeDefs = gql`
     totalamount: Float!
     products: [SalesInvoiceProduct!]!
     status: Boolean!
+    admin: Admin
   }
 
   input SalesInvoiceInput {
@@ -56,12 +68,13 @@ export const salesInvoiceTypeDefs = gql`
     totalamount: Float!
     products: [SalesInvoiceProductInput!]!
     status: Boolean!
+    admin: ID
   }
 
   type Query {
-    getSalesInvoices(branchid: String): [SalesInvoice!]!
-    getDeletedSalesInvoices(branchid: String): [SalesInvoice!]!
-    getSalesInvoice(id: ID!): SalesInvoice
+    getSalesInvoices(adminId: ID, branchid: String): [SalesInvoice!]!
+    getDeletedSalesInvoices(adminId: ID, branchid: String): [SalesInvoice!]!
+    getSalesInvoice(id: ID!, adminId: ID): SalesInvoice
   }
 
   type Mutation {

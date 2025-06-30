@@ -27,10 +27,15 @@ const salesInvoiceSchema = new mongoose.Schema({
     }
   ],
   status: { type: Boolean, default: true },
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    required: true,
+  },
 }, { timestamps: true });
 
 // 🔻 POST-SAVE STOCK DECREMENT
-salesInvoiceSchema.post('save', async function(doc, next) {
+salesInvoiceSchema.post('save', async function (doc, next) {
   try {
     const branchid = doc.branchid;
 
@@ -69,7 +74,7 @@ salesInvoiceSchema.statics.adjustStock = async function (oldInvoice: any, newInv
   const stockAdjustments: Record<string, number> = {};
 
   for (const p of oldInvoice.products) {
-    const key = p.productid.toString(); 
+    const key = p.productid.toString();
     stockAdjustments[key] = (stockAdjustments[key] || 0) + p.qty;
   }
 

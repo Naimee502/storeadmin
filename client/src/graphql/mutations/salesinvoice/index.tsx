@@ -27,6 +27,11 @@ export const ADD_SALES_INVOICE = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -58,6 +63,11 @@ export const EDIT_SALES_INVOICE = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

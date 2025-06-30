@@ -21,7 +21,10 @@ const AddEditSalesInvoice = () => {
   const dispatch = useAppDispatch();
   const { addSalesInvoiceMutation, editSalesInvoiceMutation } = useSalesInvoiceMutations();
 
-  const branchId = localStorage.getItem("branchid") || "";
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const branchId = type === 'branch' ? branch?.id : undefined;
+
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState("");
   const [taxOrSupplyType, setTaxOrSupplyType] = useState("");
@@ -55,7 +58,7 @@ const AddEditSalesInvoice = () => {
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
   }));
-   const { data: salesmenAccountData } = useSalesmenQuery(branchId);
+   const { data: salesmenAccountData } = useSalesmenQuery();
    const salesmenList = salesmenAccountData?.getSalesmenAccounts || [];
    const salesmendAccountOptions = salesmenList.map((salesmenacc: any) => ({
     value: salesmenacc.id,
@@ -197,8 +200,8 @@ const AddEditSalesInvoice = () => {
         discount: p.discount || 0,
       })),
       status,
+      admin: adminId
     };
-    console.log("SalesInvoiceInput:", JSON.stringify(input));
 
     try {
       if (isEdit && id) {
