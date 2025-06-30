@@ -8,7 +8,9 @@ interface ITransferStock extends Document {
   transferqty: number;
   transferdate: string;
   status?: boolean;
+  admin: mongoose.Types.ObjectId;
 }
+
 
 interface TransferStockModel extends Model<ITransferStock> {
   adjustStock: (oldDoc: ITransferStock | null, newDoc: ITransferStock) => Promise<void>;
@@ -21,6 +23,11 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>({
   transferqty: { type: Number, required: true },
   transferdate: { type: String, required: true },
   status: { type: Boolean, default: true },
+  admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true,
+  },
 }, { timestamps: true });
 
 transferStockSchema.statics.adjustStock = async function (

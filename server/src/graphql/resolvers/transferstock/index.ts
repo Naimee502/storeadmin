@@ -3,27 +3,73 @@ import { TransferStock } from "../../../models/transferstock";
 
 export const transferStockResolvers = {
   Query: {
-    getTransferStocks: async (_: any, { frombranchid }: { frombranchid?: string }) => {
+    getTransferStocks: async (
+      _: any,
+      { adminId, frombranchid }: { adminId?: string; frombranchid?: string }
+    ) => {
       const filter: any = { status: true };
-      
+
+      if (adminId) {
+        try {
+          filter.admin = new mongoose.Types.ObjectId(adminId);
+        } catch (err) {
+          console.error("Invalid adminId:", adminId);
+          return [];
+        }
+      }
+
       if (frombranchid) {
         try {
           filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
         } catch (err) {
           console.error("Invalid frombranchid:", frombranchid);
-          return []; // Return empty if it's not a valid ObjectId
+          return [];
         }
       }
 
-      return await TransferStock.find(filter);
+      return await TransferStock.find(filter).populate("admin");
     },
-    getDeletedTransferStocks: async (_: any, { frombranchid }: { frombranchid?: string }) => {
+
+    getDeletedTransferStocks: async (
+      _: any,
+      { adminId, frombranchid }: { adminId?: string; frombranchid?: string }
+    ) => {
       const filter: any = { status: false };
-      if (frombranchid) filter.frombranchid = frombranchid;
-      return await TransferStock.find(filter);
+
+      if (adminId) {
+        try {
+          filter.admin = new mongoose.Types.ObjectId(adminId);
+        } catch (err) {
+          console.error("Invalid adminId:", adminId);
+          return [];
+        }
+      }
+
+      if (frombranchid) {
+        try {
+          filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
+        } catch (err) {
+          console.error("Invalid frombranchid:", frombranchid);
+          return [];
+        }
+      }
+
+      return await TransferStock.find(filter).populate("admin");
     },
-    getTransferStockById: async (_: any, { id }: { id: string }) => {
-      return await TransferStock.findById(id);
+
+    getTransferStockById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
+      const filter: any = { _id: id };
+
+      if (adminId) {
+        try {
+          filter.admin = new mongoose.Types.ObjectId(adminId);
+        } catch (err) {
+          console.error("Invalid adminId:", adminId);
+          return null;
+        }
+      }
+
+      return await TransferStock.findOne(filter).populate("admin");
     },
   },
 
@@ -31,7 +77,7 @@ export const transferStockResolvers = {
     addTransferStock: async (_: any, { input }: any) => {
       const newDoc = await TransferStock.create(input);
       await TransferStock.adjustStock(null, newDoc);
-      return newDoc;
+      return await TransferStock.findById(newDoc._id).populate("admin");
     },
 
     editTransferStock: async (_: any, { id, input }: any) => {
@@ -40,7 +86,7 @@ export const transferStockResolvers = {
       if (oldDoc && newDoc) {
         await TransferStock.adjustStock(oldDoc, newDoc);
       }
-      return newDoc;
+      return await TransferStock.findById(newDoc?._id).populate("admin");
     },
 
     deleteTransferStock: async (_: any, { id }: any) => {

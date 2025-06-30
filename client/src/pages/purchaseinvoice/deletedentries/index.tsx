@@ -13,8 +13,8 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 const DeletedPurchaseInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const branchid = localStorage.getItem("branchid") || "";
-  const { data, refetch } = useDeletedPurchaseInvoicesQuery(branchid);
+  
+  const { data, refetch } = useDeletedPurchaseInvoicesQuery();
   const { resetPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
 
   const invoiceList = data?.getDeletedPurchaseInvoices || [];

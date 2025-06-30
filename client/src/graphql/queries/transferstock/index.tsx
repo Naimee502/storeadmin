@@ -2,8 +2,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_TRANSFER_STOCKS = gql`
-  query GetTransferStocks($frombranchid: ID) {
-    getTransferStocks(frombranchid: $frombranchid) {
+  query GetTransferStocks($adminId: ID, $frombranchid: ID) {
+    getTransferStocks(adminId: $adminId, frombranchid: $frombranchid) {
       id
       frombranchid
       tobranchid
@@ -11,13 +11,18 @@ export const GET_TRANSFER_STOCKS = gql`
       transferqty
       transferdate
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_DELETED_TRANSFER_STOCKS = gql`
-  query GetDeletedTransferStocks($frombranchid: ID) {
-    getDeletedTransferStocks(frombranchid: $frombranchid) {
+  query GetDeletedTransferStocks($adminId: ID, $frombranchid: ID) {
+    getDeletedTransferStocks(adminId: $adminId, frombranchid: $frombranchid) {
       id
       frombranchid
       tobranchid
@@ -25,13 +30,18 @@ export const GET_DELETED_TRANSFER_STOCKS = gql`
       transferqty
       transferdate
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_TRANSFER_STOCK_BY_ID = gql`
-  query GetTransferStockById($id: ID!) {
-    getTransferStockById(id: $id) {
+  query GetTransferStockById($id: ID!, $adminId: ID) {
+    getTransferStockById(id: $id, adminId: $adminId) {
       id
       frombranchid
       tobranchid
@@ -39,6 +49,11 @@ export const GET_TRANSFER_STOCK_BY_ID = gql`
       transferqty
       transferdate
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

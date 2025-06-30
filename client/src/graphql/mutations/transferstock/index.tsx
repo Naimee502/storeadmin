@@ -11,6 +11,11 @@ export const ADD_TRANSFER_STOCK = gql`
       transferqty
       transferdate
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -25,6 +30,11 @@ export const EDIT_TRANSFER_STOCK = gql`
       transferqty
       transferdate
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

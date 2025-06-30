@@ -1,6 +1,17 @@
 import { gql } from 'apollo-server-express';
 
 export const transferStockTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type TransferStock {
     id: ID!
     frombranchid: String!
@@ -9,6 +20,7 @@ export const transferStockTypeDefs = gql`
     transferqty: Int!
     transferdate: String!
     status: Boolean!
+    admin: Admin
   }
 
   input TransferStockInput {
@@ -18,12 +30,13 @@ export const transferStockTypeDefs = gql`
     transferqty: Int!
     transferdate: String!
     status: Boolean!
+    admin: ID
   }
 
   type Query {
-    getTransferStocks(frombranchid: ID): [TransferStock!]!
-    getDeletedTransferStocks(frombranchid: ID): [TransferStock!]!
-    getTransferStockById(id: ID!): TransferStock
+    getTransferStocks(adminId: ID, frombranchid: ID): [TransferStock!]!
+    getDeletedTransferStocks(adminId: ID, frombranchid: ID): [TransferStock!]!
+    getTransferStockById(id: ID!, adminId: ID): TransferStock
   }
 
   type Mutation {

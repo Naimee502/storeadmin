@@ -40,28 +40,23 @@ ChartJS.register(
 const Home: React.FC = () => {
   const { type } = useAppSelector((state) => state.auth);
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
-  
+
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: productData, refetch: refetchProducts } = useProductsQuery();
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery();
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery();
-  const frombranchid = branchId ? branchId : undefined;
-  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(frombranchid);
+  const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery();
 
   // Refetch all data when branch ID changes
   useEffect(() => {
     console.log("Branch ID changed:", branchId);
-
-    if (type === "branch") {
-      refetchCustomers();
-      refetchSalesmen();
-      refetchSalesInvoices();
-      refetchPurchaseInvoices();
-      refetchTransferStock();
-    }
-
+    refetchCustomers();
+    refetchSalesmen();
+    refetchSalesInvoices();
+    refetchPurchaseInvoices();
+    refetchTransferStock();
     refetchTransferStock();
     refetchCategories();
     refetchProducts();

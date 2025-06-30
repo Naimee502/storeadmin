@@ -16,7 +16,7 @@ const DeletedTransferStocks = () => {
   const dispatch = useAppDispatch();
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const frombranchid = branchId ? branchId : undefined;
-  const { data, refetch } = useDeletedTransferStocksQuery(frombranchid);
+  const { data, refetch } = useDeletedTransferStocksQuery();
   const { resetTransferStockMutation } = useTransferStockMutations();
   const transferStockList = data?.getDeletedTransferStocks || [];
   const { data: branchesData } = useBranchesQuery();

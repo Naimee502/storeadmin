@@ -38,9 +38,11 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 const TransferStock = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const frombranchid = branchId ? branchId : undefined;
-  const { data: transfersData, refetch } = useTransferStocksQuery(frombranchid);
+  const { data: transfersData, refetch } = useTransferStocksQuery();
   
   const { data: branchesData } = useBranchesQuery();
   const { data: productsData } = useProductsQuery();
@@ -91,21 +93,37 @@ const TransferStock = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!validateForm()) return;
+
     dispatch(showLoading());
-    const payload = { frombranchid: frombranchid, ...formValues };
+
+    const payload = {
+      frombranchid,
+      ...formValues,
+      admin: adminId,
+    };
 
     try {
       if (isEditing && editingId) {
-        await editTransferStockMutation({ variables: { id: editingId, input: payload } });
+        await editTransferStockMutation({
+          variables: { id: editingId, input: payload },
+        });
         dispatch(showMessage({ message: "Stock updated successfully!", type: "success" }));
       } else {
-        await addTransferStockMutation({ variables: { input: payload } });
+        await addTransferStockMutation({
+          variables: { input: payload },
+        });
         dispatch(showMessage({ message: "Stock transferred successfully!", type: "success" }));
       }
-      await refetch();
-      resetForm();
-    } catch {
+
+      if (refetch) {
+        await refetch();
+      }
+
+      resetForm(); // Reset only after successful operation
+    } catch (error: any) {
+      console.error("Error during transfer stock operation:", error);
       dispatch(showMessage({ message: "Operation failed!", type: "error" }));
     } finally {
       dispatch(hideLoading());

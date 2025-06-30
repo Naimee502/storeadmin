@@ -26,7 +26,7 @@ const Accounts = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { type, admin, branch } = useAppSelector((state) => state.auth);
     const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-    const branchid = type === 'branch' ? branch?.id : undefined;
+    const branchid = useAppSelector((state) => state.selectedBranch.branchId);
 
     const { data, refetch } = useAccountsQuery();
     // Fetch account groups for dropdown

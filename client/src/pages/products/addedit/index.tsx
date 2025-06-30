@@ -53,7 +53,7 @@ const AddEditProduct = () => {
     const navigate = useNavigate();
     const { type, admin, branch } = useAppSelector((state) => state.auth);
     const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-    const branchId = type === 'branch' ? branch?.id : undefined;
+    const branchId = useAppSelector((state) => state.selectedBranch.branchId);
     const { data } = useProductByIDQuery(id || "");
     const { addProductMutation, editProductMutation } = useProductMutations();
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
