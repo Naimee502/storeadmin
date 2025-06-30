@@ -3,7 +3,7 @@ import { Branch } from '../branches';
 import { ProductBranchStock } from '../productbranchstock';
 
 const productSchema = new mongoose.Schema({
-   branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
+  branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   productcode: { type: String, unique: true },
   name: { type: String, required: true },
   barcode: { type: String, unique: true, sparse: true },
@@ -26,7 +26,13 @@ const productSchema = new mongoose.Schema({
   minimumstock: { type: Number, default: 0 },
   description: { type: String, default: '' },
   productlikecount: { type: Number, default: 0 },
-  status: { type: Boolean, default: true }
+  status: { type: Boolean, default: true },
+
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    required: true,
+  },
 }, { timestamps: true });
 
 /**

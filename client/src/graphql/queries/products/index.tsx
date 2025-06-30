@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_PRODUCTS = gql`
-  query GetProducts {
-    getProducts {
+  query GetProducts($adminId: ID, $branchid: ID) {
+    getProducts(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       name
@@ -28,13 +28,17 @@ export const GET_PRODUCTS = gql`
       description
       productlikecount
       status
+      admin {
+        id
+      }
     }
   }
 `;
+
 
 export const GET_DELETED_PRODUCTS = gql`
-  query GetDeletedProducts {
-    getDeletedProducts {
+  query GetDeletedProducts($adminId: ID, $branchid: ID) {
+    getDeletedProducts(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       name
@@ -60,13 +64,17 @@ export const GET_DELETED_PRODUCTS = gql`
       description
       productlikecount
       status
+      admin {
+        id
+      }
     }
   }
 `;
 
+
 export const GET_PRODUCT_BY_ID = gql`
-  query GetProductById($id: ID!) {
-    getProduct(id: $id) {
+  query GetProductById($id: ID!, $adminId: ID) {
+    getProduct(id: $id, adminId: $adminId) {
       id
       name
       barcode
@@ -91,6 +99,10 @@ export const GET_PRODUCT_BY_ID = gql`
       description
       productlikecount
       status
+      admin {
+        id
+      }
     }
   }
 `;
+

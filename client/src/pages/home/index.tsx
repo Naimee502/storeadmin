@@ -50,8 +50,6 @@ const Home: React.FC = () => {
   const frombranchid = branchId ? branchId : undefined;
   const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(frombranchid);
 
-  console.log("Salesmen Data:", JSON.stringify(salesmenData, null, 2));
-
   // Refetch all data when branch ID changes
   useEffect(() => {
     console.log("Branch ID changed:", branchId);

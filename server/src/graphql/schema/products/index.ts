@@ -1,6 +1,17 @@
 import { gql } from 'apollo-server-express';
 
 export const productTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type Product {
     id: ID!
     branchid: ID!
@@ -29,6 +40,7 @@ export const productTypeDefs = gql`
     status: Boolean!
     createdAt: String
     updatedAt: String
+    admin: Admin
   }
 
   input ProductInput {
@@ -54,12 +66,13 @@ export const productTypeDefs = gql`
     description: String
     productlikecount: Int
     status: Boolean
+    admin: ID
   }
 
   type Query {
-    getProducts: [Product!]!
-    getDeletedProducts: [Product!]!
-    getProduct(id: ID!): Product
+    getProducts(adminId: ID, branchid: ID): [Product!]!
+    getDeletedProducts(adminId: ID, branchid: ID): [Product!]!
+    getProduct(id: ID!, adminId: ID): Product
   }
 
   type Mutation {

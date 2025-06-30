@@ -1,12 +1,12 @@
 import { useParams, useNavigate, useLocation } from "react-router";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import React from "react";
 import HomeLayout from "../../../layouts/home";
 import { FaBox, FaPlus, FaRupeeSign } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import Button from "../../../components/button";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useProductByIDQuery, useProductMutations } from "../../../graphql/hooks/products";
 import { useCategoriesQuery } from "../../../graphql/hooks/categories";
@@ -51,7 +51,9 @@ const AddEditProduct = () => {
     const isEdit = Boolean(id);
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const branchId = localStorage.getItem("branchid") || "";
+    const { type, admin, branch } = useAppSelector((state) => state.auth);
+    const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    const branchId = type === 'branch' ? branch?.id : undefined;
     const { data } = useProductByIDQuery(id || "");
     const { addProductMutation, editProductMutation } = useProductMutations();
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -193,6 +195,7 @@ const AddEditProduct = () => {
         const payload = {
             ...formData,
             imageurl: uploadedUrl, 
+            admin: adminId
         };
         try {
             if (isEdit && id) {

@@ -28,6 +28,11 @@ export const ADD_PRODUCT = gql`
       description
       productlikecount
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -58,6 +63,11 @@ export const EDIT_PRODUCT = gql`
       description
       productlikecount
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

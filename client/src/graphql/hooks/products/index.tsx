@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@apollo/client';
 import { ADD_PRODUCT, EDIT_PRODUCT, DELETE_PRODUCT, RESET_PRODUCT } from '../../mutations/products';
 import { GET_DELETED_PRODUCTS, GET_PRODUCTS, GET_PRODUCT_BY_ID } from '../../queries/products';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useProductMutations = () => {
   const [addProductMutation] = useMutation(ADD_PRODUCT);
@@ -17,18 +18,36 @@ export const useProductMutations = () => {
 };
 
 export const useProductsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_PRODUCTS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCTS, {
+    variables: { adminId, branchid },
+    skip: !adminId,
+  });
 
   return {
     data,
     loading,
     error,
-    refetch
+    refetch,
   };
 };
 
 export const useDeletedProductsQuery = () => {
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTS);
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTS, {
+    variables: { adminId, branchid },
+    skip: !adminId,
+  });
 
   return {
     data,
@@ -39,9 +58,13 @@ export const useDeletedProductsQuery = () => {
 };
 
 export const useProductByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+
   const { data, loading, error } = useQuery(GET_PRODUCT_BY_ID, {
-    variables: { id },
-    skip: !id,
+    variables: { id, adminId },
+    skip: !id || !adminId,
   });
 
   return { data, loading, error };
