@@ -13,7 +13,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-blue-600 hover:bg-blue-700 text-white border border-black',
   secondary: 'bg-gray-600 hover:bg-gray-700 text-white border border-black',
-  danger: 'bg-red-600 hover:bg-red-700 text-white border border-black',
+  danger: 'bg-red-600 hover:bg-red-700 text-red border border-black',
   outline: 'border border-black text-gray-700 hover:bg-gray-100',
   ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 border border-black',
 };

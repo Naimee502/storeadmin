@@ -33,6 +33,7 @@ export const CONFIRM_SUBSCRIPTION = gql`
       subscribedAt
       subscriptionEnd
       transactionId
+      needsReview
     }
   }
 `;
@@ -48,8 +49,51 @@ export const LOGIN_ADMIN = gql`
       subscribedAt
       subscriptionEnd
       transactionId
+      needsReview
+      rejected
     }
   }
 `;
 
+export const APPROVE_SUBSCRIPTION = gql`
+  mutation ApproveSubscription($email: String!) {
+    approveSubscription(email: $email) {
+      id
+      name
+      email
+      subscribed
+      subscribedAt
+      subscriptionEnd
+      transactionId
+      needsReview
+      rejected
+    }
+  }
+`;
 
+export const REJECT_SUBSCRIPTION = gql`
+  mutation RejectSubscription($email: String!) {
+    rejectSubscription(email: $email) {
+      id
+      name
+      email
+      subscribed
+      needsReview
+      rejected
+    }
+  }
+`;
+
+export const GET_PENDING_SUBSCRIPTIONS = gql`
+  query GetPendingSubscriptions {
+    getPendingSubscriptions {
+      id
+      name
+      email
+      transactionId
+      subscriptionType
+      needsReview
+      createdAt
+    }
+  }
+`;

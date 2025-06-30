@@ -8,6 +8,9 @@ export const adminResolvers = {
     getAdminByEmail: async (_: any, { email }: { email: string }) => {
       return await Admin.findOne({ email });
     },
+    getPendingSubscriptions: async () => {
+      return await Admin.find({ needsReview: true, subscribed: false, rejected: false });
+    },
   },
 
   Mutation: {
@@ -21,6 +24,8 @@ export const adminResolvers = {
         subscribedAt: null,
         subscriptionEnd: null,
         transactionId: null,
+        needsReview: false,
+        rejected: false,
       });
 
       await admin.save();
@@ -40,23 +45,49 @@ export const adminResolvers = {
       }
     ) => {
       const admin = await Admin.findOne({ email });
-      if (!admin) {
-        throw new Error("Admin not found");
-      }
+      if (!admin) throw new Error("Admin not found");
 
-      // Calculate subscription dates
+      admin.subscriptionType = subscriptionType;
+      admin.transactionId = transactionId;
+      admin.subscribed = false;
+      admin.subscribedAt = null;
+      admin.subscriptionEnd = null;
+      admin.needsReview = true;
+      admin.rejected = false;
+
+      await admin.save();
+      return admin;
+    },
+
+    approveSubscription: async (_: any, { email }: { email: string }) => {
+      const admin = await Admin.findOne({ email });
+      if (!admin) throw new Error("Admin not found");
+
       const now = new Date();
       const subscriptionEnd =
-        subscriptionType === "monthly"
+        admin.subscriptionType === "monthly"
           ? new Date(now.setMonth(now.getMonth() + 1))
           : new Date(now.setFullYear(now.getFullYear() + 1));
 
-      // Update admin fields
       admin.subscribed = true;
       admin.subscribedAt = new Date();
       admin.subscriptionEnd = subscriptionEnd;
-      admin.transactionId = transactionId;
-      admin.subscriptionType = subscriptionType;
+      admin.needsReview = false;
+      admin.rejected = false;
+
+      await admin.save();
+      return admin;
+    },
+
+    rejectSubscription: async (_: any, { email }: { email: string }) => {
+      const admin = await Admin.findOne({ email });
+      if (!admin) throw new Error("Admin not found");
+
+      admin.subscribed = false;
+      admin.subscribedAt = null;
+      admin.subscriptionEnd = null;
+      admin.needsReview = false;
+      admin.rejected = true;
 
       await admin.save();
       return admin;
@@ -71,10 +102,15 @@ export const adminResolvers = {
       }
 
       if (!admin.subscribed) {
-        throw new Error("Subscription required");
+        if (admin.needsReview) {
+          throw new Error("Subscription request is under review.");
+        } else if (admin.rejected) {
+          throw new Error("Subscription request was rejected.");
+        }
+        throw new Error("Subscription required.");
       }
 
       return admin;
-    }
+    },
   },
 };

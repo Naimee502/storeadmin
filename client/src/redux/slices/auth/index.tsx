@@ -9,6 +9,8 @@ interface AdminData {
   subscribedAt: string;
   subscriptionEnd: string;
   transactionId: string;
+  needsReview: boolean;
+  rejected: boolean;
 }
 
 interface BranchData {
@@ -44,7 +46,14 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    saveAuthData: (state, action: PayloadAction<{ type: 'admin' | 'branch'; admin?: AdminData; branch?: BranchData }>) => {
+    saveAuthData: (
+      state,
+      action: PayloadAction<{
+        type: 'admin' | 'branch';
+        admin?: AdminData;
+        branch?: BranchData;
+      }>
+    ) => {
       if (action.payload.type === 'admin' && action.payload.admin) {
         state.type = 'admin';
         state.admin = action.payload.admin;

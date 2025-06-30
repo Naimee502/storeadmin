@@ -23,7 +23,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loginType, setLoginType] = useState<"branch" | "admin">("branch");
 
-  // Individual field errors
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [invalidCredentialError, setInvalidCredentialError] = useState("");
@@ -49,9 +48,18 @@ const Login = () => {
         const admin = res.data?.loginAdmin;
 
         console.log("Admin login response:", JSON.stringify(res.data, null, 2));
-        
+
         if (!admin) throw new Error("Invalid credentials");
-        if (!admin.subscribed) return navigate("/subscription");
+
+        if (!admin.subscribed) {
+          if (admin.needsReview) {
+            throw new Error("Your subscription is under review.");
+          } else if (admin.rejected) {
+            throw new Error("Your subscription was rejected. Please resubmit.");
+          } else {
+            return navigate("/subscription");
+          }
+        }
 
         dispatch(
           saveAuthData({
@@ -70,8 +78,7 @@ const Login = () => {
         );
         login();
         navigate("/home");
-      }
-      else {
+      } else {
         await refetch(); // Refresh latest branches
         const matchedBranch = branchList.find(
           (b: any) => b.email === email && b.password === password
@@ -80,7 +87,15 @@ const Login = () => {
         if (!matchedBranch) throw new Error("Invalid credentials");
 
         const admin = matchedBranch.admin;
-        if (!admin || !admin.subscribed) return navigate("/subscription");
+        if (!admin || !admin.subscribed) {
+          if (admin.needsReview) {
+            throw new Error("Admin subscription is under review.");
+          } else if (admin.rejected) {
+            throw new Error("Admin subscription was rejected. Please resubmit.");
+          } else {
+            return navigate("/subscription");
+          }
+        }
 
         localStorage.setItem("branchid", matchedBranch.id);
         dispatch(setBranchId(matchedBranch.id));
@@ -132,7 +147,6 @@ const Login = () => {
             onSubmit={handleLogin}
             className="w-full max-w-md mx-auto md:mx-0 space-y-6"
           >
-            {/* Email */}
             <FormField
               label="Email"
               type="email"
@@ -148,7 +162,6 @@ const Login = () => {
               error={emailError}
             />
 
-            {/* Password */}
             <FormField
               label="Password"
               type="password"
@@ -171,17 +184,15 @@ const Login = () => {
                 onClick={() => navigate("/subscription")}
               >
                 {loginType === "admin"
-                  ? "Subscribe now"
+                  ? "Don't have an active subscription?"
                   : "Admin subscription required"}
               </p>
             </div>
 
-            {/* Submit */}
             <Button type="submit" variant="outline" className="w-full">
               {loginType === "admin" ? "Admin Login" : "Branch Login"}
             </Button>
 
-            {/* Error */}
             {invalidCredentialError && (
               <p className="text-xs sm:text-sm text-red-600 text-center">
                 {invalidCredentialError}

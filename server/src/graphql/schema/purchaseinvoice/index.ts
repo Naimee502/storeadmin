@@ -10,6 +10,8 @@ export const purchaseInvoiceTypeDefs = gql`
     subscribedAt: String
     subscriptionEnd: String
     transactionId: String
+    needsReview: Boolean!
+    rejected: Boolean!
   }
 
   type PurchaseInvoiceProduct {

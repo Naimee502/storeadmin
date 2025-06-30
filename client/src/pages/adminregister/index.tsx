@@ -117,19 +117,7 @@ const AdminRegister = () => {
               error={passwordError}
             />
 
-            <div className="mb-10">
-              <label className="block text-sm font-medium mb-1">Subscription Type</label>
-              <select
-                className="w-full border rounded p-2"
-                value={subscription}
-                onChange={(e) => setSubscription(e.target.value)}
-              >
-                <option value="monthly">Monthly (₹1499)</option>
-                <option value="yearly">Yearly (₹999)</option>
-              </select>
-            </div>
-
-            <Button type="submit" variant="outline" className="w-full">
+            <Button type="submit" variant="outline" className="w-full mt-10">
               Register Admin
             </Button>
 

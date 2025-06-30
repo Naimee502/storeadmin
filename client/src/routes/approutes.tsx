@@ -40,6 +40,7 @@ import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
 import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
 import AdminRegister from "../pages/adminregister";
 import Subscription from "../pages/subscription";
+import SubscriptionReview from "../pages/subscriptionreview";
 
 const AppRoutes = () => {
     return (
@@ -58,6 +59,14 @@ const AppRoutes = () => {
           element={
             <PublicRoutes>
               <Subscription />
+            </PublicRoutes>
+          }
+        />
+        <Route
+          path="/subscriptionreview"
+          element={
+            <PublicRoutes>
+              <SubscriptionReview />
             </PublicRoutes>
           }
         />

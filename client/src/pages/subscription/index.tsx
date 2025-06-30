@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import LoginLayout from "../../layouts/login";
 import Button from "../../components/button";
 import FormField from "../../components/formfiled";
-import qrImage from "../../assets/images/qr.jpeg"; // your QR code image
+import qrImage from "../../assets/images/qr.jpeg";
 import { useConfirmSubscriptionMutation } from "../../graphql/hooks/admin";
 
 const Subscription = () => {
@@ -47,7 +47,7 @@ const Subscription = () => {
         },
       });
 
-      alert("Subscription confirmed successfully!");
+      alert("Subscription request submitted! We'll review and approve it shortly.");
       navigate("/login");
     } catch (err: any) {
       setSubmitError(err.message || "Subscription failed. Try again.");
@@ -102,7 +102,12 @@ const Subscription = () => {
               </select>
             </div>
 
-            <Button type="submit" variant="outline" className="w-full">
+            <Button
+              type="submit"
+              variant="outline"
+              className="w-full"
+              disabled={!email.trim() || !transactionId.trim()}
+            >
               Confirm & Activate
             </Button>
 

@@ -10,6 +10,8 @@ export const transferStockTypeDefs = gql`
     subscribedAt: String
     subscriptionEnd: String
     transactionId: String
+    needsReview: Boolean!
+    rejected: Boolean!
   }
 
   type TransferStock {
