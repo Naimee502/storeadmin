@@ -72,8 +72,8 @@ export const salesInvoiceTypeDefs = gql`
   }
 
   type Query {
-    getSalesInvoices(adminId: ID, branchid: String): [SalesInvoice!]!
-    getDeletedSalesInvoices(adminId: ID, branchid: String): [SalesInvoice!]!
+    getSalesInvoices(adminId: ID, branchid: ID): [SalesInvoice!]!
+    getDeletedSalesInvoices(adminId: ID, branchid: ID): [SalesInvoice!]!
     getSalesInvoice(id: ID!, adminId: ID): SalesInvoice
   }
 

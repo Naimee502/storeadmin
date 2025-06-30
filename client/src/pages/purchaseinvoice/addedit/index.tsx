@@ -19,7 +19,10 @@ const AddEditPurchaseInvoice = () => {
   const dispatch = useAppDispatch();
   const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
 
-  const branchId = localStorage.getItem("branchid") || "";
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const branchId = type === 'branch' ? branch?.id : undefined;
+
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState("");
   const [taxOrSupplyType, setTaxOrSupplyType] = useState("");
@@ -190,6 +193,7 @@ const AddEditPurchaseInvoice = () => {
         discount: p.discount || 0,
       })),
       status,
+      admin: adminId
     };
     console.log("PurchaseInvoiceInput:", JSON.stringify(input));
 

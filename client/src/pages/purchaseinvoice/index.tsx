@@ -15,8 +15,8 @@ import { useProductsQuery } from "../../graphql/hooks/products";
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const branchid = localStorage.getItem("branchid") || "";
-  const { data, refetch } = usePurchaseInvoicesQuery(branchid);
+
+  const { data, refetch } = usePurchaseInvoicesQuery();
   const { deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
   const invoiceList = data?.getPurchaseInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);

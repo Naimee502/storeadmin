@@ -26,6 +26,11 @@ export const ADD_PURCHASE_INVOICE = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -56,6 +61,11 @@ export const EDIT_PURCHASE_INVOICE = gql`
         discount
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

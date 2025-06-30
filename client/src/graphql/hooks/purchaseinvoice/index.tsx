@@ -10,6 +10,7 @@ import {
   GET_PURCHASE_INVOICE_BY_ID,
   GET_DELETED_PURCHASE_INVOICES
 } from '../../queries/purchaseinvoice';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const usePurchaseInvoiceMutations = () => {
   const [addPurchaseInvoiceMutation] = useMutation(ADD_PURCHASE_INVOICE);
@@ -25,27 +26,44 @@ export const usePurchaseInvoiceMutations = () => {
   };
 };
 
-export const usePurchaseInvoicesQuery = (branchid?: string) => {
+export const usePurchaseInvoicesQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+    
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES, {
-    variables: { branchid },
+    variables: { adminId, branchid },
   });
 
   return { data, loading, error, refetch };
 };
 
-export const useDeletedPurchaseInvoicesQuery = (branchid?: string) => {
+export const useDeletedPurchaseInvoicesQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+    
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+
   const { data, loading, error, refetch } = useQuery(GET_DELETED_PURCHASE_INVOICES, {
-    variables: { branchid },
+    variables: { adminId, branchid },
   });
 
   return { data, loading, error, refetch };
 };
 
 export const usePurchaseInvoiceByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId = type === 'admin' ? admin?.id : branch?.admin?.id;
+
   const { data, loading, error } = useQuery(GET_PURCHASE_INVOICE_BY_ID, {
-    variables: { id },
+    variables: { id, adminId },
     skip: !id,
   });
+
   return { data, loading, error };
 };
 

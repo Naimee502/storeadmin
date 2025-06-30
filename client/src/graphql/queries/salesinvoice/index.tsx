@@ -1,7 +1,7 @@
 import { gql } from '@apollo/client';
 
 export const GET_SALES_INVOICES = gql`
-  query GetSalesInvoices($adminId: ID, $branchid: String) {
+  query GetSalesInvoices($adminId: ID, $branchid: ID) {
     getSalesInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid
@@ -37,7 +37,7 @@ export const GET_SALES_INVOICES = gql`
 `;
 
 export const GET_DELETED_SALES_INVOICES = gql`
-  query GetDeletedSalesInvoices($adminId: ID, $branchid: String) {
+  query GetDeletedSalesInvoices($adminId: ID, $branchid: ID) {
     getDeletedSalesInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid

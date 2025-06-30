@@ -45,7 +45,7 @@ const Home: React.FC = () => {
   const { data: productData, refetch: refetchProducts } = useProductsQuery();
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery();
-  const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery(branchId);
+  const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery();
   const frombranchid = branchId ? branchId : undefined;
   const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery(frombranchid);

@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_PURCHASE_INVOICES = gql`
-  query GetPurchaseInvoices($branchid: String) {
-    getPurchaseInvoices(branchid: $branchid) {
+  query GetPurchaseInvoices($adminId: ID, $branchid: ID) {
+    getPurchaseInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       paymenttype
@@ -26,13 +26,18 @@ export const GET_PURCHASE_INVOICES = gql`
         discount  
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_DELETED_PURCHASE_INVOICES = gql`
- query GetDeletedPurchaseInvoices($branchid: String) {
-    getDeletedPurchaseInvoices(branchid: $branchid) {
+ query GetDeletedPurchaseInvoices($adminId: ID, $branchid: ID) {
+    getDeletedPurchaseInvoices(adminId: $adminId, branchid: $branchid) {
       id
       branchid
       paymenttype
@@ -56,13 +61,18 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
         discount  
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_PURCHASE_INVOICE_BY_ID = gql`
-  query GetPurchaseInvoiceById($id: ID!) {
-    getPurchaseInvoice(id: $id) {
+  query GetPurchaseInvoiceById($id: ID!, $adminId: ID) {
+    getPurchaseInvoice(id: $id, adminId: $adminId) {
       id
       branchid
       paymenttype
@@ -86,6 +96,11 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
         discount  
       }
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

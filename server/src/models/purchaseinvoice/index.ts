@@ -26,6 +26,11 @@ const purchaseInvoiceSchema = new mongoose.Schema({
     }
   ],
   status: { type: Boolean, default: true },
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    required: true,
+  },
 }, { timestamps: true });
 
 // 🔼 POST-SAVE STOCK INCREMENT
@@ -50,7 +55,7 @@ purchaseInvoiceSchema.post('save', async function (doc, next) {
     }
 
     next();
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error incrementing stock in ProductBranchStock:', error);
     next(error);
   }
