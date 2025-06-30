@@ -14,6 +14,11 @@ const salesmenAccountSchema = new mongoose.Schema(
     commission: { type: String },
     target: { type: String },
     status: { type: Boolean, default: true },
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true,
+    },
   },
   { timestamps: true }
 );

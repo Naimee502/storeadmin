@@ -12,6 +12,11 @@ const accountSchema = new mongoose.Schema(
     city: { type: String },
     pincode: { type: String },
     status: Boolean,
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      required: true,
+    },
   },
   { timestamps: true }
 );

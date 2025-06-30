@@ -36,10 +36,10 @@ const SalesmenAccount = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Fetch salesmen data
-    const branchid = localStorage.getItem("branchid") || "";
-    const { data, refetch } = useSalesmenQuery(branchid);
+    const { type, admin, branch } = useAppSelector((state) => state.auth);
+    const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    const branchid = type === 'branch' ? branch?.id : undefined;
+    const { data, refetch } = useSalesmenQuery();
     const { addSalesmanMutation, editSalesmanMutation, deleteSalesmanMutation } = useSalesmanMutations();
     const salesmenList = data?.getSalesmenAccounts || [];
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -162,6 +162,7 @@ const SalesmenAccount = () => {
             commission: formValues.commission,
             target: formValues.target,
             status: Boolean(formValues.status),
+            admin: adminId
             };
 
             console.log("Form Values:", JSON.stringify(payload));

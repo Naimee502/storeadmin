@@ -1,3 +1,4 @@
+// src/mutations/salesmen.ts
 import { gql } from '@apollo/client';
 
 export const ADD_SALESMAN = gql`
@@ -15,6 +16,11 @@ export const ADD_SALESMAN = gql`
       commission
       target
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -34,6 +40,11 @@ export const EDIT_SALESMAN = gql`
       commission
       target
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

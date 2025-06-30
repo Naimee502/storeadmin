@@ -10,6 +10,7 @@ import {
   GET_ACCOUNT_BY_ID,
   GET_DELETED_ACCOUNTS,
 } from '../../queries/accounts';
+import { useAppSelector } from '../../../redux/hooks';
 
 export const useAccountMutations = () => {
   const [addAccountMutation] = useMutation(ADD_ACCOUNT);
@@ -25,36 +26,51 @@ export const useAccountMutations = () => {
   };
 };
 
-export const useAccountsQuery = (branchid?: string) => {
+export const useAccountsQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
   const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS, {
-    variables: { branchid },
+    variables: { adminId, branchid },
+    skip: !adminId,
   });
 
-  return {
-    data,
-    loading,
-    error,
-    refetch,
-  };
+  return { data, loading, error, refetch };
 };
 
-export const useDeletedAccountsQuery = (branchid?: string) => {
+export const useDeletedAccountsQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
   const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTS, {
-    variables: { branchid },
+    variables: { adminId, branchid },
+    skip: !adminId,
   });
 
-  return {
-    data,
-    loading,
-    error,
-    refetch,
-  };
+  return { data, loading, error, refetch };
 };
 
 export const useAccountByIDQuery = (id: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+
   const { data, loading, error } = useQuery(GET_ACCOUNT_BY_ID, {
-    variables: { id },
-    skip: !id,
+    variables: { id, adminId },
+    skip: !id || !adminId,
   });
 
   return { data, loading, error };

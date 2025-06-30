@@ -1,6 +1,17 @@
 import { gql } from 'apollo-server-express';
 
 export const accountTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type Account {
     id: ID!
     accountcode: String!
@@ -12,7 +23,8 @@ export const accountTypeDefs = gql`
     city: String
     pincode: String
     status: Boolean!
-    branchid: String
+    branchid: ID
+    admin: Admin
   }
 
   input AccountInput {
@@ -25,12 +37,13 @@ export const accountTypeDefs = gql`
     pincode: String
     status: Boolean!
     branchid: String
+    admin: ID
   }
 
   type Query {
-    getAccounts(branchid: String): [Account!]!
-    getDeletedAccounts(branchid: String): [Account!]!
-    getAccountById(id: ID!): Account
+    getAccounts(adminId: ID, branchid: ID): [Account!]!
+    getDeletedAccounts(adminId: ID, branchid: ID): [Account!]!
+    getAccountById(id: ID!, adminId: ID): Account
   }
 
   type Mutation {

@@ -14,6 +14,11 @@ export const ADD_ACCOUNT = gql`
       pincode
       status
       branchid
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -31,6 +36,11 @@ export const EDIT_ACCOUNT = gql`
       pincode
       status
       branchid
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

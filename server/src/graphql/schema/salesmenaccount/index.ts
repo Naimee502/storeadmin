@@ -1,9 +1,21 @@
 import { gql } from 'apollo-server-express';
 
 export const salesmenAccountTypeDefs = gql`
+  type Admin {
+    id: ID!
+    name: String!
+    email: String!
+    subscriptionType: String
+    subscribed: Boolean
+    subscribedAt: String
+    subscriptionEnd: String
+    transactionId: String
+  }
+
   type SalesmenAccount {
     id: ID!
-    branchid: ID!         
+    admin: Admin             
+    branchid: ID!
     salesmancode: String
     name: String!
     mobile: String!
@@ -18,7 +30,8 @@ export const salesmenAccountTypeDefs = gql`
   }
 
   input SalesmenAccountInput {
-    branchid: ID!         
+    admin: ID                
+    branchid: ID!
     name: String!
     mobile: String!
     email: String!
@@ -32,8 +45,8 @@ export const salesmenAccountTypeDefs = gql`
   }
 
   type Query {
-    getSalesmenAccounts(branchid: ID): [SalesmenAccount!]!
-    getDeletedSalesmenAccounts(branchid: ID): [SalesmenAccount!]!
+    getSalesmenAccounts(adminId: ID, branchid: ID): [SalesmenAccount!]!
+    getDeletedSalesmenAccounts(adminId: ID, branchid: ID): [SalesmenAccount!]!
     getSalesmanAccountById(id: ID!): SalesmenAccount
   }
 

@@ -2,8 +2,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_ACCOUNTS = gql`
-  query GetAccounts($branchid: String) {
-    getAccounts(branchid: $branchid) {
+  query GetAccounts($branchid: ID, $adminId: ID) {
+  getAccounts(adminId: $adminId, branchid: $branchid) {
       id
       accountcode
       name
@@ -15,13 +15,19 @@ export const GET_ACCOUNTS = gql`
       pincode
       status
       branchid
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
+
 export const GET_DELETED_ACCOUNTS = gql`
-  query GetDeletedAccounts($branchid: String) {
-    getDeletedAccounts(branchid: $branchid) {
+  query GetDeletedAccounts($branchid: ID, $adminId: ID) {
+    getDeletedAccounts(adminId: $adminId, branchid: $branchid) {
       id
       accountcode
       name
@@ -33,13 +39,18 @@ export const GET_DELETED_ACCOUNTS = gql`
       pincode
       status
       branchid
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_ACCOUNT_BY_ID = gql`
-  query GetAccountById($id: ID!) {
-    getAccountById(id: $id) {
+  query GetAccountById($id: ID!, $adminId: ID) {
+    getAccountById(id: $id, adminId: $adminId) {
       id
       accountcode
       name
@@ -51,6 +62,11 @@ export const GET_ACCOUNT_BY_ID = gql`
       pincode
       status
       branchid
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

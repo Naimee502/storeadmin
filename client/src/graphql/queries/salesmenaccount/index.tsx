@@ -1,9 +1,8 @@
-// src/queries/salesmenaccount.ts
 import { gql } from '@apollo/client';
 
 export const GET_SALESMEN = gql`
-  query GetSalesmen($branchid: ID) {
-    getSalesmenAccounts(branchid: $branchid) {
+  query GetSalesmen($branchid: ID, $adminId: ID) {
+    getSalesmenAccounts(branchid: $branchid, adminId: $adminId) {
       id
       branchid
       salesmancode
@@ -17,13 +16,18 @@ export const GET_SALESMEN = gql`
       commission
       target
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_DELETED_SALESMEN = gql`
-  query GetDeletedSalesmen($branchid: ID) {
-    getDeletedSalesmenAccounts(branchid: $branchid) {
+  query GetDeletedSalesmen($branchid: ID, $adminId: ID) {
+    getDeletedSalesmenAccounts(branchid: $branchid, adminId: $adminId) {
       id
       branchid
       salesmancode
@@ -37,13 +41,18 @@ export const GET_DELETED_SALESMEN = gql`
       commission
       target
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;
 
 export const GET_SALESMAN_BY_ID = gql`
-  query GetSalesmanById($id: ID!) {
-    getSalesmanAccountById(id: $id) {
+  query GetSalesmanById($id: ID!, $adminId: ID) {
+    getSalesmanAccountById(id: $id, adminId: $adminId) {
       id
       branchid
       salesmancode
@@ -57,6 +66,11 @@ export const GET_SALESMAN_BY_ID = gql`
       commission
       target
       status
+      admin {
+        id
+        name
+        email
+      }
     }
   }
 `;

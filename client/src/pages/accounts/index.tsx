@@ -24,10 +24,11 @@ const Accounts = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { type, admin, branch } = useAppSelector((state) => state.auth);
+    const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    const branchid = type === 'branch' ? branch?.id : undefined;
 
-    // Fetch accounts data
-    const branchid = localStorage.getItem("branchid") || "";
-    const { data, refetch } = useAccountsQuery(branchid);
+    const { data, refetch } = useAccountsQuery();
     // Fetch account groups for dropdown
     const { data: accountGroupsData } = useAccountGroupsQuery();
 
@@ -126,6 +127,7 @@ const Accounts = () => {
                             city: formValues.city,
                             pincode: formValues.pincode,
                             status: formValues.status,
+                            admin: adminId
                         },
                     },
                 });
@@ -143,6 +145,7 @@ const Accounts = () => {
                             city: formValues.city,
                             pincode: formValues.pincode,
                             status: formValues.status,
+                            admin: adminId
                         },
                     },
                 });
