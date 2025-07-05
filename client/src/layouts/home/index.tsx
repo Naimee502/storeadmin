@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/header';
 import { useAuth } from '../../contexts/auth';
@@ -8,19 +8,18 @@ import { useBranchesQuery } from '../../graphql/hooks/branches';
 import { setBranchId } from '../../redux/slices/branch';
 
 const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const dispatch = useAppDispatch()
+  const dispatch = useAppDispatch();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarHovered, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
 
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(localStorage.getItem("branchid") || "");
-  const { data, refetch } = useBranchesQuery();
-   const branchesList = data?.getBranches || [];
+  const { data } = useBranchesQuery();
+  const branchesList = data?.getBranches || [];
 
-  const toggleSidebar = () => {
-    setSidebarOpen(prev => !prev);
-  };
-  
+  const toggleSidebar = () => setSidebarOpen(prev => !prev);
+
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' });
     persistor.purge();
@@ -29,7 +28,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100 overflow-hidden">
       <Header
         title={type === 'admin' ? admin?.name : branch?.branchname}
         onMenuClick={toggleSidebar}
@@ -43,9 +42,19 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         }}
       />
       <div className="flex flex-1">
-        <Sidebar isOpen={isSidebarOpen} />
-        <main className={`transition-all ease-in-out flex-1 pt-[50px] overflow-y-auto ${isSidebarOpen ? 'pl-[250px]' : 'pl-[6px]'}`}>
-          {children}
+        <Sidebar
+          isOpen={isSidebarOpen}
+          toggleSidebar={toggleSidebar}
+          onHoverChange={setSidebarHovered}
+        />
+
+        {/* Scrollable content area */}
+        <main
+          className={`flex-1 pt-[60px] overflow-y-auto transition-all duration-300 ease-in-out ${
+            isSidebarHovered ? 'sm:ml-56' : 'sm:ml-14'
+          }`}
+        >
+          <div>{children}</div>
         </main>
       </div>
     </div>
