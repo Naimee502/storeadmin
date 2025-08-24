@@ -24,17 +24,24 @@ const DeletedSalesmenAccounts = () => {
   }, [data, refetch]);
 
   const columns = [
-        { label: "Seq Number", key: "seqNo" },
-        { label: "Name", key: "name" },
-        { label: "Mobile", key: "mobile" },
-        { label: "Email", key: "email" },
-        { label: "Commission", key: "commission" },
-        { label: "Status", key: "status" },
+    { label: "Seq Number", key: "seqNo" },
+    { label: "Name", key: "name" },
+    { label: "Mobile", key: "mobile" },
+    { label: "Email", key: "email" },
+    { label: "Salary", key: "salary" },
+    { label: "Commission", key: "commission" },
+    { label: "Target", key: "target" },
+    { label: "Account Group", key: "accountgroupname" },
+    { label: "Status", key: "status" },
   ];
 
   const tableData = salesmenList.map((salesman: any, index: number) => ({
         ...salesman,
         seqNo: index + 1,
+        salary: salesman.salary?.toFixed(2) || "0.00",
+        commission: salesman.commission?.toFixed(2) || "0.00",
+        target: salesman.target?.toFixed(2) || "0.00",
+        accountgroupname: salesman.accountgroupid?.accountgroupname || "-", // Assuming populated
         status: salesman.status ? "Active" : "Inactive",
   }));
 

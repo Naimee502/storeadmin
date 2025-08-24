@@ -10,8 +10,13 @@ export const branchTypeDefs = gql`
     subscribedAt: String
     subscriptionEnd: String
     transactionId: String
+    businesstype: String
+    isMultibranch: Boolean
+    isChannelCustomers: Boolean
+    allowedmodules: [String]
     needsReview: Boolean!
     rejected: Boolean!
+    isExpiringSoon: Boolean
   }
 
   type Branch {

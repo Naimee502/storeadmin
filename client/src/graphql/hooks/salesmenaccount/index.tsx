@@ -39,7 +39,7 @@ export const useSalesmenQuery = () => {
     type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SALESMEN, {
-    variables: { branchid, adminId },
+    variables: { filter: { branchid, adminId } },
     skip: !adminId,
   });
 
@@ -57,7 +57,7 @@ export const useDeletedSalesmenQuery = () => {
     type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SALESMEN, {
-    variables: { branchid, adminId },
+    variables: { filter: { branchid, adminId } },
     skip: !adminId,
   });
 

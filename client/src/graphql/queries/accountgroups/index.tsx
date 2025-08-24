@@ -6,6 +6,7 @@ export const GET_ACCOUNTGROUPS = gql`
       id
       accountgroupcode
       accountgroupname
+      category
       status
       admin {
         id
@@ -22,6 +23,7 @@ export const GET_DELETED_ACCOUNTGROUPS = gql`
       id
       accountgroupcode
       accountgroupname
+      category
       status
       admin {
         id
@@ -38,6 +40,7 @@ export const GET_ACCOUNTGROUP_BY_ID = gql`
       id
       accountgroupcode
       accountgroupname
+      category
       status
       admin {
         id

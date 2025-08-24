@@ -2,14 +2,22 @@ import { Admin } from "../../../models/admin";
 
 export const adminResolvers = {
   Query: {
-    getAdmins: async () => {
-      return await Admin.find();
+    getAdmins: async (_: any, { adminId }: { adminId?: string }) => {
+      const query: any = { status: true };
+      if (adminId) query._id = adminId;
+
+      return await Admin.find(query);
     },
     getAdminByEmail: async (_: any, { email }: { email: string }) => {
       return await Admin.findOne({ email });
     },
     getPendingSubscriptions: async () => {
       return await Admin.find({ needsReview: true, subscribed: false, rejected: false });
+    },
+    getDeletedAdmins: async (_: any, { adminId }: { adminId?: string }) => {
+      const query: any = { status: false };
+      if (adminId) query._id = adminId; 
+      return await Admin.find(query);
     },
   },
 
@@ -26,7 +34,31 @@ export const adminResolvers = {
         transactionId: null,
         needsReview: false,
         rejected: false,
+        // Optional defaults (if not provided in input)
+        businesstype: input.businesstype || 'retail',
+        isMultibranch: input.isMultibranch ?? false,
+        isChannelCustomers: input.isChannelCustomers ?? false,
+        allowedmodules: input.allowedmodules || ['sales', 'purchase', 'accounting'],
+        status: input.status ?? true,
       });
+
+      await admin.save();
+      return admin;
+    },
+
+    updateAdminById: async (_: any, { id, input }: any) => {
+      const admin = await Admin.findById(id);
+      if (!admin) throw new Error("Admin not found");
+
+      // Safely update allowed fields
+      if (input.name) admin.name = input.name;
+      if (input.password) admin.password = input.password;
+      if (input.subscriptionType) admin.subscriptionType = input.subscriptionType;
+      if (input.businesstype) admin.businesstype = input.businesstype;
+      if (typeof input.isMultibranch === "boolean") admin.isMultibranch = input.isMultibranch;
+      if (typeof input.isChannelCustomers === "boolean") admin.isChannelCustomers = input.isChannelCustomers;
+      if (Array.isArray(input.allowedmodules)) admin.allowedmodules = input.allowedmodules;
+      if (typeof input.status === "boolean") admin.status = input.status;
 
       await admin.save();
       return admin;
@@ -111,6 +143,21 @@ export const adminResolvers = {
       }
 
       return admin;
+    },
+
+    deleteAdmin: async (_: any, { id }: { id: string }) => {
+      const result = await Admin.findByIdAndUpdate(
+        id,
+        { status: false },
+        { new: true }
+      );
+      return !!result;
+    },
+
+    // Restore brand
+    resetAdmin: async (_: any, { id }: any) => {
+      const result = await Admin.findByIdAndUpdate(id, { status: true }, { new: true });
+      return !!result;
     },
   },
 };

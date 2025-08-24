@@ -7,10 +7,31 @@ export const CREATE_ADMIN = gql`
       name
       email
       subscriptionType
-      subscribed     
+      subscribed
       subscribedAt
       subscriptionEnd
       transactionId
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
+    }
+  }
+`;
+
+export const UPDATE_ADMIN_BY_ID = gql`
+  mutation UpdateAdminById($id: ID!, $input: AdminUpdateInput!) {
+    updateAdminById(id: $id, input: $input) {
+      id
+      name
+      email
+      subscriptionType
+      subscribed
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
+      status
     }
   }
 `;
@@ -34,6 +55,10 @@ export const CONFIRM_SUBSCRIPTION = gql`
       subscriptionEnd
       transactionId
       needsReview
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
     }
   }
 `;
@@ -51,6 +76,10 @@ export const LOGIN_ADMIN = gql`
       transactionId
       needsReview
       rejected
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
     }
   }
 `;
@@ -67,6 +96,10 @@ export const APPROVE_SUBSCRIPTION = gql`
       transactionId
       needsReview
       rejected
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
     }
   }
 `;
@@ -94,6 +127,23 @@ export const GET_PENDING_SUBSCRIPTIONS = gql`
       subscriptionType
       needsReview
       createdAt
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
     }
+  }
+`;
+
+
+export const DELETE_ADMIN = gql`
+  mutation DeleteAdmin($id: ID!) {
+    deleteAdmin(id: $id)
+  }
+`;
+
+export const RESET_ADMIN = gql`
+  mutation ResetAdmin($id: ID!) {
+    resetAdmin(id: $id)
   }
 `;

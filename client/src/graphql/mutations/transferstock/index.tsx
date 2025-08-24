@@ -8,9 +8,12 @@ export const ADD_TRANSFER_STOCK = gql`
       frombranchid
       tobranchid
       productid
+      variantid
+      transferunitid
       transferqty
       transferdate
       status
+      batchnumber
       admin {
         id
         name
@@ -27,9 +30,12 @@ export const EDIT_TRANSFER_STOCK = gql`
       frombranchid
       tobranchid
       productid
+      variantid
+      transferunitid
       transferqty
       transferdate
       status
+      batchnumber
       admin {
         id
         name

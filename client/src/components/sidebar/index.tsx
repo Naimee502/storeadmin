@@ -3,7 +3,8 @@ import {
   FaBalanceScale, FaBoxOpen, FaCodeBranch, FaHome,
   FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags,
   FaUser, FaUsers, FaUserTie, FaFileInvoiceDollar,
-  FaReceipt, FaExchangeAlt
+  FaReceipt, FaExchangeAlt,
+  FaWallet
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -36,18 +37,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     icon: <FaHome className="text-xl" />
   };
 
-  const commonLinks = [
+  const branchLinks = [
     { to: '/salesmenaccount', label: 'Salesmen Accounts', icon: <FaUserTie className="text-xl" /> },
     { to: '/accounts', label: 'Accounts', icon: <FaUser className="text-xl" /> },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" /> },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" /> },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" /> },
-    { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" /> }
+    { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" /> },
+    { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-xl" /> },
+    { to: '/payments', label: 'Payments', icon: <FaWallet className="text-xl" /> },
   ];
 
   const adminLinks = [
     { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-xl" /> },
     { to: '/categories', label: 'Categories', icon: <FaTags className="text-xl" /> },
+      { to: '/subcategories', label: 'Sub Categories', icon: <FaTags className="text-xl" /> },
     { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined className="text-xl" /> },
     { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark className="text-xl" /> },
     { to: '/models', label: 'Models', icon: <FaMobileAlt className="text-xl" /> },
@@ -56,12 +60,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers className="text-xl" /> }
   ];
 
-  const filteredCommonLinks = commonLinks.filter(link =>
+  const filteredCommonLinks = branchLinks.filter(link =>
     !['/products', '/salesinvoice', '/purchaseinvoice', '/transferstock', '/accounts', '/salesmenaccount'].includes(link.to)
   );
 
   const sidebarItems = type === 'branch'
-    ? [homeLink, ...commonLinks]
+    ? [homeLink, ...branchLinks]
     : [homeLink, ...adminLinks, ...filteredCommonLinks];
 
   return (

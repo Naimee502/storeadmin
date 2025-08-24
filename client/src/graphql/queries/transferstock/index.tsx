@@ -8,9 +8,12 @@ export const GET_TRANSFER_STOCKS = gql`
       frombranchid
       tobranchid
       productid
+      variantid
+      transferunitid
       transferqty
       transferdate
       status
+      batchnumber
       admin {
         id
         name
@@ -27,9 +30,12 @@ export const GET_DELETED_TRANSFER_STOCKS = gql`
       frombranchid
       tobranchid
       productid
+      variantid
+      transferunitid
       transferqty
       transferdate
       status
+      batchnumber
       admin {
         id
         name
@@ -46,9 +52,12 @@ export const GET_TRANSFER_STOCK_BY_ID = gql`
       frombranchid
       tobranchid
       productid
+      variantid
+      transferunitid
       transferqty
       transferdate
       status
+      batchnumber
       admin {
         id
         name

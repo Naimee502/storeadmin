@@ -9,8 +9,25 @@ export interface Account {
   email: string;
   address: string;
   city: string;
+  state: string;
+  country: string;
   pincode: string;
+  gstnumber: string;
+  pan: string;
+  openingbalance: number;
+  openingbalancetype: "debit" | "credit";
+  creditlimit: number;
+  bankname: string;
+  bankaccountnumber: string;
+  ifsc: string;
+  upiid: string;
+  billingcycle: "daily" | "weekly" | "monthly";
+  duedays: number;
+  type: "customer" | "vendor" | "expense" | "bank" | "other";
+  accounttype: "enduser" | "retail" | "dealer" | "superstockist" | "distributor" | "manufacturer" | "exporter";
+  isposcustomer: boolean;
   status: boolean;
+  adminid: string;
 }
 
 interface AccountState {

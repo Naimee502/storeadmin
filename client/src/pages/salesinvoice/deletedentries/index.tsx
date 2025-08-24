@@ -9,19 +9,23 @@ import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useProductServicesQuery } from "../../../graphql/hooks/products";
 
 const DeletedSalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
   const { data, refetch } = useDeletedSalesInvoicesQuery();
-  const { resetSalesInvoiceMutation } = useSalesInvoiceMutations();
-
   const invoiceList = data?.getDeletedSalesInvoices || [];
-
+  
+  const { resetSalesInvoiceMutation } = useSalesInvoiceMutations();
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc:any) => [acc.id, acc]));
+
+  const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+  const productList = productData?.getProductServices ?? [];
+  const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   useEffect(() => {
     if (!data || !data.getDeletedSalesInvoices || data.getDeletedSalesInvoices.length === 0) {
@@ -41,20 +45,31 @@ const DeletedSalesInvoices = () => {
     { label: "Status", key: "status" },
   ];
 
-  // Then map your invoices
   const tableData = invoiceList.map((invoice: any, index: number) => {
-    const totalqty = invoice.products.reduce((sum: number, p: any) => sum + (p.qty || 0), 0);
-    const account = accountsMap.get(invoice.partyacc);
-    return {
-      ...invoice,
-      seqNo: index + 1,
-      totalitem: invoice.products.length,
-      totalqty,
-      billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
-      status: invoice.status ? "Active" : "Inactive",
-      partyacc: account ? `${account.name} - ${account.mobile}` : invoice.partyacc,
-    };
-});
+      const totalqty = invoice.productservice.reduce(
+        (sum: number, p: any) => sum + (p.qty || 0),
+        0
+      );
+
+      const account = accountsMap.get(invoice.partyacc);
+
+      const productname = invoice.productservice
+        .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
+        .join(", ");
+
+      return {
+        ...invoice,
+        seqNo: index + 1,
+        totalitem: invoice.productservice.length,
+        totalqty,
+        billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
+        status: invoice.status ? "Active" : "Inactive",
+        partyacc: account
+          ? `${account.name} - ${account.mobile}`
+          : invoice.partyacc,
+        productname,
+      };
+  });
 
   return (
     <HomeLayout>

@@ -4,7 +4,6 @@ export const ADD_SALES_INVOICE = gql`
   mutation AddSalesInvoice($input: SalesInvoiceInput!) {
     addSalesInvoice(input: $input) {
       id
-      branchid
       salesmenid
       paymenttype
       partyacc
@@ -18,20 +17,25 @@ export const ADD_SALES_INVOICE = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        salesunitid
         gst
         qty
         rate
         amount
         discount
+        salesaccountid
+        purchaseaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -40,7 +44,6 @@ export const EDIT_SALES_INVOICE = gql`
   mutation EditSalesInvoice($id: ID!, $input: SalesInvoiceInput!) {
     editSalesInvoice(id: $id, input: $input) {
       id
-      branchid
       salesmenid
       paymenttype
       partyacc
@@ -54,24 +57,28 @@ export const EDIT_SALES_INVOICE = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        salesunitid
         gst
         qty
         rate
         amount
         discount
+        salesaccountid
+        purchaseaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
-
 
 export const DELETE_SALES_INVOICE = gql`
   mutation DeleteSalesInvoice($id: ID!) {

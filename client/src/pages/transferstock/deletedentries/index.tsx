@@ -9,7 +9,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
-import { useProductsQuery } from "../../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../../graphql/hooks/products";
 
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
@@ -20,9 +20,12 @@ const DeletedTransferStocks = () => {
   const { resetTransferStockMutation } = useTransferStockMutations();
   const transferStockList = data?.getDeletedTransferStocks || [];
   const { data: branchesData } = useBranchesQuery();
-  const { data: productsData } = useProductsQuery();
+  const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+   const transferProductData = productData?.getProductServices ?? [];
   const branches = branchesData?.getBranches || [];
-  const products = productsData?.getProducts || [];
+  const products = transferProductData || [];
+
+  console.log("Deleted Transfer Stocks Data:", JSON.stringify(products));
 
   useEffect(() => {
     if (!data || !data.getDeletedTransferStocks || data.getDeletedTransferStocks.length === 0) {
@@ -42,17 +45,20 @@ const DeletedTransferStocks = () => {
   ];
 
   const tableData = transferStockList.map((stock, index) => {
-    const fromBranch = branches.find((b) => b.id === stock.frombranchid); 
+    const fromBranch = branches.find((b) => b.id === stock.frombranchid);
     const toBranch = branches.find((b) => b.id === stock.tobranchid);
     const product = products.find((p) => p.id === stock.productid);
+    const variant = product?.productvariants.find((v) => v.id === stock.variantid);
 
     return {
       ...stock,
       seqNo: index + 1,
-      frombranchid: fromBranch?.branchname || stock.frombranchid, 
-      tobranchname: toBranch?.branchname || stock.tobranchid,
-      productname: product?.name || stock.productid,
-      purchaserate: product?.purchaserate,
+      frombranchid: fromBranch?.branchname || stock.frombranchid,
+      tobranchid: toBranch?.branchname || stock.tobranchid,
+      productid: product?.name || stock.productid, // match column key
+      purchaserate: variant?.purchaserate || product?.productvariants[0]?.purchaserate,
+      transferqty: stock.transferqty,
+      transferdate: stock.transferdate,
       status: stock.status ? "Active" : "Inactive",
     };
   });

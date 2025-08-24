@@ -1,65 +1,59 @@
+import mongoose from "mongoose";
 import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 
 export const purchaseInvoiceResolvers = {
   Query: {
-    getPurchaseInvoices: async (_: any, args: { adminId?: string; branchid?: string }) => {
+    getPurchaseInvoices: async (_: any, args: { filter?: any }) => {
+      const filter = args.filter || {};
       const query: any = { status: true };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await PurchaseInvoice.find(query).populate('admin');
+
+      if (filter.branchid) query.branchid = filter.branchid;
+      if (filter.adminid) query.adminid = filter.adminid;
+      if (filter.supplierid) query.supplierid = filter.supplierid;
+      if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+      if (filter.partyacc) query.partyacc = { $regex: filter.partyacc, $options: "i" };
+      if (filter.billtype) query.billtype = filter.billtype;
+      if (filter.invoicetype) query.invoicetype = filter.invoicetype;
+      if (typeof filter.status === "boolean") query.status = filter.status;
+
+      if (filter.billdateFrom || filter.billdateTo) {
+        query.billdate = {};
+        if (filter.billdateFrom) query.billdate.$gte = new Date(filter.billdateFrom);
+        if (filter.billdateTo) query.billdate.$lte = new Date(filter.billdateTo);
+      }
+
+      const result = await PurchaseInvoice.find(query).lean();
+      return result.map((r: any) => ({ id: r._id.toString(), ...r }));
     },
 
-    getDeletedPurchaseInvoices: async (_: any, args: { adminId?: string; branchid?: string }) => {
+    getDeletedPurchaseInvoices: async (_: any, { adminId, branchId }: any) => {
       const query: any = { status: false };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await PurchaseInvoice.find(query).populate('admin');
-    },
 
-    getPurchaseInvoice: async (_: any, args: { id: string; adminId?: string }) => {
-      const query: any = { _id: args.id };
-      if (args.adminId) query.admin = args.adminId;
-      return await PurchaseInvoice.findOne(query).populate('admin');
-    },
+      if (adminId) query.adminid = adminId;
+      if (branchId) query.branchid = branchId;
+
+      const invoices = await PurchaseInvoice.find(query).lean().exec();
+
+      return invoices.map((inv: any) => ({
+        id: inv._id.toString(),
+        ...inv,
+      }));
+    }
   },
 
   Mutation: {
     addPurchaseInvoice: async (_: any, { input }: any) => {
-      const safeInput = {
-        ...input,
-        products: input.products.map((p: any) => ({ ...p })),
-      };
-
-      const created = await PurchaseInvoice.create(safeInput);
-      return await PurchaseInvoice.findById(created._id).populate("admin");
-    },
-
-    addPurchaseInvoices: async (_: any, { inputs }: { inputs: any[] }) => {
-      const safeInputs = inputs.map((invoice) => ({
-        ...invoice,
-        products: invoice.products.map((p: any) => ({ ...p })),
-      }));
-
-      const inserted = await PurchaseInvoice.insertMany(safeInputs);
-      const ids = inserted.map((i) => i._id);
-      return await PurchaseInvoice.find({ _id: { $in: ids } }).populate("admin");
+      const created = await PurchaseInvoice.create(input);
+      return await PurchaseInvoice.findById(created._id);
     },
 
     editPurchaseInvoice: async (_: any, { id, input }: any) => {
       const existing = await PurchaseInvoice.findById(id);
       if (!existing) throw new Error("Purchase invoice not found");
 
-      const safeInput = {
-        ...input,
-        products: input.products.map((p: any) => ({ ...p })),
-      };
-
-      const updated = await PurchaseInvoice.findByIdAndUpdate(id, safeInput, {
-        new: true,
-      }).populate("admin");
-
+      const updated = await PurchaseInvoice.findByIdAndUpdate(id, input, { new: true });
       if (updated) {
-        await PurchaseInvoice.adjustStock(existing, updated);
+        await PurchaseInvoice.adjustStockAndTransactions(existing, updated);
       }
 
       return updated;
@@ -70,7 +64,7 @@ export const purchaseInvoiceResolvers = {
       return !!result;
     },
 
-    resetPurchaseInvoice: async (_: any, { id }: { id: string }) => {
+    resetPurchaseInvoice: async (_: any, { id }: any) => {
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },

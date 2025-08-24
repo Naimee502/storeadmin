@@ -1,6 +1,13 @@
 import { gql } from 'apollo-server-express';
 
 export const accountGroupTypeDefs = gql`
+  enum AccountCategory {
+    assets
+    liabilities
+    income
+    expenses
+  }
+
   type Admin {
     id: ID!
     name: String!
@@ -18,12 +25,14 @@ export const accountGroupTypeDefs = gql`
     id: ID!
     accountgroupcode: String!
     accountgroupname: String!
+    category: AccountCategory!
     status: Boolean!
     admin: Admin
   }
 
   input AccountGroupInput {
     accountgroupname: String!
+    category: AccountCategory!
     status: Boolean!
     admin: ID
   }
@@ -41,3 +50,4 @@ export const accountGroupTypeDefs = gql`
     resetAccountGroup(id: ID!): Boolean!
   }
 `;
+

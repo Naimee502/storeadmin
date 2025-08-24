@@ -18,21 +18,27 @@ export const transferStockTypeDefs = gql`
     id: ID!
     frombranchid: String!
     tobranchid: String!
-    productid: String!
+    productid: ID!
+    variantid: ID
+    transferunitid: ID
     transferqty: Int!
     transferdate: String!
     status: Boolean!
     admin: Admin
+    batchnumber: String
   }
 
   input TransferStockInput {
     frombranchid: ID!
     tobranchid: ID!
     productid: ID!
+    variantid: ID
+    transferunitid: ID
     transferqty: Int!
     transferdate: String!
-    status: Boolean!
+    status: Boolean
     admin: ID
+    batchnumber: String
   }
 
   type Query {

@@ -23,23 +23,26 @@ export interface SalesInvoiceProduct {
 export interface SalesInvoice {
   id: string;
   billdate: string;
-  products: SalesInvoiceProduct[];
+  products?: SalesInvoiceProduct[];
   totalamount?: number;
   salesmanid?: string;
 }
 
 interface Props {
-  salesInvoices: SalesInvoice[];
+  salesInvoices?: SalesInvoice[];
 }
 
-const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices }) => {
+const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
   const { labels, revenues, salesCounts } = useMemo(() => {
     const map = new Map<string, { revenue: number; count: number }>();
 
     salesInvoices.forEach((invoice) => {
       const billDate = format(new Date(invoice.billdate), "MMM dd");
       const totalRevenue = invoice.totalamount ?? 0;
-      const totalSales = invoice.products.reduce((sum, p) => sum + (p.qty ?? 0), 0);
+      const totalSales = (invoice.products ?? []).reduce(
+        (sum, p) => sum + (p.qty ?? 0),
+        0
+      );
 
       if (!map.has(billDate)) {
         map.set(billDate, { revenue: 0, count: 0 });
@@ -85,35 +88,22 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices }) => {
   const options = {
     responsive: true,
     plugins: {
-      legend: {
-        position: "top" as const,
-      },
-      tooltip: {
-        mode: "index" as const,
-        intersect: false,
-      },
+      legend: { position: "top" as const },
+      tooltip: { mode: "index" as const, intersect: false },
     },
     scales: {
       y1: {
         type: "linear" as const,
         display: true,
         position: "left" as const,
-        title: {
-          display: true,
-          text: "Revenue (₹)",
-        },
+        title: { display: true, text: "Revenue (₹)" },
       },
       y2: {
         type: "linear" as const,
         display: true,
         position: "right" as const,
-        grid: {
-          drawOnChartArea: false,
-        },
-        title: {
-          display: true,
-          text: "Units Sold",
-        },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "Units Sold" },
       },
     },
   };

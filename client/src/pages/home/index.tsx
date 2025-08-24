@@ -15,7 +15,7 @@ import {
 
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import { useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
-import { useProductsQuery } from "../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useAppSelector } from "../../redux/hooks";
 import { useTransferStocksQuery } from "../../graphql/hooks/transferstock";
 import { useSalesmenQuery } from "../../graphql/hooks/salesmenaccount";
@@ -42,7 +42,7 @@ const Home: React.FC = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
-  const { data: productData, refetch: refetchProducts } = useProductsQuery();
+  const { items: productData, refetch: refetchProducts } = useProductServicesQuery();
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery();
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();

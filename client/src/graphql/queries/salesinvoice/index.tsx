@@ -1,10 +1,10 @@
 import { gql } from '@apollo/client';
 
+// 🔹 Queries
 export const GET_SALES_INVOICES = gql`
-  query GetSalesInvoices($adminId: ID, $branchid: ID) {
-    getSalesInvoices(adminId: $adminId, branchid: $branchid) {
+  query GetSalesInvoices($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) {
       id
-      branchid
       salesmenid
       paymenttype
       partyacc
@@ -18,29 +18,33 @@ export const GET_SALES_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        salesunitid
         gst
         qty
         rate
         amount
         discount
+        salesaccountid
+        purchaseaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const GET_DELETED_SALES_INVOICES = gql`
-  query GetDeletedSalesInvoices($adminId: ID, $branchid: ID) {
-    getDeletedSalesInvoices(adminId: $adminId, branchid: $branchid) {
+  query GetDeletedSalesInvoices($filter: SalesInvoiceFilterInput) {
+    getDeletedSalesInvoices(filter: $filter) {
       id
-      branchid
       salesmenid
       paymenttype
       partyacc
@@ -54,29 +58,33 @@ export const GET_DELETED_SALES_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid 
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        salesunitid
         gst
         qty
         rate
         amount
         discount
+        salesaccountid
+        purchaseaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const GET_SALES_INVOICE_BY_ID = gql`
-  query GetSalesInvoiceById($id: ID!, $adminId: ID) {
-    getSalesInvoice(id: $id, adminId: $adminId) {
+  query getSalesInvoiceById($id: ID!, $adminid: ID) {
+    getSalesInvoiceById(id: $id, adminid: $adminid) {
       id
-      branchid
       salesmenid
       paymenttype
       partyacc
@@ -90,20 +98,25 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        salesunitid
         gst
         qty
         rate
         amount
-        discount  
+        discount
+        salesaccountid
+        purchaseaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;

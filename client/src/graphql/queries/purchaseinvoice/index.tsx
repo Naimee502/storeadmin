@@ -1,10 +1,10 @@
 import { gql } from '@apollo/client';
 
+// 🔹 Queries
 export const GET_PURCHASE_INVOICES = gql`
-  query GetPurchaseInvoices($adminId: ID, $branchid: ID) {
-    getPurchaseInvoices(adminId: $adminId, branchid: $branchid) {
+  query GetPurchaseInvoices($filter: PurchaseInvoiceFilterInput) {
+    getPurchaseInvoices(filter: $filter) {
       id
-      branchid
       paymenttype
       partyacc
       taxorsupplytype
@@ -17,29 +17,33 @@ export const GET_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        purchaseunitid
         gst
         qty
         rate
         amount
-        discount  
+        discount
+        purchaseaccountid
+        salesaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const GET_DELETED_PURCHASE_INVOICES = gql`
- query GetDeletedPurchaseInvoices($adminId: ID, $branchid: ID) {
-    getDeletedPurchaseInvoices(adminId: $adminId, branchid: $branchid) {
+  query GetDeletedPurchaseInvoices($filter: PurchaseInvoiceFilterInput) {
+    getDeletedPurchaseInvoices(filter: $filter) {
       id
-      branchid
       paymenttype
       partyacc
       taxorsupplytype
@@ -52,29 +56,33 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
+        purchaseunitid
         gst
         qty
         rate
         amount
-        discount  
+        discount
+        purchaseaccountid
+        salesaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
 export const GET_PURCHASE_INVOICE_BY_ID = gql`
-  query GetPurchaseInvoiceById($id: ID!, $adminId: ID) {
-    getPurchaseInvoice(id: $id, adminId: $adminId) {
+  query GetPurchaseInvoiceById($id: ID!, $adminid: ID) {
+    getPurchaseInvoiceById(id: $id, adminid: $adminid) {
       id
-      branchid
       paymenttype
       partyacc
       taxorsupplytype
@@ -87,20 +95,24 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      branchid
+      productservice {
+        productserviceid
+        variantid
         gst
         qty
         rate
         amount
-        discount  
+        discount
+        purchaseaccountid
+        salesaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;

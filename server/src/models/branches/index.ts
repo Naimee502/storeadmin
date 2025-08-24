@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { ProductBranchStock } from '../productbranchstock';
-import { Product } from '../products';
+import { ProductService } from '../products';
+import { convertToBaseUnit } from '../../utils/unitconversation';
 
 const branchSchema = new mongoose.Schema({
   branchcode: { type: String, unique: true },
@@ -45,25 +46,34 @@ branchSchema.pre('save', async function (next) {
 branchSchema.post('save', async function (doc) {
   const branchId = doc._id;
 
-  const allProducts = await Product.find({});
+  const allProducts = await ProductService.find({ isservice: false });
+  const branchProducts: any[] = [];
 
-  const branchProducts = allProducts.map(product => {
-    const isCurrentBranch = false;
-
-    return {
-      branchid: branchId,
-      productid: product._id,
-      openingstock: isCurrentBranch ? product.openingstock : 0,
-      openingstockamount: isCurrentBranch ? product.openingstockamount : 0,
-      currentstock: isCurrentBranch ? product.currentstock : 0,
-      currentstockamount: isCurrentBranch ? product.currentstockamount : 0,
-      minimumstock: product.minimumstock ?? 0,
-    };
-  });
+  for (const product of allProducts) {
+    if (Array.isArray(product.productvariants)) {
+      for (const variant of product.productvariants) {
+        const openingStock = convertToBaseUnit(0, variant.purchaseunitid, variant);
+        branchProducts.push({
+          admin: product.adminid,
+          branchid: branchId,
+          productid: product._id,
+          variantid: variant._id || new mongoose.Types.ObjectId(),
+          openingstock: openingStock,
+          openingstockamount: openingStock * (variant.purchaserate || 0),
+          currentstock: openingStock,
+          currentstockamount: openingStock * (variant.purchaserate || 0),
+          closingstock: openingStock,
+          closingstockamount: openingStock * (variant.purchaserate || 0),
+          minimumstock: variant.reorderlevel ?? 0,
+        });
+      }
+    }
+  }
 
   if (branchProducts.length > 0) {
-    await ProductBranchStock.insertMany(branchProducts); // ✅ correct model
+    await ProductBranchStock.insertMany(branchProducts);
   }
 });
+
 
 export const Branch = mongoose.model('Branch', branchSchema);

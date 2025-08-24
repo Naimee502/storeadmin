@@ -1,11 +1,14 @@
-// src/mutations/salesmen.ts
 import { gql } from '@apollo/client';
 
 export const ADD_SALESMAN = gql`
   mutation AddSalesman($input: SalesmenAccountInput!) {
     addSalesmanAccount(input: $input) {
       id
-      branchid
+      salesmancode
+      branchid {
+        id
+        branchname
+      }
       name
       mobile
       email
@@ -14,13 +17,21 @@ export const ADD_SALESMAN = gql`
       imageurl
       address
       commission
+      salary
       target
+      type
       status
+      accountgroupid {
+        id
+        accountgroupname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -29,7 +40,11 @@ export const EDIT_SALESMAN = gql`
   mutation EditSalesman($id: ID!, $input: SalesmenAccountInput!) {
     editSalesmanAccount(id: $id, input: $input) {
       id
-      branchid
+      salesmancode
+      branchid {
+        id
+        branchname
+      }
       name
       mobile
       email
@@ -38,13 +53,21 @@ export const EDIT_SALESMAN = gql`
       imageurl
       address
       commission
+      salary
       target
+      type
       status
+      accountgroupid {
+        id
+        accountgroupname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;

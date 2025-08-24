@@ -14,7 +14,7 @@ interface Invoice {
   paymenttype: string;
   partyacc: string;
   totalamount: number;
-  products: Product[];
+  products?: Product[]; // ✅ optional
 }
 
 interface Account {
@@ -24,14 +24,14 @@ interface Account {
 }
 
 interface CustomerData {
-  getAccounts: Account[];
+  getAccounts?: Account[];
 }
 
 interface RecentOrdersProps {
-  salesInvoiceData: {
-    getSalesInvoices: Invoice[];
+  salesInvoiceData?: {
+    getSalesInvoices?: Invoice[];
   };
-  customerData: CustomerData; // raw customer data with getAccounts array
+  customerData?: CustomerData; // raw customer data with getAccounts array
 }
 
 const RecentOrders: React.FC<RecentOrdersProps> = ({
@@ -49,7 +49,8 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   }, [accountsList]);
 
   const tableData = invoiceList.map((invoice, index) => {
-    const totalqty = invoice.products.reduce((sum, p) => sum + (p.qty || 0), 0);
+    const products = invoice.products || []; // ✅ default to empty array
+    const totalqty = products.reduce((sum, p) => sum + (p.qty || 0), 0);
 
     const account = customerMap.get(invoice.partyacc);
 
@@ -59,7 +60,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
       partyacc: account
         ? `${account.name} - ${account.mobile}`
         : invoice.partyacc,
-      totalitem: invoice.products.length,
+      totalitem: products.length,
       totalqty,
       billdate: invoice.billdate,
       billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
@@ -97,7 +98,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
                 <td className="py-2 px-3">{row.totalqty}</td>
                 <td className="py-2 px-3">{row.billdate}</td>
                 <td className="py-2 px-3">{row.billtype_billnumber}</td>
-                <td className="py-2 px-3">₹{row.totalamount.toFixed(2)}</td>
+                <td className="py-2 px-3">₹{(row.totalamount ?? 0).toFixed(2)}</td>
                 <td className="py-2 px-3">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${

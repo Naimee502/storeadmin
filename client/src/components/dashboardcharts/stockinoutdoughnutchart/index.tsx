@@ -16,9 +16,9 @@ interface Product {
 }
 
 interface Transfer {
-  tobranchid: string;
-  frombranchid: string;
-  status: boolean;
+  tobranchid?: string;
+  frombranchid?: string;
+  status?: boolean;
   productid?: string;
   transferqty?: number;
 }
@@ -28,27 +28,27 @@ interface InvoiceProduct {
 }
 
 interface Invoice {
-  products: InvoiceProduct[];
+  products?: InvoiceProduct[];
 }
 
 interface PurchaseInvoice {
-  products: InvoiceProduct[];
+  products?: InvoiceProduct[];
 }
 
 interface Props {
-  products: Product[];
-  transfers: Transfer[];
-  invoices: Invoice[];
-  purchaseInvoices: PurchaseInvoice[];
-  branchId: string;
+  products?: Product[];
+  transfers?: Transfer[];
+  invoices?: Invoice[];
+  purchaseInvoices?: PurchaseInvoice[];
+  branchId?: string;
 }
 
 const StockInOutDoughnutChart: React.FC<Props> = ({
-  products,
-  transfers,
-  invoices,
-  purchaseInvoices,
-  branchId,
+  products = [],
+  transfers = [],
+  invoices = [],
+  purchaseInvoices = [],
+  branchId = "",
 }) => {
   const {
     purchaseStockIn,
@@ -56,47 +56,35 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
     transferStockOut,
     currentStock,
   } = useMemo(() => {
-    // ✅ Updated current stock logic
-    let currentStock = 0;
+    // Current stock calculation
+    const currentStock = products.reduce((sum, product) => {
+      const transferredOutQty = (transfers ?? [])
+        .filter(
+          (t) =>
+            t.status &&
+            t.frombranchid === product.branchid &&
+            t.productid === product.id
+        )
+        .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
 
-    if (!branchId || branchId === "") {
-      // Admin: remove stock received from transfer
-      currentStock = products.reduce((sum, product) => {
-        const transferredOutQty = transfers
-          .filter(
-            (t) =>
-              t.status &&
-              t.frombranchid === product.branchid &&
-              t.productid === product.id
-          )
-          .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
-
-        const netStock = (product.currentstock ?? 0) - transferredOutQty;
-        return sum + netStock;
-      }, 0);
-    } else {
-      // Branch: take current stock as is
-      currentStock = products.reduce(
-        (sum, p) => sum + (p.currentstock ?? 0),
-        0
-      );
-    }
+      const netStock = (product.currentstock ?? 0) - transferredOutQty;
+      return sum + netStock;
+    }, 0);
 
     const transferStockOut = (transfers ?? []).reduce((sum, t) => {
-      const isAdmin = !branchId;
-      const isMatch = isAdmin || String(t.frombranchid) === branchId;
+      const isMatch = !branchId || t.frombranchid === branchId;
       return isMatch && t.status ? sum + (t.transferqty ?? 0) : sum;
     }, 0);
 
-    const salesStockOut = invoices.reduce(
-      (acc, inv) => acc + inv.products.reduce((s, p) => s + (p.qty ?? 0), 0),
-      0
-    );
+    const salesStockOut = (invoices ?? []).reduce((acc, inv) => {
+      const invProducts = inv.products ?? [];
+      return acc + invProducts.reduce((s, p) => s + (p.qty ?? 0), 0);
+    }, 0);
 
-    const purchaseStockIn = purchaseInvoices.reduce(
-      (acc, inv) => acc + inv.products.reduce((s, p) => s + (p.qty ?? 0), 0),
-      0
-    );
+    const purchaseStockIn = (purchaseInvoices ?? []).reduce((acc, inv) => {
+      const invProducts = inv.products ?? [];
+      return acc + invProducts.reduce((s, p) => s + (p.qty ?? 0), 0);
+    }, 0);
 
     return { purchaseStockIn, salesStockOut, transferStockOut, currentStock };
   }, [products, transfers, invoices, purchaseInvoices, branchId]);
@@ -107,9 +95,9 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
       {
         data: [purchaseStockIn, salesStockOut, transferStockOut],
         backgroundColor: [
-          "rgba(75, 192, 192, 0.6)", // Teal
-          "rgba(255, 99, 132, 0.6)", // Red
-          "rgba(255, 159, 64, 0.6)", // Orange
+          "rgba(75, 192, 192, 0.6)",
+          "rgba(255, 99, 132, 0.6)",
+          "rgba(255, 159, 64, 0.6)",
         ],
         borderColor: [
           "rgba(75, 192, 192, 1)",

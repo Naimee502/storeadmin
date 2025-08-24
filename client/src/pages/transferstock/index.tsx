@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
-import { useProductsQuery } from "../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useTransferStockMutations, useTransferStocksQuery } from "../../graphql/hooks/transferstock";
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
@@ -12,10 +12,13 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
+import { useUnitsQuery } from "../../graphql/hooks/units";
 
 type FormValues = {
   tobranchid: string;
   productid: string;
+  variantid: string;
+  transferunitid: string;
   transferqty: number | undefined;
   transferdate: string;
   status: boolean;
@@ -27,7 +30,9 @@ type TransferStockRow = {
   tobranchid: string;
   tobranchname: string;
   productid: string;
+  variantid: string;
   productname: string;
+  transferunitid: string;
   transferqty: number | undefined;
   transferdate: string;
   status: boolean;
@@ -43,9 +48,10 @@ const TransferStock = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const frombranchid = branchId ? branchId : undefined;
   const { data: transfersData, refetch } = useTransferStocksQuery();
-  
+
   const { data: branchesData } = useBranchesQuery();
-  const { data: productsData } = useProductsQuery();
+  const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+  const transferProductData = productData?.getProductServices ?? [];
 
   const {
     addTransferStockMutation,
@@ -54,12 +60,17 @@ const TransferStock = () => {
   } = useTransferStockMutations();
 
   const branches = branchesData?.getBranches || [];
-  const products = productsData?.getProducts || [];
+  const products = transferProductData || [];
   const transferStocks: TransferStockRow[] = transfersData?.getTransferStocks || [];
+
+  const { data: unitData } = useUnitsQuery();
+  const unitsList = unitData?.getUnits || [];
 
   const [formValues, setFormValues] = useState<FormValues>({
     tobranchid: "",
     productid: "",
+    variantid: "",
+    transferunitid: "",
     transferqty: undefined,
     transferdate: new Date().toISOString().slice(0, 10),
     status: true,
@@ -68,6 +79,7 @@ const TransferStock = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferUnitOptions, setTransferUnitOptions] = useState<{ label: string; value: string }[]>([]);
 
   useEffect(() => {
     refetch();
@@ -100,9 +112,17 @@ const TransferStock = () => {
 
     const payload = {
       frombranchid,
-      ...formValues,
+      tobranchid: formValues.tobranchid,
+      productid: formValues.productid,
+      variantid: formValues.variantid,
+      transferunitid: formValues.transferunitid,
+      transferqty: formValues.transferqty,
+      transferdate: formValues.transferdate,
+      status: formValues.status,
       admin: adminId,
     };
+
+    console.log("Submitting transfer stock:", JSON.stringify(payload)); 
 
     try {
       if (isEditing && editingId) {
@@ -131,13 +151,29 @@ const TransferStock = () => {
   };
 
   const handleEdit = (row: TransferStockRow) => {
+    const product = products.find((p) => p.id === row.productid);
+    const variant = product?.productvariants?.find((v) => v.id === row.variantid);
+
+    const options = variant?.unitConversions?.map((uc: any) => {
+      const unitName = unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
+      return {
+        label: `${unitName} → Factor: ${uc.factor}`,
+        value: uc.fromunitid,
+      };
+    }) || [];
+
+    setTransferUnitOptions(options);
+
     setFormValues({
       tobranchid: row.tobranchid,
       productid: row.productid,
+      variantid: row.variantid || "",
+      transferunitid: row.transferunitid || options[0]?.value || "", // fallback
       transferqty: row.transferqty,
       transferdate: row.transferdate,
       status: typeof row.status === "string" ? row.status === "Active" : !!row.status,
     });
+
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -146,6 +182,8 @@ const TransferStock = () => {
     setFormValues({
       tobranchid: "",
       productid: "",
+      variantid: "",
+      transferunitid: "",
       transferqty: undefined,
       transferdate: new Date().toISOString().slice(0, 10),
       status: true,
@@ -171,17 +209,17 @@ const TransferStock = () => {
   ];
 
   const tableData = transferStocks.map((stock, index) => {
-    const fromBranch = branches.find((b) => b.id === stock.frombranchid); 
+    const fromBranch = branches.find((b) => b.id === stock.frombranchid);
     const toBranch = branches.find((b) => b.id === stock.tobranchid);
     const product = products.find((p) => p.id === stock.productid);
 
     return {
       ...stock,
       seqNo: index + 1,
-      frombranchid: fromBranch?.branchname || stock.frombranchid, 
+      frombranchid: fromBranch?.branchname || stock.frombranchid,
       tobranchname: toBranch?.branchname || stock.tobranchid,
       productname: product?.name || stock.productid,
-      purchaserate: product?.purchaserate,
+      purchaserate: product?.productvariants[0]?.purchaserate,
       status: stock.status ? "Active" : "Inactive",
     };
   });
@@ -190,11 +228,17 @@ const TransferStock = () => {
     .filter((b) => b.id !== frombranchid || b.id === formValues.tobranchid)
     .map((b) => ({ label: `${b.branchname} - ${b.branchcode}`, value: b.id }));
 
-  const productOptions = products.map((p) => ({
-    label: `${p.name} - ${p.currentstock}${p.currentstock === 0 ? " (Out of Stock)" : ""}`,
-    value: p.id,
-    disabled: p.currentstock === 0 && p.id !== formValues.productid,
-  }));
+  const productOptions = products.flatMap((p) =>
+    p.productvariants?.map((v) => ({
+      label: `${p.name} - ${v.name} - ${v.currentstock}${v.currentstock === 0 ? " (Out of Stock)" : ""}`,
+      value: `${p.id}|${v.id}`, // encode both product and variant IDs
+      disabled: v.currentstock === 0,
+    })) || []
+  );
+
+  const selectedProductOption = formValues.productid && formValues.variantid
+  ? `${formValues.productid}|${formValues.variantid}`
+  : "";
 
   return (
     <HomeLayout>
@@ -202,7 +246,7 @@ const TransferStock = () => {
         <div className="w-full px-4 py-6">
           <h2 className="text-xl font-semibold mb-4">Transfer Stock</h2>
           <form onSubmit={handleFormSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <FormField
                 label="To Branch"
                 name="tobranchid"
@@ -218,20 +262,48 @@ const TransferStock = () => {
                 label="Product"
                 name="productid"
                 type="select"
-                value={formValues.productid}
+                value={selectedProductOption}
                 onChange={(e) => {
-                  const id = e.target.value;
-                  const p = products.find((x) => x.id === id);
-                  if (p?.currentstock === 0 && id !== formValues.productid) {
-                    alert("⚠️ This product is out of stock and cannot be selected.");
-                    return;
-                  }
-                  handleFormChange("productid", id);
-                }}
+                const [prodId, varId] = e.target.value.split("|"); 
+                const product = products.find((p) => p.id === prodId);
+                const variant = product?.productvariants.find((v) => v.id === varId);
+
+                if (variant?.currentstock === 0 && prodId !== formValues.productid) {
+                  alert("⚠️ This product variant is out of stock and cannot be selected.");
+                  return;
+                }
+
+                handleFormChange("productid", prodId);
+                handleFormChange("variantid", varId);
+
+                // Populate Transfer Unit options
+                const options = variant?.unitConversions?.map((uc: any) => {
+                  const unitName = unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
+                  return {
+                    label: `${unitName} → Factor: ${uc.factor}`,
+                    value: uc.fromunitid,
+                  };
+                }) || [];
+
+                setTransferUnitOptions(options);
+
+                // Reset previously selected transfer unit
+                handleFormChange("transferunitid", options[0]?.value || "");
+              }}
                 error={formErrors.productid}
                 options={productOptions}
-                icon={<FaCubes />}
               />
+
+              {transferUnitOptions.length > 0 && (
+                <FormField
+                  label="Transfer Unit"
+                  name="transferunitid"
+                  type="select"
+                  value={formValues.transferunitid}
+                  onChange={(e) => handleFormChange("transferunitid", e.target.value)}
+                  options={transferUnitOptions}
+                />
+              )}
 
               <FormField
                 label="Transfer Quantity"

@@ -2,47 +2,83 @@ import { Account } from "../../../models/accounts";
 
 export const accountResolvers = {
   Query: {
-    // Get active accounts (status: true), filtered by optional admin and/or branch
-    getAccounts: async (
-      _: any,
-      args: { adminId?: string; branchid?: string }
-    ) => {
-      const query: any = { status: true };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await Account.find(query).populate("admin");
+    getAccounts: async (_: any, { filter }: { filter: any }) => {
+      const query: any = {};
+
+      if (filter?.admin) query.admin = filter.admin;
+      if (filter?.branchid) query.branchid = filter.branchid;
+      if (filter?.type) query.type = filter.type;
+      if (filter?.accounttype) query.accounttype = filter.accounttype;
+      if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
+      if (filter?.accountcode) query.accountcode = filter.accountcode;
+      if (filter?.mobile) query.mobile = { $regex: filter.mobile, $options: "i" };
+      if (filter?.email) query.email = { $regex: filter.email, $options: "i" };
+      if (filter?.gstnumber) query.gstnumber = filter.gstnumber;
+      if (filter?.pan) query.pan = filter.pan;
+      if (filter?.city) query.city = { $regex: filter.city, $options: "i" };
+      if (filter?.state) query.state = { $regex: filter.state, $options: "i" };
+      if (filter?.country) query.country = filter.country;
+      if (filter?.pincode) query.pincode = filter.pincode;
+      if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
+      if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
+      if (typeof filter?.isposcustomer === 'boolean') query.isposcustomer = filter.isposcustomer;
+      if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
+      if (filter?.salesmanid) query.salesmanid = filter.salesmanid;
+      if (typeof filter?.duedays === 'number') query.duedays = filter.duedays;
+      if (filter?.latitude) query.latitude = filter.latitude;
+      if (filter?.longitude) query.longitude = filter.longitude;
+      if (filter?.otp) query.otp = filter.otp;
+
+      if (typeof filter?.status === 'boolean') {
+        query.status = filter.status;
+      } else {
+        query.status = true; // default to active accounts
+      }
+
+      if (filter?.createdFrom || filter?.createdTo) {
+        query.createdAt = {};
+        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+      }
+
+      return await Account.find(query)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid")
+        .populate("assignaccountid")
+        .populate("salesmanid");
     },
 
-    // Get soft-deleted accounts (status: false)
-    getDeletedAccounts: async (
-      _: any,
-      args: { adminId?: string; branchid?: string }
-    ) => {
-      const query: any = { status: false };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await Account.find(query).populate("admin");
-    },
-
-    // Get account by ID with optional admin verification
-    getAccountById: async (
-      _: any,
-      { id, adminId }: { id: string; adminId?: string }
-    ) => {
+    getAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
       const filter: any = { _id: id };
       if (adminId) filter.admin = adminId;
-      return await Account.findOne(filter).populate("admin");
+      return await Account.findOne(filter)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid")
+        .populate("assignaccountid")
+        .populate("salesmanid");
     },
   },
 
   Mutation: {
     addAccount: async (_: any, { input }: any) => {
       const created = await Account.create(input);
-      return await Account.findById(created._id).populate("admin");
+      return await Account.findById(created._id)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid")
+        .populate("assignaccountid")
+        .populate("salesmanid");
     },
 
     editAccount: async (_: any, { id, input }: any) => {
-      return await Account.findByIdAndUpdate(id, input, { new: true }).populate("admin");
+      return await Account.findByIdAndUpdate(id, input, { new: true })
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid")
+        .populate("assignaccountid")
+        .populate("salesmanid");
     },
 
     deleteAccount: async (_: any, { id }: any) => {

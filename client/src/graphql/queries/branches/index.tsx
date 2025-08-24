@@ -21,11 +21,18 @@ export const GET_BRANCHES = gql`
         id
         name
         email
-        subscribed
         subscriptionType
+        subscribed
         subscribedAt
         subscriptionEnd
         transactionId
+        businesstype
+        isMultibranch
+        isChannelCustomers
+        allowedmodules
+        needsReview
+        rejected
+        isExpiringSoon
       }
     }
   }
@@ -52,11 +59,18 @@ export const GET_DELETED_BRANCHES = gql`
         id
         name
         email
-        subscribed
         subscriptionType
+        subscribed
         subscribedAt
         subscriptionEnd
         transactionId
+        businesstype
+        isMultibranch
+        isChannelCustomers
+        allowedmodules
+        needsReview
+        rejected
+        isExpiringSoon
       }
     }
   }
@@ -83,11 +97,18 @@ export const GET_BRANCH_BY_ID = gql`
         id
         name
         email
-        subscribed
         subscriptionType
+        subscribed
         subscribedAt
         subscriptionEnd
         transactionId
+        businesstype
+        isMultibranch
+        isChannelCustomers
+        allowedmodules
+        needsReview
+        rejected
+        isExpiringSoon
       }
     }
   }

@@ -2,48 +2,59 @@
 import { gql } from '@apollo/client';
 
 export const GET_ACCOUNTS = gql`
-  query GetAccounts($branchid: ID, $adminId: ID) {
-  getAccounts(adminId: $adminId, branchid: $branchid) {
+  query GetAccounts($filter: AccountFilterInput) {
+    getAccounts(filter: $filter) {
       id
       accountcode
       name
-      accountgroupid
+      type
+      accounttype
+      accountgroupid {
+        id
+        accountgroupname
+      }
       mobile
       email
+      gstnumber
+      pan
       address
       city
+      state
+      country
       pincode
+      openingbalance
+      openingbalancetype
+      creditlimit
+      bankname
+      bankaccountnumber
+      ifsc
+      upiid
+      billingcycle
+      duedays
+      isposcustomer
+      latitude
+      longitude
+      otp
+      assignaccountid {
+        id
+        name
+      }
+      salesmanid {
+        id
+        name
+      }
       status
-      branchid
+      branchid {
+        id
+        branchname
+      }
       admin {
         id
         name
         email
       }
-    }
-  }
-`;
-
-
-export const GET_DELETED_ACCOUNTS = gql`
-  query GetDeletedAccounts($branchid: ID, $adminId: ID) {
-    getDeletedAccounts(adminId: $adminId, branchid: $branchid) {
-      id
-      accountcode
-      name
-      accountgroupid
-      mobile
-      email
-      address
-      city
-      pincode
-      status
-      branchid
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -54,19 +65,54 @@ export const GET_ACCOUNT_BY_ID = gql`
       id
       accountcode
       name
-      accountgroupid
+      type
+      accounttype
+      accountgroupid {
+        id
+        accountgroupname
+      }
       mobile
       email
+      gstnumber
+      pan
       address
       city
+      state
+      country
       pincode
+      openingbalance
+      openingbalancetype
+      creditlimit
+      bankname
+      bankaccountnumber
+      ifsc
+      upiid
+      billingcycle
+      duedays
+      isposcustomer
+      latitude
+      longitude
+      otp
+      assignaccountid {
+        id
+        name
+      }
+      salesmanid {
+        id
+        name
+      }
       status
-      branchid
+      branchid {
+        id
+        branchname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;

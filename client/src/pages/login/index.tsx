@@ -4,7 +4,7 @@ import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import loginImage from "../../assets/images/login.jpg";
-import { useAppDispatch } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { saveAuthData } from "../../redux/slices/auth";
 import { setBranchId } from "../../redux/slices/branch";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
@@ -26,6 +26,7 @@ const Login = () => {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [invalidCredentialError, setInvalidCredentialError] = useState("");
+  const isExpiringSoon = useAppSelector(state => state.auth.admin?.isExpiringSoon);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +48,6 @@ const Login = () => {
         const res = await loginAdmin({ variables: { email, password } });
         const admin = res.data?.loginAdmin;
 
-        console.log("Admin login response:", JSON.stringify(res.data, null, 2));
-
         if (!admin) throw new Error("Invalid credentials");
 
         if (!admin.subscribed) {
@@ -61,21 +60,37 @@ const Login = () => {
           }
         }
 
-        dispatch(
-          saveAuthData({
-            type: "admin",
-            admin: {
-              id: admin.id,
-              name: admin.name,
-              email: admin.email,
-              subscriptionType: admin.subscriptionType,
-              subscribed: admin.subscribed,
-              subscribedAt: admin.subscribedAt,
-              subscriptionEnd: admin.subscriptionEnd,
-              transactionId: admin.transactionId,
-            },
-          })
-        );
+        const subscriptionEndDate = new Date(admin.subscriptionEnd);
+        const today = new Date();
+        const diffInTime = subscriptionEndDate.getTime() - today.getTime();
+        const daysRemaining = Math.ceil(diffInTime / (1000 * 3600 * 24));
+        const isExpiring = daysRemaining <= 3;
+
+        const authData = {
+          type: "admin" as const,
+          admin: {
+            id: admin.id,
+            name: admin.name,
+            email: admin.email,
+            subscriptionType: admin.subscriptionType,
+            subscribed: admin.subscribed,
+            subscribedAt: admin.subscribedAt,
+            subscriptionEnd: admin.subscriptionEnd,
+            transactionId: admin.transactionId,
+            businesstype: admin.businesstype,
+            isMultibranch: admin.isMultibranch,
+            isChannelCustomers: admin.isChannelCustomers,
+            allowedmodules: admin.allowedmodules,
+            needsReview: admin.needsReview,
+            rejected: admin.rejected,
+            isExpiringSoon: isExpiring,
+          },
+        };
+
+        console.log("Auth Data:", JSON.stringify(authData, null, 2));
+
+        dispatch(saveAuthData(authData));
+        
         login();
         navigate("/home");
       } else {
@@ -178,7 +193,7 @@ const Login = () => {
             />
 
             {/* Subscribe Link */}
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center">
               <p
                 className="text-xs sm:text-sm md:text-base text-blue-600 hover:underline font-medium cursor-pointer"
                 onClick={() => navigate("/subscription")}
@@ -187,6 +202,14 @@ const Login = () => {
                   ? "Don't have an active subscription?"
                   : "Admin subscription required"}
               </p>
+
+              {/* Subscription warning for admin */}
+              {isExpiringSoon && (
+                <span className="text-xs text-red-600 font-medium">
+                  {email && password && invalidCredentialError === "" &&
+                    "⚠️ Your subscription may expire soon!"}
+                </span>
+              )}
             </div>
 
             <Button type="submit" variant="outline" className="w-full">

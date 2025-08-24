@@ -1,235 +1,212 @@
-import { Product } from '../../../models/products';
-import { ProductBranchStock } from '../../../models/productbranchstock';
+import { ProductService } from '../../../models/products';
 import { Types } from 'mongoose';
+import { getAvailableStock, manageStock } from '../../../utils/stockmanager';
 
-interface Context {
-  branchid?: string;
-}
-
-export const productResolvers = {
+export const productServiceResolvers = {
   Query: {
-    getProducts: async (_parent: any, args: { adminId?: string; branchid?: string }, context: Context) => {
-      const query: any = { status: true };
-      if (args.adminId) query.admin = args.adminId;
-
-      const products = await Product.find(query).populate('admin').lean();
-      const productIds = products.map((p) => p._id);
-      const branchid = args.branchid || context.branchid;
-
-      const enrichProduct = (p: any, stock: any) => ({
-        id: p._id.toString(),
-        ...p,
-        admin: p.admin
-          ? {
-              id: p.admin._id?.toString?.() || p.admin.toString?.() || null,
-              name: p.admin.name,
-              email: p.admin.email,
-            }
-          : null,
-        openingstock: stock?.openingstock ?? 0,
-        openingstockamount: stock?.openingstockamount ?? 0,
-        currentstock: stock?.currentstock ?? 0,
-        currentstockamount: stock?.currentstockamount ?? 0,
-        minimumstock: stock?.minimumstock ?? 0,
+    // ✅ Fetch product list with stock
+    getProductServices: async (_: any, { filter = {}, limit, offset }: any) => {
+      const query: any = {};
+      query.status = filter.status !== undefined ? filter.status : true;
+      [
+        "adminid",
+        "vendorid",
+        "productcode",
+        "productbarcode",
+        "servicecode",
+        "servicebarcode",
+        "isservice",
+        "isvariant",
+        "isfeatured",
+        "isshowinpos",
+        "status",
+        "categoryid",
+        "subcategoryid",
+        "groupid",
+        "modelid",
+        "brandid",
+        "sizeid",
+      ].forEach((key) => {
+        if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
       });
 
-      if (!branchid) {
-        const aggregatedStocks = await ProductBranchStock.aggregate([
-          { $match: { productid: { $in: productIds } } },
-          {
-            $group: {
-              _id: '$productid',
-              openingstock: { $sum: '$openingstock' },
-              openingstockamount: { $sum: '$openingstockamount' },
-              currentstock: { $sum: '$currentstock' },
-              currentstockamount: { $sum: '$currentstockamount' },
-              minimumstock: { $sum: '$minimumstock' },
-            },
-          },
-        ]);
-
-        const stockMap = new Map<string, any>();
-        aggregatedStocks.forEach((s) => stockMap.set(s._id.toString(), s));
-
-        return products.map((p) => enrichProduct(p, stockMap.get(p._id.toString())));
+      // 🔹 Name search
+      if (filter.name_contains) {
+        query.name = { $regex: filter.name_contains, $options: "i" };
       }
 
-      const stocks = await ProductBranchStock.find({ branchid, productid: { $in: productIds } }).lean();
-      const stockMap = new Map<string, any>();
-      stocks.forEach((s) => stockMap.set(s.productid.toString(), s));
-
-      return products.map((p) => enrichProduct(p, stockMap.get(p._id.toString())));
-    },
-
-    getDeletedProducts: async (_parent: any, args: { adminId?: string; branchid?: string }, context: Context) => {
-      const query: any = { status: false };
-      if (args.adminId) query.admin = args.adminId;
-
-      const deletedProducts = await Product.find(query).populate('admin').lean();
-      const productIds = deletedProducts.map((p) => p._id);
-      const branchid = args.branchid || context.branchid;
-
-      const enrichProduct = (p: any, stock: any) => ({
-        id: p._id.toString(),
-        ...p,
-        admin: p.admin
-          ? {
-              id: p.admin._id?.toString?.() || p.admin.toString?.() || null
-            }
-          : null,
-        openingstock: stock?.openingstock ?? 0,
-        openingstockamount: stock?.openingstockamount ?? 0,
-        currentstock: stock?.currentstock ?? 0,
-        currentstockamount: stock?.currentstockamount ?? 0,
-        minimumstock: stock?.minimumstock ?? 0,
-      });
-
-      if (!branchid) {
-        const aggregatedStocks = await ProductBranchStock.aggregate([
-          { $match: { productid: { $in: productIds } } },
-          {
-            $group: {
-              _id: '$productid',
-              openingstock: { $sum: '$openingstock' },
-              openingstockamount: { $sum: '$openingstockamount' },
-              currentstock: { $sum: '$currentstock' },
-              currentstockamount: { $sum: '$currentstockamount' },
-              minimumstock: { $sum: '$minimumstock' },
-            },
-          },
-        ]);
-
-        const stockMap = new Map<string, any>();
-        aggregatedStocks.forEach((s) => stockMap.set(s._id.toString(), s));
-
-        return deletedProducts.map((p) => enrichProduct(p, stockMap.get(p._id.toString())));
+      // 🔹 Date range
+      if (filter.createdFrom || filter.createdTo) {
+        query.createdAt = {};
+        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
       }
 
-      const stocks = await ProductBranchStock.find({ branchid, productid: { $in: productIds } }).lean();
-      const stockMap = new Map<string, any>();
-      stocks.forEach((s) => stockMap.set(s.productid.toString(), s));
+      // 🔹 Count & Fetch products
+      const totalCount = await ProductService.countDocuments(query);
+      let productsQuery = ProductService.find(query);
+      if (offset) productsQuery = productsQuery.skip(offset);
+      if (limit) productsQuery = productsQuery.limit(limit);
+      const products = await productsQuery.exec();
 
-      return deletedProducts.map((p) => enrichProduct(p, stockMap.get(p._id.toString())));
+      const adminId = filter.adminid ? new Types.ObjectId(filter.adminid) : undefined;
+      const branchId = filter.branchid ? new Types.ObjectId(filter.branchid) : undefined;
+
+      // 🔹 Helper: Convert _id to id in nested objects
+      const mapNestedIds = (product: any) => {
+        const p = product.toObject();
+        p.id = p._id.toString();
+
+        if (p.productvariants) {
+          p.productvariants = p.productvariants.map((v: any) => ({
+            ...v,
+            id: v._id?.toString(),
+            serials: v.serials?.map((s: any) => ({ ...s, id: s._id?.toString() })),
+            salesrate: v.salesrate?.map((r: any) => ({ ...r, id: r._id?.toString() })),
+          }));
+        }
+
+        if (p.servicevariants) {
+          p.servicevariants = p.servicevariants.map((sv: any) => ({
+            ...sv,
+            id: sv._id?.toString(),
+          }));
+        }
+
+        return p;
+      };
+
+      // 🔹 Map products and fetch stock
+      const response = await Promise.all(
+        products.map(async (p) => {
+          const mapped = mapNestedIds(p);
+
+          // ✅ Variant-level stock
+          if (mapped.productvariants?.length) {
+            mapped.productvariants = await Promise.all(
+              mapped.productvariants.map(async (v: any) => {
+                const stock = await getAvailableStock(
+                  mapped._id,  // productId
+                  adminId,     // adminId
+                  branchId,    // branchId
+                  v._id        // variantId
+                );
+                return { ...v, currentstock: stock };
+              })
+            );
+          }
+
+          // ✅ Product-level stock
+          const productStock = await getAvailableStock(
+            mapped._id,  // productId
+            adminId,     // adminId
+            branchId     // branchId
+          );
+          mapped.currentstock = productStock;
+
+          return mapped;
+        })
+      );
+
+      return response;
     },
+    getProductServiceById: async (
+      _: any,
+      { id, branchId, adminId }: { id: string; branchId?: string; adminId: string }
+    ) => {
+      if (!Types.ObjectId.isValid(id)) {
+        throw new Error("Invalid product ID");
+      }
 
-    getProduct: async (_parent: any, args: { id: string; adminId?: string; branchid?: string }, context: Context) => {
-      const query: any = { _id: args.id, status: true };
-      if (args.adminId) query.admin = args.adminId;
-
-      const product = await Product.findOne(query).populate('admin').lean();
+      const product = await ProductService.findById(id);
       if (!product) return null;
 
-      const branchid = args.branchid || context.branchid;
+      const stock = await getAvailableStock(
+        new Types.ObjectId(product._id),
+        adminId ? new Types.ObjectId(adminId) : undefined,
+        branchId ? new Types.ObjectId(branchId) : undefined
+      );
 
-      if (!branchid) {
-        const aggregatedStock = await ProductBranchStock.aggregate([
-          { $match: { productid: new Types.ObjectId(args.id) } },
-          {
-            $group: {
-              _id: '$productid',
-              openingstock: { $sum: '$openingstock' },
-              openingstockamount: { $sum: '$openingstockamount' },
-              currentstock: { $sum: '$currentstock' },
-              currentstockamount: { $sum: '$currentstockamount' },
-              minimumstock: { $sum: '$minimumstock' },
-            },
-          },
-        ]);
+      // ✅ Map _id → id
+      const response = product.toObject();
+      response.id = response._id.toString();
 
-        const stock = aggregatedStock[0] || {};
-
-        return {
-          id: product._id.toString(),
-          ...product,
-          admin: product.admin
-            ? {
-                id: product.admin._id?.toString?.() || product.admin.toString?.() || null
-              }
-            : null,
-          openingstock: stock.openingstock ?? 0,
-          openingstockamount: stock.openingstockamount ?? 0,
-          currentstock: stock.currentstock ?? 0,
-          currentstockamount: stock.currentstockamount ?? 0,
-          minimumstock: stock.minimumstock ?? 0,
-        };
+      // ✅ Map nested variant IDs too (optional but recommended)
+      if (response.productvariants) {
+        response.productvariants = response.productvariants.map((v: any) => ({
+          ...v,
+          id: v._id?.toString(),
+        }));
       }
-
-      const stock = await ProductBranchStock.findOne({ productid: new Types.ObjectId(args.id), branchid }).lean();
-
-      return {
-        id: product._id.toString(),
-        ...product,
-        admin: product.admin
-          ? {
-              id: product.admin._id?.toString?.() || product.admin.toString?.() || null
-            }
-          : null,
-        openingstock: stock?.openingstock ?? null,
-        openingstockamount: stock?.openingstockamount ?? null,
-        currentstock: stock?.currentstock ?? null,
-        currentstockamount: stock?.currentstockamount ?? null,
-        minimumstock: stock?.minimumstock ?? null,
-      };
-    },
+      if (response.servicevariants) {
+        response.servicevariants = response.servicevariants.map((sv: any) => ({
+          ...sv,
+          id: sv._id?.toString(),
+        }));
+      }
+      return response;
+    }
   },
-
   Mutation: {
-    addProduct: async (_parent: any, { input }: any) => {
-      const created = await Product.create(input);
-      return await Product.findById(created._id).populate('admin');
-    },
+    addProductService: async (_: any, { input }: any) => {
+      // Step 1: Create product
+      const created = await ProductService.create(input);
 
-    addProducts: async (_parent: any, { inputs }: { inputs: any[] }) => {
-      const inserted = await Product.insertMany(inputs);
-      const ids = inserted.map((p) => p._id);
-      return await Product.find({ _id: { $in: ids } }).populate('admin');
-    },
-
-    editProduct: async (_parent: any, { id, input }: { id: string; input: any }, context: Context) => {
-      const {
-        openingstock,
-        openingstockamount,
-        currentstock,
-        currentstockamount,
-        minimumstock,
-        ...productFields
-      } = input;
-
-      const updatedProduct = await Product.findByIdAndUpdate(id, productFields, { new: true }).populate('admin');
-
-      if (
-        (openingstock !== undefined ||
-          openingstockamount !== undefined ||
-          currentstock !== undefined ||
-          currentstockamount !== undefined ||
-          minimumstock !== undefined) &&
-        context?.branchid
-      ) {
-        const stockUpdate: Record<string, any> = {};
-        if (openingstock !== undefined) stockUpdate.openingstock = openingstock;
-        if (openingstockamount !== undefined) stockUpdate.openingstockamount = openingstockamount;
-        if (currentstock !== undefined) stockUpdate.currentstock = currentstock;
-        if (currentstockamount !== undefined) stockUpdate.currentstockamount = currentstockamount;
-        if (minimumstock !== undefined) stockUpdate.minimumstock = minimumstock;
-
-        await ProductBranchStock.updateOne(
-          { productid: id, branchid: context.branchid },
-          { $set: stockUpdate },
-          { upsert: true }
-        );
+      // Step 2: Reload product to get real variant IDs
+      const savedProduct = await ProductService.findById(created._id);
+      if (!savedProduct) {
+        throw new Error("Failed to find the created product");
       }
 
-      return updatedProduct;
-    },
+      // Step 3: Create stock with actual variant._id
+      await Promise.all(
+        (savedProduct.productvariants || []).map((v: any) =>
+          manageStock({
+            productId: savedProduct._id,
+            branchId: input.branchid,
+            variant: v,
+            qty: v.openingstock ?? 0,
+            action: "CREATE_PRODUCT",
+          })
+        )
+      );
 
-    deleteProduct: async (_parent: any, { id }: any) => {
-      const result = await Product.findByIdAndUpdate(id, { status: false }, { new: true });
+      return savedProduct;
+    },
+    updateProductService: async (_: any, { id, input }: any) => {
+      const product = await ProductService.findById(id);
+      if (!product) throw new Error('Product not found');
+
+      product.set(input);
+      const updated = await product.save();
+
+      await Promise.all(
+        (input.productvariants || []).map((v: any) =>
+          manageStock({
+            productId: updated._id,
+            branchId: product.branchid,
+            variant: v,
+            qty: v.currentstock ?? 0,
+            action: 'ADJUSTMENT',
+            allowCreate: false,
+          })
+        )
+      );
+
+      return updated;
+    },
+    deleteProductService: async (_: any, { id }: { id: string }) => {
+      const result = await ProductService.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
 
-    resetProduct: async (_parent: any, { id }: { id: string }) => {
-      const result = await Product.findByIdAndUpdate(id, { status: true }, { new: true });
-      return !!result;
-    },
+    resetProductService: async (_: any, { id }: { id: string }) => {
+      const result = await ProductService.findByIdAndUpdate(
+        id,
+        { status: true }, // reset the status or any other fields you want
+        { new: true }
+      );
+      return !!result; // returns true if found & updated, false if not
+    }
   },
 };

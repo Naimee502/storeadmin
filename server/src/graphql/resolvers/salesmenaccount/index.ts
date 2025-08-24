@@ -2,60 +2,104 @@ import { SalesmenAccount } from "../../../models/salesmenaccount";
 
 export const salesmenAccountResolvers = {
   Query: {
-    // Get active salesmen, optionally filtered by admin and/or branch
+    // Get Active Salesmen (with filters)
     getSalesmenAccounts: async (
       _: any,
-      args: { adminId?: string; branchid?: string }
+      { filter }: { filter?: any }
     ) => {
       const query: any = { status: true };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await SalesmenAccount.find(query).populate("admin");
+
+      if (filter?.adminId) query.admin = filter.adminId;
+      if (filter?.branchid) query.branchid = filter.branchid;
+      if (filter?.type) query.type = filter.type; // default 'salesman'
+      if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
+
+      if (filter?.mobile)
+        query.mobile = { $regex: filter.mobile, $options: "i" };
+      if (filter?.email)
+        query.email = { $regex: filter.email, $options: "i" };
+
+      if (typeof filter?.salary === "number")
+        query.salary = filter.salary;
+      if (typeof filter?.commission === "number")
+        query.commission = filter.commission;
+
+      if (filter?.createdFrom || filter?.createdTo) {
+        query.createdAt = {};
+        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+      }
+
+      return await SalesmenAccount.find(query)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid");
     },
 
-    // Get deleted salesmen (soft-deleted)
+    // Get Deleted Salesmen (with filters)
     getDeletedSalesmenAccounts: async (
       _: any,
-      args: { adminId?: string; branchid?: string }
+      { filter }: { filter?: any }
     ) => {
       const query: any = { status: false };
-      if (args.adminId) query.admin = args.adminId;
-      if (args.branchid) query.branchid = args.branchid;
-      return await SalesmenAccount.find(query).populate("admin");
+
+      if (filter?.adminId) query.admin = filter.adminId;
+      if (filter?.branchid) query.branchid = filter.branchid;
+      if (filter?.type) query.type = filter.type;
+      if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
+
+      if (filter?.mobile)
+        query.mobile = { $regex: filter.mobile, $options: "i" };
+      if (filter?.email)
+        query.email = { $regex: filter.email, $options: "i" };
+
+      if (filter?.createdFrom || filter?.createdTo) {
+        query.createdAt = {};
+        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+      }
+
+      return await SalesmenAccount.find(query)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid");
     },
 
-    // Get salesman by ID and optionally check admin ownership
+    // Get Single Salesman by ID
     getSalesmanAccountById: async (
       _: any,
       { id, adminId }: { id: string; adminId?: string }
     ) => {
       const filter: any = { _id: id };
       if (adminId) filter.admin = adminId;
-      return await SalesmenAccount.findOne(filter).populate("admin");
+      return await SalesmenAccount.findOne(filter)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid");
     },
   },
 
   Mutation: {
-    // Add a new salesman and return with populated admin
     addSalesmanAccount: async (_: any, { input }: any) => {
       const created = await SalesmenAccount.create(input);
-      return await SalesmenAccount.findById(created._id).populate("admin");
+      return await SalesmenAccount.findById(created._id)
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid");
     },
 
-    // Edit salesman details
     editSalesmanAccount: async (_: any, { id, input }: any) => {
-      return await SalesmenAccount.findByIdAndUpdate(id, input, {
-        new: true,
-      }).populate("admin");
+      return await SalesmenAccount.findByIdAndUpdate(id, input, { new: true })
+        .populate("admin")
+        .populate("accountgroupid")
+        .populate("branchid");
     },
 
-    // Soft delete
     deleteSalesmanAccount: async (_: any, { id }: any) => {
       const result = await SalesmenAccount.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
     },
 
-    // Reset soft-deleted salesman
     resetSalesmanAccount: async (_: any, { id }: any) => {
       const result = await SalesmenAccount.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;

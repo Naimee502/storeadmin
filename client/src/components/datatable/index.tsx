@@ -28,6 +28,8 @@ interface FormField {
     label: string;
     type: string;
     placeholder?: string;
+    options?: { label: string; value: string }[];
+    searchable?: boolean;
 }
 
 interface DataTableProps {
@@ -40,7 +42,7 @@ interface DataTableProps {
     showAdd?: boolean;
     showReset?: boolean;
     showPrint?: boolean;
-    showBarcode?: boolean;
+    showBarcode?: boolean | ((row: any) => boolean);
     showDeleted?: boolean;
     showImport?: boolean;
     showExport?: boolean;
@@ -57,8 +59,6 @@ interface DataTableProps {
     onImport?: () => void;
     onExport?: () => void;
     isLoading?: boolean;
-
-    // New form-related props:
     formFields?: FormField[];
     formValues?: { [key: string]: any };
     formErrors?: { [key: string]: string };
@@ -94,8 +94,6 @@ const DataTable: React.FC<DataTableProps> = ({
     onImport,
     onExport,
     isLoading = false,
-
-    // Form props with defaults
     formFields,
     formValues,
     formErrors,
@@ -145,9 +143,7 @@ const DataTable: React.FC<DataTableProps> = ({
             <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
                 <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
 
-                {/* Top Controls */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                    {/* Entries dropdown */}
                     <div className="flex items-center gap-1 sm:gap-2">
                         Show
                         <select
@@ -164,7 +160,6 @@ const DataTable: React.FC<DataTableProps> = ({
                         entries
                     </div>
 
-                    {/* Search Input */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
                         <label className="text-sm">Search:</label>
                         <div className="relative w-full sm:w-64">
@@ -180,35 +175,34 @@ const DataTable: React.FC<DataTableProps> = ({
                     </div>
                 </div>
 
-                {/* Conditional Form */}
                 {!showAdd && formFields && formValues && onFormChange && onFormSubmit && (
                     <div className="flex flex-row gap-4 w-full sm:w-full items-center">
-                        {formFields?.map((field) => (
+                        {formFields.map((field) => (
                             <FormField
                                 key={field.name}
                                 label={field.label}
                                 name={field.name}
-                                type={field.type}
+                                type={field.type as any}
                                 value={formValues[field.name] || ""}
                                 onChange={(e: any) => onFormChange(field.name, e.target.value)}
-                                error={formErrors ? formErrors[field.name] : undefined}
+                                error={formErrors?.[field.name]}
                                 placeholder={field.placeholder}
+                                options={field.options}
                                 className="flex-1"
+                                searchable={field.searchable} 
                             />
                         ))}
 
-                        {/* Active/Inactive Switch */}
                         <fieldset className="flex items-center max-w-xs">
                             <legend className="text-sm sm:text-base font-medium">Status</legend>
                             <FormSwitch
                                 label=""
                                 name="status"
                                 checked={Boolean(formValues.status)}
-                                onChange={(checked) => onFormChange("status", checked)}
+                                onChange={(checked: boolean) => onFormChange("status", checked as any)}
                             />
                         </fieldset>
 
-                        {/* Save / Update Button */}
                         <Button
                             variant="outline"
                             onClick={onFormSubmit}
@@ -219,7 +213,6 @@ const DataTable: React.FC<DataTableProps> = ({
                     </div>
                 )}
 
-                {/* Show Action Buttons if form is not showing */}
                 <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full sm:w-auto">
                     {showImport && (
                         <button
@@ -255,7 +248,6 @@ const DataTable: React.FC<DataTableProps> = ({
                     )}
                 </div>
 
-                {/* Table */}
                 <div className="overflow-auto border rounded">
                     <table className="min-w-full text-xs sm:text-sm text-left">
                         <thead className="bg-gray-100 text-gray-700">
@@ -337,7 +329,6 @@ const DataTable: React.FC<DataTableProps> = ({
                     </table>
                 </div>
 
-                {/* Pagination */}
                 <div className="flex justify-end items-center gap-1 sm:gap-2 text-xs sm:text-sm mt-3">
                     <button
                         onClick={() => changePage("prev")}

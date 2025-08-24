@@ -6,11 +6,12 @@ import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useProductsQuery } from "../../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
+import { useUnitsQuery } from "../../../graphql/hooks/units";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -33,6 +34,7 @@ const AddEditPurchaseInvoice = () => {
   const [invoiceType, setInvoiceType] = useState("");
   const [products, setProducts] = useState<InvoiceProduct[]>([]);
   const [taxPercent, setTaxPercent] = useState<number | "">("");
+  const [isService, setIsService] = useState(false);
   const [status, setStatus] = useState(true);
   const [productsTotal, setProductsTotal] = useState(0.0);
   const [totalDiscount, setTotalDiscount] = useState(0.0);
@@ -51,42 +53,105 @@ const AddEditPurchaseInvoice = () => {
     label: `${acc.name} - ${acc.mobile}`,
   }));
 
-  // Product List
-  const { data: productData, refetch } = useProductsQuery();
-  const productsList = useMemo(() => {
-    return (productData?.getProducts || []).map((product: any) => ({
-      id: product.id,
-      name: `${product.name} - ${product.currentstock}`,
-      currentstock: product.currentstock,
-      purchaserate: product.purchaserate,
-      barcode: product.barcode
-    }));
-  }, [productData?.getProducts]);
-
   // Fetch invoice if editing
   const { data } = usePurchaseInvoiceByIDQuery(id || "");
 
-  useEffect(() => {
-        if (accountData?.getAccounts) {
-          accountRefetch();
+  const { data: productData, refetch } = useProductServicesQuery();
+   const purchaseProductData = productData?.getProductServices ?? [];
+  const { data: unitData } = useUnitsQuery();
+  const unitsList = unitData?.getUnits || [];
+
+  const productsList = useMemo(() => {
+    return (purchaseProductData || []).flatMap((item: any) => {
+      if (isService) {
+        // ✅ Only service data
+        if (item.isservice) {
+          return (item.servicevariants || []).map((variant: any) => ({
+            productserviceid: item.id,
+            variantid: variant.id,
+            parentId: item.id,
+            name: `${item.name} - ${variant.name}`,
+            isservice: true,
+            servicecode: variant.servicecode,
+            servicebarcode: variant.servicebarcode,
+            servicerate: variant.servicerate,
+            locationType: variant.locationType,
+            requiresappointment: variant.requiresappointment,
+
+            // ✅ account mapping
+            salesaccountid: item.salesaccountid,
+            purchaseaccountid: item.purchaseaccountid,
+            serviceaccountid: item.serviceaccountid,
+          }));
         }
-      }, [accountData, refetch]);
+        return [];
+      } else {
+        // ✅ Only product data
+        if (!item.isservice) {
+          return (item.productvariants || []).map((variant: any) => {
+            return {
+              productserviceid: item.id,
+              variantid: variant.id,
+              parentId: item.id,
+              name: `${item.name} - ${variant.name} - ${variant.currentstock}`,
+              isservice: false,
+              productcode: variant.productcode,
+              productbarcode: variant.productbarcode,
+              currentstock: variant.currentstock,
+              purchaserate: variant.purchaserate, // ✅ direct purchase rate
+
+              // ✅ account mapping
+              salesaccountid: item.salesaccountid,
+              purchaseaccountid: item.purchaseaccountid,
+              serviceaccountid: item.serviceaccountid,
+
+              // ✅ purchase units mapping
+              purchaseUnits: variant.unitConversions?.map((uc: any) => {
+                const unitName =
+                  unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
+
+                return {
+                  value: uc.fromunitid,
+                  label: `${unitName} → Factor: ${uc.factor}`,
+                  factor: uc.factor,
+                };
+              }),
+
+              // ✅ default purchase unit
+              defaultPurchaseUnit:
+                variant.purchaseunitid && unitsList.length > 0
+                  ? unitsList.find((u) => u.id === variant.purchaseunitid)?.id
+                  : null,
+            };
+          });
+        }
+        return [];
+      }
+    });
+  }, [purchaseProductData, unitsList, isService]);
+
+  useEffect(() => {
+    if (accountData?.getAccounts) {
+      accountRefetch();
+    }
+  }, [accountData, refetch]);
 
   useEffect(() => {
     if (!isEdit) {
       if (purchaseInvoices.length > 0) {
         const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
-        const nextBillNumber = (
-          parseInt(lastBillNumber || "0", 10) + 1
-        ).toString().padStart(6, "0");
+        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+          .toString()
+          .padStart(6, "0");
         setBillNumber(nextBillNumber);
       } else {
         setBillNumber("000001");
       }
-    } else if (data?.getPurchaseInvoice) {
-      const invoice = data.getPurchaseInvoice;
+    } else if (data?.getPurchaseInvoiceById) {
+      const invoice = data.getPurchaseInvoiceById;
 
+      // --- Invoice header fields
       setPaymentType(invoice.paymenttype || "");
       setPartyAccount(invoice.partyacc || "");
       setTaxOrSupplyType(invoice.taxorsupplytype || "");
@@ -97,19 +162,109 @@ const AddEditPurchaseInvoice = () => {
       setInvoiceType(invoice.invoicetype || "");
       setTaxPercent(invoice.totalgst || 0);
       setStatus(invoice.status ?? true);
+      setIsService(invoice.isservice ?? false);
 
-      const mappedProducts = invoice.products.map((p: any) => ({
-        productid: p.productid, 
-        productname: productsList.find((prod: any) => prod.id === p.productid)?.name || "",
+      // --- Invoice product lines
+      const mappedProducts = mapInvoiceProducts(
+        invoice.productservice || [],
+        purchaseProductData,
+        unitsList,
+        false // isSales = false
+      );
+
+      setProducts(mappedProducts);
+    }
+  }, [isEdit, data, purchaseInvoices, purchaseProductData, unitsList]);
+
+  // 🔥 Common mapping logic for both Sales and Purchase Invoice
+  const mapInvoiceProducts = (
+    products: any[],
+    productData: any[],
+    unitsList: any[],
+    isSales: boolean
+  ) => {
+    return products.map((p: any, index: number) => {
+      // ✅ Find product
+      const productOption = productData.find(
+        (prod: any) =>
+          prod?.id === p.productserviceid ||
+          (p.variantid && prod?.id?.endsWith(p.variantid))
+      );
+
+      // ✅ Find variant
+      const variant = productOption?.productvariants?.find(
+        (v: any) => v.id === p.variantid
+      );
+
+      // ✅ Build units (sales or purchase)
+      const unitConversions = variant?.unitConversions || [];
+      const unitOptions = unitConversions.map((uc: any) => {
+        const unit = unitsList.find((u) => u.id === uc.fromunitid);
+        return {
+          value: uc.fromunitid,
+          label: `${unit?.unitname || uc.fromunitid} → Factor: ${uc.factor}`,
+          factor: uc.factor,
+        };
+      });
+
+      // ✅ Find default unit
+      const defaultUnit =
+        unitsList.find((u) =>
+          isSales ? u.id === p.salesunitid : u.id === p.purchaseunitid
+        ) ||
+        unitsList.find((u) =>
+          isSales ? u.id === variant?.salesunitid : u.id === variant?.purchaseunitid
+        ) ||
+        null;
+
+      // ✅ Build product name (product - variant - stock)
+      const productName = `${productOption?.name || ""}${variant?.name ? ` - ${variant.name}` : ""
+        }${variant?.currentstock !== undefined ? ` - ${variant.currentstock}` : ""}`;
+
+      // 🔥 Debug log
+      console.log(
+        `🛠️ [${isSales ? "Sales" : "Purchase"} Mapping Product ${index + 1}]`,
+        JSON.stringify(
+          {
+            originalProduct: p,
+            matchedProductOption: productOption,
+            matchedVariant: variant,
+            unitOptions,
+            defaultUnit,
+            productName,
+          },
+          null,
+          2
+        )
+      );
+
+      return {
+        productserviceid: p.productserviceid,
+        variantid: p.variantid,
+        [isSales ? "salesunitid" : "purchaseunitid"]:
+          p[isSales ? "salesunitid" : "purchaseunitid"] ||
+          (isSales
+            ? variant?.salesunitid
+            : variant?.purchaseunitid) ||
+          unitOptions[0]?.value ||
+          null,
+        productname: productName,
         quantity: p.qty,
         rate: p.rate,
         total: p.amount,
         discount: p.discount || 0,
-        gst: p.gst,
-      }));
-      setProducts(mappedProducts);
-    }
-  }, [isEdit, data, productsList, purchaseInvoices]);
+        gst: p.gst || 0,
+        salesaccountid: p.salesaccountid ?? productOption?.salesaccountid ?? null,
+        purchaseaccountid:
+          p.purchaseaccountid ?? productOption?.purchaseaccountid ?? null,
+        serviceaccountid:
+          p.serviceaccountid ?? productOption?.serviceaccountid ?? null,
+        [isSales ? "salesUnits" : "purchaseUnits"]: unitOptions,
+        [isSales ? "defaultSalesUnit" : "defaultPurchaseUnit"]: defaultUnit,
+      };
+    });
+  };
+
 
   const handleNewInvoice = () => {
     setBillNumber((prev) => {
@@ -140,19 +295,19 @@ const AddEditPurchaseInvoice = () => {
   }, [products, taxPercent]);
 
   const validate = () => {
-  const newErrors: { [key: string]: string } = {};
+    const newErrors: { [key: string]: string } = {};
 
-  if (!paymentType) newErrors.paymentType = "Payment type is required";
-  if (!partyAccount) newErrors.partyAccount = "Party account is required";
-  if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
-  if (!billDate) newErrors.billDate = "Bill date is required";
-  if (!billType) newErrors.billType = "Bill type is required";
-  if (!billNumber) newErrors.billNumber = "Bill number is required";
-  if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
-  if (!products || products.length === 0) newErrors.products = "At least one product is required";
+    if (!paymentType) newErrors.paymentType = "Payment type is required";
+    if (!partyAccount) newErrors.partyAccount = "Party account is required";
+    if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
+    if (!billDate) newErrors.billDate = "Bill date is required";
+    if (!billType) newErrors.billType = "Bill type is required";
+    if (!billNumber) newErrors.billNumber = "Bill number is required";
+    if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
+    if (!products || products.length === 0) newErrors.products = "At least one product is required";
 
-  return newErrors;
-};
+    return newErrors;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +327,7 @@ const AddEditPurchaseInvoice = () => {
 
     const input = {
       branchid: branchId,
+      adminid: adminId,
       paymenttype: paymentType,
       partyacc: partyAccount,
       taxorsupplytype: taxOrSupplyType,
@@ -184,16 +340,21 @@ const AddEditPurchaseInvoice = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
-      products: products.map((p) => ({
-        productid: p.productid,
-        qty: p.quantity,
-        rate: p.rate,
-        gst: p.gst,
-        amount: p.total,
-        discount: p.discount || 0,
+      isservice: isService,
+      productservice: products.map((p) => ({
+        productserviceid: p.productserviceid,
+        variantid: p.variantid,
+        purchaseunitid: p.purchaseunitid ?? null,
+        gst: p.gst ?? 0,
+        qty: p.quantity ?? 0,
+        rate: p.rate ?? 0,
+        amount: p.total ?? 0,
+        discount: p.discount ?? 0,
+        salesaccountid: p.salesaccountid ?? null,
+        purchaseaccountid: p.purchaseaccountid ?? null,
+        serviceaccountid: p.serviceaccountid ?? null,
       })),
       status,
-      admin: adminId
     };
     console.log("PurchaseInvoiceInput:", JSON.stringify(input));
 
@@ -233,10 +394,13 @@ const AddEditPurchaseInvoice = () => {
                 onChange={(e) => setPaymentType(e.target.value)}
                 options={[
                   { value: "cash", label: "Cash" },
-                  { value: "debit", label: "Debit" },
-                  { value: "online", label: "Online" },
+                  { value: "bank", label: "Bank" },
+                  { value: "upi", label: "UPI" },
+                  { value: "card", label: "Card" },
+                  { value: "cheque", label: "Cheque" },
+                  { value: "other", label: "Other" },
                 ]}
-                 error={errors.paymentType}
+                error={errors.paymentType}
               />
               <div className="flex items-end gap-2">
                 <FormField
@@ -280,8 +444,10 @@ const AddEditPurchaseInvoice = () => {
                 value={billType}
                 onChange={(e) => setBillType(e.target.value)}
                 options={[
-                  { value: "tax", label: "Tax" },
-                  { value: "bill", label: "Bill" },
+                  { value: "taxInvoice", label: "Tax Invoice" },
+                  { value: "billOfSupply", label: "Bill Of Supply" },
+                  { value: "creditNote", label: "Credit Note" },
+                  { value: "debitNote", label: "Debit Note" },
                 ]}
                 error={errors.billType}
               />
@@ -300,10 +466,15 @@ const AddEditPurchaseInvoice = () => {
                 value={invoiceType}
                 onChange={(e) => setInvoiceType(e.target.value)}
                 options={[
-                  { value: "regular", label: "Regular" },
-                  { value: "other", label: "Other" },
+                  { value: "retail", label: "Retail" },
+                  { value: "wholesale", label: "Wholesale" },
+                  { value: "manufacturer", label: "Manufacturer" },
+                  { value: "trader", label: "Trader" },
+                  { value: "service", label: "Service" },
+                  { value: "export", label: "Export" },
+                  { value: "other", label: "Other" }
                 ]}
-                 error={errors.invoiceType}
+                error={errors.invoiceType}
               />
               <FormField
                 label="Notes"
@@ -312,6 +483,7 @@ const AddEditPurchaseInvoice = () => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+              <FormSwitch label="Is Service" name="isservice" checked={isService} onChange={setIsService} />
               <FormSwitch
                 label="Status"
                 name="status"

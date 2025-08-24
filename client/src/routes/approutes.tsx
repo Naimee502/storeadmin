@@ -41,16 +41,43 @@ import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
 import AdminRegister from "../pages/adminregister";
 import Subscription from "../pages/subscription";
 import SubscriptionReview from "../pages/subscriptionreview";
+import AddEditAccount from "../pages/accounts/addedit";
+import AdminList from "../pages/adminregister/list";
+import DeletedAdmins from "../pages/adminregister/deletedentries";
+import SubCategories from "../pages/subcategories";
+import DeletedSubCategories from "../pages/subcategories/deletedentries";
+import Transaction from "../pages/transactions";
+import AddEditTransaction from "../pages/transactions/addedit";
+import DeletedTransactions from "../pages/transactions/deletedentries";
+import Payment from "../pages/payments";
+import AddEditPayment from "../pages/payments/addedit";
+import DeletedPayments from "../pages/payments/deletedentries";
 
 const AppRoutes = () => {
     return (
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route
-          path="/register"
+          path="/adminregister"
           element={
             <PublicRoutes>
               <AdminRegister />
+            </PublicRoutes>
+          }
+        />
+        <Route
+          path="/adminregister/list"
+          element={
+            <PublicRoutes>
+              <AdminList />
+            </PublicRoutes>
+          }
+        />
+        <Route
+          path="/adminregister/deletedentries"
+          element={
+            <PublicRoutes>
+              <DeletedAdmins />
             </PublicRoutes>
           }
         />
@@ -159,6 +186,22 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/subcategories"
+          element={
+            <ProtectedRoutes>
+              <SubCategories />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/subcategories/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedSubCategories />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
           path="/sizes"
           element={
             <ProtectedRoutes>
@@ -259,6 +302,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <Accounts />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accounts/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditAccount />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accounts/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditAccount />
             </ProtectedRoutes>
           }
         />
@@ -395,6 +454,70 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <DeletedTransferStocks />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoutes>
+              <Transaction />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transactions/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditTransaction />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transactions/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditTransaction />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/transactions/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedTransactions />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/payments"
+          element={
+            <ProtectedRoutes>
+              <Payment />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/payments/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditPayment />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/payments/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditPayment />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/payments/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedPayments />
             </ProtectedRoutes>
           }
         />

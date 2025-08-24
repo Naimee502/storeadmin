@@ -2,21 +2,102 @@ import mongoose from 'mongoose';
 
 const accountSchema = new mongoose.Schema(
   {
-    branchid: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
-    accountcode: { type: String, unique: true },
-    name: { type: String, required: true },
-    accountgroupid: { type: String, required: true },
-    mobile: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    address: { type: String },
-    city: { type: String },
-    pincode: { type: String },
-    status: Boolean,
+    // Ownership
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
       required: true,
     },
+    branchid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Branch',
+      required: true,
+    },
+
+    // Classification
+    name: { type: String, required: true }, // Party Name
+
+    type: {
+      type: String,
+      enum: ['customer', 'vendor', 'expense', 'bank', 'other'],
+      required: true,
+      default: 'customer',
+    },
+
+    accounttype: {
+      type: String,
+      enum: [
+        'enduser',
+        'retail',
+        'dealer',
+        'superstockist',
+        'distributor',
+        'manufacturer',
+        'exporter',
+      ],
+      default: 'retail',
+    },
+
+    accountgroupid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AccountGroup',
+      required: true,
+    },
+
+    // Identity & Contact
+    accountcode: { type: String, unique: true, sparse: true },
+    mobile: { type: String },
+    email: { type: String },
+    gstnumber: { type: String },
+    pan: { type: String },
+    address: { type: String },
+    city: { type: String },
+    state: { type: String },
+    country: { type: String, default: 'India' },
+    pincode: { type: String },
+
+    // Accounting Info
+    openingbalance: { type: Number, default: 0 },
+    openingbalancetype: {
+      type: String,
+      enum: ['debit', 'credit'],
+      default: 'debit',
+    },
+    creditlimit: { type: Number, default: 0 },
+
+    // Bank Details
+    bankname: { type: String },
+    bankaccountnumber: { type: String },
+    ifsc: { type: String },
+    upiid: { type: String },
+
+    // Settings
+    billingcycle: {
+      type: String,
+      enum: ['weekly', 'monthly', 'custom'],
+      default: 'monthly',
+    },
+    duedays: { type: Number, default: 0 },
+
+    isposcustomer: { type: Boolean, default: false },
+
+    //is Channel Customer in Admin True
+    assignaccountid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account', // assumes other account used as channel reference
+    },
+
+    salesmanid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SalesmenAccount',
+    },
+
+    latitude: { type: Number },
+    longitude: { type: Number },
+
+    otp: { type: String },
+
+    status: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

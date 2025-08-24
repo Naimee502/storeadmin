@@ -13,6 +13,34 @@ export const GET_ADMINS = gql`
       transactionId
       needsReview
       rejected
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
+      status
+    }
+  }
+`;
+
+
+export const GET_DELETED_ADMINS = gql`
+  query GetDeletedAdmins($adminId: ID) {
+    getDeletedAdmins(adminId: $adminId) {
+      id
+      name
+      email
+      subscriptionType
+      subscribed
+      subscribedAt
+      subscriptionEnd
+      transactionId
+      needsReview
+      rejected
+      businesstype
+      isMultibranch
+      isChannelCustomers
+      allowedmodules
+      status
     }
   }
 `;

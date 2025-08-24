@@ -8,7 +8,6 @@ import {
 import {
   GET_ACCOUNTS,
   GET_ACCOUNT_BY_ID,
-  GET_DELETED_ACCOUNTS,
 } from '../../queries/accounts';
 import { useAppSelector } from '../../../redux/hooks';
 
@@ -26,18 +25,23 @@ export const useAccountMutations = () => {
   };
 };
 
-export const useAccountsQuery = () => {
+export const useAccountsQuery = (status: boolean = true) => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const branchid =
     type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
 
-  const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-
   const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS, {
-    variables: { adminId, branchid },
+    variables: {
+      filter: {
+        admin: adminId,
+        branchid,
+        status,
+      },
+    },
     skip: !adminId,
   });
 
@@ -45,21 +49,7 @@ export const useAccountsQuery = () => {
 };
 
 export const useDeletedAccountsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
-
-  const branchid =
-    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
-
-  const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-
-  const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTS, {
-    variables: { adminId, branchid },
-    skip: !adminId,
-  });
-
-  return { data, loading, error, refetch };
+  return useAccountsQuery(false);
 };
 
 export const useAccountByIDQuery = (id: string) => {

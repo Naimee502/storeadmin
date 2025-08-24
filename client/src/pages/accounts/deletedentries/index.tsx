@@ -5,7 +5,7 @@ import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
 import {
-  useDeletedAccountsQuery,
+  useAccountsQuery,
   useAccountMutations
 } from "../../../graphql/hooks/accounts";
 import {
@@ -16,17 +16,16 @@ const DeletedAccounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  // Fetch deleted accounts
-  const { data, refetch } = useDeletedAccountsQuery();
-  // Fetch account groups for displaying name instead of ID
+  // ✅ Use unified query with status = false
+  const { data, refetch } = useAccountsQuery(false);
   const { data: accountGroupsData } = useAccountGroupsQuery();
   const { resetAccountMutation } = useAccountMutations();
 
-  const deletedAccounts = data?.getDeletedAccounts || [];
+  const deletedAccounts = data?.getAccounts || [];
   const accountGroups = accountGroupsData?.getAccountGroups || [];
 
   useEffect(() => {
-    if (!data || !data.getDeletedAccounts || data.getDeletedAccounts.length === 0) {
+    if (!data || !data.getAccounts || data.getAccounts.length === 0) {
       refetch();
     }
   }, [data, refetch]);
@@ -35,14 +34,19 @@ const DeletedAccounts = () => {
     { label: "Seq Number", key: "seqNo" },
     { label: "Account Code", key: "accountcode" },
     { label: "Name", key: "name" },
-    { label: "Account Group", key: "accountgroupname" },
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
+    { label: "Account Group", key: "accountgroupname" },
     { label: "Status", key: "status" },
   ];
 
   const tableData = deletedAccounts.map((account: any, index: number) => {
-    const group = accountGroups.find((g:any) => g.id === account.accountgroupid);
+    const groupId = typeof account.accountgroupid === 'string'
+      ? account.accountgroupid
+      : account.accountgroupid?.id || account.accountgroupid?._id;
+
+    const group = accountGroups.find((g: any) => g.id === groupId);
+
     return {
       ...account,
       seqNo: index + 1,
@@ -50,7 +54,7 @@ const DeletedAccounts = () => {
       accountgroupname: group ? group.accountgroupname : "-",
     };
   });
-
+  
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
@@ -66,7 +70,7 @@ const DeletedAccounts = () => {
           showExport={false}
           showAdd={false}
           showReset={true}
-          onReset={async (row:any) => {
+          onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted account "${row.name}"?`)) {
               try {
                 await resetAccountMutation({ variables: { id: row.id } });

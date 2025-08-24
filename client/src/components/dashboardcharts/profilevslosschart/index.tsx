@@ -22,21 +22,19 @@ export interface SalesInvoiceProduct {
 export interface SalesInvoice {
   id: string;
   billdate: string;
-  products: SalesInvoiceProduct[];
+  products?: SalesInvoiceProduct[];
   totalamount?: number;
 }
 
 interface ProfitLossChartProps {
-  salesInvoices: SalesInvoice[];
+  salesInvoices?: SalesInvoice[];
 }
 
-const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ salesInvoices }) => {
+const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ salesInvoices = [] }) => {
   const { chartData, chartOptions } = useMemo(() => {
-    // Helper: format date to Month Year label, e.g. "Apr 2025"
     const getMonthYearLabel = (dateStr: string) =>
       new Date(dateStr).toLocaleString("default", { month: "short", year: "numeric" });
 
-    // Aggregate revenue and sales amount by month-year
     const salesByMonth: Record<string, { salesAmount: number; revenueAmount: number }> = {};
 
     salesInvoices.forEach((invoice) => {
@@ -46,12 +44,11 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ salesInvoices }) => {
       if (!salesByMonth[monthYear]) salesByMonth[monthYear] = { salesAmount: 0, revenueAmount: 0 };
 
       salesByMonth[monthYear].salesAmount += invoice.totalamount ?? 0;
-      salesByMonth[monthYear].revenueAmount += invoice.products.reduce((sum, p) => {
+      salesByMonth[monthYear].revenueAmount += (invoice.products ?? []).reduce((sum, p) => {
         return sum + (p.amount ?? (p.rate ?? 0) * (p.qty ?? 0));
       }, 0);
     });
 
-    // Sort months chronologically
     const parseMonthYearToDate = (str: string) => {
       const [month, year] = str.split(" ");
       return new Date(parseInt(year), new Date(`${month} 1, 2000`).getMonth());
@@ -61,7 +58,6 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ salesInvoices }) => {
       (a, b) => parseMonthYearToDate(a).getTime() - parseMonthYearToDate(b).getTime()
     );
 
-    // Calculate profit/loss data
     const profitLossData = sortedMonths.map(
       (m) => salesByMonth[m].revenueAmount - salesByMonth[m].salesAmount
     );

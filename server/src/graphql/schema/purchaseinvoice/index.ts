@@ -1,40 +1,36 @@
 import { gql } from 'apollo-server-express';
 
 export const purchaseInvoiceTypeDefs = gql`
-  type Admin {
-    id: ID!
-    name: String!
-    email: String!
-    subscriptionType: String
-    subscribed: Boolean
-    subscribedAt: String
-    subscriptionEnd: String
-    transactionId: String
-    needsReview: Boolean!
-    rejected: Boolean!
-  }
-
-  type PurchaseInvoiceProduct {
-    productid: ID!
+  type PurchaseInvoiceProductService {
+    productserviceid: ID!
+    variantid: ID
+    purchaseunitid: ID
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
     discount: Float!
+    purchaseaccountid: ID
+    salesaccountid: ID
+    serviceaccountid: ID
   }
 
-  input PurchaseInvoiceProductInput {
-    productid: ID!
+  input PurchaseInvoiceProductServiceInput {
+    productserviceid: ID!
+    variantid: ID
+    purchaseunitid: ID
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
-    discount: Float!   
+    discount: Float
+    purchaseaccountid: ID
+    salesaccountid: ID
+    serviceaccountid: ID
   }
 
   type PurchaseInvoice {
     id: ID!
-    branchid: ID!
     paymenttype: String!
     partyacc: String!
     taxorsupplytype: String!
@@ -47,13 +43,16 @@ export const purchaseInvoiceTypeDefs = gql`
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
-    products: [PurchaseInvoiceProduct!]!
+    adminid: ID!
+    branchid: ID!
+    productservice: [PurchaseInvoiceProductService!]!
+    isservice: Boolean!
     status: Boolean!
-    admin: Admin
+    createdAt: String
+    updatedAt: String
   }
 
   input PurchaseInvoiceInput {
-    branchid: ID!
     paymenttype: String!
     partyacc: String!
     taxorsupplytype: String!
@@ -66,20 +65,35 @@ export const purchaseInvoiceTypeDefs = gql`
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
-    products: [PurchaseInvoiceProductInput!]!
-    status: Boolean!
-    admin: ID
+    adminid: ID!
+    branchid: ID!
+    productservice: [PurchaseInvoiceProductServiceInput!]!
+    isservice: Boolean
+    status: Boolean
+  }
+
+  input PurchaseInvoiceFilterInput {
+    adminid: ID
+    branchid: ID
+    supplierid: ID
+    paymenttype: String
+    partyacc: String
+    taxorsupplytype: String
+    billtype: String
+    invoicetype: String
+    billdateFrom: String
+    billdateTo: String
+    status: Boolean
   }
 
   type Query {
-    getPurchaseInvoices(adminId: ID, branchid: ID): [PurchaseInvoice!]!
-    getDeletedPurchaseInvoices(adminId: ID, branchid: ID): [PurchaseInvoice!]!
-    getPurchaseInvoice(id: ID!, adminId: ID): PurchaseInvoice
+    getPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
+    getDeletedPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
+    getPurchaseInvoiceById(id: ID!, adminid: ID): PurchaseInvoice
   }
 
   type Mutation {
     addPurchaseInvoice(input: PurchaseInvoiceInput!): PurchaseInvoice!
-    addPurchaseInvoices(inputs: [PurchaseInvoiceInput!]!): [PurchaseInvoice!]!
     editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
     deletePurchaseInvoice(id: ID!): Boolean!
     resetPurchaseInvoice(id: ID!): Boolean!

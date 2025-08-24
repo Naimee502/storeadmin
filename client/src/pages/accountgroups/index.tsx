@@ -5,9 +5,9 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { 
-  useAccountGroupsQuery, 
-  useAccountGroupMutations 
+import {
+  useAccountGroupsQuery,
+  useAccountGroupMutations,
 } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
@@ -17,15 +17,28 @@ const AccountGroups = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId =
+    type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : undefined;
+
   const { data, refetch } = useAccountGroupsQuery();
-  const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } = useAccountGroupMutations();
+  const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } =
+    useAccountGroupMutations();
   const accountGroupList = data?.getAccountGroups || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  const [formValues, setFormValues] = useState({ accountgroupname: "", status: true });
-  const [formErrors, setFormErrors] = useState<{ accountgroupname?: string }>({});
+  const [formValues, setFormValues] = useState({
+    accountgroupname: "",
+    category: "assets",
+    status: true,
+  });
+
+  const [formErrors, setFormErrors] = useState<{
+    accountgroupname?: string;
+    category?: string;
+  }>({});
+
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -34,16 +47,23 @@ const AccountGroups = () => {
   };
 
   const validateForm = () => {
-    const errors: { accountgroupname?: string } = {};
+    const errors: typeof formErrors = {};
     if (!formValues.accountgroupname.trim()) {
       errors.accountgroupname = "Account group name is required";
+    }
+    if (!formValues.category) {
+      errors.category = "Category is required";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleEdit = (row: any) => {
-    setFormValues({ accountgroupname: row.accountgroupname, status: row.status === "Active" });
+    setFormValues({
+      accountgroupname: row.accountgroupname,
+      category: row.category || "assets",
+      status: row.status === "Active",
+    });
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -62,7 +82,6 @@ const AccountGroups = () => {
         dispatch(hideLoading());
       }
     };
-
     fetchAndDispatch();
   }, [dispatch, refetch]);
 
@@ -70,41 +89,35 @@ const AccountGroups = () => {
     if (!validateForm()) return;
     dispatch(showLoading());
     try {
+      const input = {
+        accountgroupname: formValues.accountgroupname,
+        category: formValues.category,
+        status: formValues.status,
+        admin: adminId,
+      };
+
       if (isEditing && editingId) {
-        await editAccountGroupMutation({
-          variables: {
-            id: editingId,
-            input: {
-              accountgroupname: formValues.accountgroupname,
-              status: formValues.status,
-              admin: adminId
-            },
-          },
-        });
+        await editAccountGroupMutation({ variables: { id: editingId, input } });
         dispatch(showMessage({ message: "Account group updated successfully.", type: "success" }));
       } else {
-        await addAccountGroupMutation({
-          variables: {
-            input: {
-              accountgroupname: formValues.accountgroupname,
-              status: formValues.status,
-              admin: adminId
-            },
-          },
-        });
+        await addAccountGroupMutation({ variables: { input } });
         dispatch(showMessage({ message: "Account group added successfully.", type: "success" }));
       }
 
       await refetch();
-      setFormValues({ accountgroupname: "", status: true });
+      setFormValues({ accountgroupname: "", category: "assets", status: true });
       setIsEditing(false);
       setEditingId(null);
     } catch (error: any) {
       if (error?.message?.includes("E11000")) {
-        const duplicateField = error?.message?.includes("accountgroupname") ? "Account group name" : "Field";
+        const duplicateField = error?.message?.includes("accountgroupname")
+          ? "Account group name"
+          : "Field";
         dispatch(showMessage({ message: `${duplicateField} already exists.`, type: "error" }));
       } else {
-        dispatch(showMessage({ message: "Failed to save account group. Please try again.", type: "error" }));
+        dispatch(
+          showMessage({ message: "Failed to save account group. Please try again.", type: "error" })
+        );
       }
     } finally {
       dispatch(hideLoading());
@@ -115,12 +128,17 @@ const AccountGroups = () => {
     { label: "Seq Number", key: "seqNo" },
     { label: "Account Group Code", key: "accountgroupcode" },
     { label: "Account Group Name", key: "accountgroupname" },
+    { label: "Category", key: "category" },
     { label: "Status", key: "status" },
   ];
+
+  const capitalize = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
   const tableData = accountGroupList.map((ag: any, index: number) => ({
     ...ag,
     seqNo: index + 1,
+    category: capitalize(ag.category || "assets"),
     status: ag.status ? "Active" : "Inactive",
   }));
 
@@ -128,6 +146,7 @@ const AccountGroups = () => {
     const exportData = accountGroupList.map((ag: any, index: number) => ({
       ID: index + 1,
       AccountGroupName: ag.accountgroupname || "-",
+      Category: ag.category || "assets",
       Status: ag.status ? "true" : "false",
     }));
 
@@ -153,11 +172,12 @@ const AccountGroups = () => {
 
       const importedAccountGroups = jsonData.map((row) => ({
         accountgroupname: row.AccountGroupName || "",
+        category: row.Category || "assets",
         status: row.Status === "true" || row.Status === "1" || row.Status === true,
       }));
 
-      // TODO: Add mutation to insert bulk account groups if required
       console.log("Imported Account Groups:", importedAccountGroups);
+      // Optional: You can trigger bulk mutation here
     };
 
     reader.readAsArrayBuffer(file);
@@ -203,7 +223,7 @@ const AccountGroups = () => {
               }
             }
           }}
-          onShowDeleted={() =>navigate("/accountgroups/deletedentries")}
+          onShowDeleted={() => navigate("/accountgroups/deletedentries")}
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/accountgroups")}
@@ -211,7 +231,23 @@ const AccountGroups = () => {
           defaultEntriesPerPage={10}
           isLoading={isLoading}
           formFields={[
-            { name: "accountgroupname", label: "Account Group Name", type: "text", placeholder: "Enter account group name" },
+            {
+              name: "accountgroupname",
+              label: "Account Group Name",
+              type: "text",
+              placeholder: "Enter account group name",
+            },
+            {
+              name: "category",
+              label: "Category",
+              type: "select",
+              options: [
+                { label: "Assets", value: "assets" },
+                { label: "Liabilities", value: "liabilities" },
+                { label: "Income", value: "income" },
+                { label: "Expenses", value: "expenses" },
+              ],
+            },
           ]}
           formValues={formValues}
           formErrors={formErrors}

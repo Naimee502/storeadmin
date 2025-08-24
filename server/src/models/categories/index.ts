@@ -5,7 +5,6 @@ const categorySchema = new mongoose.Schema(
     categorycode: { type: String, unique: true },
     categoryname: { type: String, required: true, unique: true },
     status: Boolean,
-
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',

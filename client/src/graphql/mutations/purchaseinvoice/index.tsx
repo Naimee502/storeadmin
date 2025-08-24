@@ -1,5 +1,6 @@
 import { gql } from '@apollo/client';
 
+// 🔹 Add Purchase Invoice
 export const ADD_PURCHASE_INVOICE = gql`
   mutation AddPurchaseInvoice($input: PurchaseInvoiceInput!) {
     addPurchaseInvoice(input: $input) {
@@ -17,24 +18,29 @@ export const ADD_PURCHASE_INVOICE = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      productservice {
+        productserviceid
+        variantid
+        purchaseunitid
         gst
         qty
         rate
         amount
         discount
+        purchaseaccountid
+        salesaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
+// 🔹 Edit Purchase Invoice
 export const EDIT_PURCHASE_INVOICE = gql`
   mutation EditPurchaseInvoice($id: ID!, $input: PurchaseInvoiceInput!) {
     editPurchaseInvoice(id: $id, input: $input) {
@@ -52,30 +58,36 @@ export const EDIT_PURCHASE_INVOICE = gql`
       totaldiscount
       totalgst
       totalamount
-      products {
-        productid
+      adminid
+      productservice {
+        productserviceid
+        variantid
+        purchaseunitid
         gst
         qty
         rate
         amount
         discount
+        purchaseaccountid
+        salesaccountid
+        serviceaccountid
       }
+      isservice
       status
-      admin {
-        id
-        name
-        email
-      }
+      createdAt
+      updatedAt
     }
   }
 `;
 
+// 🔹 Delete Purchase Invoice
 export const DELETE_PURCHASE_INVOICE = gql`
   mutation DeletePurchaseInvoice($id: ID!) {
     deletePurchaseInvoice(id: $id)
   }
 `;
 
+// 🔹 Reset Purchase Invoice
 export const RESET_PURCHASE_INVOICE = gql`
   mutation ResetPurchaseInvoice($id: ID!) {
     resetPurchaseInvoice(id: $id)

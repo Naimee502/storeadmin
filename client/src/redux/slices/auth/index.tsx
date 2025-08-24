@@ -11,6 +11,11 @@ interface AdminData {
   transactionId: string;
   needsReview: boolean;
   rejected: boolean;
+  businesstype: 'retail' | 'wholesale' | 'manufacturer' | 'service' | 'trader' | 'other';
+  isMultibranch: boolean;
+  isChannelCustomers: boolean;
+  allowedmodules: string[];
+  isExpiringSoon?: boolean;
 }
 
 interface BranchData {
@@ -61,7 +66,7 @@ const authSlice = createSlice({
       } else if (action.payload.type === 'branch' && action.payload.branch) {
         state.type = 'branch';
         state.branch = action.payload.branch;
-        state.admin = null;
+        state.admin = action.payload.branch.admin ?? null;
       }
     },
     clearAuthData: () => initialState,

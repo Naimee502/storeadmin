@@ -6,11 +6,14 @@ import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { usePurchaseInvoicesQuery, usePurchaseInvoiceMutations } from "../../graphql/hooks/purchaseinvoice";
+import {
+  usePurchaseInvoicesQuery,
+  usePurchaseInvoiceMutations,
+} from "../../graphql/hooks/purchaseinvoice";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
-import PrintableInvoice from "../../components/printinvoice"; // Make sure you have this component
+import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { useProductsQuery } from "../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
 
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
@@ -25,8 +28,8 @@ const PurchaseInvoices = () => {
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
 
-  const { data: productData, refetch: productRefetch } = useProductsQuery();
-  const productList = productData?.getProducts || [];
+  const { data: productData } = useProductServicesQuery();
+  const productList = productData?.getProductServices ?? [];
   const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   // Print states and ref
@@ -36,15 +39,15 @@ const PurchaseInvoices = () => {
 
   // react-to-print hook
   const handlePrint = useReactToPrint({
-      contentRef: componentRef,
-      documentTitle: "Sales Invoice",
-      onAfterPrint: () => {
-        setPrintInvoice(null);
-        setReadyToPrint(false);
-      },
-      onPrintError: (error) => {
-        console.error("Print error:", error);
-      },
+    contentRef: componentRef,
+    documentTitle: "Purchase Invoice",
+    onAfterPrint: () => {
+      setPrintInvoice(null);
+      setReadyToPrint(false);
+    },
+    onPrintError: (error) => {
+      console.error("Print error:", error);
+    },
   });
 
   useEffect(() => {
@@ -64,7 +67,7 @@ const PurchaseInvoices = () => {
     fetchInvoices();
   }, [dispatch, refetch]);
 
-  // Trigger printing when printInvoice set
+  // Trigger printing when printInvoice is set
   useEffect(() => {
     if (printInvoice) {
       setReadyToPrint(true);
@@ -91,21 +94,21 @@ const PurchaseInvoices = () => {
   ];
 
   const tableData = invoiceList.map((invoice: any, index: number) => {
-    const totalqty = invoice.products.reduce(
+    const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
 
     const account = accountsMap.get(invoice.partyacc);
 
-    const productname = invoice.products
-      .map((p: any) => productMap.get(p.productid) || "Unknown")
+    const productname = invoice.productservice
+      .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
       .join(", ");
 
     return {
       ...invoice,
       seqNo: index + 1,
-      totalitem: invoice.products.length,
+      totalitem: invoice.productservice.length,
       totalqty,
       billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
       status: invoice.status ? "Active" : "Inactive",
@@ -129,24 +132,40 @@ const PurchaseInvoices = () => {
           showImport={false}
           showExport={false}
           showAdd={true}
-          showPrint={true}  // <-- Enable print button
+          showPrint={true}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseinvoice/addedit/${row.id}`)}
           onDelete={async (row) => {
-            if (window.confirm(`Are you sure you want to delete invoice ${row.billnumber}?`)) {
+            if (
+              window.confirm(
+                `Are you sure you want to delete invoice ${row.billnumber}?`
+              )
+            ) {
               try {
-                await deletePurchaseInvoiceMutation({ variables: { id: row.id } });
+                await deletePurchaseInvoiceMutation({
+                  variables: { id: row.id },
+                });
                 await refetch();
-                dispatch(showMessage({ message: "Invoice deleted successfully.", type: "success" }));
+                dispatch(
+                  showMessage({
+                    message: "Invoice deleted successfully.",
+                    type: "success",
+                  })
+                );
               } catch (error) {
                 console.error("Delete error:", error);
-                dispatch(showMessage({ message: "Failed to delete invoice.", type: "error" }));
+                dispatch(
+                  showMessage({
+                    message: "Failed to delete invoice.",
+                    type: "error",
+                  })
+                );
               }
             }
           }}
           onAdd={() => navigate("/purchaseinvoice/addedit")}
           onShowDeleted={() => navigate("/purchaseinvoice/deletedentries")}
-          onPrint={(row) => setPrintInvoice(row)}  // <-- Set print invoice on print click
+          onPrint={(row) => setPrintInvoice(row)}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}

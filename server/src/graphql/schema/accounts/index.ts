@@ -14,37 +14,120 @@ export const accountTypeDefs = gql`
     rejected: Boolean!
   }
 
+  type AccountGroup {
+    id: ID!
+    accountgroupname: String!
+  }
+
+  type Branch {
+    id: ID!
+    branchname: String!
+  }
+
+  type Salesman {
+    id: ID!
+    name: String!
+  }
+
   type Account {
     id: ID!
     accountcode: String!
     name: String!
-    accountgroupid: String!
+    type: String
+    accounttype: String
+    accountgroupid: AccountGroup
     mobile: String
     email: String
+    gstnumber: String
+    pan: String
     address: String
     city: String
+    state: String
+    country: String
     pincode: String
+    openingbalance: Float
+    openingbalancetype: String
+    creditlimit: Float
+    bankname: String
+    bankaccountnumber: String
+    ifsc: String
+    upiid: String
+    billingcycle: String
+    duedays: Int
+    isposcustomer: Boolean
+    assignaccountid: Account
+    salesmanid: Salesman
+    latitude: Float
+    longitude: Float
+    otp: String
     status: Boolean!
-    branchid: ID
+    branchid: Branch
     admin: Admin
+    createdAt: String
+    updatedAt: String
   }
 
   input AccountInput {
     name: String!
-    accountgroupid: String!
+    type: String
+    accounttype: String
+    accountgroupid: ID!
     mobile: String
     email: String
+    gstnumber: String
+    pan: String
     address: String
     city: String
+    state: String
+    country: String
     pincode: String
-    status: Boolean!
-    branchid: String
+    openingbalance: Float
+    openingbalancetype: String
+    creditlimit: Float
+    bankname: String
+    bankaccountnumber: String
+    ifsc: String
+    upiid: String
+    billingcycle: String
+    duedays: Int
+    isposcustomer: Boolean
+    assignaccountid: ID
+    salesmanid: ID
+    latitude: Float
+    longitude: Float
+    otp: String
+    status: Boolean
+    branchid: ID
     admin: ID
   }
 
+  input AccountFilterInput {
+    admin: ID
+    branchid: ID
+    type: String
+    accounttype: String
+    accountgroupid: ID
+    accountcode: String
+    mobile: String
+    email: String
+    gstnumber: String
+    pan: String
+    city: String
+    state: String
+    country: String
+    pincode: String
+    billingcycle: String
+    openingbalancetype: String
+    isposcustomer: Boolean
+    status: Boolean
+    createdFrom: String
+    createdTo: String
+    latitude: Float
+    longitude: Float
+  }
+
   type Query {
-    getAccounts(adminId: ID, branchid: ID): [Account!]!
-    getDeletedAccounts(adminId: ID, branchid: ID): [Account!]!
+    getAccounts(filter: AccountFilterInput): [Account!]!
     getAccountById(id: ID!, adminId: ID): Account
   }
 

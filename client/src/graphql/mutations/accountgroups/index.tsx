@@ -5,6 +5,7 @@ export const ADD_ACCOUNTGROUP = gql`
     addAccountGroup(input: $input) {
       id
       accountgroupname
+      category
       status
       admin {
         id
@@ -20,6 +21,7 @@ export const EDIT_ACCOUNTGROUP = gql`
     editAccountGroup(id: $id, input: $input) {
       id
       accountgroupname
+      category
       status
       admin {
         id

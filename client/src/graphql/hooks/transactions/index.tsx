@@ -1,0 +1,74 @@
+// src/hooks/graphql/transactionHooks.ts
+import { useMutation, useQuery } from "@apollo/client";
+import {
+  ADD_TRANSACTION,
+  EDIT_TRANSACTION,
+  DELETE_TRANSACTION,
+  RESET_TRANSACTION,
+} from "../../mutations/transactions";
+
+import {
+  GET_TRANSACTIONS,
+  GET_TRANSACTION_BY_ID,
+  GET_DELETED_TRANSACTIONS,
+} from "../../queries/transactions";
+
+import { useAppSelector } from "../../../redux/hooks";
+
+// ----------------- Mutations -----------------
+export const useTransactionMutations = () => {
+  const [addTransactionMutation] = useMutation(ADD_TRANSACTION);
+  const [editTransactionMutation] = useMutation(EDIT_TRANSACTION);
+  const [deleteTransactionMutation] = useMutation(DELETE_TRANSACTION);
+  const [resetTransactionMutation] = useMutation(RESET_TRANSACTION);
+
+  return {
+    addTransactionMutation,
+    editTransactionMutation,
+    deleteTransactionMutation,
+    resetTransactionMutation,
+  };
+};
+
+// ----------------- Transactions Query -----------------
+export const useTransactionsQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_TRANSACTIONS, {
+    variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// ----------------- Deleted Transactions Query -----------------
+export const useDeletedTransactionsQuery = () => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_TRANSACTIONS, {
+    variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// ----------------- Transaction by ID Query -----------------
+export const useTransactionByIDQuery = (id?: string) => {
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+
+  const { data, loading, error } = useQuery(GET_TRANSACTION_BY_ID, {
+    variables: { id, adminid }, // ✅ top-level, not in filter
+    skip: !id,
+  });
+
+  return { data, loading, error };
+};

@@ -3,15 +3,15 @@ import { Bar } from "react-chartjs-2";
 import type { Category, Product, SalesInvoice } from "..";
 
 interface Props {
-  salesInvoices: SalesInvoice[];
-  products: Product[];
-  categories: Category[];
+  salesInvoices?: SalesInvoice[];
+  products?: Product[];
+  categories?: Category[];
 }
 
 const CategoryWiseSalesChart: React.FC<Props> = ({
-  salesInvoices,
-  products,
-  categories,
+  salesInvoices = [],
+  products = [],
+  categories = [],
 }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("All");
 
@@ -19,7 +19,9 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
   const categoryIdToNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach((cat) => {
-      map[cat.id] = cat.categoryname;
+      if (cat?.id && cat?.categoryname) {
+        map[cat.id] = cat.categoryname;
+      }
     });
     return map;
   }, [categories]);
@@ -29,23 +31,22 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
     const map: Record<string, number> = {};
 
     salesInvoices.forEach((invoice) => {
-      invoice.products.forEach((product: any) => {
-        // Use product.id since invoice product id matches product id
-        const prod = products.find((p) => p.id === product.id);
+      const invoiceProducts = invoice.products ?? [];
+      invoiceProducts.forEach((product: any) => {
+        const prod = products.find((p) => p.id === product.productid || p.id === product.id);
         const categoryId = prod?.categoryid ?? "others";
         const amount = product.amount ?? (product.rate ?? 0) * (product.qty ?? 0);
         map[categoryId] = (map[categoryId] || 0) + amount;
       });
     });
+
     return map;
   }, [salesInvoices, products]);
 
   // Filtered chart data based on selected category
   const filteredChartData = useMemo(() => {
     if (selectedCategoryId === "All") {
-      // Sum all sales values for total sales
       const totalSales = Object.values(categorySalesMap).reduce((a, b) => a + b, 0);
-    
       return {
         labels: ["All Categories"],
         datasets: [
@@ -59,7 +60,6 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
     } else {
       const label = categoryIdToNameMap[selectedCategoryId] ?? "Unknown";
       const value = categorySalesMap[selectedCategoryId] || 0;
-
       return {
         labels: [label],
         datasets: [

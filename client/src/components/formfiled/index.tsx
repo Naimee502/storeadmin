@@ -12,13 +12,14 @@ import {
   FaImage,
   FaCaretDown,
 } from 'react-icons/fa';
-import Select from 'react-select';
+import Select, { type MultiValue, type SingleValue } from 'react-select';
 
-type InputType =
+export type InputType =
   | 'text'
   | 'email'
   | 'password'
   | 'date'
+  | 'datetime-local'  
   | 'time'
   | 'number'
   | 'tel'
@@ -26,7 +27,8 @@ type InputType =
   | 'checkbox'
   | 'radio'
   | 'file'
-  | 'select';
+  | 'select'
+  | 'multiselect';
 
 interface Option {
   label: string;
@@ -38,7 +40,7 @@ interface FormFieldProps {
   name: string;
   type?: InputType;
   value?: any;
-  onChange: (e: React.ChangeEvent<any>) => void;
+  onChange: (e: React.ChangeEvent<any> | { target: { name: string; value: any } }) => void;
   options?: Option[];
   error?: string;
   placeholder?: string;
@@ -64,12 +66,13 @@ const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
   radio: <FaDotCircle />,
   file: <FaImage />,
   select: <FaCaretDown />,
+  multiselect: <FaCaretDown />,
 };
 
 const FormField: React.FC<FormFieldProps> = ({
   label,
   name,
-  type = 'text',
+  type = 'text' as InputType,
   value,
   onChange,
   options = [],
@@ -81,12 +84,13 @@ const FormField: React.FC<FormFieldProps> = ({
   multiline = false,
   searchable = false,
   icon,
-  disabled
+  disabled,
 }) => {
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
   const isFile = type === 'file';
   const isSelect = type === 'select' && options.length > 0;
+  const isMultiSelect = type === 'multiselect' && options.length > 0;
   const finalIcon = icon ?? defaultIcons[type];
 
   const renderInput = () => {
@@ -95,7 +99,7 @@ const FormField: React.FC<FormFieldProps> = ({
         <textarea
           id={name}
           name={name}
-          value={value}
+          value={value ?? ''}
           onChange={onChange}
           disabled={disabled}
           placeholder={placeholder}
@@ -104,37 +108,61 @@ const FormField: React.FC<FormFieldProps> = ({
       );
     }
 
-    if (isSelect && searchable) {
+    if ((isSelect || isMultiSelect) && searchable) {
       return (
         <Select
           inputId={name}
           name={name}
           options={options}
           isDisabled={disabled}
-          value={options.find((opt) => opt.value === value) || null}
-          onChange={(selected) => {
-            const syntheticEvent = {
-              target: { name, value: selected?.value || '' },
-            } as React.ChangeEvent<HTMLInputElement>;
-            onChange(syntheticEvent);
-          }}
+          value={
+            isMultiSelect
+              ? options.filter((opt) => value?.includes(opt.value))
+              : options.find((opt) => opt.value === value) || null
+          }
+          onChange={(selected: MultiValue<Option> | SingleValue<Option>) => {
+          if (isMultiSelect) {
+            const selectedArray = selected as MultiValue<Option>; 
+            onChange({
+              target: {
+                name,
+                value: selectedArray ? selectedArray.map((opt) => opt.value) : [],
+              },
+            });
+          } else {
+            const selectedOption = selected as SingleValue<Option>;
+            onChange({
+              target: {
+                name,
+                value: selectedOption?.value || "",
+              },
+            });
+          }
+        }}
           isClearable
           isSearchable
+          isMulti={isMultiSelect}
         />
       );
     }
 
-    if (isSelect && !searchable) {
+    if ((isSelect || isMultiSelect) && !searchable) {
       return (
         <select
           id={name}
           name={name}
+          multiple={isMultiSelect}
           value={value}
-          onChange={onChange}
+          onChange={(e) => {
+            const selected = Array.from(e.target.selectedOptions).map((opt) => opt.value);
+            onChange({
+              target: { name, value: isMultiSelect ? selected : e.target.value },
+            });
+          }}
           disabled={disabled}
-          className={`w-full text-sm bg-transparent outline-none ${className}`}
+          className={`w-full text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none ${className}`}
         >
-          <option value="">Select {label}</option>
+          {!isMultiSelect && <option value="">Select {label}</option>}
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -172,8 +200,7 @@ const FormField: React.FC<FormFieldProps> = ({
           checked={Boolean(value)}
           onChange={(e) =>
             onChange({
-              ...e,
-              target: { ...e.target, name, value: e.target.checked },
+              target: { name, value: e.target.checked },
             })
           }
           className="h-5 w-5"
@@ -209,10 +236,10 @@ const FormField: React.FC<FormFieldProps> = ({
         id={name}
         name={name}
         type={type}
-        value={value}
+        value={value ?? ''}
         onChange={onChange}
         disabled={disabled}
-        placeholder={placeholder ?? (type === "number" ? "0" : placeholder)}
+        placeholder={placeholder ?? (type === 'number' ? '0' : placeholder)}
         accept={accept}
         className={`w-full text-sm bg-transparent outline-none ${className}`}
       />
@@ -225,8 +252,7 @@ const FormField: React.FC<FormFieldProps> = ({
         {label}
       </label>
 
-      {/* Don't wrap react-select with border or icon */}
-      {isSelect && searchable ? (
+      {(isSelect || isMultiSelect|| isCheckbox || isRadio) ? (
         renderInput()
       ) : (
         <div
@@ -234,7 +260,7 @@ const FormField: React.FC<FormFieldProps> = ({
             error ? 'border-red-500' : 'border-gray-300'
           }`}
         >
-          {!isCheckbox && !isRadio && finalIcon && (
+          {finalIcon && (
             <span className="text-gray-400">{finalIcon}</span>
           )}
           {renderInput()}

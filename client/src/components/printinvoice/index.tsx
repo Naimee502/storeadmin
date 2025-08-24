@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
-import { toWords } from 'number-to-words';
+import { toWords } from "number-to-words";
 import { useAppSelector } from "../../redux/hooks";
 
 interface Product {
@@ -11,16 +11,16 @@ interface Product {
 }
 
 interface Invoice {
+  productname: string;
   billtype_billnumber: string;
   billdate: string;
   partyacc: string;
   partyname?: string;
   placeofsupply?: string;
   gstin?: string;
-  products: Product[];
+  productservice?: Product[]; // make optional to prevent errors
   totalamount: number;
   amountinwords?: string;
-  productname: string;
 }
 
 interface PrintableInvoiceProps {
@@ -32,6 +32,9 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
     const branch = useAppSelector((state) => state.auth.branch);
+
+    const products = invoice.productservice || [];
+
     return (
       <div
         ref={localRef}
@@ -65,13 +68,13 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             {/* Header */}
             <tr>
               <td colSpan={7} className="text-center text-lg font-bold">
-                {branch.branchname}
+                {branch?.branchname || "---"}
               </td>
             </tr>
             <tr>
               <td colSpan={7} className="text-center">
-                 {branch.address}<br />
-                 {branch.city} - {branch.phone || branch.mobile}
+                {branch?.address || "---"}<br />
+                {branch?.city || "---"} - {branch?.phone || branch?.mobile || "---"}
               </td>
             </tr>
             <tr>
@@ -93,8 +96,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
           </thead>
 
           <tbody>
-
-           {/* Product Table Header */}
+            {/* Product Table Header */}
             <tr className="text-center font-semibold">
               <th>SrNo</th>
               <th>Product Name</th>
@@ -104,19 +106,24 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
               <th>GST</th>
               <th>Amount</th>
             </tr>
-            
 
             {/* Product Rows */}
-            {invoice.products.map((item, idx) => (
+            {products.map((item, idx) => (
               <tr key={idx}>
-                <td className="text-center">{idx + 1}</td><td>{invoice.productname}</td><td className="text-center">{item.hsn || "-"}</td><td className="text-center">{item.qty}</td><td className="text-right">{item.rate.toFixed(2)}</td><td className="text-center">{item.gst}%</td><td className="text-right">{(item.qty * item.rate).toFixed(2)}</td>
+                <td className="text-center">{idx + 1}</td>
+                <td className="text-center">{invoice.productname}</td>
+                <td className="text-center">{item.hsn || "-"}</td>
+                <td className="text-center">{item.qty}</td>
+                <td className="text-right">{item.rate.toFixed(2)}</td>
+                <td className="text-center">{item.gst}%</td>
+                <td className="text-center">{(item.qty * item.rate).toFixed(2)}</td>
               </tr>
             ))}
 
             {/* Subtotal */}
             <tr>
               <td colSpan={6}><strong>GSTIN No.:</strong> 24CGQPM7906P1ZJ</td>
-              <td className="text-right"><strong>Sub Total</strong> {invoice.totalamount.toFixed(2)}</td>
+              <td className="text-center"><strong>Sub Total</strong> {invoice.totalamount.toFixed(2)}</td>
             </tr>
 
             {/* Bank Details and Summary */}

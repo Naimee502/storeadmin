@@ -14,42 +14,73 @@ export const salesmenAccountTypeDefs = gql`
     rejected: Boolean!
   }
 
+  type Branch {
+    id: ID!
+    branchname: String!
+  }
+
+  type AccountGroup {
+    id: ID!
+    accountgroupname: String!
+  }
+
   type SalesmenAccount {
     id: ID!
-    admin: Admin             
-    branchid: ID!
+    admin: Admin
+    branchid: Branch
+    accountgroupid: AccountGroup
     salesmancode: String
     name: String!
     mobile: String!
     email: String!
     password: String!
-    profilepicture: String!
-    imageurl: String!
-    address: String!
-    commission: String!
-    target: String!
+    profilepicture: String
+    imageurl: String
+    address: String
+    commission: Float
+    salary: Float
+    target: Float
+    type: String
     status: Boolean!
+    createdAt: String
+    updatedAt: String
   }
 
   input SalesmenAccountInput {
-    admin: ID                
+    admin: ID
     branchid: ID!
+    accountgroupid: ID
     name: String!
     mobile: String!
     email: String!
     password: String!
-    profilepicture: String!
-    imageurl: String!
-    address: String!
-    commission: String!
-    target: String!
-    status: Boolean!
+    profilepicture: String
+    imageurl: String
+    address: String
+    commission: Float
+    salary: Float
+    target: Float
+    type: String
+    status: Boolean
+  }
+
+  input SalesmanFilterInput {
+    adminId: ID
+    branchid: ID
+    type: String
+    accountgroupid: ID
+    mobile: String
+    email: String
+    salary: Float
+    commission: Float
+    createdFrom: String
+    createdTo: String
   }
 
   type Query {
-    getSalesmenAccounts(adminId: ID, branchid: ID): [SalesmenAccount!]!
-    getDeletedSalesmenAccounts(adminId: ID, branchid: ID): [SalesmenAccount!]!
-    getSalesmanAccountById(id: ID!): SalesmenAccount
+    getSalesmenAccounts(filter: SalesmanFilterInput): [SalesmenAccount!]!
+    getDeletedSalesmenAccounts(filter: SalesmanFilterInput): [SalesmenAccount!]!
+    getSalesmanAccountById(id: ID!, adminId: ID): SalesmenAccount
   }
 
   type Mutation {

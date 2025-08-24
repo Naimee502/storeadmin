@@ -1,10 +1,9 @@
 import { gql } from '@apollo/client';
 
 export const GET_SALESMEN = gql`
-  query GetSalesmen($branchid: ID, $adminId: ID) {
-    getSalesmenAccounts(branchid: $branchid, adminId: $adminId) {
+  query GetSalesmen($filter: SalesmanFilterInput) {
+    getSalesmenAccounts(filter: $filter) {
       id
-      branchid
       salesmancode
       name
       mobile
@@ -14,22 +13,34 @@ export const GET_SALESMEN = gql`
       imageurl
       address
       commission
+      salary
       target
+      type
       status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+      branchid {
+        id
+        branchname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;
 
+
 export const GET_DELETED_SALESMEN = gql`
-  query GetDeletedSalesmen($branchid: ID, $adminId: ID) {
-    getDeletedSalesmenAccounts(branchid: $branchid, adminId: $adminId) {
+  query GetDeletedSalesmen($filter: SalesmanFilterInput) {
+    getDeletedSalesmenAccounts(filter: $filter) {
       id
-      branchid
       salesmancode
       name
       mobile
@@ -39,22 +50,34 @@ export const GET_DELETED_SALESMEN = gql`
       imageurl
       address
       commission
+      salary
       target
+      type
       status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+      branchid {
+        id
+        branchname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;
+
 
 export const GET_SALESMAN_BY_ID = gql`
   query GetSalesmanById($id: ID!, $adminId: ID) {
     getSalesmanAccountById(id: $id, adminId: $adminId) {
       id
-      branchid
       salesmancode
       name
       mobile
@@ -64,13 +87,25 @@ export const GET_SALESMAN_BY_ID = gql`
       imageurl
       address
       commission
+      salary
       target
+      type
       status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+      branchid {
+        id
+        branchname
+      }
       admin {
         id
         name
         email
       }
+      createdAt
+      updatedAt
     }
   }
 `;

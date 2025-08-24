@@ -13,7 +13,7 @@ import {
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { useProductsQuery } from "../../graphql/hooks/products";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
 
 
 const SalesInvoices = () => {
@@ -25,14 +25,12 @@ const SalesInvoices = () => {
   const invoiceList = data?.getSalesInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  console.log("Sales Invoices Data:", JSON.stringify(invoiceList, null, 2));
-
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
 
-  const { data: productData, refetch: productRefetch } = useProductsQuery();
-  const productList = productData?.getProducts || [];
+  const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+  const productList = productData?.getProductServices ?? [];
   const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   // Use ref for the printable component
@@ -97,21 +95,21 @@ const SalesInvoices = () => {
   ];
 
   const tableData = invoiceList.map((invoice: any, index: number) => {
-    const totalqty = invoice.products.reduce(
+    const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
 
     const account = accountsMap.get(invoice.partyacc);
 
-    const productname = invoice.products
-      .map((p: any) => productMap.get(p.productid) || "Unknown")
+    const productname = invoice.productservice
+      .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
       .join(", ");
 
     return {
       ...invoice,
       seqNo: index + 1,
-      totalitem: invoice.products.length,
+      totalitem: invoice.productservice.length,
       totalqty,
       billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
       status: invoice.status ? "Active" : "Inactive",

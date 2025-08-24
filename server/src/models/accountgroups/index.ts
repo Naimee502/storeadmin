@@ -3,13 +3,17 @@ import mongoose from 'mongoose';
 const accountGroupSchema = new mongoose.Schema(
   {
     accountgroupcode: { type: String, unique: true },
-    accountgroupname: { type: String, required: true, unique: true },
-    status: Boolean,
-    
+    accountgroupname: { type: String, required: true },
+    category: {
+      type: String,
+      enum: ['assets', 'liabilities', 'income', 'expenses'],
+      required: true,
+    },
+    status: { type: Boolean, default: true },
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
-      required: true
+      required: true,
     },
   },
   { timestamps: true }

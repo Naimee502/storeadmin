@@ -20,7 +20,13 @@ const startServer = async () => {
     typeDefs,
     resolvers,
     context: ({ req }) => {
-      console.log("📥 Request to GraphQL:", req.body)
+      const operationName = req.body?.operationName;
+      const variables = req.body?.variables;
+
+      console.log("📥 GraphQL Request:");
+      console.log("Operation Name:", operationName);
+      console.log("Variables:", JSON.stringify(variables, null, 2));
+
       const branchid = req.headers['x-branch-id'];
       return { branchid };
     },
