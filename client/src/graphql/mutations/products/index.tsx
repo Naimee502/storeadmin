@@ -25,6 +25,7 @@ export const ADD_PRODUCT_SERVICE = gql`
         slug
       }
       servicevariants {
+        id
         name
         servicerate
         uom
@@ -48,21 +49,17 @@ export const ADD_PRODUCT_SERVICE = gql`
         remarks
       }
       productvariants {
+        id
         name
         sku
         batchnumber
         manufacturedate
         expirydate
         baseunitid
-        salesunitid
-        purchaseunitid
-        unitConversions {
-          fromunitid
-          tounitid
+        unitconversions {
+          unitid
           factor
         }
-        mrp
-        purchaserate
         gst
         hsncode
         openingstock
@@ -85,36 +82,17 @@ export const ADD_PRODUCT_SERVICE = gql`
           returnedon
           remarks
         }
-        salesrate {
-          regionname
-          currency
-          enduser
-          retail
-          dealer
-          superstockist
-          distributor
-          exporter
-        }
-        offer {
-          isoffer
-          type
-          title
-          startdate
-          enddate
-          discounttype
-          offerprice
-          comboitems {
-            productid
-            variantid
-            quantity
-          }
-          channel {
-            enduser
-            retail
-            dealer
-            superstockist
-            distributor
-            exporter
+        pricing {
+          region
+          channel
+          unitprices {
+            unitid
+            mrp
+            salesrate
+            purchaserate
+            discount
+            discounttype
+            offerprice
           }
         }
         productlikecount
@@ -156,6 +134,7 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         slug
       }
       servicevariants {
+        id
         name
         servicerate
         uom
@@ -179,21 +158,17 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         remarks
       }
       productvariants {
+        id
         name
         sku
         batchnumber
         manufacturedate
         expirydate
         baseunitid
-        salesunitid
-        purchaseunitid
-        unitConversions {
-          fromunitid
-          tounitid
+        unitconversions {
+          unitid
           factor
         }
-        mrp
-        purchaserate
         gst
         hsncode
         openingstock
@@ -216,36 +191,17 @@ export const UPDATE_PRODUCT_SERVICE = gql`
           returnedon
           remarks
         }
-        salesrate {
-          regionname
-          currency
-          enduser
-          retail
-          dealer
-          superstockist
-          distributor
-          exporter
-        }
-        offer {
-          isoffer
-          type
-          title
-          startdate
-          enddate
-          discounttype
-          offerprice
-          comboitems {
-            productid
-            variantid
-            quantity
-          }
-          channel {
-            enduser
-            retail
-            dealer
-            superstockist
-            distributor
-            exporter
+        pricing {
+          region
+          channel
+          unitprices {
+            unitid
+            mrp
+            salesrate
+            purchaserate
+            discount
+            discounttype
+            offerprice
           }
         }
         productlikecount

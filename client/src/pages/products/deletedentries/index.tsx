@@ -15,7 +15,7 @@ const DeletedProducts = () => {
   const dispatch = useAppDispatch();
 
   const { data: deletedData, refetch } = useDeletedProductServicesQuery();
-    const deletedList = deletedData?.getProductServices ?? [];
+  const deletedList = deletedData?.getProductServices ?? [];
   const { resetProductServiceMutation } = useProductServiceMutations();
 
   const { data: unitData } = useUnitsQuery();
@@ -38,33 +38,60 @@ const DeletedProducts = () => {
   ];
 
   const tableData = deletedList.map((item: any, index: number) => {
-    const variant = item.isservice
-      ? item.servicevariants?.[0]
-      : item.productvariants?.[0];
-
-    const matchedUnit = !item.isservice && variant
-      ? unitList.find((unit) => unit.id === variant.salesunitid)
-      : null;
+    const variants = item.isservice ? item.servicevariants : item.productvariants;
 
     return {
       ...item,
       seqNo: index + 1,
       code: item.isservice
-        ? variant?.servicecode || "-"
-        : variant?.productcode || "-",
+        ? variants?.[0]?.servicecode || "-"
+        : variants?.[0]?.productcode || "-",
       name: item.name,
-      currentstock: item.isservice
-        ? variant?.locationType || "-" // service → show location type
-        : variant?.currentstock ?? 0,  // product → show current stock
-      salesrate: item.isservice
-        ? variant?.servicerate ?? 0
-        : variant?.salesrate?.[0]?.enduser ?? 0,
-      salesunit: item.isservice
-        ? variant?.uom || "-"
-        : matchedUnit?.unitname || "-",
+
+      // ✅ Stock (vertical)
+      currentstock: (
+        <div>
+          {variants?.map((variant: any, i: number) => (
+            <div key={i}>
+              {item.isservice ? variant?.locationType || "-" : variant?.currentstock ?? 0}
+            </div>
+          ))}
+        </div>
+      ),
+
+      // ✅ Rate (vertical)
+      salesrate: (
+        <div>
+          {variants?.map((variant: any, i: number) => (
+            <div key={i}>
+              {item.isservice
+                ? variant?.servicerate ?? 0
+                : variant?.pricing?.[0]?.unitprices?.[0]?.salesrate ?? 0}
+            </div>
+          ))}
+        </div>
+      ),
+
+      // ✅ Unit (vertical)
+      salesunit: (
+        <div>
+          {variants?.map((variant: any, i: number) => {
+            if (item.isservice) {
+              return <div key={i}>{variant?.uom || "-"}</div>;
+            }
+            const firstUnitId = variant?.pricing?.[0]?.unitprices?.[0]?.unitid;
+            const matchedUnit = firstUnitId
+              ? unitList.find((unit) => unit.id === firstUnitId)
+              : null;
+            return <div key={i}>{matchedUnit?.unitname || "-"}</div>;
+          })}
+        </div>
+      ),
+
       status: item.status ? "Active" : "Inactive",
     };
   });
+
 
   return (
     <HomeLayout>

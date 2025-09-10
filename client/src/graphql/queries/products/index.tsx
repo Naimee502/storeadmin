@@ -3,139 +3,114 @@ import { gql } from '@apollo/client';
 export const GET_PRODUCT_SERVICES = gql`
   query GetProductServices($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
     getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      adminid
+      vendorid
+      branchid
+      isservice
+      name
+      description
+      imageurl
+      imagename
+      categoryid
+      subcategoryid
+      groupid
+      modelid
+      brandid
+      sizeid
+      seo {
+        metatitle
+        metadescription
+        keywords
+        slug
+      }
+      servicevariants {
         id
-        adminid
-        vendorid
-        branchid
-        isservice
         name
-        description
-        imageurl
-        imagename
-        categoryid
-        subcategoryid
-        groupid
-        modelid
-        brandid
-        sizeid
-        seo {
-          metatitle
-          metadescription
-          keywords
-          slug
+        servicecode
+        servicebarcode
+        servicerate
+        uom
+        duration {
+          amount
+          unit
         }
-        servicevariants {
+        requiresappointment
+        availabilityslots {
+          day
+          from
+          to
+        }
+        locationType
+        isRecurring
+        recurrence {
+          interval
+          count
+        }
+        servicelikecount
+        remarks
+      }
+      productvariants {
+        id
+        name
+        sku
+        productcode
+        productbarcode
+        batchnumber
+        manufacturedate
+        expirydate
+        baseunitid
+        unitconversions {
+          unitid
+          factor
+        }
+        gst
+        hsncode
+        openingstock
+        openingstockamount
+        currentstock
+        currentstockamount
+        closingstock
+        closingstockamount
+        minimumstock
+        reorderlevel
+        racklocation
+        isserialised
+        serials {
           id
-          name
-          servicecode
-          servicebarcode
-          servicerate
-          uom
-          duration {
-            amount
-            unit
-          }
-          requiresappointment
-          availabilityslots {
-            day
-            from
-            to
-          }
-          locationType
-          isRecurring
-          recurrence {
-            interval
-            count
-          }
-          servicelikecount
+          imei
+          serialnumber
+          lotnumber
+          status
+          addedon
+          soldon
+          returnedon
           remarks
         }
-        productvariants {
-          id
-          name
-          sku
-          productcode
-          productbarcode
-          batchnumber
-          manufacturedate
-          expirydate
-          baseunitid
-          salesunitid
-          purchaseunitid
-          unitConversions {
-            fromunitid
-            tounitid
-            factor
-          }
-          mrp
-          purchaserate
-          gst
-          hsncode
-          openingstock
-          openingstockamount
-          currentstock
-          currentstockamount
-          closingstock
-          closingstockamount
-          minimumstock
-          reorderlevel
-          racklocation
-          isserialised
-          serials {
-            id
-            imei
-            serialnumber
-            lotnumber
-            status
-            addedon
-            soldon
-            returnedon
-            remarks
-          }
-          salesrate {
-            id
-            regionname
-            currency
-            enduser
-            retail
-            dealer
-            superstockist
-            distributor
-            exporter
-          }
-          offer {
-            isoffer
-            type
-            title
-            startdate
-            enddate
+        pricing {
+          region
+          channel
+          unitprices {
+            unitid
+            mrp
+            salesrate
+            purchaserate
+            discount
             discounttype
             offerprice
-            comboitems {
-              productid
-              variantid
-              quantity
-            }
-            channel {
-              enduser
-              retail
-              dealer
-              superstockist
-              distributor
-              exporter
-            }
           }
-          productlikecount
         }
-        isshowinpos
-        isfeatured
-        salesaccountid
-        purchaseaccountid
-        serviceaccountid
-        status
-        createdAt
-        updatedAt
+        productlikecount
       }
+      isshowinpos
+      isfeatured
+      salesaccountid
+      purchaseaccountid
+      serviceaccountid
+      status
+      createdAt
+      updatedAt
+    }
   }
 `;
 
@@ -199,15 +174,10 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         manufacturedate
         expirydate
         baseunitid
-        salesunitid
-        purchaseunitid
-        unitConversions {
-          fromunitid
-          tounitid
+        unitconversions {
+          unitid
           factor
         }
-        mrp
-        purchaserate
         gst
         hsncode
         openingstock
@@ -231,37 +201,17 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
           returnedon
           remarks
         }
-        salesrate {
-          id
-          regionname
-          currency
-          enduser
-          retail
-          dealer
-          superstockist
-          distributor
-          exporter
-        }
-        offer {
-          isoffer
-          type
-          title
-          startdate
-          enddate
-          discounttype
-          offerprice
-          comboitems {
-            productid
-            variantid
-            quantity
-          }
-          channel {
-            enduser
-            retail
-            dealer
-            superstockist
-            distributor
-            exporter
+        pricing {
+          region
+          channel
+          unitprices {
+            unitid
+            mrp
+            salesrate
+            purchaserate
+            discount
+            discounttype
+            offerprice
           }
         }
         productlikecount

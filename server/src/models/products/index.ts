@@ -1,17 +1,14 @@
 import mongoose, { Schema, Document, Types, HydratedDocument, model } from "mongoose";
 import slugify from "slugify";
 
-/* ────────────────
-   INTERFACES
-──────────────── */
+// 🔹 Interface for Unit Conversion
 interface IUnitConversion {
-  fromunitid: Types.ObjectId;
-  tounitid: Types.ObjectId;
+  unitid: Types.ObjectId;
   factor: number;
 }
 
+// 🔹 Interface for Serial Numbers
 interface ISerial {
-  _id?: Types.ObjectId;
   imei?: string;
   serialnumber?: string;
   lotnumber?: string;
@@ -22,43 +19,25 @@ interface ISerial {
   remarks?: string;
 }
 
-interface ISalesRate {
-  _id?: Types.ObjectId;
-  regionname?: string;
-  currency?: string;
-  enduser?: number;
-  retail?: number;
-  dealer?: number;
-  superstockist?: number;
-  distributor?: number;
-  exporter?: number;
+// 🔹 Interface for Unit Prices
+interface IUnitPrice {
+  unitid: Types.ObjectId;
+  mrp: number;
+  salesrate: number;
+  purchaserate: number;
+  discount: number;
+  discounttype: "fixed" | "percentage";
+  offerprice: number;
 }
 
-interface IOfferComboItem {
-  productid: Types.ObjectId;
-  variantid?: Types.ObjectId;
-  quantity?: number;
+// 🔹 Interface for Pricing
+interface IPricing {
+  regionid: Types.ObjectId;
+  channel: "default" | "enduser" | "retail" | "dealer" | "distributor" | "superstockist" | "exporter";
+  unitprices: IUnitPrice[];
 }
 
-interface IOffer {
-  isoffer?: boolean;
-  type?: "single" | "combo";
-  title?: string;
-  startdate?: Date;
-  enddate?: Date;
-  discounttype?: "fixed" | "percentage";
-  offerprice?: number;
-  comboitems?: IOfferComboItem[];
-  channel?: {
-    enduser?: boolean;
-    retail?: boolean;
-    dealer?: boolean;
-    superstockist?: boolean;
-    distributor?: boolean;
-    exporter?: boolean;
-  };
-}
-
+// 🔹 Interface for Product Variant
 export interface IProductVariant {
   _id?: Types.ObjectId;
   name?: string;
@@ -69,11 +48,7 @@ export interface IProductVariant {
   manufacturedate?: Date;
   expirydate?: Date;
   baseunitid?: Types.ObjectId;
-  salesunitid?: Types.ObjectId;
-  purchaseunitid?: Types.ObjectId;
-  unitConversions?: IUnitConversion[];
-  mrp?: number;
-  purchaserate?: number;
+  unitconversions?: IUnitConversion[];
   gst?: number;
   hsncode?: string;
   openingstock?: number;
@@ -87,13 +62,25 @@ export interface IProductVariant {
   racklocation?: string;
   isserialised?: boolean;
   serials?: ISerial[];
-  salesrate?: ISalesRate[];
-  offer?: IOffer;
+  pricing?: IPricing[];
   productlikecount?: number;
 }
 
+// 🔹 Interface for Service Availability Slot
+interface IAvailabilitySlot {
+  day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+  from: string;
+  to: string;
+}
+
+// 🔹 Interface for Service Recurrence
+interface IRecurrence {
+  interval: "daily" | "weekly" | "monthly";
+  count: number;
+}
+
+// 🔹 Interface for Service Variant
 interface IServiceVariant {
-  _id?: Types.ObjectId;
   name: string;
   servicecode?: string;
   servicebarcode?: string;
@@ -104,26 +91,28 @@ interface IServiceVariant {
     unit: "minutes" | "hours";
   };
   requiresappointment?: boolean;
-  availabilityslots?: {
-    day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-    from: string;
-    to: string;
-  }[];
+  availabilityslots?: IAvailabilitySlot[];
   locationType?: "onsite" | "offsite" | "remote";
   isRecurring?: boolean;
-  recurrence?: {
-    interval: "daily" | "weekly" | "monthly";
-    count: number;
-  };
+  recurrence?: IRecurrence;
   servicelikecount?: number;
   remarks?: string;
 }
 
+// 🔹 Interface for SEO
+interface ISEO {
+  metatitle?: string;
+  metadescription?: string;
+  keywords?: string[];
+  slug?: string;
+}
+
+// 🔹 Main ProductService Interface
 export interface IProductService extends Document {
   adminid: Types.ObjectId;
   vendorid?: Types.ObjectId;
   branchid: Types.ObjectId;
-  isservice?: boolean;
+  isservice: boolean;
   name: string;
   description?: string;
   imageurl?: string;
@@ -134,12 +123,7 @@ export interface IProductService extends Document {
   modelid?: Types.ObjectId;
   brandid?: Types.ObjectId;
   sizeid?: Types.ObjectId;
-  seo?: {
-    metatitle?: string;
-    metadescription?: string;
-    keywords?: string[];
-    slug?: string;
-  };
+  seo?: ISEO;
   servicevariants?: IServiceVariant[];
   productvariants?: IProductVariant[];
   isshowinpos?: boolean;
@@ -148,11 +132,11 @@ export interface IProductService extends Document {
   purchaseaccountid?: Types.ObjectId;
   serviceaccountid?: Types.ObjectId;
   status?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-/* ────────────────
-   SCHEMA
-──────────────── */
+// 🔹 Schema Definition
 const productServiceSchema = new Schema<IProductService>(
   {
     adminid: { type: Schema.Types.ObjectId, ref: "Admin", required: true },
@@ -177,7 +161,6 @@ const productServiceSchema = new Schema<IProductService>(
     },
     servicevariants: [
       {
-        _id: { type: Schema.Types.ObjectId, auto: true },
         name: { type: String, required: true },
         servicecode: { type: String, unique: true, sparse: true },
         servicebarcode: { type: String, unique: true, sparse: true },
@@ -207,7 +190,6 @@ const productServiceSchema = new Schema<IProductService>(
     ],
     productvariants: [
       {
-        _id: { type: Schema.Types.ObjectId, auto: true },
         name: String,
         sku: { type: String, unique: true, sparse: true },
         productcode: { type: String, unique: true, sparse: true },
@@ -216,17 +198,12 @@ const productServiceSchema = new Schema<IProductService>(
         manufacturedate: Date,
         expirydate: Date,
         baseunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
-        salesunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
-        purchaseunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
-        unitConversions: [
+        unitconversions: [
           {
-            fromunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
-            tounitid: { type: Schema.Types.ObjectId, ref: "Unit" },
+            unitid: { type: Schema.Types.ObjectId, ref: "Unit" },
             factor: { type: Number, default: 1 },
           },
         ],
-        mrp: { type: Number, default: 0 },
-        purchaserate: { type: Number, default: 0 },
         gst: { type: Number, default: 0 },
         hsncode: String,
         openingstock: { type: Number, default: 0 },
@@ -241,7 +218,6 @@ const productServiceSchema = new Schema<IProductService>(
         isserialised: { type: Boolean, default: false },
         serials: [
           {
-            _id: { type: Schema.Types.ObjectId, auto: true },
             imei: String,
             serialnumber: String,
             lotnumber: String,
@@ -256,41 +232,41 @@ const productServiceSchema = new Schema<IProductService>(
             remarks: String,
           },
         ],
-        salesrate: [{
-          _id: { type: Schema.Types.ObjectId, auto: true },
-          regionname: { type: String, default: "Default" },
-          currency: { type: String, default: "INR" },
-          enduser: { type: Number, default: 0 },
-          retail: { type: Number, default: 0 },
-          dealer: { type: Number, default: 0 },
-          superstockist: { type: Number, default: 0 },
-          distributor: { type: Number, default: 0 },
-          exporter: { type: Number, default: 0 },
-        }],
-        offer: {
-          isoffer: { type: Boolean, default: false },
-          type: { type: String, enum: ["single", "combo"], default: "single" },
-          title: String,
-          startdate: Date,
-          enddate: Date,
-          discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
-          offerprice: Number,
-          comboitems: [
-            {
-              productid: { type: Schema.Types.ObjectId, ref: "ProductService" },
-              variantid: { type: Schema.Types.ObjectId },
-              quantity: { type: Number, default: 0 },
+        pricing: [
+          {
+            region: {
+              type: String,
+              enum: [
+                "default",
+                "andhra_pradesh", "arunachal_pradesh", "assam", "bihar", "chhattisgarh",
+                "goa", "gujarat", "haryana", "himachal_pradesh", "jharkhand", "karnataka",
+                "kerala", "madhya_pradesh", "maharashtra", "manipur", "meghalaya", "mizoram",
+                "nagaland", "odisha", "punjab", "rajasthan", "sikkim", "tamil_nadu",
+                "telangana", "tripura", "uttar_pradesh", "uttarakhand", "west_bengal",
+                "andaman_nicobar", "chandigarh", "dadra_nagar_haveli_daman_diu", "delhi",
+                "jammu_kashmir", "ladakh", "lakshadweep", "puducherry",
+                "international"
+              ],
+              default: "default"
             },
-          ],
-          channel: {
-            enduser: { type: Boolean, default: false },
-            retail: { type: Boolean, default: false },
-            dealer: { type: Boolean, default: false },
-            superstockist: { type: Boolean, default: false },
-            distributor: { type: Boolean, default: false },
-            exporter: { type: Boolean, default: false },
+            channel: {
+              type: String,
+              enum: ["enduser", "retail", "dealer", "distributor", "superstockist", "exporter"],
+              default: "enduser",
+            },
+            unitprices: [
+              {
+                unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
+                mrp: { type: Number, default: 0 },
+                salesrate: { type: Number, default: 0 },
+                purchaserate: { type: Number, default: 0 },
+                discount: { type: Number, default: 0 },
+                discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
+                offerprice: { type: Number, default: 0 },
+              },
+            ],
           },
-        },
+        ],
         productlikecount: { type: Number, default: 0 },
       },
     ],
@@ -304,12 +280,14 @@ const productServiceSchema = new Schema<IProductService>(
   { timestamps: true }
 );
 
-productServiceSchema.index({ admin: 1, branchid: 1 });
+// 🔹 Indexes
+productServiceSchema.index({ adminid: 1, branchid: 1 });
 productServiceSchema.index({ name: 1 });
 productServiceSchema.index({ "seo.slug": 1 });
 productServiceSchema.index({ "productvariants.productbarcode": 1 });
 productServiceSchema.index({ "servicevariants.servicebarcode": 1 });
 
+// 🔹 Pre-save hook
 productServiceSchema.pre("save", async function (next) {
   const doc = this as HydratedDocument<IProductService>;
   const Product = model<IProductService>("ProductService");
@@ -319,56 +297,67 @@ productServiceSchema.pre("save", async function (next) {
     doc.seo.slug = slugify(doc.name, { lower: true, strict: true });
   }
 
+  // 🔹 Auto-generate product codes & barcodes
   if (Array.isArray(doc.productvariants)) {
     for (let variant of doc.productvariants) {
+      // Auto-generate productcode (#PRD0001, #PRD0002, ...)
       if (!variant.productcode) {
         const last = await Product.findOne({
-          "productvariants.productcode": /^#PRD\d{4}$/
+          "productvariants.productcode": /^#PRD\d{4,}$/
         }).sort({ "productvariants.productcode": -1 });
 
         const nextNum =
           last?.productvariants?.[0]?.productcode
-            ? parseInt(last.productvariants[0].productcode.slice(4)) + 1
+            ? parseInt(last.productvariants[0].productcode.replace("#PRD", "")) + 1
             : 1;
 
-        variant.productcode = `#PRD${nextNum.toString().padStart(4, "0")}`;
+        variant.productcode = `#PRD${String(nextNum).padStart(4, "0")}`;
       }
 
-      if (!variant.productbarcode && Array.isArray(variant.salesrate) && variant.salesrate.length > 0) {
-        const primaryRate = variant.salesrate.find((r) => r.enduser && r.enduser > 0) || variant.salesrate[0];
-        const date = String(new Date().getDate()).padStart(2, "0");
-        const price = String(Math.round(primaryRate.enduser || 0)).padStart(3, "0");
-        const prefix = `${date}${price}`;
+      // Auto-generate productbarcode
+      if (!variant.productbarcode && Array.isArray(variant.pricing) && variant.pricing.length > 0) {
+        // Pick first salesrate from unitprices
+        const primaryPrice =
+          variant.pricing[0]?.unitprices?.[0]?.salesrate ?? 0;
 
-        const last = await Product.findOne({
-          "productvariants.productbarcode": new RegExp(`^${prefix}`)
-        }).sort({ "productvariants.productbarcode": -1 });
+        if (primaryPrice > 0) {
+          const date = String(new Date().getDate()).padStart(2, "0");
+          const price = String(Math.round(primaryPrice)).padStart(3, "0");
+          const prefix = `${date}${price}`;
 
-        const lastNum =
-          last?.productvariants?.[0]?.productbarcode
-            ? parseInt(last.productvariants[0].productbarcode.slice(5)) + 1
-            : 1;
+          const last = await Product.findOne({
+            "productvariants.productbarcode": new RegExp(`^${prefix}`)
+          }).sort({ "productvariants.productbarcode": -1 });
 
-        variant.productbarcode = `${prefix}${String(lastNum).padStart(6, "0")}`;
+          const lastNum =
+            last?.productvariants?.[0]?.productbarcode
+              ? parseInt(last.productvariants[0].productbarcode.slice(prefix.length)) + 1
+              : 1;
+
+          variant.productbarcode = `${prefix}${String(lastNum).padStart(6, "0")}`;
+        }
       }
     }
   }
 
+  // 🔹 Auto-generate service codes & barcodes
   if (Array.isArray(doc.servicevariants)) {
     for (let variant of doc.servicevariants) {
+      // Auto-generate servicecode (#SVC0001, #SVC0002, ...)
       if (!variant.servicecode) {
         const last = await Product.findOne({
-          "servicevariants.servicecode": /^#SVC\d{4}$/
+          "servicevariants.servicecode": /^#SVC\d{4,}$/
         }).sort({ "servicevariants.servicecode": -1 });
 
         const nextNum =
           last?.servicevariants?.[0]?.servicecode
-            ? parseInt(last.servicevariants[0].servicecode.slice(4)) + 1
+            ? parseInt(last.servicevariants[0].servicecode.replace("#SVC", "")) + 1
             : 1;
 
-        variant.servicecode = `#SVC${nextNum.toString().padStart(4, "0")}`;
+        variant.servicecode = `#SVC${String(nextNum).padStart(4, "0")}`;
       }
 
+      // Auto-generate servicebarcode
       if (!variant.servicebarcode && variant.servicerate !== undefined && variant.servicerate > 0) {
         const date = String(new Date().getDate()).padStart(2, "0");
         const rate = String(Math.round(variant.servicerate)).padStart(3, "0");
@@ -380,7 +369,7 @@ productServiceSchema.pre("save", async function (next) {
 
         const lastNum =
           last?.servicevariants?.[0]?.servicebarcode
-            ? parseInt(last.servicevariants[0].servicebarcode.slice(5)) + 1
+            ? parseInt(last.servicevariants[0].servicebarcode.slice(prefix.length)) + 1
             : 1;
 
         variant.servicebarcode = `${prefix}${String(lastNum).padStart(6, "0")}`;
@@ -391,4 +380,7 @@ productServiceSchema.pre("save", async function (next) {
   next();
 });
 
-export const ProductService = mongoose.model<IProductService>("ProductService", productServiceSchema);
+export const ProductService = mongoose.model<IProductService>(
+  "ProductService",
+  productServiceSchema
+);

@@ -52,7 +52,21 @@ const accountSchema = new mongoose.Schema(
     pan: { type: String },
     address: { type: String },
     city: { type: String },
-    state: { type: String },
+    state: {
+      type: String,
+      enum: [
+        "default",
+        "andhra_pradesh","arunachal_pradesh","assam","bihar","chhattisgarh",
+        "goa","gujarat","haryana","himachal_pradesh","jharkhand","karnataka",
+        "kerala","madhya_pradesh","maharashtra","manipur","meghalaya","mizoram",
+        "nagaland","odisha","punjab","rajasthan","sikkim","tamil_nadu",
+        "telangana","tripura","uttar_pradesh","uttarakhand","west_bengal",
+        "andaman_nicobar","chandigarh","dadra_nagar_haveli_daman_diu","delhi",
+        "jammu_kashmir","ladakh","lakshadweep","puducherry",
+        "international"
+      ],
+      default: "default"
+    },
     country: { type: String, default: 'India' },
     pincode: { type: String },
 

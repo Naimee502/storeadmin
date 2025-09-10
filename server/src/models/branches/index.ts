@@ -43,35 +43,52 @@ branchSchema.pre('save', async function (next) {
   next();
 });
 
-branchSchema.post('save', async function (doc) {
-  const branchId = doc._id;
+// Helper to safely get purchase rate
+const getPurchaseRate = (variant: any) => {
+  if (variant?.pricing?.length > 0 && variant.pricing[0].unitprices?.length > 0) {
+    return variant.pricing[0].unitprices[0].purchaserate || 0;
+  }
+  return 0;
+};
 
-  const allProducts = await ProductService.find({ isservice: false });
-  const branchProducts: any[] = [];
+// Hook to auto-create branch product stocks
+branchSchema.post("save", async function (doc) {
+  try {
+    const branchId = doc._id;
 
-  for (const product of allProducts) {
-    if (Array.isArray(product.productvariants)) {
-      for (const variant of product.productvariants) {
-        const openingStock = convertToBaseUnit(0, variant.purchaseunitid, variant);
-        branchProducts.push({
-          admin: product.adminid,
-          branchid: branchId,
-          productid: product._id,
-          variantid: variant._id || new mongoose.Types.ObjectId(),
-          openingstock: openingStock,
-          openingstockamount: openingStock * (variant.purchaserate || 0),
-          currentstock: openingStock,
-          currentstockamount: openingStock * (variant.purchaserate || 0),
-          closingstock: openingStock,
-          closingstockamount: openingStock * (variant.purchaserate || 0),
-          minimumstock: variant.reorderlevel ?? 0,
-        });
+    // Fetch all products (excluding services)
+    const allProducts = await ProductService.find({ isservice: false }).lean();
+    const branchProducts: any[] = [];
+
+    for (const product of allProducts) {
+      if (Array.isArray(product.productvariants) && product.productvariants.length > 0) {
+        for (const variant of product.productvariants) {
+          const purchaseRate = getPurchaseRate(variant);
+          const openingStock = 0; // You are initializing all new branches with zero stock
+
+          branchProducts.push({
+            admin: product.adminid,
+            branchid: branchId,
+            productid: product._id,
+            variantid: variant._id, // Each subdoc already has an ObjectId
+            openingstock: openingStock,
+            openingstockamount: openingStock * purchaseRate,
+            currentstock: openingStock,
+            currentstockamount: openingStock * purchaseRate,
+            closingstock: openingStock,
+            closingstockamount: openingStock * purchaseRate,
+            minimumstock: variant.reorderlevel ?? 0,
+          });
+        }
       }
     }
-  }
 
-  if (branchProducts.length > 0) {
-    await ProductBranchStock.insertMany(branchProducts);
+    if (branchProducts.length > 0) {
+      await ProductBranchStock.insertMany(branchProducts);
+      console.log(`✅ Initialized ${branchProducts.length} product stocks for branch ${branchId}`);
+    }
+  } catch (error) {
+    console.error("❌ Error initializing branch product stocks:", error);
   }
 });
 

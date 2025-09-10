@@ -61,6 +61,51 @@ const AddEditAccount = () => {
     branchid: branchId || "",
   });
 
+  const regionOptions = [
+    { value: "default", label: "Default" },
+    { value: "andhra_pradesh", label: "Andhra Pradesh" },
+    { value: "arunachal_pradesh", label: "Arunachal Pradesh" },
+    { value: "assam", label: "Assam" },
+    { value: "bihar", label: "Bihar" },
+    { value: "chhattisgarh", label: "Chhattisgarh" },
+    { value: "goa", label: "Goa" },
+    { value: "gujarat", label: "Gujarat" },
+    { value: "haryana", label: "Haryana" },
+    { value: "himachal_pradesh", label: "Himachal Pradesh" },
+    { value: "jharkhand", label: "Jharkhand" },
+    { value: "karnataka", label: "Karnataka" },
+    { value: "kerala", label: "Kerala" },
+    { value: "madhya_pradesh", label: "Madhya Pradesh" },
+    { value: "maharashtra", label: "Maharashtra" },
+    { value: "manipur", label: "Manipur" },
+    { value: "meghalaya", label: "Meghalaya" },
+    { value: "mizoram", label: "Mizoram" },
+    { value: "nagaland", label: "Nagaland" },
+    { value: "odisha", label: "Odisha" },
+    { value: "punjab", label: "Punjab" },
+    { value: "rajasthan", label: "Rajasthan" },
+    { value: "sikkim", label: "Sikkim" },
+    { value: "tamil_nadu", label: "Tamil Nadu" },
+    { value: "telangana", label: "Telangana" },
+    { value: "tripura", label: "Tripura" },
+    { value: "uttar_pradesh", label: "Uttar Pradesh" },
+    { value: "uttarakhand", label: "Uttarakhand" },
+    { value: "west_bengal", label: "West Bengal" },
+
+    // Union Territories
+    { value: "andaman_nicobar", label: "Andaman and Nicobar Islands" },
+    { value: "chandigarh", label: "Chandigarh" },
+    { value: "dadra_nagar_haveli_daman_diu", label: "Dadra and Nagar Haveli and Daman and Diu" },
+    { value: "delhi", label: "Delhi" },
+    { value: "jammu_kashmir", label: "Jammu and Kashmir" },
+    { value: "ladakh", label: "Ladakh" },
+    { value: "lakshadweep", label: "Lakshadweep" },
+    { value: "puducherry", label: "Puducherry" },
+
+    // Extra options
+    { value: "international", label: "International" },
+  ];
+
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   const { addAccountMutation, editAccountMutation } = useAccountMutations();
@@ -127,6 +172,8 @@ const AddEditAccount = () => {
       ...formValues,
       assignaccountid: formValues.assignaccountid || null,
       salesmanid: formValues.salesmanid || null,
+      creditlimit: Number(formValues.creditlimit) || 0,
+      duedays: Number(formValues.duedays) || 0,
     };
 
     console.log("Submitting Input:", JSON.stringify(input));
@@ -207,7 +254,15 @@ const AddEditAccount = () => {
               <div className="grid grid-cols-1 gap-4 mb-4">
                 <FormField label="Address" name="address" value={formValues.address} onChange={(e) => handleChange("address", e.target.value)} icon={<FaLocationArrow />} placeholder="Enter address" />
                 <FormField label="City" name="city" value={formValues.city} onChange={(e) => handleChange("city", e.target.value)} icon={<FaCity />} placeholder="Enter city" />
-                <FormField label="State" name="state" value={formValues.state} onChange={(e) => handleChange("state", e.target.value)} placeholder="Enter state" />
+                <FormField
+                  label="State"
+                  name="state"
+                  type="select"                     // make it a dropdown
+                  options={regionOptions}           // use the same enum array
+                  value={formValues.state}
+                  onChange={(e) => handleChange("state", e.target.value)}
+                  placeholder="Select state"
+                />
                 <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />
                 <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />
               </div>

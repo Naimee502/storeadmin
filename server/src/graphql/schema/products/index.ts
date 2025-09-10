@@ -12,8 +12,7 @@ export const productServiceTypeDefs = gql`
   }
 
   type UnitConversion {
-    fromunitid: ID
-    tounitid: ID
+    unitid: ID
     factor: Float
   }
 
@@ -29,43 +28,20 @@ export const productServiceTypeDefs = gql`
     remarks: String
   }
 
-  type SalesRate {
-    id: ID
-    regionname: String
-    currency: String
-    enduser: Float
-    retail: Float
-    dealer: Float
-    superstockist: Float
-    distributor: Float
-    exporter: Float
+  type Pricing {
+    region: ID
+    channel: String
+    unitprices: [UnitPrice]
   }
 
-  type OfferComboItem {
-    productid: ID
-    variantid: ID
-    quantity: Float
-  }
-
-  type OfferChannel {
-    enduser: Boolean
-    retail: Boolean
-    dealer: Boolean
-    superstockist: Boolean
-    distributor: Boolean
-    exporter: Boolean
-  }
-
-  type Offer {
-    isoffer: Boolean
-    type: String
-    title: String
-    startdate: Date
-    enddate: Date
+  type UnitPrice {
+    unitid: ID
+    mrp: Float
+    salesrate: Float
+    purchaserate: Float
+    discount: Float
     discounttype: String
     offerprice: Float
-    comboitems: [OfferComboItem]
-    channel: OfferChannel
   }
 
   type ProductVariant {
@@ -78,11 +54,7 @@ export const productServiceTypeDefs = gql`
     manufacturedate: Date
     expirydate: Date
     baseunitid: ID
-    salesunitid: ID
-    purchaseunitid: ID
-    unitConversions: [UnitConversion]
-    mrp: Float
-    purchaserate: Float
+    unitconversions: [UnitConversion]
     gst: Float
     hsncode: String
     openingstock: Float
@@ -96,8 +68,7 @@ export const productServiceTypeDefs = gql`
     racklocation: String
     isserialised: Boolean
     serials: [Serial]
-    salesrate: [SalesRate]
-    offer: Offer
+    pricing: [Pricing]
     productlikecount: Int
   }
 
@@ -171,7 +142,6 @@ export const productServiceTypeDefs = gql`
   }
 
   input ProductServiceFilterInput {
-    id: ID
     adminid: ID
     vendorid: ID
     branchid: ID
@@ -190,16 +160,6 @@ export const productServiceTypeDefs = gql`
     productbarcode: String
     servicecode: String
     servicebarcode: String
-    hasStockBelow: Float
-    hasStockAbove: Float
-    minimumstockBelow: Float
-    reorderlevelBelow: Float
-    priceMin: Float
-    priceMax: Float
-    mrpMin: Float
-    mrpMax: Float
-    hasOffers: Boolean
-    isserialised: Boolean
     createdFrom: Date
     createdTo: Date
     updatedFrom: Date
@@ -207,6 +167,7 @@ export const productServiceTypeDefs = gql`
   }
 
   input ProductServiceInput {
+    id: ID
     adminid: ID!
     vendorid: ID
     branchid: ID!
@@ -281,11 +242,7 @@ export const productServiceTypeDefs = gql`
     manufacturedate: Date
     expirydate: Date
     baseunitid: ID
-    salesunitid: ID
-    purchaseunitid: ID
-    unitConversions: [UnitConversionInput]
-    mrp: Float
-    purchaserate: Float
+    unitconversions: [UnitConversionInput]
     gst: Float
     hsncode: String
     openingstock: Float
@@ -299,14 +256,12 @@ export const productServiceTypeDefs = gql`
     racklocation: String
     isserialised: Boolean
     serials: [SerialInput]
-    salesrate: [SalesRateInput]
-    offer: OfferInput
+    pricing: [PricingInput]
     productlikecount: Int
   }
 
   input UnitConversionInput {
-    fromunitid: ID
-    tounitid: ID
+    unitid: ID
     factor: Float
   }
 
@@ -322,43 +277,20 @@ export const productServiceTypeDefs = gql`
     remarks: String
   }
 
-  input SalesRateInput {
-    id: ID
-    regionname: String
-    currency: String
-    enduser: Float
-    retail: Float
-    dealer: Float
-    superstockist: Float
-    distributor: Float
-    exporter: Float
+  input PricingInput {
+    region: String
+    channel: String
+    unitprices: [UnitPriceInput]
   }
 
-  input OfferComboItemInput {
-    productid: ID
-    variantid: ID
-    quantity: Float
-  }
-
-  input OfferChannelInput {
-    enduser: Boolean
-    retail: Boolean
-    dealer: Boolean
-    superstockist: Boolean
-    distributor: Boolean
-    exporter: Boolean
-  }
-
-  input OfferInput {
-    isoffer: Boolean
-    type: String
-    title: String
-    startdate: Date
-    enddate: Date
+  input UnitPriceInput {
+    unitid: ID
+    mrp: Float
+    salesrate: Float
+    purchaserate: Float
+    discount: Float
     discounttype: String
     offerprice: Float
-    comboitems: [OfferComboItemInput]
-    channel: OfferChannelInput
   }
 
   type Query {

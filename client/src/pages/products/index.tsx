@@ -24,6 +24,7 @@ const ProductServices = () => {
   const { deleteProductServiceMutation } = useProductServiceMutations();
   const { data: unitData } = useUnitsQuery();
   const unitList = unitData?.getUnits || [];
+  console.log("productServiceList:", JSON.stringify(productServiceList));
 
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
@@ -50,30 +51,56 @@ const ProductServices = () => {
   ];
 
   const tableData = productServiceList?.map((item: any, index: number) => {
-    const variant = item.isservice
-      ? item.servicevariants?.[0]
-      : item.productvariants?.[0];
-
-    const matchedUnit = !item.isservice && variant
-      ? unitList.find((unit) => unit.id === variant.salesunitid)
-      : null;
+    const variants = item.isservice ? item.servicevariants : item.productvariants;
 
     return {
       ...item,
       seqNo: index + 1,
       code: item.isservice
-        ? variant?.servicecode || "-"
-        : variant?.productcode || "-",
+        ? variants?.[0]?.servicecode || "-"
+        : variants?.[0]?.productcode || "-",
       name: item.name,
-      currentstock: item.isservice
-        ? variant?.locationType || "-" // service → show location type
-        : variant?.currentstock ?? 0,  // product → show current stock
-      salesrate: item.isservice
-        ? variant?.servicerate ?? 0
-        : variant?.salesrate?.[0]?.enduser ?? 0,
-      salesunit: item.isservice
-        ? variant?.uom || "-"
-        : matchedUnit?.unitname || "-",
+
+      // ✅ Show stock vertically
+      currentstock: (
+        <div>
+          {variants?.map((variant: any, i: number) => (
+            <div key={i}>
+              {item.isservice ? variant?.locationType || "-" : variant?.currentstock ?? 0}
+            </div>
+          ))}
+        </div>
+      ),
+
+      // ✅ Show sales rate vertically
+      salesrate: (
+        <div>
+          {variants?.map((variant: any, i: number) => (
+            <div key={i}>
+              {item.isservice
+                ? variant?.servicerate ?? 0
+                : variant?.pricing?.[0]?.unitprices?.[0]?.salesrate ?? 0}
+            </div>
+          ))}
+        </div>
+      ),
+
+      // ✅ Show unit vertically
+      salesunit: (
+        <div>
+          {variants?.map((variant: any, i: number) => {
+            if (item.isservice) {
+              return <div key={i}>{variant?.uom || "-"}</div>;
+            }
+            const firstUnitId = variant?.pricing?.[0]?.unitprices?.[0]?.unitid;
+            const matchedUnit = firstUnitId
+              ? unitList.find((unit) => unit.id === firstUnitId)
+              : null;
+            return <div key={i}>{matchedUnit?.unitname || "-"}</div>;
+          })}
+        </div>
+      ),
+
       status: item.status ? "Active" : "Inactive",
     };
   });
@@ -182,7 +209,7 @@ const ProductServices = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onBarcode={(row) => {
-            if (row.isservice) return; 
+            if (row.isservice) return;
             console.log("Barcode", JSON.stringify(row));
             const barcodeValue = row.productvariants?.[0]?.productbarcode || "";
             setBarcodeProduct({

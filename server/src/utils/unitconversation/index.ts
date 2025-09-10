@@ -5,29 +5,28 @@ import { IProductVariant } from "../../models/products";
  * Convert a quantity from a given unit (sales or purchase) to the variant's base unit
  * @param qty - quantity in the selected unit
  * @param unitId - selected unit (salesunitid or purchaseunitid)
- * @param variant - product variant object with unitConversions
+ * @param variant - product variant object with unitconversions
  * @returns quantity in base unit
  */
-
 export function convertToBaseUnit(
   qty: number,
-  unitId?: Types.ObjectId,
+  unitId?: Types.ObjectId | string,
   variant?: IProductVariant
 ): number {
-  // No variant or missing IDs → return qty directly
   if (!variant || !unitId || !variant.baseunitid) return qty;
 
-  // If no conversions, assume same unit (factor = 1)
-  if (!variant.unitConversions || variant.unitConversions.length === 0) {
+  // Normalize unitId to string for safe comparison
+  const unitIdStr = unitId instanceof Types.ObjectId ? unitId.toString() : unitId;
+
+  if (!variant.unitconversions || variant.unitconversions.length === 0) {
     return qty;
   }
 
-  // Try finding a valid conversion
-  const conversion = variant.unitConversions.find(
-    (u) =>
-      u?.fromunitid?.toString() === unitId.toString() &&
-      u?.tounitid?.toString() === variant.baseunitid?.toString()
-  );
+  const conversion = variant.unitconversions.find((u) => {
+    if (!u.unitid) return false;
+    const uIdStr = u.unitid instanceof Types.ObjectId ? u.unitid.toString() : u.unitid;
+    return uIdStr === unitIdStr;
+  });
 
-  return conversion ? qty * conversion.factor : qty; // Default = no change
+  return conversion ? qty * conversion.factor : qty;
 }
