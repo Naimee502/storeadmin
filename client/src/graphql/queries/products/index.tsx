@@ -8,6 +8,9 @@ export const GET_PRODUCT_SERVICES = gql`
       vendorid
       branchid
       isservice
+      isserialised
+      isshowinpos
+      isfeatured
       name
       description
       imageurl
@@ -60,6 +63,8 @@ export const GET_PRODUCT_SERVICES = gql`
         manufacturedate
         expirydate
         baseunitid
+        purchaseunitid
+        purchaserate
         unitconversions {
           unitid
           factor
@@ -75,7 +80,6 @@ export const GET_PRODUCT_SERVICES = gql`
         minimumstock
         reorderlevel
         racklocation
-        isserialised
         serials {
           id
           imei
@@ -91,10 +95,10 @@ export const GET_PRODUCT_SERVICES = gql`
           region
           channel
           unitprices {
+            quantity
             unitid
             mrp
             salesrate
-            purchaserate
             discount
             discounttype
             offerprice
@@ -122,6 +126,9 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       vendorid
       branchid
       isservice
+      isserialised
+      isshowinpos
+      isfeatured
       name
       description
       imageurl
@@ -174,6 +181,8 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         manufacturedate
         expirydate
         baseunitid
+        purchaseunitid
+        purchaserate
         unitconversions {
           unitid
           factor
@@ -189,7 +198,6 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         minimumstock
         reorderlevel
         racklocation
-        isserialised
         serials {
           id
           imei
@@ -205,10 +213,10 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
           region
           channel
           unitprices {
+            quantity
             unitid
             mrp
             salesrate
-            purchaserate
             discount
             discounttype
             offerprice

@@ -35,10 +35,10 @@ export const productServiceTypeDefs = gql`
   }
 
   type UnitPrice {
-    unitid: ID
+    quantity: Float! 
+    unitid: ID!
     mrp: Float
     salesrate: Float
-    purchaserate: Float
     discount: Float
     discounttype: String
     offerprice: Float
@@ -54,6 +54,8 @@ export const productServiceTypeDefs = gql`
     manufacturedate: Date
     expirydate: Date
     baseunitid: ID
+    purchaseunitid: ID       
+    purchaserate: Float       
     unitconversions: [UnitConversion]
     gst: Float
     hsncode: String
@@ -66,7 +68,6 @@ export const productServiceTypeDefs = gql`
     minimumstock: Float
     reorderlevel: Float
     racklocation: String
-    isserialised: Boolean
     serials: [Serial]
     pricing: [Pricing]
     productlikecount: Int
@@ -118,6 +119,9 @@ export const productServiceTypeDefs = gql`
     vendorid: ID
     branchid: ID!
     isservice: Boolean
+    isshowinpos: Boolean
+    isfeatured: Boolean
+    isserialised: Boolean
     name: String!
     description: String
     imageurl: String
@@ -131,8 +135,6 @@ export const productServiceTypeDefs = gql`
     seo: SEO
     servicevariants: [ServiceVariant]
     productvariants: [ProductVariant]
-    isshowinpos: Boolean
-    isfeatured: Boolean
     salesaccountid: ID
     purchaseaccountid: ID
     serviceaccountid: ID
@@ -172,6 +174,9 @@ export const productServiceTypeDefs = gql`
     vendorid: ID
     branchid: ID!
     isservice: Boolean
+    isshowinpos: Boolean
+    isfeatured: Boolean
+    isserialised: Boolean
     name: String!
     description: String
     imageurl: String
@@ -185,8 +190,6 @@ export const productServiceTypeDefs = gql`
     seo: SEOInput
     servicevariants: [ServiceVariantInput]
     productvariants: [ProductVariantInput]
-    isshowinpos: Boolean
-    isfeatured: Boolean
     salesaccountid: ID
     purchaseaccountid: ID
     serviceaccountid: ID
@@ -242,6 +245,8 @@ export const productServiceTypeDefs = gql`
     manufacturedate: Date
     expirydate: Date
     baseunitid: ID
+    purchaseunitid: ID       
+    purchaserate: Float
     unitconversions: [UnitConversionInput]
     gst: Float
     hsncode: String
@@ -254,7 +259,6 @@ export const productServiceTypeDefs = gql`
     minimumstock: Float
     reorderlevel: Float
     racklocation: String
-    isserialised: Boolean
     serials: [SerialInput]
     pricing: [PricingInput]
     productlikecount: Int
@@ -284,6 +288,7 @@ export const productServiceTypeDefs = gql`
   }
 
   input UnitPriceInput {
+    quantity: Float!
     unitid: ID
     mrp: Float
     salesrate: Float

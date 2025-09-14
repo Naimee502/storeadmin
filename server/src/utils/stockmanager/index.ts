@@ -1,93 +1,74 @@
 import { Types } from "mongoose";
 import { IProductVariant } from "../../models/products";
 import { ProductBranchStock } from "../../models/productbranchstock";
-import { Branch } from "../../models/branches";
 import { convertToBaseUnit } from "../unitconversation";
 
-export type StockAction = "CREATE_PRODUCT" | "PURCHASE" | "SALE" | "TRANSFER" | "ADJUSTMENT" | "SET";
+export type StockAction = "SET" | "PURCHASE" | "SALE" | "TRANSFER_IN" | "TRANSFER_OUT" | "ADJUST";
 
 interface StockManagerParams {
+  adminId: Types.ObjectId;
   productId: Types.ObjectId;
   branchId: Types.ObjectId;
   variant: IProductVariant;
   qty: number;
   unitId?: Types.ObjectId;
-  regionId?: Types.ObjectId; // Optional region to pick pricing
-  channel?: string; // Optional channel to pick pricing
-  rate?: number; // If passed, overrides pricing
   action: StockAction;
-  toBranchId?: Types.ObjectId;
   allowCreate?: boolean;
+  rate?: number;
 }
 
-// 🔹 Helper to get purchaserate from pricing structure
-function getPurchaseRate(
-  variant: IProductVariant,
-  unitId?: Types.ObjectId,
-  regionId?: Types.ObjectId,
-  channel?: string
-): number {
-  if (!variant.pricing || !variant.pricing.length) return 0;
+function getPurchaseRate(variant: IProductVariant, overrideRate?: number): number {
+  let rate = overrideRate ?? variant.purchaserate ?? 0;
 
-  let pricingEntry = variant.pricing[0];
+  const purchaseUnitId = variant.purchaseunitid?.toString();
+  const baseUnitId = variant.baseunitid?.toString();
 
-  if (channel) {
-    pricingEntry =
-      variant.pricing.find(
-        (p) => p.channel === channel
-      ) || pricingEntry;
+  if (purchaseUnitId && baseUnitId && variant.unitconversions?.length) {
+    const purchaseConversion = variant.unitconversions.find(
+      (u) => u.unitid?.toString() === purchaseUnitId
+    );
+    if (purchaseConversion && purchaseConversion.factor > 0) {
+      rate = rate / purchaseConversion.factor;
+    }
   }
-
-  if (!pricingEntry || !pricingEntry.unitprices.length) return 0;
-
-  // Convert unitId to ObjectId for comparison
-  const unitObjId = unitId instanceof Types.ObjectId ? unitId : new Types.ObjectId(unitId);
-
-  const unitPrice = pricingEntry.unitprices.find(
-    (u) => u.unitid instanceof Types.ObjectId
-      ? u.unitid.equals(unitObjId)
-      : u.unitid === unitObjId.toString()
-  );
-
-  return unitPrice?.purchaserate ?? 0;
+  return rate;
 }
 
-export async function manageStock(params: StockManagerParams & { action: StockAction | "SET" }) {
-  const { productId, branchId, variant, qty, unitId, action, allowCreate = true } = params;
+export async function manageStock(params: StockManagerParams): Promise<any> {
+  const {
+    adminId,
+    productId,
+    branchId,
+    variant,
+    qty,
+    unitId,
+    action,
+    allowCreate = true,
+    rate: overrideRate,
+  } = params;
 
   if (!variant._id) throw new Error("Variant _id required");
 
-  const rate = getPurchaseRate(variant, unitId);
-  const qtyInBase = convertToBaseUnit(qty, unitId, variant);
-  const variantId = variant._id;
-
-  console.log("🔎 Stock check", {
-    product: productId.toString(),
-    variant: variantId.toString(),
-    branch: branchId.toString(),
-    action,
-    qty,
-    qtyInBase,
-    rate,
-  });
-
+  // Find stock record scoped by admin & branch
   let stock = await ProductBranchStock.findOne({
+    adminid: adminId,
     productid: productId,
-    variantid: variantId,
+    variantid: variant._id,
     branchid: branchId,
   });
 
-  if (!stock) {
-    console.log(`❌ No stock found for branch=${branchId}, variant=${variantId}`);
-    if (!allowCreate) {
-      console.log("🚫 allowCreate=false → skipping");
-      return;
-    }
+  // Normalize quantity to base unit
+  const qtyInBase = convertToBaseUnit(qty, unitId, variant);
 
-    console.log(`➕ Creating stock row: qty=${qtyInBase}, rate=${rate}`);
+  const rate = getPurchaseRate(variant, overrideRate);
+
+  if (!stock) {
+    if (!allowCreate) return null;
+
     stock = await ProductBranchStock.create({
+      adminid: adminId,
       productid: productId,
-      variantid: variantId,
+      variantid: variant._id,
       branchid: branchId,
       openingstock: qtyInBase,
       openingstockamount: qtyInBase * rate,
@@ -99,64 +80,91 @@ export async function manageStock(params: StockManagerParams & { action: StockAc
       reorderlevel: variant.reorderlevel || 0,
       averagecost: rate,
     });
-    console.log(`✅ Created stock _id=${stock._id}`);
     return stock;
   }
 
-  if (action === "SET") {
-    console.log(
-      `♻️ Updating stock (branch=${branchId}, variant=${variantId}) current=${stock.currentstock} → new=${qtyInBase}`
-    );
+  // --- Update stock based on action ---
+  switch (action) {
+    case "SET":      // overwrite stock
+    case "ADJUST":   // manual adjustment
+      stock.currentstock = qtyInBase;
+      break;
 
-    stock.currentstock = qtyInBase;
-    stock.currentstockamount = qtyInBase * rate;
-    stock.closingstock = qtyInBase;
-    stock.closingstockamount = qtyInBase * rate;
-    stock.averagecost = rate;
+    case "PURCHASE":     // incoming purchase
+    case "TRANSFER_IN":  // stock received from another branch
+      stock.currentstock += qtyInBase;
+      break;
 
-    await stock.save();
-    console.log(`✅ Stock updated for variant=${variantId}, branch=${branchId}`);
-    return stock;
+    case "SALE":         // outgoing sale
+    case "TRANSFER_OUT": // stock sent to another branch
+      stock.currentstock -= qtyInBase;
+      break;
+
+    default:
+      throw new Error(`Unknown stock action: ${action}`);
   }
 
-  console.log("⚠️ Unknown action, nothing applied");
+  // Always recalc amounts and closing stock
+  stock.currentstockamount = stock.currentstock * rate;
+  stock.closingstock = stock.currentstock;
+  stock.closingstockamount = stock.currentstock * rate;
+  stock.averagecost = rate;
+
+  await stock.save();
   return stock;
 }
 
-export async function getAvailableStock(
+export async function getStockDetails(
   productId: Types.ObjectId,
-  adminId?: Types.ObjectId, // optional, but don’t use if not in schema
+  adminId?: Types.ObjectId,
   branchId?: Types.ObjectId,
   variantId?: Types.ObjectId
-): Promise<number> {
+): Promise<{
+  openingstock: number;
+  closingstock: number;
+  currentstock: number;
+  openingstockamount: number;
+  currentstockamount: number;
+  closingstockamount: number;
+}> {
   if (!productId) {
-    console.log("❌ No productId provided");
-    return 0;
+    return {
+      openingstock: 0,
+      closingstock: 0,
+      currentstock: 0,
+      openingstockamount: 0,
+      currentstockamount: 0,
+      closingstockamount: 0,
+    };
   }
 
   const match: any = { productid: productId };
+  if (adminId) match.adminid = adminId;
+  if (branchId) match.branchid = branchId;
+  if (variantId) match.variantid = variantId;
 
-  if (branchId) {
-    match.branchid = branchId;
-  }
+  const result = await ProductBranchStock.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        openingstock: { $sum: "$openingstock" },
+        closingstock: { $sum: "$closingstock" },
+        currentstock: { $sum: "$currentstock" },
+        openingstockamount: { $sum: "$openingstockamount" },
+        currentstockamount: { $sum: "$currentstockamount" },
+        closingstockamount: { $sum: "$closingstockamount" },
+      },
+    },
+  ]);
 
-  if (variantId) {
-    match.variantid = variantId;
-  }
-
-  // ⚠️ Only filter by adminId if ProductBranchStock schema doesn’t store adminid directly
-  if (adminId && !branchId) {
-    const branches = await Branch.find({ adminid: adminId }, "_id").lean();
-    const branchIds = branches.map((b) => b._id);
-    match.branchid = { $in: branchIds };
-  }
-
-  console.log("📝 Final match query:", JSON.stringify(match));
-  const stocks = await ProductBranchStock.find(match, "currentstock").lean();
-
-  const totalStock = stocks.reduce((sum, s) => sum + (s.currentstock || 0), 0);
-  console.log("✅ Calculated total stock:", totalStock);
-
-  return totalStock;
+  return {
+    openingstock: result[0]?.openingstock || 0,
+    closingstock: result[0]?.closingstock || 0,
+    currentstock: result[0]?.currentstock || 0,
+    openingstockamount: result[0]?.openingstockamount || 0,
+    currentstockamount: result[0]?.currentstockamount || 0,
+    closingstockamount: result[0]?.closingstockamount || 0,
+  };
 }
 

@@ -1,7 +1,6 @@
 import { ProductService } from "../../../models/products";
 import { Types } from "mongoose";
-import { getAvailableStock, manageStock } from "../../../utils/stockmanager";
-import { ProductBranchStock } from "../../../models/productbranchstock";
+import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
 
 export const productServiceResolvers = {
@@ -10,21 +9,9 @@ export const productServiceResolvers = {
       const query: any = { status: filter.status !== undefined ? filter.status : true };
 
       [
-        "adminid",
-        "vendorid",
-        "productcode",
-        "productbarcode",
-        "servicecode",
-        "servicebarcode",
-        "isservice",
-        "isfeatured",
-        "isshowinpos",
-        "categoryid",
-        "subcategoryid",
-        "groupid",
-        "modelid",
-        "brandid",
-        "sizeid",
+        "adminid", "vendorid", "productcode", "productbarcode", "servicecode", "servicebarcode",
+        "isservice", "isfeatured", "isshowinpos", "categoryid", "subcategoryid", "groupid",
+        "modelid", "brandid", "sizeid",
       ].forEach((key) => {
         if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
       });
@@ -74,20 +61,20 @@ export const productServiceResolvers = {
           if (mapped.productvariants?.length) {
             mapped.productvariants = await Promise.all(
               mapped.productvariants.map(async (v: any) => {
-                let stock = await getAvailableStock(mapped._id, adminId, branchId, v._id);
+                let stockDetails = await getStockDetails(mapped._id, adminId, branchId, v._id);
 
                 // 👉 Fallback if variant-level stock not found
-                if (stock === 0) {
-                  stock = await getAvailableStock(mapped._id, adminId, branchId);
+                if (stockDetails.currentstock === 0) {
+                  stockDetails = await getStockDetails(mapped._id, adminId, branchId);
                 }
 
-                return { ...v, currentstock: stock };
+                return { ...v, ...stockDetails };
               })
             );
           }
 
           // 🔹 Always calculate product-level stock
-          mapped.currentstock = await getAvailableStock(mapped._id, adminId, branchId);
+          mapped.stock = await getStockDetails(mapped._id, adminId, branchId);
 
           return mapped;
         })
@@ -102,17 +89,17 @@ export const productServiceResolvers = {
       const product = await ProductService.findById(id);
       if (!product) return null;
 
-      const response: any = product.toObject(); // 👈 cast to any
+      const response: any = product.toObject();
       response.id = response._id.toString();
 
       const adminObjId = adminId ? new Types.ObjectId(adminId) : undefined;
       const branchObjId = branchId ? new Types.ObjectId(branchId) : undefined;
 
-      // 🔹 Handle variant-level stock with fallback
+      // 🔹 Handle product variants with stock details
       if (response.productvariants?.length) {
         response.productvariants = await Promise.all(
           response.productvariants.map(async (v: any) => {
-            let stock = await getAvailableStock(
+            let stockDetails = await getStockDetails(
               response._id,
               adminObjId,
               branchObjId,
@@ -120,14 +107,22 @@ export const productServiceResolvers = {
             );
 
             // 👉 fallback to product-level stock if variant-level stock missing
-            if (stock === 0) {
-              stock = await getAvailableStock(response._id, adminObjId, branchObjId);
+            if (
+              stockDetails.currentstock === 0 &&
+              stockDetails.openingstock === 0 &&
+              stockDetails.closingstock === 0
+            ) {
+              stockDetails = await getStockDetails(
+                response._id,
+                adminObjId,
+                branchObjId
+              );
             }
 
             return {
               ...v,
               id: v._id?.toString(),
-              currentstock: stock, // 👈 safe now
+              ...stockDetails, // 👈 attach all stock fields
             };
           })
         );
@@ -141,12 +136,8 @@ export const productServiceResolvers = {
         }));
       }
 
-      // 🔹 Product-level stock
-      response.currentstock = await getAvailableStock(
-        response._id,
-        adminObjId,
-        branchObjId
-      );
+      // 🔹 Product-level stock details
+      response.stock = await getStockDetails(response._id, adminObjId, branchObjId);
 
       return response;
     },
@@ -155,77 +146,80 @@ export const productServiceResolvers = {
 
   Mutation: {
     addProductService: async (_: any, { input }: any) => {
+
       const created = await ProductService.create(input);
       const savedProduct = await ProductService.findById(created._id);
       if (!savedProduct) throw new Error("Failed to find the created product");
 
-      await Promise.all(
-        (savedProduct.productvariants || []).map((v: any) =>
-          manageStock({
+      // Fetch all branches under this admin
+      const branches = await Branch.find({ admin: new Types.ObjectId(input.adminid) });
+
+      // For each variant, create stock entry for each branch
+      for (const v of savedProduct.productvariants || []) {
+        for (const b of branches) {
+          const qty = b._id.equals(input.branchid) ? v.openingstock ?? 0 : 0;
+          await manageStock({
+            adminId: new Types.ObjectId(input.adminid), // ✅ added
             productId: savedProduct._id,
-            branchId: input.branchid,
+            branchId: b._id,
             variant: v,
-            qty: v.openingstock ?? 0,
-            action: "CREATE_PRODUCT",
-          })
-        )
-      );
+            qty,
+            unitId: v.baseunitid ? new Types.ObjectId(v.baseunitid) : undefined,
+            action: "SET",
+            allowCreate: true,
+          });
+        }
+      }
 
       return savedProduct;
     },
 
     updateProductService: async (_: any, { id, input }: any) => {
-      console.log("🔹 Updating product:", id);
 
       const product = await ProductService.findById(id);
       if (!product) throw new Error("Product not found");
 
-      // Fetch ALL branches for this admin
       const branches = await Branch.find({ admin: new Types.ObjectId(product.adminid) });
-      console.log(`🏢 Found ${branches.length} branches for admin=${product.adminid}`);
 
-      // Normalize variants
+      // Prepare variants
       const preparedVariants = (input.productvariants || []).map((v: any) => {
-        const providedId = v.id ?? v._id;
-        const isValidId = providedId && Types.ObjectId.isValid(providedId);
-        const assignedId = isValidId ? new Types.ObjectId(providedId) : new Types.ObjectId();
-
-        if (!isValidId) {
-          console.log(`🆕 New variant "${v.name}" → assigned _id: ${assignedId}`);
-        } else {
-          console.log(`♻️ Existing variant "${v.name}" → using _id: ${assignedId}`);
-        }
-
-        const { tempid, __typename, ...rest } = v;
-        return { ...rest, _id: assignedId, id: assignedId.toString() };
+        const variantId = v._id || v.id; // allow either
+        return {
+          ...v,
+          _id: variantId && Types.ObjectId.isValid(variantId)
+            ? new Types.ObjectId(variantId)
+            : new Types.ObjectId(),
+        };
       });
 
-      // Loop each variant and sync stock
+      // Handle stock updates
       for (const pv of preparedVariants) {
-        const vid = pv._id;
-        const newQty = Number(pv.currentstock ?? 0);
+        const existingVariant = (product.productvariants || []).find((old: any) =>
+          old._id.equals(pv._id)
+        );
 
-        console.log(`\n🔍 Processing variant ${pv.name} (${vid.toString()}) with stock=${newQty}`);
+        if (existingVariant) {
 
-        // For existing variants → only update current branch
-        if ((product.productvariants ?? []).some((old: any) => old._id.equals(vid))) {
           await manageStock({
+            adminId: new Types.ObjectId(product.adminid), // ✅ added
             productId: product._id,
             branchId: new Types.ObjectId(product.branchid),
             variant: pv,
-            qty: newQty,
+            qty: Number(pv.currentstock ?? 0),
             unitId: pv.baseunitid ? new Types.ObjectId(pv.baseunitid) : undefined,
             action: "SET",
-            allowCreate: true,
+            allowCreate: false,
           });
         } else {
-          // For new variants → create stock row in ALL branches
           for (const b of branches) {
+            const qty = b._id.equals(product.branchid) ? Number(pv.currentstock ?? 0) : 0;
+
             await manageStock({
+              adminId: new Types.ObjectId(product.adminid), // ✅ added
               productId: product._id,
               branchId: b._id,
               variant: pv,
-              qty: b._id.equals(product.branchid) ? newQty : 0, // only assign input qty to current branch
+              qty,
               unitId: pv.baseunitid ? new Types.ObjectId(pv.baseunitid) : undefined,
               action: "SET",
               allowCreate: true,
@@ -234,14 +228,8 @@ export const productServiceResolvers = {
         }
       }
 
-      // Save product itself
-      product.set({
-        ...input,
-        productvariants: preparedVariants,
-      });
-
+      product.set({ ...input, productvariants: preparedVariants });
       const updated = await product.save();
-      console.log("✅ Product fields updated & stock synced");
 
       return updated;
     },

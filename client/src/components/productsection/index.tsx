@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import FormField from "../formfiled";
 import Button from "../button";
 
-export type InvoiceProduct = {
+type InvoiceProduct = {
   productserviceid: string;
   variantid?: string | null;
   salesunitid?: string | null;
@@ -144,7 +144,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       ...prev,
       salesunitid: prev.salesunitid ?? selectedProduct.defaultSalesUnit ?? null,
       purchaseunitid: prev.purchaseunitid ?? selectedProduct.defaultPurchaseUnit ?? null,
-      rate: baseRate * factor,
+      rate: baseRate / factor,
       salesaccountid: selectedProduct.salesaccountid ?? null,
       purchaseaccountid: selectedProduct.purchaseaccountid ?? null,
       serviceaccountid: selectedProduct.serviceaccountid ?? null,
@@ -152,7 +152,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
     console.log("Selected Product:", selectedProduct.name);
     console.log("Selected Unit Factor:", factor);
-    console.log("Calculated Rate:", baseRate * factor);
+    console.log("Calculated Rate:", baseRate / factor);
   }, [selectedProduct, currentProduct.salesunitid, currentProduct.purchaseunitid, type]);
 
   // Barcode scanning (only for products)

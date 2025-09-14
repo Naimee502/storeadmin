@@ -1,14 +1,14 @@
 import mongoose, { Schema, Document, Types, HydratedDocument, model } from "mongoose";
 import slugify from "slugify";
 
-// 🔹 Interface for Unit Conversion
-interface IUnitConversion {
+// 🔹 Unit Conversion
+export interface IUnitConversion {
   unitid: Types.ObjectId;
   factor: number;
 }
 
-// 🔹 Interface for Serial Numbers
-interface ISerial {
+// 🔹 Serial
+export interface ISerial {
   imei?: string;
   serialnumber?: string;
   lotnumber?: string;
@@ -19,25 +19,25 @@ interface ISerial {
   remarks?: string;
 }
 
-// 🔹 Interface for Unit Prices
-interface IUnitPrice {
+// 🔹 Unit Price (for sales only)
+export interface IUnitPrice {
   unitid: Types.ObjectId;
+  quantity: number;
   mrp: number;
   salesrate: number;
-  purchaserate: number;
   discount: number;
   discounttype: "fixed" | "percentage";
   offerprice: number;
 }
 
-// 🔹 Interface for Pricing
-interface IPricing {
-  regionid: Types.ObjectId;
+// 🔹 Pricing (per region & channel)
+export interface IPricing {
+  region: string; // e.g., "default" | "andhra_pradesh" ...
   channel: "default" | "enduser" | "retail" | "dealer" | "distributor" | "superstockist" | "exporter";
   unitprices: IUnitPrice[];
 }
 
-// 🔹 Interface for Product Variant
+// 🔹 Product Variant
 export interface IProductVariant {
   _id?: Types.ObjectId;
   name?: string;
@@ -48,6 +48,8 @@ export interface IProductVariant {
   manufacturedate?: Date;
   expirydate?: Date;
   baseunitid?: Types.ObjectId;
+  purchaseunitid?: Types.ObjectId; // unit in which product is purchased
+  purchaserate?: number; // SINGLE purchase rate
   unitconversions?: IUnitConversion[];
   gst?: number;
   hsncode?: string;
@@ -60,59 +62,45 @@ export interface IProductVariant {
   minimumstock?: number;
   reorderlevel?: number;
   racklocation?: string;
-  isserialised?: boolean;
   serials?: ISerial[];
-  pricing?: IPricing[];
+  pricing?: IPricing[]; // sales pricing only
   productlikecount?: number;
 }
 
-// 🔹 Interface for Service Availability Slot
-interface IAvailabilitySlot {
-  day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-  from: string;
-  to: string;
-}
-
-// 🔹 Interface for Service Recurrence
-interface IRecurrence {
-  interval: "daily" | "weekly" | "monthly";
-  count: number;
-}
-
-// 🔹 Interface for Service Variant
-interface IServiceVariant {
+// 🔹 Service Variant
+export interface IServiceVariant {
   name: string;
   servicecode?: string;
   servicebarcode?: string;
   servicerate?: number;
   uom?: string;
-  duration?: {
-    amount: number;
-    unit: "minutes" | "hours";
-  };
+  duration?: { amount: number; unit: "minutes" | "hours" };
   requiresappointment?: boolean;
-  availabilityslots?: IAvailabilitySlot[];
+  availabilityslots?: { day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun"; from: string; to: string }[];
   locationType?: "onsite" | "offsite" | "remote";
   isRecurring?: boolean;
-  recurrence?: IRecurrence;
+  recurrence?: { interval: "daily" | "weekly" | "monthly"; count: number };
   servicelikecount?: number;
   remarks?: string;
 }
 
-// 🔹 Interface for SEO
-interface ISEO {
+// 🔹 SEO
+export interface ISEO {
   metatitle?: string;
   metadescription?: string;
   keywords?: string[];
   slug?: string;
 }
 
-// 🔹 Main ProductService Interface
+// 🔹 Main ProductService
 export interface IProductService extends Document {
   adminid: Types.ObjectId;
   vendorid?: Types.ObjectId;
   branchid: Types.ObjectId;
   isservice: boolean;
+  isserialised: boolean;
+  isshowinpos?: boolean;
+  isfeatured?: boolean;
   name: string;
   description?: string;
   imageurl?: string;
@@ -126,8 +114,6 @@ export interface IProductService extends Document {
   seo?: ISEO;
   servicevariants?: IServiceVariant[];
   productvariants?: IProductVariant[];
-  isshowinpos?: boolean;
-  isfeatured?: boolean;
   salesaccountid?: Types.ObjectId;
   purchaseaccountid?: Types.ObjectId;
   serviceaccountid?: Types.ObjectId;
@@ -143,6 +129,9 @@ const productServiceSchema = new Schema<IProductService>(
     vendorid: { type: Schema.Types.ObjectId, ref: "Vendor" },
     branchid: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     isservice: { type: Boolean, default: false },
+    isshowinpos: { type: Boolean, default: false },
+    isfeatured: { type: Boolean, default: false },
+    isserialised: { type: Boolean, default: false },
     name: { type: String, required: true },
     description: { type: String, default: "" },
     imageurl: String,
@@ -198,6 +187,8 @@ const productServiceSchema = new Schema<IProductService>(
         manufacturedate: Date,
         expirydate: Date,
         baseunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
+        purchaseunitid: { type: Schema.Types.ObjectId, ref: "Unit" },
+        purchaserate: { type: Number, default: 0 },
         unitconversions: [
           {
             unitid: { type: Schema.Types.ObjectId, ref: "Unit" },
@@ -215,7 +206,6 @@ const productServiceSchema = new Schema<IProductService>(
         minimumstock: Number,
         reorderlevel: Number,
         racklocation: String,
-        isserialised: { type: Boolean, default: false },
         serials: [
           {
             imei: String,
@@ -256,10 +246,10 @@ const productServiceSchema = new Schema<IProductService>(
             },
             unitprices: [
               {
+                quantity: { type: Number, default: 1 },
                 unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
                 mrp: { type: Number, default: 0 },
                 salesrate: { type: Number, default: 0 },
-                purchaserate: { type: Number, default: 0 },
                 discount: { type: Number, default: 0 },
                 discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
                 offerprice: { type: Number, default: 0 },
@@ -270,8 +260,6 @@ const productServiceSchema = new Schema<IProductService>(
         productlikecount: { type: Number, default: 0 },
       },
     ],
-    isshowinpos: { type: Boolean, default: false },
-    isfeatured: { type: Boolean, default: false },
     salesaccountid: { type: Schema.Types.ObjectId, ref: "Account" },
     purchaseaccountid: { type: Schema.Types.ObjectId, ref: "Account" },
     serviceaccountid: { type: Schema.Types.ObjectId, ref: "Account" },

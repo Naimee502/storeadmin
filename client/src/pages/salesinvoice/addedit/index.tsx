@@ -66,112 +66,88 @@ const AddEditSalesInvoice = () => {
     value: salesmenacc.id,
     label: `${salesmenacc.name} - ${salesmenacc.mobile}`,
   }));
+  // Fetch invoice if editing
+  const { data } = useSalesInvoiceByIDQuery(id || "");
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Product List
   const { data:producData, refetch, loading } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
+  console.log("SalesProductData:", JSON.stringify(salesProductData));
 
   const { data: unitData } = useUnitsQuery();
   const unitsList = unitData?.getUnits || [];
 
-  const productsList = useMemo(() => {
-    return (salesProductData || []).flatMap((item: any) => {
-      if (isService) {
-        if (item.isservice) {
-          return (item.servicevariants || []).map((variant: any) => ({
-            productserviceid: item.id,
-            variantid: variant.id,
-            parentId: item.id,
-            name: `${item.name} - ${variant.name}`,
-            isservice: true,
-            servicecode: variant.servicecode,
-            servicebarcode: variant.servicebarcode,
-            servicerate: variant.servicerate,
-            locationType: variant.locationType,
-            requiresappointment: variant.requiresappointment,
+ const productsList = useMemo(() => {
+  return (salesProductData || []).flatMap((item: any) => {
+    const isService = item.isservice;
 
-            // ✅ account mapping
-            salesaccountid: item.salesaccountid,
-            purchaseaccountid: item.purchaseaccountid,
-            serviceaccountid: item.serviceaccountid,
-          }));
-        }
-        return [];
-      } else {
-        // ✅ Only product data
-        if (!item.isservice) {
-          return (item.productvariants || []).map((variant: any) => {
-            // --- customer details ---
-            const customer = accountsList.find((a: any) => a.id === partyAccount || a._id === partyAccount);
-            const customerType = customer?.accounttype?.toLowerCase() || "retail";
-            const customerRegion = customer?.state || "Default";
+    if (isService) {
+      return (item.servicevariants || []).map((variant: any) => ({
+        productserviceid: item.id,
+        variantid: variant.id,
+        parentId: item.id,
+        name: `${item.name} - ${variant.name}`,
+        isservice: true,
+        servicecode: variant.servicecode,
+        servicebarcode: variant.servicebarcode,
+        servicerate: variant.servicerate,
+        locationType: variant.locationType,
+        requiresappointment: variant.requiresappointment,
+        salesaccountid: item.salesaccountid,
+        purchaseaccountid: item.purchaseaccountid,
+        serviceaccountid: item.serviceaccountid,
+      }));
+    }
 
-            // --- region wise sales rate ---
-            let rate = 0;
+    // ✅ Product Variants
+    return (item.productvariants || []).map((variant: any) => {
+      const customer = accountsList.find(
+        (a: any) => a.id === partyAccount || a._id === partyAccount
+      );
+      const customerType = customer?.accounttype?.toLowerCase() || "retail";
+      const customerRegion = customer?.state?.toLowerCase() || "default";
 
-            if (variant.salesrate && variant.salesrate.length > 0) {
-              // try to find region match
-              const regionRate =
-                variant.salesrate.find(
-                  (sr: any) => sr.regionname?.toLowerCase() === customerRegion?.toLowerCase()
-                ) || variant.salesrate.find((sr: any) =>
-                  sr.regionname?.toLowerCase() === "default"
-                ) || variant.salesrate[0]; // fallback to first entry if nothing matches
+      // Sales / Purchase Rates per unit
+      const rates = variant.unitconversions?.map((uc: any) => {
+        const pricing = variant.pricing?.find(
+          (p: any) =>
+            p.region?.toLowerCase() === customerRegion || p.region?.toLowerCase() === "default"
+        ) || variant.pricing?.[0];
 
-              if (regionRate) {
-                rate = regionRate[customerType] ?? regionRate["retail"] ?? 0;
-              }
+        const unitPriceObj = pricing?.unitprices?.find((up: any) => up.unitid === uc.unitid);
+        return unitPriceObj?.salesrate ?? 0;
+      }) || [];
 
-              console.log(
-                "Product:", item.name,
-                "Variant:", variant.name,
-                "Customer:", customerType,
-                "Region:", customerRegion,
-                "Matched RegionRate:", regionRate,
-                "Calculated Rate:", rate
-              );
-            }
+      // Current stock per unit
+      const stocks = variant.unitconversions?.map((uc: any) =>
+        Math.round(variant.currentstock / uc.factor)
+      ) || [];
 
-            return {
-              productserviceid: item.id,
-              variantid: variant.id,
-              parentId: item.id,
-              name: `${item.name} - ${variant.name} - ${variant.currentstock}`,
-              isservice: false,
-              productcode: variant.productcode,
-              productbarcode: variant.productbarcode,
-              currentstock: variant.currentstock,
-              salesrate: rate,
+      // Unit names per conversion
+      const units = variant.unitconversions?.map((uc: any) => {
+        const unit = unitsList.find((u) => u.id === uc.unitid);
+        return uc.factor === 1 ? unit?.unitname : `${uc.factor} ${unit?.unitname}`;
+      }) || [];
 
-              // ✅ account mapping
-              salesaccountid: item.salesaccountid,
-              purchaseaccountid: item.purchaseaccountid,
-              serviceaccountid: item.serviceaccountid,
-
-              salesUnits: variant.unitConversions?.map((uc: any) => {
-                const unitName =
-                  unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
-
-                return {
-                  value: uc.fromunitid,
-                  label: `${unitName} → Factor: ${uc.factor}`,
-                  factor: uc.factor, // ✅ pass factor too
-                };
-              }),
-              defaultSalesUnit: variant.salesunitid && unitsList.length > 0
-                ? unitsList.find(u => u.id === variant.salesunitid)?.id
-                : null,
-            };
-          });
-        }
-        return [];
-      }
+      return {
+        productserviceid: item.id,
+        variantid: variant.id,
+        parentId: item.id,
+        name: `${item.name} - ${variant.name}`,
+        isservice: false,
+        productcode: variant.productcode,
+        productbarcode: variant.productbarcode,
+        currentstock: stocks.reverse().join(" / "), // small unit / large unit
+        salesrate: rates.reverse().join(" / "),     // small unit / large unit
+        salesunit: units.join(" / "),              // e.g., Kilogram / Gram
+        salesaccountid: item.salesaccountid,
+        purchaseaccountid: item.purchaseaccountid,
+        serviceaccountid: item.serviceaccountid,
+      };
     });
-  }, [salesProductData, accountsList, partyAccount, unitsList, isService]);
-
-  // Fetch invoice if editing
-  const { data } = useSalesInvoiceByIDQuery(id || "");
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  });
+ }, [salesProductData, accountsList, partyAccount, unitsList]);
 
   useEffect(() => {
     if (accountData?.getAccounts) {

@@ -8,6 +8,9 @@ export const ADD_PRODUCT_SERVICE = gql`
       vendorid
       branchid
       isservice
+      isserialised
+      isshowinpos
+      isfeatured
       name
       description
       imageurl
@@ -56,6 +59,8 @@ export const ADD_PRODUCT_SERVICE = gql`
         manufacturedate
         expirydate
         baseunitid
+        purchaseunitid
+        purchaserate
         unitconversions {
           unitid
           factor
@@ -71,7 +76,6 @@ export const ADD_PRODUCT_SERVICE = gql`
         minimumstock
         reorderlevel
         racklocation
-        isserialised
         serials {
           imei
           serialnumber
@@ -86,10 +90,10 @@ export const ADD_PRODUCT_SERVICE = gql`
           region
           channel
           unitprices {
+            quantity
             unitid
             mrp
             salesrate
-            purchaserate
             discount
             discounttype
             offerprice
@@ -97,8 +101,6 @@ export const ADD_PRODUCT_SERVICE = gql`
         }
         productlikecount
       }
-      isshowinpos
-      isfeatured
       salesaccountid
       purchaseaccountid
       serviceaccountid
@@ -117,6 +119,9 @@ export const UPDATE_PRODUCT_SERVICE = gql`
       vendorid
       branchid
       isservice
+      isserialised
+      isshowinpos
+      isfeatured
       name
       description
       imageurl
@@ -165,6 +170,8 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         manufacturedate
         expirydate
         baseunitid
+        purchaseunitid
+        purchaserate
         unitconversions {
           unitid
           factor
@@ -180,7 +187,6 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         minimumstock
         reorderlevel
         racklocation
-        isserialised
         serials {
           imei
           serialnumber
@@ -195,10 +201,10 @@ export const UPDATE_PRODUCT_SERVICE = gql`
           region
           channel
           unitprices {
+            quantity
             unitid
             mrp
             salesrate
-            purchaserate
             discount
             discounttype
             offerprice
@@ -206,8 +212,6 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         }
         productlikecount
       }
-      isshowinpos
-      isfeatured
       salesaccountid
       purchaseaccountid
       serviceaccountid

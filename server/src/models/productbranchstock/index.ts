@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const productBranchStockSchema = new mongoose.Schema({
+  adminid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      required: true,
+  },
   productid: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ProductService', // or 'Product' if your model name is Product

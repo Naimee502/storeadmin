@@ -72,32 +72,36 @@ const ProductServices = () => {
         </div>
       ),
 
-      // ✅ Show sales rate vertically
+      // ✅ Sales Rate Column
       salesrate: (
         <div>
           {variants?.map((variant: any, i: number) => (
-            <div key={i}>
-              {item.isservice
-                ? variant?.servicerate ?? 0
-                : variant?.pricing?.[0]?.unitprices?.[0]?.salesrate ?? 0}
+            <div key={i} className="border-b border-gray-200 pb-1 mb-1">
+              {variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
+                <div key={j}>
+                  {up.salesrate} ({unitList.find((u) => u.id === up.unitid)?.unitname || "-"})
+                </div>
+              )) || "-"}
             </div>
           ))}
         </div>
       ),
 
-      // ✅ Show unit vertically
+      // ✅ Sales Unit Column
       salesunit: (
         <div>
-          {variants?.map((variant: any, i: number) => {
-            if (item.isservice) {
-              return <div key={i}>{variant?.uom || "-"}</div>;
-            }
-            const firstUnitId = variant?.pricing?.[0]?.unitprices?.[0]?.unitid;
-            const matchedUnit = firstUnitId
-              ? unitList.find((unit) => unit.id === firstUnitId)
-              : null;
-            return <div key={i}>{matchedUnit?.unitname || "-"}</div>;
-          })}
+          {variants?.map((variant: any, i: number) => (
+            <div key={i} className="border-b border-gray-200 pb-1 mb-1">
+              {variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => {
+                const matchedUnit = unitList.find((unit) => unit.id === up.unitid);
+                return (
+                  <div key={j}>
+                    {up.quantity} {matchedUnit?.unitname || "-"}
+                  </div>
+                );
+              }) || "-"}
+            </div>
+          ))}
         </div>
       ),
 
