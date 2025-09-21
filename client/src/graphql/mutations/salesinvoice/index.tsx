@@ -23,6 +23,7 @@ export const ADD_SALES_INVOICE = gql`
         productserviceid
         variantid
         salesunitid
+        unitqty
         gst
         qty
         rate
@@ -63,6 +64,7 @@ export const EDIT_SALES_INVOICE = gql`
         productserviceid
         variantid
         salesunitid
+        unitqty
         gst
         qty
         rate

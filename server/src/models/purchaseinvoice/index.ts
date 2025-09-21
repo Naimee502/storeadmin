@@ -4,6 +4,7 @@ import { ProductService } from '../products';
 import { convertToBaseUnit } from '../../utils/unitconversation';
 import { Transaction } from '../transactions';
 import { Payment } from '../payments';
+import { getOrCreateAccount } from '../../utils/helper';
 
 const purchaseInvoiceSchema = new mongoose.Schema({
   paymenttype: { type: String, required: true },
@@ -81,14 +82,10 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInv
   }
 
   const transactionEntries: any[] = [];
-  transactionEntries.push({
-    accountid: newInvoice.partyacc,
-    credit: newInvoice.totalamount,
-    debit: 0,
-    remarks: `Purchase Invoice #${newInvoice.billnumber}`,
-  });
+  let totalDebit = 0;
 
-  newInvoice.productservice.forEach((item: any) => {
+  // Product & GST debits
+  for (const item of newInvoice.productservice) {
     if (item.purchaseaccountid && item.amount) {
       transactionEntries.push({
         accountid: item.purchaseaccountid,
@@ -97,12 +94,29 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInv
         productserviceid: item.productserviceid,
         variantid: item.variantid,
       });
+      totalDebit += item.amount;
     }
+
     if (item.gst && item.gst > 0) {
-      const gstAccountId = "GST_ACCOUNT_ID"; // replace with actual GST account id
-      transactionEntries.push({ accountid: gstAccountId, debit: item.gst, credit: 0 });
+      const gstAccount = await getOrCreateAccount(
+        "GST Account",
+        "other",
+        newInvoice.adminid,
+        newInvoice.branchid
+      );
+      transactionEntries.push({ accountid: gstAccount._id, debit: item.gst, credit: 0 });
+      totalDebit += item.gst;
     }
+  }
+
+  // Party account credit = total debit
+  transactionEntries.push({
+    accountid: newInvoice.partyacc,
+    debit: 0,
+    credit: totalDebit,
+    remarks: `Purchase Invoice #${newInvoice.billnumber}`,
   });
+
 
   let transaction = await Transaction.findOne({
     'source.docmodel': 'PurchaseInvoice',

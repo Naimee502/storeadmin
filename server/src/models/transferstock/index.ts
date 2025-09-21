@@ -25,8 +25,8 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
     frombranchid: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
     tobranchid: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
     productid: { type: Schema.Types.ObjectId, ref: 'ProductService', required: true },
-    variantid: { type: Schema.Types.ObjectId }, // optional variant
-    batchnumber: { type: String }, // optional batch
+    variantid: { type: Schema.Types.ObjectId },
+    batchnumber: { type: String },
     transferqty: { type: Number, required: true },
     transferdate: { type: String, required: true },
     status: { type: Boolean, default: true },
@@ -36,24 +36,58 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
 );
 
 /**
- * Adjust stock in ProductBranchStock based on transfer
- * @param oldDoc - previous transfer doc (for edits)
- * @param newDoc - new transfer doc
+ * Adjust stock in ProductBranchStock safely
  */
 transferStockSchema.statics.adjustStock = async function (
   oldDoc: ITransferStock | null,
   newDoc: ITransferStock | null
 ) {
-  const ops: any[] = [];
+  const adjustBranchStock = async (
+    branchId: Types.ObjectId,
+    productId: Types.ObjectId,
+    variantId: Types.ObjectId | undefined,
+    qty: number
+  ) => {
+    let stock = await ProductBranchStock.findOne({
+      productid: productId,
+      branchid: branchId,
+      variantid: variantId || null,
+    });
 
-  const convertQty = async (qty: number, variantId?: Types.ObjectId, unitId?: Types.ObjectId) => {
-    if (!variantId || !unitId) return qty; // fallback
+    if (!stock) {
+      stock = await ProductBranchStock.create({
+        productid: productId,
+        branchid: branchId,
+        variantid: variantId || null,
+        openingstock: 0,
+        currentstock: 0,
+        closingstock: 0,
+        openingstockamount: 0,
+        currentstockamount: 0,
+        closingstockamount: 0,
+        averagecost: 0,
+      });
+    }
+
+    stock.currentstock += qty;
+    await stock.save();
+  };
+
+  const convertQty = async (
+    qty: number,
+    variantId?: Types.ObjectId,
+    unitId?: Types.ObjectId
+  ) => {
+    if (!variantId || !unitId) return qty;
+
     const product = await ProductService.findById(newDoc?.productid || oldDoc?.productid);
     if (!product) return qty;
-    const variant = product.productvariants?.find(v => String(v._id) === String(variantId));
+
+    const variant = product.productvariants?.find(
+      (v) => String(v._id) === String(variantId)
+    );
     if (!variant) return qty;
 
-    // Convert to base unit using transferunitid (same as salesInvoice logic)
     return convertToBaseUnit(qty, unitId, variant);
   };
 
@@ -62,28 +96,10 @@ transferStockSchema.statics.adjustStock = async function (
     const oldQty = await convertQty(oldDoc.transferqty, oldDoc.variantid, oldDoc.transferunitid);
 
     // Return stock to from branch
-    ops.push({
-      updateOne: {
-        filter: {
-          productid: oldDoc.productid,
-          branchid: oldDoc.frombranchid,
-          variantid: oldDoc.variantid || null,
-        },
-        update: { $inc: { currentstock: oldQty } },
-      },
-    });
+    await adjustBranchStock(oldDoc.frombranchid, oldDoc.productid, oldDoc.variantid, oldQty);
 
     // Deduct stock from to branch
-    ops.push({
-      updateOne: {
-        filter: {
-          productid: oldDoc.productid,
-          branchid: oldDoc.tobranchid,
-          variantid: oldDoc.variantid || null,
-        },
-        update: { $inc: { currentstock: -oldQty } },
-      },
-    });
+    await adjustBranchStock(oldDoc.tobranchid, oldDoc.productid, oldDoc.variantid, -oldQty);
   }
 
   // 🔹 Apply new transfer
@@ -91,34 +107,10 @@ transferStockSchema.statics.adjustStock = async function (
     const newQty = await convertQty(newDoc.transferqty, newDoc.variantid, newDoc.transferunitid);
 
     // Deduct stock from from branch
-    ops.push({
-      updateOne: {
-        filter: {
-          productid: newDoc.productid,
-          branchid: newDoc.frombranchid,
-          variantid: newDoc.variantid || null,
-        },
-        update: { $inc: { currentstock: -newQty } },
-        upsert: true,
-      },
-    });
+    await adjustBranchStock(newDoc.frombranchid, newDoc.productid, newDoc.variantid, -newQty);
 
     // Add stock to to branch
-    ops.push({
-      updateOne: {
-        filter: {
-          productid: newDoc.productid,
-          branchid: newDoc.tobranchid,
-          variantid: newDoc.variantid || null,
-        },
-        update: { $inc: { currentstock: newQty } },
-        upsert: true,
-      },
-    });
-  }
-
-  if (ops.length > 0) {
-    await ProductBranchStock.bulkWrite(ops);
+    await adjustBranchStock(newDoc.tobranchid, newDoc.productid, newDoc.variantid, newQty);
   }
 };
 

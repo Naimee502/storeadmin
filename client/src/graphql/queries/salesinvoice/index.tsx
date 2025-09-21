@@ -24,6 +24,7 @@ export const GET_SALES_INVOICES = gql`
         productserviceid
         variantid
         salesunitid
+        unitqty
         gst
         qty
         rate
@@ -64,6 +65,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
         productserviceid
         variantid
         salesunitid
+        unitqty
         gst
         qty
         rate
@@ -104,6 +106,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         productserviceid
         variantid
         salesunitid
+        unitqty
         gst
         qty
         rate

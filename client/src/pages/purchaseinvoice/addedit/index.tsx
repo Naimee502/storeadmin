@@ -55,80 +55,12 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch invoice if editing
   const { data } = usePurchaseInvoiceByIDQuery(id || "");
+  console.log('Pucrhase Edit:',JSON.stringify(data))
 
   const { data: productData, refetch } = useProductServicesQuery();
-   const purchaseProductData = productData?.getProductServices ?? [];
+  const purchaseProductData = productData?.getProductServices ?? [];
   const { data: unitData } = useUnitsQuery();
   const unitsList = unitData?.getUnits || [];
-
-  const productsList = useMemo(() => {
-    return (purchaseProductData || []).flatMap((item: any) => {
-      if (isService) {
-        // ✅ Only service data
-        if (item.isservice) {
-          return (item.servicevariants || []).map((variant: any) => ({
-            productserviceid: item.id,
-            variantid: variant.id,
-            parentId: item.id,
-            name: `${item.name} - ${variant.name}`,
-            isservice: true,
-            servicecode: variant.servicecode,
-            servicebarcode: variant.servicebarcode,
-            servicerate: variant.servicerate,
-            locationType: variant.locationType,
-            requiresappointment: variant.requiresappointment,
-
-            // ✅ account mapping
-            salesaccountid: item.salesaccountid,
-            purchaseaccountid: item.purchaseaccountid,
-            serviceaccountid: item.serviceaccountid,
-          }));
-        }
-        return [];
-      } else {
-        // ✅ Only product data
-        if (!item.isservice) {
-          return (item.productvariants || []).map((variant: any) => {
-            return {
-              productserviceid: item.id,
-              variantid: variant.id,
-              parentId: item.id,
-              name: `${item.name} - ${variant.name} - ${variant.currentstock}`,
-              isservice: false,
-              productcode: variant.productcode,
-              productbarcode: variant.productbarcode,
-              currentstock: variant.currentstock,
-              purchaserate: variant.purchaserate, // ✅ direct purchase rate
-
-              // ✅ account mapping
-              salesaccountid: item.salesaccountid,
-              purchaseaccountid: item.purchaseaccountid,
-              serviceaccountid: item.serviceaccountid,
-
-              // ✅ purchase units mapping
-              purchaseUnits: variant.unitConversions?.map((uc: any) => {
-                const unitName =
-                  unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
-
-                return {
-                  value: uc.fromunitid,
-                  label: `${unitName} → Factor: ${uc.factor}`,
-                  factor: uc.factor,
-                };
-              }),
-
-              // ✅ default purchase unit
-              defaultPurchaseUnit:
-                variant.purchaseunitid && unitsList.length > 0
-                  ? unitsList.find((u) => u.id === variant.purchaseunitid)?.id
-                  : null,
-            };
-          });
-        }
-        return [];
-      }
-    });
-  }, [purchaseProductData, unitsList, isService]);
 
   useEffect(() => {
     if (accountData?.getAccounts) {
@@ -265,21 +197,9 @@ const AddEditPurchaseInvoice = () => {
     });
   };
 
-
-  const handleNewInvoice = () => {
-    setBillNumber((prev) => {
-      const next = (parseInt(prev, 10) + 1).toString().padStart(6, "0");
-      return next;
-    });
-  };
-
   const handleTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     setTaxPercent(isNaN(value) ? 0 : value);
-  };
-
-  const handleProductsChange = (updatedProducts: InvoiceProduct[]) => {
-    setProducts(updatedProducts);
   };
 
   useEffect(() => {
@@ -497,8 +417,10 @@ const AddEditPurchaseInvoice = () => {
           <ProductSection
             products={products}
             setProducts={setProducts}
-            productsList={productsList || []}
-            onProductsChange={handleProductsChange}
+            productData={purchaseProductData}
+            accountsList={accountsList}
+            unitsList={unitsList}
+            partyAccount={partyAccount}
             type="purchase"
           />
 

@@ -38,6 +38,18 @@ export const purchaseInvoiceResolvers = {
         id: inv._id.toString(),
         ...inv,
       }));
+    },
+
+    getPurchaseInvoiceById: async (_: any, args: { id: string }) => {
+      if (!args.id) return null;
+
+      const invoice = await PurchaseInvoice.findById(args.id).lean().exec(); // lean() for plain JS object
+      if (!invoice) return null;
+
+      return {
+        id: (invoice as any)._id.toString(), // cast for TS
+        ...(invoice as any),
+      };
     }
   },
 

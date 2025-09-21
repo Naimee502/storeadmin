@@ -5,6 +5,7 @@ export const salesInvoiceTypeDefs = gql`
     productserviceid: ID!
     variantid: ID
     salesunitid: ID
+    unitqty: Int!
     gst: Float!
     qty: Int!
     rate: Float!
@@ -19,6 +20,7 @@ export const salesInvoiceTypeDefs = gql`
     productserviceid: ID!
     variantid: ID
     salesunitid: ID,
+    unitqty: Int!
     gst: Float!
     qty: Int!
     rate: Float!

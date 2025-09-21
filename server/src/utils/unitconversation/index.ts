@@ -10,9 +10,16 @@ export function convertToBaseUnit(
     return qty;
   }
 
-  // Normalize unitId to string for safe comparison
   const unitIdStr = unitId instanceof Types.ObjectId ? unitId.toString() : unitId;
-  const baseUnitIdStr = variant.baseunitid instanceof Types.ObjectId ? variant.baseunitid.toString() : variant.baseunitid;
+  const baseUnitIdStr =
+    variant.baseunitid instanceof Types.ObjectId
+      ? variant.baseunitid.toString()
+      : variant.baseunitid;
+
+  // ✅ If unitId is already the base unit → no conversion needed
+  if (unitIdStr === baseUnitIdStr) {
+    return qty;
+  }
 
   if (!variant.unitconversions || variant.unitconversions.length === 0) {
     return qty;

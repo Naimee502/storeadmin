@@ -151,24 +151,40 @@ const TransferStock = () => {
   };
 
   const handleEdit = (row: TransferStockRow) => {
+    // Find product and variant
     const product = products.find((p) => p.id === row.productid);
     const variant = product?.productvariants?.find((v) => v.id === row.variantid);
 
-    const options = variant?.unitConversions?.map((uc: any) => {
-      const unitName = unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
+    if (!variant) return;
+
+    // Populate Transfer Unit options from unitConversions
+    const options = (variant.unitconversions || []).map((uc: any) => {
+      // Use correct unit key: 'unitid'
+      const unit = unitsList.find((u) => u.id === uc.unitid);
+      const unitName = unit?.unitname || uc.unitid;
       return {
         label: `${unitName} → Factor: ${uc.factor}`,
-        value: uc.fromunitid,
+        value: uc.unitid,
       };
-    }) || [];
+    });
+
+    // Fallback to base unit if no conversions found
+    if (options.length === 0 && variant.baseunitid) {
+      const baseUnit = unitsList.find((u) => u.id === variant.baseunitid);
+      options.push({
+        label: baseUnit?.unitname || "Base Unit",
+        value: variant.baseunitid,
+      });
+    }
 
     setTransferUnitOptions(options);
 
+    // Populate form values
     setFormValues({
       tobranchid: row.tobranchid,
       productid: row.productid,
       variantid: row.variantid || "",
-      transferunitid: row.transferunitid || options[0]?.value || "", // fallback
+      transferunitid: row.transferunitid || options[0]?.value || "",
       transferqty: row.transferqty,
       transferdate: row.transferdate,
       status: typeof row.status === "string" ? row.status === "Active" : !!row.status,
@@ -176,6 +192,9 @@ const TransferStock = () => {
 
     setIsEditing(true);
     setEditingId(row.id);
+
+    console.log("Editing Variant:", variant);
+    console.log("Transfer Unit Options:", options);
   };
 
   const resetForm = () => {
@@ -263,33 +282,55 @@ const TransferStock = () => {
                 name="productid"
                 type="select"
                 value={selectedProductOption}
-                onChange={(e) => {
-                const [prodId, varId] = e.target.value.split("|"); 
-                const product = products.find((p) => p.id === prodId);
-                const variant = product?.productvariants.find((v) => v.id === varId);
+               onChange={(e) => {
+                  const [prodId, varId] = e.target.value.split("|");
 
-                if (variant?.currentstock === 0 && prodId !== formValues.productid) {
-                  alert("⚠️ This product variant is out of stock and cannot be selected.");
-                  return;
-                }
+                  // Find selected product
+                  const product = products.find((p) => p.id === prodId);
+                  if (!product) return;
 
-                handleFormChange("productid", prodId);
-                handleFormChange("variantid", varId);
+                  // Find selected variant
+                  const variant = product.productvariants.find((v) => v.id === varId);
+                  if (!variant) return;
 
-                // Populate Transfer Unit options
-                const options = variant?.unitConversions?.map((uc: any) => {
-                  const unitName = unitsList.find((u) => u.id === uc.fromunitid)?.unitname || uc.fromunitid;
-                  return {
-                    label: `${unitName} → Factor: ${uc.factor}`,
-                    value: uc.fromunitid,
-                  };
-                }) || [];
+                  console.log("Selected Product:", product);
+                  console.log("Selected Variant:", variant.unitconversions);
 
-                setTransferUnitOptions(options);
+                  // Optional: prevent selecting out-of-stock variants
+                  if (variant.currentstock === 0 && prodId !== formValues.productid) {
+                    alert("⚠️ This product variant is out of stock and cannot be selected.");
+                    return;
+                  }
 
-                // Reset previously selected transfer unit
-                handleFormChange("transferunitid", options[0]?.value || "");
-              }}
+                  // Update form values
+                  handleFormChange("productid", prodId);
+                  handleFormChange("variantid", varId);
+
+                  // Prepare Transfer Unit Options from unit conversions
+                  const options = (variant.unitconversions || []).map((uc) => {
+                    const unit = unitsList.find((u) => u.id === uc.unitid);
+                    return {
+                      label: `${unit?.unitname || `Unit(${uc.unitid})`} → Factor: ${uc.factor}`,
+                      value: uc.unitid,
+                    };
+                  });
+
+                  // Fallback to base unit if unitConversions is empty
+                  if (options.length === 0 && variant.baseunitid) {
+                    const baseUnit = unitsList.find((u) => u.id === variant.baseunitid);
+                    options.push({
+                      label: baseUnit?.unitname || "Base Unit",
+                      value: variant.baseunitid,
+                    });
+                  }
+
+                  setTransferUnitOptions(options);
+                  handleFormChange("transferunitid", options[0]?.value || "");
+
+                  console.log("Transfer Unit Options:", options);
+                  console.log("Selected transferunitid:", options[0]?.value);
+                  console.log("Full Variant Detail:", variant);
+                }}
                 error={formErrors.productid}
                 options={productOptions}
               />

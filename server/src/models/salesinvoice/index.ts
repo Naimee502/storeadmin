@@ -4,6 +4,7 @@ import { ProductService } from '../products';
 import { convertToBaseUnit } from '../../utils/unitconversation';
 import { Transaction } from '../transactions';
 import { Payment } from '../payments';
+import { getOrCreateAccount } from '../../utils/helper';
 
 const salesInvoiceSchema = new mongoose.Schema({
   salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: 'SalesmenAccount', required: true },
@@ -14,7 +15,7 @@ const salesInvoiceSchema = new mongoose.Schema({
   billtype: { type: String, required: true },
   billnumber: { type: String, required: true },
   notes: { type: String },
-  invoicetype: { type: String, required: true }, 
+  invoicetype: { type: String, required: true },
   subtotal: { type: Number, required: true },
   totaldiscount: { type: Number, required: true },
   totalgst: { type: Number, required: true },
@@ -26,6 +27,7 @@ const salesInvoiceSchema = new mongoose.Schema({
       productserviceid: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductService', required: true },
       variantid: { type: mongoose.Schema.Types.ObjectId },
       salesunitid: { type: mongoose.Schema.Types.ObjectId },
+      unitqty: { type: Number, required: true },
       gst: { type: Number, required: true },
       qty: { type: Number, required: true },
       rate: { type: Number, required: true },
@@ -40,22 +42,46 @@ const salesInvoiceSchema = new mongoose.Schema({
   status: { type: Boolean, default: true },
 }, { timestamps: true });
 
-salesInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInvoice: any, newInvoice: any) {
+salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInvoice: any, newInvoice: any) {
   const branchid = typeof newInvoice.branchid === 'string' ? new mongoose.Types.ObjectId(newInvoice.branchid) : newInvoice.branchid;
   if (!branchid) return;
 
   // 1️⃣ Stock Adjustment (skip for service invoices)
+ // 1️⃣ Stock Adjustment (skip for service invoices)
   if (!newInvoice.isservice) {
     // Revert old invoice stock
     if (oldInvoice) {
       for (const item of oldInvoice.productservice) {
         const product = await ProductService.findById(item.productserviceid);
         if (!product) continue;
-        const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-        const qtyInBaseUnit = convertToBaseUnit(item.qty, item.salesunitid, variant);
+
+        const variant = product.productvariants?.find(
+          v => String(v._id) === String(item.variantid)
+        );
+
+        const qtyInBaseUnit = convertToBaseUnit(
+          item.qty * item.unitqty,   // ✅ qty × unitqty
+          item.salesunitid,
+          variant
+        );
+
+        // get average cost from ProductBranchStock
+        const stockDoc = await ProductBranchStock.findOne({
+          productid: item.productserviceid,
+          variantid: item.variantid,
+          branchid
+        });
+
+        const averageCost = stockDoc?.averagecost || 0;
+
         await ProductBranchStock.updateOne(
           { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $inc: { currentstock: qtyInBaseUnit } },
+          {
+            $inc: {
+              currentstock: qtyInBaseUnit,
+              currentstockamount: qtyInBaseUnit * averageCost
+            }
+          },
           { upsert: true }
         );
       }
@@ -65,11 +91,34 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInvoic
     for (const item of newInvoice.productservice) {
       const product = await ProductService.findById(item.productserviceid);
       if (!product) continue;
-      const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-      const qtyInBaseUnit = convertToBaseUnit(item.qty, item.salesunitid, variant);
+
+      const variant = product.productvariants?.find(
+        v => String(v._id) === String(item.variantid)
+      );
+
+      const qtyInBaseUnit = convertToBaseUnit(
+        item.qty * item.unitqty,   // ✅ qty × unitqty
+        item.salesunitid,
+        variant
+      );
+
+      // get average cost from ProductBranchStock
+      const stockDoc = await ProductBranchStock.findOne({
+        productid: item.productserviceid,
+        variantid: item.variantid,
+        branchid
+      });
+
+      const averageCost = stockDoc?.averagecost || 0;
+
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $inc: { currentstock: -qtyInBaseUnit } },
+        {
+          $inc: {
+            currentstock: -qtyInBaseUnit,
+            currentstockamount: -(qtyInBaseUnit * averageCost)
+          }
+        },
         { upsert: true }
       );
     }
@@ -77,14 +126,10 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInvoic
 
   // 2️⃣ Transactions
   const transactionEntries: any[] = [];
-  transactionEntries.push({
-    accountid: newInvoice.partyacc,
-    debit: newInvoice.totalamount,
-    credit: 0,
-    remarks: `Sales Invoice #${newInvoice.billnumber}`,
-  });
+  let totalCredit = 0;
 
-  newInvoice.productservice.forEach((item: any) => {
+  // Product & GST credits
+  for (const item of newInvoice.productservice) {
     const salesAcc = item.salesaccountid || item.serviceaccountid;
     if (salesAcc && item.amount) {
       transactionEntries.push({
@@ -94,11 +139,27 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInvoic
         productserviceid: item.productserviceid,
         variantid: item.variantid,
       });
+      totalCredit += item.amount;
     }
+
     if (item.gst && item.gst > 0) {
-      const gstAccountId = "GST_ACCOUNT_ID"; // replace with actual GST account id
-      transactionEntries.push({ accountid: gstAccountId, debit: 0, credit: item.gst });
+      const gstAccount = await getOrCreateAccount(
+        "GST Account",
+        "other",
+        newInvoice.adminid,
+        newInvoice.branchid
+      );
+      transactionEntries.push({ accountid: gstAccount._id, debit: 0, credit: item.gst });
+      totalCredit += item.gst;
     }
+  }
+
+  // Party account debit = totalCredit
+  transactionEntries.push({
+    accountid: newInvoice.partyacc,
+    debit: totalCredit,
+    credit: 0,
+    remarks: `Sales Invoice #${newInvoice.billnumber}`,
   });
 
   let transaction = await Transaction.findOne({
@@ -151,7 +212,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function(oldInvoic
 };
 
 // POST-SAVE hook: always adjust stock and transactions
-salesInvoiceSchema.post('save', async function(doc: any, next) {
+salesInvoiceSchema.post('save', async function (doc: any, next) {
   try {
     await (SalesInvoice as any).adjustStockAndTransactions(null, doc);
     next();

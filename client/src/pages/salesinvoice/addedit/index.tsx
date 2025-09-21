@@ -53,13 +53,6 @@ const AddEditSalesInvoice = () => {
     (state) => state.salesinvoice.invoices
   );
 
-  // Party Accounts
-  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const accountOptions = accountsList.map((acc: any) => ({
-    value: acc.id,
-    label: `${acc.name} - ${acc.mobile}`,
-  }));
   const { data: salesmenAccountData } = useSalesmenQuery();
   const salesmenList = salesmenAccountData?.getSalesmenAccounts || [];
   const salesmendAccountOptions = salesmenList.map((salesmenacc: any) => ({
@@ -70,84 +63,20 @@ const AddEditSalesInvoice = () => {
   const { data } = useSalesInvoiceByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Party Accounts
+  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
+  const accountsList = accountData?.getAccounts || [];
+  const accountOptions = accountsList.map((acc: any) => ({
+    value: acc.id,
+    label: `${acc.name} - ${acc.mobile}`,
+  }));
+
   // Product List
-  const { data:producData, refetch, loading } = useProductServicesQuery();
+  const { data:producData, refetch } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
-  console.log("SalesProductData:", JSON.stringify(salesProductData));
 
   const { data: unitData } = useUnitsQuery();
   const unitsList = unitData?.getUnits || [];
-
- const productsList = useMemo(() => {
-  return (salesProductData || []).flatMap((item: any) => {
-    const isService = item.isservice;
-
-    if (isService) {
-      return (item.servicevariants || []).map((variant: any) => ({
-        productserviceid: item.id,
-        variantid: variant.id,
-        parentId: item.id,
-        name: `${item.name} - ${variant.name}`,
-        isservice: true,
-        servicecode: variant.servicecode,
-        servicebarcode: variant.servicebarcode,
-        servicerate: variant.servicerate,
-        locationType: variant.locationType,
-        requiresappointment: variant.requiresappointment,
-        salesaccountid: item.salesaccountid,
-        purchaseaccountid: item.purchaseaccountid,
-        serviceaccountid: item.serviceaccountid,
-      }));
-    }
-
-    // ✅ Product Variants
-    return (item.productvariants || []).map((variant: any) => {
-      const customer = accountsList.find(
-        (a: any) => a.id === partyAccount || a._id === partyAccount
-      );
-      const customerType = customer?.accounttype?.toLowerCase() || "retail";
-      const customerRegion = customer?.state?.toLowerCase() || "default";
-
-      // Sales / Purchase Rates per unit
-      const rates = variant.unitconversions?.map((uc: any) => {
-        const pricing = variant.pricing?.find(
-          (p: any) =>
-            p.region?.toLowerCase() === customerRegion || p.region?.toLowerCase() === "default"
-        ) || variant.pricing?.[0];
-
-        const unitPriceObj = pricing?.unitprices?.find((up: any) => up.unitid === uc.unitid);
-        return unitPriceObj?.salesrate ?? 0;
-      }) || [];
-
-      // Current stock per unit
-      const stocks = variant.unitconversions?.map((uc: any) =>
-        Math.round(variant.currentstock / uc.factor)
-      ) || [];
-
-      // Unit names per conversion
-      const units = variant.unitconversions?.map((uc: any) => {
-        const unit = unitsList.find((u) => u.id === uc.unitid);
-        return uc.factor === 1 ? unit?.unitname : `${uc.factor} ${unit?.unitname}`;
-      }) || [];
-
-      return {
-        productserviceid: item.id,
-        variantid: variant.id,
-        parentId: item.id,
-        name: `${item.name} - ${variant.name}`,
-        isservice: false,
-        productcode: variant.productcode,
-        productbarcode: variant.productbarcode,
-        currentstock: stocks.reverse().join(" / "), // small unit / large unit
-        salesrate: rates.reverse().join(" / "),     // small unit / large unit
-        salesunit: units.join(" / "),              // e.g., Kilogram / Gram
-        salesaccountid: item.salesaccountid,
-        purchaseaccountid: item.purchaseaccountid,
-        serviceaccountid: item.serviceaccountid,
-      };
-    });
-  });
- }, [salesProductData, accountsList, partyAccount, unitsList]);
 
   useEffect(() => {
     if (accountData?.getAccounts) {
@@ -157,7 +86,6 @@ const AddEditSalesInvoice = () => {
 
   useEffect(() => {
     if (!isEdit) {
-      // ✅ NEW INVOICE MODE
       if (salesInvoices.length > 0) {
         const billNumbers = salesInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -203,73 +131,49 @@ const AddEditSalesInvoice = () => {
     productData: any[],
     unitsList: any[],
     isSales: boolean
-  ) => {
-    return products.map((p: any, index: number) => {
-      // ✅ Find product
+  ): InvoiceProduct[] => {
+    return products.map((p: any) => {
       const productOption = productData.find(
         (prod: any) =>
           prod?.id === p.productserviceid ||
           (p.variantid && prod?.id?.endsWith(p.variantid))
       );
 
-      // ✅ Find variant
       const variant = productOption?.productvariants?.find(
         (v: any) => v.id === p.variantid
       );
 
-      // ✅ Build units (sales or purchase)
-      const unitConversions = variant?.unitConversions || [];
-      const unitOptions = unitConversions.map((uc: any) => {
-        const unit = unitsList.find((u) => u.id === uc.fromunitid);
-        return {
-          value: uc.fromunitid,
-          label: `${unit?.unitname || uc.fromunitid} → Factor: ${uc.factor}`,
-          factor: uc.factor,
-        };
-      });
+      const productName = `${productOption?.name || ""}${
+        variant?.name ? ` - ${variant.name}` : ""
+      }${variant?.currentstock !== undefined ? ` - ${variant.currentstock}` : ""}`;
 
-      // ✅ Find default unit
-      const defaultUnit =
-        unitsList.find((u) =>
-          isSales ? u.id === p.salesunitid : u.id === p.purchaseunitid
-        ) ||
-        unitsList.find((u) =>
-          isSales ? u.id === variant?.salesunitid : u.id === variant?.purchaseunitid
-        ) ||
-        null;
+      const unitOptions =
+        variant?.pricing?.flatMap((price: any) =>
+          price.unitprices.map((up: any) => {
+            const unit = unitsList.find((u) => u.id === up.unitid);
+            return {
+              value: `${up.unitid}--${up.quantity}`,
+              label: `${up.quantity} ${unit?.unitname || "Unit"}`,
+              unitid: up.unitid,
+              quantity: up.quantity,
+              salesrate: up.salesrate,
+              offerprice: up.offerprice,
+              discount: up.discount,
+            };
+          })
+        ) || [];
 
-      // ✅ Build product name (product - variant - stock)
-      const productName = `${productOption?.name || ""}${variant?.name ? ` - ${variant.name}` : ""
-        }${variant?.currentstock !== undefined ? ` - ${variant.currentstock}` : ""}`;
-
-      // 🔥 Debug log
-      console.log(
-        `🛠️ [${isSales ? "Sales" : "Purchase"} Mapping Product ${index + 1}]`,
-        JSON.stringify(
-          {
-            originalProduct: p,
-            matchedProductOption: productOption,
-            matchedVariant: variant,
-            unitOptions,
-            defaultUnit,
-            productName,
-          },
-          null,
-          2
-        )
+      const selectedUnit = unitOptions.find(
+        (uo: any) => uo.unitid === p[isSales ? "salesunitid" : "purchaseunitid"]
       );
 
       return {
         productserviceid: p.productserviceid,
         variantid: p.variantid,
         [isSales ? "salesunitid" : "purchaseunitid"]:
-          p[isSales ? "salesunitid" : "purchaseunitid"] ||
-          (isSales
-            ? variant?.salesunitid
-            : variant?.purchaseunitid) ||
-          unitOptions[0]?.value ||
-          null,
+          p[isSales ? "salesunitid" : "purchaseunitid"] || null,
         productname: productName,
+        unitquantity: p.unitqty,
         quantity: p.qty,
         rate: p.rate,
         total: p.amount,
@@ -281,13 +185,9 @@ const AddEditSalesInvoice = () => {
         serviceaccountid:
           p.serviceaccountid ?? productOption?.serviceaccountid ?? null,
         [isSales ? "salesUnits" : "purchaseUnits"]: unitOptions,
-        [isSales ? "defaultSalesUnit" : "defaultPurchaseUnit"]: defaultUnit,
+        selectedUnitValue: selectedUnit ? selectedUnit.value : null, // 👈 key fix
       };
     });
-  };
-
-  const handleProductsChange = (updatedProducts: InvoiceProduct[]) => {
-    setProducts(updatedProducts);
   };
 
   useEffect(() => {
@@ -355,6 +255,7 @@ const AddEditSalesInvoice = () => {
         productserviceid: p.productserviceid,
         variantid: p.variantid,
         salesunitid: p.salesunitid ?? null,
+        unitqty: p.unitquantity ?? 0,
         gst: p.gst ?? 0,
         qty: p.quantity ?? 0,
         rate: p.rate ?? 0,
@@ -532,8 +433,10 @@ const AddEditSalesInvoice = () => {
           <ProductSection
             products={products}
             setProducts={setProducts}
-            productsList={productsList || []}
-            onProductsChange={handleProductsChange}
+            productData={salesProductData}
+            accountsList={accountsList}
+            unitsList={unitsList}
+            partyAccount={partyAccount}
             type="sales"
           />
 
