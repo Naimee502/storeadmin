@@ -50,6 +50,9 @@ const ProductServices = () => {
     { label: "Status", key: "status" },
   ];
 
+  const capitalize = (str: string | undefined) => 
+  str ? str.charAt(0).toUpperCase() + str.slice(1) : "-";
+
   const tableData = productServiceList?.map((item: any, index: number) => {
     const variants = item.isservice ? item.servicevariants : item.productvariants;
 
@@ -66,44 +69,47 @@ const ProductServices = () => {
         <div>
           {variants?.map((variant: any, i: number) => (
             <div key={i}>
-              {item.isservice ? variant?.locationType || "-" : variant?.currentstock ?? 0}
+              {item.isservice ? capitalize(variant?.locationType) || "-" : variant?.currentstock ?? 0}
             </div>
           ))}
         </div>
       ),
 
-      // ✅ Sales Rate Column
       salesrate: (
-        <div>
-          {variants?.map((variant: any, i: number) => (
-            <div key={i} className="border-b border-gray-200 pb-1 mb-1">
-              {variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
-                <div key={j}>
-                  {up.salesrate} ({unitList.find((u) => u.id === up.unitid)?.unitname || "-"})
-                </div>
-              )) || "-"}
-            </div>
-          ))}
-        </div>
-      ),
-
-      // ✅ Sales Unit Column
-      salesunit: (
-        <div>
-          {variants?.map((variant: any, i: number) => (
-            <div key={i} className="border-b border-gray-200 pb-1 mb-1">
-              {variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => {
-                const matchedUnit = unitList.find((unit) => unit.id === up.unitid);
-                return (
+      <div>
+        {variants?.map((variant: any, i: number) => (
+          <div key={i} className="border-b border-gray-200 pb-1 mb-1">
+            {item.isservice
+              ? `${variant?.servicerate || 0}` // service rate
+              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
                   <div key={j}>
-                    {up.quantity} {matchedUnit?.unitname || "-"}
+                    {up.salesrate} 
                   </div>
-                );
-              }) || "-"}
-            </div>
-          ))}
-        </div>
-      ),
+                )) || "-"}
+          </div>
+        ))}
+      </div>
+    ),
+
+    // Sales Unit / UOM
+    salesunit: (
+      <div>
+        {variants?.map((variant: any, i: number) => (
+          <div key={i} className="border-b border-gray-200 pb-1 mb-1">
+            {item.isservice
+              ? capitalize(variant?.uom) || "-" // service unit
+              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => {
+                  const matchedUnit = unitList.find((unit) => unit.id === up.unitid);
+                  return (
+                    <div key={j}>
+                      {up.quantity} {matchedUnit?.unitname || "-"}
+                    </div>
+                  );
+                }) || "-"}
+          </div>
+        ))}
+      </div>
+    ),
 
       status: item.status ? "Active" : "Inactive",
     };
@@ -213,11 +219,22 @@ const ProductServices = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onBarcode={(row) => {
-            if (row.isservice) return;
-            console.log("Barcode", JSON.stringify(row));
-            const barcodeValue = row.productvariants?.[0]?.productbarcode || "";
+            let barcodeValue = "";
+            let itemName = row.name;
+
+            if (row.isservice) {
+              const serviceVariant = row.servicevariants?.[0];
+              if (!serviceVariant) return; 
+              barcodeValue = serviceVariant.servicebarcode || "";
+              itemName = serviceVariant.name || row.name;
+            } else {
+              const productVariant = row.productvariants?.[0];
+              if (!productVariant) return;
+              barcodeValue = productVariant.productbarcode || "";
+            }
+
             setBarcodeProduct({
-              name: row.name,
+              name: itemName,
               barcode: barcodeValue,
             });
 

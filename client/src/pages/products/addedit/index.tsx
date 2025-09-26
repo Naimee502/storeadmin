@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
-import FormField, { type InputType } from "../../../components/formfiled";
+import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -48,243 +48,296 @@ const AddEditProductService = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<any>({
-    adminid: adminId,
-    branchid: branchId,
-    isservice: false,
-    isserialised: false,
-    isshowinpos: false,
-    isfeatured: false,
-    name: "",
-    description: "",
-    imageurl: "",
-    imagename: "",
-    categoryid: "",
-    subcategoryid: "",
-    groupid: "",
-    modelid: "",
-    brandid: "",
-    sizeid: "",
-    seo: {
-      metatitle: "",
-      metadescription: "",
-      keywords: [],
-      slug: "",
+  adminid: adminId,
+  branchid: branchId,
+  isservice: false,
+  isserialised: false,
+  isshowinpos: false,
+  isfeatured: false,
+  name: "",
+  description: "",
+  imageurl: "",
+  imagename: "",
+  categoryid: "",
+  subcategoryid: "",
+  groupid: "",
+  modelid: "",
+  brandid: "",
+  sizeid: "",
+  seo: {
+    metatitle: "",
+    metadescription: "",
+    keywords: [],
+    slug: "",
+  },
+  productvariants: [
+    {
+      name: "",
+      sku: "",
+      productcode: "",
+      productbarcode: "",
+      batchnumber: "",
+      manufacturedate: "",
+      expirydate: "",
+      baseunitid: "",
+      purchaseunitid: "",
+      purchaserate: "",          
+      unitconversions: [
+        {
+          unitid: "",
+          factor: "",            
+        },
+      ],
+      gst: "",                    
+      hsncode: "",
+      openingstock: "",           
+      openingstockamount: "",
+      currentstock: "",
+      currentstockamount: "",
+      closingstock: "",
+      closingstockamount: "",
+      minimumstock: "",
+      reorderlevel: "",
+      racklocation: "",
+      serials: [
+        {
+          imei: "",
+          serialnumber: "",
+          lotnumber: "",
+          status: "available",
+          addedon: new Date(),
+          soldon: null,
+          returnedon: null,
+          remarks: "",
+        },
+      ],
+      pricing: [
+        {
+          region: "default",
+          channel: "enduser",
+          unitprices: [
+            {
+              quantity: "",        // <-- empty
+              unitid: "",
+              mrp: "",             // <-- empty
+              salesrate: "",       // <-- empty
+              discount: "",        // <-- empty
+              discounttype: "fixed",
+              offerprice: "",      // <-- empty
+            },
+          ],
+        },
+      ],
+      productlikecount: 0,
     },
-    productvariants: [
-      {
-        name: "",
-        sku: "",
-        productcode: "",
-        productbarcode: "",
-        batchnumber: "",
-        manufacturedate: "",
-        expirydate: "",
-        baseunitid: "",
-        purchaseunitid: "",
-        purchaserate: 0,
-        unitconversions: [
-          {
-            unitid: "",
-            factor: 1,
-          },
-        ],
-        gst: 0,
-        hsncode: "",
-        openingstock: 0,
-        openingstockamount: 0,
-        currentstock: 0,
-        currentstockamount: 0,
-        closingstock: 0,
-        closingstockamount: 0,
-        minimumstock: 0,
-        reorderlevel: 0,
-        racklocation: "",
-        serials: [
-          {
-            imei: "",
-            serialnumber: "",
-            lotnumber: "",
-            status: "available",
-            addedon: new Date(),
-            soldon: null,
-            returnedon: null,
-            remarks: "",
-          },
-        ],
-        pricing: [
-          {
-            region: "default",
-            channel: "enduser",
-            unitprices: [
-              {
-                quantity: 1,
-                unitid: "",
-                mrp: 0,
-                salesrate: 0,
-                discount: 0,
-                discounttype: "fixed",
-                offerprice: 0,
-              },
-            ],
-          },
-        ],
-        productlikecount: 0,
+  ],
+  servicevariants: [
+    {
+      name: "",
+      servicecode: "",
+      servicebarcode: "",
+      servicerate: "",          
+      uom: "",
+      duration: {
+        amount: "",            
+        unit: "hours",
       },
-    ],
-    servicevariants: [
-      {
-        name: "",
-        servicecode: "",
-        servicebarcode: "",
-        servicerate: 0,
-        uom: "hour",
-        duration: {
-          amount: 1,
-          unit: "hours",
+      requiresappointment: true,
+      availabilityslots: [
+        {
+          day: "mon",
+          from: "",
+          to: "",
         },
-        requiresappointment: true,
-        availabilityslots: [
-          {
-            day: "mon",
-            from: "",
-            to: "",
-          },
-        ],
-        locationType: "onsite",
-        isRecurring: false,
-        recurrence: {
-          interval: "monthly",
-          count: 1,
-        },
-        servicelikecount: 0,
-        remarks: "",
+      ],
+      locationType: "onsite",
+      isRecurring: false,
+      recurrence: {
+        interval: "monthly",
+        count: "",             
       },
-    ],
-    salesaccountid: "",
-    purchaseaccountid: "",
-    serviceaccountid: "",
-    status: true,
+      servicelikecount: 0,
+      remarks: "",
+    },
+  ],
+  salesaccountid: "",
+  purchaseaccountid: "",
+  serviceaccountid: "",
+  status: true,
   });
 
   useEffect(() => {
-    if (isEdit && productData?.getProductServiceById) {
-      const p = JSON.parse(JSON.stringify(productData.getProductServiceById));
-      setFormData({
-        id: p.id ?? "",
-        adminid: p.adminid ?? adminId ?? "",
-        branchid: p.branchid ?? branchId ?? "",
-        isservice: p.isservice ?? false,
-        isserialised: p.isserialised ?? false,
-        isshowinpos: p.isshowinpos ?? false,
-        isfeatured: p.isfeatured ?? false,
-        name: p.name ?? "",
-        description: p.description ?? "",
-        imageurl: p.imageurl ?? "",
-        imagename: p.imagename ?? "",
-        categoryid: p.categoryid ?? "",
-        subcategoryid: p.subcategoryid ?? "",
-        groupid: p.groupid ?? "",
-        modelid: p.modelid ?? "",
-        brandid: p.brandid ?? "",
-        sizeid: p.sizeid ?? "",
-        seo: {
-          metatitle: p.seo?.metatitle ?? "",
-          metadescription: p.seo?.metadescription ?? "",
-          keywords: p.seo?.keywords ?? [],
-          slug: p.seo?.slug ?? "",
-        },
-        productvariants: (p.productvariants || []).length > 0
-          ? p.productvariants.map((variant: any) => ({
+  if (isEdit && productData?.getProductServiceById) {
+    const p = JSON.parse(JSON.stringify(productData.getProductServiceById));
+
+    setFormData({
+      id: p.id ?? "",
+      adminid: p.adminid ?? adminId ?? "",
+      branchid: p.branchid ?? branchId ?? "",
+      isservice: p.isservice ?? false,
+      isserialised: p.isserialised ?? false,
+      isshowinpos: p.isshowinpos ?? false,
+      isfeatured: p.isfeatured ?? false,
+      name: p.name ?? "",
+      description: p.description ?? "",
+      imageurl: p.imageurl ?? "",
+      imagename: p.imagename ?? "",
+      categoryid: p.categoryid ?? "",
+      subcategoryid: p.subcategoryid ?? "",
+      groupid: p.groupid ?? "",
+      modelid: p.modelid ?? "",
+      brandid: p.brandid ?? "",
+      sizeid: p.sizeid ?? "",
+      seo: {
+        metatitle: p.seo?.metatitle ?? "",
+        metadescription: p.seo?.metadescription ?? "",
+        keywords: p.seo?.keywords ?? [],
+        slug: p.seo?.slug ?? "",
+      },
+      productvariants: (p.productvariants || []).length
+        ? p.productvariants.map((variant: any) => ({
             ...variant,
             manufacturedate: formatDateForInput(variant.manufacturedate),
             expirydate: formatDateForInput(variant.expirydate),
+            purchaserate: safeNumber(variant.purchaserate),
+            gst: safeNumber(variant.gst),
+            openingstock: safeNumber(variant.openingstock),
+            openingstockamount: safeNumber(variant.openingstockamount),
+            currentstock: safeNumber(variant.currentstock),
+            currentstockamount: safeNumber(variant.currentstockamount),
+            closingstock: safeNumber(variant.closingstock),
+            closingstockamount: safeNumber(variant.closingstockamount),
+            minimumstock: safeNumber(variant.minimumstock),
+            reorderlevel: safeNumber(variant.reorderlevel),
             unitconversions: variant.unitconversions?.length
-              ? variant.unitconversions
-              : [{ unitid: "", factor: 1 }],
+              ? variant.unitconversions.map((uc: any) => ({
+                  ...uc,
+                  factor: safeNumber(uc.factor),
+                }))
+              : [{ unitid: "", factor: "" }],
             serials: variant.serials?.length
               ? variant.serials
-              : [{
-                imei: "",
-                serialnumber: "",
-                lotnumber: "",
-                status: "available",
-                addedon: new Date(),
-                soldon: null,
-                returnedon: null,
-                remarks: "",
-              }],
+              : [
+                  {
+                    imei: "",
+                    serialnumber: "",
+                    lotnumber: "",
+                    status: "available",
+                    addedon: new Date(),
+                    soldon: null,
+                    returnedon: null,
+                    remarks: "",
+                  },
+                ],
             pricing: variant.pricing?.length
-              ? variant.pricing
-              : [{
-                region: "default",
-                channel: "enduser",
-                unitprices: [{
-                  quantity: 1,
-                  unitid: "",
-                  mrp: 0,
-                  salesrate: 0,
-                  purchaserate: 0,
-                  discount: 0,
-                  discounttype: "fixed",
-                  offerprice: 0,
-                }],
-              }],
+              ? variant.pricing.map((price: any) => ({
+                  ...price,
+                  unitprices: price.unitprices?.length
+                    ? price.unitprices.map((up: any) => ({
+                        ...up,
+                        quantity: safeNumber(up.quantity),
+                        mrp: safeNumber(up.mrp),
+                        salesrate: safeNumber(up.salesrate),
+                        purchaserate: safeNumber(up.purchaserate),
+                        discount: safeNumber(up.discount),
+                        offerprice: safeNumber(up.offerprice),
+                      }))
+                    : [
+                        {
+                          quantity: "",
+                          unitid: "",
+                          mrp: "",
+                          salesrate: "",
+                          purchaserate: "",
+                          discount: "",
+                          discounttype: "fixed",
+                          offerprice: "",
+                        },
+                      ],
+                }))
+              : [
+                  {
+                    region: "default",
+                    channel: "enduser",
+                    unitprices: [
+                      {
+                        quantity: "",
+                        unitid: "",
+                        mrp: "",
+                        salesrate: "",
+                        purchaserate: "",
+                        discount: "",
+                        discounttype: "fixed",
+                        offerprice: "",
+                      },
+                    ],
+                  },
+                ],
             productlikecount: variant.productlikecount ?? 0,
           }))
-          : [{
-            name: "",
-            sku: "",
-            productcode: "",
-            productbarcode: "",
-            batchnumber: "",
-            manufacturedate: "",
-            expirydate: "",
-            baseunitid: "",
-            purchaseunitid: "",
-            purchaserate: 0,
-            unitconversions: [{ unitid: "", factor: 1 }],
-            gst: 0,
-            hsncode: "",
-            openingstock: 0,
-            openingstockamount: 0,
-            currentstock: 0,
-            currentstockamount: 0,
-            closingstock: 0,
-            closingstockamount: 0,
-            minimumstock: 0,
-            reorderlevel: 0,
-            racklocation: "",
-            serials: [{
-              imei: "",
-              serialnumber: "",
-              lotnumber: "",
-              status: "available",
-              addedon: new Date(),
-              soldon: null,
-              returnedon: null,
-              remarks: "",
-            }],
-            pricing: [{
-              region: "default",
-              channel: "enduser",
-              unitprices: [{
-                quantity: 1,
-                unitid: "",
-                mrp: 0,
-                salesrate: 0,
-                purchaserate: 0,
-                discount: 0,
-                discounttype: "fixed",
-                offerprice: 0,
-              }],
-            }],
-            productlikecount: 0,
-          }],
-        servicevariants: (p.servicevariants || []).length > 0
-          ? p.servicevariants.map((service: any) => ({
+        : [
+            {
+              name: "",
+              sku: "",
+              productcode: "",
+              productbarcode: "",
+              batchnumber: "",
+              manufacturedate: "",
+              expirydate: "",
+              baseunitid: "",
+              purchaseunitid: "",
+              purchaserate: "",
+              unitconversions: [{ unitid: "", factor: "" }],
+              gst: "",
+              hsncode: "",
+              openingstock: "",
+              openingstockamount: "",
+              currentstock: "",
+              currentstockamount: "",
+              closingstock: "",
+              closingstockamount: "",
+              minimumstock: "",
+              reorderlevel: "",
+              racklocation: "",
+              serials: [
+                {
+                  imei: "",
+                  serialnumber: "",
+                  lotnumber: "",
+                  status: "available",
+                  addedon: new Date(),
+                  soldon: null,
+                  returnedon: null,
+                  remarks: "",
+                },
+              ],
+              pricing: [
+                {
+                  region: "default",
+                  channel: "enduser",
+                  unitprices: [
+                    {
+                      quantity: "",
+                      unitid: "",
+                      mrp: "",
+                      salesrate: "",
+                      purchaserate: "",
+                      discount: "",
+                      discounttype: "fixed",
+                      offerprice: "",
+                    },
+                  ],
+                },
+              ],
+              productlikecount: 0,
+            },
+          ],
+      servicevariants: (p.servicevariants || []).length
+        ? p.servicevariants.map((service: any) => ({
             ...service,
+            servicerate: safeNumber(service.servicerate),
             duration: {
-              amount: service.duration?.amount ?? 1,
+              amount: safeNumber(service.duration?.amount),
               unit: service.duration?.unit ?? "hours",
             },
             availabilityslots: service.availabilityslots?.length
@@ -292,31 +345,35 @@ const AddEditProductService = () => {
               : [{ day: "mon", from: "", to: "" }],
             recurrence: {
               interval: service.recurrence?.interval ?? "monthly",
-              count: service.recurrence?.count ?? 1,
+              count: safeNumber(service.recurrence?.count),
             },
           }))
-          : [{
-            name: "",
-            servicecode: "",
-            servicebarcode: "",
-            servicerate: 0,
-            uom: "hour",
-            duration: { amount: 1, unit: "hours" },
-            requiresappointment: true,
-            availabilityslots: [{ day: "mon", from: "", to: "" }],
-            locationType: "onsite",
-            isRecurring: false,
-            recurrence: { interval: "monthly", count: 1 },
-            servicelikecount: 0,
-            remarks: "",
-          }],
-        salesaccountid: p.salesaccountid ?? "",
-        purchaseaccountid: p.purchaseaccountid ?? "",
-        serviceaccountid: p.serviceaccountid ?? "",
-        status: p.status ?? true,
-      });
-    }
+        : [
+            {
+              name: "",
+              servicecode: "",
+              servicebarcode: "",
+              servicerate: "",
+              uom: "hour",
+              duration: { amount: "", unit: "hours" },
+              requiresappointment: true,
+              availabilityslots: [{ day: "mon", from: "", to: "" }],
+              locationType: "onsite",
+              isRecurring: false,
+              recurrence: { interval: "monthly", count: "" },
+              servicelikecount: 0,
+              remarks: "",
+            },
+          ],
+      salesaccountid: p.salesaccountid ?? "",
+      purchaseaccountid: p.purchaseaccountid ?? "",
+      serviceaccountid: p.serviceaccountid ?? "",
+      status: p.status ?? true,
+    });
+  }
   }, [productData]);
+
+  const safeNumber = (value: any) => (value !== undefined && value !== null ? value : "");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -657,6 +714,7 @@ const AddEditProductService = () => {
 
       servicevariants: formData.isservice ? (formData.servicevariants || []).map(s => ({
         _id: s._id || undefined,
+        name: s.name?.trim() || "",
         servicerate: Number(s.servicerate) || 0,
         requiresappointment: !!s.requiresappointment,
         isRecurring: !!s.isRecurring,
@@ -668,11 +726,14 @@ const AddEditProductService = () => {
           interval: s.recurrence?.interval || "monthly",
           count: Number(s.recurrence?.count) || 1,
         },
-        availabilityslots: (s.availabilityslots || []).map(slot => ({
-          day: slot.day || "mon",
-          from: slot.from || "",
-          to: slot.to || "",
-        })),
+        availabilityslots: (s.availabilityslots || []).flatMap(slot => {
+          const days = Array.isArray(slot.day) ? slot.day : [slot.day || "mon"];
+          return days.map(d => ({
+            day: d,
+            from: slot.from || "",
+            to: slot.to || "",
+          }));
+        })
       })) : [],
       status: !!formData.status,
     };
@@ -740,12 +801,12 @@ const AddEditProductService = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange} />
               <FormField label="Image" name="imageurl" type="file" accept="image/*" onChange={handleImageChange} previewUrl={formData.imageurl} />
-              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable />
-              <FormField label="Subcategory" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable />
-              <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable />
-              <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable />
-              <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable />
-              <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable />
+              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/categories")}/>
+              <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/subcategories")}/>
+              <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => navigate("/brands")}/>
+              <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => navigate("/productgroups")}/>
+              <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => navigate("/models")}/>
+              <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => navigate("/sizes")}/>
               {
                 isEdit && (
                   <BarcodeImage
@@ -792,9 +853,9 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.salesaccountid} onChange={handleChange} searchable />
-              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable />
-              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable />)}
+              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
+              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
+              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>)}
             </div>
           </fieldset>
         </div>
@@ -811,6 +872,7 @@ const AddEditProductService = () => {
             addAvailabilitySlot={addServiceSlot}
             removeAvailabilitySlot={removeServiceSlot}
             isEdit={isEdit}
+            navigate={navigate}
           />
         ) : (
           <ProductVariants
@@ -829,6 +891,7 @@ const AddEditProductService = () => {
             removeSerial={removeSerial}
             isEdit={isEdit}
             isserialised={formData.isserialised}
+            navigate={navigate}
           />
         )}
       </div>

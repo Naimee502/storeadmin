@@ -11,8 +11,9 @@ import {
   FaDotCircle,
   FaImage,
   FaCaretDown,
+  FaPlus,
 } from 'react-icons/fa';
-import Select, { type MultiValue, type SingleValue } from 'react-select';
+import Select, { components, type MultiValue, type SingleValue } from 'react-select';
 
 export type InputType =
   | 'text'
@@ -51,6 +52,8 @@ interface FormFieldProps {
   searchable?: boolean;
   icon?: React.ReactNode;
   disabled?: boolean;
+  addable?: boolean;
+  onAddNew?: () => void;
 }
 
 const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
@@ -69,6 +72,28 @@ const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
   multiselect: <FaCaretDown />,
 };
 
+// Custom Dropdown Footer
+const DropdownFooter = (props: any) => {
+  const { addable, onAddNew } = props.selectProps as {
+    addable?: boolean;
+    onAddNew?: () => void;
+  };
+
+  return (
+    <>
+      <components.MenuList {...props}>{props.children}</components.MenuList>
+      {addable && onAddNew && (
+        <div
+          onClick={onAddNew}
+          className="px-3 py-2 flex items-center gap-2 text-blue-600 cursor-pointer hover:bg-blue-50 border-t"
+        >
+          <FaPlus size={12} /> <span className="text-sm font-medium">Add New</span>
+        </div>
+      )}
+    </>
+  );
+};
+
 const FormField: React.FC<FormFieldProps> = ({
   label,
   name,
@@ -85,6 +110,8 @@ const FormField: React.FC<FormFieldProps> = ({
   searchable = false,
   icon,
   disabled,
+  addable = false,
+  onAddNew,
 }) => {
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
@@ -109,8 +136,9 @@ const FormField: React.FC<FormFieldProps> = ({
     }
 
     if ((isSelect || isMultiSelect) && searchable) {
+      const SelectWithCustom = Select as any;
       return (
-        <Select
+        <SelectWithCustom
           inputId={name}
           name={name}
           options={options}
@@ -142,6 +170,10 @@ const FormField: React.FC<FormFieldProps> = ({
           isClearable
           isSearchable
           isMulti={isMultiSelect}
+          placeholder={placeholder || `Select ${label}`}
+          components={{ MenuList: DropdownFooter }}
+          addable={addable}
+          onAddNew={onAddNew}
         />
       );
     }

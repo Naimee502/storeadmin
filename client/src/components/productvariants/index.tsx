@@ -23,7 +23,43 @@ interface ProductVariantsProps {
     removeSerial: (variantIndex: number, serialIndex: number) => void;
     isEdit?: boolean;
     isserialised?: boolean;
+    navigate: (path: string) => void;
 }
+
+const LABELS: Record<string, string> = {
+  // Product/Variant basics
+  name: "Name",
+  sku: "SKU",
+  productcode: "Product Code",
+  productbarcode: "Product Barcode",
+
+  // Batch / Manufacturing
+  batchnumber: "Batch Number",
+  manufacturedate: "Manufacture Date",
+  expirydate: "Expiry Date",
+  hsncode: "HSN Code",
+  gst: "GST",
+
+  // Stock fields
+  openingstock: "Opening Stock",
+  currentstock: "Current Stock",
+  closingstock: "Closing Stock",
+  minimumstock: "Minimum Stock",
+  reorderlevel: "Reorder Level",
+  racklocation: "Rack Location",
+  openingstockamount: "Opening Stock Amount",
+  currentstockamount: "Current Stock Amount",
+  closingstockamount: "Closing Stock Amount",
+
+  // Line item fields
+  quantity: "Quantity",
+  unitid: "Unit",
+  mrp: "MRP",
+  salesrate: "Sales Rate",
+  discount: "Discount",
+  discounttype: "Discount Type",
+  offerprice: "Offer Price",
+};
 
 const regionOptions = [
     { value: "default", label: "Default" },
@@ -86,6 +122,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     removeSerial,
     isEdit = false,
     isserialised = false,
+    navigate,
 }) => (
     <>
         {formData.productvariants.map((variant, index) => (
@@ -112,7 +149,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     ].map((field) => (
                         <FormField
                             key={field}
-                            label={field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                            label={LABELS[field.toLowerCase()] || field}  
                             placeholder={field}
                             name={`productvariants.${index}.${field}`}
                             type={[
@@ -147,6 +184,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         value={variant.baseunitid}
                         onChange={handleChange}
                         searchable
+                        addable onAddNew={() => navigate("/units")}
                     />
 
                     <FormField
@@ -158,6 +196,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         value={variant.purchaseunitid}
                         onChange={handleChange}
                         searchable
+                        addable onAddNew={() => navigate("/units")}
                     />
 
                     <FormField
@@ -165,7 +204,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         placeholder="Purchase Rate"
                         name={`productvariants.${index}.purchaserate`}
                         type="number"
-                        value={variant.purchaserate || 0}
+                        value={variant.purchaserate}
                         onChange={handleChange}
                     />
                 </div>
@@ -184,6 +223,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     value={conv.unitid}
                                     onChange={handleChange}
                                     searchable
+                                    addable onAddNew={() => navigate("/units")}
                                 />
                                 <FormField
                                     label="Factor"
@@ -233,6 +273,9 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                         { value: "enduser", label: "End User" },
                                         { value: "retail", label: "Retail" },
                                         { value: "dealer", label: "Dealer" },
+                                        { value: "superstockist", label: "Super Stockist" },
+                                        { value: "distributor", label: "Distributor" },
+                                        { value: "exporter", label: "Exporter" }
                                     ]}
                                     value={price.channel || "enduser"}
                                     onChange={handleChange}
@@ -246,7 +289,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
                                         <FormField
                                             key={f}
-                                            label={f.charAt(0).toUpperCase() + f.slice(1)}
+                                            label={LABELS[f.toLowerCase()] || f} 
                                             name={`productvariants.${index}.pricing.${priceIndex}.unitprices.${upIndex}.${f}`}
                                             type={
                                                 f === "unitid" ? "select" :
@@ -265,6 +308,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                             value={up[f]}
                                             onChange={handleChange}
                                             searchable={f === "unitid" || f === "discounttype"}
+                                            addable onAddNew={() => navigate("/units")}
                                         />
                                     ))}
                                     <button

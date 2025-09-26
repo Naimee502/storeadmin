@@ -28,7 +28,7 @@ const AddEditPayment = () => {
     type: "payment",
     mode: "cash",
     partyid: "",
-    amount: 0,
+    amount: "",
     reference: "",
     remarks: "",
     status: true,
@@ -40,16 +40,17 @@ const AddEditPayment = () => {
 
   const { addPaymentMutation, editPaymentMutation } = usePaymentMutations();
 
-  // Load existing payment for edit
   useEffect(() => {
     if (isEdit && existingData?.getPaymentById) {
       const p = existingData.getPaymentById;
       setFormValues({
-        paymentdate: formatDate(p.paymentdate),
+        paymentdate: formatDate(p.paymentdate) || "",
         type: p.type || "payment",
         mode: p.mode || "cash",
-        partyid: typeof p.partyid === "string" ? p.partyid : p.partyid?.id || p.partyid?._id || "",
-        amount: p.amount || 0,
+        partyid: typeof p.partyid === "string"
+          ? p.partyid
+          : p.partyid?.id || p.partyid?._id || "",
+        amount: p.amount !== undefined && p.amount !== null ? p.amount : "", 
         reference: p.reference || "",
         remarks: p.remarks || "",
         status: p.status ?? true,
@@ -73,8 +74,16 @@ const AddEditPayment = () => {
 
   const validate = () => {
     const errors: { [key: string]: string } = {};
-    if (!formValues.partyid) errors.partyid = "Select a party account";
-    if (!formValues.amount || formValues.amount <= 0) errors.amount = "Enter a valid amount";
+
+    if (!formValues.partyid) {
+      errors.partyid = "Select a party account";
+    }
+
+    const amount = parseFloat(formValues.amount as any); // convert string to number
+    if (isNaN(amount) || amount <= 0) {
+      errors.amount = "Enter a valid amount";
+    }
+
     return errors;
   };
 

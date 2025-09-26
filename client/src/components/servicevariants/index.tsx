@@ -9,6 +9,7 @@ interface ServiceVariantsProps {
   addAvailabilitySlot: (variantIndex: number) => void; // add a slot for a specific variant
   removeAvailabilitySlot: (variantIndex: number, slotIndex: number) => void; // remove a slot
   isEdit?: boolean;
+  navigate: (path: string) => void;
 }
 
 export const ServiceVariants: React.FC<ServiceVariantsProps> = ({
@@ -19,6 +20,7 @@ export const ServiceVariants: React.FC<ServiceVariantsProps> = ({
   addAvailabilitySlot,
   removeAvailabilitySlot,
   isEdit = false,
+  navigate,
 }) => (
   <>
     {formData.servicevariants.map((variant, index) => (

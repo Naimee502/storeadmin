@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
-import { FaCalendarAlt, FaFileAlt, FaPlus, FaTrash } from "react-icons/fa";
+import { FaCalendarAlt, FaFileAlt, FaTrash } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import Button from "../../../components/button";
@@ -28,7 +28,7 @@ const AddEditTransaction = () => {
     narration: "",
     entrytype: "manual",
     entries: [
-      { accountid: "", debit: 0, credit: 0, remarks: "" }
+      { accountid: "", debit: "", credit: "", remarks: "" } 
     ],
     status: true,
     adminid: adminId || "",
@@ -49,8 +49,8 @@ const AddEditTransaction = () => {
       entrytype: t.entrytype || "manual",
       entries: t.entries?.map((e: any) => ({
         accountid: typeof e.accountid === "string" ? e.accountid : e.accountid?.id || e.accountid?._id || "",
-        debit: e.debit || 0,
-        credit: e.credit || 0,
+        debit: e.debit !== undefined ? e.debit : "",   
+        credit: e.credit !== undefined ? e.credit : "",
         remarks: e.remarks || "",
       })) || [],
       status: t.status ?? true,
@@ -86,7 +86,7 @@ const formatTransactionDate = (date: any) => {
   const addEntryRow = () => {
     setFormValues(prev => ({
       ...prev,
-      entries: [...prev.entries, { accountid: "", debit: 0, credit: 0, remarks: "" }]
+      entries: [...prev.entries, { accountid: "", debit: "", credit: "", remarks: "" }]
     }));
   };
 
