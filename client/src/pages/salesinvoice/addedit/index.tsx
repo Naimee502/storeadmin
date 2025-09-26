@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import ProductSection from "../../../components/productsection";
@@ -325,10 +325,8 @@ const AddEditSalesInvoice = () => {
                   options={accountOptions}
                   searchable
                   error={errors.partyAccount}
+                  addable onAddNew={() => navigate("/accounts")}
                 />
-                <Button type="button" variant="outline" onClick={() => navigate('/accounts')}>
-                  +
-                </Button>
               </div>
               <FormField
                 label="Tax/Supply Type"
@@ -402,10 +400,8 @@ const AddEditSalesInvoice = () => {
                   options={salesmendAccountOptions}
                   searchable
                   error={errors.salesmenAccount}
+                  addable onAddNew={() => navigate("/salesmenaccount")}
                 />
-                <Button type="button" variant="outline" onClick={() => navigate('/salesmenaccount')}>
-                  +
-                </Button>
               </div>
               <FormField
                 label="Notes"
@@ -438,6 +434,8 @@ const AddEditSalesInvoice = () => {
             unitsList={unitsList}
             partyAccount={partyAccount}
             type="sales"
+            navigate={navigate}
+            iservice={isService}
           />
 
           {/* Summary */}

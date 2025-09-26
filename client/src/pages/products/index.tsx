@@ -24,7 +24,6 @@ const ProductServices = () => {
   const { deleteProductServiceMutation } = useProductServiceMutations();
   const { data: unitData } = useUnitsQuery();
   const unitList = unitData?.getUnits || [];
-  console.log("productServiceList:", JSON.stringify(productServiceList));
 
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [barcodeProduct, setBarcodeProduct] = useState<any>(null);

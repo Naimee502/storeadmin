@@ -332,10 +332,8 @@ const AddEditPurchaseInvoice = () => {
                   options={accountOptions}
                   searchable
                   error={errors.partyAccount}
+                  addable onAddNew={() => navigate("/accounts")}
                 />
-                <Button type="button" variant="outline" onClick={() => navigate('/accounts')}>
-                  +
-                </Button>
               </div>
               <FormField
                 label="Tax/Supply Type"
@@ -422,6 +420,7 @@ const AddEditPurchaseInvoice = () => {
             unitsList={unitsList}
             partyAccount={partyAccount}
             type="purchase"
+            navigate={navigate}
           />
 
           {/* Summary */}
