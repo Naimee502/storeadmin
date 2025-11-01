@@ -1,4 +1,5 @@
 import { accountGroupTypeDefs } from "./accountgroups";
+import { accountLedgerTypeDefs } from "./accountledgers";
 import { accountTypeDefs } from "./accounts";
 import { adminTypeDefs } from "./admin";
 import { branchTypeDefs } from "./branches";
@@ -18,4 +19,4 @@ import { transferStockTypeDefs } from "./transferstock";
 import { unitTypeDefs } from "./units";
 import { uploadTypeDefs } from "./uploads";
 
-export const typeDefs = [branchTypeDefs, categoryTypeDefs, subCategoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs, uploadTypeDefs, productServiceTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs, transferStockTypeDefs, adminTypeDefs, transactionTypeDefs, paymentTypeDefs];
+export const typeDefs = [branchTypeDefs, categoryTypeDefs, subCategoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountLedgerTypeDefs, accountTypeDefs, unitTypeDefs, salesmenAccountTypeDefs, uploadTypeDefs, productServiceTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs, transferStockTypeDefs, adminTypeDefs, transactionTypeDefs, paymentTypeDefs];

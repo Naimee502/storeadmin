@@ -8,9 +8,7 @@ import {
   useAccountsQuery,
   useAccountMutations
 } from "../../../graphql/hooks/accounts";
-import {
-  useAccountGroupsQuery
-} from "../../../graphql/hooks/accountgroups";
+import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
 const DeletedAccounts = () => {
   const navigate = useNavigate();
@@ -18,11 +16,11 @@ const DeletedAccounts = () => {
 
   // ✅ Use unified query with status = false
   const { data, refetch } = useAccountsQuery(false);
-  const { data: accountGroupsData } = useAccountGroupsQuery();
+  const { data: ledgerData } = useAccountLedgersQuery();
   const { resetAccountMutation } = useAccountMutations();
 
   const deletedAccounts = data?.getAccounts || [];
-  const accountGroups = accountGroupsData?.getAccountGroups || [];
+  const ledgerList = ledgerData?.getAccountLedgers || [];
 
   useEffect(() => {
     if (!data || !data.getAccounts || data.getAccounts.length === 0) {
@@ -36,22 +34,22 @@ const DeletedAccounts = () => {
     { label: "Name", key: "name" },
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
-    { label: "Account Group", key: "accountgroupname" },
+    { label: "Account Ledger", key: "ledgername" },
     { label: "Status", key: "status" },
   ];
 
   const tableData = deletedAccounts.map((account: any, index: number) => {
-    const groupId = typeof account.accountgroupid === 'string'
-      ? account.accountgroupid
-      : account.accountgroupid?.id || account.accountgroupid?._id;
+    const ledgerId = typeof account.ledgerid === "string"
+      ? account.ledgerid
+      : account.ledgerid?.id || account.ledgerid?._id;
 
-    const group = accountGroups.find((g: any) => g.id === groupId);
+    const ledger = ledgerList.find((g) => g.id === ledgerId);
 
     return {
       ...account,
       seqNo: index + 1,
       status: account.status ? "Active" : "Inactive",
-      accountgroupname: group ? group.accountgroupname : "-",
+      ledgername: ledger ? ledger.ledgername : "-",
     };
   });
   

@@ -52,6 +52,15 @@ import DeletedTransactions from "../pages/transactions/deletedentries";
 import Payment from "../pages/payments";
 import AddEditPayment from "../pages/payments/addedit";
 import DeletedPayments from "../pages/payments/deletedentries";
+import SalesReports from "../pages/reports/sales";
+import PurchaseReports from "../pages/reports/purchase";
+import StockReports from "../pages/reports/stock";
+import GSTReports from "../pages/reports/gst";
+import AccountingFinanceReports from "../pages/reports/accounting";
+import PartyReports from "../pages/reports/party/inde";
+import SalesmanReports from "../pages/reports/salesman";
+import AccountLedgers from "../pages/accountledgers";
+import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -298,6 +307,22 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/accountledgers"
+          element={
+            <ProtectedRoutes>
+              <AccountLedgers />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/accountledgers/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedAccountLedgers />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
           path="/accounts"
           element={
             <ProtectedRoutes>
@@ -521,6 +546,71 @@ const AppRoutes = () => {
             </ProtectedRoutes>
           }
         />
+        {/* ---- Reports ---- */}
+        <Route
+          path="/reports/sales"
+          element={
+            <ProtectedRoutes>
+              <SalesReports />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/reports/purchase"
+          element={
+            <ProtectedRoutes>
+              <PurchaseReports />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/reports/stock"
+          element={
+            <ProtectedRoutes>
+              <StockReports />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/reports/gst"
+          element={
+            <ProtectedRoutes>
+              <GSTReports />
+            </ProtectedRoutes>
+          }
+        />
+         <Route
+          path="/reports/accounting"
+          element={
+            <ProtectedRoutes>
+              <AccountingFinanceReports />
+            </ProtectedRoutes>
+          }
+        />
+         <Route
+          path="/reports/party"
+          element={
+            <ProtectedRoutes>
+              <PartyReports />
+            </ProtectedRoutes>
+          }
+        />
+         <Route
+          path="/reports/salesmen"
+          element={
+            <ProtectedRoutes>
+              <SalesmanReports />
+            </ProtectedRoutes>
+          }
+        />
+         {/* <Route
+          path="/reports/analytical"
+          element={
+            <ProtectedRoutes>
+              <AnalyticalReports />
+            </ProtectedRoutes>
+          }
+        /> */}
       </Routes>
     );
 };

@@ -9,7 +9,10 @@ export const accountResolvers = {
       if (filter?.branchid) query.branchid = filter.branchid;
       if (filter?.type) query.type = filter.type;
       if (filter?.accounttype) query.accounttype = filter.accounttype;
-      if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
+
+      // ✅ Changed accountgroupid → ledgerid
+      if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
+
       if (filter?.accountcode) query.accountcode = filter.accountcode;
       if (filter?.mobile) query.mobile = { $regex: filter.mobile, $options: "i" };
       if (filter?.email) query.email = { $regex: filter.email, $options: "i" };
@@ -21,19 +24,16 @@ export const accountResolvers = {
       if (filter?.pincode) query.pincode = filter.pincode;
       if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
       if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
-      if (typeof filter?.isposcustomer === 'boolean') query.isposcustomer = filter.isposcustomer;
+      if (typeof filter?.isposcustomer === "boolean") query.isposcustomer = filter.isposcustomer;
       if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
       if (filter?.salesmanid) query.salesmanid = filter.salesmanid;
-      if (typeof filter?.duedays === 'number') query.duedays = filter.duedays;
+      if (typeof filter?.duedays === "number") query.duedays = filter.duedays;
       if (filter?.latitude) query.latitude = filter.latitude;
       if (filter?.longitude) query.longitude = filter.longitude;
       if (filter?.otp) query.otp = filter.otp;
 
-      if (typeof filter?.status === 'boolean') {
-        query.status = filter.status;
-      } else {
-        query.status = true; // default to active accounts
-      }
+      query.status =
+        typeof filter?.status === "boolean" ? filter.status : true; // default only active
 
       if (filter?.createdFrom || filter?.createdTo) {
         query.createdAt = {};
@@ -43,7 +43,7 @@ export const accountResolvers = {
 
       return await Account.find(query)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")  // ✅ Updated populate
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");
@@ -52,9 +52,10 @@ export const accountResolvers = {
     getAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
       const filter: any = { _id: id };
       if (adminId) filter.admin = adminId;
+
       return await Account.findOne(filter)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")  // ✅ Updated populate
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");
@@ -64,9 +65,10 @@ export const accountResolvers = {
   Mutation: {
     addAccount: async (_: any, { input }: any) => {
       const created = await Account.create(input);
+
       return await Account.findById(created._id)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")  // ✅ Updated populate
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");
@@ -75,7 +77,7 @@ export const accountResolvers = {
     editAccount: async (_: any, { id, input }: any) => {
       return await Account.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")  // ✅ Updated populate
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");

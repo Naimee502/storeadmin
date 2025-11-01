@@ -21,6 +21,7 @@ const ProductServices = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch, loading } = useProductServicesQuery();
   const productServiceList = data?.getProductServices ?? [];
+  console.log("ProductServiceList:", JSON.stringify(productServiceList));
   const { deleteProductServiceMutation } = useProductServiceMutations();
   const { data: unitData } = useUnitsQuery();
   const unitList = unitData?.getUnits || [];

@@ -9,9 +9,9 @@ export const ADD_ACCOUNT = gql`
       name
       type
       accounttype
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       mobile
       email
@@ -67,9 +67,9 @@ export const EDIT_ACCOUNT = gql`
       name
       type
       accounttype
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       mobile
       email

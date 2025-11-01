@@ -38,9 +38,9 @@ const accountSchema = new mongoose.Schema(
       default: 'retail',
     },
 
-    accountgroupid: {
+    ledgerid: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'AccountGroup',
+      ref: 'AccountLedger',
       required: true,
     },
 

@@ -1,4 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { AccountGroup } from "../accountgroups";
+import { defaultAccountGroups, defaultLedgers } from "../../utils/helper";
+import { AccountLedger } from "../accountledgers";
 
 // Extend the Admin interface
 interface IAdmin extends Document {
@@ -67,6 +70,58 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+
+// ✅ Auto-create Account Groups & Ledgers AFTER Admin created
+AdminSchema.post("save", async function (doc, next) {
+  try {
+    // ────────────────────────
+    // 1️⃣ Create Default Account Groups
+    // ────────────────────────
+    let groups = await AccountGroup.find({ admin: doc._id });
+
+    if (groups.length === 0) {
+      for (const g of defaultAccountGroups) {
+        const newGroup = new AccountGroup({
+          accountgroupname: g.name,
+          category: g.category,
+          admin: doc._id,
+        });
+        await newGroup.save(); // ✅ triggers pre-save
+      }
+      groups = await AccountGroup.find({ admin: doc._id });
+    }
+
+    // ────────────────────────
+    // 2️⃣ Create Default Ledgers
+    // ────────────────────────
+    const ledgerExists = await AccountLedger.countDocuments({ admin: doc._id });
+
+    if (ledgerExists === 0) {
+      const groupMap = Object.fromEntries(
+        groups.map((g) => [g.accountgroupname.trim().toLowerCase(), g._id])
+      );
+
+      for (const entry of defaultLedgers) {
+        const groupId = groupMap[entry.group.trim().toLowerCase()] || groups[0]._id;
+
+        const ledger = new AccountLedger({
+          ledgername: entry.name,
+          accountgroupid: groupId,
+          admin: doc._id,
+          branchid: null,
+        });
+
+        await ledger.save(); // ✅ triggers auto ledgercode
+      }
+    }
+
+    next();
+  } catch (error: any) {
+    console.error("Admin post-save error:", error);
+    next(error);
+  }
+});
 
 // Export the model with the inline type
 export const Admin = mongoose.model<IAdmin>("Admin", AdminSchema);

@@ -16,12 +16,12 @@ import { useProductGroupsQuery } from "../../../graphql/hooks/productgroups";
 import { useModelsQuery } from "../../../graphql/hooks/models";
 import { useSizesQuery } from "../../../graphql/hooks/sizes";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import BarcodeImage from "../../../components/barcode";
 import { useSubCategoriesQuery } from "../../../graphql/hooks/subcategories";
 import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
+import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -39,7 +39,7 @@ const AddEditProductService = () => {
   const { data: modelData } = useModelsQuery();
   const { data: sizeData } = useSizesQuery();
   const { data: unitData } = useUnitsQuery();
-  const { data: accountData } = useAccountsQuery();
+  const { data: ledgerData } = useAccountLedgersQuery();
 
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
@@ -853,9 +853,9 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
-              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
-              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={accountData?.getAccounts.map(a => ({ value: a.id, label: a.name })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>)}
+              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
+              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
+              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>)}
             </div>
           </fieldset>
         </div>

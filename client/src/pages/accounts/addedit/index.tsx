@@ -12,8 +12,8 @@ import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
+import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
 const AddEditAccount = () => {
   const { id } = useParams();
@@ -23,10 +23,10 @@ const AddEditAccount = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
-  console.log("Auth Data>>", JSON.stringify(admin,null,2));
+  console.log("Auth Data>>", JSON.stringify(admin, null, 2));
 
   const { data: existingData } = useAccountByIDQuery(id || "");
-  const { data: accountGroupsData } = useAccountGroupsQuery();
+  const { data: ledgersData } = useAccountLedgersQuery();
   const { data: assignAccountData } = useAccountsQuery();
   const { data: salemenData } = useSalesmenQuery();
 
@@ -54,7 +54,7 @@ const AddEditAccount = () => {
     accounttype: "retail",
     isposcustomer: false,
     status: true,
-    accountgroupid: "",
+    ledgerid: "",
     assignaccountid: "",
     salesmanid: "",
     admin: adminId || "",
@@ -137,7 +137,7 @@ const AddEditAccount = () => {
         accounttype: a.accounttype || "retail",
         isposcustomer: a.isposcustomer ?? false,
         status: a.status ?? true,
-        accountgroupid: a.accountgroupid?.id || "",
+        ledgerid: a.ledgerid?.id || "",
         assignaccountid: a.assignaccountid?.id || "",
         salesmanid: a.salesmanid?.id || "",
         admin: a.admin?.id || adminId || "",
@@ -157,7 +157,7 @@ const AddEditAccount = () => {
     const errors: { [key: string]: string } = {};
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
-    if (!formValues.accountgroupid) errors.accountgroupid = "Account group required";
+    if (!formValues.ledgerid) errors.ledgerid = "Account ledger required";
     return errors;
   };
 
@@ -208,7 +208,22 @@ const AddEditAccount = () => {
                 <FormField label="Name" name="name" value={formValues.name} onChange={(e) => handleChange("name", e.target.value)} icon={<FaUser />} error={formErrors.name} placeholder="Enter full name" />
                 <FormField label="Mobile" name="mobile" value={formValues.mobile} onChange={(e) => handleChange("mobile", e.target.value)} icon={<FaMobileAlt />} error={formErrors.mobile} placeholder="Enter mobile number" />
                 <FormField label="Email" name="email" type="email" value={formValues.email} onChange={(e) => handleChange("email", e.target.value)} icon={<FaEnvelope />} placeholder="Enter email address" />
-                <FormField label="Account Group" name="accountgroupid" type="select" value={formValues.accountgroupid} onChange={(e) => handleChange("accountgroupid", e.target.value)} options={accountGroupsData?.getAccountGroups.map(group => ({ label: group.accountgroupname, value: group.id })) || []} error={formErrors.accountgroupid} placeholder="Select account group" searchable/>
+                <FormField
+                  label="Ledger"
+                  name="ledgerid"
+                  type="select"
+                  value={formValues.ledgerid}
+                  onChange={(e) => handleChange("ledgerid", e.target.value)}
+                  options={
+                    ledgersData?.getAccountLedgers?.map((l) => ({
+                      label: l.ledgername,
+                      value: l.id,   
+                    })) || []
+                  }
+                  error={formErrors.ledgerid}
+                  placeholder="Select Ledger"
+                  searchable
+                />
                 <FormField label="Type" name="type" type="select" value={formValues.type} onChange={(e) => handleChange("type", e.target.value)} options={[{ label: "Customer", value: "customer" }, { label: "Vendor", value: "vendor" }, { label: "Expense", value: "expense" }, { label: "Bank", value: "bank" }, { label: "Other", value: "other" }]} placeholder="Select type" />
                 <FormField label="Account Type" name="accounttype" type="select" value={formValues.accounttype} onChange={(e) => handleChange("accounttype", e.target.value)} options={[{ label: "End User", value: "enduser" }, { label: "Retail", value: "retail" }, { label: "Dealer", value: "dealer" }, { label: "Super Stockist", value: "superstockist" }, { label: "Distributor", value: "distributor" }, { label: "Manufacturer", value: "manufacturer" }, { label: "Exporter", value: "exporter" }]} placeholder="Select account type" />
                 {admin?.isChannelCustomers && (

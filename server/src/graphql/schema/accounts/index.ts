@@ -14,11 +14,6 @@ export const accountTypeDefs = gql`
     rejected: Boolean!
   }
 
-  type AccountGroup {
-    id: ID!
-    accountgroupname: String!
-  }
-
   type Branch {
     id: ID!
     branchname: String!
@@ -29,13 +24,18 @@ export const accountTypeDefs = gql`
     name: String!
   }
 
+  type AccountLedger {
+    id: ID!
+    ledgername: String!
+  }
+
   type Account {
     id: ID!
     accountcode: String!
     name: String!
     type: String
     accounttype: String
-    accountgroupid: AccountGroup
+    ledgerid: AccountLedger
     mobile: String
     email: String
     gstnumber: String
@@ -71,7 +71,7 @@ export const accountTypeDefs = gql`
     name: String!
     type: String
     accounttype: String
-    accountgroupid: ID!
+    ledgerid: ID!
     mobile: String
     email: String
     gstnumber: String
@@ -106,7 +106,7 @@ export const accountTypeDefs = gql`
     branchid: ID
     type: String
     accounttype: String
-    accountgroupid: ID
+    ledgerid: ID
     accountcode: String
     mobile: String
     email: String

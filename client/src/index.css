@@ -33,3 +33,15 @@
     background-color: #f9f9f9;
   }
 }
+
+/* ✅ Add scrollbar styling below */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #4e6a85;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

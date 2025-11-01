@@ -10,19 +10,20 @@ import {
   useAccountsQuery,
   useAccountMutations,
 } from "../../graphql/hooks/accounts";
-import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
+import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 
 const Accounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch } = useAccountsQuery();
-  const { data: groupData } = useAccountGroupsQuery();
+  const { data: ledgerData } = useAccountLedgersQuery();
   const { deleteAccountMutation } = useAccountMutations();
   const accountList = data?.getAccounts || [];
-  const groupList = groupData?.getAccountGroups || [];
+  console.log("Fetched Accounts:", JSON.stringify(accountList));
+  const ledgerList = ledgerData?.getAccountLedgers || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   useEffect(() => {
@@ -48,38 +49,46 @@ const Accounts = () => {
     { label: "Name", key: "name" },
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
-    { label: "Account Group", key: "accountgroupname" },
+    { label: "Account Ledger", key: "ledgername" },
     { label: "Status", key: "status" },
   ];
 
   const tableData = accountList.map((acc, index) => {
 
-    const groupId = typeof acc.accountgroupid === 'string'
-      ? acc.accountgroupid
-      : acc.accountgroupid?.id || acc.accountgroupid?._id;
+    const ledgerId = typeof acc.ledgerid === "string"
+      ? acc.ledgerid
+      : acc.ledgerid?.id || acc.ledgerid?._id;
 
-    const group = groupList.find(g => g.id === groupId);
+    const ledger = ledgerList.find((g) => g.id === ledgerId);
     return {
       ...acc,
       seqNo: index + 1,
-      accountgroupname: group ? group.accountgroupname : "-",
+      ledgername: ledger ? ledger.ledgername : "-",
       status: acc.status ? "Active" : "Inactive",
     };
   });
 
   const handleExport = () => {
     const exportData = accountList.map((acc: any, index: number) => {
-      const group = groupList.find((g) => g.id === acc.accountgroupid);
+
+      const ledgerId =
+        typeof acc.ledgerid === "string"
+          ? acc.ledgerid
+          : acc.ledgerid?.id || acc.ledgerid?._id;
+
+      const ledger = ledgerList.find((l) => l.id === ledgerId);
+
       return {
         ID: index + 1,
         AccountCode: acc.accountcode || "-",
         Name: acc.name || "-",
         Mobile: acc.mobile || "-",
         Email: acc.email || "-",
-        AccountGroup: group ? group.accountgroupname : "-",
+        Ledger: ledger ? ledger.ledgername : "-", 
         Status: acc.status ? "true" : "false",
       };
     });
+
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Accounts");

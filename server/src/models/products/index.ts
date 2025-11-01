@@ -260,9 +260,9 @@ const productServiceSchema = new Schema<IProductService>(
         productlikecount: { type: Number, default: 0 },
       },
     ],
-    salesaccountid: { type: Schema.Types.ObjectId, ref: "Account" },
-    purchaseaccountid: { type: Schema.Types.ObjectId, ref: "Account" },
-    serviceaccountid: { type: Schema.Types.ObjectId, ref: "Account" },
+    salesaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },
+    purchaseaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },
+    serviceaccountid: { type: Schema.Types.ObjectId, ref: "AccountLedger" },
     status: { type: Boolean, default: true },
   },
   { timestamps: true }

@@ -23,6 +23,7 @@ const SalesInvoices = () => {
   const { data, refetch } = useSalesInvoicesQuery();
   const { deleteSalesInvoiceMutation } = useSalesInvoiceMutations();
   const invoiceList = data?.getSalesInvoices || [];
+  console.log("Fetched Sales Invoices:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const { data: accountData } = useAccountsQuery();

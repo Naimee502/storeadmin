@@ -48,6 +48,7 @@ const TransferStock = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const frombranchid = branchId ? branchId : undefined;
   const { data: transfersData, refetch } = useTransferStocksQuery();
+  console.log("TransferStocksData:", JSON.stringify(transfersData));
 
   const { data: branchesData } = useBranchesQuery();
   const { data: productData, refetch: productRefetch } = useProductServicesQuery();

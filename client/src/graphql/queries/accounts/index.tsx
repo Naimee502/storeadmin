@@ -9,9 +9,9 @@ export const GET_ACCOUNTS = gql`
       name
       type
       accounttype
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       mobile
       email
@@ -67,9 +67,9 @@ export const GET_ACCOUNT_BY_ID = gql`
       name
       type
       accounttype
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       mobile
       email

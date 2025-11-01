@@ -19,6 +19,7 @@ const Payment = () => {
   const { deletePaymentMutation } = usePaymentMutations();
 
   const paymentList = data?.getPayments || [];
+  console.log("Payments Data:", JSON.stringify(paymentList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const { data: accountsData, refetch: accountsDataRefetch } = useAccountsQuery();

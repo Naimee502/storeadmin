@@ -87,8 +87,6 @@ const Login = () => {
           },
         };
 
-        console.log("Auth Data:", JSON.stringify(authData, null, 2));
-
         dispatch(saveAuthData(authData));
         
         login();

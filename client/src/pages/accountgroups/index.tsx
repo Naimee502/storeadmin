@@ -26,6 +26,7 @@ const AccountGroups = () => {
   const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } =
     useAccountGroupMutations();
   const accountGroupList = data?.getAccountGroups || [];
+  console.log("Account Groups Data:", JSON.stringify(accountGroupList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({
