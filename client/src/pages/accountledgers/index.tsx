@@ -175,6 +175,8 @@ const AccountLedgers = () => {
           showDelete={true}
           showDeleted={true}
           showAdd={false}
+          showExport={false}
+          showImport={false}
           onEdit={handleEdit}
           onDelete={async (row) => {
             if (window.confirm(`Delete ledger "${row.ledgername}"?`)) {
