@@ -8,7 +8,6 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
-import { useUnitsQuery } from "../../../graphql/hooks/units";
 
 const DeletedProducts = () => {
   const navigate = useNavigate();
@@ -17,9 +16,6 @@ const DeletedProducts = () => {
   const { data: deletedData, refetch } = useDeletedProductServicesQuery();
   const deletedList = deletedData?.getProductServices ?? [];
   const { resetProductServiceMutation } = useProductServiceMutations();
-
-  const { data: unitData } = useUnitsQuery();
-  const unitList = unitData?.getUnits || [];
 
   useEffect(() => {
     if (!deletedList?.length) {
@@ -85,14 +81,11 @@ const DeletedProducts = () => {
           <div key={i} className="border-b border-gray-200 pb-1 mb-1">
             {item.isservice
               ? capitalize(variant?.uom) || "-" // service unit
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => {
-                  const matchedUnit = unitList.find((unit) => unit.id === up.unitid);
-                  return (
-                    <div key={j}>
-                      {up.quantity} {matchedUnit?.unitname || "-"}
-                    </div>
-                  );
-                }) || "-"}
+              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
+                  <div key={j}>
+                    {up.quantity} {up.unitid?.unitname || "-"}
+                  </div>
+                )) || "-"}
           </div>
         ))}
       </div>

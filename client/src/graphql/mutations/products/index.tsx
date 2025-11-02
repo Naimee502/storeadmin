@@ -15,42 +15,36 @@ export const ADD_PRODUCT_SERVICE = gql`
       description
       imageurl
       imagename
-      categoryid
-      subcategoryid
-      groupid
-      modelid
-      brandid
-      sizeid
+
+      categoryid { id categoryname }
+      subcategoryid { id subcategoryname }
+      groupid { id productgroupname }
+      modelid { id modelname }
+      brandid { id brandname }
+      sizeid { id sizename }
+
       seo {
         metatitle
         metadescription
         keywords
         slug
       }
+
       servicevariants {
         id
         name
         servicerate
         uom
-        duration {
-          amount
-          unit
-        }
+        duration { amount unit }
         requiresappointment
-        availabilityslots {
-          day
-          from
-          to
-        }
+        availabilityslots { day from to }
         locationType
         isRecurring
-        recurrence {
-          interval
-          count
-        }
+        recurrence { interval count }
         servicelikecount
         remarks
       }
+
       productvariants {
         id
         name
@@ -58,13 +52,15 @@ export const ADD_PRODUCT_SERVICE = gql`
         batchnumber
         manufacturedate
         expirydate
-        baseunitid
-        purchaseunitid
+        baseunitid { id unitname }
+        purchaseunitid { id unitname }
         purchaserate
+
         unitconversions {
-          unitid
+          unitid { id unitname }
           factor
         }
+
         gst
         hsncode
         openingstock
@@ -76,6 +72,7 @@ export const ADD_PRODUCT_SERVICE = gql`
         minimumstock
         reorderlevel
         racklocation
+
         serials {
           imei
           serialnumber
@@ -86,12 +83,13 @@ export const ADD_PRODUCT_SERVICE = gql`
           returnedon
           remarks
         }
+
         pricing {
           region
           channel
           unitprices {
             quantity
-            unitid
+            unitid { id unitname }
             mrp
             salesrate
             discount
@@ -101,15 +99,18 @@ export const ADD_PRODUCT_SERVICE = gql`
         }
         productlikecount
       }
-      salesaccountid
-      purchaseaccountid
-      serviceaccountid
+
+      salesaccountid { id ledgername }
+      purchaseaccountid { id ledgername }
+      serviceaccountid { id ledgername }
+
       status
       createdAt
       updatedAt
     }
   }
 `;
+
 
 export const UPDATE_PRODUCT_SERVICE = gql`
   mutation UpdateProductService($id: ID!, $input: ProductServiceInput!) {
@@ -126,42 +127,36 @@ export const UPDATE_PRODUCT_SERVICE = gql`
       description
       imageurl
       imagename
-      categoryid
-      subcategoryid
-      groupid
-      modelid
-      brandid
-      sizeid
+
+      categoryid { id categoryname }
+      subcategoryid { id subcategoryname }
+      groupid { id productgroupname }
+      modelid { id modelname }
+      brandid { id brandname }
+      sizeid { id sizename }
+
       seo {
         metatitle
         metadescription
         keywords
         slug
       }
+
       servicevariants {
         id
         name
         servicerate
         uom
-        duration {
-          amount
-          unit
-        }
+        duration { amount unit }
         requiresappointment
-        availabilityslots {
-          day
-          from
-          to
-        }
+        availabilityslots { day from to }
         locationType
         isRecurring
-        recurrence {
-          interval
-          count
-        }
+        recurrence { interval count }
         servicelikecount
         remarks
       }
+
       productvariants {
         id
         name
@@ -169,13 +164,15 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         batchnumber
         manufacturedate
         expirydate
-        baseunitid
-        purchaseunitid
+        baseunitid { id unitname }
+        purchaseunitid { id unitname }
         purchaserate
+
         unitconversions {
-          unitid
+          unitid { id unitname }
           factor
         }
+
         gst
         hsncode
         openingstock
@@ -187,6 +184,7 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         minimumstock
         reorderlevel
         racklocation
+
         serials {
           imei
           serialnumber
@@ -197,12 +195,13 @@ export const UPDATE_PRODUCT_SERVICE = gql`
           returnedon
           remarks
         }
+
         pricing {
           region
           channel
           unitprices {
             quantity
-            unitid
+            unitid { id unitname }
             mrp
             salesrate
             discount
@@ -212,9 +211,11 @@ export const UPDATE_PRODUCT_SERVICE = gql`
         }
         productlikecount
       }
-      salesaccountid
-      purchaseaccountid
-      serviceaccountid
+
+      salesaccountid { id ledgername }
+      purchaseaccountid { id ledgername }
+      serviceaccountid { id ledgername }
+
       status
       createdAt
       updatedAt

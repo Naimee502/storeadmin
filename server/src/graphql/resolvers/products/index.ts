@@ -5,143 +5,250 @@ import { Branch } from "../../../models/branches";
 
 export const productServiceResolvers = {
   Query: {
-    getProductServices: async (_: any, { filter = {}, limit, offset }: any) => {
-      const query: any = { status: filter.status !== undefined ? filter.status : true };
+    getProductServices: async (_: any, { filter = {}, limit = 50, offset = 0 }: any) => {
+      try {
+        console.log("📥 GraphQL Request → GetProductServices");
+        console.log("🟦 Raw Filter:", JSON.stringify(filter, null, 2));
 
-      [
-        "adminid", "vendorid", "productcode", "productbarcode", "servicecode", "servicebarcode",
-        "isservice", "isfeatured", "isshowinpos", "categoryid", "subcategoryid", "groupid",
-        "modelid", "brandid", "sizeid",
-      ].forEach((key) => {
-        if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
-      });
+        const query: any = {};
+        query.status = typeof filter.status === "boolean" ? filter.status : true;
 
-      if (filter.name_contains) {
-        query.name = { $regex: filter.name_contains, $options: "i" };
-      }
-      if (filter.createdFrom || filter.createdTo) {
-        query.createdAt = {};
-        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
-        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
-      }
+        const directKeys = [
+          "adminid","vendorid","productcode","productbarcode","servicecode",
+          "servicebarcode","isservice","isfeatured","isshowinpos",
+          "categoryid","subcategoryid","groupid","modelid","brandid","sizeid"
+        ];
 
-      const totalCount = await ProductService.countDocuments(query);
-      let productsQuery = ProductService.find(query);
-      if (offset) productsQuery = productsQuery.skip(offset);
-      if (limit) productsQuery = productsQuery.limit(limit);
+        directKeys.forEach((key) => {
+          if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
+        });
 
-      const products = await productsQuery.exec();
-      const adminId = filter.adminid ? new Types.ObjectId(filter.adminid) : undefined;
-      const branchId = filter.branchid ? new Types.ObjectId(filter.branchid) : undefined;
-
-      const mapNestedIds = (product: any) => {
-        const p = product.toObject();
-        p.id = p._id.toString();
-        if (p.productvariants) {
-          p.productvariants = p.productvariants.map((v: any) => ({
-            ...v,
-            id: v._id?.toString(),
-            serials: v.serials?.map((s: any) => ({ ...s, id: s._id?.toString() })),
-          }));
+        if (filter.name_contains) {
+          query.name = { $regex: filter.name_contains, $options: "i" };
         }
-        if (p.servicevariants) {
-          p.servicevariants = p.servicevariants.map((sv: any) => ({
-            ...sv,
-            id: sv._id?.toString(),
-          }));
+
+        if (filter.createdFrom || filter.createdTo) {
+          query.createdAt = {};
+          if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+          if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
         }
-        return p;
-      };
 
-      const response = await Promise.all(
-        products.map(async (p) => {
-          const mapped = mapNestedIds(p);
+        console.log("✅ Final Mongo Query:", JSON.stringify(query, null, 2));
 
-          // 🔹 Handle variant stock with fallback
-          if (mapped.productvariants?.length) {
-            mapped.productvariants = await Promise.all(
-              mapped.productvariants.map(async (v: any) => {
-                let stockDetails = await getStockDetails(mapped._id, adminId, branchId, v._id);
+        const totalCount = await ProductService.countDocuments(query);
+        console.log("📊 Total Products:", totalCount);
 
-                // 👉 Fallback if variant-level stock not found
-                if (stockDetails.currentstock === 0) {
-                  stockDetails = await getStockDetails(mapped._id, adminId, branchId);
-                }
+        let productsQuery = ProductService.find(query)
+          .populate({ path: "categoryid", select: "id categoryname" })
+          .populate({ path: "subcategoryid", select: "id subcategoryname" })
+          .populate({ path: "groupid", select: "id productgroupname" })
+          .populate({ path: "modelid", select: "id modelname" })
+          .populate({ path: "brandid", select: "id brandname" })
+          .populate({ path: "sizeid", select: "id sizename" })
 
-                return { ...v, ...stockDetails };
-              })
-            );
-          }
+          .populate({ path: "productvariants.baseunitid", select: "id unitname" })
+          .populate({ path: "productvariants.purchaseunitid", select: "id unitname" })
+          .populate({ path: "productvariants.unitconversions.unitid", select: "id unitname" })
+          .populate({ path: "productvariants.pricing.unitprices.unitid", select: "id unitname" })
 
-          // 🔹 Always calculate product-level stock
-          mapped.stock = await getStockDetails(mapped._id, adminId, branchId);
+          .populate({ path: "salesaccountid", select: "id ledgername" })
+          .populate({ path: "purchaseaccountid", select: "id ledgername" })
+          .populate({ path: "serviceaccountid", select: "id ledgername" })
+          .lean();
 
-          return mapped;
-        })
-      );
+        if (offset) productsQuery = productsQuery.skip(offset);
+        if (limit) productsQuery = productsQuery.limit(limit);
 
-      return response;
+        const products = await productsQuery.exec();
+
+        const adminId = filter.adminid ? new Types.ObjectId(filter.adminid) : undefined;
+        const branchId = filter.branchid ? new Types.ObjectId(filter.branchid) : undefined;
+
+        const convertRef = (obj: any) => {
+          if (!obj) return obj;
+          const { _id, ...rest } = obj;
+          return { id: _id?.toString(), ...rest };
+        };
+
+        const response = await Promise.all(
+          products.map(async (p: any) => {
+            const mapped: any = {
+              ...p,
+              id: p._id?.toString(),
+              _id: p._id // ✅ keep _id for stock lookup
+            };
+
+            // top-level refs
+            mapped.categoryid = convertRef(mapped.categoryid);
+            mapped.subcategoryid = convertRef(mapped.subcategoryid);
+            mapped.groupid = convertRef(mapped.groupid);
+            mapped.modelid = convertRef(mapped.modelid);
+            mapped.brandid = convertRef(mapped.brandid);
+            mapped.sizeid = convertRef(mapped.sizeid);
+
+            mapped.salesaccountid = convertRef(mapped.salesaccountid);
+            mapped.purchaseaccountid = convertRef(mapped.purchaseaccountid);
+            mapped.serviceaccountid = convertRef(mapped.serviceaccountid);
+
+            // ✅ Product Variant Mapping
+            if (mapped.productvariants?.length) {
+              mapped.productvariants = await Promise.all(
+                mapped.productvariants.map(async (v: any) => {
+                  let stock = await getStockDetails(mapped._id, adminId, branchId, v._id);
+                  if (stock.currentstock === 0)
+                    stock = await getStockDetails(mapped._id, adminId, branchId);
+
+                  // ✅ Convert nested keys
+                  const variant = {
+                    ...v,
+                    id: v._id?.toString(),
+                    _id: v._id
+                  };
+
+                  // units
+                  variant.baseunitid = convertRef(variant.baseunitid);
+                  variant.purchaseunitid = convertRef(variant.purchaseunitid);
+
+                  // unit conversions
+                  if (variant.unitconversions?.length) {
+                    variant.unitconversions = variant.unitconversions.map((u: any) => ({
+                      factor: u.factor,
+                      unitid: convertRef(u.unitid),
+                    }));
+                  }
+
+                  // serials
+                  if (variant.serials?.length) {
+                    variant.serials = variant.serials.map((s: any) => ({
+                      ...s,
+                      id: s._id?.toString(),
+                    }));
+                  }
+
+                  // pricing
+                  if (variant.pricing?.length) {
+                    variant.pricing = variant.pricing.map((p: any) => ({
+                      ...p,
+                      unitprices: p.unitprices?.map((u: any) => ({
+                        ...u,
+                        unitid: typeof u.unitid === "string"
+                          ? { id: u.unitid } 
+                          : convertRef(u.unitid)
+                      }))
+                    }));
+                  }
+
+                  return { ...variant, ...stock };
+                })
+              );
+            }
+
+            return mapped;
+          })
+        );
+
+        console.log("🎯 Final Response Ready", JSON.stringify(response));
+        return response;
+
+      } catch (err) {
+        console.error("❌ Error in getProductServices:", err);
+        throw new Error("Failed to fetch products / services");
+      }
     },
 
     getProductServiceById: async (_: any, { id, branchId, adminId }: any) => {
       if (!Types.ObjectId.isValid(id)) throw new Error("Invalid product ID");
 
-      const product = await ProductService.findById(id);
-      if (!product) return null;
+      const product = await ProductService.findById(id)
+        .populate("categoryid", "id categoryname")
+        .populate("subcategoryid", "id subcategoryname")
+        .populate("groupid", "id productgroupname")
+        .populate("modelid", "id modelname")
+        .populate("brandid", "id brandname")
+        .populate("sizeid", "id sizename")
+        .populate("salesaccountid", "id ledgername")
+        .populate("purchaseaccountid", "id ledgername")
+        .populate("serviceaccountid", "id ledgername")
+        .populate("productvariants.baseunitid", "id unitname")
+        .populate("productvariants.purchaseunitid", "id unitname")
+        .populate("productvariants.unitconversions.unitid", "id unitname")
+        .populate("productvariants.pricing.unitprices.unitid", "id unitname") // ✅ add this
+        .lean();
 
-      const response: any = product.toObject();
-      response.id = response._id.toString();
+      if (!product) return null;
 
       const adminObjId = adminId ? new Types.ObjectId(adminId) : undefined;
       const branchObjId = branchId ? new Types.ObjectId(branchId) : undefined;
 
-      // 🔹 Handle product variants with stock details
+      const convertRef = (obj: any) => {
+        if (!obj) return obj;
+        const { _id, ...rest } = obj;
+        return { id: _id?.toString(), ...rest };
+      };
+
+      const response: any = {
+        ...product,
+        id: product._id?.toString(),
+        _id: product._id
+      };
+
+      // Convert top refs
+      response.categoryid = convertRef(response.categoryid);
+      response.subcategoryid = convertRef(response.subcategoryid);
+      response.groupid = convertRef(response.groupid);
+      response.modelid = convertRef(response.modelid);
+      response.brandid = convertRef(response.brandid);
+      response.sizeid = convertRef(response.sizeid);
+      response.salesaccountid = convertRef(response.salesaccountid);
+      response.purchaseaccountid = convertRef(response.purchaseaccountid);
+      response.serviceaccountid = convertRef(response.serviceaccountid);
+
+      // ✅ Variant + Pricing + Stock
       if (response.productvariants?.length) {
         response.productvariants = await Promise.all(
           response.productvariants.map(async (v: any) => {
-            let stockDetails = await getStockDetails(
-              response._id,
-              adminObjId,
-              branchObjId,
-              v._id
-            );
-
-            // 👉 fallback to product-level stock if variant-level stock missing
-            if (
-              stockDetails.currentstock === 0 &&
-              stockDetails.openingstock === 0 &&
-              stockDetails.closingstock === 0
-            ) {
-              stockDetails = await getStockDetails(
-                response._id,
-                adminObjId,
-                branchObjId
-              );
+            let stock = await getStockDetails(response.id, adminObjId, branchObjId, v._id);
+            if (stock.currentstock === 0) {
+              stock = await getStockDetails(response._id, adminObjId, branchObjId);
             }
 
-            return {
+            const variant: any = {
               ...v,
               id: v._id?.toString(),
-              ...stockDetails, // 👈 attach all stock fields
+              _id: v._id 
             };
+
+            variant.baseunitid = convertRef(variant.baseunitid);
+            variant.purchaseunitid = convertRef(variant.purchaseunitid);
+
+            if (variant.unitconversions?.length) {
+              variant.unitconversions = variant.unitconversions.map((u:any) => ({
+                factor: u.factor,
+                unitid: convertRef(u.unitid)
+              }));
+            }
+
+            if (variant.pricing?.length) {
+              variant.pricing = variant.pricing.map((p:any) => ({
+                ...p,
+                unitprices: p.unitprices?.map((u:any) => ({
+                  ...u,
+                  unitid: typeof u.unitid === "string"
+                    ? { id: u.unitid }
+                    : convertRef(u.unitid)
+                }))
+              }));
+            }
+
+            return { ...variant, ...stock };
           })
         );
       }
 
-      // 🔹 Service variants
-      if (response.servicevariants) {
-        response.servicevariants = response.servicevariants.map((sv: any) => ({
-          ...sv,
-          id: sv._id?.toString(),
-        }));
-      }
-
-      // 🔹 Product-level stock details
-      response.stock = await getStockDetails(response._id, adminObjId, branchObjId);
+      response.stock = await getStockDetails(response.id, adminObjId, branchObjId);
 
       return response;
-    },
-
+    }
   },
 
   Mutation: {

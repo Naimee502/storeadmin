@@ -11,8 +11,50 @@ export const productServiceTypeDefs = gql`
     transferred
   }
 
+  # Master Types
+  type Category {
+    id: ID!
+    categoryname: String!
+  }
+
+  type SubCategory {
+    id: ID!
+    subcategoryname: String!
+  }
+
+  type ProductGroup {
+    id: ID!
+    productgroupname: String!
+  }
+
+  type Brand {
+    id: ID!
+    brandname: String!
+  }
+
+  type Size {
+    id: ID!
+    sizename: String!
+  }
+
+  type Model {
+    id: ID!
+    modelname: String!
+  }
+
+  type Unit {
+    id: ID!
+    unitname: String!
+  }
+
+  type AccountLedger {
+    id: ID!
+    ledgername: String!
+  }
+
+  # Sub Types
   type UnitConversion {
-    unitid: ID
+    unitid: Unit
     factor: Float
   }
 
@@ -28,20 +70,20 @@ export const productServiceTypeDefs = gql`
     remarks: String
   }
 
-  type Pricing {
-    region: ID
-    channel: String
-    unitprices: [UnitPrice]
-  }
-
   type UnitPrice {
     quantity: Float! 
-    unitid: ID!
+    unitid: Unit
     mrp: Float
     salesrate: Float
     discount: Float
     discounttype: String
     offerprice: Float
+  }
+
+  type Pricing {
+    region: ID
+    channel: String
+    unitprices: [UnitPrice]
   }
 
   type ProductVariant {
@@ -53,8 +95,8 @@ export const productServiceTypeDefs = gql`
     batchnumber: String
     manufacturedate: Date
     expirydate: Date
-    baseunitid: ID
-    purchaseunitid: ID       
+    baseunitid: Unit
+    purchaseunitid: Unit
     purchaserate: Float       
     unitconversions: [UnitConversion]
     gst: Float
@@ -126,23 +168,28 @@ export const productServiceTypeDefs = gql`
     description: String
     imageurl: String
     imagename: String
-    categoryid: ID
-    subcategoryid: ID
-    groupid: ID
-    modelid: ID
-    brandid: ID
-    sizeid: ID
+
+    categoryid: Category
+    subcategoryid: SubCategory
+    groupid: ProductGroup
+    modelid: Model
+    brandid: Brand
+    sizeid: Size
+
     seo: SEO
     servicevariants: [ServiceVariant]
     productvariants: [ProductVariant]
-    salesaccountid: ID
-    purchaseaccountid: ID
-    serviceaccountid: ID
+
+    salesaccountid: AccountLedger
+    purchaseaccountid: AccountLedger
+    serviceaccountid: AccountLedger
+
     status: Boolean
     createdAt: Date
     updatedAt: Date
   }
 
+  # Filter Input
   input ProductServiceFilterInput {
     adminid: ID
     vendorid: ID
@@ -168,6 +215,7 @@ export const productServiceTypeDefs = gql`
     updatedTo: Date
   }
 
+  # Input Types
   input ProductServiceInput {
     id: ID
     adminid: ID!

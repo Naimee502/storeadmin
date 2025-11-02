@@ -138,7 +138,7 @@ const productServiceSchema = new Schema<IProductService>(
     imagename: String,
     categoryid: { type: Schema.Types.ObjectId, ref: "Category" },
     subcategoryid: { type: Schema.Types.ObjectId, ref: "SubCategory" },
-    groupid: { type: Schema.Types.ObjectId, ref: "ProductGroupName" },
+    groupid: { type: Schema.Types.ObjectId, ref: "ProductGroup" },
     modelid: { type: Schema.Types.ObjectId, ref: "Model" },
     brandid: { type: Schema.Types.ObjectId, ref: "Brand" },
     sizeid: { type: Schema.Types.ObjectId, ref: "Size" },

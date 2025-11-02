@@ -182,12 +182,12 @@ const AddEditProductService = () => {
       description: p.description ?? "",
       imageurl: p.imageurl ?? "",
       imagename: p.imagename ?? "",
-      categoryid: p.categoryid ?? "",
-      subcategoryid: p.subcategoryid ?? "",
-      groupid: p.groupid ?? "",
-      modelid: p.modelid ?? "",
-      brandid: p.brandid ?? "",
-      sizeid: p.sizeid ?? "",
+      categoryid: p.categoryid?.id ?? "",
+      subcategoryid: p.subcategoryid?.id ?? "",
+      groupid: p.groupid?.id ?? "",
+      modelid: p.modelid?.id ?? "",
+      brandid: p.brandid?.id ?? "",
+      sizeid: p.sizeid?.id ?? "",
       seo: {
         metatitle: p.seo?.metatitle ?? "",
         metadescription: p.seo?.metadescription ?? "",
@@ -197,9 +197,11 @@ const AddEditProductService = () => {
       productvariants: (p.productvariants || []).length
         ? p.productvariants.map((variant: any) => ({
             ...variant,
+            baseunitid: variant.baseunitid?.id ?? "",
+            purchaseunitid: variant.purchaseunitid?.id ?? "",
+            purchaserate: safeNumber(variant.purchaserate),
             manufacturedate: formatDateForInput(variant.manufacturedate),
             expirydate: formatDateForInput(variant.expirydate),
-            purchaserate: safeNumber(variant.purchaserate),
             gst: safeNumber(variant.gst),
             openingstock: safeNumber(variant.openingstock),
             openingstockamount: safeNumber(variant.openingstockamount),
@@ -212,6 +214,7 @@ const AddEditProductService = () => {
             unitconversions: variant.unitconversions?.length
               ? variant.unitconversions.map((uc: any) => ({
                   ...uc,
+                  "unitid": uc.unitid?.id ?? "",
                   factor: safeNumber(uc.factor),
                 }))
               : [{ unitid: "", factor: "" }],
@@ -236,6 +239,7 @@ const AddEditProductService = () => {
                     ? price.unitprices.map((up: any) => ({
                         ...up,
                         quantity: safeNumber(up.quantity),
+                        unitid: up.unitid?.id ?? "",
                         mrp: safeNumber(up.mrp),
                         salesrate: safeNumber(up.salesrate),
                         purchaserate: safeNumber(up.purchaserate),
@@ -365,9 +369,9 @@ const AddEditProductService = () => {
               remarks: "",
             },
           ],
-      salesaccountid: p.salesaccountid ?? "",
-      purchaseaccountid: p.purchaseaccountid ?? "",
-      serviceaccountid: p.serviceaccountid ?? "",
+      salesaccountid: p.salesaccountid?.id ?? "",
+      purchaseaccountid: p.purchaseaccountid?.id ?? "",
+      serviceaccountid: p.serviceaccountid?.id ?? "",
       status: p.status ?? true,
     });
   }

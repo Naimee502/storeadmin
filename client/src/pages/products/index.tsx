@@ -6,7 +6,6 @@ import { useAppDispatch } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useUnitsQuery } from "../../graphql/hooks/units";
 import BarcodeModal from "../../components/barcodemodal";
 import PrintableBarcode from "../../components/printbarcode";
 import { useReactToPrint } from "react-to-print";
@@ -23,8 +22,6 @@ const ProductServices = () => {
   const productServiceList = data?.getProductServices ?? [];
   console.log("ProductServiceList:", JSON.stringify(productServiceList));
   const { deleteProductServiceMutation } = useProductServiceMutations();
-  const { data: unitData } = useUnitsQuery();
-  const unitList = unitData?.getUnits || [];
 
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
@@ -98,14 +95,11 @@ const ProductServices = () => {
           <div key={i} className="border-b border-gray-200 pb-1 mb-1">
             {item.isservice
               ? capitalize(variant?.uom) || "-" // service unit
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => {
-                  const matchedUnit = unitList.find((unit) => unit.id === up.unitid);
-                  return (
-                    <div key={j}>
-                      {up.quantity} {matchedUnit?.unitname || "-"}
-                    </div>
-                  );
-                }) || "-"}
+              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
+                  <div key={j}>
+                    {up.quantity} {up.unitid?.unitname || "-"}
+                  </div>
+                )) || "-"}
           </div>
         ))}
       </div>
