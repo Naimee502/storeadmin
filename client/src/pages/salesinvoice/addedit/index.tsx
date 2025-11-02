@@ -74,6 +74,7 @@ const AddEditSalesInvoice = () => {
   // Product List
   const { data:producData, refetch } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
+  console.log("Sales Product Data:", JSON.stringify(salesProductData));
 
   const { data: unitData } = useUnitsQuery();
   const unitsList = unitData?.getUnits || [];

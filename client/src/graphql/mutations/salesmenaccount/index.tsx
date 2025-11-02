@@ -21,9 +21,9 @@ export const ADD_SALESMAN = gql`
       target
       type
       status
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       admin {
         id
@@ -57,9 +57,9 @@ export const EDIT_SALESMAN = gql`
       target
       type
       status
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       admin {
         id

@@ -31,7 +31,7 @@ const DeletedSalesmenAccounts = () => {
     { label: "Salary", key: "salary" },
     { label: "Commission", key: "commission" },
     { label: "Target", key: "target" },
-    { label: "Account Group", key: "accountgroupname" },
+    { label: "Leger", key: "ledgername" },
     { label: "Status", key: "status" },
   ];
 
@@ -41,7 +41,7 @@ const DeletedSalesmenAccounts = () => {
         salary: salesman.salary?.toFixed(2) || "0.00",
         commission: salesman.commission?.toFixed(2) || "0.00",
         target: salesman.target?.toFixed(2) || "0.00",
-        accountgroupname: salesman.accountgroupid?.accountgroupname || "-", // Assuming populated
+        ledgername: salesman.ledgerid?.ledgername || "-", // Assuming populated
         status: salesman.status ? "Active" : "Inactive",
   }));
 

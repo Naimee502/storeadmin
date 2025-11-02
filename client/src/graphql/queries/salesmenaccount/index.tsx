@@ -17,9 +17,9 @@ export const GET_SALESMEN = gql`
       target
       type
       status
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       branchid {
         id
@@ -54,9 +54,9 @@ export const GET_DELETED_SALESMEN = gql`
       target
       type
       status
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       branchid {
         id
@@ -91,9 +91,9 @@ export const GET_SALESMAN_BY_ID = gql`
       target
       type
       status
-      accountgroupid {
+      ledgerid {
         id
-        accountgroupname
+        ledgername
       }
       branchid {
         id

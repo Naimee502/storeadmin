@@ -7,7 +7,6 @@ import {
   useSalesmenQuery,
   useSalesmanMutations,
 } from "../../graphql/hooks/salesmenaccount";
-import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups"; // New hook to fetch account groups
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addSalesmen } from "../../redux/slices/salesmenaccount";
@@ -25,10 +24,11 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { useImageUpload } from "../../graphql/hooks/uploads";
+import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 
 type FormValues = {
   branchid: string;
-  accountgroupid: string;
+  ledgerid: string;
   name: string;
   mobile: string;
   email: string;
@@ -64,10 +64,11 @@ const SalesmenAccount = () => {
   } = useSalesmanMutations();
 
   // New: Fetch account groups for dropdown
-  const { data: accountGroupsData } = useAccountGroupsQuery();
-  const accountGroups = accountGroupsData?.getAccountGroups || [];
+  const { data: ledgerData } = useAccountLedgersQuery();
+  const ledgerList = ledgerData?.getAccountLedgers || [];
 
   const salesmenList = data?.getSalesmenAccounts || [];
+  console.log("Salesmen List:", JSON.stringify(salesmenList));  
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { uploadImageMutation } = useImageUpload();
 
@@ -75,7 +76,7 @@ const SalesmenAccount = () => {
 
   const [formValues, setFormValues] = useState<FormValues>({
     branchid: branchId || "",
-    accountgroupid: "", // required!
+    ledgerid: "", // required!
     name: "",
     mobile: "",
     email: "",
@@ -115,8 +116,8 @@ const SalesmenAccount = () => {
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
     if (!formValues.email.trim()) errors.email = "Email is required";
-    if (!formValues.accountgroupid.trim())
-      errors.accountgroupid = "Account Group is required";
+    if (!formValues.ledgerid.trim())
+      errors.ledgerid = "Ledger is required";
     if (!isEditing && !formValues.password.trim())
       errors.password = "Password is required";
     if (formValues.commission === "" && !isEditing)
@@ -131,7 +132,7 @@ const SalesmenAccount = () => {
     (row: any) => {
       setFormValues({
         branchid: row.branchid || branchId || "",
-        accountgroupid: row.accountgroupid?._id || "", // Assuming populated object
+        ledgerid: row.ledgerid?.id || "", // Assuming populated object
         name: row.name || "",
         mobile: row.mobile || "",
         email: row.email || "",
@@ -198,7 +199,7 @@ const SalesmenAccount = () => {
     try {
       const payload = {
         branchid: branchId || "",
-        accountgroupid: formValues.accountgroupid,
+        ledgerid: formValues.ledgerid,
         name: formValues.name,
         mobile: formValues.mobile,
         email: formValues.email,
@@ -232,7 +233,7 @@ const SalesmenAccount = () => {
 
       setFormValues({
         branchid: branchId || "",
-        accountgroupid: "",
+        ledgerid: "",
         name: "",
         mobile: "",
         email: "",
@@ -281,7 +282,7 @@ const SalesmenAccount = () => {
     { label: "Salary", key: "salary" },
     { label: "Commission", key: "commission" },
     { label: "Target", key: "target" },
-    { label: "Account Group", key: "accountgroupname" },
+    { label: "Leger", key: "ledgername" },
     { label: "Status", key: "status" },
   ];
 
@@ -291,7 +292,7 @@ const SalesmenAccount = () => {
     salary: salesman.salary?.toFixed(2) || "0.00",
     commission: salesman.commission?.toFixed(2) || "0.00",
     target: salesman.target?.toFixed(2) || "0.00",
-    accountgroupname: salesman.accountgroupid?.accountgroupname || "-", // Assuming populated
+    ledgername: salesman.ledgerid?.ledgername || "-", // Assuming populated
     status: salesman.status ? "Active" : "Inactive",
   }));
 
@@ -374,15 +375,15 @@ const SalesmenAccount = () => {
 
               {/* Account Groups */}
               <FormField
-                label="Account Group"
-                name="accountgroupid"
+                label="Account Ledger"
+                name="ledgerid"
                 type="select"
-                value={formValues.accountgroupid}
-                onChange={(e) => handleFormChange("accountgroupid", e.target.value)}
+                value={formValues.ledgerid}
+                onChange={(e) => handleFormChange("ledgerid", e.target.value)}
                 error={formErrors.accountgroupid}
-                options={accountGroups.map((group: any) => ({
-                    label: group.accountgroupname,
-                    value: group.id || group._id,
+                options={ledgerList?.map((group: any) => ({
+                    label: group.ledgername,
+                    value: group.id,
                 }))}
                 searchable
               />

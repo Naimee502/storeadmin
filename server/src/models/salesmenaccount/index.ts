@@ -28,9 +28,9 @@ const salesmenAccountSchema = new mongoose.Schema(
     salary: { type: Number, default: 0 }, // optional fixed salary
     commission: { type: Number, default: 0 }, // percent or flat (based on your logic)
     target: { type: Number, default: 0 }, // monthly/quarterly/yearly
-    accountgroupid: {
+    ledgerid: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'AccountGroup',
+      ref: 'AccountLedger',
       required: true, // e.g., "Salesman Expense"
     },
     type: {

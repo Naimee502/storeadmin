@@ -32,7 +32,7 @@ export const salesmenAccountResolvers = {
 
       return await SalesmenAccount.find(query)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")
         .populate("branchid");
     },
 
@@ -61,7 +61,7 @@ export const salesmenAccountResolvers = {
 
       return await SalesmenAccount.find(query)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")
         .populate("branchid");
     },
 
@@ -74,7 +74,7 @@ export const salesmenAccountResolvers = {
       if (adminId) filter.admin = adminId;
       return await SalesmenAccount.findOne(filter)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")
         .populate("branchid");
     },
   },
@@ -84,14 +84,14 @@ export const salesmenAccountResolvers = {
       const created = await SalesmenAccount.create(input);
       return await SalesmenAccount.findById(created._id)
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")
         .populate("branchid");
     },
 
     editSalesmanAccount: async (_: any, { id, input }: any) => {
       return await SalesmenAccount.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
-        .populate("accountgroupid")
+        .populate("ledgerid")
         .populate("branchid");
     },
 

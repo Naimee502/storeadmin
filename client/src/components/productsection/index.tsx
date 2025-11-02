@@ -30,7 +30,7 @@ type ProductSectionProps = {
   type: "purchase" | "sales";
   onProductsChange?: (products: InvoiceProduct[]) => void;
   navigate: (path: string) => void;
-  iservice?: boolean; // new prop to identify if this is service
+  iservice?: boolean;
 };
 
 const ProductSection: React.FC<ProductSectionProps> = ({
@@ -45,6 +45,28 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   navigate,
   iservice = false,
 }) => {
+  const normalizeProduct = (product: any) => ({
+    ...product,
+    productvariants: product.productvariants?.map((v: any) => ({
+      ...v,
+      baseunitid: v.baseunitid?.id,
+      purchaseunitid: v.purchaseunitid?.id,
+      unitconversions: v.unitconversions?.map((uc: any) => ({
+        unitid: uc.unitid?.id,
+        factor: uc.factor,
+      })),
+      pricing: v.pricing?.map((p: any) => ({
+        ...p,
+        unitprices: p.unitprices?.map((up: any) => ({
+          ...up,
+          unitid: up.unitid?.id,
+        }))
+      }))
+    })),
+  });
+
+  const normalizedProducts = productData.map(normalizeProduct);
+
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
   const [editIndex, setEditIndex] = useState<number | null>(null);
 
@@ -52,19 +74,19 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     if (onProductsChange) onProductsChange(products);
   }, [products, onProductsChange]);
 
-  // Barcode scanning
+  // ✅ Barcode scanning uses normalizedProducts now
   useEffect(() => {
-    if (iservice) return; // skip barcode for service
+    if (iservice) return;
 
     let buffer = "";
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
-        const scannedBarcode = buffer.trim();
-        if (scannedBarcode.length > 0) {
-          const matchedVariant = productData
-            .map((p) =>
+        const scanned = buffer.trim();
+        if (scanned.length > 0) {
+          const matchedVariant = normalizedProducts
+            .flatMap((p) =>
               p.productvariants.map((v: any) => ({
                 ...v,
                 productServiceId: p.id,
@@ -73,21 +95,20 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 purchaseaccountid: p.purchaseaccountid,
               }))
             )
-            .flat()
-            .find((v) => v.productbarcode === scannedBarcode);
+            .find((v) => v.productbarcode === scanned);
 
           if (matchedVariant) {
             const firstUnit = matchedVariant.unitconversions?.[0];
             const firstPrice = matchedVariant.pricing?.[0]?.unitprices?.find(
-              (up: any) => up.unitid === firstUnit.unitid
+              (up: any) => up.unitid?.toString() === firstUnit?.unitid?.toString()
             );
 
             setSelectedProduct({
               productserviceid: matchedVariant.productServiceId,
               variantid: matchedVariant.id,
               productname: matchedVariant.productname,
-              salesunitid: type === "sales" ? firstUnit.unitid : null,
-              purchaseunitid: type === "purchase" ? firstUnit.unitid : null,
+              salesunitid: type === "sales" ? firstUnit?.unitid : null,
+              purchaseunitid: type === "purchase" ? firstUnit?.unitid : null,
               rate: firstPrice?.salesrate || matchedVariant.purchaserate || 0,
               gst: matchedVariant.gst || 0,
               salesaccountid: matchedVariant.salesaccountid,
@@ -102,7 +123,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
           buffer = "";
-          timer = null;
         }, 150);
       }
     };
@@ -110,9 +130,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      if (timer) clearTimeout(timer);
     };
-  }, [productData, type, iservice]);
+  }, [normalizedProducts, type, iservice]);
 
   const calculateLineTotal = () => {
     const qty = selectedProduct.quantity || 0;
@@ -173,7 +192,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       </legend>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Product/Service select */}
+        {/* Product / Service select */}
         <FormField
           label={iservice ? "Service" : "Product"}
           name="productserviceid"
@@ -186,9 +205,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           onChange={(e) => {
             if (iservice) {
               const svId = e.target.value;
-              const service = productData.find((p) => p.isservice && p.servicevariants?.some((sv: any) => sv.id === svId));
+              const service = normalizedProducts.find(
+                (p) => p.isservice && p.servicevariants?.some((sv: any) => sv.id === svId)
+              );
               if (!service) return;
               const variant = service.servicevariants.find((sv: any) => sv.id === svId);
+
               setSelectedProduct({
                 productserviceid: service.id,
                 variantid: variant?.id || null,
@@ -199,12 +221,13 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               });
             } else {
               const [pid, vid] = e.target.value.split("--");
-              const product = productData.find((p) => p.id === pid);
+              const product = normalizedProducts.find((p) => p.id === pid);
               const variant = product?.productvariants.find((v: any) => v.id === vid);
 
               if (variant && product) {
                 if (type === "purchase") {
                   const firstUnit = variant.unitconversions?.[0];
+
                   setSelectedProduct({
                     productserviceid: pid,
                     variantid: vid,
@@ -215,18 +238,16 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     salesaccountid: product.salesaccountid,
                     purchaseaccountid: product.purchaseaccountid,
                     serviceaccountid: product.serviceaccountid,
-                    selectedUnitValue: null,
                   });
                 } else {
                   setSelectedProduct({
-                    ...selectedProduct,
                     productserviceid: pid,
                     variantid: vid,
                     productname: product.name,
-                    rate: null,             
-                    quantity: null,         
-                    discount: null,         
-                    gst: null,             
+                    rate: 0,
+                    quantity: 0,
+                    discount: 0,
+                    gst: variant.gst || 0,
                     salesaccountid: product.salesaccountid,
                     purchaseaccountid: product.purchaseaccountid,
                     serviceaccountid: product.serviceaccountid,
@@ -238,7 +259,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           }}
           options={
             iservice
-              ? productData
+              ? normalizedProducts
                   .filter((p) => p.isservice)
                   .flatMap((p) =>
                     p.servicevariants.map((sv: any) => ({
@@ -246,7 +267,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                       label: `${p.name} - ${sv.name}`,
                     }))
                   )
-              : productData
+              : normalizedProducts
                   .filter((p) => !p.isservice)
                   .flatMap((p) =>
                     p.productvariants.map((v: any) => ({
@@ -260,7 +281,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           onAddNew={() => navigate("/products")}
         />
 
-        {/* Unit select (only for sales) */}
+        {/* Unit select for sales */}
         {type === "sales" && !iservice && (
           <FormField
             label="Unit"
@@ -269,38 +290,43 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             value={selectedProduct.selectedUnitValue ?? ""}
             onChange={(e) => {
               const [unitid, quantityStr] = e.target.value.split("--");
-              const quantity = Number(quantityStr);
+              const qty = Number(quantityStr);
 
-              const variant = productData
+              const variant = normalizedProducts
                 .find((p) => p.id === selectedProduct.productserviceid)
                 ?.productvariants.find((v: any) => v.id === selectedProduct.variantid);
 
               if (!variant) return;
 
               const unitPrice = variant.pricing?.[0]?.unitprices?.find(
-                (up: any) => up.unitid === unitid && up.quantity === quantity
+                (up: any) =>
+                  up.unitid?.toString() === unitid?.toString() &&
+                  up.quantity === qty
               );
+
               if (!unitPrice) return;
 
               setSelectedProduct((prev) => ({
                 ...prev,
                 salesunitid: unitid,
                 rate: unitPrice.offerprice || unitPrice.salesrate,
-                gst: variant.gst || 0,
                 discount: unitPrice.discount || 0,
+                gst: variant.gst || 0,
+                unitquantity: qty,
                 selectedUnitValue: e.target.value,
-                unitquantity: quantity,
               }));
             }}
             options={
-              productData
+              normalizedProducts
                 .find((p) => p.id === selectedProduct.productserviceid)
                 ?.productvariants.find((v: any) => v.id === selectedProduct.variantid)
                 ?.pricing?.[0]?.unitprices.map((up: any) => {
-                  const unit = unitsList.find((u) => u.id?.toString() === up.unitid?.toString());
+                  const unit = unitsList.find(
+                    (u) => u.id?.toString() === up.unitid?.toString()
+                  );
                   return {
                     value: `${up.unitid}--${up.quantity}`,
-                    label: `${up.quantity} ${unit?.unitname || "Unknown"}`,
+                    label: `${up.quantity} ${unit?.unitname || "Unit"}`,
                   };
                 }) || []
             }
@@ -345,79 +371,81 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         />
       </div>
 
+      {/* Actions */}
       <div className="flex items-center gap-4">
         <Button onClick={handleAddOrUpdateProduct} variant="outline" type="button">
           {editIndex !== null ? "Update" : "Add"}
         </Button>
         {editIndex !== null && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEditIndex(null);
-              setSelectedProduct({});
-            }}
-          >
+          <Button type="button" variant="outline" onClick={() => {
+            setEditIndex(null);
+            setSelectedProduct({});
+          }}>
             Cancel Edit
           </Button>
         )}
       </div>
 
-      {/* Products/Services List */}
+      {/* Product List */}
       <fieldset className="border rounded-xl p-4 mt-4">
-        <legend className="text-sm font-medium px-2">{iservice ? "Services List" : "Products List"}</legend>
+        <legend className="text-sm font-medium px-2">
+          {iservice ? "Services List" : "Products List"}
+        </legend>
+
         {products.length === 0 ? (
-          <div className="text-center text-gray-500">No {iservice ? "services" : "products"} added.</div>
+          <div className="text-center text-gray-500">
+            No {iservice ? "services" : "products"} added.
+          </div>
         ) : (
           <table className="w-full text-left border-collapse border border-gray-300 mt-2">
             <thead>
               <tr>
-                <th className="border border-gray-300 p-2">Name</th>
-                {type === "sales" && !iservice && <th className="border border-gray-300 p-2">Unit</th>}
-                <th className="border border-gray-300 p-2">Qty</th>
-                <th className="border border-gray-300 p-2">Rate</th>
-                <th className="border border-gray-300 p-2">Discount</th>
-                <th className="border border-gray-300 p-2">GST %</th>
-                <th className="border border-gray-300 p-2">Total</th>
-                <th className="border border-gray-300 p-2">Action</th>
+                <th className="border p-2">Name</th>
+                {type === "sales" && !iservice && <th className="border p-2">Unit</th>}
+                <th className="border p-2">Qty</th>
+                <th className="border p-2">Rate</th>
+                <th className="border p-2">Discount</th>
+                <th className="border p-2">GST %</th>
+                <th className="border p-2">Total</th>
+                <th className="border p-2">Action</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p, i) => (
-                <tr key={i}>
-                  <td className="border border-gray-300 p-2">
-                    {(() => {
-                      const product = productData.find((prod) => prod.id === p.productserviceid);
-                      const variant = product?.productvariants.find((v: any) => v.id === p.variantid);
-                      return variant ? `${product?.name} - ${variant.name}` : p.productname;
-                    })()}
-                  </td>
-                  {type === "sales" && !iservice && (
-                    <td className="border border-gray-300 p-2">
-                      {(() => {
-                        const variant = productData
-                          .find((prod) => prod.id === p.productserviceid)
-                          ?.productvariants.find((v: any) => v.id === p.variantid);
-                        if (!variant) return "";
-                        const unitId = p.salesunitid || p.purchaseunitid;
-                        const unitPrice = variant.pricing?.[0]?.unitprices.find((up: any) => up.unitid === unitId);
-                        const unitInfo = unitsList.find((u) => u.id === unitId);
-                        if (!unitPrice || !unitInfo) return "";
-                        return `${unitPrice.quantity} ${unitInfo.unitname || unitInfo.name}`;
-                      })()}
+              {products.map((p, i) => {
+                const product = normalizedProducts.find((prod) => prod.id === p.productserviceid);
+                const variant = product?.productvariants.find((v: any) => v.id === p.variantid);
+                const unitId = p.salesunitid || p.purchaseunitid;
+
+                const pricing = variant?.pricing?.[0]?.unitprices?.find(
+                  (up: any) => up.unitid?.toString() === unitId?.toString()
+                );
+
+                const unitInfo = unitsList.find(
+                  (u) => u.id?.toString() === unitId?.toString()
+                );
+
+                return (
+                  <tr key={i}>
+                    <td className="border p-2">{variant ? `${product?.name} - ${variant.name}` : p.productname}</td>
+
+                    {type === "sales" && !iservice && (
+                      <td className="border p-2">
+                        {pricing && unitInfo ? `${pricing.quantity} ${unitInfo.unitname}` : ""}
+                      </td>
+                    )}
+
+                    <td className="border p-2">{p.quantity}</td>
+                    <td className="border p-2">{p.rate.toFixed(2)}</td>
+                    <td className="border p-2">{(p.discount ?? 0).toFixed(2)}</td>
+                    <td className="border p-2">{(p.gst ?? 0).toFixed(2)}</td>
+                    <td className="border p-2">{p.total.toFixed(2)}</td>
+                    <td className="border p-2 space-x-2">
+                      <button className="text-blue-500" onClick={() => editProduct(i)} type="button">Edit</button>
+                      <button className="text-red-500" onClick={() => removeProduct(i)} type="button">Remove</button>
                     </td>
-                  )}
-                  <td className="border border-gray-300 p-2">{p.quantity}</td>
-                  <td className="border border-gray-300 p-2">{p.rate.toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2">{(p.discount ?? 0).toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2">{(p.gst ?? 0).toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2">{p.total.toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2 space-x-2">
-                    <button className="text-blue-500 hover:text-blue-700" onClick={() => editProduct(i)} type="button">Edit</button>
-                    <button className="text-red-500 hover:text-red-700" onClick={() => removeProduct(i)} type="button">Remove</button>
-                  </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
