@@ -203,16 +203,28 @@ const AddEditPurchaseInvoice = () => {
   };
 
   useEffect(() => {
-    const productsTotalCalc = products.reduce((sum, p) => sum + p.total, 0);
-    const totalDiscountCalc = products.reduce((sum, p) => sum + (p.discount || 0), 0);
-    const taxAmountCalc = typeof taxPercent === "number" ? (productsTotalCalc * taxPercent) / 100 : 0;
-    const grandTotalCalc = productsTotalCalc + taxAmountCalc - totalDiscountCalc;
+      const productsTotalCalc = products.reduce((sum, p) => sum + (p.total || 0), 0);
 
-    setProductsTotal(productsTotalCalc);
-    setTotalDiscount(totalDiscountCalc);
-    setTaxAmount(taxAmountCalc);
-    setGrandTotal(grandTotalCalc);
-  }, [products, taxPercent]);
+      const totalLineDiscount = products.reduce((sum, p) => sum + (p.discount || 0), 0);
+
+      const totalGSTAmount = products.reduce((sum, p) => {
+        const qty = p.quantity || 0;
+        const rate = p.rate || 0;
+        const discount = p.discount || 0;
+        const gst = p.gst || 0;
+
+        const taxable = qty * rate - discount;
+        const gstAmount = (taxable * gst) / 100;
+        return sum + gstAmount;
+      }, 0);
+
+      const grandTotalCalc = productsTotalCalc;
+
+      setProductsTotal(productsTotalCalc);
+      setTotalDiscount(totalLineDiscount);
+      setTaxAmount(totalGSTAmount); 
+      setGrandTotal(grandTotalCalc);
+    }, [products]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -416,8 +428,6 @@ const AddEditPurchaseInvoice = () => {
             products={products}
             setProducts={setProducts}
             productData={purchaseProductData}
-            accountsList={accountsList}
-            unitsList={unitsList}
             partyAccount={partyAccount}
             type="purchase"
             navigate={navigate}
@@ -429,7 +439,6 @@ const AddEditPurchaseInvoice = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />
               <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />
-              <FormField label="Tax %" name="taxPercent" type="number" value={taxPercent} onChange={handleTaxChange} />
               <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />
               <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />
             </div>

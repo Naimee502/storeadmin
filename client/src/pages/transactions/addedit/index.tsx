@@ -8,7 +8,8 @@ import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useTransactionMutations, useTransactionByIDQuery } from "../../../graphql/hooks/transactions";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+
 
 const AddEditTransaction = () => {
   const { id } = useParams();
@@ -21,14 +22,15 @@ const AddEditTransaction = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const { data: existingData } = useTransactionByIDQuery(id || "");
-  const { data: accountsData } = useAccountsQuery();
+  const { data: ledgerData } = useAccountLedgersQuery();
+  const ledgerList = ledgerData?.getAccountLedgers || [];
 
   const [formValues, setFormValues] = useState({
     transactiondate: new Date().toISOString().slice(0, 10),
     narration: "",
     entrytype: "manual",
     entries: [
-      { accountid: "", debit: "", credit: "", remarks: "" } 
+      { ledgerid: "", debit: "", credit: "", remarks: "" } 
     ],
     status: true,
     adminid: adminId || "",
@@ -48,7 +50,7 @@ const AddEditTransaction = () => {
       narration: t.narration || "",
       entrytype: t.entrytype || "manual",
       entries: t.entries?.map((e: any) => ({
-        accountid: typeof e.accountid === "string" ? e.accountid : e.accountid?.id || e.accountid?._id || "",
+        ledgerid: typeof e.ledgerid === "string" ? e.ledgerid : e.ledgerid?._id || "",
         debit: e.debit !== undefined ? e.debit : "",   
         credit: e.credit !== undefined ? e.credit : "",
         remarks: e.remarks || "",
@@ -86,7 +88,7 @@ const formatTransactionDate = (date: any) => {
   const addEntryRow = () => {
     setFormValues(prev => ({
       ...prev,
-      entries: [...prev.entries, { accountid: "", debit: "", credit: "", remarks: "" }]
+      entries: [...prev.entries, { ledgerid: "", debit: "", credit: "", remarks: "" }]
     }));
   };
 
@@ -106,9 +108,7 @@ const formatTransactionDate = (date: any) => {
     if (totalDebit !== totalCredit) {
       errors.entries = "Transaction not balanced (Debit ≠ Credit)";
     }
-    if (formValues.entries.some(e => !e.accountid)) {
-      errors.entries = "All entries must have an account";
-    }
+    if (formValues.entries.some(e => !e.ledgerid)) errors.entries = "All entries must have a ledger";
     return errors;
   };
 
@@ -122,7 +122,7 @@ const formatTransactionDate = (date: any) => {
     const input = {
       ...formValues,
       entries: formValues.entries.map(e => ({
-        accountid: e.accountid,
+        ledgerid: e.ledgerid,
         debit: parseFloat(String(e.debit)) || 0,
         credit: parseFloat(String(e.credit)) || 0,
         remarks: e.remarks,
@@ -203,18 +203,16 @@ const formatTransactionDate = (date: any) => {
             {formValues.entries.map((entry, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
                 <FormField
-                  label="Account"
-                  name={`accountid-${index}`}
+                  label="Ledger"
+                  name={`ledgerid-${index}`}
                   type="select"
-                  value={entry.accountid}
-                  onChange={(e) => handleEntryChange(index, "accountid", e.target.value)}
-                  options={
-                    accountsData?.getAccounts?.map(acc => ({
-                      label: acc.name,
-                      value: acc.id
-                    })) || []
-                  }
-                  placeholder="Select account"
+                  value={entry.ledgerid}
+                  onChange={(e) => handleEntryChange(index, "ledgerid", e.target.value)}
+                  options={ledgerList.map(l => ({
+                    label: l.ledgername,
+                    value: l.id
+                  }))}
+                  placeholder="Select ledger"
                   searchable
                 />
                 <FormField

@@ -26,7 +26,7 @@ const transactionSchema = new mongoose.Schema(
     // Double-entry lines
     entries: [
       {
-        accountid: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
+        ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
         debit: { type: Number, default: 0 },
         credit: { type: Number, default: 0 },
         productserviceid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService" }, // if from invoice

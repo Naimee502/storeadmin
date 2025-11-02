@@ -17,7 +17,7 @@ export const GET_TRANSACTIONS = gql`
       transactiondate
       narration
       entries {
-        accountid
+        ledgerid
         debit
         credit
         productserviceid
@@ -50,7 +50,7 @@ export const GET_DELETED_TRANSACTIONS = gql`
       transactiondate
       narration
       entries {
-        accountid
+        ledgerid
         debit
         credit
         productserviceid
@@ -83,7 +83,7 @@ export const GET_TRANSACTION_BY_ID = gql`
       transactiondate
       narration
       entries {
-        accountid
+        ledgerid
         debit
         credit
         productserviceid

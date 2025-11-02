@@ -4,7 +4,7 @@ export const transactionTypeDefs = gql`
 
   # Entry Line Item
   type TransactionEntry {
-    accountid: ID!
+    ledgerid: ID!
     debit: Float
     credit: Float
     productserviceid: ID
@@ -13,7 +13,7 @@ export const transactionTypeDefs = gql`
   }
 
   input TransactionEntryInput {
-    accountid: ID!
+    ledgerid: ID!
     debit: Float
     credit: Float
     productserviceid: ID
