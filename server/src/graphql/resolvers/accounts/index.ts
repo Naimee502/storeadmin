@@ -43,7 +43,8 @@ export const accountResolvers = {
 
       return await Account.find(query)
         .populate("admin")
-        .populate("ledgerid")  // ✅ Updated populate
+        .populate("accountgroupid") 
+        .populate("ledgerid")  
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");
@@ -55,7 +56,8 @@ export const accountResolvers = {
 
       return await Account.findOne(filter)
         .populate("admin")
-        .populate("ledgerid")  // ✅ Updated populate
+        .populate("accountgroupid")  
+        .populate("ledgerid")  
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");
@@ -64,20 +66,27 @@ export const accountResolvers = {
 
   Mutation: {
     addAccount: async (_: any, { input }: any) => {
-      const created = await Account.create(input);
+  try {
+    const account = new Account(input);
+    await account.save();
 
-      return await Account.findById(created._id)
-        .populate("admin")
-        .populate("ledgerid")  // ✅ Updated populate
-        .populate("branchid")
-        .populate("assignaccountid")
-        .populate("salesmanid");
-    },
+    return await Account.findById(account._id)
+      .populate("admin")
+      .populate("accountgroupid")
+      .populate("ledgerid")
+      .populate("branchid")
+      .populate("assignaccountid")
+      .populate("salesmanid");
+  } catch (err:any) {
+    console.error("❌ AddAccount Error:", err);
+    throw new Error(err.message);
+  }
+},
 
     editAccount: async (_: any, { id, input }: any) => {
       return await Account.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
-        .populate("ledgerid")  // ✅ Updated populate
+        .populate("accountgroupid") 
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");

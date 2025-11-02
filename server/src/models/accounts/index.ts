@@ -38,10 +38,16 @@ const accountSchema = new mongoose.Schema(
       default: 'retail',
     },
 
+    accountgroupid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AccountGroup',
+      required: true,
+    },
+
     ledgerid: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'AccountLedger',
-      required: true,
+      default: null
     },
 
     // Identity & Contact
@@ -116,24 +122,40 @@ const accountSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-generate accountcode before saving
 accountSchema.pre('save', async function (next) {
-  if (!this.accountcode) {
-    const Account = mongoose.model('Account');
-    const lastAccount = await Account.findOne({ accountcode: { $regex: /^#ACC\d{4}$/ } })
-      .sort({ accountcode: -1 })
-      .exec();
+  const Account = mongoose.model('Account');
+  const AccountLedger = mongoose.model('AccountLedger');
+
+  // ✅ Generate account code only when new
+  if (this.isNew && !this.accountcode) {
+    const lastAccount = await Account.findOne({
+      accountcode: { $regex: /^#ACC\d{4}$/ }
+    }).sort({ accountcode: -1 });
 
     let nextNumber = 1;
     if (lastAccount?.accountcode) {
       const lastNumber = parseInt(lastAccount.accountcode.replace('#ACC', ''), 10);
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
+      nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
     }
 
-    this.accountcode = `#ACC${nextNumber.toString().padStart(4, '0')}`;
+    this.accountcode = `#ACC${String(nextNumber).padStart(4, '0')}`;
   }
+
+  // ✅ Only auto-create ledger when new account is created
+  if (this.isNew && !this.ledgerid) {
+    const ledger = await AccountLedger.create({
+      admin: this.admin, // ✅ correct field name
+      accountid: this._id,
+      accountgroupid: this.accountgroupid, // ✅ required field
+      ledgername: `${this.name} - ${this.accountcode}`, // ✅ required field
+      openingbalance: this.openingbalance,
+      openingbalancetype: this.openingbalancetype,
+      status: true
+    });
+
+    this.ledgerid = ledger._id;
+  }
+
   next();
 });
 

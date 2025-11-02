@@ -14,6 +14,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 
 const AddEditAccount = () => {
   const { id } = useParams();
@@ -26,6 +27,7 @@ const AddEditAccount = () => {
   console.log("Auth Data>>", JSON.stringify(admin, null, 2));
 
   const { data: existingData } = useAccountByIDQuery(id || "");
+  const { data: accountGroupData } = useAccountGroupsQuery();
   const { data: ledgersData } = useAccountLedgersQuery();
   const { data: assignAccountData } = useAccountsQuery();
   const { data: salemenData } = useSalesmenQuery();
@@ -54,7 +56,7 @@ const AddEditAccount = () => {
     accounttype: "retail",
     isposcustomer: false,
     status: true,
-    ledgerid: "",
+    accountgroupid: "",
     assignaccountid: "",
     salesmanid: "",
     admin: adminId || "",
@@ -137,7 +139,7 @@ const AddEditAccount = () => {
         accounttype: a.accounttype || "retail",
         isposcustomer: a.isposcustomer ?? false,
         status: a.status ?? true,
-        ledgerid: a.ledgerid?.id || "",
+        accountgroupid: a.accountgroupid?.id || "",
         assignaccountid: a.assignaccountid?.id || "",
         salesmanid: a.salesmanid?.id || "",
         admin: a.admin?.id || adminId || "",
@@ -157,7 +159,7 @@ const AddEditAccount = () => {
     const errors: { [key: string]: string } = {};
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
-    if (!formValues.ledgerid) errors.ledgerid = "Account ledger required";
+    if (!formValues.accountgroupid) errors.accountgroupid = "Account group required";
     return errors;
   };
 
@@ -209,19 +211,19 @@ const AddEditAccount = () => {
                 <FormField label="Mobile" name="mobile" value={formValues.mobile} onChange={(e) => handleChange("mobile", e.target.value)} icon={<FaMobileAlt />} error={formErrors.mobile} placeholder="Enter mobile number" />
                 <FormField label="Email" name="email" type="email" value={formValues.email} onChange={(e) => handleChange("email", e.target.value)} icon={<FaEnvelope />} placeholder="Enter email address" />
                 <FormField
-                  label="Ledger"
-                  name="ledgerid"
+                  label="Account Group"
+                  name="accountgroupid"
                   type="select"
-                  value={formValues.ledgerid}
-                  onChange={(e) => handleChange("ledgerid", e.target.value)}
+                  value={formValues.accountgroupid}
+                  onChange={(e) => handleChange("accountgroupid", e.target.value)}
                   options={
-                    ledgersData?.getAccountLedgers?.map((l) => ({
-                      label: l.ledgername,
+                    accountGroupData?.getAccountGroups?.map((l) => ({
+                      label: l.accountgroupname,
                       value: l.id,   
                     })) || []
                   }
-                  error={formErrors.ledgerid}
-                  placeholder="Select Ledger"
+                  error={formErrors.accountgroupid}
+                  placeholder="Select Account Group"
                   searchable
                 />
                 <FormField label="Type" name="type" type="select" value={formValues.type} onChange={(e) => handleChange("type", e.target.value)} options={[{ label: "Customer", value: "customer" }, { label: "Vendor", value: "vendor" }, { label: "Expense", value: "expense" }, { label: "Bank", value: "bank" }, { label: "Other", value: "other" }]} placeholder="Select type" />

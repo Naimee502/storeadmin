@@ -24,6 +24,11 @@ export const accountTypeDefs = gql`
     name: String!
   }
 
+  type AccountGroup {
+    id: ID!
+    accountgroupname: String!
+  }
+
   type AccountLedger {
     id: ID!
     ledgername: String!
@@ -35,6 +40,7 @@ export const accountTypeDefs = gql`
     name: String!
     type: String
     accounttype: String
+    accountgroupid: AccountGroup
     ledgerid: AccountLedger
     mobile: String
     email: String
@@ -71,7 +77,7 @@ export const accountTypeDefs = gql`
     name: String!
     type: String
     accounttype: String
-    ledgerid: ID!
+    accountgroupid: ID!
     mobile: String
     email: String
     gstnumber: String
@@ -106,6 +112,7 @@ export const accountTypeDefs = gql`
     branchid: ID
     type: String
     accounttype: String
+    accountgroupid: ID
     ledgerid: ID
     accountcode: String
     mobile: String

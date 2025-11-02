@@ -133,7 +133,7 @@ const Accounts = () => {
         />
 
         <DataTable
-          title="Manage Accounts"
+          title="Manage Party Accounts"
           columns={columns}
           data={tableData}
           showView={false}

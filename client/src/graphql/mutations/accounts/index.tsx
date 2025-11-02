@@ -9,10 +9,10 @@ export const ADD_ACCOUNT = gql`
       name
       type
       accounttype
-      ledgerid {
+      accountgroupid {
         id
-        ledgername
-      }
+        accountgroupname
+      } 
       mobile
       email
       gstnumber
@@ -67,10 +67,10 @@ export const EDIT_ACCOUNT = gql`
       name
       type
       accounttype
-      ledgerid {
+      accountgroupid {
         id
-        ledgername
-      }
+        accountgroupname
+      } 
       mobile
       email
       gstnumber

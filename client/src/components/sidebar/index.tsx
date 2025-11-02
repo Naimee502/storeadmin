@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   // Branch links
   const branchLinks: SidebarLink[] = [
     { to: '/salesmenaccount', label: 'Salesmen Accounts', icon: <FaUserTie className="text-xl" /> },
-    { to: '/accounts', label: 'Accounts', icon: <FaUser className="text-xl" /> },
+    { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-xl" /> },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" /> },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" /> },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" /> },
