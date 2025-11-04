@@ -5,25 +5,20 @@ const paymentSchema = new mongoose.Schema(
     adminid: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
     branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
 
-    // Unique auto-generated payment code
     paymentcode: { type: String, unique: true, sparse: true },
 
     paymentdate: { type: Date, default: Date.now },
 
-    // inflow = receipt, outflow = payment
     type: { type: String, enum: ["receipt", "payment"], required: true },
 
-    // mode of payment
-    mode: { 
-      type: String, 
-      enum: ["cash", "bank", "upi", "card", "cheque", "other"], 
-      required: true 
+    mode: {
+      type: String,
+      enum: ["cash", "bank", "upi", "card", "cheque", "other"],
+      required: true,
     },
 
-    // Party account (customer/vendor/expense etc.)
     partyid: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
 
-    // Multiple invoice settlements (partial allowed)
     invoices: [
       {
         invoiceid: { type: mongoose.Schema.Types.ObjectId, refPath: "invoices.invoicemodel" },
@@ -33,10 +28,9 @@ const paymentSchema = new mongoose.Schema(
     ],
 
     amount: { type: Number, required: true },
-    reference: { type: String }, // cheque no / UPI txn id / bank ref
+    reference: { type: String },
     remarks: { type: String },
 
-    // Auto-generated journal entry
     transactionid: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
 
     createdby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -47,19 +41,21 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Auto-generate paymentcode before saving
+// Auto-generate paymentcode before saving and scope to admin
 paymentSchema.pre("save", async function (next) {
   if (!this.paymentcode) {
     const Payment = mongoose.model("Payment");
 
-    // Find last payment with code pattern #PAYxxxx
-    const lastPayment = await Payment.findOne({ paymentcode: { $regex: /^#PAY\d{4}$/ } })
-      .sort({ paymentcode: -1 })
-      .exec();
+    const query: any = {
+      adminid: this.adminid,
+      paymentcode: { $regex: /^#PAY\d{4}$/ },
+    };
+
+    const lastPayment = await Payment.findOne(query).sort({ paymentcode: -1 }).exec();
 
     let nextNumber = 1;
     if (lastPayment?.paymentcode) {
-      const lastNumber = parseInt(lastPayment.paymentcode.replace("#PAY", ""), 10);
+      const lastNumber = parseInt(String(lastPayment.paymentcode).replace("#PAY", ""), 10);
       if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
     }
 
@@ -67,5 +63,8 @@ paymentSchema.pre("save", async function (next) {
   }
   next();
 });
+
+// index for fast admin scoped lookup
+paymentSchema.index({ adminid: 1, paymentcode: 1 });
 
 export const Payment = mongoose.model("Payment", paymentSchema);

@@ -30,6 +30,7 @@ const AccountLedgers = () => {
   } = useAccountLedgerMutations();
 
   const ledgerList = data?.getAccountLedgers || [];
+  console.log("Ledger List:", JSON.stringify(ledgerList));
   const accountGroupList = accountGroupsData?.getAccountGroups || [];
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);

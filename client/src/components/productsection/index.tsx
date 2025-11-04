@@ -137,6 +137,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       ...prod,
       purchaseunitid: getUnitId(prod.purchaseunitid),
       salesunitid: getUnitId(prod.salesunitid),
+
+      // ✅ Needed to show selected unit on edit
+      selectedUnitValue:
+        prod.salesunitid && prod.unitquantity
+          ? `${prod.salesunitid}--${prod.unitquantity}`
+          : null,
     });
 
     setEditIndex(i);

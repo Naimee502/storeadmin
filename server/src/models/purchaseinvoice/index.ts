@@ -7,11 +7,12 @@ import { Transaction } from "../transactions";
 import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
+import { Account } from "../accounts";
 
 const purchaseInvoiceSchema = new mongoose.Schema(
   {
     paymenttype: { type: String, required: true },
-    partyacc: { type: String, required: true },
+    partyacc: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
     taxorsupplytype: { type: String, required: true },
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
@@ -51,192 +52,307 @@ const purchaseInvoiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Extract ObjectId safely
-function ledgerIdFromField(field: any): string | null {
-  if (!field) return null;
-  if (typeof field === "string") return field;
-  if (typeof field === "object") return field._id || field.id || null;
-  return null;
+// ✅ Convert ledger ref
+function ledgerId(x: any) {
+  if (!x) return null;
+  if (typeof x === "string") return x;
+  return x._id || x.id || null;
 }
 
-// ✅ Purchase Invoice Logic
-purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (
-  oldInvoice: any,
-  newInvoice: any
-) {
+purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any) {
   const branchid =
-    typeof newInvoice.branchid === "string"
-      ? new mongoose.Types.ObjectId(newInvoice.branchid)
-      : newInvoice.branchid;
+    typeof newInv.branchid === "string"
+      ? new mongoose.Types.ObjectId(newInv.branchid)
+      : newInv.branchid;
+    if (!branchid) return;
+  // ============================
+  // 📦 STOCK ADJUSTMENT
+  // ============================
+  if (!newInv.isservice) {
 
-  if (!branchid) return;
+  // ============================
+  // 1️⃣ Revert Old Invoice Stock
+  // ============================
+  if (oldInv) {
+    for (const item of oldInv.productservice) {
 
-  // ---------------------- 📦 STOCK HANDLING ----------------------
-  if (!newInvoice.isservice) {
-    // rollback old stock
-    if (oldInvoice) {
-      for (const item of oldInvoice.productservice || []) {
-        const product = await ProductService.findById(item.productserviceid);
-        if (!product) continue;
-
-        const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-        const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.purchaseunitid, variant);
-
-        await ProductBranchStock.updateOne(
-          { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $inc: { currentstock: -qtyBase } }
-        );
-      }
-    }
-
-    // apply new stock
-    for (const item of newInvoice.productservice || []) {
       const product = await ProductService.findById(item.productserviceid);
       if (!product) continue;
 
-      const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-      const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.purchaseunitid, variant);
+      const variant = product.productvariants?.find(
+        v => String(v._id) === String(item.variantid)
+      );
+
+      const qtyBase = convertToBaseUnit(
+        Number(item.qty) * Number(item.unitqty),
+        item.purchaseunitid,
+        variant
+      );
+
+      const stock = await ProductBranchStock.findOne({
+        productid: item.productserviceid,
+        variantid: item.variantid,
+        branchid
+      });
+
+      if (!stock) continue;
+
+      const newCurrentStock = stock.currentstock - qtyBase;
+      const newCurrentStockAmount = newCurrentStock * stock.averagecost;
+
+      const closingstock = newCurrentStock;
+      const closingstockamount = newCurrentStockAmount;
 
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $inc: { currentstock: qtyBase } },
-        { upsert: true }
+        {
+          $set: {
+            currentstock: newCurrentStock,
+            currentstockamount: newCurrentStockAmount,
+            closingstock,
+            closingstockamount
+          }
+        }
       );
     }
   }
 
-  // ---------------------- 📒 TRANSACTION ENTRIES ----------------------
+  // ============================
+  // 2️⃣ Apply New Invoice Stock
+  // ============================
+  for (const item of newInv.productservice) {
+
+    const product = await ProductService.findById(item.productserviceid);
+    if (!product) continue;
+
+    const variant = product.productvariants?.find(
+      v => String(v._id) === String(item.variantid)
+    );
+
+    const qtyBase = convertToBaseUnit(
+      Number(item.qty) * Number(item.unitqty),
+      item.purchaseunitid,
+      variant
+    );
+
+    const stock = await ProductBranchStock.findOne({
+      productid: item.productserviceid,
+      variantid: item.variantid,
+      branchid
+    });
+
+    let avgCost, newCurrentStock, newCurrentStockAmount;
+
+    if (!stock) {
+      // first-time purchase entry
+      avgCost = Number(item.rate) || 0;
+      newCurrentStock = qtyBase;
+      newCurrentStockAmount = qtyBase * avgCost;
+    } else {
+      // Weighted Avg Cost calculation (Purchase Invoice)
+      const oldQty = stock.currentstock;
+      const oldAmount = stock.currentstockamount;
+
+      const newAmount = qtyBase * Number(item.rate);
+      const totalQty = oldQty + qtyBase;
+      const totalAmount = oldAmount + newAmount;
+
+      avgCost = totalQty > 0 ? totalAmount / totalQty : stock.averagecost;
+
+      newCurrentStock = totalQty;
+      newCurrentStockAmount = totalAmount;
+    }
+
+    const closingstock = newCurrentStock;
+    const closingstockamount = newCurrentStockAmount;
+
+    await ProductBranchStock.updateOne(
+      { productid: item.productserviceid, variantid: item.variantid, branchid },
+      {
+        $set: {
+          currentstock: newCurrentStock,
+          currentstockamount: newCurrentStockAmount,
+          averagecost: avgCost,
+          closingstock,
+          closingstockamount
+        }
+      },
+      { upsert: true }
+    );
+  }
+}
+
+
+  // ============================
+  // 🧾 PURCHASE LEDGER ENTRIES
+  // ============================
   const entries: any[] = [];
   let totalDebit = 0;
 
-  for (const item of newInvoice.productservice) {
+  for (const item of newInv.productservice) {
     const qty = Number(item.qty);
     const rate = Number(item.rate);
     const discount = Number(item.discount);
-
     const taxable = (rate - discount) * qty;
-    const purchaseLedgerId = ledgerIdFromField(item.purchaseaccountid);
 
-    // debit purchase a/c
+    const purchaseLedgerId = ledgerId(item.purchaseaccountid);
     if (purchaseLedgerId && taxable > 0) {
-      entries.push({
-        accountid: new mongoose.Types.ObjectId(purchaseLedgerId),
-        debit: taxable, credit: 0
-      });
+      entries.push({ ledgerid: purchaseLedgerId, debit: taxable, credit: 0 });
       totalDebit += taxable;
     }
 
-    // GST
-    const gstPercent = Number(item.gst);
-    if (gstPercent > 0) {
-      const gstAmt = (taxable * gstPercent) / 100;
+    const gst = Number(item.gst);
+    if (gst > 0) {
+      const gstAmt = (taxable * gst) / 100;
       totalDebit += gstAmt;
 
-      const igst = await AccountLedger.findOne({ ledgername: "Input IGST", admin: newInvoice.adminid });
-      const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInvoice.adminid });
-      const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInvoice.adminid });
-
-      const half = gstAmt / 2;
+      const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
+      const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
 
       if (cgst && sgst) {
-        entries.push({ accountid: cgst._id, debit: half, credit: 0 });
-        entries.push({ accountid: sgst._id, debit: half, credit: 0 });
-      } else if (igst) {
-        entries.push({ accountid: igst._id, debit: gstAmt, credit: 0 });
+        entries.push({ ledgerid: cgst._id, debit: gstAmt / 2, credit: 0 });
+        entries.push({ ledgerid: sgst._id, debit: gstAmt / 2, credit: 0 });
       } else {
-        const gstAcc = await getOrCreateAccount("Input GST", "other", newInvoice.adminid, newInvoice.branchid);
-        entries.push({ accountid: gstAcc._id, debit: gstAmt, credit: 0 });
+        const gstAcc = await getOrCreateAccount("Input GST", "other", newInv.adminid, newInv.branchid);
+        entries.push({ ledgerid: gstAcc._id, debit: gstAmt, credit: 0 });
       }
     }
   }
 
-  // vendor credit
-  const partyId = ledgerIdFromField(newInvoice.partyacc);
-  if (partyId) {
-    entries.push({
-      accountid: new mongoose.Types.ObjectId(partyId),
-      debit: 0,
-      credit: totalDebit,
-      remarks: `Purchase Invoice #${newInvoice.billnumber}`
-    });
-  }
+  const vendor = await Account.findById(newInv.partyacc).select("ledgerid");
+  if (!vendor?.ledgerid) throw new Error("Vendor ledger missing");
 
-  // ---------------------- 🧾 SAVE TRANSACTION ----------------------
-  let trx = await Transaction.findOne({
-    "source.docmodel": "PurchaseInvoice",
-    "source.docid": newInvoice._id
+  entries.push({
+    ledgerid: vendor.ledgerid,
+    debit: 0,
+    credit: totalDebit,
+    remarks: `Purchase Invoice #${newInv.billnumber}`
   });
 
-  if (trx) {
-    trx.entries = entries;
-    trx.transactiondate = newInvoice.billdate;
-    trx.status = true;
-    await trx.save();
+  // ============================
+  // 🔄 UPSERT INVOICE JOURNAL
+  // ============================
+  let invoiceTrx = await Transaction.findOne({
+    "source.docmodel": "PurchaseInvoice",
+    "source.docid": newInv._id
+  });
+
+  if (invoiceTrx) {
+    invoiceTrx.entries = entries;
+    invoiceTrx.transactiondate = newInv.billdate;
+    invoiceTrx.totaldebit = totalDebit;
+    invoiceTrx.totalcredit = totalDebit;
+    invoiceTrx.status = true;
+    await invoiceTrx.save();
   } else {
-    trx = await Transaction.create({
-      adminid: newInvoice.adminid,
-      branchid: newInvoice.branchid,
+    invoiceTrx = await Transaction.create({
+      adminid: newInv.adminid,
+      branchid: newInv.branchid,
       entrytype: "auto",
-      source: { docmodel: "PurchaseInvoice", docid: newInvoice._id },
-      transactiondate: newInvoice.billdate,
-      narration: `Purchase Invoice #${newInvoice.billnumber}`,
-      entries
+      source: { docmodel: "PurchaseInvoice", docid: newInv._id },
+      transactiondate: newInv.billdate,
+      narration: `Purchase Invoice #${newInv.billnumber}`,
+      entries,
+      totaldebit: totalDebit,
+      totalcredit: totalDebit
     });
   }
 
-  // ---------------------- 💵 PAYMENT HANDLING ----------------------
-  const existingPay = await Payment.findOne({ "invoices.invoiceid": newInvoice._id });
+  // ============================
+  // 💰 PAYMENT LOGIC (UPDATED)
+  // ============================
+  const payType = String(newInv.paymenttype).toLowerCase();
+  const isCredit = payType === "credit";
+  const isCash = payType === "cash";
+  const isBank = payType === "bank";
 
-  if (existingPay) {
-    existingPay.amount = newInvoice.totalamount;
-    existingPay.invoices[0].settledamount = newInvoice.totalamount;
-    existingPay.transactionid = trx._id;
-    await existingPay.save();
-  } else if (String(newInvoice.paymenttype).toLowerCase() !== "credit") {
-    const payDoc = await Payment.create({
-      adminid: newInvoice.adminid,
-      branchid: newInvoice.branchid,
-      type: "payment",
-      mode: newInvoice.paymenttype,
-      partyid: partyId,
-      invoices: [{ invoiceid: newInvoice._id, invoicemodel: "PurchaseInvoice", settledamount: newInvoice.totalamount }],
-      amount: newInvoice.totalamount,
-      remarks: `Payment for Purchase Invoice #${newInvoice.billnumber}`,
-      transactionid: trx._id
-    });
+  const invId =
+    typeof newInv._id === "string"
+      ? new mongoose.Types.ObjectId(newInv._id)
+      : newInv._id;
 
-    // ensure pay ledger
-    const payLedgerName = String(newInvoice.paymenttype).toLowerCase() === "cash" ? "Cash" : "Bank Account";
-    let payLedger = await AccountLedger.findOne({ ledgername: payLedgerName, admin: newInvoice.adminid });
+  const oldPayment = await Payment.findOne({
+    "invoices.invoiceid": invId,
+    "invoices.invoicemodel": "PurchaseInvoice"
+  });
 
-    if (!payLedger) {
-      const created = await getOrCreateAccount(payLedgerName, "other", newInvoice.adminid, newInvoice.branchid);
-      payLedger = { _id: created._id } as any;
+  if (isCredit) {
+    if (oldPayment) {
+      await Transaction.deleteOne({ _id: oldPayment.transactionid });
+      await Payment.deleteOne({ _id: oldPayment._id });
     }
-
-    if (!partyId) throw new Error("Party ledger missing for purchase payment.");
-
-    await Transaction.create({
-      adminid: newInvoice.adminid,
-      branchid: newInvoice.branchid,
-      entrytype: "auto",
-      source: { docmodel: "Payment", docid: payDoc._id },
-      transactiondate: newInvoice.billdate,
-      narration: `Payment for Purchase Invoice #${newInvoice.billnumber}`,
-      entries: [
-        { accountid: payLedger?._id, debit: newInvoice.totalamount, credit: 0 },
-        { accountid: new mongoose.Types.ObjectId(partyId), debit: 0, credit: newInvoice.totalamount }
-      ]
-    });
+    return;
   }
+
+  const payLedgerName = isCash ? "Cash" : "Bank Account";
+  let payLedger = await AccountLedger.findOne({ ledgername: payLedgerName, admin: newInv.adminid });
+
+  if (!payLedger) {
+    const created = await getOrCreateAccount(payLedgerName, "other", newInv.adminid, newInv.branchid);
+    payLedger = { _id: created._id } as any;
+  }
+
+  const paymentEntries = [
+    { ledgerid: vendor.ledgerid, debit: newInv.totalamount, credit: 0 },
+    { ledgerid: payLedger?._id, debit: 0, credit: newInv.totalamount }
+  ];
+
+  if (oldPayment) {
+    oldPayment.mode = newInv.paymenttype;
+    oldPayment.amount = newInv.totalamount;
+    oldPayment.invoices[0].settledamount = newInv.totalamount;
+    await oldPayment.save();
+
+    await Transaction.updateOne(
+      { _id: oldPayment.transactionid },
+      {
+        $set: {
+          entries: paymentEntries,
+          totaldebit: newInv.totalamount,
+          totalcredit: newInv.totalamount,
+          transactiondate: newInv.billdate,
+          narration: `Payment for Purchase Invoice #${newInv.billnumber}`
+        }
+      }
+    );
+    return;
+  }
+
+  const payTrx = await Transaction.create({
+    adminid: newInv.adminid,
+    branchid: newInv.branchid,
+    entrytype: "auto",
+    source: { docmodel: "Payment", docid: invId },
+    transactiondate: newInv.billdate,
+    narration: `Payment for Purchase Invoice #${newInv.billnumber}`,
+    entries: paymentEntries,
+    totaldebit: newInv.totalamount,
+    totalcredit: newInv.totalamount
+  });
+
+  await Payment.create({
+    adminid: newInv.adminid,
+    branchid: newInv.branchid,
+    type: "payment",
+    mode: newInv.paymenttype,
+    partyid: vendor._id,
+    invoices: [
+      { invoiceid: invId, invoicemodel: "PurchaseInvoice", settledamount: newInv.totalamount }
+    ],
+    amount: newInv.totalamount,
+    remarks: `Payment for Purchase Invoice #${newInv.billnumber}`,
+    transactionid: payTrx._id
+  });
 };
 
-// post save hook
+// ============================
+// ✅ Handle new invoice (create)
+// ============================
 purchaseInvoiceSchema.post("save", async function (doc: any, next) {
   try {
     await (PurchaseInvoice as any).adjustStockAndTransactions(null, doc);
     next();
-  } catch (e:any) {
+  } catch (e: any) {
     console.error("Purchase invoice auto error", e);
     next(e);
   }

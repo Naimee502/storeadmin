@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addSalesInvoices } from "../../redux/slices/salesinvoice";
@@ -30,7 +30,7 @@ const SalesInvoices = () => {
   const accountsList = accountData?.getAccounts || [];
   const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
 
-  const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+  const { data: productData } = useProductServicesQuery();
   const productList = productData?.getProductServices ?? [];
   const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
@@ -95,13 +95,18 @@ const SalesInvoices = () => {
     { label: "Status", key: "status" },
   ];
 
+  const capitalizeFirst = (text: string) =>
+    text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
+
   const tableData = invoiceList.map((invoice: any, index: number) => {
     const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
 
-    const account = accountsMap.get(invoice.partyacc);
+    const account = accountsMap.get(invoice.partyacc) as
+      | { name?: string; mobile?: string }
+      | undefined;
 
     const productname = invoice.productservice
       .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
@@ -112,14 +117,24 @@ const SalesInvoices = () => {
       seqNo: index + 1,
       totalitem: invoice.productservice.length,
       totalqty,
-      billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
+
+      // ✅ First letter capital for bill type
+      billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
+
+      // ✅ Capitalize payment type
+      paymenttype: capitalizeFirst(invoice.paymenttype),
+
       status: invoice.status ? "Active" : "Inactive",
+
+      // ✅ Safe account & mobile formatting
       partyacc: account
-        ? `${account.name} - ${account.mobile}`
+        ? `${account?.name ?? ""}${account?.mobile ? " - " + account?.mobile : ""}`
         : invoice.partyacc,
+
       productname,
     };
   });
+
 
   return (
     <HomeLayout>

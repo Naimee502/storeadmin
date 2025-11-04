@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addPurchaseInvoices } from "../../redux/slices/purchaseinvoice";
@@ -93,13 +93,19 @@ const PurchaseInvoices = () => {
     { label: "Status", key: "status" },
   ];
 
+  // ✅ Reusable Helpers
+  const capitalizeFirst = (text: string) =>
+    text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
+
   const tableData = invoiceList.map((invoice: any, index: number) => {
     const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
 
-    const account = accountsMap.get(invoice.partyacc);
+    const account = accountsMap.get(invoice.partyacc) as
+      | { name?: string; mobile?: string }
+      | undefined;
 
     const productname = invoice.productservice
       .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
@@ -110,12 +116,21 @@ const PurchaseInvoices = () => {
       seqNo: index + 1,
       totalitem: invoice.productservice.length,
       totalqty,
-      billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
+
+      // ✅ Proper Bill Type format (first letter capital only)
+      billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
+
+      // ✅ Payment first letter capital
+      paymenttype: capitalizeFirst(invoice.paymenttype),
+
       status: invoice.status ? "Active" : "Inactive",
+
+      // ✅ No type error + proper formatting
       partyacc: account
-        ? `${account.name} - ${account.mobile}`
+        ? `${account?.name ?? ""}${account?.mobile ? " - " + account?.mobile : ""}`
         : invoice.partyacc,
-      productname,
+
+      productname, // ✅ Add this back
     };
   });
 

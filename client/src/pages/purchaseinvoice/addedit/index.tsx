@@ -241,6 +241,14 @@ const AddEditPurchaseInvoice = () => {
     return newErrors;
   };
 
+  /** ✅ Safely convert unit value (string | object | null) → string | null */
+  const getUnitId = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "object" && "id" in value) return value.id ?? null;
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -276,15 +284,15 @@ const AddEditPurchaseInvoice = () => {
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
         variantid: p.variantid,
-        purchaseunitid: p.purchaseunitid ?? null,
+        purchaseunitid: getUnitId(p.purchaseunitid) ?? null,
         gst: p.gst ?? 0,
         qty: p.quantity ?? 0,
         rate: p.rate ?? 0,
         amount: p.total ?? 0,
         discount: p.discount ?? 0,
-        salesaccountid: p.salesaccountid ?? null,
-        purchaseaccountid: p.purchaseaccountid ?? null,
-        serviceaccountid: p.serviceaccountid ?? null,
+        salesaccountid: getUnitId(p.salesaccountid) ?? null,
+        purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
+        serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
       })),
       status,
     };
