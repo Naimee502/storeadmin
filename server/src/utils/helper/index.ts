@@ -55,6 +55,7 @@ export const defaultAccountGroups = [
   { name: "Output SGST", category: "liabilities" },
   { name: "Output IGST", category: "liabilities" },
   { name: "Provisions", category: "liabilities" },
+  { name: "Salary Payable", category: "liabilities" },
   { name: "Outstanding Liabilities", category: "liabilities" },
 
   // ASSETS
@@ -68,6 +69,7 @@ export const defaultAccountGroups = [
   { name: "Stock-in-Hand", category: "assets" },
   { name: "Prepaid Expenses", category: "assets" },
   { name: "Deposits (Assets)", category: "assets" },
+    { name: "Salesman Account", category: "expenses" },
 
   // GST INPUT (RECEIVABLE)
   { name: "GST Input", category: "assets" }, // Main header
@@ -89,7 +91,8 @@ export const defaultAccountGroups = [
   { name: "Administrative Expenses", category: "expenses" },
   { name: "Selling & Distribution Expenses", category: "expenses" },
   { name: "Depreciation", category: "expenses" },
-  { name: "Finance Charges", category: "expenses" }
+  { name: "Finance Charges", category: "expenses" },
+  { name: "Commission Expense", category: "expenses" },
 ];
 
 

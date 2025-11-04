@@ -66,27 +66,27 @@ export const accountResolvers = {
 
   Mutation: {
     addAccount: async (_: any, { input }: any) => {
-  try {
-    const account = new Account(input);
-    await account.save();
-
-    return await Account.findById(account._id)
-      .populate("admin")
-      .populate("accountgroupid")
-      .populate("ledgerid")
-      .populate("branchid")
-      .populate("assignaccountid")
-      .populate("salesmanid");
-  } catch (err:any) {
-    console.error("❌ AddAccount Error:", err);
-    throw new Error(err.message);
-  }
-},
+      try {
+        const account = new Account(input);
+        await account.save();
+        return await Account.findById(account._id)
+          .populate("admin")
+          .populate("accountgroupid")
+          .populate("ledgerid")
+          .populate("branchid")
+          .populate("assignaccountid")
+          .populate("salesmanid");
+      } catch (err:any) {
+        console.error("❌ AddAccount Error:", err);
+        throw new Error(err.message);
+      }
+    },
 
     editAccount: async (_: any, { id, input }: any) => {
       return await Account.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
         .populate("accountgroupid") 
+        .populate("ledgerid")
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid");

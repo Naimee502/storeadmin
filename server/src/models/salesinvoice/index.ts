@@ -8,6 +8,7 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
+import { SalesmenAccount } from "../salesmenaccount"; 
 
 const salesInvoiceSchema = new mongoose.Schema(
   {
@@ -53,7 +54,6 @@ const salesInvoiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Convert ledger reference
 function ledgerId(x: any) {
   if (!x) return null;
   if (typeof x === "string") return x;
@@ -68,19 +68,15 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   if (!branchid) return;
 
-  // ============================
-  // 📦 STOCK ADJUSTMENT (Weighted Avg like Purchase)
-  // ============================
+  // ========================= STOCK =========================
   if (!newInv.isservice) {
 
-    // 1️⃣ REVERT OLD INVOICE STOCK
     if (oldInv) {
       for (const item of oldInv.productservice) {
         const product = await ProductService.findById(item.productserviceid);
         if (!product) continue;
 
         const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-
         const qtyBase = convertToBaseUnit(
           Number(item.qty) * Number(item.unitqty),
           item.salesunitid,
@@ -92,33 +88,23 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
           variantid: item.variantid,
           branchid
         });
-
         if (!stock) continue;
 
-        const newCurrentStock = stock.currentstock + qtyBase;
-        const newCurrentStockAmount = newCurrentStock * stock.averagecost;
+        const newStock = stock.currentstock + qtyBase;
+        const newAmt = newStock * stock.averagecost;
 
         await ProductBranchStock.updateOne(
           { productid: item.productserviceid, variantid: item.variantid, branchid },
-          {
-            $set: {
-              currentstock: newCurrentStock,
-              currentstockamount: newCurrentStockAmount,
-              closingstock: newCurrentStock,
-              closingstockamount: newCurrentStockAmount
-            }
-          }
+          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } }
         );
       }
     }
 
-    // 2️⃣ APPLY NEW INVOICE STOCK
     for (const item of newInv.productservice) {
       const product = await ProductService.findById(item.productserviceid);
       if (!product) continue;
 
       const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-
       const qtyBase = convertToBaseUnit(
         Number(item.qty) * Number(item.unitqty),
         item.salesunitid,
@@ -131,38 +117,24 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         branchid
       });
 
-      let newCurrentStock, newCurrentStockAmount;
-
-      // Sales uses AVG cost from stock table (not rate)
+      let newStock, newAmt;
       if (!stock) {
-        newCurrentStock = 0 - qtyBase;
-        newCurrentStockAmount = 0;
+        newStock = 0 - qtyBase;
+        newAmt = 0;
       } else {
-        const oldQty = stock.currentstock;
-        const oldAmount = stock.currentstockamount;
-
-        newCurrentStock = oldQty - qtyBase;
-        newCurrentStockAmount = oldAmount - (qtyBase * stock.averagecost);
+        newStock = stock.currentstock - qtyBase;
+        newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
       }
 
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        {
-          $set: {
-            currentstock: newCurrentStock,
-            currentstockamount: newCurrentStockAmount,
-            closingstock: newCurrentStock,
-            closingstockamount: newCurrentStockAmount
-          }
-        },
+        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } },
         { upsert: true }
       );
     }
   }
 
-  // ============================
-  // 💼 SALES LEDGER ENTRIES
-  // ============================
+  // ====================== JOURNAL ======================
   const entries: any[] = [];
   let totalDebit = 0;
 
@@ -172,9 +144,9 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     const discount = Number(item.discount);
     const taxable = (rate - discount) * qty;
 
-    const salesLedgerId = ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid);
-    if (salesLedgerId && taxable > 0) {
-      entries.push({ ledgerid: salesLedgerId, debit: 0, credit: taxable });
+    const salesLedger = ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid);
+    if (salesLedger && taxable > 0) {
+      entries.push({ ledgerid: salesLedger, debit: 0, credit: taxable });
       totalDebit += taxable;
     }
 
@@ -199,6 +171,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const customer = await Account.findById(newInv.partyacc).select("ledgerid");
   if (!customer?.ledgerid) throw new Error("Customer ledger missing");
 
+  // Customer Debit total invoice amount
   entries.push({
     ledgerid: customer.ledgerid,
     debit: newInv.totalamount,
@@ -206,7 +179,44 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     remarks: `Sales Invoice #${newInv.billnumber}`
   });
 
-  // ✅ Upsert Transaction (Journal)
+  // ====================== ✅ SALESMAN COMMISSION ======================
+  if (newInv.salesmenid) {
+    const salesman = await SalesmenAccount.findById(newInv.salesmenid).select("ledgerid commission name");
+    if (!salesman?.ledgerid) throw new Error("Salesman ledger missing");
+
+    const commissionRate = Number(salesman.commission) || 0;
+    const commissionAmount = (newInv.subtotal * commissionRate) / 100;
+
+    if (commissionAmount > 0) {
+      const commissionExpenseLedger = await AccountLedger.findOne({
+        ledgername: "Salesman Commission Expense",
+        admin: newInv.adminid
+      });
+
+      if (!commissionExpenseLedger) {
+        throw new Error("Ledger 'Salesman Commission Expense' not found. Create it.");
+      }
+
+      entries.push({
+        ledgerid: commissionExpenseLedger._id,
+        debit: commissionAmount,
+        credit: 0,
+        remarks: `Commission for ${salesman.name}`
+      });
+
+      entries.push({
+        ledgerid: salesman.ledgerid,
+        debit: 0,
+        credit: commissionAmount,
+        remarks: `Sales Commission`
+      });
+    }
+  }
+
+  // ====================== CALCULATE BALANCE ======================
+  const totalDebitSum = entries.reduce((t, e) => t + (e.debit || 0), 0);
+  const totalCreditSum = entries.reduce((t, e) => t + (e.credit || 0), 0);
+
   let invoiceTrx = await Transaction.findOne({
     "source.docmodel": "SalesInvoice",
     "source.docid": newInv._id
@@ -215,12 +225,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   if (invoiceTrx) {
     invoiceTrx.entries = entries;
     invoiceTrx.transactiondate = newInv.billdate;
-    invoiceTrx.totaldebit = newInv.totalamount;
-    invoiceTrx.totalcredit = newInv.totalamount;
+    invoiceTrx.totaldebit = totalDebitSum;
+    invoiceTrx.totalcredit = totalCreditSum;
     invoiceTrx.status = true;
     await invoiceTrx.save();
   } else {
-    invoiceTrx = await Transaction.create({
+    await Transaction.create({
       adminid: newInv.adminid,
       branchid: newInv.branchid,
       entrytype: "auto",
@@ -228,14 +238,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       transactiondate: newInv.billdate,
       narration: `Sales Invoice #${newInv.billnumber}`,
       entries,
-      totaldebit: newInv.totalamount,
-      totalcredit: newInv.totalamount
+      totaldebit: totalDebitSum,
+      totalcredit: totalCreditSum
     });
   }
 
-  // ============================
-  // 💰 PAYMENT LOGIC (same as purchase)
-  // ============================
+  // ====================== PAYMENT ======================
   const payType = String(newInv.paymenttype).toLowerCase();
   const isCredit = payType === "credit";
   const isCash = payType === "cash";
@@ -318,7 +326,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   });
 };
 
-// ✅ After Save Auto Trigger
+// ✅ Trigger on save
 salesInvoiceSchema.post("save", async function (doc: any, next) {
   try {
     await (SalesInvoice as any).adjustStockAndTransactions(null, doc);

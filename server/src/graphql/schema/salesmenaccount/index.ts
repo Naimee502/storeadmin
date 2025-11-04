@@ -19,6 +19,11 @@ export const salesmenAccountTypeDefs = gql`
     branchname: String!
   }
 
+   type AccountGroup {
+    id: ID!
+    accountgroupname: String!
+  }
+
   type AccountLedger {
     id: ID!
     ledgername: String!
@@ -28,6 +33,7 @@ export const salesmenAccountTypeDefs = gql`
     id: ID!
     admin: Admin
     branchid: Branch
+    accountgroupid: AccountGroup
     ledgerid: AccountLedger
     salesmancode: String
     name: String!
@@ -49,7 +55,7 @@ export const salesmenAccountTypeDefs = gql`
   input SalesmenAccountInput {
     admin: ID
     branchid: ID!
-    ledgerid: ID
+    accountgroupid: ID!
     name: String!
     mobile: String!
     email: String!
@@ -68,6 +74,7 @@ export const salesmenAccountTypeDefs = gql`
     adminId: ID
     branchid: ID
     type: String
+    accountgroupid: ID
     ledgerid: ID
     mobile: String
     email: String
