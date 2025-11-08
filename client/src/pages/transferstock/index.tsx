@@ -6,13 +6,12 @@ import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import FormSwitch from "../../components/formswitch";
-import { FaCubes, FaExchangeAlt, FaCalendarAlt } from "react-icons/fa";
+import { FaExchangeAlt, FaCalendarAlt } from "react-icons/fa";
 import { showMessage } from "../../redux/slices/message";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
-import { useUnitsQuery } from "../../graphql/hooks/units";
 
 type FormValues = {
   tobranchid: string;
@@ -52,6 +51,7 @@ const TransferStock = () => {
 
   const { data: branchesData } = useBranchesQuery();
   const { data: productData, refetch: productRefetch } = useProductServicesQuery();
+  console.log("ProductServicesData:", JSON.stringify(productData));
   const transferProductData = productData?.getProductServices ?? [];
 
   const {
@@ -63,9 +63,6 @@ const TransferStock = () => {
   const branches = branchesData?.getBranches || [];
   const products = transferProductData || [];
   const transferStocks: TransferStockRow[] = transfersData?.getTransferStocks || [];
-
-  const { data: unitData } = useUnitsQuery();
-  const unitsList = unitData?.getUnits || [];
 
   const [formValues, setFormValues] = useState<FormValues>({
     tobranchid: "",
@@ -158,23 +155,23 @@ const TransferStock = () => {
 
     if (!variant) return;
 
-    // Populate Transfer Unit options from unitConversions
-    const options = (variant.unitconversions || []).map((uc: any) => {
-      // Use correct unit key: 'unitid'
-      const unit = unitsList.find((u) => u.id === uc.unitid);
-      const unitName = unit?.unitname || uc.unitid;
+    const options = (variant.unitconversions || []).map((uc) => {
+      const unitId = typeof uc.unitid === "object" ? uc.unitid.id : uc.unitid;
+      const unitName = typeof uc.unitid === "object" ? uc.unitid.unitname : "Unit";
       return {
         label: `${unitName} → Factor: ${uc.factor}`,
-        value: uc.unitid,
+        value: unitId,
       };
     });
 
     // Fallback to base unit if no conversions found
     if (options.length === 0 && variant.baseunitid) {
-      const baseUnit = unitsList.find((u) => u.id === variant.baseunitid);
+      const baseUnitId = typeof variant.baseunitid === "object" ? variant.baseunitid.id : variant.baseunitid;
+      const baseUnitName = typeof variant.baseunitid === "object" ? variant.baseunitid.unitname : "Base Unit";
+
       options.push({
-        label: baseUnit?.unitname || "Base Unit",
-        value: variant.baseunitid,
+        label: baseUnitName,
+        value: baseUnitId,
       });
     }
 
@@ -309,28 +306,27 @@ const TransferStock = () => {
 
                   // Prepare Transfer Unit Options from unit conversions
                   const options = (variant.unitconversions || []).map((uc) => {
-                    const unit = unitsList.find((u) => u.id === uc.unitid);
+                    const unitId = typeof uc.unitid === "object" ? uc.unitid.id : uc.unitid;
+                    const unitName = typeof uc.unitid === "object" ? uc.unitid.unitname : "Unit";
                     return {
-                      label: `${unit?.unitname || `Unit(${uc.unitid})`} → Factor: ${uc.factor}`,
-                      value: uc.unitid,
+                      label: `${unitName} → Factor: ${uc.factor}`,
+                      value: unitId,
                     };
                   });
 
                   // Fallback to base unit if unitConversions is empty
                   if (options.length === 0 && variant.baseunitid) {
-                    const baseUnit = unitsList.find((u) => u.id === variant.baseunitid);
+                    const baseUnitId = typeof variant.baseunitid === "object" ? variant.baseunitid.id : variant.baseunitid;
+                    const baseUnitName = typeof variant.baseunitid === "object" ? variant.baseunitid.unitname : "Base Unit";
+
                     options.push({
-                      label: baseUnit?.unitname || "Base Unit",
-                      value: variant.baseunitid,
+                      label: baseUnitName,
+                      value: baseUnitId,
                     });
                   }
 
                   setTransferUnitOptions(options);
                   handleFormChange("transferunitid", options[0]?.value || "");
-
-                  console.log("Transfer Unit Options:", options);
-                  console.log("Selected transferunitid:", options[0]?.value);
-                  console.log("Full Variant Detail:", variant);
                 }}
                 error={formErrors.productid}
                 options={productOptions}
