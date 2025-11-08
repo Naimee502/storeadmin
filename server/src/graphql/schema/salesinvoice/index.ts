@@ -1,24 +1,34 @@
 import { gql } from 'apollo-server-express';
 
 export const salesInvoiceTypeDefs = gql`
+
+  type SimpleRef {
+    id: ID
+    name: String
+    unitname: String
+    accountname: String
+    mobile: String
+    ledgername: String
+  }
+
   type SalesInvoiceProductService {
-    productserviceid: ID!
-    variantid: ID
-    salesunitid: ID
-    unitqty: Int!
-    gst: Float!
-    qty: Int!
-    rate: Float!
-    amount: Float!
-    discount: Float!
-    salesaccountid: ID
-    purchaseaccountid: ID
-    serviceaccountid: ID
+    productserviceid: SimpleRef!
+    variantid: SimpleRef
+    salesunitid: SimpleRef
+    unitqty: Int
+    gst: Float
+    qty: Int
+    rate: Float
+    amount: Float
+    discount: Float
+    salesaccountid: SimpleRef
+    purchaseaccountid: SimpleRef
+    serviceaccountid: SimpleRef
   }
 
   input SalesInvoiceProductServiceInput {
     productserviceid: ID!
-    variantid: ID
+    variantid: ID!
     salesunitid: ID,
     unitqty: Int!
     gst: Float!
@@ -33,9 +43,9 @@ export const salesInvoiceTypeDefs = gql`
 
   type SalesInvoice {
     id: ID!
-    salesmenid: ID!
+    salesmenid: SimpleRef!
     paymenttype: String!
-    partyacc: String!
+    partyacc: SimpleRef!
     taxorsupplytype: String!
     billdate: String!
     billtype: String!
@@ -58,7 +68,7 @@ export const salesInvoiceTypeDefs = gql`
   input SalesInvoiceInput {
     salesmenid: ID!
     paymenttype: String!
-    partyacc: String!
+    partyacc: ID!  
     taxorsupplytype: String!
     billdate: String!
     billtype: String!
@@ -81,7 +91,7 @@ export const salesInvoiceTypeDefs = gql`
     branchid: ID
     salesmenid: ID
     paymenttype: String
-    partyacc: String
+    partyacc: ID
     taxorsupplytype: String
     billtype: String
     invoicetype: String

@@ -12,7 +12,6 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
-import { useUnitsQuery } from "../../../graphql/hooks/units";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -73,12 +72,9 @@ const AddEditSalesInvoice = () => {
   }));
 
   // Product List
-  const { data:producData, refetch } = useProductServicesQuery();
+  const { data: producData, refetch } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
   console.log("Sales Product Data:", JSON.stringify(salesProductData));
-
-  const { data: unitData } = useUnitsQuery();
-  const unitsList = unitData?.getUnits || [];
 
   useEffect(() => {
     if (accountData?.getAccounts) {
@@ -88,6 +84,7 @@ const AddEditSalesInvoice = () => {
 
   useEffect(() => {
     if (!isEdit) {
+      // --- NEW INVOICE MODE
       if (salesInvoices.length > 0) {
         const billNumbers = salesInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -99,13 +96,13 @@ const AddEditSalesInvoice = () => {
         setBillNumber("000001");
       }
     } else if (data?.getSalesInvoiceById) {
-      // ✅ EDIT MODE
+      // --- EDIT MODE
       const invoice = data.getSalesInvoiceById;
 
-      // --- Invoice header fields
-      setSalesmenAccount(invoice.salesmenid || "");
+      // --- Header fields
+      setSalesmenAccount(invoice.salesmenid.id || null);
       setPaymentType(invoice.paymenttype || "");
-      setPartyAccount(invoice.partyacc || "");
+      setPartyAccount(invoice.partyacc.id || null);
       setTaxOrSupplyType(invoice.taxorsupplytype || "");
       setBillDate(invoice.billdate || "");
       setBillType(invoice.billtype || "");
@@ -116,81 +113,44 @@ const AddEditSalesInvoice = () => {
       setStatus(invoice.status ?? true);
       setIsService(invoice.isservice ?? false);
 
-      // --- Invoice product lines
-      const mappedProducts = mapInvoiceProducts(
-        invoice.productservice || [],
-        salesProductData,
-        unitsList,
-        true
-      );
+      // --- Products
+      const mappedProducts = invoice.productservice.map((p: any) => {
+        const productName = `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""
+          }`;
+
+        // Prepare unit options
+        const unitOptions = (p.salesunitid ? [{
+          value: p.salesunitid.id,
+          label: p.salesunitid.unitname || "Unit",
+          unitid: p.salesunitid.id,
+          quantity: p.unitqty,
+          salesrate: p.rate,
+          discount: p.discount,
+          offerprice: 0,
+        }] : []);
+
+        return {
+          productserviceid: p.productserviceid.id,
+          variantid: p.variantid?.id || null,
+          salesunitid: p.salesunitid?.id || null,
+          productname: productName,
+          unitquantity: p.unitqty,
+          quantity: p.qty,
+          rate: p.rate,
+          total: p.amount,
+          discount: p.discount || 0,
+          gst: p.gst || 0,
+          salesaccountid: p.salesaccountid?.id || null,
+          purchaseaccountid: p.purchaseaccountid?.id || null,
+          serviceaccountid: p.serviceaccountid?.id || null,
+          salesUnits: unitOptions,
+          selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
+        };
+      });
 
       setProducts(mappedProducts);
     }
-  }, [isEdit, data, salesInvoices, salesProductData, unitsList]);
-
-  const mapInvoiceProducts = (
-    products: any[],
-    productData: any[],
-    unitsList: any[],
-    isSales: boolean
-  ): InvoiceProduct[] => {
-    return products.map((p: any) => {
-      const productOption = productData.find(
-        (prod: any) =>
-          prod?.id === p.productserviceid ||
-          (p.variantid && prod?.id?.endsWith(p.variantid))
-      );
-
-      const variant = productOption?.productvariants?.find(
-        (v: any) => v.id === p.variantid
-      );
-
-      const productName = `${productOption?.name || ""}${
-        variant?.name ? ` - ${variant.name}` : ""
-      }${variant?.currentstock !== undefined ? ` - ${variant.currentstock}` : ""}`;
-
-      const unitOptions =
-        variant?.pricing?.flatMap((price: any) =>
-          price.unitprices.map((up: any) => {
-            const unit = unitsList.find((u) => u.id === up.unitid);
-            return {
-              value: `${up.unitid}--${up.quantity}`,
-              label: `${up.quantity} ${unit?.unitname || "Unit"}`,
-              unitid: up.unitid,
-              quantity: up.quantity,
-              salesrate: up.salesrate,
-              offerprice: up.offerprice,
-              discount: up.discount,
-            };
-          })
-        ) || [];
-
-      const selectedUnit = unitOptions.find(
-        (uo: any) => uo.unitid === p[isSales ? "salesunitid" : "purchaseunitid"]
-      );
-
-      return {
-        productserviceid: p.productserviceid,
-        variantid: p.variantid,
-        [isSales ? "salesunitid" : "purchaseunitid"]:
-          p[isSales ? "salesunitid" : "purchaseunitid"] || null,
-        productname: productName,
-        unitquantity: p.unitqty,
-        quantity: p.qty,
-        rate: p.rate,
-        total: p.amount,
-        discount: p.discount || 0,
-        gst: p.gst || 0,
-        salesaccountid: p.salesaccountid ?? productOption?.salesaccountid ?? null,
-        purchaseaccountid:
-          p.purchaseaccountid ?? productOption?.purchaseaccountid ?? null,
-        serviceaccountid:
-          p.serviceaccountid ?? productOption?.serviceaccountid ?? null,
-        [isSales ? "salesUnits" : "purchaseUnits"]: unitOptions,
-        selectedUnitValue: selectedUnit ? selectedUnit.value : null, // 👈 key fix
-      };
-    });
-  };
+  }, [isEdit, data, salesInvoices]);
 
   useEffect(() => {
     const productsTotalCalc = products.reduce((sum, p) => sum + (p.total || 0), 0);
@@ -212,7 +172,7 @@ const AddEditSalesInvoice = () => {
 
     setProductsTotal(productsTotalCalc);
     setTotalDiscount(totalLineDiscount);
-    setTaxAmount(totalGSTAmount); 
+    setTaxAmount(totalGSTAmount);
     setGrandTotal(grandTotalCalc);
   }, [products]);
 

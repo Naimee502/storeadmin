@@ -8,8 +8,6 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
 
 const DeletedSalesInvoices = () => {
   const navigate = useNavigate();
@@ -19,13 +17,6 @@ const DeletedSalesInvoices = () => {
   const invoiceList = data?.getDeletedSalesInvoices || [];
   
   const { resetSalesInvoiceMutation } = useSalesInvoiceMutations();
-  const { data: accountData } = useAccountsQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const accountsMap = new Map(accountsList.map((acc:any) => [acc.id, acc]));
-
-  const { data: productData } = useProductServicesQuery();
-  const productList = productData?.getProductServices ?? [];
-  const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   useEffect(() => {
     if (!data || !data.getDeletedSalesInvoices || data.getDeletedSalesInvoices.length === 0) {
@@ -54,34 +45,15 @@ const DeletedSalesInvoices = () => {
       0
     );
 
-    const account = accountsMap.get(invoice.partyacc) as
-      | { name?: string; mobile?: string }
-      | undefined;
-
-    const productname = invoice.productservice
-      .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
-      .join(", ");
-
     return {
       ...invoice,
       seqNo: index + 1,
+      partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,
-
-      // ✅ Bill type → First letter capital
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
-
-      // ✅ Payment type → First letter capital
       paymenttype: capitalizeFirst(invoice.paymenttype),
-
       status: invoice.status ? "Active" : "Inactive",
-
-      // ✅ Safely format account + avoid TS error
-      partyacc: account
-        ? `${account?.name ?? ""}${account?.mobile ? " - " + account?.mobile : ""}`
-        : invoice.partyacc,
-
-      productname,
     };
   });
 

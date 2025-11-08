@@ -10,10 +10,8 @@ import {
   usePurchaseInvoicesQuery,
   usePurchaseInvoiceMutations,
 } from "../../graphql/hooks/purchaseinvoice";
-import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
 
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
@@ -23,14 +21,6 @@ const PurchaseInvoices = () => {
   const { deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
   const invoiceList = data?.getPurchaseInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-
-  const { data: accountData } = useAccountsQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
-
-  const { data: productData } = useProductServicesQuery();
-  const productList = productData?.getProductServices ?? [];
-  const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   // Print states and ref
   const componentRef = useRef<HTMLDivElement>(null);
@@ -103,34 +93,15 @@ const PurchaseInvoices = () => {
       0
     );
 
-    const account = accountsMap.get(invoice.partyacc) as
-      | { name?: string; mobile?: string }
-      | undefined;
-
-    const productname = invoice.productservice
-      .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
-      .join(", ");
-
     return {
       ...invoice,
       seqNo: index + 1,
+      partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,
-
-      // ✅ Proper Bill Type format (first letter capital only)
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
-
-      // ✅ Payment first letter capital
       paymenttype: capitalizeFirst(invoice.paymenttype),
-
       status: invoice.status ? "Active" : "Inactive",
-
-      // ✅ No type error + proper formatting
-      partyacc: account
-        ? `${account?.name ?? ""}${account?.mobile ? " - " + account?.mobile : ""}`
-        : invoice.partyacc,
-
-      productname, // ✅ Add this back
     };
   });
 

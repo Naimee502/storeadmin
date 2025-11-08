@@ -10,10 +10,8 @@ import {
   useSalesInvoicesQuery,
   useSalesInvoiceMutations,
 } from "../../graphql/hooks/salesinvoice";
-import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
 
 
 const SalesInvoices = () => {
@@ -25,14 +23,6 @@ const SalesInvoices = () => {
   const invoiceList = data?.getSalesInvoices || [];
   console.log("Fetched Sales Invoices:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-
-  const { data: accountData } = useAccountsQuery();
-  const accountsList = accountData?.getAccounts || [];
-  const accountsMap = new Map(accountsList.map((acc: any) => [acc.id, acc]));
-
-  const { data: productData } = useProductServicesQuery();
-  const productList = productData?.getProductServices ?? [];
-  const productMap = new Map(productList.map((p: any) => [p.id, p.name]));
 
   // Use ref for the printable component
   const componentRef = useRef<HTMLDivElement>(null);
@@ -104,34 +94,15 @@ const SalesInvoices = () => {
       0
     );
 
-    const account = accountsMap.get(invoice.partyacc) as
-      | { name?: string; mobile?: string }
-      | undefined;
-
-    const productname = invoice.productservice
-      .map((p: any) => productMap.get(p.productserviceid) || "Unknown")
-      .join(", ");
-
     return {
       ...invoice,
       seqNo: index + 1,
+      partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,
-
-      // ✅ First letter capital for bill type
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
-
-      // ✅ Capitalize payment type
       paymenttype: capitalizeFirst(invoice.paymenttype),
-
       status: invoice.status ? "Active" : "Inactive",
-
-      // ✅ Safe account & mobile formatting
-      partyacc: account
-        ? `${account?.name ?? ""}${account?.mobile ? " - " + account?.mobile : ""}`
-        : invoice.partyacc,
-
-      productname,
     };
   });
 

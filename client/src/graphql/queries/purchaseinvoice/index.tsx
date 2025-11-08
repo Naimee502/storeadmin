@@ -6,7 +6,11 @@ export const GET_PURCHASE_INVOICES = gql`
     getPurchaseInvoices(filter: $filter) {
       id
       paymenttype
-      partyacc
+      partyacc {
+        id
+        accountname
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -20,17 +24,17 @@ export const GET_PURCHASE_INVOICES = gql`
       adminid
       branchid
       productservice {
-        productserviceid
-        variantid
-        purchaseunitid
+        productserviceid { id name }
+        variantid { id name }
+        purchaseunitid { id unitname }
         gst
         qty
         rate
         amount
         discount
-        purchaseaccountid
-        salesaccountid
-        serviceaccountid
+        salesaccountid { id ledgername }
+        purchaseaccountid { id ledgername }
+        serviceaccountid { id ledgername }
       }
       isservice
       status
@@ -45,7 +49,11 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
     getDeletedPurchaseInvoices(filter: $filter) {
       id
       paymenttype
-      partyacc
+      partyacc {
+        id
+        accountname
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -59,17 +67,17 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       adminid
       branchid
       productservice {
-        productserviceid
-        variantid
-        purchaseunitid
+        productserviceid { id name }
+        variantid { id name }
+        purchaseunitid { id unitname }
         gst
         qty
         rate
         amount
         discount
-        purchaseaccountid
-        salesaccountid
-        serviceaccountid
+        salesaccountid { id ledgername }
+        purchaseaccountid { id ledgername }
+        serviceaccountid { id ledgername }
       }
       isservice
       status
@@ -84,7 +92,11 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
     getPurchaseInvoiceById(id: $id, adminid: $adminid) {
       id
       paymenttype
-      partyacc
+      partyacc {
+        id
+        accountname
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -98,16 +110,17 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       adminid
       branchid
       productservice {
-        productserviceid
-        variantid
+        productserviceid { id name }
+        variantid { id name }
+        purchaseunitid { id unitname }
         gst
         qty
         rate
         amount
         discount
-        purchaseaccountid
-        salesaccountid
-        serviceaccountid
+        salesaccountid { id ledgername }
+        purchaseaccountid { id ledgername }
+        serviceaccountid { id ledgername }
       }
       isservice
       status

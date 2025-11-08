@@ -7,9 +7,6 @@ export const productServiceResolvers = {
   Query: {
     getProductServices: async (_: any, { filter = {}, limit = 50, offset = 0 }: any) => {
       try {
-        console.log("📥 GraphQL Request → GetProductServices");
-        console.log("🟦 Raw Filter:", JSON.stringify(filter, null, 2));
-
         const query: any = {};
         query.status = typeof filter.status === "boolean" ? filter.status : true;
 
@@ -33,10 +30,7 @@ export const productServiceResolvers = {
           if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
         }
 
-        console.log("✅ Final Mongo Query:", JSON.stringify(query, null, 2));
-
         const totalCount = await ProductService.countDocuments(query);
-        console.log("📊 Total Products:", totalCount);
 
         let productsQuery = ProductService.find(query)
           .populate({ path: "categoryid", select: "id categoryname" })
@@ -146,8 +140,7 @@ export const productServiceResolvers = {
             return mapped;
           })
         );
-
-        console.log("🎯 Final Response Ready", JSON.stringify(response));
+        
         return response;
 
       } catch (err) {
