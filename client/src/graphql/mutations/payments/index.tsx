@@ -8,7 +8,14 @@ export const ADD_PAYMENT = gql`
       paymentdate
       type
       mode
-      partyid
+      partyid {
+        id
+        name
+      }
+      ledgerid {
+        id
+        ledgername
+      }
       amount
       transactionid
       status
@@ -26,7 +33,14 @@ export const EDIT_PAYMENT = gql`
       paymentdate
       type
       mode
-      partyid
+      partyid {
+        id
+        name
+      }
+      ledgerid {
+        id
+        ledgername
+      }
       amount
       transactionid
       status

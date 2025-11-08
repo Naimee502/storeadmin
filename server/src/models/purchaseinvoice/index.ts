@@ -299,6 +299,7 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
 
   if (oldPayment) {
     oldPayment.mode = newInv.paymenttype;
+    oldPayment.ledgerid = vendor.ledgerid;
     oldPayment.amount = newInv.totalamount;
     oldPayment.invoices[0].settledamount = newInv.totalamount;
     await oldPayment.save();
@@ -336,6 +337,7 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
     type: "payment",
     mode: newInv.paymenttype,
     partyid: vendor._id,
+    ledgerid: vendor.ledgerid,
     invoices: [
       { invoiceid: invId, invoicemodel: "PurchaseInvoice", settledamount: newInv.totalamount }
     ],

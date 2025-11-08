@@ -11,6 +11,7 @@ export const paymentResolvers = {
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
       if (filter.type) query.type = filter.type;
       if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+      if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
       if (filter.paymentcode)
         query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
       if (typeof filter.status === "boolean") query.status = filter.status;
@@ -22,8 +23,27 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).lean();
-      return result.map((r: any) => ({ id: r._id.toString(), ...r }));
+      const result = await Payment.find(query)
+        .populate("ledgerid")
+        .populate("partyid")
+        .lean();
+
+      return result.map((r: any) => ({
+        ...r,
+        id: r._id.toString(),
+        ledgerid: r.ledgerid
+          ? {
+            ...r.ledgerid,
+            id: r.ledgerid._id?.toString()
+          }
+          : null,
+        partyid: r.partyid
+          ? {
+            ...r.partyid,
+            id: r.partyid._id?.toString()
+          }
+          : null,
+      }));
     },
 
     getDeletedPayments: async (_: any, args: { filter?: any }) => {
@@ -34,6 +54,7 @@ export const paymentResolvers = {
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
       if (filter.type) query.type = filter.type;
       if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+      if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid); // fixed
       if (filter.paymentcode)
         query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
 
@@ -43,34 +64,127 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).lean();
-      return result.map((r: any) => ({ id: r._id.toString(), ...r }));
+      const result = await Payment.find(query)
+        .populate("partyid")
+        .populate("ledgerid")
+        .lean();
+
+      return result.map((r: any) => ({
+        ...r,
+        id: r._id.toString(),
+        ledgerid: r.ledgerid
+          ? {
+            ...r.ledgerid,
+            id: r.ledgerid._id?.toString()
+          }
+          : null,
+        partyid: r.partyid
+          ? {
+            ...r.partyid,
+            id: r.partyid._id?.toString()
+          }
+          : null,
+      }));
     },
 
     getPaymentById: async (_: any, args: { id: string; adminid?: string }) => {
       if (!args.id) return null;
+
       const query: any = { _id: new mongoose.Types.ObjectId(args.id) };
       if (args.adminid) query.adminid = new mongoose.Types.ObjectId(args.adminid);
 
-      const payment = await Payment.findOne(query).lean();
+      const payment = await Payment.findOne(query)
+        .populate("partyid")
+        .populate("ledgerid")
+        .lean();
+
       if (!payment) return null;
 
-      return { id: payment._id.toString(), ...payment, invoices: payment.invoices || [] };
+      return {
+        ...payment,
+        id: payment._id.toString(),
+
+        ledgerid: payment.ledgerid
+          ? {
+            ...payment.ledgerid,
+            id: payment.ledgerid._id?.toString(),
+          }
+          : null,
+
+        partyid: payment.partyid
+          ? {
+            ...payment.partyid,
+            id: payment.partyid._id?.toString(),
+          }
+          : null,
+      };
     },
   },
 
   Mutation: {
     addPayment: async (_: any, { input }: any) => {
       const created = await Payment.create(input);
-      return await Payment.findById(created._id);
+
+      const populated = await Payment.findById(created._id)
+        .populate("ledgerid")
+        .populate("partyid")
+        .lean();
+
+      if (!populated) {
+        throw new Error("Payment not found after creation");
+      }
+
+      return {
+        ...populated,
+        id: populated._id.toString(),
+
+        ledgerid: populated.ledgerid
+          ? {
+            ...populated.ledgerid,
+            id: populated.ledgerid._id?.toString(),
+          }
+          : null,
+
+        partyid: populated.partyid
+          ? {
+            ...populated.partyid,
+            id: populated.partyid._id?.toString(),
+          }
+          : null,
+      };
     },
 
     editPayment: async (_: any, { id, input }: any) => {
       const existing = await Payment.findById(id);
       if (!existing) throw new Error("Payment not found");
 
-      const updated = await Payment.findByIdAndUpdate(id, input, { new: true });
-      return updated;
+      await Payment.findByIdAndUpdate(id, input, { new: true });
+
+      const updated = await Payment.findById(id)
+        .populate("ledgerid")
+        .populate("partyid")
+        .lean();
+
+      if (!updated) throw new Error("Payment not found after update");
+
+      return {
+        ...updated,
+        id: updated._id.toString(),
+
+        ledgerid: updated.ledgerid
+          ? {
+            ...updated.ledgerid,
+            id: updated.ledgerid._id?.toString(),
+          }
+          : null,
+
+        partyid: updated.partyid
+          ? {
+            ...updated.partyid,
+            id: updated.partyid._id?.toString(),
+          }
+          : null,
+      };
     },
 
     deletePayment: async (_: any, { id }: any) => {

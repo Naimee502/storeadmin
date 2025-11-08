@@ -40,7 +40,7 @@ const DeletedPayments = () => {
     { label: "Type", key: "type" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },
-    { label: "Party", key: "partyname" },
+   { label: "Leadger", key: "ledgername" },
     { label: "Amount", key: "amount" },
     { label: "Status", key: "status" },
   ];
@@ -64,7 +64,7 @@ const DeletedPayments = () => {
       paymentdate: formattedDate,
       type: capitalizeFirstLetter(pay.type),
       mode: capitalizeFirstLetter(pay.mode),
-      partyname: party?.name || "-",
+      ledgername: pay?.ledgerid?.ledgername || "-",
       amount: pay.amount?.toFixed(2) || "0.00",
       status: pay.status ? "Active" : "Inactive",
     };

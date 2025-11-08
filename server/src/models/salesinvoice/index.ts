@@ -272,7 +272,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   if (!payLedger) {
     const created = await getOrCreateAccount(payLedgerName, "other", newInv.adminid, newInv.branchid);
-    payLedger = { _id: created._id } as any;
+    payLedger = { _id: created.ledgerid } as any;
   }
 
   const paymentEntries = [
@@ -282,6 +282,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   if (oldPayment) {
     oldPayment.mode = newInv.paymenttype;
+    oldPayment.ledgerid = customer.ledgerid;
     oldPayment.amount = newInv.totalamount;
     oldPayment.invoices[0].settledamount = newInv.totalamount;
     await oldPayment.save();
@@ -319,6 +320,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     type: "receipt",
     mode: newInv.paymenttype,
     partyid: customer._id,
+    ledgerid: customer.ledgerid,
     invoices: [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: newInv.totalamount }],
     amount: newInv.totalamount,
     remarks: `Receipt for Sales Invoice #${newInv.billnumber}`,

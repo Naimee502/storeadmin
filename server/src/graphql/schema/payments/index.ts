@@ -14,6 +14,18 @@ export const paymentTypeDefs = gql`
     settledamount: Float!
   }
 
+  # Account Type
+  type Account {
+    id: ID!
+    name: String!
+  }
+
+  # Ledger Type
+  type AccountLedger {
+    id: ID!
+    ledgername: String!
+  }
+
   # Payment Main
   type Payment {
     id: ID!
@@ -23,7 +35,8 @@ export const paymentTypeDefs = gql`
     paymentdate: String
     type: String!
     mode: String!
-    partyid: ID!
+    partyid: Account           # optional
+    ledgerid: AccountLedger!   # required
     invoices: [PaymentInvoice!]
     amount: Float!
     reference: String
@@ -36,13 +49,15 @@ export const paymentTypeDefs = gql`
     updatedAt: String
   }
 
+  # Payment Input
   input PaymentInput {
     adminid: ID!
     branchid: ID!
     paymentdate: String
     type: String!
     mode: String!
-    partyid: ID!
+    partyid: ID                  # optional
+    ledgerid: ID!                # required
     invoices: [PaymentInvoiceInput!]
     amount: Float!
     reference: String
@@ -53,11 +68,13 @@ export const paymentTypeDefs = gql`
     status: Boolean
   }
 
+  # Payment Filter Input
   input PaymentFilterInput {
     adminid: ID
     branchid: ID
     type: String
     partyid: ID
+    ledgerid: ID
     paymentcode: String
     dateFrom: String
     dateTo: String

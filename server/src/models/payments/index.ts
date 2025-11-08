@@ -17,7 +17,9 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
-    partyid: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
+    partyid: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
+    
+    ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
 
     invoices: [
       {
