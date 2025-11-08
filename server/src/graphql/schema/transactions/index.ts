@@ -1,10 +1,14 @@
 import { gql } from "apollo-server-express";
 
 export const transactionTypeDefs = gql`
+  type LedgerRef {
+    id: ID!
+    ledgername: String!
+  }
 
   # Entry Line Item
   type TransactionEntry {
-    ledgerid: ID!
+    ledgerid: LedgerRef!      
     debit: Float
     credit: Float
     productserviceid: ID
@@ -13,7 +17,7 @@ export const transactionTypeDefs = gql`
   }
 
   input TransactionEntryInput {
-    ledgerid: ID!
+    ledgerid: ID!            
     debit: Float
     credit: Float
     productserviceid: ID

@@ -12,6 +12,17 @@ export const ADD_TRANSACTION = gql`
       totaldebit
       totalcredit
       status
+      entries {
+        ledgerid {
+          id
+          ledgername
+        }
+        debit
+        credit
+        productserviceid
+        variantid
+        remarks
+      }
     }
   }
 `;
@@ -28,6 +39,17 @@ export const EDIT_TRANSACTION = gql`
       totaldebit
       totalcredit
       status
+      entries {
+        ledgerid {
+          id
+          ledgername
+        }
+        debit
+        credit
+        productserviceid
+        variantid
+        remarks
+      }
     }
   }
 `;

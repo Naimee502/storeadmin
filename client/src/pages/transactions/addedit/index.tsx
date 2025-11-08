@@ -50,7 +50,7 @@ const AddEditTransaction = () => {
       narration: t.narration || "",
       entrytype: t.entrytype || "manual",
       entries: t.entries?.map((e: any) => ({
-        ledgerid: typeof e.ledgerid === "string" ? e.ledgerid : e.ledgerid?._id || "",
+        ledgerid: e.ledgerid.id,
         debit: e.debit !== undefined ? e.debit : "",   
         credit: e.credit !== undefined ? e.credit : "",
         remarks: e.remarks || "",
