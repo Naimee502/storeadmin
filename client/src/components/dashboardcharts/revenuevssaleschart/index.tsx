@@ -13,19 +13,11 @@ import { format, parse } from "date-fns";
 // Register chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-export interface SalesInvoiceProduct {
-  productid: string;
-  rate?: number;
-  qty?: number;
-  amount?: number;
-}
-
 export interface SalesInvoice {
   id: string;
   billdate: string;
-  products?: SalesInvoiceProduct[];
+  productservice?: { qty?: number; amount?: number }[];
   totalamount?: number;
-  salesmanid?: string;
 }
 
 interface Props {
@@ -39,7 +31,7 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
     salesInvoices.forEach((invoice) => {
       const billDate = format(new Date(invoice.billdate), "MMM dd");
       const totalRevenue = invoice.totalamount ?? 0;
-      const totalSales = (invoice.products ?? []).reduce(
+      const totalSales = (invoice.productservice ?? []).reduce(
         (sum, p) => sum + (p.qty ?? 0),
         0
       );
@@ -53,7 +45,6 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
       existing.count += totalSales;
     });
 
-    // Sort by actual date object
     const sortedEntries = Array.from(map.entries()).sort(
       ([dateA], [dateB]) =>
         new Date(parse(dateA, "MMM dd", new Date())).getTime() -

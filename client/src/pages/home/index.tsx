@@ -24,6 +24,7 @@ import StatsCards from "../../components/statuscards";
 import DashboardCharts from "../../components/dashboardcharts";
 import RecentOrders from "../../components/recentorders";
 import { usePurchaseInvoicesQuery } from "../../graphql/hooks/purchaseinvoice";
+import { useTransactionsQuery } from "../../graphql/hooks/transactions";
 
 ChartJS.register(
   CategoryScale,
@@ -48,6 +49,7 @@ const Home: React.FC = () => {
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery();
   const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery();
+  const { data: transactionData, refetch: refetchTransaction } = useTransactionsQuery();
 
   // Refetch all data when branch ID changes
   useEffect(() => {
@@ -60,6 +62,7 @@ const Home: React.FC = () => {
     refetchTransferStock();
     refetchCategories();
     refetchProducts();
+    refetchTransaction();
   }, [branchId, type]);
 
   return (
@@ -81,6 +84,7 @@ const Home: React.FC = () => {
           transferStockData={transferStockData}
           salesmenData={salesmenData}
           categoryData={categoryData}
+          transactionData={transactionData}
           branchId={branchId}
         />
 

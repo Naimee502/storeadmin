@@ -8,59 +8,57 @@ interface Props {
 }
 
 const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
-  // Use salesman ID as selected value
+
+  // Selected salesman
   const [selectedSalesmanId, setSelectedSalesmanId] = useState<string>("All");
 
   // Map salesman ID → name
   const salesmenMap = useMemo(() => {
     const map = new Map<string, string>();
-    salesmen.forEach((s) => {
-      map.set(s.id, s.name);
-    });
-    
+    salesmen.forEach((s) => map.set(s.id, s.name));
     return map;
   }, [salesmen]);
 
   // Aggregate sales by salesman ID
   const salesBySalesmen = useMemo(() => {
-  const salesMap: Record<string, number> = {};
+    const salesMap: Record<string, number> = {};
+    salesInvoices.forEach((inv:any) => {
+      const salesmanId = inv.salesmenid?.id ?? "others";
+      const amount = inv.totalamount ?? 0;
+      salesMap[salesmanId] = (salesMap[salesmanId] || 0) + amount;
+    });
+    console.log("Sales by Salesmen:", JSON.stringify(salesMap, null, 2));
+    return salesMap;
+  }, [salesInvoices]);
 
-  salesInvoices.forEach((inv) => {
-    // Use salesmenid here (with double m) to match your data!
-    const salesmanId = inv.salesmenid ?? "others";
-    const amount = inv.totalamount ?? 0;
-   
-    salesMap[salesmanId] = (salesMap[salesmanId] || 0) + amount;
-  });
-
-  return salesMap;
-}, [salesInvoices]);
-
-  // Prepare chart data based on selected salesman ID
+  // Prepare chart data
   const filteredChartData = useMemo(() => {
-    
     if (selectedSalesmanId === "All") {
-      // Aggregate total sales for all salesmen
-      const totalSales = Object.values(salesBySalesmen).reduce(
-        (sum, val) => sum + val,
-        0
-      );
-      
+      const labels: string[] = [];
+      const data: number[] = [];
+
+      Object.entries(salesBySalesmen).forEach(([id, amount]) => {
+        const label = id === "others" ? "Others" : salesmenMap.get(id) || "Unknown";
+        labels.push(label);
+        data.push(amount);
+      });
+
+      // Friendly colors (avoid red)
+      const colors = ["#6366f1", "#10b981", "#8b5cf6", "#f59e0b", "#3b82f6", "#14b8a6"];
+
       return {
-        labels: ["All Salesmen"],
+        labels,
         datasets: [
           {
-            label: "Sales for All Salesmen (₹)",
-            data: [totalSales],
-            backgroundColor: ["#6366f1"],
+            label: "Sales (₹)",
+            data,
+            backgroundColor: labels.map((_, i) => colors[i % colors.length]),
           },
         ],
       };
     } else {
-      // Sales for selected salesman ID
       const label = salesmenMap.get(selectedSalesmanId) || "Unknown";
       const value = salesBySalesmen[selectedSalesmanId] || 0;
-      
 
       return {
         labels: [label],
@@ -68,7 +66,7 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) =>
           {
             label: `Sales for ${label} (₹)`,
             data: [value],
-            backgroundColor: ["#6366f1"],
+            backgroundColor: ["#6366f1"], // blue
           },
         ],
       };

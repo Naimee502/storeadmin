@@ -13,9 +13,10 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
   products = [],
   categories = [],
 }) => {
+
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("All");
 
-  // Prepare category ID → Name map
+  // Map category ID → Name
   const categoryIdToNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach((cat) => {
@@ -26,24 +27,25 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
     return map;
   }, [categories]);
 
-  // Sales data grouped by category ID
+  // Aggregate sales by category ID
   const categorySalesMap = useMemo(() => {
     const map: Record<string, number> = {};
 
-    salesInvoices.forEach((invoice) => {
-      const invoiceProducts = invoice.products ?? [];
-      invoiceProducts.forEach((product: any) => {
-        const prod = products.find((p) => p.id === product.productid || p.id === product.id);
-        const categoryId = prod?.categoryid ?? "others";
-        const amount = product.amount ?? (product.rate ?? 0) * (product.qty ?? 0);
+    salesInvoices.forEach((invoice: any) => {
+      const invoiceProducts = invoice.productservice ?? []; // use productservice
+      invoiceProducts.forEach((item: any) => {
+        // Find the product in products list
+        const prod: any = products.find((p: any) => p.id === item.productserviceid?.id);
+        // Get category ID (handle object or undefined)
+        const categoryId = prod?.categoryid?.id ?? "others";
+        const amount = item.amount ?? (item.rate ?? 0) * (item.qty ?? 0);
         map[categoryId] = (map[categoryId] || 0) + amount;
       });
     });
-
     return map;
   }, [salesInvoices, products]);
 
-  // Filtered chart data based on selected category
+  // Prepare chart data based on selected category
   const filteredChartData = useMemo(() => {
     if (selectedCategoryId === "All") {
       const totalSales = Object.values(categorySalesMap).reduce((a, b) => a + b, 0);
@@ -53,7 +55,7 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
           {
             label: "Sales for All Categories (₹)",
             data: [totalSales],
-            backgroundColor: ["#60a5fa"],
+            backgroundColor: ["#60a5fa"], // friendly blue
           },
         ],
       };
@@ -66,7 +68,7 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
           {
             label: `Sales for ${label} (₹)`,
             data: [value],
-            backgroundColor: ["#60a5fa"],
+            backgroundColor: ["#60a5fa"], // blue
           },
         ],
       };

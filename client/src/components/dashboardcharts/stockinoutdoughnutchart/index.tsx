@@ -1,18 +1,20 @@
 import React, { useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-interface Product {
-  id?: string;
-  branchid?: string;
+// Updated type-safe interfaces
+interface ProductVariant {
+  id: string;
   currentstock?: number;
+}
+
+interface Product {
+  id: string;
+  branchid?: string;
+  currentstock?: number; // fallback if no variants
+  productvariants?: ProductVariant[];
 }
 
 interface Transfer {
@@ -21,24 +23,31 @@ interface Transfer {
   status?: boolean;
   productid?: string;
   transferqty?: number;
+  variantid?: string | { id?: string };
 }
 
-interface InvoiceProduct {
+// Accept both SalesInvoiceProduct and InvoiceProduct
+interface SalesInvoiceProduct {
+  productserviceid?: string; // optional
+  variantid?: string | { id: string };
   qty?: number;
+  unitqty?: number;
 }
 
-interface Invoice {
-  products?: InvoiceProduct[];
+interface SalesInvoice {
+  id: string;
+  billdate?: string;
+  products?: SalesInvoiceProduct[]; // original API property
 }
 
 interface PurchaseInvoice {
-  products?: InvoiceProduct[];
+  products?: SalesInvoiceProduct[];
 }
 
 interface Props {
   products?: Product[];
   transfers?: Transfer[];
-  invoices?: Invoice[];
+  invoices?: SalesInvoice[];
   purchaseInvoices?: PurchaseInvoice[];
   branchId?: string;
 }
@@ -50,44 +59,75 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
   purchaseInvoices = [],
   branchId = "",
 }) => {
-  const {
-    purchaseStockIn,
-    salesStockOut,
-    transferStockOut,
-    currentStock,
-  } = useMemo(() => {
-    // Current stock calculation
-    const currentStock = products.reduce((sum, product) => {
-      const transferredOutQty = (transfers ?? [])
-        .filter(
-          (t) =>
-            t.status &&
-            t.frombranchid === product.branchid &&
-            t.productid === product.id
-        )
-        .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
+  const { purchaseStockIn, salesStockOut, transferStockOut, currentStock } =
+    useMemo(() => {
+      let totalPurchaseStockIn = 0;
+      let totalSalesStockOut = 0;
+      let totalTransferStockOut = 0;
 
-      const netStock = (product.currentstock ?? 0) - transferredOutQty;
-      return sum + netStock;
-    }, 0);
+      // Step 1: Build variant stock map
+      const variantStockMap: Record<string, number> = {};
 
-    const transferStockOut = (transfers ?? []).reduce((sum, t) => {
-      const isMatch = !branchId || t.frombranchid === branchId;
-      return isMatch && t.status ? sum + (t.transferqty ?? 0) : sum;
-    }, 0);
+      for (const product of products) {
+        if (product.productvariants?.length) {
+          for (const variant of product.productvariants) {
+            variantStockMap[variant.id] = variant.currentstock ?? 0;
+          }
+        } else if (product.id) {
+          variantStockMap[product.id] = product.currentstock ?? 0;
+        }
+      }
 
-    const salesStockOut = (invoices ?? []).reduce((acc, inv) => {
-      const invProducts = inv.products ?? [];
-      return acc + invProducts.reduce((s, p) => s + (p.qty ?? 0), 0);
-    }, 0);
+      // Step 2: Sales Invoice quantities
+      for (const inv of invoices) {
+        // Support both `products` (SalesInvoice) and `productservice` (old Invoice)
+        const items = inv.products ?? (inv as any).productservice ?? [];
+        for (const p of items) {
+          const variantId =
+            typeof p.variantid === "string" ? p.variantid : p.variantid?.id;
+          const qty = (p.qty ?? 0) * (p.unitqty ?? 1);
+          if (variantId && variantStockMap[variantId] !== undefined) {
+            variantStockMap[variantId] -= qty;
+            totalSalesStockOut += qty;
+          }
+        }
+      }
 
-    const purchaseStockIn = (purchaseInvoices ?? []).reduce((acc, inv) => {
-      const invProducts = inv.products ?? [];
-      return acc + invProducts.reduce((s, p) => s + (p.qty ?? 0), 0);
-    }, 0);
+      // Step 3: Transfer Out quantities
+      for (const t of transfers) {
+        if (t.status && t.frombranchid === branchId) {
+          const variantId =
+            typeof t.variantid === "string" ? t.variantid : t.variantid?.id;
+          const qty = t.transferqty ?? 0;
+          if (variantId && variantStockMap[variantId] !== undefined) {
+            variantStockMap[variantId] -= qty;
+            totalTransferStockOut += qty;
+          }
+        }
+      }
 
-    return { purchaseStockIn, salesStockOut, transferStockOut, currentStock };
-  }, [products, transfers, invoices, purchaseInvoices, branchId]);
+      // Step 4: Purchase Stock In
+      for (const pInvoice of purchaseInvoices) {
+        const items = pInvoice.products ?? (pInvoice as any).productservice ?? [];
+        for (const p of items) {
+          const qty = (p.qty ?? 0) * (p.unitqty ?? 1);
+          totalPurchaseStockIn += qty;
+        }
+      }
+
+      // Step 5: Calculate total current stock
+      const totalCurrentStock = Object.values(variantStockMap).reduce(
+        (a, b) => a + b,
+        0
+      );
+
+      return {
+        purchaseStockIn: totalPurchaseStockIn,
+        salesStockOut: totalSalesStockOut,
+        transferStockOut: totalTransferStockOut,
+        currentStock: totalCurrentStock,
+      };
+    }, [products, transfers, invoices, purchaseInvoices, branchId]);
 
   const doughnutData = {
     labels: ["Purchase Stock In", "Sales Stock Out", "Transfer Stock Out"],

@@ -90,12 +90,13 @@ export interface Category {
 }
 
 export interface DashboardChartsProps {
-  salesInvoiceData?: { getSalesInvoices: SalesInvoice[] };
-  purchaseInvoiceData?: { getPurchaseInvoices: PurchaseInvoice[] };
-  productData?: { getProducts: Product[] };
-  transferStockData?: { getTransferStocks: TransferStock[] };
-  salesmenData?: { getSalesmenAccounts: Salesman[] };
-  categoryData?: { getCategories: Category[] };
+  salesInvoiceData?: { getSalesInvoices: any[] };
+  purchaseInvoiceData?: { getPurchaseInvoices: any[] };
+  productData?: { getProductServices: any[] };
+  transferStockData?: { getTransferStocks: any[] };
+  salesmenData?: { getSalesmenAccounts: any[] };
+  categoryData?: { getCategories: any[] };
+  transactionData?: { getTransactions: any[] };
   branchId: string;
 }
 
@@ -106,11 +107,12 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   transferStockData,
   salesmenData,
   categoryData,
+  transactionData,
   branchId,
 }) => {
   const invoices = salesInvoiceData?.getSalesInvoices ?? [];
   const purchaseInvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
-  const products = productData?.getProducts ?? [];
+  const products = productData?.getProductServices ?? [];
   const transfers = transferStockData?.getTransferStocks ?? [];
   const salesmen = salesmenData?.getSalesmenAccounts ?? [];
   const categories = categoryData?.getCategories ?? [];
@@ -132,7 +134,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
           purchaseInvoices={purchaseInvoices}
           branchId={branchId}
         />
-        <ProfitLossChart salesInvoices={invoices} />
+        <ProfitLossChart transactions={transactionData?.getTransactions ?? []} />
       </div>
 
       {/* Bottom Section */}
