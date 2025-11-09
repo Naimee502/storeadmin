@@ -12,6 +12,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
+import { applyDateShortcut, normalizeToDMY } from "../../../utils/helper";
 
 const SalesReports: React.FC = () => {
   const navigate = useNavigate();
@@ -28,11 +29,9 @@ const SalesReports: React.FC = () => {
 
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
-  const accountsMap = new Map(accountsList.map((acc) => [acc.id, acc]));
 
   const { data: productData } = useProductServicesQuery();
   const productList = productData?.getProductServices ?? [];
-  const productMap = new Map(productList.map((p) => [p.id, p.name]));
 
   // -----------------------
   // Printable
@@ -46,43 +45,15 @@ const SalesReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
   const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
-
   const reportTabs = ["daily", "weekly", "monthly", "yearly"];
 
   // -----------------------
-  // Date helper
+  // Initialize date filter
   // -----------------------
-  const normalizeToYMD = (val: any): string | null => {
-    if (!val && val !== 0) return null;
-    if (typeof val === "string") return val.slice(0, 10);
-    const dt = val instanceof Date ? val : new Date(val);
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-  };
-
-  const applyDateShortcut = (type: "daily" | "weekly" | "monthly" | "yearly") => {
-    const today = new Date();
-    const to = normalizeToYMD(today);
-    let from: string | null = to;
-
-    if (type === "weekly") {
-      const f = new Date();
-      f.setDate(today.getDate() - 6);
-      from = normalizeToYMD(f);
-    } else if (type === "monthly") {
-      const f = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
-      from = normalizeToYMD(f);
-    } else if (type === "yearly") {
-      const f = new Date(today.getFullYear(), 0, 1); // Jan 1 of this year
-      from = normalizeToYMD(f);
-    }
-
+  useEffect(() => {
+    const { from, to } = applyDateShortcut("daily");
     setFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
     setAppliedFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
-    setActiveTab(type);
-  };
-
-  useEffect(() => {
-    applyDateShortcut("daily");
   }, []);
 
   // -----------------------
@@ -111,32 +82,57 @@ const SalesReports: React.FC = () => {
   // -----------------------
   // Build table rows
   // -----------------------
-  let invoiceList = [];
-  if (appliedFilters.status === "Inactive") {
-    invoiceList = deletedInvoices;
-  } else if (appliedFilters.status === "Active") {
-    invoiceList = activeInvoices;
-  } else {
-    invoiceList = [...activeInvoices, ...deletedInvoices];
-  }
+  const invoiceList =
+    appliedFilters.status === "Inactive"
+      ? deletedInvoices
+      : appliedFilters.status === "Active"
+      ? activeInvoices
+      : [...activeInvoices, ...deletedInvoices];
 
   const tableDataRaw = invoiceList.map((inv, idx) => {
-    const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) ?? 0;
-    const account = accountsMap.get(inv.partyacc);
-    const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid);
-    const productname = productIds.map((id) => productMap.get(id) || "Unknown").join(", ");
+    const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
+
+    // --- Payment Type capitalized
+    const paymentTypeStr = inv.paymenttype
+      ? inv.paymenttype.charAt(0).toUpperCase() + inv.paymenttype.slice(1)
+      : "";
+
+    // --- Billing No with capitalized billtype
+    const billtypeCap = inv.billtype
+      ? inv.billtype.charAt(0).toUpperCase() + inv.billtype.slice(1)
+      : "";
+    const billNoStr = `${billtypeCap}-${inv.billnumber}`;
+
+    // --- Party Account formatted
+    const partyAccObj = inv.partyacc;
+    const partyaccStr = partyAccObj
+      ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
+      : "Unknown";
+
+    // --- Products formatted
+    const productNames = (inv.productservice ?? [])
+      .map((p: any) => {
+        const prodName = p.productserviceid?.name || "Unknown";
+        const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+        return `${prodName}${variantName}`;
+      })
+      .join(", ");
+
+    const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid?.id);
+
     return {
       ...inv,
       seqNo: idx + 1,
       totalitem: inv.productservice?.length ?? 0,
       totalqty,
-      billtype_billnumber: `${inv.billtype}-${inv.billnumber}`,
+      billtype_billnumber: billNoStr,
       status: inv.status ? "Active" : "Inactive",
-      partyaccId: inv.partyacc,
-      partyacc: account ? `${account.name} - ${account.mobile}` : inv.partyacc,
-      productname,
+      partyaccId: partyAccObj?.id || "Unknown",
+      partyacc: partyaccStr,
+      productname: productNames,
       productIds,
-      billdate: normalizeToYMD(inv.billdate) || "",
+      paymenttype: paymentTypeStr,
+      billdate: normalizeToDMY(inv.billdate) || "",
     };
   });
 
@@ -188,11 +184,31 @@ const SalesReports: React.FC = () => {
   ];
 
   const mappedFilterFields: ReportFilterField[] = [
-    { name: "partyacc", label: "Party A/c", type: "select", options: accountsList.map((a) => ({ label: a.name, value: a.id })), searchable: true },
-    { name: "productIds", label: "Product", type: "select", options: productList.map((p) => ({ label: p.name, value: p.id })), searchable: true },
+    {
+      name: "partyacc",
+      label: "Party A/c",
+      type: "select",
+      options: accountsList.map((a) => ({ label: a.accountname || a.name, value: a.id })),
+      searchable: true,
+    },
+    {
+      name: "productIds",
+      label: "Product",
+      type: "select",
+      options: productList.map((p) => ({ label: p.name, value: p.id })),
+      searchable: true,
+    },
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
-    { name: "status", label: "Status", type: "select", options: [{ label: "Active", value: "Active" }, { label: "Inactive", value: "Inactive" }] },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: [
+        { label: "Active", value: "Active" },
+        { label: "Inactive", value: "Inactive" },
+      ],
+    },
   ];
 
   // -----------------------
@@ -228,8 +244,13 @@ const SalesReports: React.FC = () => {
           appliedFilters={appliedFilters}
           setAppliedFilters={setAppliedFilters}
           defaultTab={activeTab}
-          tabs={reportTabs} // dynamic tabs
-          onTabChange={(tab) => applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly")}
+          tabs={reportTabs}
+          onTabChange={(tab) => {
+            const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
+            setFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
+            setAppliedFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
+            setActiveTab(tab as "daily" | "weekly" | "monthly" | "yearly");
+          }}
           showExport
           showCsv
           onExport={exportExcel}

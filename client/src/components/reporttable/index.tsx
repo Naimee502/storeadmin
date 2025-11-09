@@ -4,6 +4,7 @@ import Loader from "../loader";
 import FormField from "../formfiled";
 import Button from "../button";
 import { Tabs, TabsList, TabsTrigger } from "../tabs";
+import { applyDateShortcut } from "../../utils/helper";
 
 export type ReportFilterField = {
   name: string;
@@ -28,7 +29,7 @@ interface ReportTableProps {
   setFilters: React.Dispatch<React.SetStateAction<{ [key: string]: any }>>;
   appliedFilters: { [key: string]: any };
   setAppliedFilters: React.Dispatch<React.SetStateAction<{ [key: string]: any }>>;
-  tabs?: string[]; // dynamic tabs
+  tabs?: string[];
   defaultTab?: string;
   onTabChange?: (tab: string) => void;
   isLoading?: boolean;
@@ -37,6 +38,19 @@ interface ReportTableProps {
   onExport?: () => void;
   onCsvExport?: () => void;
 }
+
+// --- Helper functions for date conversion
+const DMYtoYMD = (dmY: string | null | undefined) => {
+  if (!dmY) return "";
+  const [day, month, year] = dmY.split("/");
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+};
+
+const YMDtoDMY = (yMd: string | null | undefined) => {
+  if (!yMd) return "";
+  const [year, month, day] = yMd.split("-");
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+};
 
 const ReportTable: React.FC<ReportTableProps> = ({
   title,
@@ -64,9 +78,11 @@ const ReportTable: React.FC<ReportTableProps> = ({
   };
 
   const handleApply = () => setAppliedFilters(filters);
+
   const handleReset = () => {
-    setFilters({});
-    setAppliedFilters({});
+    const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
+    setFilters({ ...filters, fromDate: from, toDate: to });
+    setAppliedFilters({ ...filters, fromDate: from, toDate: to });
   };
 
   const filteredData = data; // already filtered in parent
@@ -87,14 +103,22 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   label={field.label}
                   name={field.name}
                   type={field.type as any}
-                  value={filters[field.name] || (field.type === "multiselect" ? [] : "")}
+                  value={
+                    field.type === "date"
+                      ? DMYtoYMD(filters[field.name]) // convert to YYYY-MM-DD for calendar
+                      : filters[field.name] || (field.type === "multiselect" ? [] : "")
+                  }
                   options={field.options}
                   searchable={field.searchable}
                   onChange={(e: any) =>
                     setFilters((prev) => ({
                       ...prev,
                       [field.name]:
-                        field.type === "multiselect" ? e.target.value || [] : e.target.value,
+                        field.type === "date"
+                          ? YMDtoDMY(e.target.value) // store in state as DD/MM/YYYY
+                          : field.type === "multiselect"
+                          ? e.target.value || []
+                          : e.target.value,
                     }))
                   }
                 />

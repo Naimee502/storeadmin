@@ -1,8 +1,20 @@
 import React from "react";
 
-interface Product {
-  id: string;
+// Product inside invoice
+interface ProductServiceItem {
   qty?: number;
+  amount?: number;
+  rate?: number;
+  discount?: number;
+  unitqty?: number;
+  productserviceid?: { id: string; name: string };
+  variantid?: { id: string; name: string };
+}
+
+interface PartyAccount {
+  id: string;
+  accountname: string;
+  mobile: string;
 }
 
 interface Invoice {
@@ -12,58 +24,40 @@ interface Invoice {
   status: boolean;
   billdate: string;
   paymenttype: string;
-  partyacc: string;
+  partyacc: PartyAccount;
   totalamount: number;
-  products?: Product[]; // ✅ optional
-}
-
-interface Account {
-  id: string;
-  name: string;
-  mobile: string;
+  productservice?: ProductServiceItem[];
 }
 
 interface CustomerData {
-  getAccounts?: Account[];
+  getAccounts?: PartyAccount[];
 }
 
 interface RecentOrdersProps {
-  salesInvoiceData?: {
-    getSalesInvoices?: Invoice[];
-  };
-  customerData?: CustomerData; // raw customer data with getAccounts array
+  salesInvoiceData?: { getSalesInvoices?: Invoice[] };
+  customerData?: CustomerData;
 }
 
-const RecentOrders: React.FC<RecentOrdersProps> = ({
-  salesInvoiceData,
-  customerData,
-}) => {
-  const invoiceList = salesInvoiceData?.getSalesInvoices || [];
-  const accountsList = customerData?.getAccounts || [];
+const RecentOrders: React.FC<RecentOrdersProps> = ({ salesInvoiceData }) => {
+  const invoiceList: Invoice[] = salesInvoiceData?.getSalesInvoices || [];
 
-  // Convert accountsList array into a Map for quick lookup by id
-  const customerMap: Map<string, Account> = React.useMemo(() => {
-    const map = new Map<string, Account>();
-    accountsList.forEach((acc) => map.set(acc.id, acc));
-    return map;
-  }, [accountsList]);
+  const capitalizeFirst = (text: string) =>
+    text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
   const tableData = invoiceList.map((invoice, index) => {
-    const products = invoice.products || []; // ✅ default to empty array
-    const totalqty = products.reduce((sum, p) => sum + (p.qty || 0), 0);
+    const products = invoice.productservice || [];
+    const totalqty = products.reduce((sum, p) => sum + (p.qty ?? 0), 0);
 
-    const account = customerMap.get(invoice.partyacc);
+    const party = invoice.partyacc;
 
     return {
       seqNo: index + 1,
-      paymenttype: invoice.paymenttype,
-      partyacc: account
-        ? `${account.name} - ${account.mobile}`
-        : invoice.partyacc,
+      paymenttype: capitalizeFirst(invoice.paymenttype),
+      partyacc: `${party?.accountname ?? "N/A"} - ${party?.mobile ?? "N/A"}`,
       totalitem: products.length,
       totalqty,
       billdate: invoice.billdate,
-      billtype_billnumber: `${invoice.billtype}-${invoice.billnumber}`,
+      billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
       totalamount: invoice.totalamount,
       status: invoice.status ? "Active" : "Inactive",
       id: invoice.id,
@@ -98,7 +92,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
                 <td className="py-2 px-3">{row.totalqty}</td>
                 <td className="py-2 px-3">{row.billdate}</td>
                 <td className="py-2 px-3">{row.billtype_billnumber}</td>
-                <td className="py-2 px-3">₹{(row.totalamount ?? 0).toFixed(2)}</td>
+                <td className="py-2 px-3">₹{row.totalamount.toFixed(2)}</td>
                 <td className="py-2 px-3">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
