@@ -13,15 +13,22 @@ import {
 } from "react-icons/fa";
 import { useNavigate } from "react-router";
 
+interface ProductVariant {
+  id: string;
+  currentstock?: number;
+  minimumstock?: number;
+  openingstock?: number;
+}
+
 interface Product {
   id: string;
   branchid: string;
-  openingstock?: number;
-  currentstock?: number;
-  minimumstock?: number;
+  productvariants?: ProductVariant[];
+  currentstock?: number; // fallback if no variants
+  minimumstock?: number; // fallback if no variants
 }
 
-interface ProductInInvoice {
+interface ProductServiceInInvoice {
   qty?: number;
   amount?: number;
   rate?: number;
@@ -30,20 +37,14 @@ interface ProductInInvoice {
 
 interface PurchaseInvoice {
   totalamount?: number;
-  paymenttype?: string;
-  billtype?: string;
-  billnumber?: string;
   status: boolean;
-  products?: ProductInInvoice[];
+  productservice?: ProductServiceInInvoice[];
 }
 
 interface SalesInvoice {
   totalamount?: number;
-  paymenttype?: string;
-  billtype?: string;
-  billnumber?: string;
   status: boolean;
-  products?: ProductInInvoice[];
+  productservice?: ProductServiceInInvoice[];
 }
 
 interface TransferStock {
@@ -60,7 +61,7 @@ interface Account {
 
 interface StatsCardsProps {
   customerData: { getAccounts?: Account[] };
-  productData: Product[];
+  productData: Product[] | { getProductServices?: Product[] };
   purchaseInvoiceData: { getPurchaseInvoices?: PurchaseInvoice[] };
   salesInvoiceData: { getSalesInvoices?: SalesInvoice[] };
   transferStockData: { getTransferStocks?: TransferStock[] };
@@ -77,12 +78,22 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Ensure arrays
-  const customers = customerData?.getAccounts ?? [];
-  const products = productData ?? [];
-  const purchaseinvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
-  const invoices = salesInvoiceData?.getSalesInvoices ?? [];
-  const transfers = transferStockData?.getTransferStocks ?? [];
+  // Ensure all arrays are valid
+  const customers: Account[] = Array.isArray(customerData?.getAccounts) ? customerData.getAccounts : [];
+  const products: Product[] = Array.isArray(productData)
+    ? productData
+    : Array.isArray((productData as any)?.getProductServices)
+    ? (productData as any).getProductServices
+    : [];
+  const purchaseinvoices: PurchaseInvoice[] = Array.isArray(purchaseInvoiceData?.getPurchaseInvoices)
+    ? purchaseInvoiceData.getPurchaseInvoices
+    : [];
+  const invoices: SalesInvoice[] = Array.isArray(salesInvoiceData?.getSalesInvoices)
+    ? salesInvoiceData.getSalesInvoices
+    : [];
+  const transfers: TransferStock[] = Array.isArray(transferStockData?.getTransferStocks)
+    ? transferStockData.getTransferStocks
+    : [];
 
   // Counts & totals
   const customerCount = customers.length;
@@ -91,44 +102,51 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 
   const totalSales = invoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
 
-  const totalRevenue = invoices.reduce((invoiceSum, invoice) => {
-    const productsTotal = (invoice.products ?? []).reduce((prodSum, product) => {
-      if (product.amount !== undefined) return prodSum + product.amount;
-      if (product.rate !== undefined && product.qty !== undefined)
-        return prodSum + product.rate * product.qty;
+  const totalRevenue = invoices.reduce((sum, invoice) => {
+    const invoiceTotal = (invoice.productservice ?? []).reduce((prodSum, p) => {
+      if (p.amount !== undefined) return prodSum + p.amount;
+      if (p.rate !== undefined && p.qty !== undefined) return prodSum + p.rate * p.qty;
       return prodSum;
     }, 0);
-    return invoiceSum + productsTotal;
+    return sum + invoiceTotal;
   }, 0);
 
   // Current stock calculation
-  const totalCurrentStock = !branchId
-    ? products.reduce((sum, product) => {
-        const transferredOutQty = transfers
-          .filter((t) => t.status && t.frombranchid === product.branchid && t.productid === product.id)
-          .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
-        return sum + ((product.currentstock ?? 0) - transferredOutQty);
-      }, 0)
-    : products.reduce((sum, product) => sum + (product.currentstock ?? 0), 0);
+  const totalCurrentStock = products.reduce((sum, product) => {
+    const productStock =
+      (product.productvariants ?? []).reduce((vSum, variant) => vSum + (variant.currentstock ?? 0), 0) ||
+      product.currentstock ||
+      0;
 
-  const totalOutgoingTransfer = transfers.reduce((sum, ts) => {
-    const isMatch = !branchId || ts.frombranchid === branchId;
-    return isMatch && ts.status ? sum + (ts.transferqty ?? 0) : sum;
+    const transferredOutQty = transfers
+      .filter((t) => t.status && t.frombranchid === product.branchid && t.productid === product.id)
+      .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
+
+    return sum + (productStock - transferredOutQty);
+  }, 0);
+
+  const totalOutgoingTransfer = transfers.reduce((sum, t) => {
+    const isMatch = !branchId || t.frombranchid === branchId;
+    return isMatch && t.status ? sum + (t.transferqty ?? 0) : sum;
   }, 0);
 
   const totalSalesQuantity = invoices.reduce((acc, invoice) => {
-    const invoiceQty = (invoice.products ?? []).reduce((pSum, product) => pSum + (product.qty ?? 0), 0);
-    return acc + invoiceQty;
+    return acc + (invoice.productservice ?? []).reduce((sum, p) => sum + (p.qty ?? 0), 0);
   }, 0);
 
   const purchaseStockIn = purchaseinvoices.reduce((acc, invoice) => {
-    return acc + (invoice.products ?? []).reduce((sum, p) => sum + (p.qty ?? 0), 0);
+    return acc + (invoice.productservice ?? []).reduce((sum, p) => sum + (p.qty ?? 0), 0);
   }, 0);
 
   const purchaseOrderCount = purchaseinvoices.length;
   const totalPurchases = purchaseinvoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
 
-  const lowStockCount = products.filter((p) => (p.currentstock ?? 0) < (p.minimumstock ?? 0)).length;
+  const lowStockCount = products.reduce((count, product) => {
+    const lowVariants = (product.productvariants ?? []).filter(
+      (v) => (v.currentstock ?? 0) < (v.minimumstock ?? 0)
+    ).length;
+    return count + lowVariants;
+  }, 0);
 
   // Stats array
   const stats = [

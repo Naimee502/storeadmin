@@ -42,7 +42,7 @@ const Home: React.FC = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
-  const { items: productData, refetch: refetchProducts } = useProductServicesQuery();
+  const { data: productData, refetch: refetchProducts } = useProductServicesQuery();
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
   const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery();
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();
