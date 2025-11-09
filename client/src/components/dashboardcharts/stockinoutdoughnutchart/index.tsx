@@ -130,19 +130,21 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
     }, [products, transfers, invoices, purchaseInvoices, branchId]);
 
   const doughnutData = {
-    labels: ["Purchase Stock In", "Sales Stock Out", "Transfer Stock Out"],
+    labels: ["Purchase Stock In", "Sales Stock Out", "Transfer Stock Out", "Current Stock"],
     datasets: [
       {
-        data: [purchaseStockIn, salesStockOut, transferStockOut],
+        data: [purchaseStockIn, salesStockOut, transferStockOut, currentStock],
         backgroundColor: [
           "rgba(75, 192, 192, 0.6)",
           "rgba(255, 99, 132, 0.6)",
           "rgba(255, 159, 64, 0.6)",
+          "rgba(99, 102, 241, 0.6)" // Indigo for current stock
         ],
         borderColor: [
           "rgba(75, 192, 192, 1)",
           "rgba(255, 99, 132, 1)",
           "rgba(255, 159, 64, 1)",
+          "rgba(79, 70, 229, 1)" // Indigo border
         ],
         borderWidth: 1,
       },
