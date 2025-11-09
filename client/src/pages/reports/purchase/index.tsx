@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { addPurchaseInvoices } from "../../../redux/slices/purchaseinvoice";
 import HomeLayout from "../../../layouts/home";
@@ -12,10 +11,9 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
-import { normalizeToDMY, applyDateShortcut } from "../../../utils/helper"; // <-- use same helper as SalesReports
+import { normalizeToDMY, applyDateShortcut } from "../../../utils/helper";
 
 const PurchaseReports: React.FC = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -26,6 +24,8 @@ const PurchaseReports: React.FC = () => {
   const { data: deletedData, refetch: refetchDeleted } = useDeletedPurchaseInvoicesQuery();
   const activeInvoices = activeData?.getPurchaseInvoices || [];
   const deletedInvoices = deletedData?.getDeletedPurchaseInvoices || [];
+
+  console.log("Active Invoices:", JSON.stringify(activeInvoices, null, 2));
 
   const { data: accountData } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
@@ -86,30 +86,40 @@ const PurchaseReports: React.FC = () => {
     appliedFilters.status === "Inactive"
       ? deletedInvoices
       : appliedFilters.status === "Active"
-      ? activeInvoices
-      : [...activeInvoices, ...deletedInvoices];
+        ? activeInvoices
+        : [...activeInvoices, ...deletedInvoices];
 
   const tableDataRaw = invoiceList.map((inv, idx) => {
     const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
 
-    // --- Party Account formatted
-    const partyAccObj = accountsList.find((a) => a.id === inv.partyacc);
+    // --- Party Account formatted ---
+    // inv.partyacc might be an object { id, accountname, mobile }
+    const partyAccObj = accountsList.find(
+      (a) => a.id === (inv.partyacc?.id || inv.partyacc)
+    );
     const partyaccStr = partyAccObj
       ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
-      : "Unknown";
+      : inv.partyacc?.accountname
+        ? `${inv.partyacc.accountname} - ${inv.partyacc.mobile || ""}`
+        : "Unknown";
 
-    // --- Products formatted
+    // --- Products formatted ---
     const productNames = (inv.productservice ?? [])
       .map((p: any) => {
-        const prodName = productList.find((pr) => pr.id === p.productserviceid)?.name || "Unknown";
+        const prodName =
+          productList.find((pr) => pr.id === (p.productserviceid?.id || p.productserviceid))?.name ||
+          p.productserviceid?.name ||
+          "Unknown";
         const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
         return `${prodName}${variantName}`;
       })
       .join(", ");
 
-    const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid);
+    const productIds = (inv.productservice ?? []).map(
+      (p: any) => p.productserviceid?.id || p.productserviceid
+    );
 
-    // --- Billing No
+    // --- Billing No ---
     const billtypeCap = inv.billtype ? inv.billtype.charAt(0).toUpperCase() + inv.billtype.slice(1) : "";
     const billNoStr = `${billtypeCap}-${inv.billnumber}`;
 
@@ -120,7 +130,7 @@ const PurchaseReports: React.FC = () => {
       totalqty,
       billtype_billnumber: billNoStr,
       status: inv.status ? "Active" : "Inactive",
-      partyaccId: partyAccObj?.id || "Unknown",
+      partyaccId: partyAccObj?.id || inv.partyacc?.id || "Unknown",
       partyacc: partyaccStr,
       productname: productNames,
       productIds,

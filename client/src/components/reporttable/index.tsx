@@ -81,9 +81,18 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
   const handleReset = () => {
     const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
-    setFilters({ ...filters, fromDate: from, toDate: to });
-    setAppliedFilters({ ...filters, fromDate: from, toDate: to });
+    const resetValues: { [key: string]: any } = {};
+    filterFields.forEach((field) => {
+      if (field.type === "date") {
+        resetValues[field.name] = from && field.name === "fromDate" ? from : to && field.name === "toDate" ? to : "";
+      } else {
+        resetValues[field.name] = field.type === "multiselect" ? [] : "";
+      }
+    });
+    setFilters(resetValues);
+    setAppliedFilters(resetValues);
   };
+
 
   const filteredData = data; // already filtered in parent
 

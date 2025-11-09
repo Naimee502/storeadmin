@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { addSalesInvoices } from "../../../redux/slices/salesinvoice";
 import HomeLayout from "../../../layouts/home";
@@ -15,7 +14,6 @@ import ReportTable from "../../../components/reporttable";
 import { applyDateShortcut, normalizeToDMY } from "../../../utils/helper";
 
 const SalesReports: React.FC = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
