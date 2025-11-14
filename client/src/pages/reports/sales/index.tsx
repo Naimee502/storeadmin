@@ -11,7 +11,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
-import { applyDateShortcut, normalizeToDMY } from "../../../utils/helper";
+import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
 
 const SalesReports: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -49,10 +49,19 @@ const SalesReports: React.FC = () => {
   // Initialize date filter
   // -----------------------
   useEffect(() => {
-    const { from, to } = applyDateShortcut("daily");
-    setFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
-    setAppliedFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
-  }, []);
+     const today = new Date();
+     const to = today.toISOString().slice(0, 10);
+     const from = new Date(
+       today.getFullYear(),
+       today.getMonth(),
+       today.getDate() - 30
+     )
+       .toISOString()
+       .slice(0, 10);
+ 
+     setFilters({ fromDate: from, toDate: to });
+     setAppliedFilters({ fromDate: from, toDate: to });
+   }, []);
 
   // -----------------------
   // Refetch invoices
@@ -130,7 +139,7 @@ const SalesReports: React.FC = () => {
       productname: productNames,
       productIds,
       paymenttype: paymentTypeStr,
-      billdate: normalizeToDMY(inv.billdate) || "",
+      billdate: normalizeToYMD(inv.billdate) || "",
     };
   });
 
@@ -245,8 +254,22 @@ const SalesReports: React.FC = () => {
           tabs={reportTabs}
           onTabChange={(tab) => {
             const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
-            setFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
-            setAppliedFilters((prev) => ({ ...prev, fromDate: from, toDate: to }));
+
+            const fromYMD = from ? normalizeToYMD(from.split("/").reverse().join("-")) : null;
+            const toYMD = to ? normalizeToYMD(to.split("/").reverse().join("-")) : null;
+
+            setFilters((prev) => ({
+              ...prev,
+              fromDate: fromYMD,
+              toDate: toYMD,
+            }));
+
+            setAppliedFilters((prev) => ({
+              ...prev,
+              fromDate: fromYMD,
+              toDate: toYMD,
+            }));
+
             setActiveTab(tab as "daily" | "weekly" | "monthly" | "yearly");
           }}
           showExport

@@ -39,19 +39,6 @@ interface ReportTableProps {
   onCsvExport?: () => void;
 }
 
-// --- Helper functions for date conversion
-const DMYtoYMD = (dmY: string | null | undefined) => {
-  if (!dmY) return "";
-  const [day, month, year] = dmY.split("/");
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-};
-
-const YMDtoDMY = (yMd: string | null | undefined) => {
-  if (!yMd) return "";
-  const [year, month, day] = yMd.split("-");
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
-};
-
 const ReportTable: React.FC<ReportTableProps> = ({
   title,
   columns,
@@ -114,7 +101,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   type={field.type as any}
                   value={
                     field.type === "date"
-                      ? DMYtoYMD(filters[field.name]) // convert to YYYY-MM-DD for calendar
+                      ? (filters[field.name]) // convert to YYYY-MM-DD for calendar
                       : filters[field.name] || (field.type === "multiselect" ? [] : "")
                   }
                   options={field.options}
@@ -124,7 +111,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                       ...prev,
                       [field.name]:
                         field.type === "date"
-                          ? YMDtoDMY(e.target.value) // store in state as DD/MM/YYYY
+                          ? (e.target.value) // store in state as DD/MM/YYYY
                           : field.type === "multiselect"
                           ? e.target.value || []
                           : e.target.value,

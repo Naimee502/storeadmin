@@ -1,164 +1,279 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
+
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 
 const GSTReports: React.FC = () => {
-  // -----------------------------
-  // Tabs (without GST by Category)
-  // -----------------------------
   const reportTabs = [
     "GST Summary",
     "GST Payable",
     "GST Receivable",
     "GST by Product",
+    "GSTR-1",
+    "GSTR-2",
   ];
 
-  const [activeTab, setActiveTab] = useState<string>(reportTabs[0]);
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+  const [activeTab, setActiveTab] = useState(reportTabs[0]);
+  const [filters, setFilters] = useState({});
+const [appliedFilters, setAppliedFilters] = useState({} as any);
 
-  // -----------------------------
-  // Fetch all data
-  // -----------------------------
   const { data: accountsData } = useAccountsQuery();
   const { data: salesData } = useSalesInvoicesQuery();
   const { data: purchaseData } = usePurchaseInvoicesQuery();
   const { data: productData } = useProductServicesQuery();
+  const { data: transactionsData } = useTransactionsQuery();
 
   const accounts = accountsData?.getAccounts || [];
   const salesInvoices = salesData?.getSalesInvoices || [];
   const purchaseInvoices = purchaseData?.getPurchaseInvoices || [];
   const products = productData?.getProductServices || [];
 
-  // -----------------------------
-  // Default filters: last 30 days
-  // -----------------------------
+  // Default Date Range
   useEffect(() => {
     const today = new Date();
     const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+    const from = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - 30
+    )
       .toISOString()
       .slice(0, 10);
+
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  // -----------------------------
-  // Memoized mappings
-  // -----------------------------
-  const accountMap = useMemo(() => {
-    return accounts.reduce((acc: any, a: any) => {
-      acc[a.id] = a;
-      return acc;
-    }, {});
-  }, [accounts]);
+  // --------------------------------------------
+  // GST From Transactions
+  // --------------------------------------------
+  const gstFromTransactions = useMemo(() => {
+    const map: any = {};
 
-  // -----------------------------
-  // Map invoices
-  // -----------------------------
-  const mapInvoiceProducts = (invProducts: any[]) => {
+    (transactionsData?.getTransactions || []).forEach((trx: any) => {
+      const sourceId = trx?.source?.docid;
+      if (!sourceId) return;
+
+      if (!map[sourceId]) {
+        map[sourceId] = { cgst: 0, sgst: 0, igst: 0, totalgst: 0 };
+      }
+
+      trx.entries.forEach((e: any) => {
+        const name = e.ledgerid?.ledgername;
+        const amount = Number(e.debit || e.credit || 0);
+
+        if (name === "Input CGST" || name === "Output CGST") map[sourceId].cgst += amount;
+        if (name === "Input SGST" || name === "Output SGST") map[sourceId].sgst += amount;
+        if (name === "Input IGST" || name === "Output IGST") map[sourceId].igst += amount;
+      });
+
+      map[sourceId].totalgst =
+        map[sourceId].cgst + map[sourceId].sgst + map[sourceId].igst;
+    });
+
+    return map;
+  }, [transactionsData]);
+
+  // --------------------------------------------
+  // Product Mapping (Correct)
+  // --------------------------------------------
+  const mapInvoiceProducts = (
+    invProducts: any[],
+    trxGST: any,
+    invoiceTaxable: number,
+    invoiceTotal: number
+  ) => {
     return invProducts.map((ps: any) => {
-      const prod = products.find((p: any) => p.id === ps.productserviceid) || {};
+      const productTotal = Number(ps.amount || 0);
+      const productTaxable =
+        invoiceTotal > 0 ? (invoiceTaxable * productTotal) / invoiceTotal : 0;
+
+      const product = products.find(
+        (p: any) => p.id === ps.productserviceid?.id
+      );
+
       return {
-        productName: prod.name || "Unknown Product",
-        categoryName: prod.categoryname || "Uncategorized",
-        quantity: ps.quantity || 0,
-        rate: ps.rate || 0,
-        taxableValue: (ps.amount || 0) - (ps.gst || 0),
-        cgst: (ps.gst || 0) / 2,
-        sgst: (ps.gst || 0) / 2,
-        igst: 0,
-        totalGst: ps.gst || 0,
+        productId: product?.id,
+        productName: product?.name || ps.productserviceid?.name || "Unknown",
+        quantity: ps.qty || 0,
+        taxable: productTaxable,
+        cgst: trxGST.cgst / invProducts.length,
+        sgst: trxGST.sgst / invProducts.length,
+        igst: trxGST.igst / invProducts.length,
+        totalGst: trxGST.totalgst / invProducts.length,
       };
     });
   };
 
-  // -----------------------------
+  // --------------------------------------------
   // GST Sales Report
-  // -----------------------------
+  // --------------------------------------------
   const gstSalesReport = useMemo(() => {
     return salesInvoices
-      .filter((inv) => {
-        const fromDate = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
-        const toDate = appliedFilters.toDate ? new Date(appliedFilters.toDate) : null;
-        const invoiceDate = new Date(inv.billdate);
-        if (fromDate && invoiceDate < fromDate) return false;
-        if (toDate && invoiceDate > toDate) return false;
-        if (appliedFilters.customer && accountMap[inv.partyacc]?.name !== appliedFilters.customer) return false;
+      .filter((inv: any) => {
+        const from = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
+        const to = appliedFilters.toDate ? new Date(appliedFilters.toDate) : null;
+
+        const d = new Date(inv.billdate);
+
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+
+        // FIXED FILTER MATCH (OLD LOGIC)
+        if (appliedFilters.customer) {
+          if (inv.partyacc?.accountname !== appliedFilters.customer) return false;
+        }
+
         return true;
       })
       .map((inv) => {
-        const party = accountMap[inv.partyacc] || {};
-        const productsMapped = mapInvoiceProducts(inv.productservice);
-        const taxableValue = productsMapped.reduce((sum, ps) => sum + ps.taxableValue, 0);
-        const totalGst = productsMapped.reduce((sum, ps) => sum + ps.totalGst, 0);
+        const trxGST = gstFromTransactions[inv.id] || {
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+          totalgst: 0,
+        };
+
+        const taxable =
+          Number(inv.totalamount || 0) - Number(trxGST.totalgst || 0);
+
         return {
-          type: "Sales",
           invoiceNo: inv.billnumber,
           invoiceDate: inv.billdate,
-          partyName: party.name || "",
-          gstin: party.gstnumber || "",
-          taxableValue,
-          cgst: totalGst / 2,
-          sgst: totalGst / 2,
-          igst: 0,
-          totalGst,
+          partyName: inv.partyacc?.accountname || "",
+          gstin: inv.partyacc?.gstnumber || "",
+          taxable,
+          cgst: trxGST.cgst,
+          sgst: trxGST.sgst,
+          igst: trxGST.igst,
+          totalGst: trxGST.totalgst,
           totalAmount: inv.totalamount || 0,
-          products: productsMapped,
+
+          products: mapInvoiceProducts(
+            inv.productservice,
+            trxGST,
+            taxable,
+            inv.totalamount
+          ),
         };
       });
-  }, [salesInvoices, accountMap, products, appliedFilters]);
+  }, [salesInvoices, appliedFilters, gstFromTransactions, products]);
 
-  // -----------------------------
+  // --------------------------------------------
   // GST Purchase Report
-  // -----------------------------
+  // --------------------------------------------
   const gstPurchaseReport = useMemo(() => {
     return purchaseInvoices
-      .filter((inv) => {
-        const fromDate = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
-        const toDate = appliedFilters.toDate ? new Date(appliedFilters.toDate) : null;
-        const invoiceDate = new Date(inv.billdate);
-        if (fromDate && invoiceDate < fromDate) return false;
-        if (toDate && invoiceDate > toDate) return false;
-        if (appliedFilters.vendor && accountMap[inv.partyacc]?.name !== appliedFilters.vendor) return false;
+      .filter((inv: any) => {
+        const from = appliedFilters.fromDate ? new Date(appliedFilters.fromDate) : null;
+        const to = appliedFilters.toDate ? new Date(appliedFilters.toDate) : null;
+
+        const d = new Date(inv.billdate);
+
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+
+        if (appliedFilters.vendor) {
+          if (inv.partyacc?.accountname !== appliedFilters.vendor) return false;
+        }
+
         return true;
       })
       .map((inv) => {
-        const party = accountMap[inv.partyacc] || {};
-        const productsMapped = mapInvoiceProducts(inv.productservice);
-        const taxableValue = productsMapped.reduce((sum, ps) => sum + ps.taxableValue, 0);
-        const totalGst = productsMapped.reduce((sum, ps) => sum + ps.totalGst, 0);
+        const trxGST = gstFromTransactions[inv.id] || {
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+          totalgst: 0,
+        };
+
+        const taxable =
+          Number(inv.totalamount || 0) - Number(trxGST.totalgst || 0);
+
         return {
-          type: "Purchase",
           invoiceNo: inv.billnumber,
           invoiceDate: inv.billdate,
-          partyName: party.name || "",
-          gstin: party.gstnumber || "",
-          taxableValue,
-          cgst: totalGst / 2,
-          sgst: totalGst / 2,
-          igst: 0,
-          totalGst,
+          partyName: inv.partyacc?.accountname || "",
+          gstin: inv.partyacc?.gstnumber || "",
+          taxable,
+          cgst: trxGST.cgst,
+          sgst: trxGST.sgst,
+          igst: trxGST.igst,
+          totalGst: trxGST.totalgst,
           totalAmount: inv.totalamount || 0,
-          products: productsMapped,
+
+          products: mapInvoiceProducts(
+            inv.productservice,
+            trxGST,
+            taxable,
+            inv.totalamount
+          ),
         };
       });
-  }, [purchaseInvoices, accountMap, products, appliedFilters]);
+  }, [purchaseInvoices, appliedFilters, gstFromTransactions, products]);
 
-  // -----------------------------
-  // Filter options
-  // -----------------------------
-  const customerOptions = accounts.filter(a => a.type === "customer").map(a => ({ label: a.name, value: a.name }));
-  const vendorOptions = accounts.filter(a => a.type === "vendor").map(a => ({ label: a.name, value: a.name }));
-  const productOptions = products.map(p => ({ label: p.name, value: p.name }));
+  // --------------------------------------------
+  // GSTR-1
+  // --------------------------------------------
+  const gstr1 = gstSalesReport.map((r) => ({
+    invoiceNo: r.invoiceNo,
+    invoiceDate: r.invoiceDate,
+    customer: r.partyName,
+    gstin: r.gstin,
+    taxable: r.taxable,
+    cgst: r.cgst,
+    sgst: r.sgst,
+    igst: r.igst,
+    totalGst: r.totalGst,
+    invoiceAmount: r.totalAmount,
+  }));
 
-  // -----------------------------
-  // Table data & columns
-  // -----------------------------
+  // --------------------------------------------
+  // GSTR-2
+  // --------------------------------------------
+  const gstr2 = gstPurchaseReport.map((r) => ({
+    invoiceNo: r.invoiceNo,
+    invoiceDate: r.invoiceDate,
+    vendor: r.partyName,
+    gstin: r.gstin,
+    taxable: r.taxable,
+    cgst: r.cgst,
+    sgst: r.sgst,
+    igst: r.igst,
+    totalGst: r.totalGst,
+    invoiceAmount: r.totalAmount,
+  }));
+
+  // --------------------------------------------
+  // Filter Dropdown Options (FIXED)
+  // --------------------------------------------
+  const customerOptions = accounts
+    .filter((a) => a.type === "customer")
+    .map((a) => ({
+      label: a.name,
+      value: a.name,
+    }));
+
+  const vendorOptions = accounts
+    .filter((a) => a.type === "vendor")
+    .map((a) => ({
+      label: a.name,
+      value: a.name,
+    }));
+
+  const productOptions = products.map((p) => ({
+    label: p.name,
+    value: p.id, // FIXED
+  }));
+
+  // --------------------------------------------
+  // Table Data
+  // --------------------------------------------
   let tableData: any[] = [];
   let columns: any[] = [];
   let filterFields: ReportFilterField[] = [];
@@ -171,13 +286,19 @@ const GSTReports: React.FC = () => {
         { label: "Invoice No", key: "invoiceNo" },
         { label: "Date", key: "invoiceDate" },
         { label: "Customer", key: "partyName" },
-        { label: "Taxable Value", key: "taxableValue" },
+        { label: "Taxable", key: "taxable" },
         { label: "CGST", key: "cgst" },
         { label: "SGST", key: "sgst" },
-        { label: "IGST", key: "igst" },
         { label: "Total GST", key: "totalGst" },
       ];
-      filterFields.push({ name: "customer", label: "Customer", type: "select", options: customerOptions, searchable: true });
+
+      filterFields.push({
+        name: "customer",
+        label: "Customer",
+        type: "select",
+        options: customerOptions,
+        searchable: true,
+      });
       break;
 
     case "GST Payable":
@@ -186,32 +307,86 @@ const GSTReports: React.FC = () => {
         { label: "Invoice No", key: "invoiceNo" },
         { label: "Date", key: "invoiceDate" },
         { label: "Vendor", key: "partyName" },
-        { label: "Taxable Value", key: "taxableValue" },
+        { label: "Taxable", key: "taxable" },
         { label: "CGST", key: "cgst" },
         { label: "SGST", key: "sgst" },
-        { label: "IGST", key: "igst" },
         { label: "Total GST", key: "totalGst" },
       ];
-      filterFields.push({ name: "vendor", label: "Vendor", type: "select", options: vendorOptions, searchable: true });
+
+      filterFields.push({
+        name: "vendor",
+        label: "Vendor",
+        type: "select",
+        options: vendorOptions,
+        searchable: true,
+      });
       break;
 
     case "GST by Product":
-      tableData = gstSalesReport.concat(gstPurchaseReport)
-        .flatMap(inv => inv.products)
-        .filter(p => !appliedFilters.product || p.productName === appliedFilters.product);
+      tableData = gstSalesReport
+        .concat(gstPurchaseReport)
+        .flatMap((inv:any) => inv.products)
+        // FIXED FILTER
+        .filter(
+          (p:any) =>
+            !appliedFilters.product ||
+            p.productId === appliedFilters.product
+        );
+
       columns = [
         { label: "Product", key: "productName" },
-        { label: "Taxable Value", key: "taxableValue" },
+        { label: "Taxable", key: "taxable" },
+        { label: "CGST", key: "cgst" },
+        { label: "SGST", key: "sgst" },
+        { label: "Total GST", key: "totalGst" },
+      ];
+
+      filterFields.push({
+        name: "product",
+        label: "Product",
+        type: "select",
+        options: productOptions,
+        searchable: true,
+      });
+      break;
+
+    case "GSTR-1":
+      tableData = gstr1;
+      columns = [
+        { label: "Invoice No", key: "invoiceNo" },
+        { label: "Date", key: "invoiceDate" },
+        { label: "Customer", key: "customer" },
+        { label: "GSTIN", key: "gstin" },
+        { label: "Taxable", key: "taxable" },
         { label: "CGST", key: "cgst" },
         { label: "SGST", key: "sgst" },
         { label: "IGST", key: "igst" },
         { label: "Total GST", key: "totalGst" },
+        { label: "Invoice Amount", key: "invoiceAmount" },
       ];
-      filterFields.push({ name: "product", label: "Product", type: "select", options: productOptions, searchable: true });
+      break;
+
+    case "GSTR-2":
+      tableData = gstr2;
+      columns = [
+        { label: "Invoice No", key: "invoiceNo" },
+        { label: "Date", key: "invoiceDate" },
+        { label: "Vendor", key: "vendor" },
+        { label: "GSTIN", key: "gstin" },
+        { label: "Taxable", key: "taxable" },
+        { label: "CGST", key: "cgst" },
+        { label: "SGST", key: "sgst" },
+        { label: "IGST", key: "igst" },
+        { label: "Total GST", key: "totalGst" },
+        { label: "Invoice Amount", key: "invoiceAmount" },
+      ];
       break;
   }
 
-  filterFields.push({ name: "fromDate", label: "From Date", type: "date" }, { name: "toDate", label: "To Date", type: "date" });
+  filterFields.push(
+    { name: "fromDate", label: "From Date", type: "date" },
+    { name: "toDate", label: "To Date", type: "date" }
+  );
 
   return (
     <HomeLayout>
@@ -227,7 +402,7 @@ const GSTReports: React.FC = () => {
           setAppliedFilters={setAppliedFilters}
           defaultTab={activeTab}
           tabs={reportTabs}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={setActiveTab}
           showExport
           showCsv
         />

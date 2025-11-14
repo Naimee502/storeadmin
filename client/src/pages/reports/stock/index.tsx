@@ -4,6 +4,7 @@ import ReportTable, { type ReportFilterField } from "../../../components/reportt
 import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
+import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
 
 const StockReports: React.FC = () => {
   const { data: productData } = useProductServicesQuery();
@@ -23,19 +24,17 @@ const StockReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  const normalizeToYMD = (val: any): string | null => {
-    if (!val && val !== 0) return null;
-    if (typeof val === "string") return val.slice(0, 10);
-    const dt = val instanceof Date ? val : new Date(val);
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-  };
-
+  // -----------------------------
+  // Initialize date filter
+  // -----------------------------
   useEffect(() => {
     const today = new Date();
-    const to = normalizeToYMD(today);
-    const from = normalizeToYMD(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30));
-    setFilters({ fromDate: from, toDate: to, status: "Active" }); // default status
-    setAppliedFilters({ fromDate: from, toDate: to, status: "Active" });
+    const to = today.toISOString().slice(0, 10);
+    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+      .toISOString()
+      .slice(0, 10);
+    setFilters({ fromDate: from, toDate: to });
+    setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
   const productOptions = [...products, ...deletedProducts]
@@ -47,7 +46,7 @@ const StockReports: React.FC = () => {
   // -----------------------------
   const allProducts = [...products, ...deletedProducts];
   const currentStock = allProducts.flatMap((p) =>
-    p.productvariants.map((v: any) => ({
+    (p.productvariants || []).map((v: any) => ({
       productId: p.id,
       productName: p.name,
       variantName: v.name,
@@ -66,7 +65,7 @@ const StockReports: React.FC = () => {
   const allTransfers = [...transfers, ...deletedTransfers];
   const stockTransfers = allTransfers.map((t: any) => {
     const product = allProducts.find((p) => p.id === t.productid);
-    const variant = product?.productvariants.find((v: any) => v.id === t.variantid);
+    const variant = product?.productvariants?.find((v: any) => v.id === t.variantid);
     const fromBranch = branches.find((b) => b.id === t.frombranchid);
     const toBranch = branches.find((b) => b.id === t.tobranchid);
 
@@ -160,8 +159,8 @@ const StockReports: React.FC = () => {
       tableData = stockTransfers.filter((t) => {
         const from = appliedFilters.fromDate;
         const to = appliedFilters.toDate;
-        if (from && t.transferDate < from) return false;
-        if (to && t.transferDate > to) return false;
+        if (from && t.transferDate && t.transferDate < from) return false;
+        if (to && t.transferDate && t.transferDate > to) return false;
         if (appliedFilters.productId && appliedFilters.productId !== t.productId) return false;
         if (appliedFilters.status && appliedFilters.status !== t.status) return false;
         return true;
