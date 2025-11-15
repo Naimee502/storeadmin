@@ -61,7 +61,7 @@ const PartyReports: React.FC = () => {
     const ledgerId = account.ledgerid?.id;
     if (!ledgerId) return 0;
 
-    // 1️⃣ Get opening balance
+    // Opening balance
     const ledger = ledgers.find((l: any) => l.id === ledgerId);
     let balance = 0;
     if (ledger) {
@@ -71,27 +71,37 @@ const PartyReports: React.FC = () => {
           : -ledger.openingbalance;
     }
 
-    // 2️⃣ Add all debit-credit from transactions
+    console.log(`\n=== Calculating for ${account.name} ===`);
+    console.log("Opening Balance:", balance);
+
+    // Transactions
     transactions.forEach((txn: any) => {
       txn.entries?.forEach((entry: any) => {
-        if (entry.ledgerid === ledgerId) {
-          balance += (entry.debit || 0) - (entry.credit || 0);
+        if (entry.ledgerid?.id === ledgerId) {
+          const change = (entry.debit || 0) - (entry.credit || 0);
+          balance += change;
+          console.log(
+            `Txn ${txn.transactioncode}: Debit=${entry.debit}, Credit=${entry.credit}, Change=${change}, Balance=${balance}`
+          );
         }
       });
     });
 
-    // 3️⃣ Adjust with payments (partyid matches account.id)
+    // Payments
     payments
-      .filter((p: any) => p.partyid === account.id)
+      .filter((p: any) => p.partyid?.id === account.id)
       .forEach((p: any) => {
-        const totalPaid = (p.invoices || []).reduce(
+        const settled = (p.invoices || []).reduce(
           (sum: number, inv: any) => sum + (inv.settledamount || 0),
           0
         );
-        // For customers, payments reduce outstanding; for vendors, reduce payable
-        balance -= totalPaid;
+        balance -= settled;
+        console.log(
+          `Payment ${p.paymentcode}: SettledAmount=${settled}, Balance=${balance}`
+        );
       });
 
+    console.log(`Final Outstanding for ${account.name}: ${balance}`);
     return balance;
   };
 
@@ -153,6 +163,9 @@ const PartyReports: React.FC = () => {
             : -ledger.openingbalance;
       }
 
+      console.log(`\n--- Aging for ${a.name} ---`);
+      console.log("Opening balance:", balance);
+
       // Transactions
       transactions.forEach((txn: any) => {
         const txnDate = Number(txn.transactiondate);
@@ -161,10 +174,13 @@ const PartyReports: React.FC = () => {
           (!toTimestamp || txnDate <= toTimestamp)
         ) {
           txn.entries?.forEach((e: any) => {
-            if (e.ledgerid === ledgerId) {
-              balance += (e.debit || 0) - (e.credit || 0);
-              if (!oldestTxnDate || txnDate < oldestTxnDate)
-                oldestTxnDate = txnDate;
+            if (e.ledgerid?.id === ledgerId) {
+              const change = (e.debit || 0) - (e.credit || 0);
+              balance += change;
+              if (!oldestTxnDate || txnDate < oldestTxnDate) oldestTxnDate = txnDate;
+              console.log(
+                `Txn ${txn.transactioncode}: Debit=${e.debit}, Credit=${e.credit}, Change=${change}, Balance=${balance}`
+              );
             }
           });
         }
@@ -172,7 +188,7 @@ const PartyReports: React.FC = () => {
 
       // Payments
       payments
-        .filter((p: any) => p.partyid === a.id)
+        .filter((p: any) => p.partyid?.id === a.id)
         .forEach((p: any) => {
           const payDate = Number(p.paymentdate);
           if (
@@ -184,6 +200,7 @@ const PartyReports: React.FC = () => {
               0
             );
             balance -= settled;
+            console.log(`Payment ${p.paymentcode}: Settled=${settled}, Balance=${balance}`);
           }
         });
 
@@ -199,10 +216,13 @@ const PartyReports: React.FC = () => {
           balance > 0 ? balance.toFixed(2) : `(${Math.abs(balance).toFixed(2)})`,
         dueDays,
       });
+
+      console.log(`Final Outstanding: ${balance}, Due Days: ${dueDays}`);
     });
 
     return data;
   }, [accounts, transactions, payments, ledgers, appliedFilters]);
+
 
   // -----------------------------
   // Table Switcher
