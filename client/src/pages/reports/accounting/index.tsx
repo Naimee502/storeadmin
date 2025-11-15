@@ -2,11 +2,10 @@ import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
+import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
 const AccountingFinanceReports: React.FC = () => {
     const reportTabs = [
@@ -27,18 +26,25 @@ const AccountingFinanceReports: React.FC = () => {
     // -----------------------------
     const { data: accountsData } = useAccountsQuery();
     const { data: accountsGroupData } = useAccountGroupsQuery();
-    const { data: salesData } = useSalesInvoicesQuery();
-    const { data: purchaseData } = usePurchaseInvoicesQuery();
+    const { data: accountLedgerData } = useAccountLedgersQuery();
     const { data: transactionsData } = useTransactionsQuery();
     const { data: paymentsData } = usePaymentsQuery();
 
 
+
     const accounts = accountsData?.getAccounts || [];
     const accountsGroup = accountsGroupData?.getAccountGroups || [];
-    const salesInvoices = salesData?.getSalesInvoices || [];
-    const purchaseInvoices = purchaseData?.getPurchaseInvoices || [];
+    const ledgers = accountLedgerData?.getAccountLedgers || [];
     const transactions = transactionsData?.getTransactions || [];
     const payments = paymentsData?.getPayments || [];
+
+
+    console.log("📌 Accounts JSON:", JSON.stringify(accounts, null, 2));
+    console.log("📌 Account Groups JSON:", JSON.stringify(accountsGroup, null, 2));
+    console.log("📌 Ledgers:", JSON.stringify(ledgers, null, 2));
+    console.log("📌 Transactions JSON:", JSON.stringify(transactions, null, 2));
+    console.log("📌 Payments JSON:", JSON.stringify(payments, null, 2));
+
 
     // -----------------------------
     // Default filters: last 30 days
@@ -78,193 +84,154 @@ const AccountingFinanceReports: React.FC = () => {
     // -----------------------------
     const ledgerData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+
+        // Map ledgerId to account for easy lookup
+        const ledgerMap: Record<string, any> = {};
+        accounts.forEach((acc: any) => {
+            if (acc.ledgerid?.id) ledgerMap[acc.ledgerid.id] = acc;
+        });
+
         return transactions
             .filter((t) => {
                 const trxDate = Number(t.transactiondate);
                 if (fromTimestamp && trxDate < fromTimestamp) return false;
                 if (toTimestamp && trxDate > toTimestamp) return false;
-                if (appliedFilters.account && !t.entries?.some((e: any) => e.accountid === appliedFilters.account))
+
+                if (appliedFilters.account && !t.entries?.some((e: any) => e.ledgerid?.id === appliedFilters.account))
                     return false;
+
                 return true;
             })
             .flatMap((t) =>
-                t.entries?.map((e: any) => ({
-                    transactionCode: t.transactioncode,
-                    transactionDate: new Date(Number(t.transactiondate)).toISOString().slice(0, 10),
-                    accountName: accountMap[e.accountid]?.name || "-",
-                    debit: e.debit?.toFixed(2) || "0.00",
-                    credit: e.credit?.toFixed(2) || "0.00",
-                    remarks: e.remarks || t.narration || "-",
-                })) || []
+                t.entries?.map((e: any) => {
+                    const ledgerId = e.ledgerid?.id;
+                    const account = ledgerMap[ledgerId];
+                    return {
+                        transactionCode: t.transactioncode,
+                        transactionDate: new Date(Number(t.transactiondate)).toISOString().slice(0, 10),
+                        accountName: account?.name || e.ledgerid?.ledgername || "-",
+                        debit: e.debit?.toFixed(2) || "0.00",
+                        credit: e.credit?.toFixed(2) || "0.00",
+                        remarks: e.remarks || t.narration || "-",
+                    };
+                }) || []
             );
-    }, [transactions, accountMap, appliedFilters]);
-
-    // -----------------------------
-    // Payments / Receipts
-    // -----------------------------
-    const paymentsDataReport = useMemo(() => {
-        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
-        return payments
-            .filter((p) => {
-                const payDate = Number(p.paymentdate);
-                if (fromTimestamp && payDate < fromTimestamp) return false;
-                if (toTimestamp && payDate > toTimestamp) return false;
-                if (appliedFilters.party && p.partyid !== appliedFilters.party) return false;
-                return true;
-            })
-            .map((p) => {
-                const party = accountMap[p.partyid] || {};
-                return {
-                    paymentCode: p.paymentcode,
-                    paymentDate: new Date(Number(p.paymentdate)).toISOString().slice(0, 10),
-                    partyName: party.name || "-",
-                    type: p.type,
-                    mode: p.mode,
-                    amount: p.amount?.toFixed(2) || "0.00",
-                    remarks: p.remarks || "-",
-                };
-            });
-    }, [payments, accountMap, appliedFilters]);
+    }, [transactions, accounts, appliedFilters]);
 
     // -------------------------------
     // ✅ Profit & Loss Report (Fixed)
     // -------------------------------
     const profitLossData = useMemo(() => {
-        if (!accountsGroup || accountsGroup.length === 0) return [];
+        if (!transactions || !ledgers) return [];
 
-        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
-        const balances: Record<string, number> = {};
+        // Create ledger map for quick lookup
+        const ledgerMap = ledgers.reduce((acc: Record<string, any>, ledger) => {
+            acc[ledger.id] = ledger;
+            return acc;
+        }, {});
 
-        transactions.forEach((t) => {
-            const trxDate = Number(t.transactiondate);
-            if ((fromTimestamp && trxDate < fromTimestamp) || (toTimestamp && trxDate > toTimestamp)) return;
+        let totalIncome = 0;
+        let totalExpense = 0;
 
-            t.entries?.forEach((e: any) => {
-                const accountId = typeof e.accountid === "object" ? e.accountid : e.accountid;
-                const acc = accounts.find(a => a.id === accountId || a._id === accountId);
-                if (!acc || !acc.accountgroupid) return;
+        // Keywords to classify ledgers
+        const incomeKeywords = ["income", "sales", "output", "revenue"];
+        const expenseKeywords = ["expense", "purchase", "input", "cost", "payable"];
 
-                const groupId = typeof acc.accountgroupid === "object" ? acc.accountgroupid.id : acc.accountgroupid;
-                const group = accountsGroup.find((g: any) => g.id === groupId || g._id === groupId);
-                if (!group || !group.category) {
-                    console.log("Group not found for account:", acc);
-                    return;
+        transactions.forEach(tx => {
+            tx.entries?.forEach(entry => {
+                const ledger = ledgerMap[entry.ledgerid.id];
+                if (!ledger) return;
+
+                const groupName = (ledger.accountgroupid?.accountgroupname || "").toLowerCase();
+                const ledgerName = (ledger.ledgername || "").toLowerCase();
+
+                // Classify ledger as Income
+                if (incomeKeywords.some(k => groupName.includes(k) || ledgerName.includes(k))) {
+                    totalIncome += (entry.credit || 0) - (entry.debit || 0);
                 }
-
-                const category = group.category.toLowerCase();
-                if (category === "income") {
-                    balances[accountId] = (balances[accountId] || 0) + (e.credit || 0) - (e.debit || 0);
-                } else if (category === "expenses") {
-                    balances[accountId] = (balances[accountId] || 0) + (e.debit || 0) - (e.credit || 0);
+                // Classify ledger as Expense
+                else if (expenseKeywords.some(k => groupName.includes(k) || ledgerName.includes(k))) {
+                    totalExpense += (entry.debit || 0) - (entry.credit || 0);
                 }
             });
         });
 
-        const incomeAccounts = accounts.filter(a => {
-            const groupId = typeof a.accountgroupid === "object" ? a.accountgroupid.id : a.accountgroupid;
-            const group = accountsGroup.find((g: any) => g.id === groupId || g._id === groupId);
-            return group?.category?.toLowerCase() === "income";
-        });
-
-        const expenseAccounts = accounts.filter(a => {
-            const groupId = typeof a.accountgroupid === "object" ? a.accountgroupid.id : a.accountgroupid;
-            const group = accountsGroup.find((g: any) => g.id === groupId || g._id === groupId);
-            return group?.category?.toLowerCase() === "expenses";
-        });
-
-        const totalIncome = incomeAccounts.reduce((sum, a) => sum + (balances[a.id] || 0), 0);
-        const totalExpense = expenseAccounts.reduce((sum, a) => sum + (balances[a.id] || 0), 0);
         const netProfit = totalIncome - totalExpense;
 
         return [
-            ...incomeAccounts.map(a => ({ account: a.name, amount: (balances[a.id] || 0).toFixed(2) })),
             { account: "Total Income", amount: totalIncome.toFixed(2) },
-            ...expenseAccounts.map(a => ({ account: a.name, amount: (balances[a.id] || 0).toFixed(2) })),
             { account: "Total Expense", amount: totalExpense.toFixed(2) },
             { account: "Net Profit / Loss", amount: netProfit.toFixed(2) },
         ];
-    }, [transactions, accounts, accountsGroup, appliedFilters]);
+    }, [transactions, ledgers]);
 
     // -------------------------------
     // ✅ Balance Sheet Report (Fixed)
     // -------------------------------
     const balanceSheetData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
-        const accountBalances: Record<string, number> = {};
 
-        transactions.forEach((t) => {
-            const trxDate = Number(t.transactiondate);
+        // Ledger balances
+        const ledgerBalances: Record<string, number> = {};
+        ledgers.forEach(l => {
+            if (!l.id) return;
+            const opening = Number(l.openingbalance || 0);
+            const type = l.openingbalancetype || "debit";
+            ledgerBalances[l.id] = (type === "debit" ? opening : -opening);
+        });
+
+        // Add transaction entries
+        transactions.forEach(tx => {
+            const trxDate = Number(tx.transactiondate);
             if ((fromTimestamp && trxDate < fromTimestamp) || (toTimestamp && trxDate > toTimestamp)) return;
 
-            t.entries?.forEach((e: any) => {
-                const accountId =
-                    typeof e.accountid === "object" ? e.accountid._id : e.accountid;
-                const acc = accounts.find(
-                    (a) => a.id === accountId || a._id === accountId
-                );
-
-                if (!acc) return;
-                const category = acc.accountgroupid?.category?.toLowerCase();
-
-                if (["income", "liabilities"].includes(category)) {
-                    accountBalances[accountId] =
-                        (accountBalances[accountId] || 0) + (e.credit || 0) - (e.debit || 0);
-                } else {
-                    accountBalances[accountId] =
-                        (accountBalances[accountId] || 0) + (e.debit || 0) - (e.credit || 0);
-                }
+            tx.entries?.forEach(e => {
+                const ledgerId = e.ledgerid?.id || e.ledgerid;
+                const debit = Number(e.debit || 0);
+                const credit = Number(e.credit || 0);
+                ledgerBalances[ledgerId] = (ledgerBalances[ledgerId] || 0) + debit - credit;
             });
         });
 
-        const assetAccounts = accounts.filter(
-            (a) => a.accountgroupid?.category?.toLowerCase() === "assets"
-        );
-        const liabilityAccounts = accounts.filter(
-            (a) => a.accountgroupid?.category?.toLowerCase() === "liabilities"
-        );
-        const incomeAccounts = accounts.filter(
-            (a) => a.accountgroupid?.category?.toLowerCase() === "income"
-        );
-        const expenseAccounts = accounts.filter(
-            (a) => a.accountgroupid?.category?.toLowerCase() === "expenses"
-        );
-
-        const totalAssets = assetAccounts.reduce(
-            (sum, a) => sum + (accountBalances[a.id] || accountBalances[a._id] || 0),
-            0
-        );
-        const totalLiabilities = liabilityAccounts.reduce(
-            (sum, a) => sum + (accountBalances[a.id] || accountBalances[a._id] || 0),
-            0
-        );
-
-        // Include Net Profit/Loss as Capital Adjustment
-        const totalIncome = incomeAccounts.reduce(
-            (sum, a) => sum + (accountBalances[a.id] || accountBalances[a._id] || 0),
-            0
-        );
-        const totalExpense = expenseAccounts.reduce(
-            (sum, a) => sum + (accountBalances[a.id] || accountBalances[a._id] || 0),
-            0
-        );
-        const netProfit = totalIncome - totalExpense;
-        const totalLiabilitiesWithProfit = totalLiabilities + netProfit;
-
-        const formatAccount = (a: any) => ({
-            account: a.name,
-            amount: (accountBalances[a.id] || accountBalances[a._id] || 0).toFixed(2),
+        // Map group ID to category
+        const groupCategoryMap: Record<string, string> = {};
+        accountsGroup.forEach(g => {
+            if (g.id && g.category) groupCategoryMap[g.id] = g.category.toLowerCase();
         });
 
+        // Aggregate balances
+        const categories: Record<string, number> = { assets: 0, liabilities: 0, income: 0, expenses: 0 };
+        ledgers.forEach(l => {
+            const balance = ledgerBalances[l.id] || 0;
+            const groupId = l.accountgroupid?.id || l.accountgroupid;
+            let cat = groupCategoryMap[groupId];
+
+            if (!cat) {
+                // Infer from ledger name
+                const name = l.ledgername?.toLowerCase() || "";
+                if (name.includes("cash") || name.includes("bank")) cat = "assets";
+                else if (name.includes("sales") || name.includes("income") || name.includes("revenue")) cat = "income";
+                else if (name.includes("expense") || name.includes("commission") || name.includes("input")) cat = "expenses";
+                else if (name.includes("liability") || name.includes("credit") || name.includes("output") || name.includes("gst")) cat = "liabilities";
+                else cat = "assets"; // fallback
+            }
+
+            categories[cat] += balance;
+        });
+
+        const netProfit = categories.income - categories.expenses;
+        const totalLiabilitiesWithProfit = categories.liabilities + netProfit;
+
+        console.log("DEBUG Categories:", categories, "Net Profit:", netProfit, "Total Liabilities + Profit:", totalLiabilitiesWithProfit);
+
         return [
-            { account: "--- Assets ---", amount: "" },
-            ...assetAccounts.map(formatAccount),
-            { account: "Total Assets", amount: totalAssets.toFixed(2) },
-            { account: "--- Liabilities ---", amount: "" },
-            ...liabilityAccounts.map(formatAccount),
+            { account: "--- ASSETS ---", amount: "" },
+            { account: "Total Assets", amount: categories.assets.toFixed(2) },
+            { account: "--- LIABILITIES & EQUITY ---", amount: "" },
             { account: "Net Profit (Capital Adj.)", amount: netProfit.toFixed(2) },
-            { account: "Total Liabilities", amount: totalLiabilitiesWithProfit.toFixed(2) },
+            { account: "Total Liabilities & Equity", amount: totalLiabilitiesWithProfit.toFixed(2) },
         ];
-    }, [transactions, accounts, appliedFilters]);
+    }, [transactions, ledgers, accountsGroup, appliedFilters]);
 
     // -----------------------------
     // Cash Flow
@@ -299,12 +266,23 @@ const AccountingFinanceReports: React.FC = () => {
     // -----------------------------
     const transactionsSummaryData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+
+        // Filter transactions by date
         const filteredTxns = transactions.filter((t) => {
             const date = Number(t.transactiondate);
             return (!fromTimestamp || date >= fromTimestamp) && (!toTimestamp || date <= toTimestamp);
         });
-        const totalDebit = filteredTxns.reduce((sum, t) => sum + (t.totaldebit || 0), 0);
-        const totalCredit = filteredTxns.reduce((sum, t) => sum + (t.totalcredit || 0), 0);
+
+        // Compute total debit & credit dynamically from entries
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        filteredTxns.forEach((t) => {
+            t.entries.forEach((e) => {
+                totalDebit += e.debit || 0;
+                totalCredit += e.credit || 0;
+            });
+        });
 
         return [
             { account: "Total Transactions", amount: filteredTxns.length },
@@ -312,6 +290,37 @@ const AccountingFinanceReports: React.FC = () => {
             { account: "Total Credit", amount: totalCredit.toFixed(2) },
         ];
     }, [transactions, appliedFilters]);
+
+    // -----------------------------
+    // Payments / Receipts
+    // -----------------------------
+    const paymentsDataReport = useMemo(() => {
+        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+
+        return payments
+            .filter((p) => {
+                const payDate = Number(p.paymentdate);
+                if (fromTimestamp && payDate < fromTimestamp) return false;
+                if (toTimestamp && payDate > toTimestamp) return false;
+                if (appliedFilters.party && p.partyid?.id !== appliedFilters.party) return false;
+                return true;
+            })
+            .map((p) => {
+                const partyName = p.partyid?.name || "-";
+                const typeCapitalized = p.type ? p.type.charAt(0).toUpperCase() + p.type.slice(1) : "-";
+                const modeCapitalized = p.mode ? p.mode.charAt(0).toUpperCase() + p.mode.slice(1) : "-";
+                return {
+                    paymentCode: p.paymentcode,
+                    paymentDate: new Date(Number(p.paymentdate)).toISOString().slice(0, 10),
+                    partyName,
+                    type: typeCapitalized,
+                    mode: modeCapitalized,
+                    amount: p.amount?.toFixed(2) || "0.00",
+                    remarks: p.remarks || "-",
+                };
+            });
+    }, [payments, appliedFilters]);
+
 
     // -----------------------------
     // Table Switcher
@@ -330,7 +339,7 @@ const AccountingFinanceReports: React.FC = () => {
             columns = [
                 { label: "Transaction Code", key: "transactionCode" },
                 { label: "Date", key: "transactionDate" },
-                { label: "Account", key: "accountName" },
+                { label: "Account Ledger", key: "accountName" },
                 { label: "Debit", key: "debit" },
                 { label: "Credit", key: "credit" },
                 { label: "Remarks", key: "remarks" },
