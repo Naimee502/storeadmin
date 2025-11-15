@@ -61,6 +61,7 @@ import PartyReports from "../pages/reports/party/inde";
 import SalesmanReports from "../pages/reports/salesman";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
+import AnalyticalReports from "../pages/reports/analytics";
 
 const AppRoutes = () => {
     return (
@@ -603,14 +604,14 @@ const AppRoutes = () => {
             </ProtectedRoutes>
           }
         />
-         {/* <Route
+         <Route
           path="/reports/analytical"
           element={
             <ProtectedRoutes>
               <AnalyticalReports />
             </ProtectedRoutes>
           }
-        /> */}
+        />
       </Routes>
     );
 };
