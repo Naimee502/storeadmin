@@ -849,7 +849,7 @@ const AddEditProductService = () => {
               <FormField label="Show In POS" name="isshowinpos" type="checkbox" value={formData.isshowinpos} onChange={handleChange} />
               <FormField label="Featured" name="isfeatured" type="checkbox" value={formData.isfeatured} onChange={handleChange} />
               <FormField label="Status" name="status" type="checkbox" value={formData.status} onChange={handleChange} />
-              <FormField label="Is Service" name="isservice" type="checkbox" value={formData.isservice} onChange={handleChange} />
+              {/* <FormField label="Is Service" name="isservice" type="checkbox" value={formData.isservice} onChange={handleChange} /> */}
               <FormField label="Is Product Serialised" name={`isserialised`} type="checkbox" value={formData.isserialised} onChange={handleChange} />
             </div>
           </fieldset>

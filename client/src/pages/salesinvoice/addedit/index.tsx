@@ -391,12 +391,12 @@ const AddEditSalesInvoice = () => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-              <FormSwitch
+              {/* <FormSwitch
                 label="Is Service"
                 name="isservice"
                 checked={isService}
                 onChange={(checked) => setIsService(checked)}
-              />
+              /> */}
               <FormSwitch
                 label="Status"
                 name="status"
