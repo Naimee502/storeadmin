@@ -21,18 +21,24 @@ const SalesmanReports: React.FC = () => {
   const salesmen = salesmenData?.getSalesmenAccounts || [];
   const transactions = transactionsData?.getTransactions || [];
 
-  // Initialize default last 30 days filter
+  // Debug logs
+  console.log("📌 Sales Invoices:", JSON.stringify(salesInvoices, null, 2));
+  console.log("📌 Salesmen:", JSON.stringify(salesmen, null, 2));
+  console.log("📌 Transactions:", JSON.stringify(transactions, null, 2));
+
+  // Default last 30 days
   useEffect(() => {
     const today = new Date();
     const to = today.toISOString().slice(0, 10);
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
       .toISOString()
       .slice(0, 10);
+
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  // Filter invoices based on applied filters
+  // Filter invoices
   const filteredInvoices = useMemo(() => {
     const from = appliedFilters.fromDate;
     const to = appliedFilters.toDate;
@@ -40,74 +46,60 @@ const SalesmanReports: React.FC = () => {
     return salesInvoices.filter((inv) => {
       const date = normalizeToYMD(inv.billdate);
       if (!date) return false;
+
       if (from && date < from) return false;
       if (to && date > to) return false;
-      if (appliedFilters.salesman && inv.salesmenid?.id !== appliedFilters.salesman)
+
+      // FIXED SALESMAN FILTER
+      if (appliedFilters.salesmenid && inv.salesmenid?.id !== appliedFilters.salesmenid)
         return false;
+
       return true;
     });
   }, [salesInvoices, appliedFilters]);
 
-  // Prepare report data
+  // Generate report data
   const reportData = useMemo(() => {
-    const map: Record<string, any> = {};
+  // Step 1: Decide which salesmen to include
+  const activeSalesmen = appliedFilters.salesmenid
+    ? salesmen.filter((s) => s.id === appliedFilters.salesmenid)
+    : salesmen;
 
-    salesmen.forEach((s) => {
-      map[s.id] = {
-        ...s,
-        totalSales: 0,
-        totalInvoices: 0,
-        totalCommission: 0,
-        target: s.target || 0, // ← use actual target from salesmen data
-      };
-    });
+  // Step 2: Build performance rows for each (filtered) salesman
+  return activeSalesmen.map((s, idx) => {
+    const invoices = filteredInvoices.filter(
+      (inv) => inv.salesmenid?.id === s.id
+    );
 
-    filteredInvoices.forEach((inv) => {
-      const sid = inv.salesmenid?.id || "unassigned";
-      if (!map[sid]) {
-        map[sid] = {
-          name: "Unassigned",
-          totalSales: 0,
-          totalInvoices: 0,
-          totalCommission: 0,
-          target: 0,
-        };
-      }
-      map[sid].totalSales += inv.totalamount || 0;
-      map[sid].totalInvoices += 1;
-    });
+    const totalSales = invoices.reduce(
+      (sum, inv) => sum + Number(inv.totalamount || 0),
+      0
+    );
 
-    transactions.forEach((tx) => {
-      const txDate = normalizeToYMD(new Date(Number(tx.transactiondate)));
-      const from = appliedFilters.fromDate;
-      const to = appliedFilters.toDate;
-      if ((from && txDate < from) || (to && txDate > to)) return;
+    const totalInvoices = invoices.length;
 
-      tx.entries.forEach((entry) => {
-        const ledgerName = entry.ledgerid?.ledgername || "";
-        const credit = Number(entry.credit) || 0;
-        const matched = salesmen.find((s) => ledgerName.includes(s.name));
-        if (matched) {
-          const s = map[matched.id];
-          if (s) s.totalCommission += credit;
-        }
-      });
-    });
+    const commissionRate = Number(s.commission) || 0;
+    const commissionEarned = (totalSales * commissionRate) / 100;
 
-    return Object.values(map).map((s, idx) => ({
+    const target = Number(s.target) || 0;
+    const targetAchievement = target > 0
+      ? ((totalSales / target) * 100).toFixed(2) + "%"
+      : "-";
+
+    return {
       seqNo: idx + 1,
       salesman: s.name,
-      totalSales: (s.totalSales || 0).toFixed(2),
-      totalInvoices: s.totalInvoices || 0,
-      totalCommission: (s.totalCommission || 0).toFixed(2),
-      targetAchievement: s.target
-        ? ((s.totalSales / s.target) * 100).toFixed(2) + "%"
-        : "-",
-      targetAmount: (s.target || 0).toFixed(2),
-    }));
-  }, [filteredInvoices, salesmen, transactions, appliedFilters]);
+      totalSales: totalSales.toFixed(2),
+      totalInvoices,
+      totalCommission: commissionEarned.toFixed(2),
+      targetAchievement,
+      targetAmount: target.toFixed(2),
+    };
+  });
+}, [filteredInvoices, salesmen, appliedFilters]);
 
 
+  // Table Columns
   const columns = [
     { label: "Seq No", key: "seqNo" },
     { label: "Salesman Name", key: "salesman" },
@@ -118,22 +110,43 @@ const SalesmanReports: React.FC = () => {
     { label: "Target Amount", key: "targetAmount" },
   ];
 
+  // Dropdown options
   const salesmenOptions = salesmen.map((s) => ({ label: s.name, value: s.id }));
+
+  // FIXED FILTER FIELD NAME
   const filterFields: ReportFilterField[] = [
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
-    { name: "salesman", label: "Salesman", type: "select", options: salesmenOptions, searchable: true },
+    {
+      name: "salesmenid",
+      label: "Salesman",
+      type: "select",
+      options: salesmenOptions,
+      searchable: true
+    },
   ];
 
-  // Handle tab change same as SalesReports
+  // Tab change handler
   const handleTabChange = (tab: string) => {
     const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
 
     const fromYMD = from ? normalizeToYMD(from.split("/").reverse().join("-")) : null;
     const toYMD = to ? normalizeToYMD(to.split("/").reverse().join("-")) : null;
 
-    setFilters((prev) => ({ ...prev, fromDate: fromYMD, toDate: toYMD }));
-    setAppliedFilters((prev) => ({ ...prev, fromDate: fromYMD, toDate: toYMD }));
+    // PRESERVE SALESMAN FILTER
+    setAppliedFilters((prev) => ({
+      ...prev,
+      fromDate: fromYMD,
+      toDate: toYMD,
+      salesmenid: prev.salesmenid,
+    }));
+
+    setFilters((prev) => ({
+      ...prev,
+      fromDate: fromYMD,
+      toDate: toYMD
+    }));
+
     setActiveTab(tab);
   };
 
