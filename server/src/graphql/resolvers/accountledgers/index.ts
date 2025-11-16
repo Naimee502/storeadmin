@@ -2,30 +2,30 @@ import { AccountLedger } from "../../../models/accountledgers";
 
 export const accountLedgerResolvers = {
   Query: {
-    getAccountLedgers: async (_: any, { adminId, branchId }: { adminId?: string; branchId?: string }) => {
-      const filter: any = { status: true };
-      if (adminId) filter.admin = adminId;
-      if (branchId) filter.branchid = branchId;
+    getAccountLedgers: async (_: any, { adminId }: { adminId?: string }) => {
+          const filter: any = { status: true };
+          if (adminId) filter.admin = adminId;
+           return await AccountLedger.find(filter)
+          .populate("admin")
+          .populate("accountgroupid")
+          .populate("branchid");
+        },
 
-      return await AccountLedger.find(filter)
-        .populate("admin")
-        .populate("accountgroupid");
-    },
-
-    getDeletedAccountLedgers: async (_: any, { adminId, branchId }: { adminId?: string; branchId?: string }) => {
+    getDeletedAccountLedgers: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      if (branchId) filter.branchid = branchId;
 
       return await AccountLedger.find(filter)
         .populate("admin")
-        .populate("accountgroupid");
+        .populate("accountgroupid")
+        .populate("branchid");
     },
 
     getAccountLedgerById: async (_: any, { id }: { id: string }) => {
       return await AccountLedger.findById(id)
         .populate("admin")
-        .populate("accountgroupid");
+        .populate("accountgroupid")
+        .populate("branchid");
     },
   },
 

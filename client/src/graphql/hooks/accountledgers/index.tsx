@@ -38,7 +38,7 @@ export const useAccountLedgersQuery = () => {
     type === 'branch' ? branch?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_ACCOUNTLEDGERS, {
-    variables: { adminId, branchId },
+    variables: { adminId },
   });
 
   return {
@@ -59,7 +59,7 @@ export const useDeletedAccountLedgersQuery = () => {
     type === 'branch' ? branch?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_ACCOUNTLEDGERS, {
-    variables: { adminId, branchId },
+    variables: { adminId },
   });
 
   return {

@@ -36,7 +36,7 @@ export const accountLedgerTypeDefs = gql`
     id: ID!
     ledgercode: String!
     ledgername: String!
-    accountgroupid: AccountGroup!
+    accountgroupid: AccountGroup
     admin: Admin!
     branchid: Branch
     ledgertype: LedgerType!
@@ -59,9 +59,9 @@ export const accountLedgerTypeDefs = gql`
   }
 
   type Query {
-    getAccountLedgers(adminId: ID, branchId: ID): [AccountLedger!]!
-    getDeletedAccountLedgers(adminId: ID, branchId: ID): [AccountLedger!]!
-    getAccountLedgerById(id: ID!, adminId: ID, branchId: ID): AccountLedger
+    getAccountLedgers(adminId: ID): [AccountLedger!]!
+    getDeletedAccountLedgers(adminId: ID): [AccountLedger!]!
+    getAccountLedgerById(id: ID!, adminId: ID): AccountLedger
   }
 
   type Mutation {
