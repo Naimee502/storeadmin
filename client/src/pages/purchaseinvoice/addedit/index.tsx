@@ -47,7 +47,8 @@ const AddEditPurchaseInvoice = () => {
   // Party Accounts (suppliers maybe)
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
-  const accountOptions = accountsList.map((acc: any) => ({
+  const vendorAccounts = accountsList.filter((acc: any) => acc.type === "vendor");
+  const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
   }));

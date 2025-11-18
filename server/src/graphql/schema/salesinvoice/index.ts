@@ -29,7 +29,7 @@ export const salesInvoiceTypeDefs = gql`
   input SalesInvoiceProductServiceInput {
     productserviceid: ID!
     variantid: ID!
-    salesunitid: ID,
+    salesunitid: ID
     unitqty: Int!
     gst: Float!
     qty: Int!

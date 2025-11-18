@@ -2,52 +2,84 @@ import { gql } from '@apollo/client';
 
 export const ADD_SALES_INVOICE = gql`
   mutation AddSalesInvoice($input: SalesInvoiceInput!) {
-    addSalesInvoice(input: $input) {
+  addSalesInvoice(input: $input) {
+    id
+    salesmenid {
       id
-      salesmenid
-      paymenttype
-      partyacc
-      taxorsupplytype
-      billdate
-      billtype
-      billnumber
-      notes
-      invoicetype
-      subtotal
-      totaldiscount
-      totalgst
-      totalamount
-      adminid
-      branchid
-      productservice {
-        productserviceid
-        variantid
-        salesunitid
-        unitqty
-        gst
-        qty
-        rate
-        amount
-        discount
-        salesaccountid
-        purchaseaccountid
-        serviceaccountid
-      }
-      isservice
-      status
-      createdAt
-      updatedAt
+      name
     }
+    paymenttype
+    partyacc {
+      id
+      name
+      mobile
+    }
+    taxorsupplytype
+    billdate
+    billtype
+    billnumber
+    notes
+    invoicetype
+    subtotal
+    totaldiscount
+    totalgst
+    totalamount
+    adminid
+    branchid
+    productservice {
+      productserviceid {
+        id
+        name
+      }
+      variantid {
+        id
+        name
+      }
+      salesunitid {
+        id
+        unitname
+      }
+      unitqty
+      gst
+      qty
+      rate
+      amount
+      discount
+      salesaccountid {
+        id
+        accountname
+      }
+      purchaseaccountid {
+        id
+        accountname
+      }
+      serviceaccountid {
+        id
+        accountname
+      }
+    }
+    isservice
+    status
+    createdAt
+    updatedAt
   }
+}
 `;
 
 export const EDIT_SALES_INVOICE = gql`
   mutation EditSalesInvoice($id: ID!, $input: SalesInvoiceInput!) {
     editSalesInvoice(id: $id, input: $input) {
       id
-      salesmenid
+      salesmenid {
+        id
+        name
+      }
       paymenttype
-      partyacc
+      partyacc {
+        id
+        name
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -61,18 +93,36 @@ export const EDIT_SALES_INVOICE = gql`
       adminid
       branchid
       productservice {
-        productserviceid
-        variantid
-        salesunitid
+        productserviceid {
+          id
+          name
+        }
+        variantid {
+          id
+          name
+        }
+        salesunitid {
+          id
+          unitname
+        }
         unitqty
         gst
         qty
         rate
         amount
         discount
-        salesaccountid
-        purchaseaccountid
-        serviceaccountid
+        salesaccountid {
+          id
+          accountname
+        }
+        purchaseaccountid {
+          id
+          accountname
+        }
+        serviceaccountid {
+          id
+          accountname
+        }
       }
       isservice
       status

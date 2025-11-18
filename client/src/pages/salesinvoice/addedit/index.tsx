@@ -26,7 +26,7 @@ const AddEditSalesInvoice = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const [paymentType, setPaymentType] = useState("");
-  const [partyAccount, setPartyAccount] = useState("");
+  const [partyAccount, setPartyAccount] = useState<any>(null);
   const [taxOrSupplyType, setTaxOrSupplyType] = useState("");
   const [billDate, setBillDate] = useState(() => {
     const today = new Date();
@@ -65,8 +65,9 @@ const AddEditSalesInvoice = () => {
   // Party Accounts
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
-  console.log("Party Account Data:", JSON.stringify(accountsList));
-  const accountOptions = accountsList.map((acc: any) => ({
+  const customerAccounts = accountsList.filter((acc: any) => acc.type === "customer");
+  console.log("Customer Party Account Data:", JSON.stringify(customerAccounts));
+  const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
   }));
@@ -102,7 +103,11 @@ const AddEditSalesInvoice = () => {
       // --- Header fields
       setSalesmenAccount(invoice.salesmenid.id || null);
       setPaymentType(invoice.paymenttype || "");
-      setPartyAccount(invoice.partyacc.id || null);
+      setPartyAccount({
+        id: invoice.partyacc?.id || "",
+        state: invoice.partyacc?.state || "",
+        accounttype: invoice.partyacc?.accounttype || "",
+      });
       setTaxOrSupplyType(invoice.taxorsupplytype || "");
       setBillDate(invoice.billdate || "");
       setBillType(invoice.billtype || "");
@@ -220,7 +225,7 @@ const AddEditSalesInvoice = () => {
       adminid: adminId,
       salesmenid: salesmenAccount,
       paymenttype: paymentType,
-      partyacc: partyAccount,
+      partyacc: partyAccount?.id || "",
       taxorsupplytype: taxOrSupplyType,
       billdate: billDate,
       billtype: billType,
@@ -301,13 +306,25 @@ const AddEditSalesInvoice = () => {
                   label="Party Account (Name - Mobile)"
                   name="partyAccount"
                   type="select"
-                  value={partyAccount}
-                  onChange={(e) => setPartyAccount(e.target.value)}
+                  value={partyAccount?.id || ""} 
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const acc = customerAccounts.find(a => a.id === selectedId);
+
+                    if (acc) {
+                      setPartyAccount({
+                        id: acc.id,
+                        state: acc.state,
+                        accounttype: acc.accounttype
+                      });
+                    }
+                  }}
                   options={accountOptions}
                   searchable
                   error={errors.partyAccount}
-                  addable onAddNew={() => navigate("/accounts")}
-                />
+                  addable 
+                  onAddNew={() => navigate("/accounts")}
+              />
               </div>
               <FormField
                 label="Tax/Supply Type"

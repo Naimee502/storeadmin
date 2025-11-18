@@ -7,7 +7,11 @@ export const ADD_PURCHASE_INVOICE = gql`
       id
       branchid
       paymenttype
-      partyacc
+      partyacc {
+        id
+        accountname
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -20,17 +24,17 @@ export const ADD_PURCHASE_INVOICE = gql`
       totalamount
       adminid
       productservice {
-        productserviceid
-        variantid
-        purchaseunitid
+        productserviceid { id name }
+        variantid { id name }
+        purchaseunitid { id unitname }
         gst
         qty
         rate
         amount
         discount
-        purchaseaccountid
-        salesaccountid
-        serviceaccountid
+        salesaccountid { id ledgername }
+        purchaseaccountid { id ledgername }
+        serviceaccountid { id ledgername }
       }
       isservice
       status
@@ -47,7 +51,11 @@ export const EDIT_PURCHASE_INVOICE = gql`
       id
       branchid
       paymenttype
-      partyacc
+      partyacc {
+        id
+        accountname
+        mobile
+      }
       taxorsupplytype
       billdate
       billtype
@@ -60,17 +68,17 @@ export const EDIT_PURCHASE_INVOICE = gql`
       totalamount
       adminid
       productservice {
-        productserviceid
-        variantid
-        purchaseunitid
+        productserviceid { id name }
+        variantid { id name }
+        purchaseunitid { id unitname }
         gst
         qty
         rate
         amount
         discount
-        purchaseaccountid
-        salesaccountid
-        serviceaccountid
+        salesaccountid { id ledgername }
+        purchaseaccountid { id ledgername }
+        serviceaccountid { id ledgername }
       }
       isservice
       status

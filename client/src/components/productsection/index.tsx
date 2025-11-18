@@ -69,6 +69,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   productData,
   type,
   onProductsChange,
+  partyAccount,
   navigate,
   iservice = false,
 }) => {
@@ -76,6 +77,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
   const [editIndex, setEditIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    console.log("🔥 Party Account Received:", JSON.stringify(partyAccount));
+  }, [partyAccount]);
 
   useEffect(() => {
     onProductsChange?.(products);
@@ -154,6 +159,33 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     if (editIndex === i) setEditIndex(null);
   };
 
+  const getPricingToUse = (variant, partyAccount) => {
+      if (!variant?.pricing?.length) return null;
+
+      const state = partyAccount?.state?.toLowerCase();
+      const accounttype = partyAccount?.accounttype?.toLowerCase();
+
+      const matched = variant.pricing.find(
+        (p) =>
+          p.region?.toLowerCase() === state &&
+          p.channel?.toLowerCase() === accounttype
+      );
+
+      if (matched) return matched;
+
+      const retail = variant.pricing.find(
+        (p) => p.channel?.toLowerCase() === "retail"
+      );
+      if (retail) return retail;
+
+      const enduser = variant.pricing.find(
+        (p) => p.channel?.toLowerCase() === "enduser"
+      );
+      if (enduser) return enduser;
+
+      return variant.pricing[0];
+  };
+
   return (
     <fieldset className="border rounded-xl p-4 space-y-4 mt-6">
       <legend className="text-sm font-medium px-2">
@@ -181,7 +213,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               productserviceid: pid,
               variantid: vid,
               productname: product?.name || "",
-              rate: Number(variant?.purchaserate ?? 0),
+              rate: type === "sales"
+              ? 0                      
+              : Number(variant?.purchaserate ?? 0),
               quantity: 1,
               gst: Number(variant?.gst ?? 0),
               salesaccountid: product?.salesaccountid?.id ?? null,
@@ -203,45 +237,68 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         {/* ✅ Sales Unit Select — FIXED */}
         {type === "sales" && !iservice && (
           <FormField
-            label="Unit"
-            name="unit"
-            type="select"
-            value={selectedProduct.selectedUnitValue ?? ""}
-            onChange={(e) => {
-              const [unitid, qtyStr] = e.target.value.split("--");
-              const qty = parseFloat(qtyStr ?? "0");
+          label="Unit"
+          name="unit"
+          type="select"
+          value={selectedProduct.selectedUnitValue ?? ""}
+          onChange={(e) => {
+            const [unitid, qtyStr] = e.target.value.split("--");
+            const qty = parseFloat(qtyStr ?? "0");
 
-              const variant = normalizedProducts
-                .find((p) => p.id === selectedProduct.productserviceid)
-                ?.productvariants.find((v) => v.id === selectedProduct.variantid);
+            const product = normalizedProducts.find(
+              (p) => p.id === selectedProduct.productserviceid
+            );
+            const variant = product?.productvariants.find(
+              (v) => v.id === selectedProduct.variantid
+            );
 
-              if (!variant) return;
+            if (!variant) return;
 
-              const price = variant.pricing?.[0]?.unitprices?.find(
-                (up: any) => up.unitid === unitid && up.quantity === qty
+            const pricingToUse = getPricingToUse(variant, partyAccount);
+
+            const price = pricingToUse?.unitprices?.find(
+              (up) =>
+                (up.unitid?.id ?? up.unitid) === unitid && up.quantity === qty
+            );
+
+            setSelectedProduct((prev) => ({
+              ...prev,
+              salesunitid: unitid,
+              rate: Number(price?.offerprice ?? price?.salesrate ?? 0),
+              discount: Number(price?.discount ?? 0),
+              gst: Number(variant?.gst ?? 0),
+              unitquantity: Number(qty),
+              selectedUnitValue: e.target.value,
+            }));
+          }}
+          options={
+            (() => {
+              const product = normalizedProducts.find(
+                (p) => p.id === selectedProduct.productserviceid
+              );
+              const variant = product?.productvariants.find(
+                (v) => v.id === selectedProduct.variantid
               );
 
-              setSelectedProduct((prev) => ({
-                ...prev,
-                salesunitid: unitid,
-                rate: Number(price?.offerprice ?? price?.salesrate ?? 0),
-                discount: Number(price?.discount ?? 0),
-                gst: Number(variant?.gst ?? 0),
-                unitquantity: Number(qty),
-                selectedUnitValue: e.target.value,
-              }));
-            }}
-            options={
-              normalizedProducts
-                .find((p) => p.id === selectedProduct.productserviceid)
-                ?.productvariants.find((v) => v.id === selectedProduct.variantid)
-                ?.pricing?.[0]?.unitprices?.map((up: any) => ({
-                  value: `${up.unitid}--${up.quantity}`,
-                  label: `${up.quantity} ${up.unitname || "Unit"}`,
+              const matchedPricing = variant?.pricing?.find(
+                (p: any) =>
+                  p.region?.toLowerCase() === partyAccount?.state?.toLowerCase() &&
+                  p.channel?.toLowerCase() === partyAccount?.accounttype?.toLowerCase()
+              );
+
+              const pricingToUse = matchedPricing ?? variant?.pricing?.[0];
+
+              return (
+                pricingToUse?.unitprices?.map((up: any) => ({
+                  value: `${up.unitid?.id ?? up.unitid}--${up.quantity}`,
+                  label: `${up.quantity} ${up.unitname || up.unitid?.unitname || "Unit"}`,
                 })) || []
-            }
-            searchable
-          />
+              );
+            })()
+          }
+          searchable
+        />
+
         )}
 
         {/* ✅ Quantity */}
