@@ -4,8 +4,9 @@ import {
   FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags,
   FaUser, FaUsers, FaUserTie, FaFileInvoiceDollar,
   FaReceipt, FaExchangeAlt, FaWallet,
-  FaChartBar, FaFileAlt, FaClipboardList, FaMoneyBillWave, FaFileInvoice,
-  FaChartLine
+  FaChartBar, FaFileAlt, FaClipboardList, FaMoneyBillWave,
+  FaChartLine,
+  FaIndent
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -70,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const adminLinks: SidebarLink[] = [
     { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-xl" /> },
     { to: '/categories', label: 'Categories', icon: <FaTags className="text-xl" /> },
-    { to: '/subcategories', label: 'Sub Categories', icon: <FaTags className="text-xl" /> },
+    { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent className="text-xl" /> },
     { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined className="text-xl" /> },
     { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark className="text-xl" /> },
     { to: '/models', label: 'Models', icon: <FaMobileAlt className="text-xl" /> },
@@ -102,7 +103,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       '/accounts',
       '/salesmenaccount',
       '/transactions',   
-      '/payments'        
+      '/payments',
+      '/accountledgers'        
     ].includes(link.to)
   );
 
