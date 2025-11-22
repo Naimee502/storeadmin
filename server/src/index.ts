@@ -37,7 +37,7 @@ const startServer = async () => {
   app.use(
     '/graphql',
     cors({
-      origin: ['http://13.220.211.75', 'http://localhost:5173'], // allow both local + production
+      origin: ['https://rudra.digisysindiatech.com', 'http://localhost:5173'], 
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
     }),
@@ -50,9 +50,9 @@ const startServer = async () => {
   // Attach Apollo middleware to express app at /graphql route
   server.applyMiddleware({ app: app as any });
 
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
+ const PORT = Number(process.env.PORT) || 4000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server ready at http://0.0.0.0:${PORT}${server.graphqlPath}`);
   });
 };
 
