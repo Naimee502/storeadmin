@@ -38,8 +38,8 @@ export const productServiceTypeDefs = gql`
   }
 
   type Model {
-    id: ID!
-    modelname: String!
+    id: ID
+    modelname: String
   }
 
   type Unit {

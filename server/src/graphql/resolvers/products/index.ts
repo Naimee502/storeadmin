@@ -455,11 +455,12 @@ export const productServiceResolvers = {
         const oldVariantSkus = existing?.productvariants?.map((v: any) => v.sku);
 
         const convertRefSafe = (obj: any) => {
-          if (!obj) return { id: "", ledgername: "" };
-          const { _id, ledgername, ...rest } = obj;
+          if (!obj) return { id: "", ledgername: "", modelname: "" };
+          const { _id, ledgername, modelname, ...rest } = obj;
           return {
             id: _id?.toString() ?? "",
             ledgername: ledgername ?? "",
+            modelname: modelname ?? "", // <-- ensure nullable
             ...rest,
           };
         };
@@ -596,13 +597,13 @@ export const productServiceResolvers = {
         };
 
         // Normalize refs
+        res.modelid = convertRefSafe(res.modelid);
         res.salesaccountid = convertRefSafe(res.salesaccountid);
         res.purchaseaccountid = convertRefSafe(res.purchaseaccountid);
         res.serviceaccountid = convertRefSafe(res.serviceaccountid);
         res.categoryid = convertRefSafe(res.categoryid);
         res.subcategoryid = convertRefSafe(res.subcategoryid);
         res.groupid = convertRefSafe(res.groupid);
-        res.modelid = convertRefSafe(res.modelid);
         res.brandid = convertRefSafe(res.brandid);
         res.sizeid = convertRefSafe(res.sizeid);
 
