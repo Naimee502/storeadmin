@@ -188,18 +188,23 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             const product = normalizedProducts.find((p) => p.id === pid);
             const variant = product?.productvariants.find((v: any) => v.id === vid);
 
+            const salesAccountId = getUnitId(product?.salesaccountid?.id) ?? null;
+            const purchaseAccountId = getUnitId(product?.purchaseaccountid?.id) ?? null;
+            const purchaseUnitId = getUnitId(variant?.purchaseunitid) ?? null;
+
             setSelectedProduct({
               productserviceid: pid,
               variantid: vid,
               productname: product?.name || "",
-              rate: type === "sales"
-              ? 0                      
-              : Number(variant?.purchaserate ?? 0),
+              rate:
+                type === "sales"
+                  ? 0
+                  : Number(variant?.purchaserate ?? 0),
               quantity: 1,
               gst: Number(variant?.gst ?? 0),
-              salesaccountid: product?.salesaccountid?.id ?? null,
-              purchaseaccountid: product?.purchaseaccountid?.id ?? null,
-              purchaseunitid: variant?.purchaseunitid?.id ?? null,
+              salesaccountid: salesAccountId,
+              purchaseaccountid: purchaseAccountId,
+              purchaseunitid: purchaseUnitId,
             });
           }}
           options={normalizedProducts.flatMap((p) =>
