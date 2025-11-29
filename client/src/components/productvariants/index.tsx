@@ -24,41 +24,42 @@ interface ProductVariantsProps {
     isEdit?: boolean;
     isserialised?: boolean;
     navigate: (path: string) => void;
+    errors: any;
 }
 
 const LABELS: Record<string, string> = {
-  // Product/Variant basics
-  name: "Name",
-  sku: "SKU",
-  productcode: "Product Code",
-  productbarcode: "Product Barcode",
+    // Product/Variant basics
+    name: "Name",
+    sku: "SKU",
+    productcode: "Product Code",
+    productbarcode: "Product Barcode",
 
-  // Batch / Manufacturing
-  batchnumber: "Batch Number",
-  manufacturedate: "Manufacture Date",
-  expirydate: "Expiry Date",
-  hsncode: "HSN Code",
-  gst: "GST",
+    // Batch / Manufacturing
+    batchnumber: "Batch Number",
+    manufacturedate: "Manufacture Date",
+    expirydate: "Expiry Date",
+    hsncode: "HSN Code",
+    gst: "GST",
 
-  // Stock fields
-  openingstock: "Opening Stock",
-  currentstock: "Current Stock",
-  closingstock: "Closing Stock",
-  minimumstock: "Minimum Stock",
-  reorderlevel: "Reorder Level",
-  racklocation: "Rack Location",
-  openingstockamount: "Opening Stock Amount",
-  currentstockamount: "Current Stock Amount",
-  closingstockamount: "Closing Stock Amount",
+    // Stock fields
+    openingstock: "Opening Stock",
+    currentstock: "Current Stock",
+    closingstock: "Closing Stock",
+    minimumstock: "Minimum Stock",
+    reorderlevel: "Reorder Level",
+    racklocation: "Rack Location",
+    openingstockamount: "Opening Stock Amount",
+    currentstockamount: "Current Stock Amount",
+    closingstockamount: "Closing Stock Amount",
 
-  // Line item fields
-  quantity: "Quantity",
-  unitid: "Unit",
-  mrp: "MRP",
-  salesrate: "Sales Rate",
-  discount: "Discount",
-  discounttype: "Discount Type",
-  offerprice: "Offer Price",
+    // Line item fields
+    quantity: "Quantity",
+    unitid: "Unit",
+    mrp: "MRP",
+    salesrate: "Sales Rate",
+    discount: "Discount",
+    discounttype: "Discount Type",
+    offerprice: "Offer Price",
 };
 
 const regionOptions = [
@@ -123,6 +124,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     isEdit = false,
     isserialised = false,
     navigate,
+    errors
 }) => (
     <>
         {formData.productvariants.map((variant, index) => (
@@ -149,7 +151,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     ].map((field) => (
                         <FormField
                             key={field}
-                            label={LABELS[field.toLowerCase()] || field}  
+                            label={LABELS[field.toLowerCase()] || field}
                             placeholder={field}
                             name={`productvariants.${index}.${field}`}
                             type={[
@@ -185,6 +187,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         onChange={handleChange}
                         searchable
                         addable onAddNew={() => navigate("/units")}
+                        error={errors?.productvariants?.[index]?.baseunitid}
                     />
 
                     <FormField
@@ -197,6 +200,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         onChange={handleChange}
                         searchable
                         addable onAddNew={() => navigate("/units")}
+                        error={errors?.productvariants?.[index]?.purchaseunitid}
                     />
 
                     <FormField
@@ -206,6 +210,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         type="number"
                         value={variant.purchaserate}
                         onChange={handleChange}
+                        error={errors?.productvariants?.[index]?.purchaserate}
                     />
                 </div>
 
@@ -224,6 +229,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     onChange={handleChange}
                                     searchable
                                     addable onAddNew={() => navigate("/units")}
+                                    error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.unitid}
                                 />
                                 <FormField
                                     label="Factor"
@@ -231,6 +237,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     type="number"
                                     value={conv.factor}
                                     onChange={handleChange}
+                                    error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.factor}
                                 />
                                 <button
                                     type="button"
@@ -254,6 +261,11 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                 {/* Pricing & Unit Prices */}
                 <div className="border-t pt-4 space-y-2 pb-4">
                     <h4 className="font-semibold">Pricing</h4>
+                    {errors[`variant_${index}_pricing`] && (
+                        <p className="text-red-500 text-sm mb-2">
+                            {errors[`variant_${index}_pricing`]}
+                        </p>
+                    )}
                     {(variant.pricing || []).map((price, priceIndex) => (
                         <div key={priceIndex} className="border p-2 rounded relative bg-gray-50 space-y-2">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -289,7 +301,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
                                         <FormField
                                             key={f}
-                                            label={LABELS[f.toLowerCase()] || f} 
+                                            label={LABELS[f.toLowerCase()] || f}
                                             name={`productvariants.${index}.pricing.${priceIndex}.unitprices.${upIndex}.${f}`}
                                             type={
                                                 f === "unitid" ? "select" :
@@ -309,6 +321,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                             onChange={handleChange}
                                             searchable={f === "unitid" || f === "discounttype"}
                                             addable onAddNew={() => navigate("/units")}
+                                            error={errors?.productvariants?.[index]?.pricing?.[priceIndex]?.unitprices?.[upIndex]?.[f]}
                                         />
                                     ))}
                                     <button

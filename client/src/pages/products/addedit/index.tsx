@@ -47,6 +47,9 @@ const AddEditProductService = () => {
   const { uploadImageMutation } = useImageUpload();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const [errors, setErrors] = useState<any>({});
+  const [isFormValid, setIsFormValid] = useState(false);
+
   const [formData, setFormData] = useState<any>({
   adminid: adminId,
   branchid: branchId,
@@ -626,6 +629,134 @@ const AddEditProductService = () => {
     return data?.uploadImage?.url || null;
   };
 
+  const validateForm = () => {
+    const newErrors: any = {};
+
+    // === PRODUCT TOP LEVEL ===
+    if (!formData.name?.trim()) newErrors.name = "Product name is required";
+
+    if (!formData.categoryid) newErrors.categoryid = "Category is required";
+    if (!formData.salesaccountid) newErrors.salesaccountid = "Sales account is required";
+    if (!formData.purchaseaccountid) newErrors.purchaseaccountid = "Purchase account is required";
+
+    // === PRODUCT VARIANTS ===
+    if (!formData.isservice) {
+
+      if (!formData.productvariants || formData.productvariants.length === 0) {
+        newErrors.productvariants = "At least 1 product variant is required";
+      } else {
+
+        newErrors.productvariants = [];
+
+        formData.productvariants.forEach((variant: any, index: number) => {
+          const variantErrors: any = {};
+
+          // Base Unit
+          if (!variant.baseunitid) {
+            variantErrors.baseunitid = "Base unit is required";
+          }
+
+          // Purchase Unit
+          if (!variant.purchaseunitid) {
+            variantErrors.purchaseunitid = "Purchase unit is required";
+          }
+
+          // Purchase rate
+          if (!variant.purchaserate || Number(variant.purchaserate) <= 0) {
+            variantErrors.purchaserate = "Purchase rate is required";
+          }
+
+          // Unit Conversion
+          if (!variant.unitconversions || variant.unitconversions.length === 0) {
+            variantErrors.unitconversions = "At least 1 unit conversion is required";
+          } else {
+            variantErrors.unitconversions = [];
+
+            variant.unitconversions.forEach((conv, convIndex) => {
+              const convErrors: any = {};
+
+              if (!conv.unitid) {
+                convErrors.unitid = "Unit is required";
+              }
+
+              if (!conv.factor || Number(conv.factor) <= 0) {
+                convErrors.factor = "Factor must be greater than 0";
+              }
+
+              if (Object.keys(convErrors).length > 0) {
+                variantErrors.unitconversions[convIndex] = convErrors;
+              }
+            });
+
+            // Clean empty array
+            if (variantErrors.unitconversions.length === 0) {
+              delete variantErrors.unitconversions;
+            }
+          }
+
+          // Pricing
+          if (!variant.pricing || variant.pricing.length === 0) {
+            variantErrors.pricing = "At least 1 pricing set is required";
+          } else {
+            variantErrors.pricing = [];
+
+            variant.pricing.forEach((price, priceIndex) => {
+              const priceErrors: any = {};
+
+              // Validate each unit price
+              if (!price.unitprices || price.unitprices.length === 0) {
+                priceErrors.unitprices = "At least 1 unit price is required";
+              } else {
+                priceErrors.unitprices = [];
+
+                price.unitprices.forEach((up, upIndex) => {
+                  const upErrors: any = {};
+
+                  if (!up.quantity || Number(up.quantity) <= 0) {
+                    upErrors.quantity = "Quantity is required";
+                  }
+
+                  if (!up.unitid) {
+                    upErrors.unitid = "Unit is required";
+                  }
+
+                  if (!up.salesrate || Number(up.salesrate) <= 0) {
+                    upErrors.salesrate = "Sales rate is required";
+                  }
+
+                  // Only push if errors exist
+                  if (Object.keys(upErrors).length > 0) {
+                    priceErrors.unitprices[upIndex] = upErrors;
+                  }
+                });
+
+                // Remove empty array
+                if (priceErrors.unitprices.length === 0) delete priceErrors.unitprices;
+              }
+
+              // Only push if errors exist
+              if (Object.keys(priceErrors).length > 0) {
+                variantErrors.pricing[priceIndex] = priceErrors;
+              }
+            });
+
+            // Remove empty array
+            if (variantErrors.pricing.length === 0) delete variantErrors.pricing;
+          }
+
+          // Only push errors if any exist
+          if (Object.keys(variantErrors).length > 0) {
+            newErrors.productvariants[index] = variantErrors;
+          }
+        });
+      }
+    }
+
+    setErrors(newErrors);
+    setIsFormValid(Object.keys(newErrors).length === 0);
+  };
+
+
   const generatePayload = async (isUpdate = false): Promise<any> => {
     const uploadedUrl = selectedFile ? await uploadImage() : formData.imageurl;
 
@@ -761,6 +892,18 @@ const AddEditProductService = () => {
   };
 
   const handleSubmit = async () => {
+    validateForm(); 
+
+    if (!isFormValid) {
+      dispatch(
+        showMessage({
+          message: "Please fix the errors before submitting.",
+          type: "error",
+        })
+      );
+      return;
+    }
+
     const payload = await generatePayload(isEdit);
     console.log("Generated Payload:", JSON.stringify(payload, null, 2));
     try {
@@ -803,9 +946,9 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">General Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange} />
+              <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>
               <FormField label="Image" name="imageurl" type="file" accept="image/*" onChange={handleImageChange} previewUrl={formData.imageurl} />
-              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/categories")}/>
+              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/categories")} error={errors.categoryid}/>
               <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/subcategories")}/>
               <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => navigate("/brands")}/>
               <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => navigate("/productgroups")}/>
@@ -857,8 +1000,8 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
-              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>
+              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")} error={errors.salesaccountid}/>
+              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")} error={errors.purchaseaccountid}/>
               {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>)}
             </div>
           </fieldset>
@@ -896,6 +1039,7 @@ const AddEditProductService = () => {
             isEdit={isEdit}
             isserialised={formData.isserialised}
             navigate={navigate}
+            errors={errors}
           />
         )}
       </div>
@@ -905,7 +1049,7 @@ const AddEditProductService = () => {
         <Button variant="outline" onClick={() => navigate('/products')}>
           Cancel
         </Button>
-        <Button variant="outline" onClick={handleSubmit}>
+        <Button variant="outline" onClick={handleSubmit} disabled={!isFormValid}>
           {isEdit ? 'Update Product Service' : 'Add Product Service'}
         </Button>
       </div>

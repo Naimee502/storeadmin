@@ -160,6 +160,13 @@ const AddEditAccount = () => {
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
     if (!formValues.accountgroupid) errors.accountgroupid = "Account group required";
+    if (!formValues.state) errors.state = "State is required";
+    // Financial validations
+    if (formValues.openingbalance === "" || formValues.openingbalance === null) {
+      errors.openingbalance = "Opening balance is required";
+    } else if (isNaN(Number(formValues.openingbalance)) || Number(formValues.openingbalance) < 0) {
+      errors.openingbalance = "Opening balance must be a valid number";
+    }
     return errors;
   };
 
@@ -279,6 +286,7 @@ const AddEditAccount = () => {
                   value={formValues.state}
                   onChange={(e) => handleChange("state", e.target.value)}
                   placeholder="Select state"
+                  error={formErrors.state}
                 />
                 <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />
                 <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />
@@ -289,7 +297,7 @@ const AddEditAccount = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm sm:text-base font-medium px-2">Financial Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Opening Balance" name="openingbalance" type="number" value={formValues.openingbalance} onChange={(e) => handleChange("openingbalance", parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter opening balance" />
+                <FormField label="Opening Balance" name="openingbalance" type="number" value={formValues.openingbalance} onChange={(e) => handleChange("openingbalance", parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter opening balance" error={formErrors.openingbalance}/>
                 <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
                 <FormField label="Credit Limit" name="creditlimit" type="number" value={formValues.creditlimit} onChange={(e) => handleChange("creditlimit", parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter credit limit" />
                 <FormField label="GST Number" name="gstnumber" value={formValues.gstnumber} onChange={(e) => handleChange("gstnumber", e.target.value)} placeholder="Enter GST number" />
