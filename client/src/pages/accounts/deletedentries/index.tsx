@@ -35,21 +35,26 @@ const DeletedAccounts = () => {
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
+    { label: "Type", key: "type" }, // ✅ Added type column
     { label: "Status", key: "status" },
   ];
 
   const tableData = deletedAccounts.map((account: any, index: number) => {
-    const ledgerId = typeof account.ledgerid === "string"
-      ? account.ledgerid
-      : account.ledgerid?.id || account.ledgerid?._id;
+    const ledgerId =
+      typeof account.ledgerid === "string"
+        ? account.ledgerid
+        : account.ledgerid?.id || account.ledgerid?._id;
 
     const ledger = ledgerList.find((g) => g.id === ledgerId);
 
     return {
       ...account,
       seqNo: index + 1,
-      status: account.status ? "Active" : "Inactive",
       ledgername: ledger ? ledger.ledgername : "-",
+      type: account.type
+        ? account.type.charAt(0).toUpperCase() + account.type.slice(1) // Capitalize first letter
+        : "-", 
+      status: account.status ? "Active" : "Inactive",
     };
   });
   

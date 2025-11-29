@@ -50,20 +50,23 @@ const Accounts = () => {
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
+    { label: "Type", key: "type" }, // ✅ Added type column
     { label: "Status", key: "status" },
   ];
 
   const tableData = accountList.map((acc, index) => {
-
-    const ledgerId = typeof acc.ledgerid === "string"
-      ? acc.ledgerid
-      : acc.ledgerid?.id || acc.ledgerid?._id;
+    const ledgerId =
+      typeof acc.ledgerid === "string"
+        ? acc.ledgerid
+        : acc.ledgerid?.id || acc.ledgerid?._id;
 
     const ledger = ledgerList.find((g) => g.id === ledgerId);
+
     return {
       ...acc,
       seqNo: index + 1,
       ledgername: ledger ? ledger.ledgername : "-",
+      type: acc.type ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1) : "-", // ✅ Format nicely
       status: acc.status ? "Active" : "Inactive",
     };
   });
