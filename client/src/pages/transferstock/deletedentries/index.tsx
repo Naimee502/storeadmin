@@ -35,30 +35,53 @@ const DeletedTransferStocks = () => {
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
-    { label: "From Branch ID", key: "frombranchid" },
-    { label: "To Branch ID", key: "tobranchid" },
-    { label: "Product ID", key: "productid" },
-    { label: "Transfer Qty", key: "transferqty" },
+    { label: "From Branch", key: "frombranchid" },
+    { label: "To Branch", key: "tobranchname" },
+    { label: "Product", key: "productname" },
+    { label: "Qty", key: "transferqty" },
+    { label: "Unit", key: "transferunitname" },
     { label: "Purchase Rate", key: "purchaserate" },
-    { label: "Transfer Date", key: "transferdate" },
-    { label: "Status", key: "status" },
+    { label: "Date", key: "transferdate" },
+    {
+      label: "Status",
+      key: "status",
+      render: (value: boolean) => (value ? "Active" : "Inactive"),
+    },
   ];
 
   const tableData = transferStockList.map((stock, index) => {
     const fromBranch = branches.find((b) => b.id === stock.frombranchid);
     const toBranch = branches.find((b) => b.id === stock.tobranchid);
     const product = products.find((p) => p.id === stock.productid);
-    const variant = product?.productvariants.find((v) => v.id === stock.variantid);
+
+    // find variant
+    const variant = product?.productvariants?.find(v => v.id === stock.variantid);
+
+    // find unit name from variant.unitconversions OR baseunit
+    let unitName = "";
+    if (variant) {
+      const uc = variant.unitconversions?.find(u => {
+        const unitId = typeof u.unitid === "object" ? u.unitid.id : u.unitid;
+        return unitId === stock.transferunitid;
+      });
+
+      if (uc) {
+        unitName = typeof uc.unitid === "object" ? uc.unitid.unitname : "Unit";
+      } else if (variant.baseunitid) {
+        unitName = typeof variant.baseunitid === "object"
+          ? variant.baseunitid.unitname
+          : "Base Unit";
+      }
+    }
 
     return {
       ...stock,
       seqNo: index + 1,
       frombranchid: fromBranch?.branchname || stock.frombranchid,
-      tobranchid: toBranch?.branchname || stock.tobranchid,
-      productid: product?.name || stock.productid, // match column key
-      purchaserate: variant?.purchaserate || product?.productvariants[0]?.purchaserate,
-      transferqty: stock.transferqty,
-      transferdate: stock.transferdate,
+      tobranchname: toBranch?.branchname || stock.tobranchid,
+      productname: product?.name || stock.productid,
+      purchaserate: product?.productvariants[0]?.purchaserate,
+      transferunitname: unitName,   // ⇦ NEW FIELD
       status: stock.status ? "Active" : "Inactive",
     };
   });

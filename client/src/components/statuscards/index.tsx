@@ -118,11 +118,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       product.currentstock ||
       0;
 
-    const transferredOutQty = transfers
-      .filter((t) => t.status && t.frombranchid === product.branchid && t.productid === product.id)
-      .reduce((qty, t) => qty + (t.transferqty ?? 0), 0);
-
-    return sum + (productStock - transferredOutQty);
+    return sum + (productStock);
   }, 0);
 
   const totalOutgoingTransfer = transfers.reduce((sum, t) => {

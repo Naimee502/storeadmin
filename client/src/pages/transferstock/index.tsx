@@ -216,6 +216,7 @@ const TransferStock = () => {
     { label: "To Branch", key: "tobranchname" },
     { label: "Product", key: "productname" },
     { label: "Qty", key: "transferqty" },
+    { label: "Unit", key: "transferunitname" },
     { label: "Purchase Rate", key: "purchaserate" },
     { label: "Date", key: "transferdate" },
     {
@@ -230,6 +231,26 @@ const TransferStock = () => {
     const toBranch = branches.find((b) => b.id === stock.tobranchid);
     const product = products.find((p) => p.id === stock.productid);
 
+    // find variant
+    const variant = product?.productvariants?.find(v => v.id === stock.variantid);
+
+    // find unit name from variant.unitconversions OR baseunit
+    let unitName = "";
+    if (variant) {
+      const uc = variant.unitconversions?.find(u => {
+        const unitId = typeof u.unitid === "object" ? u.unitid.id : u.unitid;
+        return unitId === stock.transferunitid;
+      });
+
+      if (uc) {
+        unitName = typeof uc.unitid === "object" ? uc.unitid.unitname : "Unit";
+      } else if (variant.baseunitid) {
+        unitName = typeof variant.baseunitid === "object"
+          ? variant.baseunitid.unitname
+          : "Base Unit";
+      }
+    }
+
     return {
       ...stock,
       seqNo: index + 1,
@@ -237,6 +258,7 @@ const TransferStock = () => {
       tobranchname: toBranch?.branchname || stock.tobranchid,
       productname: product?.name || stock.productid,
       purchaserate: product?.productvariants[0]?.purchaserate,
+      transferunitname: unitName,   // ⇦ NEW FIELD
       status: stock.status ? "Active" : "Inactive",
     };
   });
@@ -280,7 +302,7 @@ const TransferStock = () => {
                 name="productid"
                 type="select"
                 value={selectedProductOption}
-               onChange={(e) => {
+                onChange={(e) => {
                   const [prodId, varId] = e.target.value.split("|");
 
                   // Find selected product

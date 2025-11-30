@@ -26,6 +26,7 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
     tobranchid: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
     productid: { type: Schema.Types.ObjectId, ref: 'ProductService', required: true },
     variantid: { type: Schema.Types.ObjectId },
+    transferunitid: { type: Schema.Types.ObjectId, ref: 'Unit' },
     batchnumber: { type: String },
     transferqty: { type: Number, required: true },
     transferdate: { type: String, required: true },
