@@ -2,8 +2,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_PRODUCTGROUPS = gql`
-  query GetProductGroups {
-    getProductGroups {
+  query GetProductGroups($adminId: ID) {
+    getProductGroups(adminId: $adminId) {
       id
       productgroupcode
       productgroupname
@@ -18,8 +18,8 @@ export const GET_PRODUCTGROUPS = gql`
 `;
 
 export const GET_DELETED_PRODUCTGROUPS = gql`
-  query GetDeletedProductGroups {
-    getDeletedProductGroups {
+  query GetDeletedProductGroups($adminId: ID) {
+    getDeletedProductGroups(adminId: $adminId) {
       id
       productgroupcode
       productgroupname
@@ -34,8 +34,8 @@ export const GET_DELETED_PRODUCTGROUPS = gql`
 `;
 
 export const GET_PRODUCTGROUP_BY_ID = gql`
-  query GetProductGroupById($id: ID!) {
-    getProductGroupById(id: $id) {
+  query GetProductGroupById($id: ID!, $adminId: ID) {
+    getProductGroupById(id: $id, adminId: $adminId) {
       id
       productgroupcode
       productgroupname
@@ -48,3 +48,4 @@ export const GET_PRODUCTGROUP_BY_ID = gql`
     }
   }
 `;
+

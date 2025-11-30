@@ -141,28 +141,36 @@ const AddEditPurchaseInvoice = () => {
   };
 
   useEffect(() => {
-      const productsTotalCalc = products.reduce((sum, p) => sum + (p.total || 0), 0);
+    let productsTotalCalc = 0;
+    let totalLineDiscount = 0;
+    let taxableSubtotal = 0;
+    let totalGSTAmount = 0;
+    let grandTotalCalc = 0;
 
-      const totalLineDiscount = products.reduce((sum, p) => sum + (p.discount || 0), 0);
+    products.forEach((p) => {
+      const qty = Number(p.quantity || 0);
+      const rate = Number(p.rate || 0);
+      const discount = Number(p.discount || 0);
+      const gst = Number(p.gst || 0);
 
-      const totalGSTAmount = products.reduce((sum, p) => {
-        const qty = p.quantity || 0;
-        const rate = p.rate || 0;
-        const discount = p.discount || 0;
-        const gst = p.gst || 0;
+      const lineProductTotal = qty * rate;               
+      const lineDiscount = discount * qty;              
+      const taxable = (rate - discount) * qty;         
+      const gstAmount = (taxable * gst) / 100;         
+      const lineTotal = taxable + gstAmount;
+      productsTotalCalc += lineProductTotal;           
+      totalLineDiscount += lineDiscount;               
+      taxableSubtotal += taxable;                       
+      totalGSTAmount += gstAmount;                     
+      grandTotalCalc += lineTotal;                     
+    });
 
-        const taxable = qty * rate - discount;
-        const gstAmount = (taxable * gst) / 100;
-        return sum + gstAmount;
-      }, 0);
+    setProductsTotal(productsTotalCalc);
+    setTotalDiscount(totalLineDiscount);
+    setTaxAmount(totalGSTAmount);
+    setGrandTotal(grandTotalCalc);
+  }, [products]);
 
-      const grandTotalCalc = productsTotalCalc;
-
-      setProductsTotal(productsTotalCalc);
-      setTotalDiscount(totalLineDiscount);
-      setTaxAmount(totalGSTAmount); 
-      setGrandTotal(grandTotalCalc);
-    }, [products]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};

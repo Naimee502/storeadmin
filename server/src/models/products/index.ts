@@ -146,13 +146,13 @@ const productServiceSchema = new Schema<IProductService>(
       metatitle: String,
       metadescription: String,
       keywords: [String],
-      slug: { type: String, unique: true, sparse: true },
+      slug: { type: String },
     },
     servicevariants: [
       {
         name: { type: String, required: true },
-        servicecode: { type: String, unique: true, sparse: true },
-        servicebarcode: { type: String, unique: true, sparse: true },
+        servicecode: { type: String },
+        servicebarcode: { type: String },
         servicerate: Number,
         uom: { type: String, default: "hour" },
         duration: {
@@ -180,9 +180,9 @@ const productServiceSchema = new Schema<IProductService>(
     productvariants: [
       {
         name: String,
-        sku: { type: String, unique: true, sparse: true },
-        productcode: { type: String, unique: true, sparse: true },
-        productbarcode: { type: String, unique: true, sparse: true },
+        sku: { type: String },
+        productcode: { type: String },
+        productbarcode: { type: String },
         batchnumber: String,
         manufacturedate: Date,
         expirydate: Date,
@@ -272,8 +272,23 @@ const productServiceSchema = new Schema<IProductService>(
 productServiceSchema.index({ adminid: 1, branchid: 1 });
 productServiceSchema.index({ name: 1 });
 productServiceSchema.index({ "seo.slug": 1 });
-productServiceSchema.index({ "productvariants.productbarcode": 1 });
-productServiceSchema.index({ "servicevariants.servicebarcode": 1 });
+productServiceSchema.index(
+  { adminid: 1, branchid: 1, "productvariants.productcode": 1 },
+  { unique: true, sparse: true }
+);
+productServiceSchema.index(
+  { adminid: 1, branchid: 1, "productvariants.productbarcode": 1 },
+  { unique: true, sparse: true }
+);
+
+productServiceSchema.index(
+  { adminid: 1, branchid: 1, "servicevariants.servicecode": 1 },
+  { unique: true, sparse: true }
+);
+productServiceSchema.index(
+  { adminid: 1, branchid: 1, "servicevariants.servicebarcode": 1 },
+  { unique: true, sparse: true }
+);
 
 // 🔹 Pre-save hook
 productServiceSchema.pre("save", async function (next) {
@@ -291,6 +306,8 @@ productServiceSchema.pre("save", async function (next) {
       // Auto-generate productcode (#PRD0001, #PRD0002, ...)
       if (!variant.productcode) {
         const last = await Product.findOne({
+          adminid: doc.adminid,
+          branchid: doc.branchid,
           "productvariants.productcode": /^#PRD\d{4,}$/
         }).sort({ "productvariants.productcode": -1 });
 
@@ -314,6 +331,8 @@ productServiceSchema.pre("save", async function (next) {
           const prefix = `${date}${price}`;
 
           const last = await Product.findOne({
+             adminid: doc.adminid,
+             branchid: doc.branchid,
             "productvariants.productbarcode": new RegExp(`^${prefix}`)
           }).sort({ "productvariants.productbarcode": -1 });
 
@@ -334,6 +353,8 @@ productServiceSchema.pre("save", async function (next) {
       // Auto-generate servicecode (#SVC0001, #SVC0002, ...)
       if (!variant.servicecode) {
         const last = await Product.findOne({
+          adminid: doc.adminid,
+          branchid: doc.branchid,
           "servicevariants.servicecode": /^#SVC\d{4,}$/
         }).sort({ "servicevariants.servicecode": -1 });
 
@@ -352,6 +373,8 @@ productServiceSchema.pre("save", async function (next) {
         const prefix = `${date}${rate}`;
 
         const last = await Product.findOne({
+          adminid: doc.adminid,
+          branchid: doc.branchid,
           "servicevariants.servicebarcode": new RegExp(`^${prefix}`)
         }).sort({ "servicevariants.servicebarcode": -1 });
 

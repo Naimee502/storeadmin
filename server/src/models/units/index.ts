@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const unitSchema = new mongoose.Schema(
   {
-    unitcode: { type: String, unique: true },
-    unitname: { type: String, required: true, unique: true },
+    unitcode: { type: String },
+    unitname: { type: String, required: true },
     status: Boolean,
 
     admin: {
@@ -15,12 +15,18 @@ const unitSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+unitSchema.index({ admin: 1, unitcode: 1 }, { unique: true });
+unitSchema.index({ admin: 1, unitname: 1 }, { unique: true });
+
 unitSchema.pre('save', async function (next) {
   if (!this.unitcode) {
     const Unit = mongoose.model('Unit');
-    const lastUnit = await Unit.findOne({ unitcode: { $regex: /^#UNIT\d{4}$/ } })
-      .sort({ unitcode: -1 })
-      .exec();
+    const lastUnit = await Unit.findOne({
+        admin: this.admin,
+        unitcode: { $regex: /^#UNIT\d{4}$/ }
+      })
+        .sort({ unitcode: -1 })
+        .exec();
 
     let nextNumber = 1;
     if (lastUnit?.unitcode) {

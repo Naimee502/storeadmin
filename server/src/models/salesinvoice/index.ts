@@ -61,27 +61,25 @@ function ledgerId(x: any) {
 }
 
 salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any) {
-  const branchid =
-    typeof newInv.branchid === "string"
-      ? new mongoose.Types.ObjectId(newInv.branchid)
-      : newInv.branchid;
+  const branchid = typeof newInv.branchid === "string"
+    ? new mongoose.Types.ObjectId(newInv.branchid)
+    : newInv.branchid;
 
-  if (!branchid) return;
-
-  // ========================= STOCK =========================
+  if (!branchid) return console.log("Branch ID missing");
+  
+  // ========================= STOCK ADJUSTMENT =========================
   if (!newInv.isservice) {
-
+    // Restore old stock if invoice updated
     if (oldInv) {
       for (const item of oldInv.productservice) {
         const product = await ProductService.findById(item.productserviceid);
-        if (!product) continue;
+        if (!product) {
+          console.log("Old product not found:", item.productserviceid);
+          continue;
+        }
 
         const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-        const qtyBase = convertToBaseUnit(
-          Number(item.qty) * Number(item.unitqty),
-          item.salesunitid,
-          variant
-        );
+        const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.salesunitid, variant);
 
         const stock = await ProductBranchStock.findOne({
           productid: item.productserviceid,
@@ -100,16 +98,16 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       }
     }
 
+    // Deduct new stock
     for (const item of newInv.productservice) {
       const product = await ProductService.findById(item.productserviceid);
-      if (!product) continue;
+      if (!product) {
+        console.log("New product not found:", item.productserviceid);
+        continue;
+      }
 
       const variant = product.productvariants?.find(v => String(v._id) === String(item.variantid));
-      const qtyBase = convertToBaseUnit(
-        Number(item.qty) * Number(item.unitqty),
-        item.salesunitid,
-        variant
-      );
+      const qtyBase = convertToBaseUnit(Number(item.qty) * Number(item.unitqty), item.salesunitid, variant);
 
       const stock = await ProductBranchStock.findOne({
         productid: item.productserviceid,
@@ -134,95 +132,200 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     }
   }
 
-  // ====================== JOURNAL ======================
+  console.log("===== PROCESSING JOURNAL ENTRIES START =====");
   const entries: any[] = [];
-  let totalDebit = 0;
+  let lineIndex = 1;
 
   for (const item of newInv.productservice) {
     const qty = Number(item.qty);
     const rate = Number(item.rate);
     const discount = Number(item.discount);
-    const taxable = (rate - discount) * qty;
+    const taxable = parseFloat(((rate - discount) * qty).toFixed(2));
+    const gstRate = Number(item.gst);
+    const gstAmt = parseFloat(((taxable * gstRate) / 100).toFixed(2));
 
-    const salesLedger = ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid);
-    if (salesLedger && taxable > 0) {
-      entries.push({ ledgerid: salesLedger, debit: 0, credit: taxable });
-      totalDebit += taxable;
+    // ===================== SALES LEDGER =======================
+    const salesLedger =
+      ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid);
+
+    const product = await ProductService.findById(item.productserviceid);
+    const productName = product?.name || "Unknown Product";
+    let variantName = null;
+    if (item.variantid && product?.productvariants?.length) {
+      const variant = product.productvariants.find(
+        (v:any) => v?._id.toString() === item.variantid.toString()
+      );
+      variantName = variant?.name || null;
     }
 
-    const gst = Number(item.gst);
-    if (gst > 0) {
-      const gstAmt = (taxable * gst) / 100;
-      totalDebit += gstAmt;
+    const saleRemark = variantName
+      ? `Sale of ${productName} (${variantName})`
+      : `Sale of ${productName}`;
 
-      const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newInv.adminid });
-      const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newInv.adminid });
+    if (salesLedger && taxable > 0) {
+      const creditValue = taxable;
+      entries.push({
+        ledgerid: salesLedger,
+        debit: 0,
+        credit: creditValue,
+        remarks: saleRemark,
+      });
+    }
+
+    // ===================== GST LEDGERS =========================
+    if (gstAmt > 0) {
+      const cgst = await AccountLedger.findOne({
+        ledgername: "Output CGST",
+        admin: newInv.adminid,
+      });
+
+      const sgst = await AccountLedger.findOne({
+        ledgername: "Output SGST",
+        admin: newInv.adminid,
+      });
 
       if (cgst && sgst) {
-        entries.push({ ledgerid: cgst._id, credit: gstAmt / 2, debit: 0 });
-        entries.push({ ledgerid: sgst._id, credit: gstAmt / 2, debit: 0 });
+        const splitAmount = parseFloat((gstAmt / 2).toFixed(2));
+
+        entries.push({
+          ledgerid: cgst._id,
+          debit: 0,
+          credit: splitAmount,
+          remarks: `CGST on ${productName}`,
+        });
+
+        entries.push({
+          ledgerid: sgst._id,
+          debit: 0,
+          credit: splitAmount,
+          remarks: `SGST on ${productName}`
+        });
       } else {
-        const gstAcc = await getOrCreateAccount("Output GST", "other", newInv.adminid, newInv.branchid);
-        entries.push({ ledgerid: gstAcc._id, credit: gstAmt, debit: 0 });
+        const gstAcc = await getOrCreateAccount(
+          "Output GST",
+          "other",
+          newInv.adminid,
+          newInv.branchid
+        );
+
+        if (gstAcc?._id) {
+          entries.push({
+            ledgerid: gstAcc._id,
+            debit: 0,
+            credit: gstAmt,
+            remarks: `GST on ${productName}`,
+          });
+        }
       }
     }
+
+    lineIndex++;
   }
 
+  // ===================== CUSTOMER LEDGER ==========================
   const customer = await Account.findById(newInv.partyacc).select("ledgerid");
-  if (!customer?.ledgerid) throw new Error("Customer ledger missing");
+  if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing!");
 
-  // Customer Debit total invoice amount
   entries.push({
     ledgerid: customer.ledgerid,
-    debit: newInv.totalamount,
+    debit: parseFloat(newInv.totalamount.toFixed(2)),
     credit: 0,
-    remarks: `Sales Invoice #${newInv.billnumber}`
+    remarks: `Sales Invoice #${newInv.billnumber}`,
   });
 
-  // ====================== ✅ SALESMAN COMMISSION ======================
+  // ===================== SALESMAN COMMISSION ======================
   if (newInv.salesmenid) {
-    const salesman = await SalesmenAccount.findById(newInv.salesmenid).select("ledgerid commission name");
-    if (!salesman?.ledgerid) throw new Error("Salesman ledger missing");
+    const salesman = await SalesmenAccount.findById(newInv.salesmenid).select(
+      "ledgerid commission name"
+    );
 
-    const commissionRate = Number(salesman.commission) || 0;
-    const commissionAmount = (newInv.subtotal * commissionRate) / 100;
+    if (!salesman?.ledgerid) throw new Error("❌ Salesman ledger missing");
+
+    const taxableSubtotal = newInv.productservice.reduce((sum:any, item:any) => {
+      return sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty);
+    }, 0);
+
+    const commissionAmount = parseFloat(
+      ((taxableSubtotal * Number(salesman.commission)) / 100).toFixed(2)
+    );
 
     if (commissionAmount > 0) {
-      const commissionExpenseLedger = await AccountLedger.findOne({
+      let commissionExpenseLedger = await AccountLedger.findOne({
         ledgername: "Salesman Commission Expense",
-        admin: newInv.adminid
+        admin: newInv.adminid,
       });
 
       if (!commissionExpenseLedger) {
-        throw new Error("Ledger 'Salesman Commission Expense' not found. Create it.");
+        const AccountGroup = mongoose.model("AccountGroup");
+
+        let expenseGroup = await AccountGroup.findOne({
+          accountgroupname: "Commission Expense",
+          admin: newInv.adminid,
+        });
+
+        if (!expenseGroup) {
+          expenseGroup = await AccountGroup.create({
+            admin: newInv.adminid,
+            accountgroupname: "Commission Expense",
+            category: "expenses",
+            status: true,
+          });
+        }
+
+        commissionExpenseLedger = await AccountLedger.create({
+          admin: newInv.adminid,
+          accountgroupid: expenseGroup._id,
+          ledgername: "Salesman Commission Expense",
+          openingbalance: 0,
+          openingbalancetype: "debit",
+          status: true,
+        });
       }
 
+      // Debit Expense
       entries.push({
         ledgerid: commissionExpenseLedger._id,
         debit: commissionAmount,
         credit: 0,
-        remarks: `Commission for ${salesman.name}`
+        remarks: `Commission for ${salesman.name}`,
       });
 
+      // Credit Salesman
       entries.push({
         ledgerid: salesman.ledgerid,
         debit: 0,
         credit: commissionAmount,
-        remarks: `Sales Commission`
+        remarks: `Sales Commission`,
       });
     }
   }
 
-  // ====================== CALCULATE BALANCE ======================
-  const totalDebitSum = entries.reduce((t, e) => t + (e.debit || 0), 0);
-  const totalCreditSum = entries.reduce((t, e) => t + (e.credit || 0), 0);
+  // ===================== BALANCE CHECK ======================
+  const totalDebitSum = parseFloat(
+    entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2)
+  );
+  const totalCreditSum = parseFloat(
+    entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2)
+  );
 
+  console.log("🔵 Total Debit :", totalDebitSum);
+  console.log("🔴 Total Credit:", totalCreditSum);
+
+  if (Math.abs(totalDebitSum - totalCreditSum) > 0.01) {
+    console.error("❌ Transaction not balanced!");
+    throw new Error(
+      `Transaction not balanced (Debit ${totalDebitSum} ≠ Credit ${totalCreditSum})`
+    );
+  }
+
+  // ===================== SAVE / UPDATE TRANSACTION ======================
   let invoiceTrx = await Transaction.findOne({
     "source.docmodel": "SalesInvoice",
-    "source.docid": newInv._id
+    "source.docid": newInv._id,
   });
 
   if (invoiceTrx) {
+    console.log("🔄 Updating existing transaction...");
     invoiceTrx.entries = entries;
     invoiceTrx.transactiondate = newInv.billdate;
     invoiceTrx.totaldebit = totalDebitSum;
@@ -230,7 +333,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     invoiceTrx.status = true;
     await invoiceTrx.save();
   } else {
-    await Transaction.create({
+    invoiceTrx = await Transaction.create({
       adminid: newInv.adminid,
       branchid: newInv.branchid,
       entrytype: "auto",
@@ -239,11 +342,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       narration: `Sales Invoice #${newInv.billnumber}`,
       entries,
       totaldebit: totalDebitSum,
-      totalcredit: totalCreditSum
+      totalcredit: totalCreditSum,
     });
   }
 
-  // ====================== PAYMENT ======================
+  // ====================== PAYMENT HANDLING ======================
   const payType = String(newInv.paymenttype).toLowerCase();
   const isCredit = payType === "credit";
   const isCash = payType === "cash";
@@ -256,35 +359,76 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   const oldPayment = await Payment.findOne({
     "invoices.invoiceid": invId,
-    "invoices.invoicemodel": "SalesInvoice"
+    "invoices.invoicemodel": "SalesInvoice",
   });
 
+  // ------------------------- CREDIT CASE -------------------------
   if (isCredit) {
     if (oldPayment) {
+      console.log("➡ Removing old payment and its transaction...");
       await Transaction.deleteOne({ _id: oldPayment.transactionid });
       await Payment.deleteOne({ _id: oldPayment._id });
+      console.log("✔ Old payment removed.");
     }
+
     return;
   }
 
+  // ------------------------- PAYMENT LEDGER -------------------------
   const payLedgerName = isCash ? "Cash" : "Bank Account";
-  let payLedger = await AccountLedger.findOne({ ledgername: payLedgerName, admin: newInv.adminid });
+  let payLedger = await AccountLedger.findOne({
+    ledgername: payLedgerName,
+    admin: newInv.adminid,
+  });
 
   if (!payLedger) {
-    const created = await getOrCreateAccount(payLedgerName, "other", newInv.adminid, newInv.branchid);
+    const created = await getOrCreateAccount(
+      payLedgerName,
+      "other",
+      newInv.adminid,
+      newInv.branchid
+    );
+
     payLedger = { _id: created.ledgerid } as any;
   }
 
+  // ------------------------- PAYMENT ENTRY GENERATION -------------------------
+  const payAmount = parseFloat(newInv.totalamount.toFixed(2));
   const paymentEntries = [
-    { ledgerid: payLedger?._id, debit: newInv.totalamount, credit: 0 },
-    { ledgerid: customer.ledgerid, debit: 0, credit: newInv.totalamount }
+    {
+      ledgerid: payLedger?._id,
+      debit: payAmount,
+      credit: 0,
+      remarks: `Payment received (Invoice ${newInv.billnumber})`,
+    },
+    {
+      ledgerid: customer.ledgerid,
+      debit: 0,
+      credit: payAmount,
+      remarks: `Customer payment (Invoice ${newInv.billnumber})`,
+    },
   ];
 
+  // ------------------------- BALANCE CHECK -------------------------
+  const totalDebit = paymentEntries.reduce((s, e) => s + e.debit, 0);
+  const totalCredit = paymentEntries.reduce((s, e) => s + e.credit, 0);
+
+  console.log("🔵 Payment Debit Sum:", totalDebit);
+  console.log("🔴 Payment Credit Sum:", totalCredit);
+
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    console.error("❌ PAYMENT ENTRY NOT BALANCED!");
+    throw new Error(
+      `Payment not balanced (Debit ${totalDebit} ≠ Credit ${totalCredit})`
+    );
+  }
+
+  // ------------------------- UPDATE EXISTING PAYMENT -------------------------
   if (oldPayment) {
     oldPayment.mode = newInv.paymenttype;
     oldPayment.ledgerid = customer.ledgerid;
-    oldPayment.amount = newInv.totalamount;
-    oldPayment.invoices[0].settledamount = newInv.totalamount;
+    oldPayment.amount = payAmount;
+    oldPayment.invoices[0].settledamount = payAmount;
     await oldPayment.save();
 
     await Transaction.updateOne(
@@ -292,16 +436,17 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       {
         $set: {
           entries: paymentEntries,
-          totaldebit: newInv.totalamount,
-          totalcredit: newInv.totalamount,
+          totaldebit: payAmount,
+          totalcredit: payAmount,
           transactiondate: newInv.billdate,
-          narration: `Receipt for Sales Invoice #${newInv.billnumber}`
-        }
+          narration: `Receipt for Sales Invoice #${newInv.billnumber}`,
+        },
       }
     );
     return;
   }
 
+  // ------------------------- CREATE NEW PAYMENT TRANSACTION -------------------------
   const payTrx = await Transaction.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
@@ -310,10 +455,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     transactiondate: newInv.billdate,
     narration: `Receipt for Sales Invoice #${newInv.billnumber}`,
     entries: paymentEntries,
-    totaldebit: newInv.totalamount,
-    totalcredit: newInv.totalamount
+    totaldebit: payAmount,
+    totalcredit: payAmount,
   });
 
+  // ------------------------- CREATE PAYMENT RECORD -------------------------
   await Payment.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
@@ -321,12 +467,19 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     mode: newInv.paymenttype,
     partyid: customer._id,
     ledgerid: customer.ledgerid,
-    invoices: [{ invoiceid: invId, invoicemodel: "SalesInvoice", settledamount: newInv.totalamount }],
-    amount: newInv.totalamount,
+    invoices: [
+      {
+        invoiceid: invId,
+        invoicemodel: "SalesInvoice",
+        settledamount: payAmount,
+      },
+    ],
+    amount: payAmount,
     remarks: `Receipt for Sales Invoice #${newInv.billnumber}`,
-    transactionid: payTrx._id
+    transactionid: payTrx._id,
   });
-};
+
+  };
 
 // ✅ Trigger on save
 salesInvoiceSchema.post("save", async function (doc: any, next) {

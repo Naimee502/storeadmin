@@ -87,7 +87,7 @@ AdminSchema.post("save", async function (doc, next) {
           category: g.category,
           admin: doc._id,
         });
-        await newGroup.save(); // ✅ triggers pre-save
+        await newGroup.save();
       }
       groups = await AccountGroup.find({ admin: doc._id });
     }
@@ -102,7 +102,8 @@ AdminSchema.post("save", async function (doc, next) {
         groups.map((g) => [g.accountgroupname.trim().toLowerCase(), g._id])
       );
 
-      for (const entry of defaultLedgers) {
+      for (let i = 0; i < defaultLedgers.length; i++) {
+        const entry = defaultLedgers[i];
         const groupId = groupMap[entry.group.trim().toLowerCase()] || groups[0]._id;
 
         const ledger = new AccountLedger({
@@ -112,7 +113,7 @@ AdminSchema.post("save", async function (doc, next) {
           branchid: null,
         });
 
-        await ledger.save(); // ✅ triggers auto ledgercode
+        await ledger.save();
       }
     }
 

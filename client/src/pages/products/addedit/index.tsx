@@ -380,20 +380,37 @@ const AddEditProductService = () => {
   }
   }, [productData]);
 
+  useEffect(() => {
+    const valid = isEmptyDeep(errors);
+    setIsFormValid(valid);
+  }, [errors]);
+
+  const isEmptyDeep = (obj: any): boolean => {
+    if (obj == null) return true;
+    if (Array.isArray(obj)) return obj.every(isEmptyDeep);
+    if (typeof obj === "object") return Object.values(obj).every(isEmptyDeep);
+    return false;
+  };
+
   const safeNumber = (value: any) => (value !== undefined && value !== null ? value : "");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
     const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
 
     const keys = name.split(".");
-    setFormData(prev => {
+    
+    // Update formData
+    setFormData((prev) => {
       const updated = { ...prev };
       let curr: any = updated;
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
         const nextKey = keys[i + 1];
         const isArrayIndex = nextKey !== undefined && /^\d+$/.test(nextKey);
+
         if (i === keys.length - 1) {
           curr[key] = val;
         } else {
@@ -409,6 +426,32 @@ const AddEditProductService = () => {
         }
       }
       return updated;
+    });
+
+    // Clear the corresponding error in errors
+    setErrors((prevErrors) => {
+      const updatedErrors = { ...prevErrors };
+      let currError: any = updatedErrors;
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const nextKey = keys[i + 1];
+        const isArrayIndex = nextKey !== undefined && /^\d+$/.test(nextKey);
+
+        if (i === keys.length - 1) {
+          if (currError && currError[key] !== undefined) delete currError[key];
+        } else {
+          if (currError[key] === undefined) break;
+          if (isArrayIndex) {
+            const index = parseInt(nextKey, 10);
+            if (!currError[key][index]) break;
+            currError = currError[key][index];
+            i++;
+          } else {
+            currError = currError[key];
+          }
+        }
+      }
+      return updatedErrors;
     });
   };
 
@@ -634,128 +677,83 @@ const AddEditProductService = () => {
 
     // === PRODUCT TOP LEVEL ===
     if (!formData.name?.trim()) newErrors.name = "Product name is required";
-
     if (!formData.categoryid) newErrors.categoryid = "Category is required";
     if (!formData.salesaccountid) newErrors.salesaccountid = "Sales account is required";
     if (!formData.purchaseaccountid) newErrors.purchaseaccountid = "Purchase account is required";
 
     // === PRODUCT VARIANTS ===
     if (!formData.isservice) {
-
       if (!formData.productvariants || formData.productvariants.length === 0) {
         newErrors.productvariants = "At least 1 product variant is required";
       } else {
+        const variantErrorsArray: any[] = [];
 
-        newErrors.productvariants = [];
-
-        formData.productvariants.forEach((variant: any, index: number) => {
+        formData.productvariants.forEach((variant: any) => {
           const variantErrors: any = {};
 
           // Base Unit
-          if (!variant.baseunitid) {
-            variantErrors.baseunitid = "Base unit is required";
-          }
+          if (!variant.baseunitid) variantErrors.baseunitid = "Base unit is required";
 
           // Purchase Unit
-          if (!variant.purchaseunitid) {
-            variantErrors.purchaseunitid = "Purchase unit is required";
-          }
+          if (!variant.purchaseunitid) variantErrors.purchaseunitid = "Purchase unit is required";
 
-          // Purchase rate
-          if (!variant.purchaserate || Number(variant.purchaserate) <= 0) {
-            variantErrors.purchaserate = "Purchase rate is required";
-          }
+          // Purchase Rate
+          if (!variant.purchaserate || Number(variant.purchaserate) <= 0)
+            variantErrors.purchaserate = "Purchase rate must be greater than 0";
 
-          // Unit Conversion
+          // Unit Conversions
           if (!variant.unitconversions || variant.unitconversions.length === 0) {
             variantErrors.unitconversions = "At least 1 unit conversion is required";
           } else {
-            variantErrors.unitconversions = [];
-
-            variant.unitconversions.forEach((conv, convIndex) => {
+            const unitConvErrors: any[] = [];
+            variant.unitconversions.forEach((conv: any) => {
               const convErrors: any = {};
-
-              if (!conv.unitid) {
-                convErrors.unitid = "Unit is required";
-              }
-
-              if (!conv.factor || Number(conv.factor) <= 0) {
+              if (!conv.unitid) convErrors.unitid = "Unit is required";
+              if (!conv.factor || Number(conv.factor) <= 0)
                 convErrors.factor = "Factor must be greater than 0";
-              }
-
-              if (Object.keys(convErrors).length > 0) {
-                variantErrors.unitconversions[convIndex] = convErrors;
-              }
+              if (Object.keys(convErrors).length > 0) unitConvErrors.push(convErrors);
             });
-
-            // Clean empty array
-            if (variantErrors.unitconversions.length === 0) {
-              delete variantErrors.unitconversions;
-            }
+            if (unitConvErrors.length > 0) variantErrors.unitconversions = unitConvErrors;
           }
 
           // Pricing
           if (!variant.pricing || variant.pricing.length === 0) {
             variantErrors.pricing = "At least 1 pricing set is required";
           } else {
-            variantErrors.pricing = [];
-
-            variant.pricing.forEach((price, priceIndex) => {
+            const pricingErrors: any[] = [];
+            variant.pricing.forEach((price: any) => {
               const priceErrors: any = {};
 
-              // Validate each unit price
               if (!price.unitprices || price.unitprices.length === 0) {
                 priceErrors.unitprices = "At least 1 unit price is required";
               } else {
-                priceErrors.unitprices = [];
-
-                price.unitprices.forEach((up, upIndex) => {
+                const unitPriceErrors: any[] = [];
+                price.unitprices.forEach((up: any) => {
                   const upErrors: any = {};
-
-                  if (!up.quantity || Number(up.quantity) <= 0) {
-                    upErrors.quantity = "Quantity is required";
-                  }
-
-                  if (!up.unitid) {
-                    upErrors.unitid = "Unit is required";
-                  }
-
-                  if (!up.salesrate || Number(up.salesrate) <= 0) {
-                    upErrors.salesrate = "Sales rate is required";
-                  }
-
-                  // Only push if errors exist
-                  if (Object.keys(upErrors).length > 0) {
-                    priceErrors.unitprices[upIndex] = upErrors;
-                  }
+                  if (!up.unitid) upErrors.unitid = "Unit is required";
+                  if (!up.quantity || Number(up.quantity) <= 0)
+                    upErrors.quantity = "Quantity must be greater than 0";
+                  if (!up.salesrate || Number(up.salesrate) <= 0)
+                    upErrors.salesrate = "Sales rate must be greater than 0";
+                  if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
                 });
-
-                // Remove empty array
-                if (priceErrors.unitprices.length === 0) delete priceErrors.unitprices;
+                if (unitPriceErrors.length > 0) priceErrors.unitprices = unitPriceErrors;
               }
 
-              // Only push if errors exist
-              if (Object.keys(priceErrors).length > 0) {
-                variantErrors.pricing[priceIndex] = priceErrors;
-              }
+              if (Object.keys(priceErrors).length > 0) pricingErrors.push(priceErrors);
             });
-
-            // Remove empty array
-            if (variantErrors.pricing.length === 0) delete variantErrors.pricing;
+            if (pricingErrors.length > 0) variantErrors.pricing = pricingErrors;
           }
 
-          // Only push errors if any exist
-          if (Object.keys(variantErrors).length > 0) {
-            newErrors.productvariants[index] = variantErrors;
-          }
+          if (Object.keys(variantErrors).length > 0) variantErrorsArray.push(variantErrors);
         });
+
+        if (variantErrorsArray.length > 0) newErrors.productvariants = variantErrorsArray;
       }
     }
 
     setErrors(newErrors);
-    setIsFormValid(Object.keys(newErrors).length === 0);
   };
-
 
   const generatePayload = async (isUpdate = false): Promise<any> => {
     const uploadedUrl = selectedFile ? await uploadImage() : formData.imageurl;
@@ -890,6 +888,8 @@ const AddEditProductService = () => {
     }
     return obj;
   };
+
+  
 
   const handleSubmit = async () => {
     validateForm(); 

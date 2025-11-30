@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client';
 
 export const GET_ACCOUNTGROUPS = gql`
-  query GetAccountGroups {
-    getAccountGroups {
+  query GetAccountGroups($adminId: ID) {
+    getAccountGroups(adminId: $adminId) {
       id
       accountgroupcode
       accountgroupname
@@ -18,8 +18,8 @@ export const GET_ACCOUNTGROUPS = gql`
 `;
 
 export const GET_DELETED_ACCOUNTGROUPS = gql`
-  query GetDeletedAccountGroups {
-    getDeletedAccountGroups {
+  query GetDeletedAccountGroups($adminId: ID) {
+    getDeletedAccountGroups(adminId: $adminId) {
       id
       accountgroupcode
       accountgroupname

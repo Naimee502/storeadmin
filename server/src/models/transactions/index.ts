@@ -5,8 +5,7 @@ const transactionSchema = new mongoose.Schema(
     adminid: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
     branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
 
-    // Unique transaction code (voucher no)
-    transactioncode: { type: String, unique: true, sparse: true },
+    transactioncode: { type: String },
 
     entrytype: { type: String, enum: ["auto", "manual"], default: "auto" },
 
@@ -43,34 +42,51 @@ const transactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure balanced transaction
+/* ===========================================================
+   FIXED: Balance Check With Proper Rounding + Correct Variables
+   =========================================================== */
 transactionSchema.pre("save", function (next) {
-  const totalDebit = (this.entries || []).reduce((sum: number, e: any) => sum + (Number(e.debit) || 0), 0);
-  const totalCredit = (this.entries || []).reduce((sum: number, e: any) => sum + (Number(e.credit) || 0), 0);
+  const totalDebit = parseFloat(
+    (this.entries || [])
+      .reduce((sum, e) => sum + (Number(e.debit) || 0), 0)
+      .toFixed(2)
+  );
+
+  const totalCredit = parseFloat(
+    (this.entries || [])
+      .reduce((sum, e) => sum + (Number(e.credit) || 0), 0)
+      .toFixed(2)
+  );
+
   this.totaldebit = totalDebit;
   this.totalcredit = totalCredit;
-  if (totalDebit !== totalCredit) {
-    return next(new Error("Transaction not balanced (Debit ≠ Credit)"));
+
+  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    console.error("Transaction not balanced!");
+    throw new Error(`Transaction not balanced (Debit ${totalDebit} ≠ Credit ${totalCredit})`);
   }
+
   next();
 });
 
-// Auto-generate transactioncode before saving and scope to admin
+/* ===========================================================
+   Auto-generate transactioncode (#TRX0001, #TRX0002...)
+   =========================================================== */
 transactionSchema.pre("save", async function (next) {
   if (!this.transactioncode) {
     const Transaction = mongoose.model("Transaction");
 
-    // Search last transaction for the same admin (and optionally branch if you want branch-scoped codes)
-    const query: any = {
+    const lastTransaction = await Transaction.findOne({
       adminid: this.adminid,
+      branchid: this.branchid,
       transactioncode: { $regex: /^#TRX\d{4}$/ },
-    };
-
-    const lastTransaction = await Transaction.findOne(query).sort({ transactioncode: -1 }).exec();
+    })
+      .sort({ transactioncode: -1 })
+      .exec();
 
     let nextNumber = 1;
     if (lastTransaction?.transactioncode) {
-      const lastNumber = parseInt(String(lastTransaction.transactioncode).replace("#TRX", ""), 10);
+      const lastNumber = parseInt(lastTransaction.transactioncode.replace("#TRX", ""), 10);
       if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
     }
 
@@ -80,7 +96,9 @@ transactionSchema.pre("save", async function (next) {
   next();
 });
 
-// optional: index to speed admin scoped lookups
-transactionSchema.index({ adminid: 1, transactioncode: 1 });
+transactionSchema.index(
+  { adminid: 1, branchid: 1, transactioncode: 1 },
+  { unique: true }
+);
 
 export const Transaction = mongoose.model("Transaction", transactionSchema);

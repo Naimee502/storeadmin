@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const accountGroupSchema = new mongoose.Schema(
   {
-    accountgroupcode: { type: String, unique: true },
+    accountgroupcode: { type: String },
     accountgroupname: { type: String, required: true },
     category: {
       type: String,
@@ -19,13 +19,19 @@ const accountGroupSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+accountGroupSchema.index({ admin: 1, accountgroupcode: 1 }, { unique: true });
+accountGroupSchema.index({ admin: 1, accountgroupname: 1,  }, { unique: true });
+
 // Auto-generate accountgroupcode before saving
 accountGroupSchema.pre('save', async function (next) {
   if (!this.accountgroupcode) {
     const AccountGroup = mongoose.model('AccountGroup');
-    const lastGroup = await AccountGroup.findOne({ accountgroupcode: { $regex: /^#ACCG\d{4}$/ } })
-      .sort({ accountgroupcode: -1 })
-      .exec();
+    const lastGroup = await AccountGroup.findOne({
+        admin: this.admin,
+        accountgroupcode: { $regex: /^#ACCG\d{4}$/ }
+      })
+        .sort({ accountgroupcode: -1 })
+        .exec();
 
     let nextNumber = 1;
     if (lastGroup?.accountgroupcode) {

@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const brandSchema = new mongoose.Schema(
   {
-    brandcode: { type: String, unique: true },
-    brandname: { type: String, required: true, unique: true },
+    brandcode: { type: String },
+    brandname: { type: String, required: true },
     status: Boolean,
 
     admin: {
@@ -15,12 +15,16 @@ const brandSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+brandSchema.index({ admin: 1, brandcode: 1 }, { unique: true });
+brandSchema.index({ admin: 1, brandname: 1 }, { unique: true });
+
 brandSchema.pre('save', async function (next) {
   if (!this.brandcode) {
     const Brand = mongoose.model('Brand');
-    const lastBrand = await Brand.findOne({ brandcode: { $regex: /^#BRND\d{4}$/ } })
-      .sort({ brandcode: -1 })
-      .exec();
+    const lastBrand = await Brand.findOne({
+      admin: this.admin,                    
+      brandcode: { $regex: /^#BRND\d{4}$/ }
+    }).sort({ brandcode: -1 }).exec();
 
     let nextNumber = 1;
     if (lastBrand?.brandcode) {

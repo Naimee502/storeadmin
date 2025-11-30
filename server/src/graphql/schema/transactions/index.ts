@@ -8,7 +8,7 @@ export const transactionTypeDefs = gql`
 
   # Entry Line Item
   type TransactionEntry {
-    ledgerid: LedgerRef!      
+    ledgerid: LedgerRef      
     debit: Float
     credit: Float
     productserviceid: ID
@@ -17,7 +17,7 @@ export const transactionTypeDefs = gql`
   }
 
   input TransactionEntryInput {
-    ledgerid: ID!            
+    ledgerid: ID           
     debit: Float
     credit: Float
     productserviceid: ID

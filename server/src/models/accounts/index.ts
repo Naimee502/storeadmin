@@ -14,8 +14,7 @@ const accountSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Classification
-    name: { type: String, required: true }, // Party Name
+    name: { type: String, required: true }, 
 
     type: {
       type: String,
@@ -51,7 +50,7 @@ const accountSchema = new mongoose.Schema(
     },
 
     // Identity & Contact
-    accountcode: { type: String, unique: true, sparse: true },
+    accountcode: { type: String },
     mobile: { type: String },
     email: { type: String },
     gstnumber: { type: String },
@@ -122,38 +121,81 @@ const accountSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+accountSchema.index({ admin: 1, accountcode: 1 }, { unique: true });
+
+// ------------------ PRE SAVE HOOK ------------------
 accountSchema.pre('save', async function (next) {
-  const Account = mongoose.model('Account');
   const AccountLedger = mongoose.model('AccountLedger');
 
-  // ✅ Generate account code only when new
-  if (this.isNew && !this.accountcode) {
-    const lastAccount = await Account.findOne({
-      accountcode: { $regex: /^#ACC\d{4}$/ }
-    }).sort({ accountcode: -1 });
+  // Handle new account creation
+  if (this.isNew) {
+    // Generate account code
+    if (!this.accountcode) {
+      const Account = mongoose.model('Account');
+      const lastAccount = await Account.findOne({
+        admin: this.admin,
+        accountcode: { $regex: /^#ACC\d{4}$/ },
+      }).sort({ accountcode: -1 });
 
-    let nextNumber = 1;
-    if (lastAccount?.accountcode) {
-      const lastNumber = parseInt(lastAccount.accountcode.replace('#ACC', ''), 10);
-      nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
+      let nextNumber = 1;
+      if (lastAccount?.accountcode) {
+        const lastNumber = parseInt(lastAccount.accountcode.replace('#ACC', ''), 10);
+        nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
+      }
+
+      this.accountcode = `#ACC${String(nextNumber).padStart(4, '0')}`;
     }
 
-    this.accountcode = `#ACC${String(nextNumber).padStart(4, '0')}`;
+    // Create ledger
+    if (!this.ledgerid) {
+      const ledger = await AccountLedger.create({
+        admin: this.admin,
+        accountid: this._id,
+        accountgroupid: this.accountgroupid,
+        ledgername: `${this.name} - ${this.accountcode}`,
+        openingbalance: this.openingbalance,
+        openingbalancetype: this.openingbalancetype,
+        status: true,
+      });
+
+      this.ledgerid = ledger._id;
+    }
   }
 
-  // ✅ Only auto-create ledger when new account is created
-  if (this.isNew && !this.ledgerid) {
-    const ledger = await AccountLedger.create({
-      admin: this.admin, // ✅ correct field name
-      accountid: this._id,
-      accountgroupid: this.accountgroupid, // ✅ required field
-      ledgername: `${this.name} - ${this.accountcode}`, // ✅ required field
-      openingbalance: this.openingbalance,
-      openingbalancetype: this.openingbalancetype,
-      status: true
-    });
+  // Update ledger name if account name changed
+  if (!this.isNew && this.isModified('name') && this.ledgerid) {
+    await AccountLedger.updateOne(
+      { _id: this.ledgerid },
+      { $set: { ledgername: `${this.name} - ${this.accountcode}` } }
+    );
+  }
 
-    this.ledgerid = ledger._id;
+  next();
+});
+
+// ------------------ PRE FINDONEANDUPDATE HOOK ------------------
+accountSchema.pre('findOneAndUpdate', async function (next) {
+  const update = this.getUpdate() as mongoose.UpdateQuery<any> | undefined;
+  if (!update) return next();
+
+  const AccountLedger = mongoose.model('AccountLedger');
+
+  let newName: string | undefined;
+
+  if ('$set' in update && typeof update.$set?.name === 'string') {
+    newName = update.$set.name;
+  } else if (typeof update.name === 'string') {
+    newName = update.name;
+  }
+
+  if (newName) {
+    const doc = await this.model.findOne(this.getQuery());
+    if (doc && doc.ledgerid) {
+      await AccountLedger.updateOne(
+        { _id: doc.ledgerid },
+        { $set: { ledgername: `${newName} - ${doc.accountcode}` } }
+      );
+    }
   }
 
   next();

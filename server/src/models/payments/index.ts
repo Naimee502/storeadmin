@@ -5,7 +5,7 @@ const paymentSchema = new mongoose.Schema(
     adminid: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
     branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
 
-    paymentcode: { type: String, unique: true, sparse: true },
+    paymentcode: { type: String },
 
     paymentdate: { type: Date, default: Date.now },
 
@@ -43,6 +43,8 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+paymentSchema.index({ adminid: 1, branchid: 1, paymentcode: 1 }, { unique: true });
+
 // Auto-generate paymentcode before saving and scope to admin
 paymentSchema.pre("save", async function (next) {
   if (!this.paymentcode) {
@@ -50,17 +52,16 @@ paymentSchema.pre("save", async function (next) {
 
     const query: any = {
       adminid: this.adminid,
+      branchid: this.branchid,
       paymentcode: { $regex: /^#PAY\d{4}$/ },
     };
 
     const lastPayment = await Payment.findOne(query).sort({ paymentcode: -1 }).exec();
-
     let nextNumber = 1;
     if (lastPayment?.paymentcode) {
       const lastNumber = parseInt(String(lastPayment.paymentcode).replace("#PAY", ""), 10);
       if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
     }
-
     this.paymentcode = `#PAY${nextNumber.toString().padStart(4, "0")}`;
   }
   next();

@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const subCategorySchema = new mongoose.Schema(
   {
-    subcategorycode: { type: String, unique: true },
-    subcategoryname: { type: String, required: true, unique: true },
+    subcategorycode: { type: String },
+    subcategoryname: { type: String, required: true },
     status: { type: Boolean, default: true },
 
     // Link to parent Category
@@ -23,12 +23,18 @@ const subCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+subCategorySchema.index({ admin: 1, subcategorycode: 1 }, { unique: true });
+subCategorySchema.index({ admin: 1, subcategoryname: 1 }, { unique: true });
+
 // Auto-generate subcategory code
 subCategorySchema.pre('save', async function (next) {
   if (!this.subcategorycode) {
     const SubCategory = mongoose.model('SubCategory');
 
-    const lastSubCategory = await SubCategory.findOne({ subcategorycode: { $regex: /^#SUBC\d{4}$/ } })
+    const lastSubCategory = await SubCategory.findOne({
+        admin: this.admin,
+        subcategorycode: { $regex: /^#SUBC\d{4}$/ }
+      })
       .sort({ subcategorycode: -1 })
       .exec();
 

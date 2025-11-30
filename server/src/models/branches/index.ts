@@ -4,7 +4,7 @@ import { ProductService } from '../products';
 import { convertToBaseUnit } from '../../utils/unitconversation';
 
 const branchSchema = new mongoose.Schema({
-  branchcode: { type: String, unique: true },
+  branchcode: { type: String },
   branchname: String,
   mobile: { type: String, unique: true },  
   password: String,
@@ -25,22 +25,43 @@ const branchSchema = new mongoose.Schema({
   },  
 }, { timestamps: true });
 
+branchSchema.index({ admin: 1, branchcode: 1 }, { unique: true });
+branchSchema.index({ admin: 1, mobile: 1 }, { unique: true });
+branchSchema.index({ admin: 1, email: 1 }, { unique: true });
+
 branchSchema.pre('save', async function (next) {
-  if (!this.branchcode) {
+  try {
     const Branch = mongoose.model('Branch');
-    const lastBranch = await Branch.findOne({ branchcode: { $regex: /^#BRC\d{4}$/ } })
-      .sort({ branchcode: -1 })
-      .exec();
-    let nextNumber = 1;
-    if (lastBranch && lastBranch.branchcode) {
-      const lastNumber = parseInt(lastBranch.branchcode.replace('#BRC', ''), 10);
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
+
+    // Check mobile/email uniqueness for this admin only
+    const exists = await Branch.findOne({
+      admin: this.admin,
+      $or: [{ mobile: this.mobile }, { email: this.email }]
+    });
+
+    if (exists && exists._id.toString() !== this._id.toString()) {
+      throw new Error(`Branch with this mobile or email already exists for this admin.`);
     }
-    this.branchcode = `#BRC${nextNumber.toString().padStart(4, '0')}`;
+
+    // Auto-generate branch code
+    if (!this.branchcode) {
+      const lastBranch = await Branch.findOne({
+        admin: this.admin,
+        branchcode: { $regex: /^#BRC\d{4}$/ }
+      }).sort({ branchcode: -1 }).exec();
+
+      let nextNumber = 1;
+      if (lastBranch?.branchcode) {
+        const lastNumber = parseInt(lastBranch.branchcode.replace('#BRC', ''), 10);
+        if (!isNaN(lastNumber)) nextNumber = lastNumber + 1;
+      }
+      this.branchcode = `#BRC${nextNumber.toString().padStart(4, '0')}`;
+    }
+
+    next();
+  } catch (err:any) {
+    next(err);
   }
-  next();
 });
 
 // Helper to safely get purchase rate

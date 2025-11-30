@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const accountLedgerSchema = new mongoose.Schema(
   {
-    ledgercode: { type: String, unique: true, sparse: true },
+    ledgercode: { type: String }, 
     ledgername: { type: String, required: true, trim: true },
 
     accountgroupid: {
@@ -37,16 +37,15 @@ const accountLedgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevent duplicate ledger name under same admin
-accountLedgerSchema.index({ ledgername: 1, admin: 1 }, { unique: true });
+accountLedgerSchema.index({ admin: 1, ledgercode: 1 }, { unique: true });
+accountLedgerSchema.index({ admin: 1, ledgername: 1,  }, { unique: true });
 
-// Auto Ledger Code
-// Auto Ledger Code
+// Auto Ledger Code per admin
 accountLedgerSchema.pre("save", async function (next) {
   if (!this.ledgercode) {
     const Ledger = mongoose.model("AccountLedger");
 
-    // Find last ledger only for the same admin
+    // Find last ledger for this admin
     const lastLedger = await Ledger.findOne({
       admin: this.admin,
       ledgercode: { $regex: /^#LEDG\d{4}$/ },

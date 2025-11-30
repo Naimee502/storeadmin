@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const sizeSchema = new mongoose.Schema(
   {
-    sizecode: { type: String, unique: true },
-    sizename: { type: String, required: true, unique: true },
+    sizecode: { type: String },
+    sizename: { type: String, required: true },
     status: Boolean,
 
     admin: {
@@ -15,12 +15,16 @@ const sizeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+sizeSchema.index({ admin: 1, sizecode: 1 }, { unique: true });
+sizeSchema.index({ admin: 1, sizename: 1 }, { unique: true });
+
 sizeSchema.pre('save', async function (next) {
   if (!this.sizecode) {
     const Size = mongoose.model('Size');
-    const lastSize = await Size.findOne({ sizecode: { $regex: /^#SIZE\d{4}$/ } })
-      .sort({ sizecode: -1 })
-      .exec();
+    const lastSize = await Size.findOne({
+        admin: this.admin,
+        sizecode: { $regex: /^#SIZE\d{4}$/ }
+      }).sort({ sizecode: -1 }).exec();
 
     let nextNumber = 1;
     if (lastSize?.sizecode) {
