@@ -98,7 +98,7 @@ const Subscription = () => {
                 onChange={(e) => setSubscriptionType(e.target.value)}
               >
                 <option value="monthly">Monthly (₹1499)</option>
-                <option value="yearly">Yearly (₹999)</option>
+                <option value="yearly">Yearly (₹9999)</option>
               </select>
             </div>
 
