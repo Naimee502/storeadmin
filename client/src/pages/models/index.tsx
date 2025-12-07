@@ -20,7 +20,8 @@ const Models = () => {
   const { addModelMutation, editModelMutation, deleteModelMutation } = useModelMutations();
   const modelList = data?.getModels || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-
+  console.log("Modal List:", JSON.stringify(modelList));
+  
   const [formValues, setFormValues] = useState({ modelname: "", status: true });
   const [formErrors, setFormErrors] = useState<{ modelname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);

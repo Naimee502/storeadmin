@@ -20,6 +20,8 @@ const ProductGroups = () => {
   const { addProductGroupMutation, editProductGroupMutation, deleteProductGroupMutation } = useProductGroupMutations();
   const productGroupList = data?.getProductGroups || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  console.log("Product Group List:", JSON.stringify(productGroupList));
+
 
   const [formValues, setFormValues] = useState({ productgroupname: "", status: true });
   const [formErrors, setFormErrors] = useState<{ productgroupname?: string }>({});

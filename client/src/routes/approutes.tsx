@@ -62,6 +62,7 @@ import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
 import StaffAccounts from "../pages/staffaccounts";
 import DeletedStaffAccounts from "../pages/staffaccounts/deletedentries";
+import POSDashboard from "../pages/posdashboard";
 
 const AppRoutes = () => {
     return (
@@ -609,6 +610,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AnalyticalReports />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/posdashboard"
+          element={
+            <ProtectedRoutes>
+              <POSDashboard/>
             </ProtectedRoutes>
           }
         />

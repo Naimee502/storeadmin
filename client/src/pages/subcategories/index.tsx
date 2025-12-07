@@ -37,6 +37,7 @@ const SubCategories = () => {
 
   const subCategoryList = data?.getSubCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  console.log("Sub Category List:", JSON.stringify(subCategoryList));
 
   // Form state for add/edit
   const [formValues, setFormValues] = useState({

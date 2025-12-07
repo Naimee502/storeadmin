@@ -2,11 +2,13 @@ import React from 'react';
 import {
   FaBars,
   FaBuilding,
+  FaCashRegister,
   FaChevronDown,
   FaSignOutAlt,
   FaTachometerAlt,
 } from 'react-icons/fa';
 import { Menu } from '@headlessui/react';
+import { useNavigate } from 'react-router';
 
 interface Branch {
   id: string;
@@ -32,6 +34,7 @@ const Header: React.FC<HeaderProps> = ({
   selectedBranchId,
   onBranchChange,
 }) => {
+  const navigate = useNavigate();
   const selectedBranch = branches.find((b) => b.id === selectedBranchId);
 
   return (
@@ -54,6 +57,17 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Right-side controls */}
       <div className="ml-auto flex items-center gap-2 sm:gap-4">
+        {/* Only show POS Dashboard button when branch login */}
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/posdashboard')}
+            className="p-2 rounded-md hover:bg-gray-700 text-black"
+            title="POS Dashboard"
+          >
+            <FaCashRegister className="text-sm sm:text-base" />
+          </button>
+        )}
+
         {/* Branch Dropdown */}
         {!isAdmin && (
           <select

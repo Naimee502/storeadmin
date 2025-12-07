@@ -20,6 +20,7 @@ const Brands = () => {
   const { addBrandMutation, editBrandMutation, deleteBrandMutation } = useBrandMutations();
   const brandList = data?.getBrands || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  console.log("Brand List:", JSON.stringify(brandList));
 
   const [formValues, setFormValues] = useState({ brandname: "", status: true });
   const [formErrors, setFormErrors] = useState<{ brandname?: string }>({});

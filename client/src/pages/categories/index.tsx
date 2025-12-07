@@ -21,6 +21,7 @@ const Categories = () => {
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } = useCategoryMutations();
   const categoryList = data?.getCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  console.log("Category List:", JSON.stringify(categoryList));
 
   // Form state for add/edit
   const [formValues, setFormValues] = useState({ categoryname: "", status: true });

@@ -20,6 +20,7 @@ const Sizes = () => {
   const { addSizeMutation, editSizeMutation, deleteSizeMutation } = useSizeMutations();
   const sizeList = data?.getSizes || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  console.log("Size List:", JSON.stringify(sizeList));
 
   const [formValues, setFormValues] = useState({ sizename: "", status: true });
   const [formErrors, setFormErrors] = useState<{ sizename?: string }>({});
