@@ -8,11 +8,11 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
-import { SalesmenAccount } from "../salesmenaccount"; 
+import { StaffAccount } from "../staffaccounts"; 
 
 const salesInvoiceSchema = new mongoose.Schema(
   {
-    salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesmenAccount", required: true },
+    salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount", required: true },
     paymenttype: { type: String, required: true },
     partyacc: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
 
@@ -235,7 +235,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   // ===================== SALESMAN COMMISSION ======================
   if (newInv.salesmenid) {
-    const salesman = await SalesmenAccount.findById(newInv.salesmenid).select(
+    const salesman = await StaffAccount.findById(newInv.salesmenid).select(
       "ledgerid commission name"
     );
 

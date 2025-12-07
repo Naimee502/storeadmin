@@ -12,7 +12,7 @@ import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
+import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 
@@ -30,7 +30,7 @@ const AddEditAccount = () => {
   const { data: accountGroupData } = useAccountGroupsQuery();
   const { data: ledgersData } = useAccountLedgersQuery();
   const { data: assignAccountData } = useAccountsQuery();
-  const { data: salemenData } = useSalesmenQuery();
+  const { data: staffData } = useStaffQuery();
 
   const [formValues, setFormValues] = useState({
     name: "",
@@ -252,21 +252,23 @@ const AddEditAccount = () => {
                       searchable
                     />
 
-                    <FormField
-                      label="Salesman"
-                      name="salesmanid"
-                      type="select"
-                      value={formValues.salesmanid}
-                      onChange={(e) => handleChange("salesmanid", e.target.value)}
-                      options={
-                        salemenData?.getSalesmenAccounts?.map(salesman => ({
-                          label: salesman.name,
-                          value: salesman.id
+                   <FormField
+                    label="Salesman"
+                    name="salesmanid"
+                    type="select"
+                    value={formValues.salesmanid}
+                    onChange={(e) => handleChange("salesmanid", e.target.value)}
+                    options={
+                      staffData?.getStaffAccounts
+                        ?.filter((staff: any) => staff.role?.toLowerCase() === "salesman") // ✅ Only Salesman
+                        ?.map((staff: any) => ({
+                          label: staff.name,
+                          value: staff.id,
                         })) || []
-                      }
-                      placeholder="Select Salesman"
-                      searchable
-                    />
+                    }
+                    placeholder="Select Salesman"
+                    searchable
+                  />
                   </>
                 )}
               </div>

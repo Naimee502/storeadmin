@@ -11,7 +11,7 @@ import { productGroupResolvers } from "./productgroups";
 import { productServiceResolvers } from "./products";
 import { purchaseInvoiceResolvers } from "./purchaseinvoice";
 import { salesInvoiceResolvers } from "./salesinvoice";
-import { salesmenAccountResolvers } from "./salesmenaccount";
+import { staffAccountResolvers } from "./staffaccounts";
 import { sizeResolvers } from "./size";
 import { subCategoryResolvers } from "./subcategories";
 import { transactionResolvers } from "./transactions";
@@ -19,4 +19,4 @@ import { transferStockResolvers } from "./transferstock";
 import { unitResolvers } from "./units";
 import { uploadResolvers } from "./uploads";
 
-export const resolvers = [branchResolvers, categoryResolvers, subCategoryResolvers ,sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountLedgerResolvers, accountResolvers, unitResolvers, salesmenAccountResolvers, uploadResolvers, productServiceResolvers, salesInvoiceResolvers, purchaseInvoiceResolvers, transferStockResolvers, adminResolvers, transactionResolvers, paymentResolvers];
+export const resolvers = [branchResolvers, categoryResolvers, subCategoryResolvers ,sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountLedgerResolvers, accountResolvers, unitResolvers, staffAccountResolvers, uploadResolvers, productServiceResolvers, salesInvoiceResolvers, purchaseInvoiceResolvers, transferStockResolvers, adminResolvers, transactionResolvers, paymentResolvers];

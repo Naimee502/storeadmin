@@ -1,24 +1,27 @@
 import { useAppDispatch } from "../../../redux/hooks";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
+
 import {
-  useSalesmanMutations,
-  useDeletedSalesmenQuery,
-} from "../../../graphql/hooks/salesmenaccount";
+  useStaffMutations,
+  useDeletedStaffQuery,
+} from "../../../graphql/hooks/staffaccounts";
+
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
 
-const DeletedSalesmenAccounts = () => {
+const DeletedStaffAccounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const { data, refetch } = useDeletedSalesmenQuery();
-  const { resetSalesmanMutation } = useSalesmanMutations();
-  const salesmenList = data?.getDeletedSalesmenAccounts || [];
+  const { data, refetch } = useDeletedStaffQuery();
+  const { resetStaffMutation } = useStaffMutations();
+
+  const staffList = data?.getDeletedStaffAccounts || [];
 
   useEffect(() => {
-    if (!data || !data.getDeletedSalesmenAccounts || data.getDeletedSalesmenAccounts.length === 0) {
+    if (!data || !data.getDeletedStaffAccounts || data.getDeletedStaffAccounts.length === 0) {
       refetch();
     }
   }, [data, refetch]);
@@ -32,24 +35,32 @@ const DeletedSalesmenAccounts = () => {
     { label: "Commission", key: "commission" },
     { label: "Target", key: "target" },
     { label: "Account Group", key: "accountgroupname" },
+    { label: "Role", key: "role" },
     { label: "Status", key: "status" },
   ];
 
-  const tableData = salesmenList.map((salesman: any, index: number) => ({
-        ...salesman,
-        seqNo: index + 1,
-        salary: salesman.salary?.toFixed(2) || "0.00",
-        commission: salesman.commission?.toFixed(2) || "0.00",
-        target: salesman.target?.toFixed(2) || "0.00",
-        accountgroupname: salesman.accountgroupid?.accountgroupname || "-", // Assuming populated
-        status: salesman.status ? "Active" : "Inactive",
-  }));
+  const tableData = staffList.map((s: any, i: number) => {
+    const role = s.role
+      ? s.role.charAt(0).toUpperCase() + s.role.slice(1)
+      : "Staff";
+
+    return {
+      ...s,
+      seqNo: i + 1,
+      salary: s.salary?.toFixed(2),
+      commission: s.commission?.toFixed(2),
+      target: s.target?.toFixed(2),
+      accountgroupname: s.accountgroupid?.accountgroupname || "-",
+      role,
+      status: s.status ? "Active" : "Inactive",
+    };
+  });
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
-          title="Manage Deleted Salesmen Accounts"
+          title="Manage Deleted Staff Accounts"
           columns={columns}
           data={tableData}
           showView={false}
@@ -63,24 +74,26 @@ const DeletedSalesmenAccounts = () => {
           onReset={async (row) => {
             if (
               window.confirm(
-                `Are you sure you want to reset deleted salesman "${row.name}"?`
+                `Are you sure you want to restore deleted staff "${row.name}"?`
               )
             ) {
               try {
-                await resetSalesmanMutation({ variables: { id: row.id } });
+                await resetStaffMutation({ variables: { id: row.id } });
                 await refetch();
+
                 dispatch(
                   showMessage({
-                    message: "Salesman reset successfully.",
+                    message: "Staff restored successfully.",
                     type: "success",
                   })
                 );
-                navigate("/salesmenaccount");
+
+                navigate("/staffaccounts");
               } catch (error) {
                 console.error(error);
                 dispatch(
                   showMessage({
-                    message: "Failed to reset salesman.",
+                    message: "Failed to restore staff.",
                     type: "error",
                   })
                 );
@@ -95,4 +108,4 @@ const DeletedSalesmenAccounts = () => {
   );
 };
 
-export default DeletedSalesmenAccounts;
+export default DeletedStaffAccounts;

@@ -19,9 +19,8 @@ import ProfitLossChart from "./profilevslosschart";
 import DailySalesChart from "./dailysaleschart";
 import TargetVsSalesChart from "./targetsvssaleschart";
 import CategoryWiseSalesChart from "./categorywisesaleschart";
-import SalesmenWiseSalesChart from "./salesmenwisesaleschart";
+import SalesmenWiseSalesChart from "./salesmenwisesaleschart"; // Keep file name same unless you want rename it too
 
-// Register chart.js modules
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -35,6 +34,15 @@ ChartJS.register(
 );
 
 // Interfaces
+export interface Staff {
+  id: string;
+  name: string;
+  mobile: string;
+  target: string;
+  role: string;
+  status: boolean;
+}
+
 export interface SalesInvoiceProduct {
   productid: string;
   rate?: number;
@@ -47,7 +55,7 @@ export interface SalesInvoice {
   billdate: string;
   products: SalesInvoiceProduct[];
   totalamount?: number;
-  salesmenid?: string;
+  staffid?: string; // updated from salesmenid
 }
 
 export interface PurchaseInvoiceProduct {
@@ -76,14 +84,6 @@ export interface TransferStock {
   status: boolean;
 }
 
-export interface Salesman {
-  id: string;
-  name: string;
-  mobile: string;
-  target: string;
-  status: boolean;
-}
-
 export interface Category {
   id: string;
   categoryname: string;
@@ -94,7 +94,7 @@ export interface DashboardChartsProps {
   purchaseInvoiceData?: { getPurchaseInvoices: any[] };
   productData?: { getProductServices: any[] };
   transferStockData?: { getTransferStocks: any[] };
-  salesmenData?: { getSalesmenAccounts: any[] };
+  staffData?: { getStaffAccounts: any[] };   // UPDATED
   categoryData?: { getCategories: any[] };
   transactionData?: { getTransactions: any[] };
   branchId: string;
@@ -105,7 +105,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   purchaseInvoiceData,
   productData,
   transferStockData,
-  salesmenData,
+  staffData,         // UPDATED
   categoryData,
   transactionData,
   branchId,
@@ -114,12 +114,12 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   const purchaseInvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
   const products = productData?.getProductServices ?? [];
   const transfers = transferStockData?.getTransferStocks ?? [];
-  const salesmen = salesmenData?.getSalesmenAccounts ?? [];
+  const staff = staffData?.getStaffAccounts ?? [];   // UPDATED
   const categories = categoryData?.getCategories ?? [];
 
   useMemo(() => {
-    return new Map(salesmen.map((s) => [s.id, s.name]));
-  }, [salesmen]);
+    return new Map(staff.map((s) => [s.id, s.name]));
+  }, [staff]);
 
   return (
     <div className="space-y-8">
@@ -140,13 +140,13 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       {/* Bottom Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <DailySalesChart salesInvoices={invoices} />
-        <TargetVsSalesChart salesInvoices={invoices} salesmen={salesmen} />
+        <TargetVsSalesChart salesInvoices={invoices} staff={staff} />    
         <CategoryWiseSalesChart
           salesInvoices={invoices}
           products={products}
           categories={categories}
         />
-        <SalesmenWiseSalesChart salesInvoices={invoices} salesmen={salesmen} />
+        <SalesmenWiseSalesChart salesInvoices={invoices} staff={staff} /> 
       </div>
     </div>
   );

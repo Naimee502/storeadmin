@@ -108,7 +108,7 @@ const accountSchema = new mongoose.Schema(
 
     salesmanid: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'SalesmenAccount',
+      ref: 'StaffAccount',
     },
 
     latitude: { type: Number },
@@ -124,30 +124,27 @@ const accountSchema = new mongoose.Schema(
 accountSchema.index({ admin: 1, accountcode: 1 }, { unique: true });
 
 // ------------------ PRE SAVE HOOK ------------------
-accountSchema.pre('save', async function (next) {
-  const AccountLedger = mongoose.model('AccountLedger');
+accountSchema.pre("save", async function (next) {
+  try {
+    const Account = mongoose.model("Account");
+    const AccountLedger = mongoose.model("AccountLedger");
 
-  // Handle new account creation
-  if (this.isNew) {
-    // Generate account code
-    if (!this.accountcode) {
-      const Account = mongoose.model('Account');
-      const lastAccount = await Account.findOne({
+    // 1️⃣ Generate Account Code
+    if (this.isNew && !this.accountcode) {
+      const last = await Account.findOne({
         admin: this.admin,
         accountcode: { $regex: /^#ACC\d{4}$/ },
       }).sort({ accountcode: -1 });
 
-      let nextNumber = 1;
-      if (lastAccount?.accountcode) {
-        const lastNumber = parseInt(lastAccount.accountcode.replace('#ACC', ''), 10);
-        nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
-      }
+      const lastNum = last?.accountcode
+        ? parseInt(last.accountcode.replace("#ACC", ""))
+        : 0;
 
-      this.accountcode = `#ACC${String(nextNumber).padStart(4, '0')}`;
+      this.accountcode = `#ACC${String(lastNum + 1).padStart(4, "0")}`;
     }
 
-    // Create ledger
-    if (!this.ledgerid) {
+    // 2️⃣ Create Ledger BEFORE Saving
+    if (this.isNew && !this.ledgerid) {
       const ledger = await AccountLedger.create({
         admin: this.admin,
         accountid: this._id,
@@ -158,19 +155,13 @@ accountSchema.pre('save', async function (next) {
         status: true,
       });
 
-      this.ledgerid = ledger._id;
+      this.ledgerid = ledger._id; // ✔ assign BEFORE save completes
     }
-  }
 
-  // Update ledger name if account name changed
-  if (!this.isNew && this.isModified('name') && this.ledgerid) {
-    await AccountLedger.updateOne(
-      { _id: this.ledgerid },
-      { $set: { ledgername: `${this.name} - ${this.accountcode}` } }
-    );
+    next();
+  } catch (err:any) {
+    next(err);
   }
-
-  next();
 });
 
 // ------------------ PRE FINDONEANDUPDATE HOOK ------------------

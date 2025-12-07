@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
+import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
 
@@ -14,16 +14,20 @@ const SalesmanReports: React.FC = () => {
 
   // Fetch data
   const { data: salesData } = useSalesInvoicesQuery();
-  const { data: salesmenData } = useSalesmenQuery();
+  const { data: staffData } = useStaffQuery();
   const { data: transactionsData } = useTransactionsQuery();
 
   const salesInvoices = salesData?.getSalesInvoices || [];
-  const salesmen = salesmenData?.getSalesmenAccounts || [];
+  const staff = staffData?.getStaffAccounts || [];
+
+  // ✅ Filter only staff with role = salesman
+  const salesmen = staff.filter((s: any) => s.role?.toLowerCase() === "salesman");
+
   const transactions = transactionsData?.getTransactions || [];
 
-  // Debug logs
+  // Debug logs updated
   console.log("📌 Sales Invoices:", JSON.stringify(salesInvoices, null, 2));
-  console.log("📌 Salesmen:", JSON.stringify(salesmen, null, 2));
+  console.log("📌 Salesmen (Filtered):", JSON.stringify(salesmen, null, 2));
   console.log("📌 Transactions:", JSON.stringify(transactions, null, 2));
 
   // Default last 30 days
@@ -50,7 +54,7 @@ const SalesmanReports: React.FC = () => {
       if (from && date < from) return false;
       if (to && date > to) return false;
 
-      // FIXED SALESMAN FILTER
+      // Filter by salesman
       if (appliedFilters.salesmenid && inv.salesmenid?.id !== appliedFilters.salesmenid)
         return false;
 
@@ -60,44 +64,43 @@ const SalesmanReports: React.FC = () => {
 
   // Generate report data
   const reportData = useMemo(() => {
-  // Step 1: Decide which salesmen to include
-  const activeSalesmen = appliedFilters.salesmenid
-    ? salesmen.filter((s) => s.id === appliedFilters.salesmenid)
-    : salesmen;
+    // Step 1: Decide which salesmen to include
+    const activeSalesmen = appliedFilters.salesmenid
+      ? salesmen.filter((s) => s.id === appliedFilters.salesmenid)
+      : salesmen;
 
-  // Step 2: Build performance rows for each (filtered) salesman
-  return activeSalesmen.map((s, idx) => {
-    const invoices = filteredInvoices.filter(
-      (inv) => inv.salesmenid?.id === s.id
-    );
+    // Step 2: Build performance rows for each salesman
+    return activeSalesmen.map((s, idx) => {
+      const invoices = filteredInvoices.filter(
+        (inv) => inv.salesmenid?.id === s.id
+      );
 
-    const totalSales = invoices.reduce(
-      (sum, inv) => sum + Number(inv.totalamount || 0),
-      0
-    );
+      const totalSales = invoices.reduce(
+        (sum, inv) => sum + Number(inv.totalamount || 0),
+        0
+      );
 
-    const totalInvoices = invoices.length;
+      const totalInvoices = invoices.length;
 
-    const commissionRate = Number(s.commission) || 0;
-    const commissionEarned = (totalSales * commissionRate) / 100;
+      const commissionRate = Number(s.commission) || 0;
+      const commissionEarned = (totalSales * commissionRate) / 100;
 
-    const target = Number(s.target) || 0;
-    const targetAchievement = target > 0
-      ? ((totalSales / target) * 100).toFixed(2) + "%"
-      : "-";
+      const target = Number(s.target) || 0;
+      const targetAchievement = target > 0
+        ? ((totalSales / target) * 100).toFixed(2) + "%"
+        : "-";
 
-    return {
-      seqNo: idx + 1,
-      salesman: s.name,
-      totalSales: totalSales.toFixed(2),
-      totalInvoices,
-      totalCommission: commissionEarned.toFixed(2),
-      targetAchievement,
-      targetAmount: target.toFixed(2),
-    };
-  });
-}, [filteredInvoices, salesmen, appliedFilters]);
-
+      return {
+        seqNo: idx + 1,
+        salesman: s.name,
+        totalSales: totalSales.toFixed(2),
+        totalInvoices,
+        totalCommission: commissionEarned.toFixed(2),
+        targetAchievement,
+        targetAmount: target.toFixed(2),
+      };
+    });
+  }, [filteredInvoices, salesmen, appliedFilters]);
 
   // Table Columns
   const columns = [
@@ -110,10 +113,10 @@ const SalesmanReports: React.FC = () => {
     { label: "Target Amount", key: "targetAmount" },
   ];
 
-  // Dropdown options
+  // Dropdown options filtered
   const salesmenOptions = salesmen.map((s) => ({ label: s.name, value: s.id }));
 
-  // FIXED FILTER FIELD NAME
+  // Filters
   const filterFields: ReportFilterField[] = [
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
@@ -133,7 +136,6 @@ const SalesmanReports: React.FC = () => {
     const fromYMD = from ? normalizeToYMD(from.split("/").reverse().join("-")) : null;
     const toYMD = to ? normalizeToYMD(to.split("/").reverse().join("-")) : null;
 
-    // PRESERVE SALESMAN FILTER
     setAppliedFilters((prev) => ({
       ...prev,
       fromDate: fromYMD,

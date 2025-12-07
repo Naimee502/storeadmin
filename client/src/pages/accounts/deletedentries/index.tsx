@@ -40,19 +40,17 @@ const DeletedAccounts = () => {
   ];
 
   const tableData = deletedAccounts.map((account: any, index: number) => {
-    const ledgerId =
-      typeof account.ledgerid === "string"
-        ? account.ledgerid
-        : account.ledgerid?.id || account.ledgerid?._id;
-
-    const ledger = ledgerList.find((g) => g.id === ledgerId);
+    const ledgerName =
+    typeof account.ledgerid === "string"
+      ? "-" // string — not populated
+      : account.ledgerid?.ledgername || "-"; 
 
     return {
       ...account,
       seqNo: index + 1,
-      ledgername: ledger ? ledger.ledgername : "-",
+      ledgername: ledgerName,
       type: account.type
-        ? account.type.charAt(0).toUpperCase() + account.type.slice(1) // Capitalize first letter
+        ? account.type.charAt(0).toUpperCase() + account.type.slice(1) 
         : "-", 
       status: account.status ? "Active" : "Inactive",
     };

@@ -16,7 +16,6 @@ import ProductGroups from "../pages/productgroups";
 import AccountGroups from "../pages/accountgroups";
 import Accounts from "../pages/accounts";
 import Units from "../pages/units";
-import SalesmenAccount from "../pages/salesmenaccount";
 import Products from "../pages/products";
 import AddEditProduct from "../pages/products/addedit";
 import SalesInvoices from "../pages/salesinvoice";
@@ -34,7 +33,6 @@ import DeletedProductGroups from "../pages/productgroups/deletedentries";
 import DeletedSizes from "../pages/sizes/deletedentries";
 import DeletedUnits from "../pages/units/deletedentries";
 import DeletedProducts from "../pages/products/deletedentries";
-import DeletedSalesmenAccounts from "../pages/salesmenaccount/deletedentries";
 import DeletedTransferStocks from "../pages/transferstock/deletedentries";
 import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
 import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
@@ -62,6 +60,8 @@ import SalesmanReports from "../pages/reports/salesman";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
+import StaffAccounts from "../pages/staffaccounts";
+import DeletedStaffAccounts from "../pages/staffaccounts/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -356,18 +356,18 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/salesmenaccount"
+          path="/staffaccounts"
           element={
             <ProtectedRoutes>
-              <SalesmenAccount />
+              <StaffAccounts />
             </ProtectedRoutes>
           }
         />
         <Route
-          path="/salesmenaccount/deletedentries"
+          path="/staffaccounts/deletedentries"
           element={
             <ProtectedRoutes>
-              <DeletedSalesmenAccounts />
+              <DeletedStaffAccounts />
             </ProtectedRoutes>
           }
         />

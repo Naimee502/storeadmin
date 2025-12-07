@@ -11,7 +11,7 @@ import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../gra
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
-import { useSalesmenQuery } from "../../../graphql/hooks/salesmenaccount";
+import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -52,11 +52,13 @@ const AddEditSalesInvoice = () => {
     (state) => state.salesinvoice.invoices
   );
 
-  const { data: salesmenAccountData } = useSalesmenQuery();
-  const salesmenList = salesmenAccountData?.getSalesmenAccounts || [];
-  const salesmendAccountOptions = salesmenList.map((salesmenacc: any) => ({
-    value: salesmenacc.id,
-    label: `${salesmenacc.name} - ${salesmenacc.mobile}`,
+  const { data: staffAccountData } = useStaffQuery();
+  const staffList = staffAccountData?.getStaffAccounts || [];
+  // ✅ Filter only salesman role
+  const salesmanList = staffList.filter((staff: any) => staff.role === "salesman");
+  const salesmenAccountOptions = salesmanList.map((salesman: any) => ({
+    value: salesman.id,
+    label: `${salesman.name} - ${salesman.mobile}`,
   }));
   // Fetch invoice if editing
   const { data } = useSalesInvoiceByIDQuery(id || "");
@@ -404,7 +406,7 @@ const AddEditSalesInvoice = () => {
                   type="select"
                   value={salesmenAccount}
                   onChange={(e) => setSalesmenAccount(e.target.value)}
-                  options={salesmendAccountOptions}
+                  options={salesmenAccountOptions}
                   searchable
                   error={errors.salesmenAccount}
                   addable onAddNew={() => navigate("/salesmenaccount")}

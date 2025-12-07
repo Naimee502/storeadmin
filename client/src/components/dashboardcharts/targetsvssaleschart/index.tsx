@@ -21,21 +21,30 @@ interface Salesman {
   id: string;
   target: string;
   status: boolean;
+  role?: string; // <-- ADD THIS if role exists
 }
 
 interface Props {
   salesInvoices: SalesInvoice[];
-  salesmen: Salesman[];
+  staff: Salesman[];
 }
 
-const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
+const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, staff }) => {
+
   const { chartData, chartOptions } = useMemo(() => {
     const salesMap: Record<string, number> = {};
 
-    // 1. Aggregate monthly sales from invoices
+    // -------------------------------------
+    // ✅ Filter only salesmen with role="Salesman"
+    // -------------------------------------
+    const filteredSalesmen = staff.filter(
+      (s) => s.role?.toLowerCase() === "salesman"
+    );
+
+    // 1. Aggregate monthly sales
     salesInvoices.forEach(({ billdate, totalamount }) => {
       if (!billdate) return;
-      const monthKey = new Date(billdate).toISOString().slice(0, 7); // 'YYYY-MM'
+      const monthKey = new Date(billdate).toISOString().slice(0, 7);
       salesMap[monthKey] = (salesMap[monthKey] || 0) + (totalamount ?? 0);
     });
 
@@ -43,13 +52,13 @@ const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
     const months = Object.keys(salesMap).sort();
 
     // 3. Calculate total target from active salesmen
-    const totalMonthlyTarget = salesmen
+    const totalMonthlyTarget = filteredSalesmen
       .filter((s) => s.status)
       .reduce((sum, s) => sum + parseFloat(s.target || "0"), 0);
 
     // 4. Build datasets
     const salesData = months.map((m) => salesMap[m] || 0);
-    const targetData = months.map(() => totalMonthlyTarget); // same monthly target per month
+    const targetData = months.map(() => totalMonthlyTarget);
 
     return {
       chartData: {
@@ -58,12 +67,12 @@ const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
           {
             label: "Target",
             data: targetData,
-            backgroundColor: "rgba(59, 130, 246, 0.7)", // blue
+            backgroundColor: "rgba(59, 130, 246, 0.7)",
           },
           {
             label: "Sales",
             data: salesData,
-            backgroundColor: "rgba(16, 185, 129, 0.7)", // green
+            backgroundColor: "rgba(16, 185, 129, 0.7)",
           },
         ],
       },
@@ -88,7 +97,7 @@ const TargetVsSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
         },
       },
     };
-  }, [salesInvoices, salesmen]);
+  }, [salesInvoices, staff]);
 
   return (
     <div className="bg-white p-4 rounded-xl shadow">

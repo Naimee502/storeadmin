@@ -11,7 +11,7 @@ import productgroupsReducer from "../slices/productgroups";
 import accountgroupsReducer from "../slices/accountgroups";
 import accountledgersReducer from "../slices/accountledgers";
 import accountsReducer from "../slices/accounts";
-import salesmenAccountReducer from "../slices/salesmenaccount"; 
+import staffAccountReducer from "../slices/staffaccounts";
 import productsReducer from "../slices/products";
 import salesinvoiceReducer from "../slices/salesinvoice"
 import purchaseInvoiceReducer from '../slices/purchaseinvoice';
@@ -32,7 +32,7 @@ const appReducer = combineReducers({
   accountgroups: accountgroupsReducer,
   accountledgers: accountledgersReducer,
   accounts: accountsReducer,
-  salesmenaccount: salesmenAccountReducer, 
+  staffaccount: staffAccountReducer, 
   products: productsReducer,
   salesinvoice: salesinvoiceReducer,
   purchaseinvoice: purchaseInvoiceReducer,

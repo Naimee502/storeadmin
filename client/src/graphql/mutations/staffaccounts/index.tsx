@@ -1,10 +1,10 @@
 import { gql } from '@apollo/client';
 
-export const ADD_SALESMAN = gql`
-  mutation AddSalesman($input: SalesmenAccountInput!) {
-    addSalesmanAccount(input: $input) {
+export const ADD_STAFF = gql`
+  mutation AddStaff($input: StaffAccountInput!) {
+    addStaffAccount(input: $input) {
       id
-      salesmancode
+      staffcode
       branchid {
         id
         branchname
@@ -19,12 +19,12 @@ export const ADD_SALESMAN = gql`
       commission
       salary
       target
-      type
+      role
       status
       accountgroupid {
         id
         accountgroupname
-      } 
+      }
       admin {
         id
         name
@@ -36,11 +36,12 @@ export const ADD_SALESMAN = gql`
   }
 `;
 
-export const EDIT_SALESMAN = gql`
-  mutation EditSalesman($id: ID!, $input: SalesmenAccountInput!) {
-    editSalesmanAccount(id: $id, input: $input) {
+
+export const EDIT_STAFF = gql`
+  mutation EditStaff($id: ID!, $input: StaffAccountInput!) {
+    editStaffAccount(id: $id, input: $input) {
       id
-      salesmancode
+      staffcode
       branchid {
         id
         branchname
@@ -55,12 +56,12 @@ export const EDIT_SALESMAN = gql`
       commission
       salary
       target
-      type
+      role
       status
       accountgroupid {
         id
         accountgroupname
-      } 
+      }
       admin {
         id
         name
@@ -72,14 +73,14 @@ export const EDIT_SALESMAN = gql`
   }
 `;
 
-export const DELETE_SALESMAN = gql`
-  mutation DeleteSalesman($id: ID!) {
-    deleteSalesmanAccount(id: $id)
+export const DELETE_STAFF = gql`
+  mutation DeleteStaff($id: ID!) {
+    deleteStaffAccount(id: $id)
   }
 `;
 
-export const RESET_SALESMAN = gql`
-  mutation ResetSalesman($id: ID!) {
-    resetSalesmanAccount(id: $id)
+export const RESET_STAFF = gql`
+  mutation ResetStaff($id: ID!) {
+    resetStaffAccount(id: $id)
   }
 `;

@@ -1,13 +1,21 @@
 import React, { useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
-import type { SalesInvoice, Salesman } from "..";
+import type { SalesInvoice, Staff } from "..";
 
 interface Props {
   salesInvoices: SalesInvoice[];
-  salesmen: Salesman[];
+  staff: Staff[];
 }
 
-const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) => {
+const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, staff }) => {
+
+  // ---------------------------------------------------
+  // ✅ Filter only role = "salesman"
+  // ---------------------------------------------------
+  const filteredSalesmen = useMemo(
+    () => staff.filter((s) => s.role?.toLowerCase() === "salesman"),
+    [staff]
+  );
 
   // Selected salesman
   const [selectedSalesmanId, setSelectedSalesmanId] = useState<string>("All");
@@ -15,19 +23,18 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) =>
   // Map salesman ID → name
   const salesmenMap = useMemo(() => {
     const map = new Map<string, string>();
-    salesmen.forEach((s) => map.set(s.id, s.name));
+    filteredSalesmen.forEach((s) => map.set(s.id, s.name));
     return map;
-  }, [salesmen]);
+  }, [filteredSalesmen]);
 
   // Aggregate sales by salesman ID
   const salesBySalesmen = useMemo(() => {
     const salesMap: Record<string, number> = {};
-    salesInvoices.forEach((inv:any) => {
+    salesInvoices.forEach((inv: any) => {
       const salesmanId = inv.salesmenid?.id ?? "others";
       const amount = inv.totalamount ?? 0;
       salesMap[salesmanId] = (salesMap[salesmanId] || 0) + amount;
     });
-    console.log("Sales by Salesmen:", JSON.stringify(salesMap, null, 2));
     return salesMap;
   }, [salesInvoices]);
 
@@ -38,12 +45,14 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) =>
       const data: number[] = [];
 
       Object.entries(salesBySalesmen).forEach(([id, amount]) => {
-        const label = id === "others" ? "Others" : salesmenMap.get(id) || "Unknown";
+        const label =
+          id === "others"
+            ? "Others"
+            : salesmenMap.get(id) || "Unknown";
         labels.push(label);
         data.push(amount);
       });
 
-      // Friendly colors (avoid red)
       const colors = ["#6366f1", "#10b981", "#8b5cf6", "#f59e0b", "#3b82f6", "#14b8a6"];
 
       return {
@@ -66,7 +75,7 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) =>
           {
             label: `Sales for ${label} (₹)`,
             data: [value],
-            backgroundColor: ["#6366f1"], // blue
+            backgroundColor: ["#6366f1"],
           },
         ],
       };
@@ -83,8 +92,8 @@ const SalesmenWiseSalesChart: React.FC<Props> = ({ salesInvoices, salesmen }) =>
         onChange={(e) => setSelectedSalesmanId(e.target.value)}
       >
         <option value="All">All Salesmen</option>
-        {salesmen.length > 0 ? (
-          salesmen.map((s) => (
+        {filteredSalesmen.length > 0 ? (
+          filteredSalesmen.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>

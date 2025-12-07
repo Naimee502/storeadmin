@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   // Branch links
   const branchLinks: SidebarLink[] = [
     { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave className="text-xl" /> },
-    { to: '/salesmenaccount', label: 'Salesmen Accounts', icon: <FaUserTie className="text-xl" /> },
+    { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-xl" /> },
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-xl" /> },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" /> },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" /> },
@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       '/purchaseinvoice',
       '/transferstock',
       '/accounts',
-      '/salesmenaccount',
+      '/staffaccounts',
       '/transactions',   
       '/payments',
       '/accountledgers'        

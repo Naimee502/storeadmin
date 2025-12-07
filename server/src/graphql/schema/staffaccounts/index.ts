@@ -1,6 +1,6 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
-export const salesmenAccountTypeDefs = gql`
+export const staffAccountTypeDefs = gql`
   type Admin {
     id: ID!
     name: String!
@@ -19,7 +19,7 @@ export const salesmenAccountTypeDefs = gql`
     branchname: String!
   }
 
-   type AccountGroup {
+  type AccountGroup {
     id: ID!
     accountgroupname: String!
   }
@@ -29,51 +29,51 @@ export const salesmenAccountTypeDefs = gql`
     ledgername: String!
   }
 
-  type SalesmenAccount {
+  type StaffAccount {
     id: ID!
     admin: Admin
     branchid: Branch
     accountgroupid: AccountGroup
     ledgerid: AccountLedger
-    salesmancode: String
+    staffcode: String
     name: String!
     mobile: String!
     email: String!
-    password: String!
+    password: String        # ⭐ Optional (changed)
     profilepicture: String
     imageurl: String
     address: String
     commission: Float
     salary: Float
     target: Float
-    type: String
+    role: String            # ⭐ staff / salesman / deliveryboy
     status: Boolean!
     createdAt: String
     updatedAt: String
   }
 
-  input SalesmenAccountInput {
+  input StaffAccountInput {
     admin: ID
     branchid: ID!
-    accountgroupid: ID!
+    accountgroupid: ID
     name: String!
     mobile: String!
     email: String!
-    password: String!
+    password: String        # ⭐ Optional (changed)
     profilepicture: String
     imageurl: String
     address: String
     commission: Float
     salary: Float
     target: Float
-    type: String
+    role: String            # ⭐ "staff" | "salesman" | "deliveryboy"
     status: Boolean
   }
 
-  input SalesmanFilterInput {
+  input StaffFilterInput {
     adminId: ID
     branchid: ID
-    type: String
+    role: String
     accountgroupid: ID
     ledgerid: ID
     mobile: String
@@ -85,15 +85,15 @@ export const salesmenAccountTypeDefs = gql`
   }
 
   type Query {
-    getSalesmenAccounts(filter: SalesmanFilterInput): [SalesmenAccount!]!
-    getDeletedSalesmenAccounts(filter: SalesmanFilterInput): [SalesmenAccount!]!
-    getSalesmanAccountById(id: ID!, adminId: ID): SalesmenAccount
+    getStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
+    getDeletedStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
+    getStaffAccountById(id: ID!, adminId: ID): StaffAccount
   }
 
   type Mutation {
-    addSalesmanAccount(input: SalesmenAccountInput!): SalesmenAccount!
-    editSalesmanAccount(id: ID!, input: SalesmenAccountInput!): SalesmenAccount!
-    deleteSalesmanAccount(id: ID!): Boolean!
-    resetSalesmanAccount(id: ID!): Boolean!
+    addStaffAccount(input: StaffAccountInput!): StaffAccount!
+    editStaffAccount(id: ID!, input: StaffAccountInput!): StaffAccount!
+    deleteStaffAccount(id: ID!): Boolean!
+    resetStaffAccount(id: ID!): Boolean!
   }
 `;

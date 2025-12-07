@@ -1,10 +1,10 @@
 import { gql } from '@apollo/client';
 
-export const GET_SALESMEN = gql`
-  query GetSalesmen($filter: SalesmanFilterInput) {
-    getSalesmenAccounts(filter: $filter) {
+export const GET_STAFF = gql`
+  query GetStaff($filter: StaffFilterInput) {
+    getStaffAccounts(filter: $filter) {
       id
-      salesmancode
+      staffcode
       name
       mobile
       email
@@ -15,7 +15,88 @@ export const GET_SALESMEN = gql`
       commission
       salary
       target
-      type
+      role
+      status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+      ledgerid {
+        id
+        ledgername
+      }
+      branchid {
+        id
+        branchname
+      }
+      admin {
+        id
+        name
+        email
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const GET_DELETED_STAFF = gql`
+  query GetDeletedStaff($filter: StaffFilterInput) {
+    getDeletedStaffAccounts(filter: $filter) {
+      id
+      staffcode
+      name
+      mobile
+      email
+      password
+      profilepicture
+      imageurl
+      address
+      commission
+      salary
+      target
+      role
+      status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+      ledgerid {
+        id
+        ledgername
+      }
+      branchid {
+        id
+        branchname
+      }
+      admin {
+        id
+        name
+        email
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+
+export const GET_STAFF_BY_ID = gql`
+  query GetStaffById($id: ID!, $adminId: ID) {
+    getStaffAccountById(id: $id, adminId: $adminId) {
+      id
+      staffcode
+      name
+      mobile
+      email
+      password
+      profilepicture
+      imageurl
+      address
+      commission
+      salary
+      target
+      role
       status
       accountgroupid {
         id
@@ -40,84 +121,3 @@ export const GET_SALESMEN = gql`
   }
 `;
 
-
-export const GET_DELETED_SALESMEN = gql`
-  query GetDeletedSalesmen($filter: SalesmanFilterInput) {
-    getDeletedSalesmenAccounts(filter: $filter) {
-      id
-      salesmancode
-      name
-      mobile
-      email
-      password
-      profilepicture
-      imageurl
-      address
-      commission
-      salary
-      target
-      type
-      status
-      accountgroupid {
-        id
-        accountgroupname
-      } 
-      ledgerid {
-        id
-        ledgername
-      }
-      branchid {
-        id
-        branchname
-      }
-      admin {
-        id
-        name
-        email
-      }
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-
-export const GET_SALESMAN_BY_ID = gql`
-  query GetSalesmanById($id: ID!, $adminId: ID) {
-    getSalesmanAccountById(id: $id, adminId: $adminId) {
-      id
-      salesmancode
-      name
-      mobile
-      email
-      password
-      profilepicture
-      imageurl
-      address
-      commission
-      salary
-      target
-      type
-      status
-      accountgroupid {
-        id
-        accountgroupname
-      } 
-      ledgerid {
-        id
-        ledgername
-      }
-      branchid {
-        id
-        branchname
-      }
-      admin {
-        id
-        name
-        email
-      }
-      createdAt
-      updatedAt
-    }
-  }
-`;

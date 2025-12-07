@@ -18,7 +18,7 @@ import { useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useAppSelector } from "../../redux/hooks";
 import { useTransferStocksQuery } from "../../graphql/hooks/transferstock";
-import { useSalesmenQuery } from "../../graphql/hooks/salesmenaccount";
+import { useStaffQuery } from "../../graphql/hooks/staffaccounts";   // ✅ updated
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import StatsCards from "../../components/statuscards";
 import DashboardCharts from "../../components/dashboardcharts";
@@ -45,7 +45,7 @@ const Home: React.FC = () => {
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: productData, refetch: refetchProducts } = useProductServicesQuery();
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
-  const { data: salesmenData, refetch: refetchSalesmen } = useSalesmenQuery();
+  const { data: staffData, refetch: refetchStaff } = useStaffQuery();    // ✅ renamed
   const { data: purchaseInvoiceData, refetch: refetchPurchaseInvoices } = usePurchaseInvoicesQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery();
   const { data: transferStockData, refetch: refetchTransferStock } = useTransferStocksQuery();
@@ -54,11 +54,11 @@ const Home: React.FC = () => {
   // Refetch all data when branch ID changes
   useEffect(() => {
     console.log("Branch ID changed:", branchId);
+
     refetchCustomers();
-    refetchSalesmen();
+    refetchStaff();                 // ✅ updated
     refetchSalesInvoices();
     refetchPurchaseInvoices();
-    refetchTransferStock();
     refetchTransferStock();
     refetchCategories();
     refetchProducts();
@@ -68,6 +68,7 @@ const Home: React.FC = () => {
   return (
     <HomeLayout>
       <div className="p-6 space-y-6">
+
         <StatsCards
           customerData={customerData}
           productData={productData}
@@ -82,7 +83,7 @@ const Home: React.FC = () => {
           salesInvoiceData={salesInvoiceData}
           productData={productData}
           transferStockData={transferStockData}
-          salesmenData={salesmenData}
+          staffData={staffData}   
           categoryData={categoryData}
           transactionData={transactionData}
           branchId={branchId}

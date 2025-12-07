@@ -55,17 +55,15 @@ const Accounts = () => {
   ];
 
   const tableData = accountList.map((acc, index) => {
-    const ledgerId =
-      typeof acc.ledgerid === "string"
-        ? acc.ledgerid
-        : acc.ledgerid?.id || acc.ledgerid?._id;
-
-    const ledger = ledgerList.find((g) => g.id === ledgerId);
+    const ledgerName =
+    typeof acc.ledgerid === "string"
+      ? "-" // string — not populated
+      : acc.ledgerid?.ledgername || "-"; // populated object
 
     return {
       ...acc,
       seqNo: index + 1,
-      ledgername: ledger ? ledger.ledgername : "-",
+      ledgername: ledgerName,
       type: acc.type ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1) : "-", // ✅ Format nicely
       status: acc.status ? "Active" : "Inactive",
     };

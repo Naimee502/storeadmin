@@ -69,7 +69,7 @@ export const defaultAccountGroups = [
   { name: "Stock-in-Hand", category: "assets" },
   { name: "Prepaid Expenses", category: "assets" },
   { name: "Deposits (Assets)", category: "assets" },
-    { name: "Salesman Account", category: "expenses" },
+  { name: "Staff Account", category: "expenses" },
 
   // GST INPUT (RECEIVABLE)
   { name: "GST Input", category: "assets" }, // Main header
@@ -135,7 +135,6 @@ export const defaultLedgers = [
   // Expenses
   { name: "Office Expense", group: "Administrative Expenses" },
   { name: "Travel Expense", group: "Selling & Distribution Expenses" },
-  { name: "Staff Salary", group: "Direct Expenses" },
   { name: "Freight / Transport Charges", group: "Direct Expenses" },
   { name: "Packing Charges", group: "Direct Expenses" },
   { name: "Electricity Charges", group: "Administrative Expenses" },
@@ -144,6 +143,7 @@ export const defaultLedgers = [
   { name: "Interest Paid", group: "Finance Charges" },
   { name: "Salesman Commission Expense", group: "Commission Expense" },
   { name: "Staff Expenses", group: "Direct Expenses" },
+  { name: "Staff Salary", group: "Direct Expenses" },
 
   // Income
   { name: "Interest Received", group: "Indirect Income" },
