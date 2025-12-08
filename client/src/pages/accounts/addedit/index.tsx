@@ -64,7 +64,6 @@ const AddEditAccount = () => {
   });
 
   const regionOptions = [
-    { value: "default", label: "Default" },
     { value: "andhra_pradesh", label: "Andhra Pradesh" },
     { value: "arunachal_pradesh", label: "Arunachal Pradesh" },
     { value: "assam", label: "Assam" },

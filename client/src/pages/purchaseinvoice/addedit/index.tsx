@@ -11,6 +11,7 @@ import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
+import PosAddCustomer from "../../../components/posaddcustomer";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -22,6 +23,7 @@ const AddEditPurchaseInvoice = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState("");
@@ -55,7 +57,7 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch invoice if editing
   const { data } = usePurchaseInvoiceByIDQuery(id || "");
-  console.log('Pucrhase Edit:',JSON.stringify(data))
+  console.log('Pucrhase Edit:', JSON.stringify(data))
 
   const { data: productData, refetch } = useProductServicesQuery();
   const purchaseProductData = productData?.getProductServices ?? [];
@@ -67,72 +69,72 @@ const AddEditPurchaseInvoice = () => {
   }, [accountData, refetch]);
 
   useEffect(() => {
-  if (!isEdit) {
-    // --- NEW INVOICE MODE
-    if (purchaseInvoices.length > 0) {
-      const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
-      const lastBillNumber = [...billNumbers].sort().pop();
-      const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
-        .toString()
-        .padStart(6, "0");
-      setBillNumber(nextBillNumber);
-    } else {
-      setBillNumber("000001");
+    if (!isEdit) {
+      // --- NEW INVOICE MODE
+      if (purchaseInvoices.length > 0) {
+        const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+          .toString()
+          .padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
+    } else if (data?.getPurchaseInvoiceById) {
+      // --- EDIT MODE
+      const invoice = data.getPurchaseInvoiceById;
+
+      // --- Invoice header fields
+      setPaymentType(invoice.paymenttype || "");
+      setPartyAccount(invoice.partyacc?.id || invoice.partyacc || "");
+      setTaxOrSupplyType(invoice.taxorsupplytype || "");
+      setBillDate(invoice.billdate || "");
+      setBillType(invoice.billtype || "");
+      setBillNumber(invoice.billnumber || "");
+      setNotes(invoice.notes || "");
+      setInvoiceType(invoice.invoicetype || "");
+      setTaxPercent(invoice.totalgst || 0);
+      setStatus(invoice.status ?? true);
+      setIsService(invoice.isservice ?? false);
+
+      // --- Invoice product lines
+      const mappedProducts = invoice.productservice.map((p: any) => {
+        const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+        const productName = `${p.productserviceid?.name || ""}${variantName}`;
+
+        // --- Prepare unit options
+        const unitOptions = (p.purchaseunitid ? [{
+          value: p.purchaseunitid.id,
+          label: p.purchaseunitid.unitname || "Unit",
+          unitid: p.purchaseunitid.id,
+          quantity: p.unitqty ?? 1,
+          rate: p.rate ?? 0,
+          discount: p.discount ?? 0,
+        }] : []);
+
+        return {
+          productserviceid: p.productserviceid?.id || p.productserviceid,
+          variantid: p.variantid?.id || null,
+          purchaseunitid: p.purchaseunitid?.id || null,
+          productname: productName,
+          unitquantity: p.unitqty ?? 1,
+          quantity: p.qty ?? 0,
+          rate: p.rate ?? 0,
+          total: p.amount ?? 0,
+          discount: p.discount ?? 0,
+          gst: p.gst ?? 0,
+          salesaccountid: p.salesaccountid?.id || null,
+          purchaseaccountid: p.purchaseaccountid?.id || null,
+          serviceaccountid: p.serviceaccountid?.id || null,
+          purchaseUnits: unitOptions,
+          selectedUnitValue: p.purchaseunitid && p.unitqty ? `${p.purchaseunitid.id}--${p.unitqty}` : null,
+        };
+      });
+
+      setProducts(mappedProducts);
     }
-  } else if (data?.getPurchaseInvoiceById) {
-    // --- EDIT MODE
-    const invoice = data.getPurchaseInvoiceById;
-
-    // --- Invoice header fields
-    setPaymentType(invoice.paymenttype || "");
-    setPartyAccount(invoice.partyacc?.id || invoice.partyacc || "");
-    setTaxOrSupplyType(invoice.taxorsupplytype || "");
-    setBillDate(invoice.billdate || "");
-    setBillType(invoice.billtype || "");
-    setBillNumber(invoice.billnumber || "");
-    setNotes(invoice.notes || "");
-    setInvoiceType(invoice.invoicetype || "");
-    setTaxPercent(invoice.totalgst || 0);
-    setStatus(invoice.status ?? true);
-    setIsService(invoice.isservice ?? false);
-
-    // --- Invoice product lines
-    const mappedProducts = invoice.productservice.map((p: any) => {
-      const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-      const productName = `${p.productserviceid?.name || ""}${variantName}`;
-
-      // --- Prepare unit options
-      const unitOptions = (p.purchaseunitid ? [{
-        value: p.purchaseunitid.id,
-        label: p.purchaseunitid.unitname || "Unit",
-        unitid: p.purchaseunitid.id,
-        quantity: p.unitqty ?? 1,
-        rate: p.rate ?? 0,
-        discount: p.discount ?? 0,
-      }] : []);
-
-      return {
-        productserviceid: p.productserviceid?.id || p.productserviceid,
-        variantid: p.variantid?.id || null,
-        purchaseunitid: p.purchaseunitid?.id || null,
-        productname: productName,
-        unitquantity: p.unitqty ?? 1,
-        quantity: p.qty ?? 0,
-        rate: p.rate ?? 0,
-        total: p.amount ?? 0,
-        discount: p.discount ?? 0,
-        gst: p.gst ?? 0,
-        salesaccountid: p.salesaccountid?.id || null,
-        purchaseaccountid: p.purchaseaccountid?.id || null,
-        serviceaccountid: p.serviceaccountid?.id || null,
-        purchaseUnits: unitOptions,
-        selectedUnitValue: p.purchaseunitid && p.unitqty ? `${p.purchaseunitid.id}--${p.unitqty}` : null,
-      };
-    });
-
-    setProducts(mappedProducts);
-  }
-}, [isEdit, data, purchaseInvoices]);
+  }, [isEdit, data, purchaseInvoices]);
 
 
   const handleTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,16 +155,16 @@ const AddEditPurchaseInvoice = () => {
       const discount = Number(p.discount || 0);
       const gst = Number(p.gst || 0);
 
-      const lineProductTotal = qty * rate;               
-      const lineDiscount = discount * qty;              
-      const taxable = (rate - discount) * qty;         
-      const gstAmount = (taxable * gst) / 100;         
+      const lineProductTotal = qty * rate;
+      const lineDiscount = discount * qty;
+      const taxable = (rate - discount) * qty;
+      const gstAmount = (taxable * gst) / 100;
       const lineTotal = taxable + gstAmount;
-      productsTotalCalc += lineProductTotal;           
-      totalLineDiscount += lineDiscount;               
-      taxableSubtotal += taxable;                       
-      totalGSTAmount += gstAmount;                     
-      grandTotalCalc += lineTotal;                     
+      productsTotalCalc += lineProductTotal;
+      totalLineDiscount += lineDiscount;
+      taxableSubtotal += taxable;
+      totalGSTAmount += gstAmount;
+      grandTotalCalc += lineTotal;
     });
 
     setProductsTotal(productsTotalCalc);
@@ -298,7 +300,8 @@ const AddEditPurchaseInvoice = () => {
                   options={accountOptions}
                   searchable
                   error={errors.partyAccount}
-                  addable onAddNew={() => navigate("/accounts")}
+                  addable
+                  onAddNew={() => setAddCustomerOpen(true)}
                 />
               </div>
               <FormField
@@ -385,6 +388,17 @@ const AddEditPurchaseInvoice = () => {
             partyAccount={partyAccount}
             type="purchase"
             navigate={navigate}
+          />
+
+          <PosAddCustomer
+            open={addCustomerOpen}
+            onClose={() => setAddCustomerOpen(false)}
+            onCreated={async (newId) => {
+              await accountRefetch();
+              setErrors((prev) => ({ ...prev, partyAccount: undefined }));
+              setPartyAccount(newId);
+            }}
+            mode="vendor"
           />
 
           {/* Summary */}

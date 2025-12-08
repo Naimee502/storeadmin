@@ -4,6 +4,7 @@ import FormField from "../formfiled";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import { useStaffQuery } from "../../graphql/hooks/staffaccounts";
 import { useNavigate } from "react-router";
+import PosAddCustomer from "../posaddcustomer";
 
 // ---------------------------
 // TYPES
@@ -57,16 +58,18 @@ export default function PaymentDrawer({
 }: PaymentDrawerProps) {
   const navigate = useNavigate();
 
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [customer, setCustomer] = useState<string>("");
   const [salesman, setSalesman] = useState<string>("");
   const [paymentType, setPaymentType] = useState<PaymentMode>("cash");
   const [paidAmount, setPaidAmount] = useState<number | "">(total);
   const [errors, setErrors] = useState<ErrorState>({});
+ 
 
   // ---------------------------
   // QUERIES
   // ---------------------------
-  const { data: accData } = useAccountsQuery();
+  const { data: accData, refetch: refetchAccounts } = useAccountsQuery();
   const customers: CustomerAccount[] =
     (accData?.getAccounts || []).filter(
       (a: CustomerAccount) => a.type === "customer"
@@ -171,7 +174,7 @@ export default function PaymentDrawer({
           searchable
           error={errors.customer}
           addable
-          onAddNew={() => navigate("/accounts")}
+          onAddNew={() => setAddCustomerOpen(true)}
         />
 
         {/* SALESMAN */}
@@ -247,6 +250,17 @@ export default function PaymentDrawer({
             </span>
           </div>
         </div>
+
+        <PosAddCustomer
+          open={addCustomerOpen}
+          onClose={() => setAddCustomerOpen(false)}
+          onCreated={async (newId) => {
+            await refetchAccounts();
+            setErrors((prev) => ({ ...prev, customer: undefined }));      
+            setCustomer(newId);         
+          }}
+          mode="customer"
+        />
 
         {/* SUBMIT */}
         <button

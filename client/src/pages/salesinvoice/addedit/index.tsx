@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+import PosAddCustomer from "../../../components/posaddcustomer";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -24,6 +25,7 @@ const AddEditSalesInvoice = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState<any>(null);
@@ -160,11 +162,11 @@ const AddEditSalesInvoice = () => {
   }, [isEdit, data, salesInvoices]);
 
   useEffect(() => {
-    let productsTotalCalc = 0;        
-    let totalLineDiscount = 0;        
-    let taxableSubtotal = 0;          
-    let totalGSTAmount = 0;           
-    let grandTotalCalc = 0;           
+    let productsTotalCalc = 0;
+    let totalLineDiscount = 0;
+    let taxableSubtotal = 0;
+    let totalGSTAmount = 0;
+    let grandTotalCalc = 0;
 
     products.forEach((p) => {
       const qty = Number(p.quantity || 0);
@@ -172,11 +174,11 @@ const AddEditSalesInvoice = () => {
       const discount = Number(p.discount || 0);
       const gst = Number(p.gst || 0);
 
-      const lineProductTotal = qty * rate;      
-      const lineDiscount = discount;            
-      const taxable = (rate - discount) * qty;  
-      const gstAmount = (taxable * gst) / 100;  
-      const lineTotal = taxable + gstAmount;    
+      const lineProductTotal = qty * rate;
+      const lineDiscount = discount;
+      const taxable = (rate - discount) * qty;
+      const gstAmount = (taxable * gst) / 100;
+      const lineTotal = taxable + gstAmount;
 
       productsTotalCalc += lineProductTotal;
       totalLineDiscount += lineDiscount;
@@ -185,10 +187,10 @@ const AddEditSalesInvoice = () => {
       grandTotalCalc += lineTotal;
     });
 
-    setProductsTotal(productsTotalCalc);  
-    setTotalDiscount(totalLineDiscount);  
-    setTaxAmount(totalGSTAmount);         
-    setGrandTotal(grandTotalCalc);        
+    setProductsTotal(productsTotalCalc);
+    setTotalDiscount(totalLineDiscount);
+    setTaxAmount(totalGSTAmount);
+    setGrandTotal(grandTotalCalc);
   }, [products]);
 
 
@@ -317,7 +319,7 @@ const AddEditSalesInvoice = () => {
                   label="Party Account (Name - Mobile)"
                   name="partyAccount"
                   type="select"
-                  value={partyAccount?.id || ""} 
+                  value={partyAccount?.id || ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
                     const acc = customerAccounts.find(a => a.id === selectedId);
@@ -333,9 +335,9 @@ const AddEditSalesInvoice = () => {
                   options={accountOptions}
                   searchable
                   error={errors.partyAccount}
-                  addable 
-                  onAddNew={() => navigate("/accounts")}
-              />
+                  addable
+                  onAddNew={() => setAddCustomerOpen(true)}
+                />
               </div>
               <FormField
                 label="Tax/Supply Type"
@@ -443,6 +445,17 @@ const AddEditSalesInvoice = () => {
             type="sales"
             navigate={navigate}
             iservice={isService}
+          />
+
+          <PosAddCustomer
+            open={addCustomerOpen}
+            onClose={() => setAddCustomerOpen(false)}
+            onCreated={async (newId) => {
+              await accountRefetch();
+              setErrors((prev) => ({ ...prev, partyAccount: undefined }));
+              setPartyAccount(newId);
+            }}
+            mode="customer"
           />
 
           {/* Summary */}
