@@ -44,3 +44,16 @@ export const applyDateShortcut = (
 
   return { from, to };
 };
+
+export const getNextBillNumber = (invoices) => {
+  if (!invoices || invoices.length === 0) return "000001";
+
+  const nums = invoices
+    .map((inv) => parseInt(inv.billnumber || "0", 10))
+    .filter((n) => !isNaN(n));
+
+  if (nums.length === 0) return "000001";
+
+  const next = Math.max(...nums) + 1;
+  return next.toString().padStart(6, "0");
+};

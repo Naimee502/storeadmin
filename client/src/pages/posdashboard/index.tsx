@@ -1,7 +1,7 @@
 // Full updated code replacing dummy data with mutation-driven fetched data
 // NOTE: Replace mutation and query hook names as per your schema
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../layouts/home";
 import { Search, ShoppingCart } from "lucide-react";
 
@@ -12,31 +12,37 @@ import { useModelsQuery } from "../../graphql/hooks/models";
 import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useSalesInvoiceMutations } from "../../graphql/hooks/salesinvoice";
+import PaymentDrawer from "../../components/paymentdrawer";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { getNextBillNumber } from "../../utils/helper";
+import { showMessage } from "../../redux/slices/message";
 
 /* ------------ Helper functions for mapping fetched product services -------------- */
 function getPriceFromUnitPrice(u) {
   return u?.offerprice ?? u?.salesrate ?? u?.mrp ?? 0;
 }
 
-function mapProductServiceList(list = []) {
+function mapProductServiceList(list: any[] = []) {
   return list.map((p) => {
     const variantsRaw = p.productvariants || [];
 
-    const variants = variantsRaw.map((v) => {
-      const pricing = v.pricing?.[0] || null;
-      const unitPrices = pricing?.unitprices || [];
+    const variants = variantsRaw.map((v: any) => {
+      const pricingArr = v.pricing || [];
+      const unitPrices = pricingArr.flatMap((pr: any) => pr.unitprices || []);
 
-      const units = unitPrices.map((u) => ({
-        id: u.unitid?.id,
-        name: u.unitid?.unitname,
+      const units = unitPrices.map((u: any) => ({
+        id: u.unitid?.id ?? u.unitid,
+        name: u.unitid?.unitname ?? u.unitname,
         quantity: u.quantity ?? 1,
         mrp: u.mrp ?? 0,
         salesrate: u.salesrate ?? null,
         offerprice: u.offerprice ?? null,
         price: getPriceFromUnitPrice(u),
+        discount: u.discount ?? 0,
       }));
 
-      const conversions = (v.unitconversions || []).map((c) => ({
+      const conversions = (v.unitconversions || []).map((c: any) => ({
         unitId: c.unitid?.id,
         unitName: c.unitid?.unitname,
         factor: c.factor,
@@ -50,6 +56,10 @@ function mapProductServiceList(list = []) {
         currentstock: v.currentstock ?? 0,
         units,
         conversions,
+        purchaserate: v.purchaserate ?? null,
+        baseunitid: v.baseunitid?.id ?? null,
+        purchaseunitid: v.purchaseunitid?.id ?? null,
+        pricing: v.pricing ?? [],
       };
     });
 
@@ -74,11 +84,15 @@ function mapProductServiceList(list = []) {
       price: variants[0]?.units?.[0]?.price ?? 0,
       mrp: variants[0]?.units?.[0]?.mrp ?? 0,
       gst: variants[0]?.gst ?? 0,
+      salesaccountid: p.salesaccountid?.id ?? p.salesaccountid ?? null,
+      purchaseaccountid: p.purchaseaccountid?.id ?? p.purchaseaccountid ?? null,
+      serviceaccountid: p.serviceaccountid?.id ?? p.serviceaccountid ?? null,
     };
   });
 }
 
 export default function POSDashboard() {
+  const dispatch = useAppDispatch();
   /* -------- Fetching ALL required data from GraphQL ---------- */
   const { data: catData } = useCategoriesQuery();
   const categoryList = catData?.getCategories || [];
@@ -98,7 +112,7 @@ export default function POSDashboard() {
   const { data: pgData } = useProductGroupsQuery();
   const productGroupList = pgData?.getProductGroups || [];
 
-  const { data: psData, loading: psLoading } = useProductServicesQuery();
+  const { data: psData } = useProductServicesQuery();
   const productServiceList = psData?.getProductServices ?? [];
 
   const PRODUCTS = useMemo(() => mapProductServiceList(productServiceList), [productServiceList]);
@@ -111,18 +125,40 @@ export default function POSDashboard() {
   const [activeSize, setActiveSize] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [cart, setCart] = useState<any[]>([]);
-  const [selectedUnits, setSelectedUnits] = useState<Record<string, { variantId: string; unitId: string }>>({});
+
+  /* PAYMENT DRAWER STATE */
+  const [cart, setCart] = useState([]);
+  const [selectedUnits, setSelectedUnits] = useState({});
+  const [billNumber, setBillNumber] = useState("000001");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === "admin"
+      ? admin?.id
+      : type === "branch"
+        ? branch?.admin?.id
+        : undefined;
+
+  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
+  const salesInvoices = useAppSelector((state) => state.salesinvoice.invoices);
+
+  /* ---------- Generate Next Bill Number ---------- */
+  useEffect(() => {
+    const next = getNextBillNumber(salesInvoices);
+    setBillNumber(next);
+  }, [salesInvoices]);
 
   /* ---------- SUBCATEGORY FILTER ---------- */
   const subcategoriesForActive = useMemo(() => {
-  if (!activeCategory) return subCategoryList;
+    if (!activeCategory) return subCategoryList;
 
-  return subCategoryList.filter((s) => {
-    const catId = s.category?.id;
-    return catId === activeCategory;
-  });
-}, [activeCategory, subCategoryList]);
+    return subCategoryList.filter((s) => {
+      const catId = s.category?.id;
+      return catId === activeCategory;
+    });
+  }, [activeCategory, subCategoryList]);
 
   /* ------------ PRODUCT FILTER ---------------- */
   const filteredProducts = useMemo(() => {
@@ -147,8 +183,12 @@ export default function POSDashboard() {
   }, [PRODUCTS, search, activeCategory, activeSubcategory, activeBrand, activeSize, activeModal, activeGroup]);
 
   /* -------- Add To Cart ---------- */
-  const addToCart = (product, variantId = null, unitId = null) => {
-    const chosenVariant = product.variants.find((v) => v.variantId === (variantId ?? selectedUnits[product.id]?.variantId)) || product.variants[0];
+  const addToCart = (product: any, variantId: string | null = null, unitId: string | null = null) => {
+    console.log("Adding to cart:", JSON.stringify(product));
+    const chosenVariant =
+      product.variants.find((v: any) => v.variantId === (variantId ?? selectedUnits[product.id]?.variantId)) ||
+      product.variants[0];
+
     if (!chosenVariant) return;
 
     if (chosenVariant.currentstock <= 0) {
@@ -156,19 +196,29 @@ export default function POSDashboard() {
       return;
     }
 
-    const chosenUnit = chosenVariant.units.find((u) => u.id === (unitId ?? selectedUnits[product.id]?.unitId)) || chosenVariant.units[0];
+    const chosenUnit =
+      chosenVariant.units.find((u: any) => u.id === (unitId ?? selectedUnits[product.id]?.unitId)) ||
+      chosenVariant.units[0];
+
     if (!chosenUnit) return;
+
+    const sellPrice =
+      chosenUnit.offerprice ?? chosenUnit.salesrate ?? chosenUnit.price ?? chosenUnit.mrp ?? 0;
 
     const cartId = `${product.id}_${chosenVariant.variantId}_${chosenUnit.id}`;
 
     setCart((prev) => {
       const existing = prev.find((c) => c.cartId === cartId);
+
       if (existing) {
         if (existing.qty + 1 > chosenVariant.currentstock) {
           alert("Stock limit reached");
           return prev;
         }
-        return prev.map((c) => (c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c));
+
+        return prev.map((c) =>
+          c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c
+        );
       }
 
       return [
@@ -178,15 +228,20 @@ export default function POSDashboard() {
           variantId: chosenVariant.variantId,
           variantName: chosenVariant.name,
           name: product.name,
-          brand: product.brandName,
-          size: product.sizeName,
-          model: product.modelName,
+          brandName: product.brandName,
+          sizeName: product.sizeName,
+          modelName: product.modelName,
           unitId: chosenUnit.id,
           unitName: chosenUnit.name,
-          price: chosenUnit.price,
+          unitqty: chosenUnit.quantity ?? 1,
+          price: sellPrice,
           mrp: chosenUnit.mrp,
           gst: chosenVariant.gst ?? 0,
           qty: 1,
+          discount: chosenUnit.discount ?? 0,
+          salesaccountid: product.salesaccountid ?? null,
+          purchaseaccountid: product.purchaseaccountid ?? null,
+          serviceaccountid: product.serviceaccountid ?? null,
         },
         ...prev,
       ];
@@ -213,9 +268,86 @@ export default function POSDashboard() {
     setSelectedUnits((prev) => ({ ...prev, [productId]: { variantId: prevSel.variantId, unitId } }));
   };
 
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const gst = cart.reduce((s, i) => s + (i.price * i.qty * i.gst) / 100, 0);
-  const total = subtotal + gst;
+  /* -------------- Totals -------------- */
+  const subtotal = cart.reduce((s, i) => s + (i.price ?? 0) * (i.qty ?? 0), 0);
+  const totaldiscount = cart.reduce((s, i) => s + ((i.discount ?? 0) * (i.qty ?? 0)), 0);
+  const totalgst = cart.reduce((s, i) => {
+    const lineNet = ((i.price ?? 0) - (i.discount ?? 0)) * (i.qty ?? 0);
+    return s + (lineNet * (i.gst ?? 0)) / 100;
+  }, 0);
+
+  // Final total = subtotal - totaldiscount + totalgst
+  const total = subtotal - totaldiscount + totalgst;
+
+  const getUnitId = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "object" && "id" in value) return value.id ?? null;
+    return null;
+  };
+
+  /* Handle completion */
+  const handlePaymentComplete = async ({
+    paymentType,
+    customer,
+    salesman,
+  }) => {
+     const input = {
+      branchid: branchId,
+      adminid: adminId,
+      salesmenid: salesman,
+      paymenttype: paymentType,
+      partyacc: customer,
+      taxorsupplytype: "taxInvoice",
+      billdate: new Date().toISOString().slice(0, 10),
+      billtype: "taxInvoice",
+      billnumber: billNumber,
+      notes: "",
+      invoicetype: "retail",
+
+      subtotal: Number(subtotal.toFixed(2)),
+      totaldiscount: Number(totaldiscount.toFixed(2)),
+      totalgst: Number(totalgst.toFixed(2)),
+      totalamount: Number(total.toFixed(2)),
+
+      isservice: false,
+      status: true,
+
+      productservice: cart.map((i) => {
+        const lineGross = (i.price ?? 0) * (i.qty ?? 0);
+        const lineDiscountTotal = (i.discount ?? 0) * (i.qty ?? 0);
+        const lineNet = lineGross - lineDiscountTotal;
+        const lineGst = (lineNet * (i.gst ?? 0)) / 100;
+        const lineAmountInclusive = lineNet + lineGst;
+
+        return {
+          productserviceid: i.productId,
+          variantid: i.variantId,
+          salesunitid: i.unitId,
+          unitqty: i.unitqty ?? 1,
+          qty: i.qty,
+          gst: i.gst,
+          rate: i.price,
+          discount: i.discount ?? 0,
+          amount: Number(lineAmountInclusive.toFixed(2)),
+          salesaccountid: getUnitId(i.salesaccountid) ?? null,
+          purchaseaccountid: getUnitId(i.purchaseaccountid) ?? null,
+          serviceaccountid: getUnitId(i.serviceaccountid) ?? null,
+        };
+      }),
+    };
+
+    try {
+      await addSalesInvoiceMutation({ variables: { input } });
+      dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
+    } catch (error: any) {
+      console.error("Error:", error);
+      dispatch(showMessage({ message: "An error occurred", type: "error" }));
+    } finally {
+      setCart([]);
+      setPaymentOpen(false);
+    }
+  };
 
   return (
     <HomeLayout>
@@ -357,10 +489,33 @@ export default function POSDashboard() {
 
             <div className="border-t pt-3 mt-3">
               <div className="flex justify-between text-sm"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span>GST</span><span>₹{gst.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm">
+                <span>Discount</span>
+                <span>₹{totaldiscount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm"><span>GST</span><span>₹{totalgst.toFixed(2)}</span></div>
               <div className="flex justify-between font-semibold text-lg mt-1"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
 
-              <button className="w-full bg-blue-600 text-blue-600 py-2 rounded-lg font-semibold mt-4 border">Proceed to Payment</button>
+              <button
+                className="w-full bg-blue-600 text-blue-600 py-2 rounded-lg mt-4 border"
+                onClick={() => {
+                  if (cart.length === 0) {
+                    dispatch(showMessage({ message: "Please add at least one item before proceeding!", type: "error" }));
+                    return;
+                  }
+                  setPaymentOpen(true);
+                }}
+              >
+                Proceed to Payment
+              </button>
+
+              {/* Payment Drawer */}
+              <PaymentDrawer
+                open={paymentOpen}
+                onClose={() => setPaymentOpen(false)}
+                total={total}
+                onComplete={handlePaymentComplete}
+              />
             </div>
           </div>
         </div>
