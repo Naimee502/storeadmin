@@ -145,7 +145,7 @@ const StaffAccounts = () => {
   // LOAD INTO FORM WHILE EDIT
   const handleEdit = useCallback((row: any) => {
     setFormValues({
-      branchid: row.branchid || branchId || "",
+      branchid: null,
       accountgroupid: row.accountgroupid?.id || "",
       name: row.name || "",
       mobile: row.mobile || "",
@@ -204,7 +204,7 @@ const StaffAccounts = () => {
 
     // main payload
     const payload: any = {
-      branchid: branchId || "",
+      branchid: null,
       accountgroupid: formValues.accountgroupid,
       name: formValues.name,
       mobile: formValues.mobile,
@@ -242,7 +242,7 @@ const StaffAccounts = () => {
 
       // reset form
       setFormValues({
-        branchid: branchId || "",
+        branchid: null,
         accountgroupid: "",
         name: "",
         mobile: "",

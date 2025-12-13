@@ -38,7 +38,6 @@ export const useAccountsQuery = (status: boolean = true) => {
     variables: {
       filter: {
         admin: adminId,
-        branchid,
         status,
       },
     },

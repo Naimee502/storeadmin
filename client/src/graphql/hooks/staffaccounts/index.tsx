@@ -45,7 +45,7 @@ export const useStaffQuery = () => {
     type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_STAFF, {
-    variables: { filter: { branchid, adminId } },
+    variables: { filter: { adminId } },
     skip: !adminId,
   });
 
@@ -66,7 +66,7 @@ export const useDeletedStaffQuery = () => {
     type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_STAFF, {
-    variables: { filter: { branchid, adminId } },
+    variables: { filter: { adminId } },
     skip: !adminId,
   });
 

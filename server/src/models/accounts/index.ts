@@ -11,7 +11,7 @@ const accountSchema = new mongoose.Schema(
     branchid: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Branch',
-      required: true,
+      default: null,
     },
 
     name: { type: String, required: true }, 
@@ -147,6 +147,7 @@ accountSchema.pre("save", async function (next) {
     if (this.isNew && !this.ledgerid) {
       const ledger = await AccountLedger.create({
         admin: this.admin,
+        branchid: this.branchid || null,
         accountid: this._id,
         accountgroupid: this.accountgroupid,
         ledgername: `${this.name} - ${this.accountcode}`,

@@ -60,7 +60,7 @@ const AddEditAccount = () => {
     assignaccountid: "",
     salesmanid: "",
     admin: adminId || "",
-    branchid: branchId || "",
+    branchid: null,
   });
 
   const regionOptions = [
@@ -142,7 +142,7 @@ const AddEditAccount = () => {
         assignaccountid: a.assignaccountid?.id || "",
         salesmanid: a.salesmanid?.id || "",
         admin: a.admin?.id || adminId || "",
-        branchid: a.branchid?.id || branchId || "",
+        branchid: null,
       });
     }
   }, [isEdit, existingData]);

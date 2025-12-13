@@ -16,7 +16,7 @@ export const accountTypeDefs = gql`
 
   type Branch {
     id: ID!
-    branchname: String!
+    branchname: String
   }
 
   type Salesman {

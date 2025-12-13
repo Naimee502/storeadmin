@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const staffAccountSchema = new mongoose.Schema(
   {
     admin: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-    branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
+    branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", default: null },
 
     staffcode: { type: String },
     name: { type: String, required: true },
@@ -36,7 +36,7 @@ const staffAccountSchema = new mongoose.Schema(
 // -------------------------------------
 // 🔥 UNIQUE INDEXES
 // -------------------------------------
-staffAccountSchema.index({ admin: 1, branchid: 1, staffcode: 1 }, { unique: true });
+staffAccountSchema.index({ admin: 1, staffcode: 1 }, { unique: true });
 staffAccountSchema.index({ admin: 1, mobile: 1 }, { unique: true });
 staffAccountSchema.index({ admin: 1, email: 1 }, { unique: true });
 
@@ -69,7 +69,6 @@ staffAccountSchema.pre("save", async function (next) {
 
       const last = await StaffAccount.findOne({
         admin: this.admin,
-        branchid: this.branchid,
         staffcode: { $regex: new RegExp(`^${prefix}\\d{4}$`) }
       }).sort({ staffcode: -1 });
 
@@ -100,6 +99,7 @@ staffAccountSchema.pre("save", async function (next) {
     if (this.isNew && !this.ledgerid) {
       const ledger = await AccountLedger.create({
         admin: this.admin,
+        branchid: this.branchid || null,
         accountid: this._id,
         accountgroupid: this.accountgroupid,
         ledgername: `${this.name} - ${this.staffcode}`,

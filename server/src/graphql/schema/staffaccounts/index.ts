@@ -16,7 +16,7 @@ export const staffAccountTypeDefs = gql`
 
   type Branch {
     id: ID!
-    branchname: String!
+    branchname: String
   }
 
   type AccountGroup {
@@ -39,14 +39,14 @@ export const staffAccountTypeDefs = gql`
     name: String!
     mobile: String!
     email: String!
-    password: String        # ⭐ Optional (changed)
+    password: String        
     profilepicture: String
     imageurl: String
     address: String
     commission: Float
     salary: Float
     target: Float
-    role: String            # ⭐ staff / salesman / deliveryboy
+    role: String           
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -54,19 +54,19 @@ export const staffAccountTypeDefs = gql`
 
   input StaffAccountInput {
     admin: ID
-    branchid: ID!
+    branchid: ID
     accountgroupid: ID
     name: String!
     mobile: String!
     email: String!
-    password: String        # ⭐ Optional (changed)
+    password: String        
     profilepicture: String
     imageurl: String
     address: String
     commission: Float
     salary: Float
     target: Float
-    role: String            # ⭐ "staff" | "salesman" | "deliveryboy"
+    role: String           
     status: Boolean
   }
 
