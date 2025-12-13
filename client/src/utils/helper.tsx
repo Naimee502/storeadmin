@@ -1,3 +1,5 @@
+import type { InvoiceProduct } from "../components/productsection";
+
 // ✅ converts Date or string to DD/MM/YYYY
 export const normalizeToDMY = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
@@ -56,4 +58,39 @@ export const getNextBillNumber = (invoices) => {
 
   const next = Math.max(...nums) + 1;
   return next.toString().padStart(6, "0");
+};
+
+export const getBaseQuantity = (
+  qty: number,
+  unitId: string,
+  variant: any
+) => {
+  const conversion = variant.unitconversions.find(
+    (uc: any) => (uc.unitid?.id ?? uc.unitid) === unitId
+  );
+
+  const factor = Number(conversion?.factor ?? 1);
+  return qty * factor; // 🔥 base unit qty
+};
+
+export const getCartItemBaseQty = (item, variant) => {
+  return getBaseQuantity(
+    item.qty,
+    item.unitId,
+    {
+      unitconversions: variant.conversions.map((c) => ({
+        unitid: c.unitId,
+        factor: c.factor,
+      })),
+    }
+  );
+};
+
+export const getInvoiceLineBaseQty = (line: InvoiceProduct, variant: any) => {
+  const unitId = line.salesunitid || variant.baseunitid;
+  return getBaseQuantity(
+    Number(line.quantity),
+    unitId!,
+    variant
+  );
 };

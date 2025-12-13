@@ -15,7 +15,7 @@ import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesInvoiceMutations } from "../../graphql/hooks/salesinvoice";
 import PaymentDrawer from "../../components/paymentdrawer";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { getNextBillNumber } from "../../utils/helper";
+import { getBaseQuantity, getCartItemBaseQty, getNextBillNumber } from "../../utils/helper";
 import { showMessage } from "../../redux/slices/message";
 
 /* ------------ Helper functions for mapping fetched product services -------------- */
@@ -208,14 +208,32 @@ export default function POSDashboard() {
     const cartId = `${product.id}_${chosenVariant.variantId}_${chosenUnit.id}`;
 
     setCart((prev) => {
+      // 🔥 total base qty of SAME VARIANT already in cart
+      const usedBaseQty = prev
+        .filter((c) => c.variantId === chosenVariant.variantId)
+        .reduce((sum, c) => {
+          return sum + getCartItemBaseQty(c, chosenVariant);
+        }, 0);
+
+      const newItemBaseQty = getBaseQuantity(
+        1,
+        chosenUnit.id,
+        {
+          unitconversions: chosenVariant.conversions.map(c => ({
+            unitid: c.unitId,
+            factor: c.factor,
+          })),
+        }
+      );
+
+      if (usedBaseQty + newItemBaseQty > chosenVariant.currentstock) {
+        alert(`Stock exceeded! Available: ${chosenVariant.currentstock}`);
+        return prev;
+      }
+
       const existing = prev.find((c) => c.cartId === cartId);
 
       if (existing) {
-        if (existing.qty + 1 > chosenVariant.currentstock) {
-          alert("Stock limit reached");
-          return prev;
-        }
-
         return prev.map((c) =>
           c.cartId === cartId ? { ...c, qty: c.qty + 1 } : c
         );
@@ -253,7 +271,31 @@ export default function POSDashboard() {
       setCart((prev) => prev.filter((c) => c.cartId !== cartId));
       return;
     }
-    setCart((prev) => prev.map((c) => (c.cartId === cartId ? { ...c, qty } : c)));
+
+    setCart((prev) => {
+      return prev.map((c) => {
+        if (c.cartId !== cartId) return c;
+
+        const product = PRODUCTS.find((p) => p.id === c.productId);
+        const variant = product?.variants.find(v => v.variantId === c.variantId);
+        if (!variant) return c;
+
+        // base qty for this line
+        const newBaseQty = getCartItemBaseQty({ ...c, qty }, variant);
+
+        // base qty of OTHER lines
+        const otherBaseQty = prev
+          .filter(x => x.cartId !== cartId && x.variantId === c.variantId)
+          .reduce((s, x) => s + getCartItemBaseQty(x, variant), 0);
+
+        if (newBaseQty + otherBaseQty > variant.currentstock) {
+          alert(`Stock exceeded! Available: ${variant.currentstock}`);
+          return c;
+        }
+
+        return { ...c, qty };
+      });
+    });
   };
 
   const onSelectVariant = (productId, variantId) => {

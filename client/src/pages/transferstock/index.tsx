@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
+import { getBaseQuantity } from "../../utils/helper";
 
 type FormValues = {
   tobranchid: string;
@@ -53,6 +54,8 @@ const TransferStock = () => {
   const { data: productData, refetch: productRefetch } = useProductServicesQuery();
   console.log("ProductServicesData:", JSON.stringify(productData));
   const transferProductData = productData?.getProductServices ?? [];
+  const [selectedVariantStock, setSelectedVariantStock] = useState<number>(0);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
 
   const {
     addTransferStockMutation,
@@ -94,8 +97,19 @@ const TransferStock = () => {
     const errors: FormErrors = {};
     if (!formValues.tobranchid) errors.tobranchid = "To Branch is required";
     if (!formValues.productid) errors.productid = "Product is required";
-    if (!formValues.transferqty || formValues.transferqty <= 0)
+    if (!formValues.transferqty || formValues.transferqty <= 0) {
       errors.transferqty = "Transfer quantity must be greater than 0";
+    } else {
+      const baseQty = getBaseQuantity(
+        Number(formValues.transferqty),
+        formValues.transferunitid,
+        selectedVariant
+      );
+
+      if (baseQty > selectedVariantStock) {
+        errors.transferqty = `Transfer quantity cannot exceed available stock (${selectedVariantStock} in base units)`;
+      }
+    }
     if (!formValues.transferdate) errors.transferdate = "Transfer date is required";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -315,6 +329,8 @@ const TransferStock = () => {
 
                   console.log("Selected Product:", product);
                   console.log("Selected Variant:", variant.unitconversions);
+                  setSelectedVariant(variant);    
+                  setSelectedVariantStock(variant.currentstock || 0);
 
                   // Optional: prevent selecting out-of-stock variants
                   if (variant.currentstock === 0 && prodId !== formValues.productid) {
@@ -370,7 +386,30 @@ const TransferStock = () => {
                 name="transferqty"
                 type="number"
                 value={formValues.transferqty}
-                onChange={(e) => handleFormChange("transferqty", parseInt(e.target.value))}
+                onChange={(e) => {
+                const qty = parseFloat(e.target.value);
+
+                const baseQty = getBaseQuantity(
+                  qty,
+                  formValues.transferunitid,
+                  selectedVariant 
+                );
+
+                // ❗ Show error only (DO NOT BLOCK INPUT)
+                if (baseQty > selectedVariantStock) {
+                  setFormErrors((prev) => ({
+                    ...prev,
+                    transferqty: `Available stock is (${selectedVariantStock} in base units)`,
+                  }));
+                } else {
+                  setFormErrors((prev) => {
+                    const { transferqty, ...rest } = prev;
+                    return rest;
+                  });
+                }
+
+                handleFormChange("transferqty", qty);
+              }}
                 error={formErrors.transferqty}
                 icon={<FaExchangeAlt />}
                 placeholder="Enter quantity"

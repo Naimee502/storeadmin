@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import FormField from "../formfiled";
 import Button from "../button";
+import { getBaseQuantity, getInvoiceLineBaseQty } from "../../utils/helper";
 
 /** ✅ Invoice line type */
 export type InvoiceProduct = {
@@ -79,6 +80,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [qtyError, setQtyError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("🔥 Party Account Received:", JSON.stringify(partyAccount));
@@ -109,6 +111,41 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const handleAddOrUpdateProduct = () => {
     if (!selectedProduct.productserviceid) return alert("Please select a product");
     if (!selectedProduct.quantity || !selectedProduct.rate) return alert("Enter qty & rate");
+
+     const product = normalizedProducts.find(
+        (p) => p.id === selectedProduct.productserviceid
+      );
+
+      const variant = product?.productvariants.find(
+        (v: any) => v.id === selectedProduct.variantid
+      );
+
+      if (!variant) return;
+
+      const currentStock = Number(variant.currentstock ?? 0);
+      const qty = Number(selectedProduct.quantity);
+
+      const selectedUnitId =
+        selectedProduct.salesunitid || variant.baseunitid;
+
+      const newBaseQty = getBaseQuantity(qty, selectedUnitId!, variant);
+
+      // 🔥 TOTAL USED STOCK (exclude editing row)
+      const usedBaseQty = products
+        .filter((_, i) => i !== editIndex)
+        .filter(p => p.variantid === selectedProduct.variantid)
+        .reduce((sum, p) => sum + getInvoiceLineBaseQty(p, variant), 0);
+
+      // ❌ FINAL SALES VALIDATION
+      if (type === "sales" && usedBaseQty + newBaseQty > currentStock) {
+        setQtyError(
+          `Sales quantity exceeds available stock (${currentStock} in base units)`
+        );
+        return;
+      }
+
+      // ✅ clear error
+      setQtyError(null);
 
     const total = calculateLineTotal();
 
@@ -210,7 +247,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           options={normalizedProducts.flatMap((p) =>
             p.productvariants.map((v: any) => ({
               value: `${p.id}--${v.id}`,
-              label: `${p.name} - ${v.name}`,
+              label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
             }))
           )}
           searchable
@@ -343,9 +380,39 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           name="quantity"
           type="number"
           value={selectedProduct.quantity ?? ""}
-          onChange={(e) =>
-            setSelectedProduct({ ...selectedProduct, quantity: parseFloat(e.target.value) })
-          }
+          onChange={(e) => {
+            const qty = parseFloat(e.target.value);
+
+            const product = normalizedProducts.find(
+              (p) => p.id === selectedProduct.productserviceid
+            );
+
+            const variant = product?.productvariants.find(
+              (v: any) => v.id === selectedProduct.variantid
+            );
+
+            if (!variant) return;
+
+            const selectedUnitId = selectedProduct.salesunitid || variant.baseunitid;
+            const baseQty = getBaseQuantity(qty, selectedUnitId, variant);
+
+            const currentStock = Number(variant.currentstock ?? 0);
+
+            // ✅ SALES ONLY validation
+            if (type === "sales" && baseQty > currentStock) {
+              setQtyError(
+                `Available stock (${currentStock} in base units)`
+              );
+            } else {
+              setQtyError(null);
+            }
+
+            setSelectedProduct((prev) => ({
+              ...prev,
+              quantity: qty,
+            }));
+          }}
+          error={qtyError}
         />
 
         {/* ✅ Rate */}
@@ -445,7 +512,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 return (
                   <tr key={i}>
                     <td className="border p-2">
-                      {product?.name} - {variant?.name}
+                      {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
                     </td>
                     {type === "sales" && (
                     <td className="border p-2">
