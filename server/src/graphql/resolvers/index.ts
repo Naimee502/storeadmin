@@ -18,5 +18,6 @@ import { transactionResolvers } from "./transactions";
 import { transferStockResolvers } from "./transferstock";
 import { unitResolvers } from "./units";
 import { uploadResolvers } from "./uploads";
+import { expenseNoteResolvers } from "./expensenote";
 
-export const resolvers = [branchResolvers, categoryResolvers, subCategoryResolvers ,sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountLedgerResolvers, accountResolvers, unitResolvers, staffAccountResolvers, uploadResolvers, productServiceResolvers, salesInvoiceResolvers, purchaseInvoiceResolvers, transferStockResolvers, adminResolvers, transactionResolvers, paymentResolvers];
+export const resolvers = [branchResolvers, categoryResolvers, subCategoryResolvers ,sizeResolvers, brandResolvers, modelResolvers, productGroupResolvers, accountGroupResolvers, accountLedgerResolvers, accountResolvers, unitResolvers, staffAccountResolvers, uploadResolvers, productServiceResolvers, salesInvoiceResolvers, purchaseInvoiceResolvers, transferStockResolvers, adminResolvers, transactionResolvers, paymentResolvers, expenseNoteResolvers];

@@ -1049,7 +1049,7 @@ const AddEditProductService = () => {
         <Button variant="outline" onClick={() => navigate('/products')}>
           Cancel
         </Button>
-        <Button variant="outline" onClick={handleSubmit} disabled={!isFormValid}>
+        <Button variant="outline" onClick={handleSubmit}>
           {isEdit ? 'Update Product Service' : 'Add Product Service'}
         </Button>
       </div>

@@ -18,5 +18,6 @@ import { transactionTypeDefs } from "./transactions";
 import { transferStockTypeDefs } from "./transferstock";
 import { unitTypeDefs } from "./units";
 import { uploadTypeDefs } from "./uploads";
+import { expenseNoteTypeDefs } from "./expensenote";
 
-export const typeDefs = [branchTypeDefs, categoryTypeDefs, subCategoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountLedgerTypeDefs, accountTypeDefs, unitTypeDefs, staffAccountTypeDefs, uploadTypeDefs, productServiceTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs, transferStockTypeDefs, adminTypeDefs, transactionTypeDefs, paymentTypeDefs];
+export const typeDefs = [branchTypeDefs, categoryTypeDefs, subCategoryTypeDefs, sizeTypeDefs, brandTypeDefs, modelTypeDefs, productGroupTypeDefs, accountGroupTypeDefs, accountLedgerTypeDefs, accountTypeDefs, unitTypeDefs, staffAccountTypeDefs, uploadTypeDefs, productServiceTypeDefs, salesInvoiceTypeDefs, purchaseInvoiceTypeDefs, transferStockTypeDefs, adminTypeDefs, transactionTypeDefs, paymentTypeDefs, expenseNoteTypeDefs];

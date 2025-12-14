@@ -6,7 +6,8 @@ import {
   FaReceipt, FaExchangeAlt, FaWallet,
   FaChartBar, FaFileAlt, FaClipboardList, FaMoneyBillWave,
   FaChartLine,
-  FaIndent
+  FaIndent,
+  FaMoneyCheckAlt
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -63,6 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" /> },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" /> },
     { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" /> },
+    { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-xl" /> },
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-xl" /> },
     { to: '/payments', label: 'Payments', icon: <FaWallet className="text-xl" /> },
   ];
@@ -100,8 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       '/salesinvoice',
       '/purchaseinvoice',
       '/transferstock',
-      '/accounts',
-      '/staffaccounts',
+      '/expensenote',
       '/transactions',   
       '/payments',
       '/accountledgers'        

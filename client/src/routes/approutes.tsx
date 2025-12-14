@@ -63,6 +63,9 @@ import AnalyticalReports from "../pages/reports/analytics";
 import StaffAccounts from "../pages/staffaccounts";
 import DeletedStaffAccounts from "../pages/staffaccounts/deletedentries";
 import POSDashboard from "../pages/posdashboard";
+import AddEditExpenseNote from "../pages/expensenote/addedit";
+import DeletedExpenseNotes from "../pages/expensenote/deletedentries";
+import ExpenseNote from "../pages/expensenote";
 
 const AppRoutes = () => {
     return (
@@ -481,6 +484,38 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <DeletedTransferStocks />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/expensenote"
+          element={
+            <ProtectedRoutes>
+              <ExpenseNote />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/expensenote/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditExpenseNote />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/expensenote/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditExpenseNote />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/expensenote/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedExpenseNotes />
             </ProtectedRoutes>
           }
         />
