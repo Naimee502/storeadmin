@@ -413,10 +413,10 @@ export default function POSDashboard() {
 
         <div className="flex flex-col md:flex-row gap-4">
           {/* LEFT SIDE */}
-          <div className="w-full md:w-2/3 bg-white p-4 rounded-xl border shadow-sm h-[calc(100vh-150px)] overflow-y-auto">
-
+          <div className="w-full md:w-2/3 bg-white p-4 rounded-xl border shadow-sm h-[calc(100vh-150px)] overflow-hidden">
+            <div className="h-full overflow-y-auto hide-scrollbar">
             {/* Category Filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-2 pb-2 w-full">
               <button
                 className={`px-4 py-1.5 rounded-full text-xs font-medium border ${!activeCategory ? "bg-blue-600 text-blue-600 border-blue-600" : "bg-gray-100"}`}
                 onClick={() => setActiveCategory("")}
@@ -432,8 +432,8 @@ export default function POSDashboard() {
             </div>
 
             {/* SubCategories */}
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
-              <button onClick={() => setActiveSubcategory(null)} className={`px-3 py-1.5 rounded text-xs border ${activeSubcategory === null ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>All</button>
+            <div className="mt-2 flex gap-2 pb-2 w-full">
+              <button onClick={() => setActiveSubcategory(null)} className={`shrink-0 px-3 py-1.5 rounded text-xs border ${activeSubcategory === null ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>All</button>
               {subcategoriesForActive.map((s) => (
                 <button
                   key={s.id}
@@ -444,7 +444,7 @@ export default function POSDashboard() {
             </div>
 
             {/* Brand Filter */}
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+            <div className="mt-2 flex gap-2 pb-2 w-full">
               <button onClick={() => setActiveBrand(null)} className={`px-3 py-1 rounded text-xs border ${activeBrand === null ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>All Brands</button>
               {brandList.map((b) => (
                 <button key={b.id} onClick={() => setActiveBrand(b.id)} className={`px-3 py-1 rounded text-xs border ${activeBrand === b.id ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>{b.brandname}</button>
@@ -452,7 +452,7 @@ export default function POSDashboard() {
             </div>
 
             {/* Size Filter */}
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+            <div className="mt-2 flex gap-2 pb-2 w-full">
               <button onClick={() => setActiveSize(null)} className={`px-3 py-1 rounded text-xs border ${activeSize === null ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>All Sizes</button>
               {sizeList.map((s) => (
                 <button key={s.id} onClick={() => setActiveSize(s.id)} className={`px-3 py-1 rounded text-xs border ${activeSize === s.id ? "bg-blue-600 text-blue-600" : "bg-gray-100"}`}>{s.sizename}</button>
@@ -495,6 +495,7 @@ export default function POSDashboard() {
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
 

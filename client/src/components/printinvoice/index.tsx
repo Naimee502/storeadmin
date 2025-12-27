@@ -2,24 +2,27 @@ import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import { toWords } from "number-to-words";
 import { useAppSelector } from "../../redux/hooks";
 
+/* ================= TYPES ================= */
 interface Product {
-  productname: string;
+  productserviceid: { name: string };
+  variantid?: { name: string };
+  salesunitid?: { unitname: string };
   qty: number;
   rate: number;
   gst: number;
+  discount?: number;
   hsn?: string;
 }
 
 interface Invoice {
-  productname: string;
   billtype_billnumber: string;
   billdate: string;
   partyacc: string;
   partyname?: string;
   placeofsupply?: string;
   gstin?: string;
-  productservice?: Product[]; // make optional to prevent errors
-  totalamount: number;
+  productservice?: Product[];
+  totalamount?: number;
   amountinwords?: string;
 }
 
@@ -27,13 +30,34 @@ interface PrintableInvoiceProps {
   invoice: Invoice;
 }
 
+/* ================= COMPONENT ================= */
 const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
   ({ invoice }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
-    const branch = useAppSelector((state) => state.auth.branch);
 
+    const branch = useAppSelector((state) => state.auth.branch);
     const products = invoice.productservice || [];
+
+    /* ================= CALCULATIONS ================= */
+    const productsTotal = products.reduce(
+      (sum, p) => sum + p.qty * p.rate,
+      0
+    );
+
+    const totalDiscount = products.reduce(
+      (sum, p) => sum + (p.discount || 0),
+      0
+    );
+
+    const taxableTotal = productsTotal - totalDiscount;
+
+    const totalGST = products.reduce((sum, p) => {
+      const taxable = p.qty * p.rate - (p.discount || 0);
+      return sum + (taxable * p.gst) / 100;
+    }, 0);
+
+    const grandTotal = (productsTotal - totalDiscount) + totalGST;
 
     return (
       <div
@@ -58,106 +82,166 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             border: 1px solid black;
             padding: 4px;
           }
-          .no-border {
-            border: none;
-          }
         `}</style>
 
         <table>
           <thead>
-            {/* Header */}
             <tr>
-              <td colSpan={7} className="text-center text-lg font-bold">
+              <td colSpan={8} className="text-center text-lg font-bold">
                 {branch?.branchname || "---"}
               </td>
             </tr>
+
             <tr>
-              <td colSpan={7} className="text-center">
-                {branch?.address || "---"}<br />
-                {branch?.city || "---"} - {branch?.phone || branch?.mobile || "---"}
+              <td colSpan={8} className="text-center">
+                {branch?.address || "---"}
+                <br />
+                {branch?.city || "---"} -{" "}
+                {branch?.phone || branch?.mobile || "---"}
               </td>
             </tr>
+
             <tr>
-              <td colSpan={3} className="text-left font-semibold">Online Memo</td>
-              <td colSpan={4} className="text-right font-semibold">TAX INVOICE &nbsp;&nbsp;&nbsp; Original</td>
+              <td colSpan={4} className="text-left font-semibold">
+                Online Memo
+              </td>
+              <td colSpan={4} className="text-right font-semibold">
+                TAX INVOICE &nbsp;&nbsp;&nbsp; Original
+              </td>
             </tr>
 
-            {/* Party and Invoice Info */}
             <tr>
-              <td colSpan={2}><strong>M/S. :</strong> {invoice.partyname || "---"}</td>
-              <td colSpan={2}><strong>Invoice No. :</strong> {invoice.billtype_billnumber}</td>
-              <td colSpan={3}><strong>Place of Supply:</strong> {invoice.placeofsupply || "Rajkot"}</td>
+              <td colSpan={3}>
+                <strong>M/S. :</strong> {invoice.partyname || "---"}
+              </td>
+              <td colSpan={2}>
+                <strong>Invoice No. :</strong>{" "}
+                {invoice.billtype_billnumber}
+              </td>
+              <td colSpan={3}>
+                <strong>Place of Supply:</strong>{" "}
+                {invoice.placeofsupply || "Rajkot"}
+              </td>
             </tr>
+
             <tr>
-              <td colSpan={2}><strong>GSTIN No.:</strong> {invoice.gstin || "24CGQPM7906P1ZJ"}</td>
-              <td colSpan={2}><strong>Date:</strong> {invoice.billdate}</td>
-              <td colSpan={3}><strong>Party A/c:</strong> {invoice.partyacc}</td>
+              <td colSpan={3}>
+                <strong>GSTIN No.:</strong>{" "}
+                {invoice.gstin || "24CGQPM7906P1ZJ"}
+              </td>
+              <td colSpan={2}>
+                <strong>Date:</strong> {invoice.billdate}
+              </td>
+              <td colSpan={3}>
+                <strong>Party A/c:</strong> {invoice.partyacc}
+              </td>
             </tr>
           </thead>
 
           <tbody>
-            {/* Product Table Header */}
+            {/* HEADER */}
             <tr className="text-center font-semibold">
               <th>SrNo</th>
               <th>Product Name</th>
-              <th>HSN/SAC</th>
-              <th>Quantity</th>
+              <th>HSN</th>
+              <th>Qty</th>
               <th>Rate</th>
-              <th>GST</th>
+              <th>Disc</th>
+              <th>GST%</th>
               <th>Amount</th>
             </tr>
 
-            {/* Product Rows */}
-            {products.map((item, idx) => (
-              <tr key={idx}>
-                <td className="text-center">{idx + 1}</td>
-                <td className="text-center">{invoice.productname}</td>
-                <td className="text-center">{item.hsn || "-"}</td>
-                <td className="text-center">{item.qty}</td>
-                <td className="text-right">{item.rate.toFixed(2)}</td>
-                <td className="text-center">{item.gst}%</td>
-                <td className="text-center">{(item.qty * item.rate).toFixed(2)}</td>
-              </tr>
-            ))}
+            {/* PRODUCTS */}
+            {products.map((item, idx) => {
+              const base = item.qty * item.rate;
+              const discount = item.discount || 0;
+              const taxable = base - discount;
+              const gstAmt = (taxable * item.gst) / 100;
+              const total = taxable + gstAmt;
 
-            {/* Subtotal */}
-            <tr>
-              <td colSpan={6}><strong>GSTIN No.:</strong> 24CGQPM7906P1ZJ</td>
-              <td className="text-center"><strong>Sub Total</strong> {invoice.totalamount.toFixed(2)}</td>
-            </tr>
+              return (
+                <tr key={idx}>
+                  <td className="text-center">{idx + 1}</td>
+                  <td>
+                    {item.productserviceid.name}
+                    {item.variantid?.name && ` - ${item.variantid.name}`}
+                    {item.salesunitid?.unitname &&
+                      ` (${item.salesunitid.unitname})`}
+                  </td>
+                  <td className="text-center">{item.hsn || "-"}</td>
+                  <td className="text-center">{item.qty}</td>
+                  <td className="text-center">{item.rate.toFixed(2)}</td>
+                  <td className="text-center">{discount.toFixed(2)}</td>
+                  <td className="text-center">{item.gst}</td>
+                  <td className="text-center">{total.toFixed(2)}</td>
+                </tr>
+              );
+            })}
 
-            {/* Bank Details and Summary */}
+            {/* TOTALS RIGHT SIDE */}
             <tr>
-              <td colSpan={4}>
-                <strong>Bank Name:</strong> Bank of India<br />
-                <strong>Bank A/C No.:</strong> 312720110000408<br />
-                <strong>RTGS/IFSC Code:</strong> BKID0003127
+              <td colSpan={7} className="text-right font-semibold">
+                Sub Total
               </td>
-              <td colSpan={3}>
-                <p><strong>Total Discount:</strong> 0.00</p>
-                <p><strong>Other Tax Amount:</strong> 0</p>
+              <td className="text-right">
+                {productsTotal.toFixed(2)}
               </td>
             </tr>
 
             <tr>
-              <td colSpan={4}><strong>Bill Amount:</strong> {invoice.amountinwords || toWords(invoice.totalamount) + " Rupees"}</td>
-              <td colSpan={3}><strong>Grand Total:</strong> {invoice.totalamount.toFixed(2)}</td>
+              <td colSpan={7} className="text-right font-semibold">
+                Total Discount
+              </td>
+              <td className="text-right">
+                {totalDiscount.toFixed(2)}
+              </td>
             </tr>
 
-            {/* Notes / Terms */}
             <tr>
-              <td colSpan={7}><strong>Notes:</strong></td>
+              <td colSpan={7} className="text-right font-semibold">
+                Total GST
+              </td>
+              <td className="text-right">
+                {totalGST.toFixed(2)}
+              </td>
             </tr>
+
+            <tr>
+              <td colSpan={7} className="text-right font-bold">
+                Grand Total
+              </td>
+              <td className="text-right font-bold">
+                {grandTotal.toFixed(2)}
+              </td>
+            </tr>
+
+            {/* AMOUNT IN WORDS */}
+            <tr>
+              <td colSpan={8}>
+                <strong>Amount in Words:</strong>{" "}
+                {invoice.amountinwords ||
+                  `${toWords(grandTotal)} Rupees`}
+              </td>
+            </tr>
+
             <tr>
               <td colSpan={5}>
-                <strong>Terms & Condition :</strong><br />
-                1. Goods once sold will not be taken back.<br />
-                2. Interest @18% p.a. will be charged if payment is not made within due date.<br />
-                3. Our risk and responsibility ceases as soon as the goods leave our premises.<br />
+                <strong>Terms & Condition :</strong>
+                <br />
+                1. Goods once sold will not be taken back.
+                <br />
+                2. Interest @18% p.a. will be charged if payment
+                is not made within due date.
+                <br />
+                3. Our risk and responsibility ceases as soon as
+                the goods leave our premises.
+                <br />
                 4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"
               </td>
-              <td colSpan={2} className="text-right align-bottom">
-                For, Jay Balaji Mobile Accessories (Kalawad Road)<br /><br />
+              <td colSpan={3} className="text-right align-bottom">
+                For, {branch?.branchname || "---"}
+                <br />
+                <br />
                 Authorised Signatory
               </td>
             </tr>
