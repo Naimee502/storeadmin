@@ -474,11 +474,7 @@ const StaffAccounts = () => {
               </fieldset>
 
               <Button variant="outline" type="submit" disabled={isLoading}>
-                {isLoading
-                  ? isEditing
-                    ? "Updating..."
-                    : "Adding..."
-                  : isEditing
+                { isEditing
                   ? "Update Account"
                   : "Add Account"}
               </Button>
