@@ -42,7 +42,7 @@ type FormValues = {
   commission: number | "";
   target: number | "";
   status: boolean;
-  role: string; // <-- ADDED role
+  role: string; 
 };
 
 const StaffAccounts = () => {
@@ -93,7 +93,7 @@ const StaffAccounts = () => {
     commission: "",
     target: "",
     status: true,
-    role: "staff", // <-- default role
+    role: "staff", 
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -473,7 +473,7 @@ const StaffAccounts = () => {
                 />
               </fieldset>
 
-              <Button variant="outline" type="submit" disabled={isLoading}>
+              <Button variant="outline" type="submit">
                 { isEditing
                   ? "Update Account"
                   : "Add Account"}
