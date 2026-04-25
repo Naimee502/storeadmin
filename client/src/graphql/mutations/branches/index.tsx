@@ -105,6 +105,9 @@ export const LOGIN_BRANCH = gql`
           needsReview
           rejected
           businesstype
+          companyName
+          mobile
+          noOfBranches
           allowedmodules
         }
       }

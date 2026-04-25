@@ -13,7 +13,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarHovered, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(localStorage.getItem("branchid") || "");
   const { data } = useBranchesQuery();
   const branchesList = data?.getBranches || [];
@@ -30,10 +30,10 @@ const HomeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 overflow-hidden">
       <Header
-        title={type === 'admin' ? admin?.name : branch?.branchname}
+        title={type === 'admin' ? admin?.name : type === 'branch' ? branch?.branchname : staff?.name}
         onMenuClick={toggleSidebar}
         onLogoutClick={handleLogout}
-        isAdmin={type === 'branch'}
+        isAdmin={type === 'branch' || type === 'staff'}
         branches={branchesList}
         selectedBranchId={selectedBranchId}
         onBranchChange={(id) => {

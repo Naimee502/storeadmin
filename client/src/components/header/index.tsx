@@ -94,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* Branch/Admin Name */}
             <div className="px-3 py-2 flex items-center gap-2 text-gray-700 text-xs sm:text-sm">
               <FaBuilding className="text-gray-500 text-sm" />
-              {selectedBranch?.branchname || 'Admin'}
+              {selectedBranch?.branchname || (isAdmin ? "Business" : "Admin")}
             </div>
 
             {/* Logout */}

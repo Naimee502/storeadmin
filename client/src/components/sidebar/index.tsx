@@ -39,17 +39,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const location = useLocation();
   const [isHovered, setIsHovered] = React.useState(false);
 
-  let allowedModules: string[] = [];
-  if (type === 'admin' && admin?.allowedmodules) {
-    allowedModules = admin.allowedmodules;
-  } else if (type === 'branch' && branch?.admin?.allowedmodules) {
-    allowedModules = branch.admin.allowedmodules;
-  } else if (type === 'staff' && staff?.branch?.admin?.allowedmodules) {
-    allowedModules = staff.branch.admin.allowedmodules;
-  }
+  const allowedModules = admin?.allowedmodules || [];
 
   const filterLinks = (links: SidebarLink[]) => {
-    if (!allowedModules || allowedModules.length === 0) return links;
+    if (allowedModules.length === 0) return links;
     return links.filter(link => !link.moduleId || allowedModules.includes(link.moduleId));
   };
 

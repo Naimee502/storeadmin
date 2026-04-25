@@ -113,6 +113,9 @@ export const LOGIN_STAFF = gql`
           needsReview
           rejected
           businesstype
+          companyName
+          mobile
+          noOfBranches
           allowedmodules
         }
       }
