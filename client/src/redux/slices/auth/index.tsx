@@ -4,16 +4,17 @@ interface AdminData {
   id: string;
   name: string;
   email: string;
-  subscriptionType: 'monthly' | 'yearly';
+  subscriptionType: 'monthly' | 'yearly' | 'lifetime';
   subscribed: boolean;
   subscribedAt: string;
   subscriptionEnd: string;
   transactionId: string;
   needsReview: boolean;
   rejected: boolean;
+  companyName: string;
+  mobile: string;
+  noOfBranches: number;
   businesstype: 'retail' | 'wholesale' | 'manufacturer' | 'service' | 'trader' | 'other';
-  isMultibranch: boolean;
-  isChannelCustomers: boolean;
   allowedmodules: string[];
   isExpiringSoon?: boolean;
 }

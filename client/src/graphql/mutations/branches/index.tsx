@@ -73,3 +73,41 @@ export const RESET_BRANCH = gql`
     resetBranch(id: $id)
   }
 `;
+
+export const LOGIN_BRANCH = gql`
+  mutation LoginBranch($email: String!, $password: String!) {
+    loginBranch(email: $email, password: $password) {
+      accessToken
+      branch {
+        id
+        branchcode
+        branchname
+        mobile
+        password
+        logo
+        imageurl
+        location
+        address
+        city
+        pincode
+        phone
+        email
+        status
+        admin {
+          id
+          name
+          email
+          subscribed
+          subscriptionType
+          subscribedAt
+          subscriptionEnd
+          transactionId
+          needsReview
+          rejected
+          businesstype
+          allowedmodules
+        }
+      }
+    }
+  }
+`;

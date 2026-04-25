@@ -84,3 +84,38 @@ export const RESET_STAFF = gql`
     resetStaffAccount(id: $id)
   }
 `;
+
+export const LOGIN_STAFF = gql`
+  mutation LoginStaff($email: String!, $password: String!) {
+    loginStaff(email: $email, password: $password) {
+      accessToken
+      staff {
+        id
+        staffcode
+        name
+        mobile
+        email
+        role
+        status
+        branchid {
+          id
+          branchname
+        }
+        admin {
+          id
+          name
+          email
+          subscribed
+          subscriptionType
+          subscribedAt
+          subscriptionEnd
+          transactionId
+          needsReview
+          rejected
+          businesstype
+          allowedmodules
+        }
+      }
+    }
+  }
+`;

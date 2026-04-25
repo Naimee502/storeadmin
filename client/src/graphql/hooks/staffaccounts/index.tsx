@@ -11,8 +11,11 @@ import {
   GET_STAFF_BY_ID,
   GET_DELETED_STAFF,
 } from '../../queries/staffaccounts';
+import { LOGIN_STAFF } from '../../mutations/staffaccounts';
 
 import { useAppSelector } from '../../../redux/hooks';
+
+export const useLoginStaffMutation = () => useMutation(LOGIN_STAFF);
 
 // ---------------------------------------------
 // MUTATIONS

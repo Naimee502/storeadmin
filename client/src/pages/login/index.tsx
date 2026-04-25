@@ -7,8 +7,9 @@ import loginImage from "../../assets/images/login.jpg";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { saveAuthData } from "../../redux/slices/auth";
 import { setBranchId } from "../../redux/slices/branch";
-import { useBranchesQuery } from "../../graphql/hooks/branches";
+import { useBranchesQuery, useLoginBranchMutation } from "../../graphql/hooks/branches";
 import { useLoginAdminMutation } from "../../graphql/hooks/admin";
+import { useLoginStaffMutation } from "../../graphql/hooks/staffaccounts";
 import { useAuth } from "../../contexts/auth";
 
 const Login = () => {
@@ -18,10 +19,12 @@ const Login = () => {
   const { data, refetch } = useBranchesQuery();
   const branchList = data?.getBranches || [];
   const [loginAdmin] = useLoginAdminMutation();
+  const [loginBranch] = useLoginBranchMutation();
+  const [loginStaff] = useLoginStaffMutation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginType, setLoginType] = useState<"branch" | "admin">("branch");
+  const [loginType, setLoginType] = useState<"branch" | "admin" | "staff">("branch");
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -44,11 +47,35 @@ const Login = () => {
     }
 
     try {
-      if (loginType === "admin") {
-        const res = await loginAdmin({ variables: { email, password } });
-        const admin = res.data?.loginAdmin;
+      if (loginType === "staff") {
+        const res = await loginStaff({ variables: { email, password } });
+        const loginData = res.data?.loginStaff;
+        const staff = loginData?.staff;
+        const accessToken = loginData?.accessToken;
 
-        if (!admin) throw new Error("Invalid credentials");
+        if (!staff || !accessToken) throw new Error("Invalid credentials");
+
+        const admin = staff.admin;
+        if (!admin || !admin.subscribed) {
+          throw new Error("Admin subscription required.");
+        }
+
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("branchid", staff.branchid?.id || "");
+        dispatch(setBranchId(staff.branchid?.id || ""));
+        dispatch(saveAuthData({ type: "staff", staff: staff }));
+        login();
+        navigate("/home");
+        return;
+      } else if (loginType === "admin") {
+        const res = await loginAdmin({ variables: { email, password } });
+        const loginData = res.data?.loginAdmin;
+        const admin = loginData?.admin;
+        const accessToken = loginData?.accessToken;
+
+        if (!admin || !accessToken) throw new Error("Invalid credentials");
+
+        localStorage.setItem("accessToken", accessToken);
 
         if (!admin.subscribed) {
           if (admin.needsReview) {
@@ -72,6 +99,9 @@ const Login = () => {
             id: admin.id,
             name: admin.name,
             email: admin.email,
+            companyName: admin.companyName,
+            mobile: admin.mobile,
+            noOfBranches: admin.noOfBranches,
             subscriptionType: admin.subscriptionType,
             subscribed: admin.subscribed,
             subscribedAt: admin.subscribedAt,
@@ -92,14 +122,14 @@ const Login = () => {
         login();
         navigate("/home");
       } else {
-        await refetch(); // Refresh latest branches
-        const matchedBranch = branchList.find(
-          (b: any) => b.email === email && b.password === password
-        );
+        const res = await loginBranch({ variables: { email, password } });
+        const loginData = res.data?.loginBranch;
+        const branch = loginData?.branch;
+        const accessToken = loginData?.accessToken;
 
-        if (!matchedBranch) throw new Error("Invalid credentials");
+        if (!branch || !accessToken) throw new Error("Invalid credentials");
 
-        const admin = matchedBranch.admin;
+        const admin = branch.admin;
         if (!admin || !admin.subscribed) {
           if (admin.needsReview) {
             throw new Error("Admin subscription is under review.");
@@ -110,9 +140,10 @@ const Login = () => {
           }
         }
 
-        localStorage.setItem("branchid", matchedBranch.id);
-        dispatch(setBranchId(matchedBranch.id));
-        dispatch(saveAuthData({ type: "branch", branch: matchedBranch }));
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("branchid", branch.id);
+        dispatch(setBranchId(branch.id));
+        dispatch(saveAuthData({ type: "branch", branch: branch }));
         login();
         navigate("/home");
       }
@@ -145,7 +176,18 @@ const Login = () => {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ml-4 ${
+              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ml-2 sm:ml-4 ${
+                loginType === "staff"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500"
+              }`}
+              onClick={() => setLoginType("staff")}
+            >
+              Staff Login
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ml-2 sm:ml-4 ${
                 loginType === "admin"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500"
@@ -163,7 +205,6 @@ const Login = () => {
             <FormField
               label="Email"
               type="email"
-              id="email"
               name="email"
               placeholder="Email"
               maxLength={35}
@@ -178,7 +219,6 @@ const Login = () => {
             <FormField
               label="Password"
               type="password"
-              id="password"
               name="password"
               placeholder="Password"
               maxLength={16}
@@ -211,7 +251,7 @@ const Login = () => {
             </div>
 
             <Button type="submit" variant="outline" className="w-full">
-              {loginType === "admin" ? "Admin Login" : "Branch Login"}
+              {loginType === "admin" ? "Admin Login" : loginType === "branch" ? "Branch Login" : "Staff Login"}
             </Button>
 
             {invalidCredentialError && (

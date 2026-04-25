@@ -10,22 +10,56 @@ const AdminRegister = () => {
   const navigate = useNavigate();
   const [createAdmin] = useCreateAdminMutation();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [noOfBranches, setNoOfBranches] = useState<number>(1);
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
-  const [isMultibranch, setIsMultibranch] = useState(false);
-  const [isChannelCustomers, setIsChannelCustomers] = useState(false); // ✅ NEW
-  const [allowedmodules, setAllowedmodules] = useState<string[]>([
-    "sales",
-    "purchase",
-    "accounting",
-  ]);
+
+  const allModules = [
+    "branches",
+    "accounts",
+    "accountgroups",
+    "accountledgers",
+    "staffaccounts",
+    "permissions",
+    "channels",
+    "salesroutes",
+    "categories",
+    "subcategories",
+    "brands",
+    "models",
+    "productgroups",
+    "sizes",
+    "units",
+    "products",
+    "salesinvoice",
+    "purchaseinvoice",
+    "salesorders",
+    "purchaseorders",
+    "stockadjustments",
+    "transferstock",
+    "transactions",
+    "payments",
+    "expensenote",
+    "attendance",
+    "bom",
+    "production",
+    "reports",
+    "posdashboard",
+    "settings"
+  ];
+
+  const [allowedmodules, setAllowedmodules] = useState<string[]>(allModules);
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [nameError, setNameError] = useState("");
+  const [companyNameError, setCompanyNameError] = useState("");
+  const [mobileError, setMobileError] = useState("");
   const [submitError, setSubmitError] = useState("");
 
   const handleModuleToggle = (module: string) => {
@@ -41,6 +75,20 @@ const AdminRegister = () => {
 
     let isValid = true;
     setSubmitError("");
+
+    if (!companyName.trim()) {
+      setCompanyNameError("Company name is required");
+      isValid = false;
+    } else {
+      setCompanyNameError("");
+    }
+
+    if (!mobile.trim()) {
+      setMobileError("Mobile number is required");
+      isValid = false;
+    } else {
+      setMobileError("");
+    }
 
     if (!name.trim()) {
       setNameError("Name is required");
@@ -72,10 +120,11 @@ const AdminRegister = () => {
             name,
             email,
             password,
+            companyName,
+            mobile,
+            noOfBranches: Number(noOfBranches),
             subscriptionType: subscription,
             businesstype,
-            isMultibranch,
-            isChannelCustomers, // ✅ NEW
             allowedmodules,
           },
         },
@@ -90,40 +139,80 @@ const AdminRegister = () => {
 
   return (
     <LoginLayout>
-      <div className="flex flex-col md:flex-row w-full">
+      <div className="flex flex-col lg:flex-row w-full max-w-6xl mx-auto">
         {/* Left: Form */}
-        <div className="flex flex-1 flex-col justify-center px-6">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-6 text-center">
+        <div className="flex flex-col lg:w-1/2 justify-center px-4 sm:px-8 py-6">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 text-center text-gray-800">
             Admin Register
           </h1>
 
-          <form onSubmit={handleRegister} className="w-full max-w-md mx-auto space-y-6">
-            <FormField
-              label="Name"
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e: any) => {
-                setNameError("");
-                setName(e.target.value);
-              }}
-              error={nameError}
-            />
+          <form onSubmit={handleRegister} className="w-full max-w-md mx-auto space-y-4">
 
-            <FormField
-              label="Email"
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e: any) => {
-                setEmailError("");
-                setEmail(e.target.value);
-              }}
-              error={emailError}
-            />
+            {/* Row 1: Company Name & Name */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <FormField
+                  label="Company Name"
+                  type="text"
+                  name="companyName"
+                  placeholder="Company Name"
+                  value={companyName}
+                  onChange={(e: any) => {
+                    setCompanyNameError("");
+                    setCompanyName(e.target.value);
+                  }}
+                  error={companyNameError}
+                />
+              </div>
+              <div className="flex-1">
+                <FormField
+                  label="Name"
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  value={name}
+                  onChange={(e: any) => {
+                    setNameError("");
+                    setName(e.target.value);
+                  }}
+                  error={nameError}
+                />
+              </div>
+            </div>
 
+            {/* Row 2: Mobile Number & Email */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <FormField
+                  label="Mobile Number"
+                  type="text"
+                  name="mobile"
+                  placeholder="Mobile Number"
+                  value={mobile}
+                  onChange={(e: any) => {
+                    setMobileError("");
+                    setMobile(e.target.value);
+                  }}
+                  error={mobileError}
+                />
+              </div>
+              <div className="flex-1">
+                <FormField
+                  label="Email"
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e: any) => {
+                    setEmailError("");
+                    setEmail(e.target.value);
+                  }}
+                  error={emailError}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Password */}
             <FormField
               label="Password"
               type="password"
@@ -137,73 +226,57 @@ const AdminRegister = () => {
               error={passwordError}
             />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Business Type</label>
-              <select
-                className="w-full mt-1 border px-3 py-2 rounded"
-                value={businesstype}
-                onChange={(e) => setBusinesstype(e.target.value)}
-              >
-                <option value="retail">Retail</option>
-                <option value="wholesale">Wholesale</option>
-                <option value="manufacturer">Manufacturer</option>
-                <option value="service">Service</option>
-                <option value="trader">Trader</option>
-                <option value="exporter">Exporter</option>
-                <option value="other">Other</option>
-              </select>
+            {/* Split row for Branches and Business Type */}
+            <div className="flex flex-row space-x-4">
+              <div className="flex-1">
+                <FormField
+                  label="No. of Branches"
+                  type="number"
+                  name="noOfBranches"
+                  placeholder="1"
+                  value={noOfBranches}
+                  onChange={(e: any) => setNoOfBranches(e.target.value)}
+                  error={""}
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">Business Type</label>
+                <select
+                  className="w-full mt-1 border px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={businesstype}
+                  onChange={(e) => setBusinesstype(e.target.value)}
+                >
+                  <option value="retail">Retail</option>
+                  <option value="wholesale">Wholesale</option>
+                  <option value="manufacturer">Manufacturer</option>
+                  <option value="service">Service</option>
+                  <option value="trader">Trader</option>
+                  <option value="exporter">Exporter</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                id="isMultibranch"
-                type="checkbox"
-                checked={isMultibranch}
-                onChange={(e) => setIsMultibranch(e.target.checked)}
-              />
-              <label htmlFor="isMultibranch" className="text-sm text-gray-700">
-                Enable Multi-Branch
-              </label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                id="isChannelCustomers"
-                type="checkbox"
-                checked={isChannelCustomers}
-                onChange={(e) => setIsChannelCustomers(e.target.checked)}
-              />
-              <label htmlFor="isChannelCustomers" className="text-sm text-gray-700">
-                Is Channel Customers
-              </label>
-            </div>
-
+            {/* Allowed Modules at the end */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Modules</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  "sales",
-                  "purchase",
-                  "inventory",
-                  "accounting",
-                  "pos",
-                  "manufacturing",
-                  "service",
-                  "reports",
-                ].map((module) => (
-                  <label key={module} className="flex items-center space-x-2 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border p-3 rounded bg-gray-50 h-40 overflow-y-auto shadow-inner">
+                {allModules.map((module) => (
+                  <label key={module} className="flex items-center space-x-2 text-xs cursor-pointer">
                     <input
                       type="checkbox"
                       checked={allowedmodules.includes(module)}
                       onChange={() => handleModuleToggle(module)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                     />
-                    <span>{module}</span>
+                    <span className="truncate capitalize select-none" title={module}>{module}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            <Button type="submit" variant="outline" className="w-full mt-10">
+            <Button type="submit" variant="outline" className="w-full mt-6 bg-black text-black hover:bg-gray-800 p-3">
               Register Admin
             </Button>
 
@@ -214,12 +287,12 @@ const AdminRegister = () => {
         </div>
 
         {/* Divider */}
-        <div className="flex md:flex-col items-center justify-center px-4 my-6 md:my-0">
-          <div className="bg-gray-300 w-full md:w-px h-px md:h-40" />
+        <div className="hidden lg:flex flex-col items-center justify-center py-8">
+          <div className="bg-gray-200 w-px h-full min-h-[300px]" />
         </div>
 
         {/* Right: Image */}
-        <div className="flex flex-col md:flex-1 md:justify-center md:items-center px-6">
+        <div className="hidden lg:flex flex-col lg:w-1/2 justify-center items-center px-6">
           <img
             src={registerImage}
             alt="Register Visual"

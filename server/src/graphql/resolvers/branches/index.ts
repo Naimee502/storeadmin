@@ -1,4 +1,5 @@
 import { Branch } from "../../../models/branches";
+import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const branchResolvers = {
   Query: {
@@ -30,17 +31,39 @@ export const branchResolvers = {
   Mutation: {
     addBranch: async (_: any, { input }: any) => {
       const branch = await Branch.create(input);
-      return await Branch.findById(branch._id).populate('admin'); 
+      return await Branch.findById(branch._id).populate('admin');
     },
 
     addBranches: async (_: any, { inputs }: { inputs: any[] }) => {
       const createdBranches = await Branch.insertMany(inputs);
       const branchIds = createdBranches.map(branch => branch._id);
-      return await Branch.find({ _id: { $in: branchIds } }).populate('admin'); 
+      return await Branch.find({ _id: { $in: branchIds } }).populate('admin');
     },
 
     editBranch: async (_: any, { id, input }: any) =>
-      await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin'), 
+      await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin'),
+
+    loginBranch: async (_: any, { email, password }: any, { res }: any) => {
+      const branch = await Branch.findOne({ email }).populate("admin");
+      if (!branch) throw new Error("Branch not found");
+
+      if (branch.password !== password) {
+        throw new Error("Invalid credentials");
+      }
+
+      const { accessToken, refreshToken } = generateTokens({
+        id: branch.id,
+        email: branch.email,
+        type: "branch",
+      });
+
+      sendRefreshToken(res, refreshToken);
+
+      return {
+        accessToken,
+        branch,
+      };
+    },
 
     deleteBranch: async (_: any, { id }: any) => {
       const result = await Branch.findByIdAndUpdate(id, { status: false }, { new: true });

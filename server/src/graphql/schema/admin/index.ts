@@ -6,6 +6,9 @@ export const adminTypeDefs = gql`
     name: String!
     email: String!
     password: String!
+    companyName: String!
+    mobile: String!
+    noOfBranches: Int!
     subscriptionType: String
     subscribed: Boolean!
     subscribedAt: String
@@ -14,8 +17,6 @@ export const adminTypeDefs = gql`
     needsReview: Boolean!
     rejected: Boolean!
     businesstype: String
-    isMultibranch: Boolean
-    isChannelCustomers: Boolean
     allowedmodules: [String!]
     createdAt: String
     updatedAt: String
@@ -26,10 +27,11 @@ export const adminTypeDefs = gql`
     name: String!
     email: String!
     password: String!
+    companyName: String!
+    mobile: String!
+    noOfBranches: Int!
     subscriptionType: String
     businesstype: String
-    isMultibranch: Boolean
-    isChannelCustomers: Boolean
     allowedmodules: [String!]
     status: Boolean
   }
@@ -38,12 +40,18 @@ export const adminTypeDefs = gql`
     name: String
     email: String
     password: String
+    companyName: String
+    mobile: String
+    noOfBranches: Int
     subscriptionType: String
     businesstype: String
-    isMultibranch: Boolean
-    isChannelCustomers: Boolean
     allowedmodules: [String!]
     status: Boolean
+  }
+
+  type LoginAdminResponse {
+    accessToken: String!
+    admin: Admin!
   }
 
   type Query {
@@ -55,7 +63,7 @@ export const adminTypeDefs = gql`
 
   type Mutation {
     createAdmin(input: CreateAdminInput!): Admin
-    loginAdmin(email: String!, password: String!): Admin
+    loginAdmin(email: String!, password: String!): LoginAdminResponse
     confirmSubscription(
       email: String!
       transactionId: String!

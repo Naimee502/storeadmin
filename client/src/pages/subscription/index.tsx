@@ -99,6 +99,7 @@ const Subscription = () => {
               >
                 <option value="monthly">Monthly (₹1499)</option>
                 <option value="yearly">Yearly (₹9999)</option>
+                <option value="lifetime">Lifetime (₹150000)</option>
               </select>
             </div>
 

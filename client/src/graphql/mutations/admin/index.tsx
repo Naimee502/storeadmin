@@ -12,8 +12,9 @@ export const CREATE_ADMIN = gql`
       subscriptionEnd
       transactionId
       businesstype
-      isMultibranch
-      isChannelCustomers
+      companyName
+      mobile
+      noOfBranches
       allowedmodules
     }
   }
@@ -28,8 +29,9 @@ export const UPDATE_ADMIN_BY_ID = gql`
       subscriptionType
       subscribed
       businesstype
-      isMultibranch
-      isChannelCustomers
+      companyName
+      mobile
+      noOfBranches
       allowedmodules
       status
     }
@@ -56,8 +58,9 @@ export const CONFIRM_SUBSCRIPTION = gql`
       transactionId
       needsReview
       businesstype
-      isMultibranch
-      isChannelCustomers
+      companyName
+      mobile
+      noOfBranches
       allowedmodules
     }
   }
@@ -66,20 +69,24 @@ export const CONFIRM_SUBSCRIPTION = gql`
 export const LOGIN_ADMIN = gql`
   mutation LoginAdmin($email: String!, $password: String!) {
     loginAdmin(email: $email, password: $password) {
-      id
-      name
-      email
-      subscriptionType
-      subscribed
-      subscribedAt
-      subscriptionEnd
-      transactionId
-      needsReview
-      rejected
-      businesstype
-      isMultibranch
-      isChannelCustomers
-      allowedmodules
+      accessToken
+      admin {
+        id
+        name
+        email
+        subscriptionType
+        subscribed
+        subscribedAt
+        subscriptionEnd
+        transactionId
+        needsReview
+        rejected
+        businesstype
+        companyName
+        mobile
+        noOfBranches
+        allowedmodules
+      }
     }
   }
 `;
@@ -97,8 +104,9 @@ export const APPROVE_SUBSCRIPTION = gql`
       needsReview
       rejected
       businesstype
-      isMultibranch
-      isChannelCustomers
+      companyName
+      mobile
+      noOfBranches
       allowedmodules
     }
   }
@@ -128,8 +136,9 @@ export const GET_PENDING_SUBSCRIPTIONS = gql`
       needsReview
       createdAt
       businesstype
-      isMultibranch
-      isChannelCustomers
+      companyName
+      mobile
+      noOfBranches
       allowedmodules
     }
   }

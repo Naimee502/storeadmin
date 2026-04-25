@@ -1,4 +1,5 @@
 import { Admin } from "../../../models/admin";
+import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const adminResolvers = {
   Query: {
@@ -16,7 +17,7 @@ export const adminResolvers = {
     },
     getDeletedAdmins: async (_: any, { adminId }: { adminId?: string }) => {
       const query: any = { status: false };
-      if (adminId) query._id = adminId; 
+      if (adminId) query._id = adminId;
       return await Admin.find(query);
     },
   },
@@ -36,9 +37,7 @@ export const adminResolvers = {
         rejected: false,
         // Optional defaults (if not provided in input)
         businesstype: input.businesstype || 'retail',
-        isMultibranch: input.isMultibranch ?? false,
-        isChannelCustomers: input.isChannelCustomers ?? false,
-        allowedmodules: input.allowedmodules || ['sales', 'purchase', 'accounting'],
+        allowedmodules: input.allowedmodules || ['/accounts/*', '/reports/*', '/settings'],
         status: input.status ?? true,
       });
 
@@ -53,10 +52,11 @@ export const adminResolvers = {
       // Safely update allowed fields
       if (input.name) admin.name = input.name;
       if (input.password) admin.password = input.password;
+      if (input.companyName) admin.companyName = input.companyName;
+      if (input.mobile) admin.mobile = input.mobile;
+      if (input.noOfBranches !== undefined) admin.noOfBranches = input.noOfBranches;
       if (input.subscriptionType) admin.subscriptionType = input.subscriptionType;
       if (input.businesstype) admin.businesstype = input.businesstype;
-      if (typeof input.isMultibranch === "boolean") admin.isMultibranch = input.isMultibranch;
-      if (typeof input.isChannelCustomers === "boolean") admin.isChannelCustomers = input.isChannelCustomers;
       if (Array.isArray(input.allowedmodules)) admin.allowedmodules = input.allowedmodules;
       if (typeof input.status === "boolean") admin.status = input.status;
 
@@ -73,7 +73,7 @@ export const adminResolvers = {
       }: {
         email: string;
         transactionId: string;
-        subscriptionType: "monthly" | "yearly";
+        subscriptionType: "monthly" | "yearly" | "lifetime";
       }
     ) => {
       const admin = await Admin.findOne({ email });
@@ -96,10 +96,15 @@ export const adminResolvers = {
       if (!admin) throw new Error("Admin not found");
 
       const now = new Date();
-      const subscriptionEnd =
-        admin.subscriptionType === "monthly"
-          ? new Date(now.setMonth(now.getMonth() + 1))
-          : new Date(now.setFullYear(now.getFullYear() + 1));
+      let subscriptionEnd = null;
+      if (admin.subscriptionType === "monthly") {
+        subscriptionEnd = new Date(now.setMonth(now.getMonth() + 1));
+      } else if (admin.subscriptionType === "yearly") {
+        subscriptionEnd = new Date(now.setFullYear(now.getFullYear() + 1));
+      } else {
+        // lifetime, null subscriptionEnd means it never expires, but setting to 100 years for safety
+        subscriptionEnd = new Date(now.setFullYear(now.getFullYear() + 100));
+      }
 
       admin.subscribed = true;
       admin.subscribedAt = new Date();
@@ -125,7 +130,7 @@ export const adminResolvers = {
       return admin;
     },
 
-    loginAdmin: async (_: any, { email, password }: any) => {
+    loginAdmin: async (_: any, { email, password }: any, { res }: any) => {
       const admin = await Admin.findOne({ email });
       if (!admin) throw new Error("Admin not found");
 
@@ -142,7 +147,18 @@ export const adminResolvers = {
         throw new Error("Subscription required.");
       }
 
-      return admin;
+      const { accessToken, refreshToken } = generateTokens({
+        id: admin.id,
+        email: admin.email,
+        type: "admin",
+      });
+
+      sendRefreshToken(res, refreshToken);
+
+      return {
+        accessToken,
+        admin,
+      };
     },
 
     deleteAdmin: async (_: any, { id }: { id: string }) => {

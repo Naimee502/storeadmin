@@ -53,6 +53,11 @@ export const branchTypeDefs = gql`
     admin: ID  
   }
 
+  type LoginBranchResponse {
+    accessToken: String!
+    branch: Branch!
+  }
+
   type Query {
     getBranches(adminId: ID): [Branch!]!
     getBranch(id: ID!, adminId: ID): Branch
@@ -63,6 +68,7 @@ export const branchTypeDefs = gql`
     addBranch(input: BranchInput!): Branch!
     addBranches(inputs: [BranchInput!]!): [Branch!]!
     editBranch(id: ID!, input: BranchInput!): Branch!
+    loginBranch(email: String!, password: String!): LoginBranchResponse
     deleteBranch(id: ID!): Boolean!
     resetBranch(id: ID!): Boolean!
   }

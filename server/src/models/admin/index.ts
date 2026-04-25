@@ -8,7 +8,10 @@ interface IAdmin extends Document {
   name: string;
   email: string;
   password: string;
-  subscriptionType: "monthly" | "yearly" | null;
+  companyName: string;
+  mobile: string;
+  noOfBranches: number;
+  subscriptionType: "monthly" | "yearly" | "lifetime" | null;
   subscribed: boolean;
   subscribedAt: Date | null;
   subscriptionEnd: Date | null;
@@ -16,8 +19,6 @@ interface IAdmin extends Document {
   needsReview: boolean;
   rejected: boolean;
   businesstype: "retail" | "wholesale" | "manufacturer" | "service" | "trader" | "exporter" | "other";
-  isMultibranch: boolean;
-  isChannelCustomers: boolean; // <-- Added
   allowedmodules: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -30,11 +31,14 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    companyName: { type: String, required: true },
+    mobile: { type: String, required: true },
+    noOfBranches: { type: Number, default: 1 },
 
     // Subscription
     subscriptionType: {
       type: String,
-      enum: ["monthly", "yearly"],
+      enum: ["monthly", "yearly", "lifetime"],
       default: "monthly",
     },
     subscribed: { type: Boolean, default: false },
@@ -50,21 +54,9 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
       enum: ['retail', 'wholesale', 'manufacturer', 'service', 'trader', 'other'],
       default: 'retail',
     },
-    isMultibranch: { type: Boolean, default: false },
-    isChannelCustomers: { type: Boolean, default: false },
     allowedmodules: {
       type: [String],
-      enum: [
-        'sales',
-        'purchase',
-        'inventory',
-        'accounting',
-        'pos',
-        'manufacturing',
-        'service',
-        'reports',
-      ],
-      default: ['sales', 'purchase', 'accounting'],
+      default: ['/accounts/*', '/reports/*', '/settings'],
     },
     status: { type: Boolean, default: true },
   },

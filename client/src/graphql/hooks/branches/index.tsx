@@ -10,7 +10,10 @@ import {
   GET_BRANCHES,
   GET_DELETED_BRANCHES,
 } from '../../queries/branches';
+import { LOGIN_BRANCH } from '../../mutations/branches';
 import { useAppSelector } from '../../../redux/hooks';
+
+export const useLoginBranchMutation = () => useMutation(LOGIN_BRANCH);
 
 export const useBranchMutations = () => {
   const [addBranchMutation] = useMutation(ADD_BRANCH);

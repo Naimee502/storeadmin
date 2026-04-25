@@ -1,4 +1,5 @@
 import { StaffAccount } from "../../../models/staffaccounts";
+import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const staffAccountResolvers = {
   Query: {
@@ -129,6 +130,32 @@ export const staffAccountResolvers = {
         .populate("branchid")
         .populate("accountgroupid")
         .populate("ledgerid");
+    },
+
+    loginStaff: async (_: any, { email, password }: any, { res }: any) => {
+      const staff = await StaffAccount.findOne({ email }).populate("admin").populate("branchid");
+      if (!staff) throw new Error("Staff account not found");
+
+      if (staff.password !== password) {
+        throw new Error("Invalid credentials");
+      }
+
+      if (!staff.status) {
+        throw new Error("Your account is currently disabled.");
+      }
+
+      const { accessToken, refreshToken } = generateTokens({
+        id: staff.id,
+        email: staff.email,
+        type: "staff",
+      });
+
+      sendRefreshToken(res, refreshToken);
+
+      return {
+        accessToken,
+        staff,
+      };
     },
 
     // ==========================================

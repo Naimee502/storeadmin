@@ -84,6 +84,11 @@ export const staffAccountTypeDefs = gql`
     createdTo: String
   }
 
+  type LoginStaffResponse {
+    accessToken: String!
+    staff: StaffAccount!
+  }
+
   type Query {
     getStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
     getDeletedStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
@@ -93,6 +98,7 @@ export const staffAccountTypeDefs = gql`
   type Mutation {
     addStaffAccount(input: StaffAccountInput!): StaffAccount!
     editStaffAccount(id: ID!, input: StaffAccountInput!): StaffAccount!
+    loginStaff(email: String!, password: String!): LoginStaffResponse
     deleteStaffAccount(id: ID!): Boolean!
     resetStaffAccount(id: ID!): Boolean!
   }
