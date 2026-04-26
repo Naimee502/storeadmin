@@ -51,7 +51,6 @@ export const GET_PRODUCT_SERVICES = gql`
         name
         sku
         productcode
-        productbarcode
         batchnumber
         manufacturedate
         expirydate
@@ -95,6 +94,7 @@ export const GET_PRODUCT_SERVICES = gql`
             discount
             discounttype
             offerprice
+            productbarcode
           }
         }
         productlikecount
@@ -162,7 +162,6 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
         name
         sku
         productcode
-        productbarcode
         batchnumber
         manufacturedate
         expirydate
@@ -212,6 +211,7 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
             discount
             discounttype
             offerprice
+            productbarcode
           }
         }
 

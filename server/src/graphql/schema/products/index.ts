@@ -38,6 +38,7 @@ export const productServiceTypeDefs = gql`
     discount: Float
     discounttype: String
     offerprice: Float
+    productbarcode: String
   }
 
   type Pricing {
@@ -51,7 +52,6 @@ export const productServiceTypeDefs = gql`
     name: String
     sku: String
     productcode: String
-    productbarcode: String
     batchnumber: String
     manufacturedate: Date
     expirydate: Date
@@ -248,7 +248,6 @@ export const productServiceTypeDefs = gql`
     name: String
     sku: String
     productcode: String
-    productbarcode: String
     batchnumber: String
     manufacturedate: Date
     expirydate: Date
@@ -305,6 +304,7 @@ export const productServiceTypeDefs = gql`
     discount: Float
     discounttype: String
     offerprice: Float
+    productbarcode: String
   }
 
   type Query {

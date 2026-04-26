@@ -29,6 +29,7 @@ export interface IUnitPrice {
   discount: number;
   discounttype: "fixed" | "percentage";
   offerprice: number;
+  productbarcode?: string; // auto-generated per unit price
 }
 
 // 🔹 Pricing (per region & channel)
@@ -44,7 +45,6 @@ export interface IProductVariant {
   name?: string;
   sku?: string;
   productcode?: string;
-  productbarcode?: string;
   batchnumber?: string;
   manufacturedate?: Date;
   expirydate?: Date;
@@ -183,7 +183,6 @@ const productServiceSchema = new Schema<IProductService>(
         name: String,
         sku: { type: String },
         productcode: { type: String },
-        productbarcode: { type: String },
         batchnumber: String,
         manufacturedate: Date,
         expirydate: Date,
@@ -255,6 +254,7 @@ const productServiceSchema = new Schema<IProductService>(
                 discount: { type: Number, default: 0 },
                 discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
                 offerprice: { type: Number, default: 0 },
+                productbarcode: { type: String }, // auto-generated per unit price
               },
             ],
           },
@@ -278,29 +278,28 @@ productServiceSchema.index(
   { adminid: 1, branchid: 1, "productvariants.productcode": 1 },
   { 
     unique: true, 
-    partialFilterExpression: { "productvariants.productcode": { $type: "string" } } 
+    sparse: true,
+    partialFilterExpression: { "productvariants.productcode": { $exists: true, $type: "string", $gt: "" } } 
   }
 );
-productServiceSchema.index(
-  { adminid: 1, branchid: 1, "productvariants.productbarcode": 1 },
-  { 
-    unique: true, 
-    partialFilterExpression: { "productvariants.productbarcode": { $type: "string" } } 
-  }
-);
+// NOTE: productbarcode is now stored per unit price (productvariants.pricing.unitprices.productbarcode)
+// No unique index here since MongoDB cannot enforce uniqueness on doubly-nested arrays
+productServiceSchema.index({ "productvariants.pricing.unitprices.productbarcode": 1 });
 
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "servicevariants.servicecode": 1 },
   { 
     unique: true, 
-    partialFilterExpression: { "servicevariants.servicecode": { $type: "string" } } 
+    sparse: true,
+    partialFilterExpression: { "servicevariants.servicecode": { $exists: true, $type: "string", $gt: "" } } 
   }
 );
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "servicevariants.servicebarcode": 1 },
   { 
     unique: true, 
-    partialFilterExpression: { "servicevariants.servicebarcode": { $type: "string" } } 
+    sparse: true,
+    partialFilterExpression: { "servicevariants.servicebarcode": { $exists: true, $type: "string", $gt: "" } } 
   }
 );
 
@@ -314,7 +313,7 @@ productServiceSchema.pre("save", async function (next) {
     doc.seo.slug = slugify(doc.name, { lower: true, strict: true });
   }
 
-  // 🔹 Auto-generate product codes & barcodes
+  // 🔹 Auto-generate product codes & barcodes (barcode is per unit price)
   if (Array.isArray(doc.productvariants)) {
     for (let variant of doc.productvariants) {
       // Auto-generate productcode (#PRD0001, #PRD0002, ...)
@@ -325,37 +324,65 @@ productServiceSchema.pre("save", async function (next) {
           "productvariants.productcode": /^#PRD\d{4,}$/
         }).sort({ "productvariants.productcode": -1 });
 
-        const nextNum =
-          last?.productvariants?.[0]?.productcode
-            ? parseInt(last.productvariants[0].productcode.replace("#PRD", "")) + 1
-            : 1;
-
-        variant.productcode = `#PRD${String(nextNum).padStart(4, "0")}`;
+        // Find the max productcode across all variants of the found doc
+        let maxNum = 0;
+        if (last?.productvariants) {
+          for (const pv of last.productvariants) {
+            if (pv.productcode && /^#PRD\d{4,}$/.test(pv.productcode)) {
+              const n = parseInt(pv.productcode.replace("#PRD", ""));
+              if (n > maxNum) maxNum = n;
+            }
+          }
+        }
+        variant.productcode = `#PRD${String(maxNum + 1).padStart(4, "0")}`;
       }
 
-      // Auto-generate productbarcode
-      if (!variant.productbarcode && Array.isArray(variant.pricing) && variant.pricing.length > 0) {
-        // Pick first salesrate from unitprices
-        const primaryPrice =
-          variant.pricing[0]?.unitprices?.[0]?.salesrate ?? 0;
+      // 🔹 Auto-generate productbarcode PER unit price (1 gram and 1 kg get different barcodes)
+      if (Array.isArray(variant.pricing)) {
+        for (const pricing of variant.pricing) {
+          if (Array.isArray(pricing.unitprices)) {
+            for (const unitprice of pricing.unitprices) {
+              const date = String(new Date().getDate()).padStart(2, "0");
+              const priceStr = String(Math.round(Number(unitprice.salesrate))).padStart(3, "0");
+              const prefix = `${date}${priceStr}`;
 
-        if (primaryPrice > 0) {
-          const date = String(new Date().getDate()).padStart(2, "0");
-          const price = String(Math.round(primaryPrice)).padStart(3, "0");
-          const prefix = `${date}${price}`;
+              let needsBarcode = false;
+              if (!unitprice.productbarcode && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
+                needsBarcode = true;
+              } else if (unitprice.productbarcode && unitprice.productbarcode.length >= 11 && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
+                const embeddedPrice = unitprice.productbarcode.substring(2, unitprice.productbarcode.length - 6);
+                if (embeddedPrice !== priceStr) {
+                  needsBarcode = true;
+                }
+              }
 
-          const last = await Product.findOne({
-             adminid: doc.adminid,
-             branchid: doc.branchid,
-            "productvariants.productbarcode": new RegExp(`^${prefix}`)
-          }).sort({ "productvariants.productbarcode": -1 });
+              if (needsBarcode) {
 
-          const lastNum =
-            last?.productvariants?.[0]?.productbarcode
-              ? parseInt(last.productvariants[0].productbarcode.slice(prefix.length)) + 1
-              : 1;
+                const lastDoc = await Product.findOne({
+                  adminid: doc.adminid,
+                  branchid: doc.branchid,
+                  "productvariants.pricing.unitprices.productbarcode": new RegExp(`^${prefix}`)
+                }).sort({ "productvariants.pricing.unitprices.productbarcode": -1 });
 
-          variant.productbarcode = `${prefix}${String(lastNum).padStart(6, "0")}`;
+                // Find max sequence across all nested arrays
+                let maxSeq = 0;
+                if (lastDoc?.productvariants) {
+                  for (const pv of lastDoc.productvariants) {
+                    for (const pr of (pv.pricing || [])) {
+                      for (const up of (pr.unitprices || [])) {
+                        if (up.productbarcode && up.productbarcode.startsWith(prefix)) {
+                          const seq = parseInt(up.productbarcode.slice(prefix.length)) || 0;
+                          if (seq > maxSeq) maxSeq = seq;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                unitprice.productbarcode = `${prefix}${String(maxSeq + 1).padStart(6, "0")}`;
+              }
+            }
+          }
         }
       }
     }
@@ -380,11 +407,21 @@ productServiceSchema.pre("save", async function (next) {
         variant.servicecode = `#SVC${String(nextNum).padStart(4, "0")}`;
       }
 
-      // Auto-generate servicebarcode
+      const date = String(new Date().getDate()).padStart(2, "0");
+      const rateStr = String(Math.round(Number(variant.servicerate))).padStart(3, "0");
+      const prefix = `${date}${rateStr}`;
+
+      let needsServiceBarcode = false;
       if (!variant.servicebarcode && variant.servicerate !== undefined && variant.servicerate > 0) {
-        const date = String(new Date().getDate()).padStart(2, "0");
-        const rate = String(Math.round(variant.servicerate)).padStart(3, "0");
-        const prefix = `${date}${rate}`;
+        needsServiceBarcode = true;
+      } else if (variant.servicebarcode && variant.servicebarcode.length >= 11 && variant.servicerate !== undefined && variant.servicerate > 0) {
+        const embeddedRate = variant.servicebarcode.substring(2, variant.servicebarcode.length - 6);
+        if (embeddedRate !== rateStr) {
+          needsServiceBarcode = true;
+        }
+      }
+
+      if (needsServiceBarcode) {
 
         const last = await Product.findOne({
           adminid: doc.adminid,

@@ -81,7 +81,6 @@ const AddEditProductService = () => {
       name: "",
       sku: "",
       productcode: "",
-      productbarcode: "",
       batchnumber: "",
       manufacturedate: "",
       expirydate: "",
@@ -290,7 +289,6 @@ const AddEditProductService = () => {
               name: "",
               sku: "",
               productcode: "",
-              productbarcode: "",
               batchnumber: "",
               manufacturedate: "",
               expirydate: "",
@@ -487,7 +485,7 @@ const AddEditProductService = () => {
     setFormData(prev => {
       const newVariant = prev.productvariants.length
         ? JSON.parse(JSON.stringify(prev.productvariants[prev.productvariants.length - 1]))
-        : { name: "", sku: "", productcode: "", productbarcode: "", baseunitid: "", unitconversions: [], pricing: [], serials: [] };
+        : { name: "", sku: "", productcode: "", baseunitid: "", unitconversions: [], pricing: [], serials: [] };
       delete newVariant.id;
       delete newVariant._id;
       newVariant.tempid = uuidv4();
@@ -825,7 +823,6 @@ const AddEditProductService = () => {
         name: v.name?.trim() || "",
         sku: v.sku?.trim() || "",
         productcode: v.productcode?.trim() || "",
-        productbarcode: v.productbarcode?.trim() || "",
         batchnumber: v.batchnumber?.trim() || "",
         manufacturedate: parseDate(v.manufacturedate)?.toISOString() || null,
         expirydate: parseDate(v.expirydate)?.toISOString() || null,
@@ -857,7 +854,7 @@ const AddEditProductService = () => {
           unitprices: [{ unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }],
         }]).map(p => ({
           region: p.region?.trim() || "default",
-          channel: p.channel?.trim() || "enduser",
+          channel: (typeof p.channel === "object" ? p.channel?.id : p.channel)?.trim() || "enduser",
           unitprices: (p.unitprices?.length ? p.unitprices : [{ quantity: 1, unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }])
             .map(up => ({
               quantity: Number(up.quantity) || 1,
@@ -867,6 +864,7 @@ const AddEditProductService = () => {
               discount: Number(up.discount) || 0,
               discounttype: up.discounttype?.trim() || "fixed",
               offerprice: Number(up.offerprice) || 0,
+              productbarcode: up.productbarcode?.trim() || "",
             })),
         })),
         productlikecount: Number(v.productlikecount) || 0,
@@ -981,19 +979,7 @@ const AddEditProductService = () => {
               <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => navigate("/productgroups")}/>
               <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => navigate("/models")}/>
               <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => navigate("/sizes")}/>
-              {
-                isEdit && (
-                  <BarcodeImage
-                    value={
-                      (!formData.isservice
-                        ? formData.productvariants?.[0]?.productbarcode
-                        : ""
-                      ) || ""
-                    }
-                    align="start"
-                  />
-                )
-              }
+
               <div className="md:col-span-2 lg:col-span-3">
                 <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />
               </div>

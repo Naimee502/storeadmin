@@ -25,6 +25,7 @@ const ProductServices = () => {
 
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
   const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+  const [barcodeOptions, setBarcodeOptions] = useState<{ label: string, barcode: string }[]>([]);
   const [barcodeQty, setBarcodeQty] = useState<number>(0);
   const barcodeRef = useRef<HTMLDivElement>(null);
 
@@ -229,6 +230,7 @@ const ProductServices = () => {
           onBarcode={(row) => {
             let barcodeValue = "";
             let itemName = row.name;
+            let options: { label: string, barcode: string }[] = [];
 
             if (row.isservice) {
               const serviceVariant = row.servicevariants?.[0];
@@ -238,8 +240,24 @@ const ProductServices = () => {
             } else {
               const productVariant = row.productvariants?.[0];
               if (!productVariant) return;
-              barcodeValue = productVariant.productbarcode || "";
+              
+              productVariant.pricing?.forEach((p: any) => {
+                p.unitprices?.forEach((up: any) => {
+                  if (up.productbarcode) {
+                    const unitName = up.unitid?.unitname || "Unit";
+                    const chName = p.channel?.channelName || "General";
+                    options.push({
+                      label: `${chName} - ${up.quantity} ${unitName} (₹${up.salesrate})`,
+                      barcode: up.productbarcode
+                    });
+                  }
+                });
+              });
+              
+              barcodeValue = options.length > 0 ? options[0].barcode : "";
             }
+
+            setBarcodeOptions(options);
 
             setBarcodeProduct({
               name: itemName,
@@ -257,8 +275,12 @@ const ProductServices = () => {
         <BarcodeModal
           isOpen={barcodeModalOpen}
           onClose={() => setBarcodeModalOpen(false)}
-          onPrint={(qty) => {
+          barcodeOptions={barcodeOptions}
+          onPrint={(qty, selectedBarcode) => {
             setBarcodeQty(qty);
+            if (selectedBarcode) {
+              setBarcodeProduct((prev: any) => ({ ...prev, barcode: selectedBarcode }));
+            }
             setTimeout(() => handleBarcodePrint?.(), 500);
           }}
         />

@@ -1,4 +1,5 @@
 import FormField from "../formfiled";
+import BarcodeImage from "../barcode";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -33,7 +34,6 @@ const LABELS: Record<string, string> = {
     name: "Name",
     sku: "SKU",
     productcode: "Product Code",
-    productbarcode: "Product Barcode",
 
     // Batch / Manufacturing
     batchnumber: "Batch Number",
@@ -149,7 +149,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         "name", "sku", "batchnumber", "manufacturedate", "expirydate",
                         "gst", "hsncode", "openingstock", "currentstock",
                         "closingstock", "minimumstock", "reorderlevel", "racklocation",
-                        ...(isEdit ? ["productcode", "productbarcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
+                        ...(isEdit ? ["productcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
                     ].map((field) => (
                         <FormField
                             key={field}
@@ -170,7 +170,6 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             onChange={handleChange}
                             disabled={isEdit && [
                                 "productcode",
-                                "productbarcode",
                                 "openingstockamount",
                                 "currentstockamount",
                                 "closingstockamount",
@@ -323,6 +322,13 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                             error={errors?.productvariants?.[index]?.pricing?.[priceIndex]?.unitprices?.[upIndex]?.[f]}
                                         />
                                     ))}
+                                    {/* Show barcode per unit price in edit mode */}
+                                    {isEdit && up.productbarcode && (
+                                        <div className="flex flex-col items-start justify-center mt-1">
+                                            <span className="text-[10px] text-gray-500 mb-1 font-medium">Barcode</span>
+                                            <BarcodeImage value={up.productbarcode} align="start" />
+                                        </div>
+                                    )}
                                     <button
                                         type="button"
                                         className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
