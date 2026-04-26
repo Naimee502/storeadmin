@@ -28,6 +28,8 @@ import { useImageUpload } from "../../graphql/hooks/uploads";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
+import { useChannelsQuery } from "../../graphql/hooks/channels";
+
 type FormValues = {
   branchid: string;
   accountgroupid: string;
@@ -43,6 +45,7 @@ type FormValues = {
   target: number | "";
   status: boolean;
   role: string; 
+  assignedChannels: string[];
 };
 
 const StaffAccounts = () => {
@@ -50,7 +53,7 @@ const StaffAccounts = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId =
     type === "admin"
       ? admin?.id
@@ -58,7 +61,7 @@ const StaffAccounts = () => {
       ? branch?.admin?.id
       : undefined;
 
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
 
   // HOOKS UPDATED
   const { data, refetch } = useStaffQuery();
@@ -69,15 +72,15 @@ const StaffAccounts = () => {
   const { data: accountGroupData } = useAccountGroupsQuery();
   const accountGroupList = accountGroupData?.getAccountGroups || [];
 
-  const { data: ledgerData } = useAccountLedgersQuery();
-  const ledgerList = ledgerData?.getAccountLedgers || [];
+  const { data: channelData } = useChannelsQuery(adminId);
+  const channelList = channelData?.getChannels || [];
 
   const staffList = data?.getStaffAccounts || [];
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { uploadImageMutation } = useImageUpload();
 
-  const isLoading = useAppSelector((state) => state.loader.isLoading);
+  const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState<FormValues>({
     branchid: branchId || "",
@@ -94,6 +97,7 @@ const StaffAccounts = () => {
     target: "",
     status: true,
     role: "staff", 
+    assignedChannels: [],
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -159,6 +163,7 @@ const StaffAccounts = () => {
       target: row.target || 0,
       status: Boolean(row.status),
       role: row.role || "staff", // <-- load existing role if present
+      assignedChannels: row.assignedChannels?.map((c: any) => c.id) || [],
     });
 
     setIsEditing(true);
@@ -217,6 +222,7 @@ const StaffAccounts = () => {
       status: Boolean(formValues.status),
       admin: adminId,
       role: formValues.role, // <-- include role in payload
+      assignedChannels: formValues.role === 'salesman' ? formValues.assignedChannels : [],
     };
 
     // 🔥 Password only included if user typed something
@@ -256,6 +262,7 @@ const StaffAccounts = () => {
         target: "",
         status: true,
         role: "staff",
+        assignedChannels: [],
       });
 
       setSelectedFile(null);
@@ -441,6 +448,24 @@ const StaffAccounts = () => {
               icon={<FaHome />}
               placeholder="Enter address"
             />
+
+            {/* Assigned Channels (Only for Salesman) */}
+            {formValues.role === "salesman" && (
+              <FormField
+                label="Assigned Channels"
+                name="assignedChannels"
+                type="multiselect"
+                value={formValues.assignedChannels}
+                onChange={(e) => handleFormChange("assignedChannels", e.target.value)}
+                error={formErrors.assignedChannels}
+                options={channelList?.map((channel: any) => ({
+                  label: channel.channelName,
+                  value: channel.id,
+                }))}
+                searchable
+                placeholder="Select channels"
+              />
+            )}
 
             {/* Profile Picture */}
             <FormField

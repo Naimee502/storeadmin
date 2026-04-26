@@ -48,6 +48,7 @@ export const staffAccountTypeDefs = gql`
     target: Float
     role: String           
     status: Boolean!
+    assignedChannels: [Channel]
     createdAt: String
     updatedAt: String
   }
@@ -68,6 +69,7 @@ export const staffAccountTypeDefs = gql`
     target: Float
     role: String           
     status: Boolean
+    assignedChannels: [ID]
   }
 
   input StaffFilterInput {

@@ -11,47 +11,6 @@ export const productServiceTypeDefs = gql`
     transferred
   }
 
-  # Master Types
-  type Category {
-    id: ID!
-    categoryname: String!
-  }
-
-  type SubCategory {
-    id: ID!
-    subcategoryname: String!
-  }
-
-  type ProductGroup {
-    id: ID!
-    productgroupname: String!
-  }
-
-  type Brand {
-    id: ID!
-    brandname: String!
-  }
-
-  type Size {
-    id: ID!
-    sizename: String!
-  }
-
-  type Model {
-    id: ID
-    modelname: String
-  }
-
-  type Unit {
-    id: ID!
-    unitname: String!
-  }
-
-  type AccountLedger {
-    id: ID!
-    ledgername: String!
-  }
-
   # Sub Types
   type UnitConversion {
     unitid: Unit
@@ -75,6 +34,7 @@ export const productServiceTypeDefs = gql`
     unitid: Unit
     mrp: Float
     salesrate: Float
+    minsalesrate: Float
     discount: Float
     discounttype: String
     offerprice: Float
@@ -82,7 +42,7 @@ export const productServiceTypeDefs = gql`
 
   type Pricing {
     region: ID
-    channel: String
+    channel: Channel
     unitprices: [UnitPrice]
   }
 
@@ -340,6 +300,7 @@ export const productServiceTypeDefs = gql`
     unitid: ID
     mrp: Float
     salesrate: Float
+    minsalesrate: Float
     purchaserate: Float
     discount: Float
     discounttype: String

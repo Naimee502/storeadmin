@@ -1,4 +1,5 @@
 import { Admin } from "../../../models/admin";
+import { Channel } from "../../../models/channel";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const adminResolvers = {
@@ -42,6 +43,16 @@ export const adminResolvers = {
       });
 
       await admin.save();
+
+      // Create default "EndUser" channel for this admin
+      const endUserChannel = new Channel({
+        channelName: "EndUser",
+        admin: admin._id,
+        isDefault: true,
+        status: true
+      });
+      await endUserChannel.save();
+
       return admin;
     },
 

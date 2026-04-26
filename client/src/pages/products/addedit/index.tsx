@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import { useChannelsQuery } from "../../../graphql/hooks/channels";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -40,6 +41,8 @@ const AddEditProductService = () => {
   const { data: sizeData } = useSizesQuery();
   const { data: unitData } = useUnitsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
+  const { data: channelData } = useChannelsQuery(adminId);
+  const channelList = channelData?.getChannels || [];
 
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
@@ -425,6 +428,30 @@ const AddEditProductService = () => {
           }
         }
       }
+      if (name.includes("productvariants") && name.includes("unitprices")) {
+        const parts = name.split(".");
+        // Path: productvariants.index.pricing.pIndex.unitprices.upIndex.field
+        if (parts.length === 7) {
+          const vIdx = parseInt(parts[1], 10);
+          const pIdx = parseInt(parts[3], 10);
+          const upIdx = parseInt(parts[5], 10);
+          const field = parts[6];
+
+          if (["salesrate", "discount", "discounttype"].includes(field)) {
+            const up = updated.productvariants[vIdx].pricing[pIdx].unitprices[upIdx];
+            const rate = Number(up.salesrate) || 0;
+            const disc = Number(up.discount) || 0;
+            const dType = up.discounttype || "fixed";
+
+            if (dType === "percentage") {
+              up.offerprice = Math.round(rate - (rate * disc / 100));
+            } else {
+              up.offerprice = Math.round(rate - disc);
+            }
+          }
+        }
+      }
+
       return updated;
     });
 
@@ -1040,6 +1067,7 @@ const AddEditProductService = () => {
             isserialised={formData.isserialised}
             navigate={navigate}
             errors={errors}
+            channelData={channelList}
           />
         )}
       </div>

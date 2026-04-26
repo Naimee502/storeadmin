@@ -21,6 +21,10 @@ export const ADD_STAFF = gql`
       target
       role
       status
+      assignedChannels {
+        id
+        channelName
+      }
       accountgroupid {
         id
         accountgroupname
@@ -58,6 +62,10 @@ export const EDIT_STAFF = gql`
       target
       role
       status
+      assignedChannels {
+        id
+        channelName
+      }
       accountgroupid {
         id
         accountgroupname

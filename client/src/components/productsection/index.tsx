@@ -55,6 +55,7 @@ const normalizeProduct = (product: any) => ({
     })),
     pricing: v.pricing?.map((p: any) => ({
       ...p,
+      channel: p.channel?.id || p.channel,
       unitprices: p.unitprices?.map((up: any) => ({
         ...up,
         unitid: up.unitid?.id,
@@ -275,18 +276,18 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
               if (!variant) return;
 
-              const state = partyAccount?.state?.toLowerCase();
-              const channel = partyAccount?.accounttype?.toLowerCase();
+              const region = partyAccount?.region?.toLowerCase() || "default";
+              const channel = partyAccount?.channel?.toLowerCase() || "enduser";
 
               // STEP 1: Pricing Priority
               const matchedPricing = variant.pricing.find(
                 (p: any) =>
-                  p.region?.toLowerCase() === state &&
+                  p.region?.toLowerCase() === region &&
                   p.channel?.toLowerCase() === channel
               );
 
-              const fallbackRetail = variant.pricing.find(
-                (p: any) => p.channel?.toLowerCase() === "retail"
+              const channelOnlyMatch = variant.pricing.find(
+                (p: any) => p.channel?.toLowerCase() === channel
               );
 
               const fallbackEndUser = variant.pricing.find(
@@ -295,7 +296,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
               // STEP 2: Pick best pricing based on priority
               let pricingToUse =
-                matchedPricing || fallbackRetail || fallbackEndUser || null;
+                matchedPricing || channelOnlyMatch || fallbackEndUser || variant.pricing[0] || null;
 
               // STEP 3: If selected unit NOT found in selected pricing, find proper fallback
               let price =

@@ -15,22 +15,23 @@ import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../.
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
+import { useChannelsQuery } from "../../../graphql/hooks/channels";
 
 const AddEditAccount = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
-  console.log("Auth Data>>", JSON.stringify(admin, null, 2));
+  const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();
   const { data: ledgersData } = useAccountLedgersQuery();
   const { data: assignAccountData } = useAccountsQuery();
   const { data: staffData } = useStaffQuery();
+  const { data: channelData } = useChannelsQuery(adminId);
 
   const [formValues, setFormValues] = useState({
     name: "",
@@ -39,7 +40,7 @@ const AddEditAccount = () => {
     address: "",
     city: "",
     state: "",
-    country: "",
+    country: "India",
     pincode: "",
     gstnumber: "",
     pan: "",
@@ -53,7 +54,6 @@ const AddEditAccount = () => {
     billingcycle: "monthly",
     duedays: "",
     type: "customer",
-    accounttype: "retail",
     isposcustomer: false,
     status: true,
     accountgroupid: "",
@@ -61,6 +61,8 @@ const AddEditAccount = () => {
     salesmanid: "",
     admin: adminId || "",
     branchid: null,
+    channel: "",
+    region: "default",
   });
 
   const regionOptions = [
@@ -135,7 +137,6 @@ const AddEditAccount = () => {
         billingcycle: a.billingcycle || "monthly",
         duedays: a.duedays || "",
         type: a.type || "customer",
-        accounttype: a.accounttype || "retail",
         isposcustomer: a.isposcustomer ?? false,
         status: a.status ?? true,
         accountgroupid: a.accountgroupid?.id || "",
@@ -143,6 +144,8 @@ const AddEditAccount = () => {
         salesmanid: a.salesmanid?.id || "",
         admin: a.admin?.id || adminId || "",
         branchid: null,
+        channel: a.channel?.id || "",
+        region: a.region || "default",
       });
     }
   }, [isEdit, existingData]);
@@ -180,6 +183,8 @@ const AddEditAccount = () => {
       ...formValues,
       assignaccountid: formValues.assignaccountid || null,
       salesmanid: formValues.salesmanid || null,
+      channel: formValues.channel || null,
+      region: formValues.region || "default",
       creditlimit: Number(formValues.creditlimit) || 0,
       duedays: Number(formValues.duedays) || 0,
     };
@@ -233,7 +238,26 @@ const AddEditAccount = () => {
                   searchable
                 />
                 <FormField label="Type" name="type" type="select" value={formValues.type} onChange={(e) => handleChange("type", e.target.value)} options={[{ label: "Customer", value: "customer" }, { label: "Vendor", value: "vendor" }, { label: "Expense", value: "expense" }, { label: "Bank", value: "bank" }, { label: "Other", value: "other" }]} placeholder="Select type" />
-                <FormField label="Account Type" name="accounttype" type="select" value={formValues.accounttype} onChange={(e) => handleChange("accounttype", e.target.value)} options={[{ label: "End User", value: "enduser" }, { label: "Retail", value: "retail" }, { label: "Dealer", value: "dealer" }, { label: "Super Stockist", value: "superstockist" }, { label: "Distributor", value: "distributor" }, { label: "Manufacturer", value: "manufacturer" }, { label: "Exporter", value: "exporter" }]} placeholder="Select account type" />
+                <FormField
+                  label="Channel"
+                  name="channel"
+                  type="select"
+                  value={formValues.channel}
+                  onChange={(e) => handleChange("channel", e.target.value)}
+                  options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
+                  placeholder="Select Channel"
+                  searchable
+                />
+                <FormField
+                  label="Region / Price Group"
+                  name="region"
+                  type="select"
+                  value={formValues.region}
+                  onChange={(e) => handleChange("region", e.target.value)}
+                  options={regionOptions}
+                  placeholder="Select Region"
+                  searchable
+                />
                 {admin?.isChannelCustomers && (
                   <>
                     <FormField

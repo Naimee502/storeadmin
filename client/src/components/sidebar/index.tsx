@@ -7,7 +7,9 @@ import {
   FaChartBar, FaFileAlt, FaClipboardList, FaMoneyBillWave,
   FaChartLine,
   FaIndent,
-  FaMoneyCheckAlt
+  FaMoneyCheckAlt,
+  FaRoute,
+  FaSitemap
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -103,6 +105,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine className="text-xl" />, moduleId: "reports" },
   ];
 
+  // Distribution links
+  const distributionLinks: SidebarLink[] = [
+    { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-xl" />, moduleId: "channels" },
+    { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-xl" />, moduleId: "salesroutes" },
+  ];
+
   // Filter common links to avoid duplicates in admin
   const filteredCommonLinks = filterLinks(branchLinks.filter(link =>
     ![
@@ -120,18 +128,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const filteredBranchLinks = filterLinks(branchLinks);
   const filteredAdminLinks = filterLinks(adminLinks);
   const filteredReportsLinks = filterLinks(reportsLinks);
+  const filteredDistributionLinks = filterLinks(distributionLinks);
 
   // Sidebar items with sections
   const sidebarItems: SidebarItem[] = type === 'branch' || type === 'staff'
     ? [
         homeLink,
         ...filteredBranchLinks,
+        ...(filteredDistributionLinks.length > 0 ? [{ label: 'Distribution', isSection: true as const }, ...filteredDistributionLinks] : []),
         ...(filteredReportsLinks.length > 0 ? [{ label: 'Reports', isSection: true as const }, ...filteredReportsLinks] : [])
       ]
     : [
         homeLink,
         ...filteredAdminLinks,
         ...filteredCommonLinks,
+        ...(filteredDistributionLinks.length > 0 ? [{ label: 'Distribution', isSection: true as const }, ...filteredDistributionLinks] : []),
         ...(filteredReportsLinks.length > 0 ? [{ label: 'Reports', isSection: true as const }, ...filteredReportsLinks] : [])
       ];
 
@@ -154,7 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
             text-white z-40 transition-all duration-300 ease-in-out
             ${isOpen ? 'translate-x-0' : '-translate-x-full'} sm:translate-x-0
             ${isHovered ? 'w-56' : 'w-14'} sm:${isHovered ? 'w-56' : 'w-14'}
-        +   overflow-y-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent
+            overflow-y-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent
           `}
         >
         <div className="p-2 flex flex-col space-y-1 overflow-x-hidden">

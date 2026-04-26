@@ -86,7 +86,7 @@ export const ADD_PRODUCT_SERVICE = gql`
 
         pricing {
           region
-          channel
+          channel { id channelName }
           unitprices {
             quantity
             unitid { id unitname }
@@ -198,7 +198,7 @@ export const UPDATE_PRODUCT_SERVICE = gql`
 
         pricing {
           region
-          channel
+          channel { id channelName }
           unitprices {
             quantity
             unitid { id unitname }

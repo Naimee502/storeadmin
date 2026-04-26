@@ -76,13 +76,22 @@ function mapVariantForResponse(v: any) {
   }
 
   if (variant.pricing?.length) {
-    variant.pricing = variant.pricing.map((p: any) => ({
-      ...p,
-      unitprices: (p.unitprices || []).map((up: any) => ({
-        ...up,
-        unitid: typeof up.unitid === "string" ? { id: up.unitid } : convertRef(up.unitid),
-      })),
-    }));
+    variant.pricing = variant.pricing.map((p: any) => {
+      // ✅ Handle legacy "enduser" string or missing channel
+      let normalizedChannel = null;
+      if (p.channel && typeof p.channel === "object") {
+        normalizedChannel = convertRef(p.channel);
+      }
+
+      return {
+        ...p,
+        channel: normalizedChannel,
+        unitprices: (p.unitprices || []).map((up: any) => ({
+          ...up,
+          unitid: typeof up.unitid === "string" ? { id: up.unitid } : convertRef(up.unitid),
+        })),
+      };
+    });
   }
 
   return variant;
@@ -129,6 +138,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.purchaseunitid", select: "id unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "id unitname" })
           .populate({ path: "productvariants.pricing.unitprices.unitid", select: "id unitname" })
+          .populate({ path: "productvariants.pricing.channel", select: "id channelName" })
 
           .populate({ path: "salesaccountid", select: "id ledgername" })
           .populate({ path: "purchaseaccountid", select: "id ledgername" })
@@ -177,47 +187,9 @@ export const productServiceResolvers = {
                   if (stock.currentstock === 0)
                     stock = await getStockDetails(mapped._id, adminId, branchId);
 
-                  // ✅ Convert nested keys
-                  const variant = {
-                    ...v,
-                    id: v._id?.toString(),
-                    _id: v._id
-                  };
-
-                  // units
-                  variant.baseunitid = convertRef(variant.baseunitid);
-                  variant.purchaseunitid = convertRef(variant.purchaseunitid);
-
-                  // unit conversions
-                  if (variant.unitconversions?.length) {
-                    variant.unitconversions = variant.unitconversions.map((u: any) => ({
-                      factor: u.factor,
-                      unitid: convertRef(u.unitid),
-                    }));
-                  }
-
-                  // serials
-                  if (variant.serials?.length) {
-                    variant.serials = variant.serials.map((s: any) => ({
-                      ...s,
-                      id: s._id?.toString(),
-                    }));
-                  }
-
-                  // pricing
-                  if (variant.pricing?.length) {
-                    variant.pricing = variant.pricing.map((p: any) => ({
-                      ...p,
-                      unitprices: p.unitprices?.map((u: any) => ({
-                        ...u,
-                        unitid: typeof u.unitid === "string"
-                          ? { id: u.unitid }
-                          : convertRef(u.unitid)
-                      }))
-                    }));
-                  }
-
-                  return { ...variant, ...stock };
+                  // ✅ Use unified mapping
+                  const variantMapped = mapVariantForResponse(v);
+                  return { ...variantMapped, ...stock };
                 })
               );
             }
@@ -250,7 +222,8 @@ export const productServiceResolvers = {
         .populate("productvariants.baseunitid", "id unitname")
         .populate("productvariants.purchaseunitid", "id unitname")
         .populate("productvariants.unitconversions.unitid", "id unitname")
-        .populate("productvariants.pricing.unitprices.unitid", "id unitname") // ✅ add this
+        .populate("productvariants.pricing.unitprices.unitid", "id unitname")
+        .populate("productvariants.pricing.channel", "id channelName")
         .lean();
 
       if (!product) return null;
@@ -290,35 +263,9 @@ export const productServiceResolvers = {
               stock = await getStockDetails(response._id, adminObjId, branchObjId);
             }
 
-            const variant: any = {
-              ...v,
-              id: v._id?.toString(),
-              _id: v._id
-            };
-
-            variant.baseunitid = convertRef(variant.baseunitid);
-            variant.purchaseunitid = convertRef(variant.purchaseunitid);
-
-            if (variant.unitconversions?.length) {
-              variant.unitconversions = variant.unitconversions.map((u: any) => ({
-                factor: u.factor,
-                unitid: convertRef(u.unitid)
-              }));
-            }
-
-            if (variant.pricing?.length) {
-              variant.pricing = variant.pricing.map((p: any) => ({
-                ...p,
-                unitprices: p.unitprices?.map((u: any) => ({
-                  ...u,
-                  unitid: typeof u.unitid === "string"
-                    ? { id: u.unitid }
-                    : convertRef(u.unitid)
-                }))
-              }));
-            }
-
-            return { ...variant, ...stock };
+            // ✅ Use unified mapping
+            const variantMapped = mapVariantForResponse(v);
+            return { ...variantMapped, ...stock };
           })
         );
       }
@@ -362,6 +309,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.purchaseunitid", select: "unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "unitname" })
           .populate({ path: "productvariants.pricing.unitprices.unitid", select: "unitname" })
+          .populate({ path: "productvariants.pricing.channel", select: "channelName" })
 
           .populate({ path: "salesaccountid", select: "ledgername" })
           .populate({ path: "purchaseaccountid", select: "ledgername" })
@@ -586,6 +534,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.purchaseunitid", select: "unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "unitname" })
           .populate({ path: "productvariants.pricing.unitprices.unitid", select: "unitname" })
+          .populate({ path: "productvariants.pricing.channel", select: "channelName" })
           .populate({ path: "salesaccountid", select: "ledgername" })
           .populate({ path: "purchaseaccountid", select: "ledgername" })
           .populate({ path: "serviceaccountid", select: "ledgername" })

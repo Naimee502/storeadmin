@@ -25,6 +25,7 @@ interface ProductVariantsProps {
     isserialised?: boolean;
     navigate: (path: string) => void;
     errors: any;
+    channelData?: any[];
 }
 
 const LABELS: Record<string, string> = {
@@ -124,7 +125,8 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     isEdit = false,
     isserialised = false,
     navigate,
-    errors
+    errors,
+    channelData
 }) => (
     <>
         {formData.productvariants.map((variant, index) => (
@@ -281,15 +283,11 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     label="Channel"
                                     name={`productvariants.${index}.pricing.${priceIndex}.channel`}
                                     type="select"
-                                    options={[
-                                        { value: "enduser", label: "End User" },
-                                        { value: "retail", label: "Retail" },
-                                        { value: "dealer", label: "Dealer" },
-                                        { value: "superstockist", label: "Super Stockist" },
-                                        { value: "distributor", label: "Distributor" },
-                                        { value: "exporter", label: "Exporter" }
-                                    ]}
-                                    value={price.channel || "enduser"}
+                                    options={channelData?.length 
+                                        ? channelData.map((c: any) => ({ value: c.id, label: c.channelName }))
+                                        : [{ value: "enduser", label: "End User" }]
+                                    }
+                                    value={(typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser"}
                                     onChange={handleChange}
                                 />
                                 <button type="button" onClick={() => addUnitPrice(index, priceIndex)} className="w-10 h-10 mt-6 py-1 border rounded text-sm">➕</button>
@@ -319,6 +317,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                             }
                                             value={up[f]}
                                             onChange={handleChange}
+                                            disabled={f === "offerprice"}
                                             searchable={f === "unitid" || f === "discounttype"}
                                             addable onAddNew={() => navigate("/units")}
                                             error={errors?.productvariants?.[index]?.pricing?.[priceIndex]?.unitprices?.[upIndex]?.[f]}

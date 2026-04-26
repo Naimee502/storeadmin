@@ -86,7 +86,7 @@ export const GET_PRODUCT_SERVICES = gql`
         }
         pricing {
           region
-          channel
+          channel { id channelName }
           unitprices {
             quantity
             unitid { id unitname }
@@ -203,7 +203,7 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
 
         pricing {
           region
-          channel
+          channel { id channelName }
           unitprices {
             quantity
             unitid { id unitname }

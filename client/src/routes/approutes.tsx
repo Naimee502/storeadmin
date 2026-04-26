@@ -66,6 +66,8 @@ import POSDashboard from "../pages/posdashboard";
 import AddEditExpenseNote from "../pages/expensenote/addedit";
 import DeletedExpenseNotes from "../pages/expensenote/deletedentries";
 import ExpenseNote from "../pages/expensenote";
+import Channels from "../pages/channels";
+import DeletedChannels from "../pages/channels/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -653,6 +655,22 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <POSDashboard/>
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/channels"
+          element={
+            <ProtectedRoutes>
+              <Channels />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/channels/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedChannels />
             </ProtectedRoutes>
           }
         />

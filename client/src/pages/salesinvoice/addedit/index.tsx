@@ -111,6 +111,8 @@ const AddEditSalesInvoice = () => {
         id: invoice.partyacc?.id || "",
         state: invoice.partyacc?.state || "",
         accounttype: invoice.partyacc?.accounttype || "",
+        channel: invoice.partyacc?.channel?.id || invoice.partyacc?.channel || "",
+        region: invoice.partyacc?.region || "default",
       });
       setTaxOrSupplyType(invoice.taxorsupplytype || "");
       setBillDate(invoice.billdate || "");
@@ -328,7 +330,9 @@ const AddEditSalesInvoice = () => {
                       setPartyAccount({
                         id: acc.id,
                         state: acc.state,
-                        accounttype: acc.accounttype
+                        accounttype: acc.accounttype,
+                        channel: acc.channel?.id || acc.channel || "",
+                        region: acc.region || "default",
                       });
                     }
                   }}

@@ -24,7 +24,6 @@ export interface Account {
   billingcycle: "daily" | "weekly" | "monthly";
   duedays: number;
   type: "customer" | "vendor" | "expense" | "bank" | "other";
-  accounttype: "enduser" | "retail" | "dealer" | "superstockist" | "distributor" | "manufacturer" | "exporter";
   isposcustomer: boolean;
   status: boolean;
   adminid: string;

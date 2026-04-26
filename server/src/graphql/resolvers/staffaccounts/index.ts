@@ -41,7 +41,8 @@ export const staffAccountResolvers = {
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")
-        .populate("ledgerid");
+        .populate("ledgerid")
+        .populate("assignedChannels");
     },
 
     // ==========================================
@@ -74,7 +75,8 @@ export const staffAccountResolvers = {
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")
-        .populate("ledgerid");
+        .populate("ledgerid")
+        .populate("assignedChannels");
     },
 
     // ==========================================
@@ -88,7 +90,8 @@ export const staffAccountResolvers = {
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")
-        .populate("ledgerid");
+        .populate("ledgerid")
+        .populate("assignedChannels");
     },
   },
 
@@ -106,7 +109,8 @@ export const staffAccountResolvers = {
           .populate("admin")
           .populate("branchid")
           .populate("accountgroupid")
-          .populate("ledgerid");
+          .populate("ledgerid")
+          .populate("assignedChannels");
       } catch (err: any) {
         console.error("❌ addStaffAccount Error:", err);
         throw new Error(err.message);
@@ -129,11 +133,15 @@ export const staffAccountResolvers = {
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")
-        .populate("ledgerid");
+        .populate("ledgerid")
+        .populate("assignedChannels");
     },
 
     loginStaff: async (_: any, { email, password }: any, { res }: any) => {
-      const staff = await StaffAccount.findOne({ email }).populate("admin").populate("branchid");
+      const staff = await StaffAccount.findOne({ email })
+        .populate("admin")
+        .populate("branchid")
+        .populate("assignedChannels");
       if (!staff) throw new Error("Staff account not found");
 
       if (staff.password !== password) {

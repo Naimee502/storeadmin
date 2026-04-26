@@ -8,7 +8,6 @@ export const GET_ACCOUNTS = gql`
       accountcode
       name
       type
-      accounttype
       accountgroupid {
         id
         accountgroupname
@@ -57,6 +56,11 @@ export const GET_ACCOUNTS = gql`
         name
         email
       }
+      channel {
+        id
+        channelName
+      }
+      region
       createdAt
       updatedAt
     }
@@ -70,7 +74,6 @@ export const GET_ACCOUNT_BY_ID = gql`
       accountcode
       name
       type
-      accounttype
       accountgroupid {
         id
         accountgroupname
@@ -119,6 +122,11 @@ export const GET_ACCOUNT_BY_ID = gql`
         name
         email
       }
+      channel {
+        id
+        channelName
+      }
+      region
       createdAt
       updatedAt
     }

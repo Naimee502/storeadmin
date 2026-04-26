@@ -27,6 +27,10 @@ const staffAccountSchema = new mongoose.Schema(
       required: true
     },
 
+    assignedChannels: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Channel" }
+    ],
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

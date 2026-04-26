@@ -8,7 +8,6 @@ export const ADD_ACCOUNT = gql`
       accountcode
       name
       type
-      accounttype
       accountgroupid {
         id
         accountgroupname
@@ -53,6 +52,11 @@ export const ADD_ACCOUNT = gql`
         email
       }
       otp
+      channel {
+        id
+        channelName
+      }
+      region
       createdAt
       updatedAt
     }
@@ -66,7 +70,6 @@ export const EDIT_ACCOUNT = gql`
       accountcode
       name
       type
-      accounttype
       accountgroupid {
         id
         accountgroupname
@@ -111,6 +114,11 @@ export const EDIT_ACCOUNT = gql`
         email
       }
       otp
+      channel {
+        id
+        channelName
+      }
+      region
       createdAt
       updatedAt
     }

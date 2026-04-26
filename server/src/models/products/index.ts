@@ -25,6 +25,7 @@ export interface IUnitPrice {
   quantity: number;
   mrp: number;
   salesrate: number;
+  minsalesrate: number;
   discount: number;
   discounttype: "fixed" | "percentage";
   offerprice: number;
@@ -33,7 +34,7 @@ export interface IUnitPrice {
 // 🔹 Pricing (per region & channel)
 export interface IPricing {
   region: string; // e.g., "default" | "andhra_pradesh" ...
-  channel: "default" | "enduser" | "retail" | "dealer" | "distributor" | "superstockist" | "exporter";
+  channel: any; // e.g., "enduser" or ObjectId ref
   unitprices: IUnitPrice[];
 }
 
@@ -240,8 +241,8 @@ const productServiceSchema = new Schema<IProductService>(
               default: "default"
             },
             channel: {
-              type: String,
-              enum: ["enduser", "retail", "dealer", "distributor", "superstockist", "exporter"],
+              type: Schema.Types.Mixed, // Can be legacy string ("enduser") or ObjectId ref
+              ref: "Channel",
               default: "enduser",
             },
             unitprices: [
@@ -250,6 +251,7 @@ const productServiceSchema = new Schema<IProductService>(
                 unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
                 mrp: { type: Number, default: 0 },
                 salesrate: { type: Number, default: 0 },
+                minsalesrate: { type: Number, default: 0 },
                 discount: { type: Number, default: 0 },
                 discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
                 offerprice: { type: Number, default: 0 },
@@ -274,20 +276,32 @@ productServiceSchema.index({ name: 1 });
 productServiceSchema.index({ "seo.slug": 1 });
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "productvariants.productcode": 1 },
-  { unique: true, sparse: true }
+  { 
+    unique: true, 
+    partialFilterExpression: { "productvariants.productcode": { $type: "string" } } 
+  }
 );
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "productvariants.productbarcode": 1 },
-  { unique: true, sparse: true }
+  { 
+    unique: true, 
+    partialFilterExpression: { "productvariants.productbarcode": { $type: "string" } } 
+  }
 );
 
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "servicevariants.servicecode": 1 },
-  { unique: true, sparse: true }
+  { 
+    unique: true, 
+    partialFilterExpression: { "servicevariants.servicecode": { $type: "string" } } 
+  }
 );
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "servicevariants.servicebarcode": 1 },
-  { unique: true, sparse: true }
+  { 
+    unique: true, 
+    partialFilterExpression: { "servicevariants.servicebarcode": { $type: "string" } } 
+  }
 );
 
 // 🔹 Pre-save hook

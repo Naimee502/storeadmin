@@ -23,19 +23,14 @@ const accountSchema = new mongoose.Schema(
       default: 'customer',
     },
 
-    accounttype: {
-      type: String,
-      enum: [
-        'enduser',
-        'retail',
-        'dealer',
-        'superstockist',
-        'distributor',
-        'manufacturer',
-        'exporter',
-      ],
-      default: 'retail',
+
+    channel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Channel',
+      default: null,
     },
+
+    region: { type: String },
 
     accountgroupid: {
       type: mongoose.Schema.Types.ObjectId,

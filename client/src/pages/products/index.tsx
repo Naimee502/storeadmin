@@ -42,8 +42,7 @@ const ProductServices = () => {
     { label: "Code", key: "code" },
     { label: "Name", key: "name" },
     { label: "Current Stock / Location Type", key: "currentstock" },
-    { label: "Sales Rate / Service Rate", key: "salesrate" },
-    { label: "Sales Unit / UOM", key: "salesunit" },
+    { label: "Channel & Region Pricing (Rate & Unit) / Service (Rate & UOM)", key: "pricinginfo" },
     { label: "Status", key: "status" },
   ];
 
@@ -63,62 +62,77 @@ const ProductServices = () => {
 
       // ✅ Show stock vertically
       currentstock: (
-        <div>
+        <div className="flex flex-col gap-0 text-xs">
           {variants?.map((variant: any, i: number) => (
-            <div key={i}>
+            <div key={i} className="py-0.5 border-b border-gray-50 last:border-0 border-dashed">
               {item.isservice ? capitalize(variant?.locationType) || "-" : variant?.currentstock ?? 0}
             </div>
           ))}
         </div>
       ),
 
-      salesrate: (
-      <div>
-        {variants?.map((variant: any, i: number) => (
-          <div key={i} className="border-b border-gray-200 pb-1 mb-1">
-            {item.isservice
-              ? `${variant?.servicerate || 0}` // service rate
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
-                  <div key={j}>
-                    {up.salesrate} 
-                  </div>
-                )) || "-"}
-          </div>
-        ))}
-      </div>
-    ),
-
-    // Sales Unit / UOM
-    salesunit: (
-      <div>
-        {variants?.map((variant: any, i: number) => (
-          <div key={i} className="border-b border-gray-200 pb-1 mb-1">
-            {item.isservice
-              ? capitalize(variant?.uom) || "-" // service unit
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
-                  <div key={j}>
-                    {up.quantity} {up.unitid?.unitname || "-"}
-                  </div>
-                )) || "-"}
-          </div>
-        ))}
-      </div>
-    ),
+      pricinginfo: (
+        <div className="flex flex-col gap-0.5 min-w-[320px]">
+          {variants?.map((variant: any, i: number) => (
+            <div key={i} className="bg-white py-0.5 px-1 rounded-sm border border-gray-100">
+              {item.isservice ? (
+                <div className="flex items-center gap-1.5 px-0.5">
+                  <span className="bg-blue-600 text-white px-1 py-0.5 rounded-[2px] font-bold text-[8px]">SVC</span>
+                  <span className="text-[13px] font-bold text-gray-900">₹{variant?.servicerate || 0}</span>
+                  <span className="text-gray-400 text-xs">/</span>
+                  <span className="text-[11px] text-gray-500 font-medium uppercase tracking-tight">{variant?.uom || "Unit"}</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-0">
+                  {variant?.pricing?.map((p: any, k: number) => (
+                    <div key={k} className="flex items-center gap-2 text-[11px] px-0.5 border-b border-gray-50 last:border-0 py-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="bg-indigo-50 text-indigo-700 px-1 py-0.5 rounded-sm font-bold border border-indigo-100 whitespace-nowrap text-[10px] leading-none uppercase">{p.channel?.channelName || "Gen"}</span>
+                        <span className="bg-emerald-50 text-emerald-700 px-1 py-0.5 rounded-sm font-bold border border-emerald-100 whitespace-nowrap text-[10px] leading-none uppercase">{capitalize(p.region) || "All"}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {p.unitprices?.map((up: any, j: number) => (
+                          <div key={j} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-sm border border-slate-100">
+                            <span className="font-bold text-[13px] text-gray-900 leading-none whitespace-nowrap tracking-tight">₹{up.salesrate}</span>
+                            <span className="text-slate-500 font-medium whitespace-nowrap text-[10px]">({up.quantity} {up.unitid?.unitname || "Unit"})</span>
+                            {up.discount > 0 && <span className="text-orange-600 font-bold text-[10px]">-{up.discount}{up.discounttype === 'percentage' ? '%' : ''}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ),
 
       status: item.status ? "Active" : "Inactive",
     };
   });
 
   const handleExport = () => {
-    const exportData = tableData.map((item: any) => ({
-      ID: item.seqNo,
-      Code: item.code,
-      Name: item.name,
-      CurrentStock: item.currentstock,
-      SalesRate: item.salesrate,
-      SalesUnit: item.salesunit,
-      Status: item.status,
-    }));
+    const exportData = tableData.map((item: any) => {
+      const variants = item.isservice ? item.servicevariants : item.productvariants;
+      const pricingStr = variants?.flatMap((v: any) => 
+        item.isservice 
+          ? [`${v.servicerate || 0} / ${v.uom || 'Unit'}`]
+          : v.pricing?.flatMap((p: any) => 
+              p.unitprices?.map((up: any) => 
+                `${p.channel?.channelName || 'General'} (${p.region || 'All'}): ₹${up.salesrate} / ${up.quantity} ${up.unitid?.unitname || 'Unit'}`
+              )
+            )
+      ).filter(Boolean).join(" | ") || "-";
+
+      return {
+        ID: item.seqNo,
+        Code: item.code,
+        Name: item.name,
+        Pricing: pricingStr,
+        Status: item.status,
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();

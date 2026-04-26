@@ -1,14 +1,24 @@
 import { Account } from "../../../models/accounts";
+import { StaffAccount } from "../../../models/staffaccounts";
 
 export const accountResolvers = {
   Query: {
-    getAccounts: async (_: any, { filter }: { filter: any }) => {
+    getAccounts: async (_: any, { filter }: { filter: any }, context: any) => {
       const query: any = {};
 
       if (filter?.admin) query.admin = filter.admin;
       if (filter?.branchid) query.branchid = filter.branchid;
       if (filter?.type) query.type = filter.type;
-      if (filter?.accounttype) query.accounttype = filter.accounttype;
+      if (filter?.channel) query.channel = filter.channel;
+      if (filter?.region) query.region = { $regex: filter.region, $options: "i" };
+
+      // Salesman filtering
+      if (context.user && context.user.type === "staff") {
+        const staff = await StaffAccount.findById(context.user.id);
+        if (staff && staff.role === "salesman" && staff.assignedChannels.length > 0) {
+          query.channel = { $in: staff.assignedChannels };
+        }
+      }
 
       // ✅ Changed accountgroupid → ledgerid
       if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
@@ -47,7 +57,8 @@ export const accountResolvers = {
         .populate("ledgerid")  
         .populate("branchid")
         .populate("assignaccountid")
-        .populate("salesmanid");
+        .populate("salesmanid")
+        .populate("channel");
     },
 
     getAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
@@ -60,7 +71,8 @@ export const accountResolvers = {
         .populate("ledgerid")  
         .populate("branchid")
         .populate("assignaccountid")
-        .populate("salesmanid");
+        .populate("salesmanid")
+        .populate("channel");
     },
   },
 
@@ -75,7 +87,8 @@ export const accountResolvers = {
           .populate("ledgerid")
           .populate("branchid")
           .populate("assignaccountid")
-          .populate("salesmanid");
+          .populate("salesmanid")
+          .populate("channel");
       } catch (err:any) {
         console.error("❌ AddAccount Error:", err);
         throw new Error(err.message);
@@ -89,7 +102,8 @@ export const accountResolvers = {
         .populate("ledgerid")
         .populate("branchid")
         .populate("assignaccountid")
-        .populate("salesmanid");
+        .populate("salesmanid")
+        .populate("channel");
     },
 
     deleteAccount: async (_: any, { id }: any) => {

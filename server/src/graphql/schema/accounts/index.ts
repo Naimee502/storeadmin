@@ -39,7 +39,6 @@ export const accountTypeDefs = gql`
     accountcode: String!
     name: String!
     type: String
-    accounttype: String
     accountgroupid: AccountGroup
     ledgerid: AccountLedger
     mobile: String
@@ -66,6 +65,8 @@ export const accountTypeDefs = gql`
     latitude: Float
     longitude: Float
     otp: String
+    channel: Channel
+    region: String
     status: Boolean!
     branchid: Branch
     admin: Admin
@@ -76,7 +77,8 @@ export const accountTypeDefs = gql`
   input AccountInput {
     name: String!
     type: String
-    accounttype: String
+    channel: ID
+    region: String
     accountgroupid: ID!
     mobile: String
     email: String
@@ -111,7 +113,8 @@ export const accountTypeDefs = gql`
     admin: ID
     branchid: ID
     type: String
-    accounttype: String
+    channel: ID
+    region: String
     accountgroupid: ID
     ledgerid: ID
     accountcode: String
