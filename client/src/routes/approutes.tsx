@@ -68,6 +68,9 @@ import DeletedExpenseNotes from "../pages/expensenote/deletedentries";
 import ExpenseNote from "../pages/expensenote";
 import Channels from "../pages/channels";
 import DeletedChannels from "../pages/channels/deletedentries";
+import StockAdjustments from "../pages/stockadjustments";
+import AddEditStockAdjustment from "../pages/stockadjustments/addedit";
+import DeletedStockAdjustments from "../pages/stockadjustments/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -671,6 +674,38 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <DeletedChannels />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/stockadjustments"
+          element={
+            <ProtectedRoutes>
+              <StockAdjustments />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/stockadjustments/add"
+          element={
+            <ProtectedRoutes>
+              <AddEditStockAdjustment />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/stockadjustments/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditStockAdjustment />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/stockadjustments/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedStockAdjustments />
             </ProtectedRoutes>
           }
         />

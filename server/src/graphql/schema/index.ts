@@ -20,6 +20,7 @@ import { unitTypeDefs } from "./units";
 import { uploadTypeDefs } from "./uploads";
 import { expenseNoteTypeDefs } from "./expensenote";
 import { channelTypeDefs } from "./channel";
+import { stockAdjustmentTypeDefs } from "./stockadjustments";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -43,5 +44,6 @@ export const typeDefs = [
   transactionTypeDefs,
   paymentTypeDefs,
   expenseNoteTypeDefs,
-  channelTypeDefs
+  channelTypeDefs,
+  stockAdjustmentTypeDefs
 ];

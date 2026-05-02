@@ -393,7 +393,12 @@ const AddEditProductService = () => {
     return false;
   };
 
-  const safeNumber = (value: any) => (value !== undefined && value !== null ? value : "");
+  const safeNumber = (value: any) => {
+    if (value === undefined || value === null || value === "") return "";
+    const num = Number(value);
+    if (isNaN(num)) return value;
+    return Math.round(num * 10000) / 10000;
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -789,6 +794,11 @@ const AddEditProductService = () => {
       return isNaN(d.getTime()) ? fallback : d;
     };
 
+    const roundNum = (val: any) => {
+      const n = Number(val) || 0;
+      return Math.round(n * 10000) / 10000;
+    };
+
     const payload = {
       ...formData,
       ...(isUpdate ? {} : { id: formData.id || undefined }),
@@ -828,17 +838,17 @@ const AddEditProductService = () => {
         expirydate: parseDate(v.expirydate)?.toISOString() || null,
         baseunitid: v.baseunitid?.trim() || undefined,
         purchaseunitid: v.purchaseunitid?.trim() || undefined,
-        purchaserate: Number(v.purchaserate) || 0,
-        gst: Number(v.gst) || 0,
+        purchaserate: roundNum(v.purchaserate),
+        gst: roundNum(v.gst),
         hsncode: v.hsncode?.trim() || "",
-        openingstock: Number(v.openingstock) || 0,
-        openingstockamount: Number(v.openingstockamount) || 0,
-        currentstock: Number(v.currentstock) || 0,
-        currentstockamount: Number(v.currentstockamount) || 0,
-        closingstock: Number(v.closingstock) || 0,
-        closingstockamount: Number(v.closingstockamount) || 0,
-        minimumstock: Number(v.minimumstock) || 0,
-        reorderlevel: Number(v.reorderlevel) || 0,
+        openingstock: roundNum(v.openingstock),
+        openingstockamount: roundNum(v.openingstockamount),
+        currentstock: roundNum(v.currentstock),
+        currentstockamount: roundNum(v.currentstockamount),
+        closingstock: roundNum(v.closingstock),
+        closingstockamount: roundNum(v.closingstockamount),
+        minimumstock: roundNum(v.minimumstock),
+        reorderlevel: roundNum(v.reorderlevel),
         racklocation: v.racklocation?.trim() || "",
         serials: (v.serials || []).map(s => ({
           ...s,
@@ -857,17 +867,17 @@ const AddEditProductService = () => {
           channel: (typeof p.channel === "object" ? p.channel?.id : p.channel)?.trim() || "enduser",
           unitprices: (p.unitprices?.length ? p.unitprices : [{ quantity: 1, unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }])
             .map(up => ({
-              quantity: Number(up.quantity) || 1,
+              quantity: roundNum(up.quantity) || 1,
               unitid: up.unitid?.trim() || undefined,
-              mrp: Number(up.mrp) || 0,
-              salesrate: Number(up.salesrate) || 0,
-              discount: Number(up.discount) || 0,
+              mrp: roundNum(up.mrp),
+              salesrate: roundNum(up.salesrate),
+              discount: roundNum(up.discount),
               discounttype: up.discounttype?.trim() || "fixed",
-              offerprice: Number(up.offerprice) || 0,
+              offerprice: roundNum(up.offerprice),
               productbarcode: up.productbarcode?.trim() || "",
             })),
         })),
-        productlikecount: Number(v.productlikecount) || 0,
+        productlikecount: roundNum(v.productlikecount),
       })),
 
       servicevariants: formData.isservice ? (formData.servicevariants || []).map(s => ({
