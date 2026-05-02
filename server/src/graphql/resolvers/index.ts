@@ -21,6 +21,7 @@ import { uploadResolvers } from "./uploads";
 import { expenseNoteResolvers } from "./expensenote";
 import { channelResolvers } from "./channel";
 import { stockAdjustmentResolvers } from "./stockadjustments";
+import { salesRouteResolvers } from "./salesroutes";
 
 export const resolvers = [
   branchResolvers,
@@ -45,5 +46,6 @@ export const resolvers = [
   paymentResolvers,
   expenseNoteResolvers,
   channelResolvers,
-  stockAdjustmentResolvers
+  stockAdjustmentResolvers,
+  salesRouteResolvers
 ];
