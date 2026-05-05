@@ -43,7 +43,7 @@ const ProductServices = () => {
     { label: "Code", key: "code" },
     { label: "Name", key: "name" },
     { label: "Current Stock / Location Type", key: "currentstock" },
-    { label: "Channel & Region Pricing (Rate & Unit) / Service (Rate & UOM)", key: "pricinginfo" },
+    { label: "Pricing (Rate & Unit) / Service (Rate & UOM)", key: "pricinginfo" },
     { label: "Status", key: "status" },
   ];
 
@@ -84,25 +84,15 @@ const ProductServices = () => {
                   <span className="text-[11px] text-gray-500 font-medium uppercase tracking-tight">{variant?.uom || "Unit"}</span>
                 </div>
               ) : (
-                <div className="flex flex-col gap-0">
-                  {variant?.pricing?.map((p: any, k: number) => (
-                    <div key={k} className="flex items-center gap-2 text-[11px] px-0.5 border-b border-gray-50 last:border-0 py-0.5">
-                      <div className="flex items-center gap-1">
-                        <span className="bg-indigo-50 text-indigo-700 px-1 py-0.5 rounded-sm font-bold border border-indigo-100 whitespace-nowrap text-[10px] leading-none uppercase">{p.channel?.channelName || "Gen"}</span>
-                        <span className="bg-emerald-50 text-emerald-700 px-1 py-0.5 rounded-sm font-bold border border-emerald-100 whitespace-nowrap text-[10px] leading-none uppercase">{capitalize(p.region) || "All"}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 px-0.5 py-0.5">
+                    {variant.unitprices?.map((up: any, j: number) => (
+                      <div key={j} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-sm border border-slate-100">
+                        <span className="font-bold text-[13px] text-gray-900 leading-none whitespace-nowrap tracking-tight">₹{up.salesrate}</span>
+                        <span className="text-slate-500 font-medium whitespace-nowrap text-[10px]">({up.quantity} {up.unitid?.unitname || "Unit"})</span>
+                        {up.discount > 0 && <span className="text-orange-600 font-bold text-[10px]">-{up.discount}{up.discounttype === 'percentage' ? '%' : ''}</span>}
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {p.unitprices?.map((up: any, j: number) => (
-                          <div key={j} className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-sm border border-slate-100">
-                            <span className="font-bold text-[13px] text-gray-900 leading-none whitespace-nowrap tracking-tight">₹{up.salesrate}</span>
-                            <span className="text-slate-500 font-medium whitespace-nowrap text-[10px]">({up.quantity} {up.unitid?.unitname || "Unit"})</span>
-                            {up.discount > 0 && <span className="text-orange-600 font-bold text-[10px]">-{up.discount}{up.discounttype === 'percentage' ? '%' : ''}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               )}
             </div>
           ))}
@@ -119,11 +109,9 @@ const ProductServices = () => {
       const pricingStr = variants?.flatMap((v: any) => 
         item.isservice 
           ? [`${v.servicerate || 0} / ${v.uom || 'Unit'}`]
-          : v.pricing?.flatMap((p: any) => 
-              p.unitprices?.map((up: any) => 
-                `${p.channel?.channelName || 'General'} (${p.region || 'All'}): ₹${up.salesrate} / ${up.quantity} ${up.unitid?.unitname || 'Unit'}`
+          : v.unitprices?.map((up: any) => 
+                `₹${up.salesrate} / ${up.quantity} ${up.unitid?.unitname || 'Unit'}`
               )
-            )
       ).filter(Boolean).join(" | ") || "-";
 
       return {
@@ -241,17 +229,14 @@ const ProductServices = () => {
               const productVariant = row.productvariants?.[0];
               if (!productVariant) return;
               
-              productVariant.pricing?.forEach((p: any) => {
-                p.unitprices?.forEach((up: any) => {
-                  if (up.productbarcode) {
-                    const unitName = up.unitid?.unitname || "Unit";
-                    const chName = p.channel?.channelName || "General";
-                    options.push({
-                      label: `${chName} - ${up.quantity} ${unitName} (₹${up.salesrate})`,
-                      barcode: up.productbarcode
-                    });
-                  }
-                });
+              productVariant.unitprices?.forEach((up: any) => {
+                if (up.productbarcode) {
+                  const unitName = up.unitid?.unitname || "Unit";
+                  options.push({
+                    label: `${up.quantity} ${unitName} (₹${up.salesrate})`,
+                    barcode: up.productbarcode
+                  });
+                }
               });
               
               barcodeValue = options.length > 0 ? options[0].barcode : "";

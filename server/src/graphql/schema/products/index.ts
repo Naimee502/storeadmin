@@ -41,12 +41,6 @@ export const productServiceTypeDefs = gql`
     productbarcode: String
   }
 
-  type Pricing {
-    region: ID
-    channel: Channel
-    unitprices: [UnitPrice]
-  }
-
   type ProductVariant {
     id: ID
     name: String
@@ -71,7 +65,7 @@ export const productServiceTypeDefs = gql`
     reorderlevel: Float
     racklocation: String
     serials: [Serial]
-    pricing: [Pricing]
+    unitprices: [UnitPrice]
     productlikecount: Int
   }
 
@@ -267,7 +261,7 @@ export const productServiceTypeDefs = gql`
     reorderlevel: Float
     racklocation: String
     serials: [SerialInput]
-    pricing: [PricingInput]
+    unitprices: [UnitPriceInput]
     productlikecount: Int
   }
 
@@ -286,14 +280,6 @@ export const productServiceTypeDefs = gql`
     soldon: Date
     returnedon: Date
     remarks: String
-  }
-
-  input PricingInput {
-    region: String
-    # Accepts either a Channel ID, the legacy keyword "enduser", or null.
-    # The resolver normalizes all of these to a real Channel ObjectId.
-    channel: String
-    unitprices: [UnitPriceInput]
   }
 
   input UnitPriceInput {

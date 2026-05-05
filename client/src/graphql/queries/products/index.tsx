@@ -83,19 +83,15 @@ export const GET_PRODUCT_SERVICES = gql`
           returnedon
           remarks
         }
-        pricing {
-          region
-          channel { id channelName }
-          unitprices {
-            quantity
-            unitid { id unitname }
-            mrp
-            salesrate
-            discount
-            discounttype
-            offerprice
-            productbarcode
-          }
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
+          productbarcode
         }
         productlikecount
       }
@@ -200,21 +196,16 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
           remarks
         }
 
-        pricing {
-          region
-          channel { id channelName }
-          unitprices {
-            quantity
-            unitid { id unitname }
-            mrp
-            salesrate
-            discount
-            discounttype
-            offerprice
-            productbarcode
-          }
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
+          productbarcode
         }
-
         productlikecount
       }
 

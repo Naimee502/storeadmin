@@ -31,8 +31,7 @@ function mapProductServiceList(list: any[] = []) {
     const variantsRaw = p.productvariants || [];
 
     const variants = variantsRaw.map((v: any) => {
-      const pricingArr = v.pricing || [];
-      const unitPrices = pricingArr.flatMap((pr: any) => pr.unitprices || []);
+      const unitPrices = v.unitprices || [];
 
       const units = unitPrices.map((u: any) => ({
         id: u.unitid?.id ?? u.unitid,
@@ -62,7 +61,7 @@ function mapProductServiceList(list: any[] = []) {
         purchaserate: v.purchaserate ?? null,
         baseunitid: v.baseunitid?.id ?? null,
         purchaseunitid: v.purchaseunitid?.id ?? null,
-        pricing: v.pricing ?? [],
+        unitprices: v.unitprices ?? [],
       };
     });
 

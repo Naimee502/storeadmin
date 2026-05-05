@@ -32,13 +32,6 @@ export interface IUnitPrice {
   productbarcode?: string; // auto-generated per unit price
 }
 
-// 🔹 Pricing (per region & channel)
-export interface IPricing {
-  region: string; // e.g., "default" | "andhra_pradesh" ...
-  channel?: Types.ObjectId; // proper ObjectId ref to Channel model
-  unitprices: IUnitPrice[];
-}
-
 // 🔹 Product Variant
 export interface IProductVariant {
   _id?: Types.ObjectId;
@@ -64,7 +57,7 @@ export interface IProductVariant {
   reorderlevel?: number;
   racklocation?: string;
   serials?: ISerial[];
-  pricing?: IPricing[]; // sales pricing only
+  unitprices?: IUnitPrice[]; // sales pricing
   productlikecount?: number;
 }
 
@@ -222,44 +215,17 @@ const productServiceSchema = new Schema<IProductService>(
             remarks: String,
           },
         ],
-        pricing: [
+        unitprices: [
           {
-            region: {
-              type: String,
-              enum: [
-                "default",
-                "andhra_pradesh", "arunachal_pradesh", "assam", "bihar", "chhattisgarh",
-                "goa", "gujarat", "haryana", "himachal_pradesh", "jharkhand", "karnataka",
-                "kerala", "madhya_pradesh", "maharashtra", "manipur", "meghalaya", "mizoram",
-                "nagaland", "odisha", "punjab", "rajasthan", "sikkim", "tamil_nadu",
-                "telangana", "tripura", "uttar_pradesh", "uttarakhand", "west_bengal",
-                "andaman_nicobar", "chandigarh", "dadra_nagar_haveli_daman_diu", "delhi",
-                "jammu_kashmir", "ladakh", "lakshadweep", "puducherry",
-                "international"
-              ],
-              default: "default"
-            },
-            // ✅ Channel is now a proper ObjectId reference.
-            // The resolver layer is responsible for resolving the legacy
-            // "enduser" string to the admin's default Channel before save.
-            channel: {
-              type: Schema.Types.ObjectId,
-              ref: "Channel",
-              default: null,
-            },
-            unitprices: [
-              {
-                quantity: { type: Number, default: 1 },
-                unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
-                mrp: { type: Number, default: 0 },
-                salesrate: { type: Number, default: 0 },
-                minsalesrate: { type: Number, default: 0 },
-                discount: { type: Number, default: 0 },
-                discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
-                offerprice: { type: Number, default: 0 },
-                productbarcode: { type: String }, // auto-generated per unit price
-              },
-            ],
+            quantity: { type: Number, default: 1 },
+            unitid: { type: Schema.Types.ObjectId, ref: "Unit", required: true },
+            mrp: { type: Number, default: 0 },
+            salesrate: { type: Number, default: 0 },
+            minsalesrate: { type: Number, default: 0 },
+            discount: { type: Number, default: 0 },
+            discounttype: { type: String, enum: ["fixed", "percentage"], default: "fixed" },
+            offerprice: { type: Number, default: 0 },
+            productbarcode: { type: String }, // auto-generated per unit price
           },
         ],
         productlikecount: { type: Number, default: 0 },
@@ -285,9 +251,8 @@ productServiceSchema.index(
     partialFilterExpression: { "productvariants.productcode": { $exists: true, $type: "string", $gt: "" } } 
   }
 );
-// NOTE: productbarcode is now stored per unit price (productvariants.pricing.unitprices.productbarcode)
-// No unique index here since MongoDB cannot enforce uniqueness on doubly-nested arrays
-productServiceSchema.index({ "productvariants.pricing.unitprices.productbarcode": 1 });
+// NOTE: productbarcode is stored per unit price (productvariants.unitprices.productbarcode)
+productServiceSchema.index({ "productvariants.unitprices.productbarcode": 1 });
 
 productServiceSchema.index(
   { adminid: 1, branchid: 1, "servicevariants.servicecode": 1 },
@@ -341,50 +306,43 @@ productServiceSchema.pre("save", async function (next) {
       }
 
       // 🔹 Auto-generate productbarcode PER unit price (1 gram and 1 kg get different barcodes)
-      if (Array.isArray(variant.pricing)) {
-        for (const pricing of variant.pricing) {
-          if (Array.isArray(pricing.unitprices)) {
-            for (const unitprice of pricing.unitprices) {
-              const date = String(new Date().getDate()).padStart(2, "0");
-              const priceStr = String(Math.round(Number(unitprice.salesrate))).padStart(3, "0");
-              const prefix = `${date}${priceStr}`;
+      if (Array.isArray(variant.unitprices)) {
+        for (const unitprice of variant.unitprices) {
+          const date = String(new Date().getDate()).padStart(2, "0");
+          const priceStr = String(Math.round(Number(unitprice.salesrate))).padStart(3, "0");
+          const prefix = `${date}${priceStr}`;
 
-              let needsBarcode = false;
-              if (!unitprice.productbarcode && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
-                needsBarcode = true;
-              } else if (unitprice.productbarcode && unitprice.productbarcode.length >= 11 && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
-                const embeddedPrice = unitprice.productbarcode.substring(2, unitprice.productbarcode.length - 6);
-                if (embeddedPrice !== priceStr) {
-                  needsBarcode = true;
-                }
-              }
+          let needsBarcode = false;
+          if (!unitprice.productbarcode && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
+            needsBarcode = true;
+          } else if (unitprice.productbarcode && unitprice.productbarcode.length >= 11 && unitprice.salesrate && Number(unitprice.salesrate) > 0) {
+            const embeddedPrice = unitprice.productbarcode.substring(2, unitprice.productbarcode.length - 6);
+            if (embeddedPrice !== priceStr) {
+              needsBarcode = true;
+            }
+          }
 
-              if (needsBarcode) {
+          if (needsBarcode) {
+            const lastDoc = await Product.findOne({
+              adminid: doc.adminid,
+              branchid: doc.branchid,
+              "productvariants.unitprices.productbarcode": new RegExp(`^${prefix}`)
+            }).sort({ "productvariants.unitprices.productbarcode": -1 });
 
-                const lastDoc = await Product.findOne({
-                  adminid: doc.adminid,
-                  branchid: doc.branchid,
-                  "productvariants.pricing.unitprices.productbarcode": new RegExp(`^${prefix}`)
-                }).sort({ "productvariants.pricing.unitprices.productbarcode": -1 });
-
-                // Find max sequence across all nested arrays
-                let maxSeq = 0;
-                if (lastDoc?.productvariants) {
-                  for (const pv of lastDoc.productvariants) {
-                    for (const pr of (pv.pricing || [])) {
-                      for (const up of (pr.unitprices || [])) {
-                        if (up.productbarcode && up.productbarcode.startsWith(prefix)) {
-                          const seq = parseInt(up.productbarcode.slice(prefix.length)) || 0;
-                          if (seq > maxSeq) maxSeq = seq;
-                        }
-                      }
-                    }
+            // Find max sequence across all nested arrays
+            let maxSeq = 0;
+            if (lastDoc?.productvariants) {
+              for (const pv of lastDoc.productvariants) {
+                for (const up of (pv.unitprices || [])) {
+                  if (up.productbarcode && up.productbarcode.startsWith(prefix)) {
+                    const seq = parseInt(up.productbarcode.slice(prefix.length)) || 0;
+                    if (seq > maxSeq) maxSeq = seq;
                   }
                 }
-
-                unitprice.productbarcode = `${prefix}${String(maxSeq + 1).padStart(6, "0")}`;
               }
             }
+
+            unitprice.productbarcode = `${prefix}${String(maxSeq + 1).padStart(6, "0")}`;
           }
         }
       }

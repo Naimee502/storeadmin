@@ -22,7 +22,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
-import { useChannelsQuery } from "../../../graphql/hooks/channels";
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -41,8 +40,6 @@ const AddEditProductService = () => {
   const { data: sizeData } = useSizesQuery();
   const { data: unitData } = useUnitsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
-  const { data: channelData } = useChannelsQuery(adminId);
-  const channelList = channelData?.getChannels || [];
 
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
@@ -116,21 +113,15 @@ const AddEditProductService = () => {
           remarks: "",
         },
       ],
-      pricing: [
+      unitprices: [
         {
-          region: "default",
-          channel: "enduser",
-          unitprices: [
-            {
-              quantity: 1,
-              unitid: "",
-              mrp: "",
-              salesrate: "",
-              discount: "",
-              discounttype: "fixed",
-              offerprice: "",
-            },
-          ],
+          quantity: 1,
+          unitid: "",
+          mrp: "",
+          salesrate: "",
+          discount: "",
+          discounttype: "fixed",
+          offerprice: "",
         },
       ],
       productlikecount: 0,
@@ -237,51 +228,27 @@ const AddEditProductService = () => {
                     remarks: "",
                   },
                 ],
-            pricing: variant.pricing?.length
-              ? [variant.pricing[0]].map((price: any) => ({
-                  ...price,
-                  region: price.region || "default",
-                  channel: (typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser",
-                  unitprices: price.unitprices?.length
-                    ? price.unitprices.map((up: any) => ({
-                        ...up,
-                        quantity: safeNumber(up.quantity),
-                        unitid: up.unitid?.id ?? up.unitid ?? "",
-                        mrp: safeNumber(up.mrp),
-                        salesrate: safeNumber(up.salesrate),
-                        purchaserate: safeNumber(up.purchaserate),
-                        discount: safeNumber(up.discount),
-                        offerprice: safeNumber(up.offerprice),
-                      }))
-                    : [
-                        {
-                          quantity: 1,
-                          unitid: "",
-                          mrp: "",
-                          salesrate: "",
-                          purchaserate: "",
-                          discount: "",
-                          discounttype: "fixed",
-                          offerprice: "",
-                        },
-                      ],
+            unitprices: variant.unitprices?.length
+              ? variant.unitprices.map((up: any) => ({
+                  ...up,
+                  quantity: safeNumber(up.quantity),
+                  unitid: up.unitid?.id ?? up.unitid ?? "",
+                  mrp: safeNumber(up.mrp),
+                  salesrate: safeNumber(up.salesrate),
+                  purchaserate: safeNumber(up.purchaserate),
+                  discount: safeNumber(up.discount),
+                  offerprice: safeNumber(up.offerprice),
                 }))
               : [
                   {
-                    region: "default",
-                    channel: "enduser",
-                    unitprices: [
-                      {
-                        quantity: 1,
-                        unitid: "",
-                        mrp: "",
-                        salesrate: "",
-                        purchaserate: "",
-                        discount: "",
-                        discounttype: "fixed",
-                        offerprice: "",
-                      },
-                    ],
+                    quantity: 1,
+                    unitid: "",
+                    mrp: "",
+                    salesrate: "",
+                    purchaserate: "",
+                    discount: "",
+                    discounttype: "fixed",
+                    offerprice: "",
                   },
                 ],
             productlikecount: variant.productlikecount ?? 0,
@@ -321,22 +288,16 @@ const AddEditProductService = () => {
                   remarks: "",
                 },
               ],
-              pricing: [
+              unitprices: [
                 {
-                  region: "default",
-                  channel: "enduser",
-                  unitprices: [
-                    {
-                      quantity: "",
-                      unitid: "",
-                      mrp: "",
-                      salesrate: "",
-                      purchaserate: "",
-                      discount: "",
-                      discounttype: "fixed",
-                      offerprice: "",
-                    },
-                  ],
+                  quantity: "",
+                  unitid: "",
+                  mrp: "",
+                  salesrate: "",
+                  purchaserate: "",
+                  discount: "",
+                  discounttype: "fixed",
+                  offerprice: "",
                 },
               ],
               productlikecount: 0,
@@ -435,15 +396,14 @@ const AddEditProductService = () => {
       }
       if (name.includes("productvariants") && name.includes("unitprices")) {
         const parts = name.split(".");
-        // Path: productvariants.index.pricing.pIndex.unitprices.upIndex.field
-        if (parts.length === 7) {
+        // Path: productvariants.vIdx.unitprices.upIdx.field
+        if (parts.length === 5) {
           const vIdx = parseInt(parts[1], 10);
-          const pIdx = parseInt(parts[3], 10);
-          const upIdx = parseInt(parts[5], 10);
-          const field = parts[6];
+          const upIdx = parseInt(parts[3], 10);
+          const field = parts[4];
 
           if (["salesrate", "discount", "discounttype"].includes(field)) {
-            const up = updated.productvariants[vIdx].pricing[pIdx].unitprices[upIdx];
+            const up = updated.productvariants[vIdx].unitprices[upIdx];
             const rate = Number(up.salesrate) || 0;
             const disc = Number(up.discount) || 0;
             const dType = up.discounttype || "fixed";
@@ -492,7 +452,7 @@ const AddEditProductService = () => {
     setFormData(prev => {
       const newVariant = prev.productvariants.length
         ? JSON.parse(JSON.stringify(prev.productvariants[prev.productvariants.length - 1]))
-        : { name: "", sku: "", productcode: "", baseunitid: "", unitconversions: [], pricing: [], serials: [] };
+        : { name: "", sku: "", productcode: "", baseunitid: "", unitconversions: [], unitprices: [], serials: [] };
       delete newVariant.id;
       delete newVariant._id;
       newVariant.tempid = uuidv4();
@@ -552,74 +512,36 @@ const AddEditProductService = () => {
     });
   };
 
-  const addPricing = (variantIndex: number) => {
+  const addUnitPrice = (variantIndex: number) => {
     setFormData(prev => {
       const variants = prev.productvariants.map((variant, i) =>
         i === variantIndex
           ? {
-            ...variant,
-            pricing: [
-              ...(variant.pricing || []),
-              {
-                region: "default",
-                channel: "enduser",
-                unitprices: [
-                  { quantity: 1, unitid: "", mrp: 0, salesrate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }
-                ],
-              },
-            ],
-          }
+              ...variant,
+              unitprices: [
+                ...(variant.unitprices || []),
+                {
+                  quantity: 1,
+                  unitid: "",
+                  mrp: 0,
+                  salesrate: 0,
+                  discount: 0,
+                  discounttype: "fixed",
+                  offerprice: 0,
+                },
+              ],
+            }
           : variant
       );
       return { ...prev, productvariants: variants };
     });
   };
 
-  const removePricing = (variantIndex: number, priceIndex: number) => {
+  const removeUnitPrice = (variantIndex: number, unitPriceIndex: number) => {
     setFormData(prev => {
       const variants = [...prev.productvariants];
-      variants[variantIndex].pricing = variants[variantIndex].pricing.filter((_, i) => i !== priceIndex);
-      return { ...prev, productvariants: variants };
-    });
-  };
-
-  const addUnitPrice = (variantIndex: number, priceIndex: number) => {
-  setFormData(prev => {
-    const variants = prev.productvariants.map((variant, i) =>
-      i === variantIndex
-        ? {
-            ...variant,
-            pricing: variant.pricing.map((price, j) =>
-              j === priceIndex
-                ? {
-                    ...price,
-                    unitprices: [
-                      ...(price.unitprices || []),
-                      {
-                        quantity: 1,
-                        unitid: "",
-                        mrp: 0,
-                        salesrate: 0,
-                        discount: 0,
-                        discounttype: "fixed",
-                        offerprice: 0,
-                      },
-                    ],
-                  }
-                : price
-            ),
-          }
-        : variant
-    );
-    return { ...prev, productvariants: variants };
-  });
-  };
-
-  const removeUnitPrice = (variantIndex: number, priceIndex: number, unitPriceIndex: number) => {
-    setFormData(prev => {
-      const variants = [...prev.productvariants];
-      variants[variantIndex].pricing[priceIndex].unitprices =
-        variants[variantIndex].pricing[priceIndex].unitprices.filter((_, i) => i !== unitPriceIndex);
+      variants[variantIndex].unitprices =
+        variants[variantIndex].unitprices.filter((_, i) => i !== unitPriceIndex);
       return { ...prev, productvariants: variants };
     });
   };
@@ -748,30 +670,21 @@ const AddEditProductService = () => {
             if (unitConvErrors.length > 0) variantErrors.unitconversions = unitConvErrors;
           }
 
-          // Pricing (Only 1st set)
-          if (!variant.pricing || variant.pricing.length === 0) {
-            variantErrors.pricing = "Pricing is required";
+          // Unit Prices
+          if (!variant.unitprices || variant.unitprices.length === 0) {
+            variantErrors.unitprices = "At least 1 unit price is required";
           } else {
-            const price = variant.pricing[0];
-            const priceErrors: any = {};
-
-            if (!price.unitprices || price.unitprices.length === 0) {
-              priceErrors.unitprices = "At least 1 unit price is required";
-            } else {
-              const unitPriceErrors: any[] = [];
-              price.unitprices.forEach((up: any) => {
-                const upErrors: any = {};
-                if (!up.unitid) upErrors.unitid = "Unit is required";
-                if (!up.quantity || Number(up.quantity) <= 0)
-                  upErrors.quantity = "Quantity must be greater than 0";
-                if (!up.salesrate || Number(up.salesrate) <= 0)
-                  upErrors.salesrate = "Sales rate must be greater than 0";
-                if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
-              });
-              if (unitPriceErrors.length > 0) priceErrors.unitprices = unitPriceErrors;
-            }
-
-            if (Object.keys(priceErrors).length > 0) variantErrors.pricing = [priceErrors];
+            const unitPriceErrors: any[] = [];
+            variant.unitprices.forEach((up: any) => {
+              const upErrors: any = {};
+              if (!up.unitid) upErrors.unitid = "Unit is required";
+              if (!up.quantity || Number(up.quantity) <= 0)
+                upErrors.quantity = "Quantity must be greater than 0";
+              if (!up.salesrate || Number(up.salesrate) <= 0)
+                upErrors.salesrate = "Sales rate must be greater than 0";
+              if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
+            });
+            if (unitPriceErrors.length > 0) variantErrors.unitprices = unitPriceErrors;
           }
 
           if (Object.keys(variantErrors).length > 0) variantErrorsArray.push(variantErrors);
@@ -857,25 +770,17 @@ const AddEditProductService = () => {
         })),
         unitconversions: (v.unitconversions?.length ? v.unitconversions : [{ unitid: undefined, factor: 1 }])
           .map(u => ({ unitid: u.unitid?.trim() || undefined, factor: Number(u.factor) || 1 })),
-        pricing: (v.pricing?.length ? v.pricing : [{
-          region: "default",
-          channel: "enduser",
-          unitprices: [{ unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }],
-        }]).map(p => ({
-          region: p.region?.trim() || "default",
-          channel: (typeof p.channel === "object" ? p.channel?.id : p.channel)?.trim() || "enduser",
-          unitprices: (p.unitprices?.length ? p.unitprices : [{ quantity: 1, unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }])
-            .map(up => ({
-              quantity: roundNum(up.quantity) || 1,
-              unitid: up.unitid?.trim() || undefined,
-              mrp: roundNum(up.mrp),
-              salesrate: roundNum(up.salesrate),
-              discount: roundNum(up.discount),
-              discounttype: up.discounttype?.trim() || "fixed",
-              offerprice: roundNum(up.offerprice),
-              productbarcode: up.productbarcode?.trim() || "",
-            })),
-        })),
+        unitprices: (v.unitprices?.length ? v.unitprices : [{ quantity: 1, unitid: undefined, mrp: 0, salesrate: 0, purchaserate: 0, discount: 0, discounttype: "fixed", offerprice: 0 }])
+          .map(up => ({
+            quantity: roundNum(up.quantity) || 1,
+            unitid: up.unitid?.trim() || undefined,
+            mrp: roundNum(up.mrp),
+            salesrate: roundNum(up.salesrate),
+            discount: roundNum(up.discount),
+            discounttype: up.discounttype?.trim() || "fixed",
+            offerprice: roundNum(up.offerprice),
+            productbarcode: up.productbarcode?.trim() || "",
+          })),
         productlikecount: roundNum(v.productlikecount),
       })),
 
@@ -1052,8 +957,6 @@ const AddEditProductService = () => {
             unitData={unitData}
             addUnitConversion={addUnitConversion}
             removeUnitConversion={removeUnitConversion}
-            addPricing={addPricing}
-            removePricing={removePricing}
             addUnitPrice={addUnitPrice}
             removeUnitPrice={removeUnitPrice}
             addSerial={addSerial}
@@ -1062,7 +965,6 @@ const AddEditProductService = () => {
             isserialised={formData.isserialised}
             navigate={navigate}
             errors={errors}
-            channelData={channelList}
           />
         )}
       </div>

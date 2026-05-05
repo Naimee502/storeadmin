@@ -2,78 +2,6 @@ import { Types } from "mongoose";
 import { ProductService } from "../../../models/products";
 import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
-import { Channel } from "../../../models/channel";
-
-// ---------------------------------------------------------------
-// Channel resolution
-// ---------------------------------------------------------------
-// The client may send the legacy keyword "enduser", a real Channel
-// ObjectId, null, or an unknown string. We always persist a proper
-// ObjectId so .populate() and $in queries work correctly downstream.
-//
-// Cache per request lifetime — for high-volume mutations you can lift
-// this to Redis or a request-scoped DataLoader.
-const defaultChannelCache = new Map<string, Types.ObjectId>();
-
-async function getOrCreateDefaultChannel(
-  adminId: Types.ObjectId
-): Promise<Types.ObjectId> {
-  const key = adminId.toString();
-  const cached = defaultChannelCache.get(key);
-  if (cached) return cached;
-
-  // Prefer an explicitly-flagged default; otherwise fall back to a
-  // channel named "End User" for this admin; otherwise create one.
-  let channel =
-    (await Channel.findOne({ admin: adminId, isDefault: true })) ||
-    (await Channel.findOne({ admin: adminId, channelName: /^end ?user$/i }));
-
-  if (!channel) {
-    channel = await Channel.create({
-      admin: adminId,
-      channelName: "End User",
-      isDefault: true,
-      status: true,
-    });
-  }
-
-  defaultChannelCache.set(key, channel._id as Types.ObjectId);
-  return channel._id as Types.ObjectId;
-}
-
-async function resolveChannelId(
-  raw: any,
-  adminId: Types.ObjectId | null
-): Promise<Types.ObjectId | null> {
-  // Already an ObjectId or a valid ObjectId string → use as-is.
-  if (raw && typeof raw === "object" && raw._id && Types.ObjectId.isValid(raw._id)) {
-    return new Types.ObjectId(raw._id);
-  }
-  if (raw && typeof raw === "object" && raw.id && Types.ObjectId.isValid(raw.id)) {
-    return new Types.ObjectId(raw.id);
-  }
-  if (typeof raw === "string" && Types.ObjectId.isValid(raw)) {
-    return new Types.ObjectId(raw);
-  }
-
-  // Anything else (null, "", "enduser", legacy strings) → admin default.
-  if (!adminId) return null;
-  return getOrCreateDefaultChannel(adminId);
-}
-
-async function resolveVariantPricingChannels(
-  variant: any,
-  adminId: Types.ObjectId | null
-) {
-  if (!Array.isArray(variant?.pricing)) return variant;
-  variant.pricing = await Promise.all(
-    variant.pricing.map(async (p: any) => ({
-      ...p,
-      channel: await resolveChannelId(p.channel, adminId),
-    }))
-  );
-  return variant;
-}
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -107,12 +35,9 @@ function normalizeVariant(v: any) {
       unitid: normalizeId(uc.unitid),
     })),
 
-    pricing: (v.pricing || []).map((p: any) => ({
-      ...p,
-      unitprices: (p.unitprices || []).map((u: any) => ({
-        ...u,
-        unitid: normalizeId(u.unitid),
-      })),
+    unitprices: (v.unitprices || []).map((u: any) => ({
+      ...u,
+      unitid: normalizeId(u.unitid),
     })),
   };
 }
@@ -147,23 +72,11 @@ function mapVariantForResponse(v: any) {
     }));
   }
 
-  if (variant.pricing?.length) {
-    variant.pricing = variant.pricing.map((p: any) => {
-      // ✅ Handle legacy "enduser" string or missing channel
-      let normalizedChannel = null;
-      if (p.channel && typeof p.channel === "object") {
-        normalizedChannel = convertRef(p.channel);
-      }
-
-      return {
-        ...p,
-        channel: normalizedChannel,
-        unitprices: (p.unitprices || []).map((up: any) => ({
-          ...up,
-          unitid: typeof up.unitid === "string" ? { id: up.unitid } : convertRef(up.unitid),
-        })),
-      };
-    });
+  if (variant.unitprices?.length) {
+    variant.unitprices = variant.unitprices.map((up: any) => ({
+      ...up,
+      unitid: typeof up.unitid === "string" ? { id: up.unitid } : convertRef(up.unitid),
+    }));
   }
 
   return variant;
@@ -177,8 +90,8 @@ export const productServiceResolvers = {
         query.status = typeof filter.status === "boolean" ? filter.status : true;
 
         const directKeys = [
-          "adminid", "vendorid", "productcode", "productbarcode", "servicecode",
-          "servicebarcode", "isservice", "isfeatured", "isshowinpos",
+          "adminid", "branchid", "vendorid", "productcode", "productbarcode",
+          "servicecode", "servicebarcode", "isservice", "isfeatured", "isshowinpos",
           "categoryid", "subcategoryid", "groupid", "modelid", "brandid", "sizeid"
         ];
 
@@ -209,9 +122,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.baseunitid", select: "id unitname" })
           .populate({ path: "productvariants.purchaseunitid", select: "id unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "id unitname" })
-          .populate({ path: "productvariants.pricing.unitprices.unitid", select: "id unitname" })
-          .populate({ path: "productvariants.pricing.channel", select: "id channelName" })
-
+          .populate({ path: "productvariants.unitprices.unitid", select: "id unitname" })
           .populate({ path: "salesaccountid", select: "id ledgername" })
           .populate({ path: "purchaseaccountid", select: "id ledgername" })
           .populate({ path: "serviceaccountid", select: "id ledgername" })
@@ -294,8 +205,7 @@ export const productServiceResolvers = {
         .populate("productvariants.baseunitid", "id unitname")
         .populate("productvariants.purchaseunitid", "id unitname")
         .populate("productvariants.unitconversions.unitid", "id unitname")
-        .populate("productvariants.pricing.unitprices.unitid", "id unitname")
-        .populate("productvariants.pricing.channel", "id channelName")
+        .populate("productvariants.unitprices.unitid", "id unitname")
         .lean();
 
       if (!product) return null;
@@ -366,13 +276,6 @@ export const productServiceResolvers = {
 
         input.productvariants = (input.productvariants || []).map(normalizeVariant);
 
-        // ✅ Resolve every pricing.channel ("enduser" / null / id) → ObjectId
-        input.productvariants = await Promise.all(
-          input.productvariants.map((v: any) =>
-            resolveVariantPricingChannels(v, input.adminid)
-          )
-        );
-
         const created = await ProductService.create(input);
 
         // Re-fetch the created product with all populates and as plain object (lean)
@@ -387,9 +290,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.baseunitid", select: "unitname" })
           .populate({ path: "productvariants.purchaseunitid", select: "unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "unitname" })
-          .populate({ path: "productvariants.pricing.unitprices.unitid", select: "unitname" })
-          .populate({ path: "productvariants.pricing.channel", select: "channelName" })
-
+          .populate({ path: "productvariants.unitprices.unitid", select: "unitname" })
           .populate({ path: "salesaccountid", select: "ledgername" })
           .populate({ path: "purchaseaccountid", select: "ledgername" })
           .populate({ path: "serviceaccountid", select: "ledgername" })
@@ -530,29 +431,19 @@ export const productServiceResolvers = {
                   : new Types.ObjectId(),
             })),
 
-            pricing: (v.pricing || []).map((p: any) => ({
-              ...p,
-              unitprices: (p.unitprices || []).map((up: any) => ({
-                ...up,
-                unitid: normalizeId(up.unitid),
-              })),
+            unitprices: (v.unitprices || []).map((up: any) => ({
+              ...up,
+              unitid: normalizeId(up.unitid),
             })),
           };
         });
-
-        // ✅ Resolve every pricing.channel ("enduser" / null / id) → ObjectId
-        const variantsWithChannels = await Promise.all(
-          normalizedVariants.map((v: any) =>
-            resolveVariantPricingChannels(v, input.adminid)
-          )
-        );
 
         // ---------------------------
         // Update Product
         // ---------------------------
         existing.set({
           ...input,
-          productvariants: variantsWithChannels,
+          productvariants: normalizedVariants,
         });
 
         const saved = await existing.save();
@@ -619,8 +510,7 @@ export const productServiceResolvers = {
           .populate({ path: "productvariants.baseunitid", select: "unitname" })
           .populate({ path: "productvariants.purchaseunitid", select: "unitname" })
           .populate({ path: "productvariants.unitconversions.unitid", select: "unitname" })
-          .populate({ path: "productvariants.pricing.unitprices.unitid", select: "unitname" })
-          .populate({ path: "productvariants.pricing.channel", select: "channelName" })
+          .populate({ path: "productvariants.unitprices.unitid", select: "unitname" })
           .populate({ path: "salesaccountid", select: "ledgername" })
           .populate({ path: "purchaseaccountid", select: "ledgername" })
           .populate({ path: "serviceaccountid", select: "ledgername" })

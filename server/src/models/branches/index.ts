@@ -66,8 +66,8 @@ branchSchema.pre('save', async function (next) {
 
 // Helper to safely get purchase rate
 const getPurchaseRate = (variant: any) => {
-  if (variant?.pricing?.length > 0 && variant.pricing[0].unitprices?.length > 0) {
-    return variant.pricing[0].unitprices[0].purchaserate || 0;
+  if (variant?.unitprices?.length > 0) {
+    return variant.unitprices[0].purchaserate || 0;
   }
   return 0;
 };

@@ -84,18 +84,14 @@ export const ADD_PRODUCT_SERVICE = gql`
           remarks
         }
 
-        pricing {
-          region
-          channel { id channelName }
-          unitprices {
-            quantity
-            unitid { id unitname }
-            mrp
-            salesrate
-            discount
-            discounttype
-            offerprice
-          }
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
         }
         productlikecount
       }
@@ -196,18 +192,14 @@ export const UPDATE_PRODUCT_SERVICE = gql`
           remarks
         }
 
-        pricing {
-          region
-          channel { id channelName }
-          unitprices {
-            quantity
-            unitid { id unitname }
-            mrp
-            salesrate
-            discount
-            discounttype
-            offerprice
-          }
+        unitprices {
+          quantity
+          unitid { id unitname }
+          mrp
+          salesrate
+          discount
+          discounttype
+          offerprice
         }
         productlikecount
       }

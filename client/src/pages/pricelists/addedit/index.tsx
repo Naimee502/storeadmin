@@ -84,8 +84,8 @@ const AddEditPriceList = () => {
       // Auto-fill default rate if possible
       const product = products.find((p: any) => p.id === pid);
       const variant = product?.productvariants.find((v: any) => v.id === vid);
-      if (variant?.pricing?.[0]?.unitprices?.[0]) {
-        const up = variant.pricing[0].unitprices[0];
+      if (variant?.unitprices?.[0]) {
+        const up = variant.unitprices[0];
         newItems[index].unitid = up.unitid?.id || up.unitid;
         newItems[index].rate = up.salesrate;
       }

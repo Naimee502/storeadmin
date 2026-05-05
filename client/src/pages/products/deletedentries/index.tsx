@@ -64,7 +64,7 @@ const DeletedProducts = () => {
           <div key={i} className="border-b border-gray-200 pb-1 mb-1">
             {item.isservice
               ? `${variant?.servicerate || 0}` // service rate
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
+              : variant?.unitprices?.map((up: any, j: number) => (
                   <div key={j}>
                     {up.salesrate} 
                   </div>
@@ -81,7 +81,7 @@ const DeletedProducts = () => {
           <div key={i} className="border-b border-gray-200 pb-1 mb-1">
             {item.isservice
               ? capitalize(variant?.uom) || "-" // service unit
-              : variant?.pricing?.[0]?.unitprices?.map((up: any, j: number) => (
+              : variant?.unitprices?.map((up: any, j: number) => (
                   <div key={j}>
                     {up.quantity} {up.unitid?.unitname || "-"}
                   </div>

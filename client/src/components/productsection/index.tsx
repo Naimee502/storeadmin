@@ -54,14 +54,10 @@ const normalizeProduct = (product: any) => ({
       unitname: uc.unitid?.unitname,
       factor: uc.factor,
     })),
-    pricing: v.pricing?.map((p: any) => ({
-      ...p,
-      channel: p.channel?.id || p.channel,
-      unitprices: p.unitprices?.map((up: any) => ({
-        ...up,
-        unitid: up.unitid?.id,
-        unitname: up.unitid?.unitname,
-      })),
+    unitprices: v.unitprices?.map((up: any) => ({
+      ...up,
+      unitid: up.unitid?.id,
+      unitname: up.unitid?.unitname,
     })),
   })),
 });
@@ -301,49 +297,14 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 discount = resolvedPrice.discount;
               } else {
                 // FALLBACK to product-embedded pricing
-                const region = partyAccount?.region?.toLowerCase() || "default";
-                const channel = partyAccount?.channel?.toLowerCase() || "enduser";
-
-                const matchedPricing = variant.pricing.find(
-                  (p: any) =>
-                    p.region?.toLowerCase() === region &&
-                    p.channel?.toLowerCase() === channel
-                );
-
-                const channelOnlyMatch = variant.pricing.find(
-                  (p: any) => p.channel?.toLowerCase() === channel
-                );
-
-                const fallbackEndUser = variant.pricing.find(
-                  (p: any) => p.channel?.toLowerCase() === "enduser"
-                );
-
-                let pricingToUse =
-                  matchedPricing || channelOnlyMatch || fallbackEndUser || variant.pricing[0] || null;
-
-                let price =
-                  pricingToUse?.unitprices?.find(
-                    (up: any) =>
-                      (up.unitid?.id ?? up.unitid) === unitid &&
-                      parseFloat(up.quantity) === qty
-                  ) ?? null;
+                let price = variant.unitprices?.find(
+                  (up: any) =>
+                    (up.unitid?.id ?? up.unitid) === unitid &&
+                    parseFloat(up.quantity) === qty
+                ) ?? null;
 
                 if (!price) {
-                  const priceSearch = variant.pricing.flatMap((p: any) =>
-                    p.unitprices.map((up: any) => ({ ...up, priceObj: p }))
-                  );
-                  const found = priceSearch.find(
-                    (up: any) =>
-                      (up.unitid?.id ?? up.unitid) === unitid &&
-                      parseFloat(up.quantity) === qty
-                  );
-                  if (found) {
-                    price = found;
-                  }
-                }
-
-                if (!price) {
-                  price = variant.pricing[0]?.unitprices[0];
+                  price = variant.unitprices?.[0];
                 }
 
                 correctRate =
@@ -372,16 +333,14 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                   (v) => v.id === selectedProduct.variantid
                 );
 
-                if (!variant?.pricing) return [] as Option[];
+                if (!variant?.unitprices) return [] as Option[];
 
-                const allUnits = variant.pricing.flatMap((p: any) =>
-                  p.unitprices.map((up: any) => ({
-                    value: `${up.unitid?.id ?? up.unitid}--${up.quantity}`,
-                    label: `${up.quantity} ${
-                      up.unitname || up.unitid?.unitname || "Unit"
-                    }`,
-                  }))
-                );
+                const allUnits = variant.unitprices.map((up: any) => ({
+                  value: `${up.unitid?.id ?? up.unitid}--${up.quantity}`,
+                  label: `${up.quantity} ${
+                    up.unitname || up.unitid?.unitname || "Unit"
+                  }`,
+                }));
 
                 const unique = Array.from(new Map(allUnits.map((u) => [u.value, u])).values());
 
@@ -519,9 +478,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 );
                 const variant = product?.productvariants.find((v: any) => v.id === p.variantid);
 
-                const price = variant?.pricing
-                ?.flatMap((p: any) => p.unitprices)
-                .find(
+                const price = variant?.unitprices
+                ?.find(
                   (up: any) =>
                     (up.unitid?.id ?? up.unitid) === p.salesunitid &&
                     Number(up.quantity) === Number(p.unitquantity)

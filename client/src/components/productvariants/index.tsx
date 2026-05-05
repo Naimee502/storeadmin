@@ -16,17 +16,14 @@ interface ProductVariantsProps {
     addUnitConversion: (variantIndex: number) => void;
     unitData?: UnitsQuery;
     removeUnitConversion: (variantIndex: number, convIndex: number) => void;
-    addPricing: (variantIndex: number) => void;
-    removePricing: (variantIndex: number, priceIndex: number) => void;
-    addUnitPrice: (variantIndex: number, priceIndex: number) => void;
-    removeUnitPrice: (variantIndex: number, priceIndex: number, unitPriceIndex: number) => void;
+    addUnitPrice: (variantIndex: number) => void;
+    removeUnitPrice: (variantIndex: number, unitPriceIndex: number) => void;
     addSerial: (variantIndex: number) => void;
     removeSerial: (variantIndex: number, serialIndex: number) => void;
     isEdit?: boolean;
     isserialised?: boolean;
     navigate: (path: string) => void;
     errors: any;
-    channelData?: any[];
 }
 
 const LABELS: Record<string, string> = {
@@ -63,51 +60,6 @@ const LABELS: Record<string, string> = {
     offerprice: "Offer Price",
 };
 
-const regionOptions = [
-    { value: "default", label: "Default" },
-    { value: "andhra_pradesh", label: "Andhra Pradesh" },
-    { value: "arunachal_pradesh", label: "Arunachal Pradesh" },
-    { value: "assam", label: "Assam" },
-    { value: "bihar", label: "Bihar" },
-    { value: "chhattisgarh", label: "Chhattisgarh" },
-    { value: "goa", label: "Goa" },
-    { value: "gujarat", label: "Gujarat" },
-    { value: "haryana", label: "Haryana" },
-    { value: "himachal_pradesh", label: "Himachal Pradesh" },
-    { value: "jharkhand", label: "Jharkhand" },
-    { value: "karnataka", label: "Karnataka" },
-    { value: "kerala", label: "Kerala" },
-    { value: "madhya_pradesh", label: "Madhya Pradesh" },
-    { value: "maharashtra", label: "Maharashtra" },
-    { value: "manipur", label: "Manipur" },
-    { value: "meghalaya", label: "Meghalaya" },
-    { value: "mizoram", label: "Mizoram" },
-    { value: "nagaland", label: "Nagaland" },
-    { value: "odisha", label: "Odisha" },
-    { value: "punjab", label: "Punjab" },
-    { value: "rajasthan", label: "Rajasthan" },
-    { value: "sikkim", label: "Sikkim" },
-    { value: "tamil_nadu", label: "Tamil Nadu" },
-    { value: "telangana", label: "Telangana" },
-    { value: "tripura", label: "Tripura" },
-    { value: "uttar_pradesh", label: "Uttar Pradesh" },
-    { value: "uttarakhand", label: "Uttarakhand" },
-    { value: "west_bengal", label: "West Bengal" },
-
-    // Union Territories
-    { value: "andaman_nicobar", label: "Andaman and Nicobar Islands" },
-    { value: "chandigarh", label: "Chandigarh" },
-    { value: "dadra_nagar_haveli_daman_diu", label: "Dadra and Nagar Haveli and Daman and Diu" },
-    { value: "delhi", label: "Delhi" },
-    { value: "jammu_kashmir", label: "Jammu and Kashmir" },
-    { value: "ladakh", label: "Ladakh" },
-    { value: "lakshadweep", label: "Lakshadweep" },
-    { value: "puducherry", label: "Puducherry" },
-
-    // Extra options
-    { value: "international", label: "International" },
-];
-
 export const ProductVariants: React.FC<ProductVariantsProps> = ({
     formData,
     handleChange,
@@ -116,8 +68,6 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     addUnitConversion,
     removeUnitConversion,
     unitData,
-    addPricing,
-    removePricing,
     addUnitPrice,
     removeUnitPrice,
     addSerial,
@@ -126,7 +76,6 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     isserialised = false,
     navigate,
     errors,
-    channelData
 }) => (
     <>
         {formData.productvariants.map((variant, index) => (
@@ -259,92 +208,61 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     </button>
                 </div>
 
-                {/* Pricing & Unit Prices */}
+                {/* Unit Prices */}
                 <div className="border-t pt-4 space-y-2 pb-4">
-                    <h4 className="font-semibold">Pricing</h4>
-                    {errors[`variant_${index}_pricing`] && (
-                        <p className="text-red-500 text-sm mb-2">
-                            {errors[`variant_${index}_pricing`]}
-                        </p>
-                    )}
-                    {(variant.pricing || []).slice(0, 1).map((price, priceIndex) => (
-                        <div key={priceIndex} className="border p-2 rounded relative bg-gray-50 space-y-2">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {/* Hidden Region & Channel fields to keep data structure intact */}
-                                <div className="hidden">
-                                    <FormField
-                                        label="Region"
-                                        name={`productvariants.${index}.pricing.${priceIndex}.region`}
-                                        type="select"
-                                        options={regionOptions}
-                                        value={price.region || "default"}
-                                        onChange={handleChange}
-                                    />
-                                    <FormField
-                                        label="Channel"
-                                        name={`productvariants.${index}.pricing.${priceIndex}.channel`}
-                                        type="select"
-                                        options={channelData?.length 
-                                            ? channelData.map((c: any) => ({ value: c.id, label: c.channelName }))
-                                            : [{ value: "enduser", label: "End User" }]
-                                        }
-                                        value={(typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser"}
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                                <button type="button" onClick={() => addUnitPrice(index, priceIndex)} className="w-10 h-10 mt-6 py-1 border rounded text-sm bg-white hover:bg-gray-100">➕</button>
-                            </div>
-
-                            {/* Unit Prices */}
-                            {(price.unitprices || []).map((up, upIndex) => (
-                                <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 rounded bg-white p-2 relative">
-                                    {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
-                                        <FormField
-                                            key={f}
-                                            label={LABELS[f.toLowerCase()] || f}
-                                            name={`productvariants.${index}.pricing.${priceIndex}.unitprices.${upIndex}.${f}`}
-                                            type={
-                                                f === "unitid" ? "select" :
-                                                    f === "discounttype" ? "select" : "number"
-                                            }
-                                            options={
-                                                f === "unitid"
-                                                    ? unitData?.getUnits.map(u => ({ value: u.id, label: u.unitname }))
-                                                    : f === "discounttype"
-                                                        ? [
-                                                            { value: "fixed", label: "Fixed" },
-                                                            { value: "percentage", label: "Percentage" },
-                                                        ]
-                                                        : undefined
-                                            }
-                                            value={up[f]}
-                                            onChange={handleChange}
-                                            disabled={f === "offerprice"}
-                                            searchable={f === "unitid" || f === "discounttype"}
-                                            addable onAddNew={() => navigate("/units")}
-                                            error={errors?.productvariants?.[index]?.pricing?.[priceIndex]?.unitprices?.[upIndex]?.[f]}
-                                        />
-                                    ))}
-                                    {/* Show barcode per unit price in edit mode */}
-                                    {isEdit && up.productbarcode && (
-                                        <div className="flex flex-col items-start justify-center mt-1">
-                                            <span className="text-[10px] text-gray-500 mb-1 font-medium">Barcode</span>
-                                            <BarcodeImage value={up.productbarcode} align="start" />
-                                        </div>
-                                    )}
-                                    {price.unitprices.length > 1 && (
-                                        <button
-                                            type="button"
-                                            className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
-                                            onClick={() => removeUnitPrice(index, priceIndex, upIndex)}
-                                        >
-                                            ❌
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                    <h4 className="font-semibold">Unit Prices</h4>
+                    <div className="border p-2 rounded relative bg-gray-50 space-y-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <button type="button" onClick={() => addUnitPrice(index)} className="w-10 h-10 mt-6 py-1 border rounded text-sm bg-white hover:bg-gray-100">➕</button>
                         </div>
-                    ))}
+
+                        {(variant.unitprices || []).map((up, upIndex) => (
+                            <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 rounded bg-white p-2 relative">
+                                {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
+                                    <FormField
+                                        key={f}
+                                        label={LABELS[f.toLowerCase()] || f}
+                                        name={`productvariants.${index}.unitprices.${upIndex}.${f}`}
+                                        type={
+                                            f === "unitid" ? "select" :
+                                                f === "discounttype" ? "select" : "number"
+                                        }
+                                        options={
+                                            f === "unitid"
+                                                ? unitData?.getUnits.map(u => ({ value: u.id, label: u.unitname }))
+                                                : f === "discounttype"
+                                                    ? [
+                                                        { value: "fixed", label: "Fixed" },
+                                                        { value: "percentage", label: "Percentage" },
+                                                    ]
+                                                    : undefined
+                                        }
+                                        value={up[f]}
+                                        onChange={handleChange}
+                                        disabled={f === "offerprice"}
+                                        searchable={f === "unitid" || f === "discounttype"}
+                                        addable onAddNew={() => navigate("/units")}
+                                        error={errors?.productvariants?.[index]?.unitprices?.[upIndex]?.[f]}
+                                    />
+                                ))}
+                                {isEdit && up.productbarcode && (
+                                    <div className="flex flex-col items-start justify-center mt-1">
+                                        <span className="text-[10px] text-gray-500 mb-1 font-medium">Barcode</span>
+                                        <BarcodeImage value={up.productbarcode} align="start" />
+                                    </div>
+                                )}
+                                {variant.unitprices.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
+                                        onClick={() => removeUnitPrice(index, upIndex)}
+                                    >
+                                        ❌
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Serials */}
