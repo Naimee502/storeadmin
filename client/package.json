@@ -21,6 +21,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.38.0",
     "graphql": "^16.11.0",
     "lucide-react": "^0.556.0",
     "number-to-words": "^1.2.4",

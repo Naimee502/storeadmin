@@ -22,6 +22,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import Modal from "../../../components/modal";
+
 
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
@@ -32,14 +34,22 @@ const AddEditProductService = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
 
-  const { data: categoryData } = useCategoriesQuery();
-  const { data: subCategoryDate } = useSubCategoriesQuery();
-  const { data: brandData } = useBrandsQuery();
-  const { data: groupData } = useProductGroupsQuery();
-  const { data: modelData } = useModelsQuery();
-  const { data: sizeData } = useSizesQuery();
-  const { data: unitData } = useUnitsQuery();
-  const { data: ledgerData } = useAccountLedgersQuery();
+  const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
+  const { data: subCategoryDate, refetch: refetchSubCategories } = useSubCategoriesQuery();
+  const { data: brandData, refetch: refetchBrands } = useBrandsQuery();
+  const { data: groupData, refetch: refetchGroups } = useProductGroupsQuery();
+  const { data: modelData, refetch: refetchModels } = useModelsQuery();
+  const { data: sizeData, refetch: refetchSizes } = useSizesQuery();
+  const { data: unitData, refetch: refetchUnits } = useUnitsQuery();
+  const { data: ledgerData, refetch: refetchLedgers } = useAccountLedgersQuery();
+
+  const [quickAdd, setQuickAdd] = useState<{ isOpen: boolean, type: string, label: string, fieldPath?: string, parentId?: string }>({
+    isOpen: false,
+    type: "",
+    label: "",
+    fieldPath: "",
+    parentId: ""
+  });
 
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
@@ -864,6 +874,31 @@ const AddEditProductService = () => {
     }
   };
 
+  const openQuickAdd = (type: string, label: string, fieldPath?: string, parentId?: string) => {
+    setQuickAdd({ isOpen: true, type, label, fieldPath, parentId });
+  };
+
+  const handleQuickAddSuccess = (newData: any) => {
+    const { type, fieldPath } = quickAdd;
+    // Refetch the appropriate data
+    if (type === "category") refetchCategories();
+    else if (type === "subcategory") refetchSubCategories();
+    else if (type === "brand") refetchBrands();
+    else if (type === "productgroup") refetchGroups();
+    else if (type === "model") refetchModels();
+    else if (type === "size") refetchSizes();
+    else if (type === "unit") refetchUnits();
+    else if (type === "account") refetchLedgers();
+
+    // Automatically select the new item if fieldPath is provided
+    if (fieldPath) {
+      handleChange({
+        target: { name: fieldPath, value: newData.id }
+      } as any);
+    }
+  };
+
+
   const subcategoryOptions =
     formData.categoryid && subCategoryDate?.getSubCategories
       ? subCategoryDate.getSubCategories
@@ -881,12 +916,13 @@ const AddEditProductService = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>
               <FormField label="Image" name="imageurl" type="file" accept="image/*" onChange={handleImageChange} previewUrl={formData.imageurl} />
-              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/categories")} error={errors.categoryid}/>
-              <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => navigate("/subcategories")}/>
-              <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => navigate("/brands")}/>
-              <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => navigate("/productgroups")}/>
-              <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => navigate("/models")}/>
-              <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => navigate("/sizes")}/>
+              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>
+              <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>
+              <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>
+              <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>
+              <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>
+              <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>
+
 
               <div className="md:col-span-2 lg:col-span-3">
                 <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />
@@ -919,10 +955,12 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")} error={errors.salesaccountid}/>
-              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")} error={errors.purchaseaccountid}/>
-              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => navigate("/accounts")}/>)}
+              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Sales Account", "salesaccountid")} error={errors.salesaccountid}/>
+              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Purchase Account", "purchaseaccountid")} error={errors.purchaseaccountid}/>
+              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Service Account", "serviceaccountid")}/>)}
             </div>
+
+
           </fieldset>
         </div>
       </div>
@@ -956,6 +994,7 @@ const AddEditProductService = () => {
             isEdit={isEdit}
             isserialised={formData.isserialised}
             navigate={navigate}
+            onQuickAdd={openQuickAdd}
             errors={errors}
           />
         )}
@@ -970,7 +1009,18 @@ const AddEditProductService = () => {
           {isEdit ? 'Update Product Service' : 'Add Product Service'}
         </Button>
       </div>
+
+      <Modal
+        isOpen={quickAdd.isOpen}
+        onClose={() => setQuickAdd(prev => ({ ...prev, isOpen: false }))}
+        type={quickAdd.type as any}
+        label={quickAdd.label}
+        onSuccess={handleQuickAddSuccess}
+        parentId={quickAdd.parentId}
+        categories={categoryData?.getCategories || []}
+      />
     </HomeLayout>
+
   );
 };
 

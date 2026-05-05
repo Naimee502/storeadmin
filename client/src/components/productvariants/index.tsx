@@ -23,6 +23,7 @@ interface ProductVariantsProps {
     isEdit?: boolean;
     isserialised?: boolean;
     navigate: (path: string) => void;
+    onQuickAdd: (type: string, label: string, name: string) => void;
     errors: any;
 }
 
@@ -75,6 +76,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     isEdit = false,
     isserialised = false,
     navigate,
+    onQuickAdd,
     errors,
 }) => (
     <>
@@ -136,7 +138,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         value={variant.baseunitid}
                         onChange={handleChange}
                         searchable
-                        addable onAddNew={() => navigate("/units")}
+                        addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.baseunitid`)}
                         error={errors?.productvariants?.[index]?.baseunitid}
                     />
 
@@ -149,7 +151,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         value={variant.purchaseunitid}
                         onChange={handleChange}
                         searchable
-                        addable onAddNew={() => navigate("/units")}
+                        addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.purchaseunitid`)}
                         error={errors?.productvariants?.[index]?.purchaseunitid}
                     />
 
@@ -178,7 +180,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     value={conv.unitid}
                                     onChange={handleChange}
                                     searchable
-                                    addable onAddNew={() => navigate("/units")}
+                                    addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.unitconversions.${convIndex}.unitid`)}
                                     error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.unitid}
                                 />
                                 <FormField
@@ -236,7 +238,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                         onChange={handleChange}
                                         disabled={f === "offerprice"}
                                         searchable={f === "unitid" || f === "discounttype"}
-                                        addable onAddNew={() => navigate("/units")}
+                                        addable={f === "unitid"} onAddNew={f === "unitid" ? () => onQuickAdd("unit", "Unit", `productvariants.${index}.unitprices.${upIndex}.${f}`) : undefined}
                                         error={errors?.productvariants?.[index]?.unitprices?.[upIndex]?.[f]}
                                     />
                                 ))}
