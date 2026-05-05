@@ -23,6 +23,7 @@ import { channelResolvers } from "./channel";
 import { stockAdjustmentResolvers } from "./stockadjustments";
 import { salesRouteResolvers } from "./salesroutes";
 import { priceListResolvers } from "./pricelists";
+import { salesOrderResolvers } from "./salesorder";
 
 export const resolvers = [
   branchResolvers,
@@ -49,5 +50,6 @@ export const resolvers = [
   channelResolvers,
   stockAdjustmentResolvers,
   salesRouteResolvers,
-  priceListResolvers
+  priceListResolvers,
+  salesOrderResolvers
 ];

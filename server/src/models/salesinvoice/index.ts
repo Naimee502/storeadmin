@@ -12,17 +12,21 @@ import { StaffAccount } from "../staffaccounts";
 
 const salesInvoiceSchema = new mongoose.Schema(
   {
-    salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount", required: true },
+    salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount" },
+    
+    createdby_id: { type: mongoose.Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
     paymenttype: { type: String, required: true },
     partyacc: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
 
     taxorsupplytype: { type: String, required: true },
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
-    billnumber: { type: String, required: true },
+    billnumber: { type: String },
     notes: { type: String },
 
-    invoicetype: { type: String, required: true },
+    invoicetype: { type: String, default: "retail" },
     subtotal: { type: Number, required: true },
     totaldiscount: { type: Number, required: true },
     totalgst: { type: Number, required: true },
@@ -49,10 +53,24 @@ const salesInvoiceSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
+    autocreate: { type: Boolean, default: false },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
 );
+
+salesInvoiceSchema.pre("save", async function (next) {
+  if (!this.billnumber) {
+    const lastInvoice = await mongoose.model("SalesInvoice").findOne({ adminid: this.adminid }).sort({ createdAt: -1 });
+    let nextNum = 1;
+    if (lastInvoice && lastInvoice.billnumber) {
+      const lastNum = parseInt(lastInvoice.billnumber, 10);
+      if (!isNaN(lastNum)) nextNum = lastNum + 1;
+    }
+    this.billnumber = nextNum.toString().padStart(6, "0");
+  }
+  next();
+});
 
 function ledgerId(x: any) {
   if (!x) return null;
@@ -66,6 +84,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     : newInv.branchid;
 
   if (!branchid) return console.log("Branch ID missing");
+  
+  if (!newInv.autocreate) {
+    console.log("Auto-create is disabled. Skipping stock and transactions.");
+    return;
+  }
   
   // ========================= STOCK ADJUSTMENT =========================
   if (!newInv.isservice) {

@@ -72,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-xl" />, moduleId: "staffaccounts" },
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-xl" />, moduleId: "accounts" },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" />, moduleId: "products" },
+    { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-xl" /> },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" />, moduleId: "salesinvoice" },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" />, moduleId: "purchaseinvoice" },
     { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" />, moduleId: "transferstock" },
@@ -119,6 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const filteredCommonLinks = filterLinks(branchLinks.filter(link =>
     ![
       '/products',
+      '/salesorder',
       '/salesinvoice',
       '/purchaseinvoice',
       '/transferstock',

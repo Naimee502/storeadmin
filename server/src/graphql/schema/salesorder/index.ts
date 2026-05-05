@@ -1,17 +1,8 @@
 import { gql } from 'apollo-server-express';
 
-export const salesInvoiceTypeDefs = gql`
+export const salesOrderTypeDefs = gql`
 
-  type SimpleRef {
-    id: ID
-    name: String
-    unitname: String
-    accountname: String
-    mobile: String
-    ledgername: String
-  }
-
-  type SalesInvoiceProductService {
+  type SalesOrderProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
     salesunitid: SimpleRef
@@ -26,7 +17,7 @@ export const salesInvoiceTypeDefs = gql`
     serviceaccountid: SimpleRef
   }
 
-  input SalesInvoiceProductServiceInput {
+  input SalesOrderProductServiceInput {
     productserviceid: ID!
     variantid: ID
     salesunitid: ID
@@ -41,7 +32,7 @@ export const salesInvoiceTypeDefs = gql`
     serviceaccountid: ID
   }
 
-  type SalesInvoice {
+  type SalesOrder {
     id: ID!
     salesmenid: SimpleRef
     paymenttype: String!
@@ -51,16 +42,15 @@ export const salesInvoiceTypeDefs = gql`
     billtype: String!
     billnumber: String
     notes: String
-    invoicetype: String
+    ordertype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [SalesInvoiceProductService!]!
+    productservice: [SalesOrderProductService!]!
     isservice: Boolean!
-    autocreate: Boolean!
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -69,7 +59,7 @@ export const salesInvoiceTypeDefs = gql`
     updatedAt: String
   }
 
-  input SalesInvoiceInput {
+  input SalesOrderInput {
     salesmenid: ID
     paymenttype: String!
     partyacc: ID!  
@@ -78,23 +68,22 @@ export const salesInvoiceTypeDefs = gql`
     billtype: String
     billnumber: String
     notes: String
-    invoicetype: String
+    ordertype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [SalesInvoiceProductServiceInput!]!
+    productservice: [SalesOrderProductServiceInput!]!
     isservice: Boolean
-    autocreate: Boolean
     createdby_id: ID
     createdby_name: String
     createdby_type: String
     status: Boolean
   }
 
-  input SalesInvoiceFilterInput {
+  input SalesOrderFilterInput {
     adminid: ID
     branchid: ID
     salesmenid: ID
@@ -102,22 +91,22 @@ export const salesInvoiceTypeDefs = gql`
     partyacc: ID
     taxorsupplytype: String
     billtype: String
-    invoicetype: String
+    ordertype: String
     billdateFrom: String
     billdateTo: String
     status: Boolean
   }
 
-  type Query {
-    getSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
-    getDeletedSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
-    getSalesInvoiceById(id: ID!, adminid: ID): SalesInvoice
+  extend type Query {
+    getSalesOrders(filter: SalesOrderFilterInput): [SalesOrder!]!
+    getDeletedSalesOrders(filter: SalesOrderFilterInput): [SalesOrder!]!
+    getSalesOrderById(id: ID!): SalesOrder
   }
 
-  type Mutation {
-    addSalesInvoice(input: SalesInvoiceInput!): SalesInvoice!
-    editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
-    deleteSalesInvoice(id: ID!): Boolean!
-    resetSalesInvoice(id: ID!): Boolean!
+  extend type Mutation {
+    addSalesOrder(input: SalesOrderInput!): SalesOrder!
+    editSalesOrder(id: ID!, input: SalesOrderInput!): SalesOrder!
+    deleteSalesOrder(id: ID!): Boolean!
+    resetSalesOrder(id: ID!): Boolean!
   }
 `;

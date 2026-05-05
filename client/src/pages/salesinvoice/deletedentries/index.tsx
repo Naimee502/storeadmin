@@ -33,6 +33,7 @@ const DeletedSalesInvoices = () => {
     { label: "Billing Date", key: "billdate" },
     { label: "Billing No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
+    { label: "Created By", key: "createdby_name" },
     { label: "Status", key: "status" },
   ];
 
@@ -53,6 +54,7 @@ const DeletedSalesInvoices = () => {
       totalqty,
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
+      createdby_name: invoice.createdby_name || "N/A",
       status: invoice.status ? "Active" : "Inactive",
     };
   });

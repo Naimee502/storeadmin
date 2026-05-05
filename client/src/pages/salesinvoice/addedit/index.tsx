@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import ProductSection from "../../../components/productsection";
@@ -11,7 +11,6 @@ import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../gra
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
-import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import PosAddCustomer from "../../../components/posaddcustomer";
 
 const AddEditSalesInvoice = () => {
@@ -22,9 +21,17 @@ const AddEditSalesInvoice = () => {
   const dispatch = useAppDispatch();
   const { addSalesInvoiceMutation, editSalesInvoiceMutation } = useSalesInvoiceMutations();
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const branchId = type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : selectedBranchId;
+
+  const creatorInfo = useMemo(() => {
+    if (type === 'admin' && admin) return { id: admin.id, name: admin.name, type: 'admin' };
+    if (type === 'branch' && branch) return { id: branch.id, name: branch.branchname || branch.name || 'Branch', type: 'branch' };
+    if (type === 'staff' && staff) return { id: staff.id, name: staff.name, type: 'staff' };
+    return { id: '', name: 'Unknown', type: 'unknown' };
+  }, [type, admin, branch, staff]);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const [paymentType, setPaymentType] = useState("");
@@ -39,13 +46,12 @@ const AddEditSalesInvoice = () => {
   });
   const [billType, setBillType] = useState("");
   const [billNumber, setBillNumber] = useState("000001");
-  const [salesmenAccount, setSalesmenAccount] = useState("");
-  const [notes, setNotes] = useState("");
   const [isService, setIsService] = useState(false);
-  const [invoiceType, setInvoiceType] = useState("");
+  const [invoiceType, setInvoiceType] = useState("retail");
   const [products, setProducts] = useState<InvoiceProduct[]>([]);
   const [taxPercent, setTaxPercent] = useState<number | "">("");
   const [status, setStatus] = useState(true);
+  const [autoCreate, setAutoCreate] = useState(false);
   const [productsTotal, setProductsTotal] = useState(0.0);
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
@@ -54,14 +60,7 @@ const AddEditSalesInvoice = () => {
     (state) => state.salesinvoice.invoices
   );
 
-  const { data: staffAccountData } = useStaffQuery();
-  const staffList = staffAccountData?.getStaffAccounts || [];
-  // ✅ Filter only salesman role
-  const salesmanList = staffList.filter((staff: any) => staff.role === "salesman");
-  const salesmenAccountOptions = salesmanList.map((salesman: any) => ({
-    value: salesman.id,
-    label: `${salesman.name} - ${salesman.mobile}`,
-  }));
+  const [notes, setNotes] = useState("");
   // Fetch invoice if editing
   const { data } = useSalesInvoiceByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -90,22 +89,12 @@ const AddEditSalesInvoice = () => {
   useEffect(() => {
     if (!isEdit) {
       // --- NEW INVOICE MODE
-      if (salesInvoices.length > 0) {
-        const billNumbers = salesInvoices.map((inv) => inv.billnumber);
-        const lastBillNumber = [...billNumbers].sort().pop();
-        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
-          .toString()
-          .padStart(6, "0");
-        setBillNumber(nextBillNumber);
-      } else {
-        setBillNumber("000001");
-      }
+      setBillNumber("");
     } else if (data?.getSalesInvoiceById) {
       // --- EDIT MODE
       const invoice = data.getSalesInvoiceById;
 
       // --- Header fields
-      setSalesmenAccount(invoice.salesmenid.id || null);
       setPaymentType(invoice.paymenttype || "");
       setPartyAccount({
         id: invoice.partyacc?.id || "",
@@ -122,6 +111,7 @@ const AddEditSalesInvoice = () => {
       setInvoiceType(invoice.invoicetype || "");
       setTaxPercent(invoice.totalgst || 0);
       setStatus(invoice.status ?? true);
+      setAutoCreate(invoice.autocreate ?? true);
       setIsService(invoice.isservice ?? false);
 
       // --- Products
@@ -204,9 +194,6 @@ const AddEditSalesInvoice = () => {
     if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
     if (!billDate) newErrors.billDate = "Bill date is required";
     if (!billType) newErrors.billType = "Bill type is required";
-    if (!billNumber) newErrors.billNumber = "Bill number is required";
-    if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
-    if (!salesmenAccount) newErrors.salesmenAccount = "Salesmen account is required";
     if (!products || products.length === 0) newErrors.products = "At least one product is required";
 
     return newErrors;
@@ -238,13 +225,12 @@ const AddEditSalesInvoice = () => {
     const input = {
       branchid: branchId,
       adminid: adminId,
-      salesmenid: salesmenAccount,
-      paymenttype: paymentType,
-      partyacc: partyAccount?.id || "",
+      createdby_id: creatorInfo.id,
+      createdby_name: creatorInfo.name,
+      createdby_type: creatorInfo.type,
       taxorsupplytype: taxOrSupplyType,
       billdate: billDate,
       billtype: billType,
-      billnumber: billNumber,
       notes,
       invoicetype: invoiceType,
       subtotal: productsTotal,
@@ -266,6 +252,7 @@ const AddEditSalesInvoice = () => {
         purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
       })),
+      autocreate: autoCreate,
       status,
     };
 
@@ -380,45 +367,6 @@ const AddEditSalesInvoice = () => {
                 searchable
               />
               <FormField
-                label="Bill Number"
-                name="billNumber"
-                type="text"
-                value={billNumber}
-                onChange={(e) => setBillNumber(e.target.value)}
-                disabled={isEdit}
-              />
-              <FormField
-                label="Invoice Type"
-                name="invoiceType"
-                type="select"
-                value={invoiceType}
-                onChange={(e) => setInvoiceType(e.target.value)}
-                options={[
-                  { value: "retail", label: "Retail" },
-                  { value: "wholesale", label: "Wholesale" },
-                  { value: "manufacturer", label: "Manufacturer" },
-                  { value: "trader", label: "Trader" },
-                  { value: "service", label: "Service" },
-                  { value: "export", label: "Export" },
-                  { value: "other", label: "Other" }
-                ]}
-                error={errors.invoiceType}
-                searchable
-              />
-              <div className="flex items-end gap-2">
-                <FormField
-                  label="Salesmen Account (Name - Mobile)"
-                  name="salesmenAccount"
-                  type="select"
-                  value={salesmenAccount}
-                  onChange={(e) => setSalesmenAccount(e.target.value)}
-                  options={salesmenAccountOptions}
-                  searchable
-                  error={errors.salesmenAccount}
-                  addable onAddNew={() => navigate("/salesmenaccount")}
-                />
-              </div>
-              <FormField
                 label="Notes"
                 name="notes"
                 type="text"
@@ -436,6 +384,12 @@ const AddEditSalesInvoice = () => {
                 name="status"
                 checked={status}
                 onChange={(checked) => setStatus(checked)}
+              />
+              <FormSwitch
+                label="Auto-create Ledger & Stock"
+                name="autocreate"
+                checked={autoCreate}
+                onChange={(checked) => setAutoCreate(checked)}
               />
             </div>
           </fieldset>

@@ -46,6 +46,7 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
+    autocreate: { type: Boolean, default: false },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
@@ -64,6 +65,11 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
       ? new mongoose.Types.ObjectId(newInv.branchid)
       : newInv.branchid;
     if (!branchid) return;
+    
+  if (!newInv.autocreate) {
+    console.log("Auto-create is disabled for Purchase Invoice. Skipping stock and transactions.");
+    return;
+  }
   // ============================
   // 📦 STOCK ADJUSTMENT
   // ============================

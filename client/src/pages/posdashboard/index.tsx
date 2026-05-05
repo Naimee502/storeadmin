@@ -13,6 +13,7 @@ import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesInvoiceMutations } from "../../graphql/hooks/salesinvoice";
+import { useSalesOrderMutations } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PaymentDrawer from "../../components/paymentdrawer";
@@ -134,6 +135,8 @@ export default function POSDashboard() {
   const [billNumber, setBillNumber] = useState("000001");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [selectedParty, setSelectedParty] = useState<any>(null);
+  const [isOrderMode, setIsOrderMode] = useState(true); // ✅ Order vs Invoice Toggle
+  const [barcode, setBarcode] = useState(""); // ✅ Barcode Input
   const { resolvePrice } = usePriceResolvers();
 
   const { data: accountData } = useAccountsQuery();
@@ -142,16 +145,19 @@ export default function POSDashboard() {
     .filter((a: any) => a.type === "customer")
     .map((a: any) => ({ value: a.id, label: `${a.name} - ${a.mobile}` }));
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId =
-    type === "admin"
-      ? admin?.id
-      : type === "branch"
-        ? branch?.admin?.id
-        : undefined;
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  
+  const creatorInfo = useMemo(() => {
+    if (type === 'admin' && admin) return { id: admin.id, name: admin.name, type: 'admin' };
+    if (type === 'branch' && branch) return { id: branch.id, name: branch.branchname || branch.name || 'Branch', type: 'branch' };
+    if (type === 'staff' && staff) return { id: staff.id, name: staff.name, type: 'staff' };
+    return { id: '', name: 'Unknown', type: 'unknown' };
+  }, [type, admin, branch, staff]);
 
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const branchId = type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : selectedBranchId;
   const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
+  const { addSalesOrderMutation } = useSalesOrderMutations();
   const salesInvoices = useAppSelector((state) => state.salesinvoice.invoices);
 
   /* ---------- Generate Next Bill Number ---------- */
@@ -300,6 +306,34 @@ export default function POSDashboard() {
     resolveAndAdd();
   };
 
+  /* -------- Barcode Scanner Handler ---------- */
+  const handleBarcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!barcode.trim()) return;
+
+    // Find product/variant by barcode (assuming SKU is barcode for now)
+    let foundProd = null;
+    let foundVarId = null;
+
+    for (const p of PRODUCTS) {
+      const variant = p.variants.find((v: any) => v.sku === barcode.trim());
+      if (variant) {
+        foundProd = p;
+        foundVarId = variant.variantId;
+        break;
+      }
+    }
+
+    if (foundProd) {
+      addToCart(foundProd, foundVarId);
+      setBarcode("");
+      dispatch(showMessage({ message: `${foundProd.name} added to cart`, type: "success" }));
+    } else {
+      dispatch(showMessage({ message: "Product not found", type: "error" }));
+      setBarcode("");
+    }
+  };
+
   const updateQty = (cartId, qty) => {
     if (qty < 1) {
       setCart((prev) => prev.filter((c) => c.cartId !== cartId));
@@ -366,20 +400,19 @@ export default function POSDashboard() {
   const handlePaymentComplete = async ({
     paymentType,
     customer,
-    salesman,
   }) => {
      const input = {
       branchid: branchId,
-      adminid: adminId,
-      salesmenid: salesman,
+      adminid: type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined,
+      createdby_id: creatorInfo.id,
+      createdby_name: creatorInfo.name,
+      createdby_type: creatorInfo.type,
       paymenttype: paymentType,
       partyacc: customer,
       taxorsupplytype: "taxInvoice",
       billdate: new Date().toISOString().slice(0, 10),
       billtype: "taxInvoice",
-      billnumber: billNumber,
       notes: "",
-      invoicetype: "retail",
 
       subtotal: Number(subtotal.toFixed(2)),
       totaldiscount: Number(totaldiscount.toFixed(2)),
@@ -414,8 +447,25 @@ export default function POSDashboard() {
     };
 
     try {
-      await addSalesInvoiceMutation({ variables: { input } });
-      dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
+      if (isOrderMode) {
+        // SalesOrderInput needs 'ordertype' but NOT 'invoicetype'
+        const orderInput = { ...input, ordertype: "retail" };
+        await addSalesOrderMutation({ 
+          variables: { 
+            input: orderInput
+          } 
+        });
+        dispatch(showMessage({ message: "Sales Order added successfully", type: "success" }));
+      } else {
+        // SalesInvoiceInput needs 'invoicetype'
+        const invoiceInput = { ...input, invoicetype: "retail" };
+        await addSalesInvoiceMutation({ 
+          variables: { 
+            input: invoiceInput 
+          } 
+        });
+        dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
+      }
     } catch (error: any) {
       console.error("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));
@@ -431,34 +481,38 @@ export default function POSDashboard() {
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-xl md:text-2xl font-semibold flex items-center gap-3">
             <ShoppingCart size={22} className="text-blue-600" />
-            <span>POS Billing</span>
+            <span>POS {isOrderMode ? "Ordering" : "Billing"}</span>
           </h2>
 
-          <div className="ml-auto hidden md:flex items-center gap-4">
-            <div className="w-64">
-              <FormField
-                label=""
-                name="pos_customer"
-                type="select"
-                placeholder="Select Customer (Pricing Context)"
-                options={customerOptions}
-                value={selectedParty?.id || ""}
-                onChange={(e) => {
-                  const acc = accounts.find(a => a.id === e.target.value);
-                  if (acc) {
-                    setSelectedParty({
-                      id: acc.id,
-                      channel: acc.channel?.id || acc.channel,
-                      region: acc.region || "default"
-                    });
-                  } else {
-                    setSelectedParty(null);
-                  }
-                  setCart([]); // Clear cart to re-apply prices
-                }}
-                searchable
+          <div className="flex items-center ml-4 gap-2 bg-gray-100 p-1 rounded-lg border">
+            <button 
+              onClick={() => setIsOrderMode(false)}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${!isOrderMode ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+            >
+              INVOICE
+            </button>
+            <button 
+              onClick={() => setIsOrderMode(true)}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${isOrderMode ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+            >
+              ORDER
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4 ml-4">
+            <form onSubmit={handleBarcodeSubmit} className="flex items-center bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg shadow-inner">
+              <span className="text-[10px] font-bold text-blue-500 mr-2">BARCODE</span>
+              <input
+                autoFocus
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Scan or Type SKU..."
+                className="bg-transparent outline-none text-sm w-32 font-mono"
               />
-            </div>
+            </form>
+          </div>
+
+          <div className="ml-auto hidden md:flex items-center gap-4">
             <div className="flex items-center bg-white border px-3 py-2 rounded-lg shadow-sm">
               <Search size={16} className="text-gray-500" />
               <input

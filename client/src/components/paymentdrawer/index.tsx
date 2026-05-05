@@ -32,7 +32,6 @@ interface PaymentDrawerProps {
 
 interface CompletePaymentData {
   customer: string;
-  salesman: string;
   paymentType: PaymentMode;
   paidAmount: number;
   balance: number;
@@ -42,7 +41,6 @@ type PaymentMode = "cash" | "bank" | "upi" | "card" | "cheque";
 
 type ErrorState = Partial<{
   customer: string;
-  salesman: string;
   paymentType: string;
   paidAmount: string;
 }>;
@@ -60,7 +58,6 @@ export default function PaymentDrawer({
 
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [customer, setCustomer] = useState<string>("");
-  const [salesman, setSalesman] = useState<string>("");
   const [paymentType, setPaymentType] = useState<PaymentMode>("cash");
   const [paidAmount, setPaidAmount] = useState<number | "">(total);
   const [errors, setErrors] = useState<ErrorState>({});
@@ -73,12 +70,6 @@ export default function PaymentDrawer({
   const customers: CustomerAccount[] =
     (accData?.getAccounts || []).filter(
       (a: CustomerAccount) => a.type === "customer"
-    );
-
-  const { data: staffData } = useStaffQuery();
-  const salesmans: StaffAccount[] =
-    (staffData?.getStaffAccounts || []).filter(
-      (s: StaffAccount) => s.role === "salesman"
     );
 
   // ---------------------------
@@ -99,7 +90,6 @@ export default function PaymentDrawer({
     const newErrors: ErrorState = {};
 
     if (!customer) newErrors.customer = "Please select a customer.";
-    if (!salesman) newErrors.salesman = "Please select a salesman.";
     if (!paymentType) newErrors.paymentType = "Select payment mode.";
 
     if (paidAmount === "" || isNaN(Number(paidAmount))) {
@@ -122,7 +112,6 @@ export default function PaymentDrawer({
 
     const payload: CompletePaymentData = {
       customer,
-      salesman,
       paymentType,
       paidAmount: finalPaid,
       balance: finalPaid - total,
@@ -177,25 +166,6 @@ export default function PaymentDrawer({
           onAddNew={() => setAddCustomerOpen(true)}
         />
 
-        {/* SALESMAN */}
-        <FormField
-          label="Salesman"
-          name="salesman"
-          type="select"
-          value={salesman}
-          onChange={(e) => {
-            setSalesman(e.target.value);
-            setErrors((prev) => ({ ...prev, salesman: undefined }));
-            }}
-          options={salesmans.map((s) => ({
-            value: s.id,
-            label: s.name,
-          }))}
-          searchable
-          error={errors.salesman}
-          addable
-          onAddNew={() => navigate("/salesmenaccount")}
-        />
 
         {/* PAYMENT MODE */}
         <FormField

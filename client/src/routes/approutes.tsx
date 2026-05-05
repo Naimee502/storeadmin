@@ -36,6 +36,9 @@ import DeletedProducts from "../pages/products/deletedentries";
 import DeletedTransferStocks from "../pages/transferstock/deletedentries";
 import DeletedSalesInvoices from "../pages/salesinvoice/deletedentries";
 import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
+import SalesOrders from "../pages/salesorder";
+import AddEditSalesOrder from "../pages/salesorder/addedit";
+import DeletedSalesOrders from "../pages/salesorder/deletedentries";
 import AdminRegister from "../pages/adminregister";
 import Subscription from "../pages/subscription";
 import SubscriptionReview from "../pages/subscriptionreview";
@@ -481,6 +484,38 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <AddEditPurchaseInvoice />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesorder"
+          element={
+            <ProtectedRoutes>
+              <SalesOrders />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesorder/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditSalesOrder />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesorder/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditSalesOrder />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/salesorder/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedSalesOrders />
             </ProtectedRoutes>
           }
         />

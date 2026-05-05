@@ -41,6 +41,7 @@ const AddEditPurchaseInvoice = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+  const [autoCreate, setAutoCreate] = useState(false);
   const purchaseInvoices = useAppSelector(
     (state) => state.purchaseinvoice.invoices
   );
@@ -96,6 +97,7 @@ const AddEditPurchaseInvoice = () => {
       setInvoiceType(invoice.invoicetype || "");
       setTaxPercent(invoice.totalgst || 0);
       setStatus(invoice.status ?? true);
+      setAutoCreate(invoice.autocreate ?? true);
       setIsService(invoice.isservice ?? false);
 
       // --- Invoice product lines
@@ -242,6 +244,7 @@ const AddEditPurchaseInvoice = () => {
         purchaseaccountid: getUnitId(p.purchaseaccountid) ?? null,
         serviceaccountid: getUnitId(p.serviceaccountid) ?? null,
       })),
+      autocreate: autoCreate,
       status,
     };
     console.log("PurchaseInvoiceInput:", JSON.stringify(input));
@@ -376,6 +379,12 @@ const AddEditPurchaseInvoice = () => {
                 name="status"
                 checked={status}
                 onChange={(checked) => setStatus(checked)}
+              />
+              <FormSwitch
+                label="Auto-create Ledger & Stock"
+                name="autocreate"
+                checked={autoCreate}
+                onChange={(checked) => setAutoCreate(checked)}
               />
             </div>
           </fieldset>

@@ -18,6 +18,7 @@ import purchaseInvoiceReducer from '../slices/purchaseinvoice';
 import transferStockReducer from '../slices/transferstock';
 import loaderReducer from '../slices/loader';
 import messageReducer from '../slices/message';
+import salesorderReducer from '../slices/salesorder';
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -39,6 +40,7 @@ const appReducer = combineReducers({
   transferStock: transferStockReducer,  
   loader: loaderReducer,
   message: messageReducer,
+  salesorder: salesorderReducer,
 });
 
 const rootReducer = (state: any, action: any) => {
