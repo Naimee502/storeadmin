@@ -111,6 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const distributionLinks: SidebarLink[] = [
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-xl" />, moduleId: "channels" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-xl" />, moduleId: "salesroutes" },
+    { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-xl" />, moduleId: "products" },
+    { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-xl" />, moduleId: "products" },
   ];
 
   // Filter common links to avoid duplicates in admin

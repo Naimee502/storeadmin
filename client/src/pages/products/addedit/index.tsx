@@ -122,13 +122,13 @@ const AddEditProductService = () => {
           channel: "enduser",
           unitprices: [
             {
-              quantity: "",        // <-- empty
+              quantity: 1,
               unitid: "",
-              mrp: "",             // <-- empty
-              salesrate: "",       // <-- empty
-              discount: "",        // <-- empty
+              mrp: "",
+              salesrate: "",
+              discount: "",
               discounttype: "fixed",
-              offerprice: "",      // <-- empty
+              offerprice: "",
             },
           ],
         },
@@ -238,13 +238,15 @@ const AddEditProductService = () => {
                   },
                 ],
             pricing: variant.pricing?.length
-              ? variant.pricing.map((price: any) => ({
+              ? [variant.pricing[0]].map((price: any) => ({
                   ...price,
+                  region: price.region || "default",
+                  channel: (typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser",
                   unitprices: price.unitprices?.length
                     ? price.unitprices.map((up: any) => ({
                         ...up,
                         quantity: safeNumber(up.quantity),
-                        unitid: up.unitid?.id ?? "",
+                        unitid: up.unitid?.id ?? up.unitid ?? "",
                         mrp: safeNumber(up.mrp),
                         salesrate: safeNumber(up.salesrate),
                         purchaserate: safeNumber(up.purchaserate),
@@ -253,7 +255,7 @@ const AddEditProductService = () => {
                       }))
                     : [
                         {
-                          quantity: "",
+                          quantity: 1,
                           unitid: "",
                           mrp: "",
                           salesrate: "",
@@ -270,7 +272,7 @@ const AddEditProductService = () => {
                     channel: "enduser",
                     unitprices: [
                       {
-                        quantity: "",
+                        quantity: 1,
                         unitid: "",
                         mrp: "",
                         salesrate: "",
@@ -746,33 +748,30 @@ const AddEditProductService = () => {
             if (unitConvErrors.length > 0) variantErrors.unitconversions = unitConvErrors;
           }
 
-          // Pricing
+          // Pricing (Only 1st set)
           if (!variant.pricing || variant.pricing.length === 0) {
-            variantErrors.pricing = "At least 1 pricing set is required";
+            variantErrors.pricing = "Pricing is required";
           } else {
-            const pricingErrors: any[] = [];
-            variant.pricing.forEach((price: any) => {
-              const priceErrors: any = {};
+            const price = variant.pricing[0];
+            const priceErrors: any = {};
 
-              if (!price.unitprices || price.unitprices.length === 0) {
-                priceErrors.unitprices = "At least 1 unit price is required";
-              } else {
-                const unitPriceErrors: any[] = [];
-                price.unitprices.forEach((up: any) => {
-                  const upErrors: any = {};
-                  if (!up.unitid) upErrors.unitid = "Unit is required";
-                  if (!up.quantity || Number(up.quantity) <= 0)
-                    upErrors.quantity = "Quantity must be greater than 0";
-                  if (!up.salesrate || Number(up.salesrate) <= 0)
-                    upErrors.salesrate = "Sales rate must be greater than 0";
-                  if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
-                });
-                if (unitPriceErrors.length > 0) priceErrors.unitprices = unitPriceErrors;
-              }
+            if (!price.unitprices || price.unitprices.length === 0) {
+              priceErrors.unitprices = "At least 1 unit price is required";
+            } else {
+              const unitPriceErrors: any[] = [];
+              price.unitprices.forEach((up: any) => {
+                const upErrors: any = {};
+                if (!up.unitid) upErrors.unitid = "Unit is required";
+                if (!up.quantity || Number(up.quantity) <= 0)
+                  upErrors.quantity = "Quantity must be greater than 0";
+                if (!up.salesrate || Number(up.salesrate) <= 0)
+                  upErrors.salesrate = "Sales rate must be greater than 0";
+                if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
+              });
+              if (unitPriceErrors.length > 0) priceErrors.unitprices = unitPriceErrors;
+            }
 
-              if (Object.keys(priceErrors).length > 0) pricingErrors.push(priceErrors);
-            });
-            if (pricingErrors.length > 0) variantErrors.pricing = pricingErrors;
+            if (Object.keys(priceErrors).length > 0) variantErrors.pricing = [priceErrors];
           }
 
           if (Object.keys(variantErrors).length > 0) variantErrorsArray.push(variantErrors);

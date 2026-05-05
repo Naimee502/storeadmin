@@ -74,6 +74,9 @@ import DeletedStockAdjustments from "../pages/stockadjustments/deletedentries";
 import SalesRoutes from "../pages/salesroutes";
 import AddEditSalesRoute from "../pages/salesroutes/addedit";
 import DeletedSalesRoutes from "../pages/salesroutes/deletedentries";
+import PriceLists from "../pages/pricelists";
+import AddEditPriceList from "../pages/pricelists/addedit";
+import PriceAssignments from "../pages/priceassignments";
 
 const AppRoutes = () => {
     return (
@@ -741,6 +744,39 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <DeletedSalesRoutes />
+            </ProtectedRoutes>
+          }
+        />
+        {/* ---- Price Lists ---- */}
+        <Route
+          path="/pricelists"
+          element={
+            <ProtectedRoutes>
+              <PriceLists />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/pricelists/addedit"
+          element={
+            <ProtectedRoutes>
+              <AddEditPriceList />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/pricelists/addedit/:id"
+          element={
+            <ProtectedRoutes>
+              <AddEditPriceList />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/priceassignments"
+          element={
+            <ProtectedRoutes>
+              <PriceAssignments />
             </ProtectedRoutes>
           }
         />

@@ -13,7 +13,10 @@ import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesInvoiceMutations } from "../../graphql/hooks/salesinvoice";
+import { usePriceResolvers } from "../../graphql/hooks/pricelists";
+import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PaymentDrawer from "../../components/paymentdrawer";
+import FormField from "../../components/formfiled";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { getBaseQuantity, getCartItemBaseQty, getNextBillNumber } from "../../utils/helper";
 import { showMessage } from "../../redux/slices/message";
@@ -131,6 +134,14 @@ export default function POSDashboard() {
   const [selectedUnits, setSelectedUnits] = useState({});
   const [billNumber, setBillNumber] = useState("000001");
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedParty, setSelectedParty] = useState<any>(null);
+  const { resolvePrice } = usePriceResolvers();
+
+  const { data: accountData } = useAccountsQuery();
+  const accounts = accountData?.getAccounts || [];
+  const customerOptions = accounts
+    .filter((a: any) => a.type === "customer")
+    .map((a: any) => ({ value: a.id, label: `${a.name} - ${a.mobile}` }));
 
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId =
@@ -202,10 +213,31 @@ export default function POSDashboard() {
 
     if (!chosenUnit) return;
 
-    const sellPrice =
-      chosenUnit.offerprice ?? chosenUnit.salesrate ?? chosenUnit.price ?? chosenUnit.mrp ?? 0;
-
     const cartId = `${product.id}_${chosenVariant.variantId}_${chosenUnit.id}`;
+
+    // --- Price Resolution ---
+    const resolveAndAdd = async () => {
+      let sellPrice = chosenUnit.offerprice ?? chosenUnit.salesrate ?? chosenUnit.price ?? chosenUnit.mrp ?? 0;
+      let discount = chosenUnit.discount ?? 0;
+
+      if (selectedParty) {
+        try {
+          const resolved = await resolvePrice({
+            productid: product.id,
+            variantid: chosenVariant.variantId,
+            unitid: chosenUnit.id,
+            accountid: selectedParty.id,
+            channelid: selectedParty.channel,
+            region: selectedParty.region
+          });
+          if (resolved) {
+            sellPrice = resolved.rate;
+            discount = resolved.discount;
+          }
+        } catch (e) {
+          console.error("POS Price resolution error:", e);
+        }
+      }
 
     setCart((prev) => {
       // 🔥 total base qty of SAME VARIANT already in cart
@@ -256,7 +288,7 @@ export default function POSDashboard() {
           mrp: chosenUnit.mrp,
           gst: chosenVariant.gst ?? 0,
           qty: 1,
-          discount: chosenUnit.discount ?? 0,
+          discount: discount,
           salesaccountid: product.salesaccountid ?? null,
           purchaseaccountid: product.purchaseaccountid ?? null,
           serviceaccountid: product.serviceaccountid ?? null,
@@ -264,6 +296,9 @@ export default function POSDashboard() {
         ...prev,
       ];
     });
+    };
+
+    resolveAndAdd();
   };
 
   const updateQty = (cartId, qty) => {
@@ -400,14 +435,40 @@ export default function POSDashboard() {
             <span>POS Billing</span>
           </h2>
 
-          <div className="ml-auto hidden md:flex items-center bg-white border px-3 py-2 rounded-lg shadow-sm">
-            <Search size={16} className="text-gray-500" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products, brand or model..."
-              className="ml-2 bg-transparent outline-none text-sm w-60"
-            />
+          <div className="ml-auto hidden md:flex items-center gap-4">
+            <div className="w-64">
+              <FormField
+                label=""
+                name="pos_customer"
+                type="select"
+                placeholder="Select Customer (Pricing Context)"
+                options={customerOptions}
+                value={selectedParty?.id || ""}
+                onChange={(e) => {
+                  const acc = accounts.find(a => a.id === e.target.value);
+                  if (acc) {
+                    setSelectedParty({
+                      id: acc.id,
+                      channel: acc.channel?.id || acc.channel,
+                      region: acc.region || "default"
+                    });
+                  } else {
+                    setSelectedParty(null);
+                  }
+                  setCart([]); // Clear cart to re-apply prices
+                }}
+                searchable
+              />
+            </div>
+            <div className="flex items-center bg-white border px-3 py-2 rounded-lg shadow-sm">
+              <Search size={16} className="text-gray-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products..."
+                className="ml-2 bg-transparent outline-none text-sm w-40"
+              />
+            </div>
           </div>
         </div>
 

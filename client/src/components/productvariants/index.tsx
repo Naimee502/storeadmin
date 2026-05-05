@@ -267,29 +267,32 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             {errors[`variant_${index}_pricing`]}
                         </p>
                     )}
-                    {(variant.pricing || []).map((price, priceIndex) => (
+                    {(variant.pricing || []).slice(0, 1).map((price, priceIndex) => (
                         <div key={priceIndex} className="border p-2 rounded relative bg-gray-50 space-y-2">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <FormField
-                                    label="Region"
-                                    name={`productvariants.${index}.pricing.${priceIndex}.region`}
-                                    type="select"
-                                    options={regionOptions}
-                                    value={price.region || "default"}
-                                    onChange={handleChange}
-                                />
-                                <FormField
-                                    label="Channel"
-                                    name={`productvariants.${index}.pricing.${priceIndex}.channel`}
-                                    type="select"
-                                    options={channelData?.length 
-                                        ? channelData.map((c: any) => ({ value: c.id, label: c.channelName }))
-                                        : [{ value: "enduser", label: "End User" }]
-                                    }
-                                    value={(typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser"}
-                                    onChange={handleChange}
-                                />
-                                <button type="button" onClick={() => addUnitPrice(index, priceIndex)} className="w-10 h-10 mt-6 py-1 border rounded text-sm">➕</button>
+                                {/* Hidden Region & Channel fields to keep data structure intact */}
+                                <div className="hidden">
+                                    <FormField
+                                        label="Region"
+                                        name={`productvariants.${index}.pricing.${priceIndex}.region`}
+                                        type="select"
+                                        options={regionOptions}
+                                        value={price.region || "default"}
+                                        onChange={handleChange}
+                                    />
+                                    <FormField
+                                        label="Channel"
+                                        name={`productvariants.${index}.pricing.${priceIndex}.channel`}
+                                        type="select"
+                                        options={channelData?.length 
+                                            ? channelData.map((c: any) => ({ value: c.id, label: c.channelName }))
+                                            : [{ value: "enduser", label: "End User" }]
+                                        }
+                                        value={(typeof price.channel === 'object' ? price.channel?.id : price.channel) || "enduser"}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                                <button type="button" onClick={() => addUnitPrice(index, priceIndex)} className="w-10 h-10 mt-6 py-1 border rounded text-sm bg-white hover:bg-gray-100">➕</button>
                             </div>
 
                             {/* Unit Prices */}
@@ -329,19 +332,19 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                             <BarcodeImage value={up.productbarcode} align="start" />
                                         </div>
                                     )}
-                                    <button
-                                        type="button"
-                                        className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
-                                        onClick={() => removeUnitPrice(index, priceIndex, upIndex)}
-                                    >
-                                        ❌
-                                    </button>
+                                    {price.unitprices.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
+                                            onClick={() => removeUnitPrice(index, priceIndex, upIndex)}
+                                        >
+                                            ❌
+                                        </button>
+                                    )}
                                 </div>
                             ))}
-                            <button type="button" onClick={() => removePricing(index, priceIndex)} className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white">Remove Region</button>
                         </div>
                     ))}
-                    <button type="button" onClick={() => addPricing(index)} className="px-3 py-1 border rounded text-sm">➕ Add Region</button>
                 </div>
 
                 {/* Serials */}

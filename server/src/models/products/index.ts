@@ -35,7 +35,7 @@ export interface IUnitPrice {
 // 🔹 Pricing (per region & channel)
 export interface IPricing {
   region: string; // e.g., "default" | "andhra_pradesh" ...
-  channel: any; // e.g., "enduser" or ObjectId ref
+  channel?: Types.ObjectId; // proper ObjectId ref to Channel model
   unitprices: IUnitPrice[];
 }
 
@@ -239,10 +239,13 @@ const productServiceSchema = new Schema<IProductService>(
               ],
               default: "default"
             },
+            // ✅ Channel is now a proper ObjectId reference.
+            // The resolver layer is responsible for resolving the legacy
+            // "enduser" string to the admin's default Channel before save.
             channel: {
-              type: Schema.Types.Mixed, // Can be legacy string ("enduser") or ObjectId ref
+              type: Schema.Types.ObjectId,
               ref: "Channel",
-              default: "enduser",
+              default: null,
             },
             unitprices: [
               {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import FormField from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty } from "../../utils/helper";
+import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 
 /** ✅ Invoice line type */
 export type InvoiceProduct = {
@@ -82,6 +83,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [qtyError, setQtyError] = useState<string | null>(null);
+  const { resolvePrice } = usePriceResolvers();
 
   useEffect(() => {
     console.log("🔥 Party Account Received:", JSON.stringify(partyAccount));
@@ -263,7 +265,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             name="unit"
             type="select"
             value={selectedProduct.selectedUnitValue ?? ""}
-            onChange={(e) => {
+            onChange={async (e) => {
               const [unitid, qtyStr] = e.target.value.split("--");
               const qty = parseFloat(qtyStr ?? "0");
 
@@ -276,71 +278,86 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
               if (!variant) return;
 
-              const region = partyAccount?.region?.toLowerCase() || "default";
-              const channel = partyAccount?.channel?.toLowerCase() || "enduser";
+              // --- NEW RESOLUTION LOGIC ---
+              let resolvedPrice = null;
+              try {
+                resolvedPrice = await resolvePrice({
+                  productid: selectedProduct.productserviceid,
+                  variantid: selectedProduct.variantid,
+                  unitid,
+                  accountid: partyAccount?.id,
+                  channelid: partyAccount?.channel,
+                  region: partyAccount?.region
+                });
+              } catch (err) {
+                console.error("Price resolution failed, falling back:", err);
+              }
 
-              // STEP 1: Pricing Priority
-              const matchedPricing = variant.pricing.find(
-                (p: any) =>
-                  p.region?.toLowerCase() === region &&
-                  p.channel?.toLowerCase() === channel
-              );
+              let correctRate = 0;
+              let discount = 0;
 
-              const channelOnlyMatch = variant.pricing.find(
-                (p: any) => p.channel?.toLowerCase() === channel
-              );
+              if (resolvedPrice) {
+                correctRate = resolvedPrice.rate;
+                discount = resolvedPrice.discount;
+              } else {
+                // FALLBACK to product-embedded pricing
+                const region = partyAccount?.region?.toLowerCase() || "default";
+                const channel = partyAccount?.channel?.toLowerCase() || "enduser";
 
-              const fallbackEndUser = variant.pricing.find(
-                (p: any) => p.channel?.toLowerCase() === "enduser"
-              );
-
-              // STEP 2: Pick best pricing based on priority
-              let pricingToUse =
-                matchedPricing || channelOnlyMatch || fallbackEndUser || variant.pricing[0] || null;
-
-              // STEP 3: If selected unit NOT found in selected pricing, find proper fallback
-              let price =
-                pricingToUse?.unitprices?.find(
-                  (up: any) =>
-                    (up.unitid?.id ?? up.unitid) === unitid &&
-                    parseFloat(up.quantity) === qty
-                ) ?? null;
-
-              // If not found → search inside ALL pricing objects
-              if (!price) {
-                const priceSearch = variant.pricing.flatMap((p: any) =>
-                  p.unitprices.map((up: any) => ({ ...up, priceObj: p }))
+                const matchedPricing = variant.pricing.find(
+                  (p: any) =>
+                    p.region?.toLowerCase() === region &&
+                    p.channel?.toLowerCase() === channel
                 );
 
-                const found = priceSearch.find(
-                  (up: any) =>
-                    (up.unitid?.id ?? up.unitid) === unitid &&
-                    parseFloat(up.quantity) === qty
+                const channelOnlyMatch = variant.pricing.find(
+                  (p: any) => p.channel?.toLowerCase() === channel
                 );
 
-                if (found) {
-                  price = found;
-                  pricingToUse = found.priceObj;
+                const fallbackEndUser = variant.pricing.find(
+                  (p: any) => p.channel?.toLowerCase() === "enduser"
+                );
+
+                let pricingToUse =
+                  matchedPricing || channelOnlyMatch || fallbackEndUser || variant.pricing[0] || null;
+
+                let price =
+                  pricingToUse?.unitprices?.find(
+                    (up: any) =>
+                      (up.unitid?.id ?? up.unitid) === unitid &&
+                      parseFloat(up.quantity) === qty
+                  ) ?? null;
+
+                if (!price) {
+                  const priceSearch = variant.pricing.flatMap((p: any) =>
+                    p.unitprices.map((up: any) => ({ ...up, priceObj: p }))
+                  );
+                  const found = priceSearch.find(
+                    (up: any) =>
+                      (up.unitid?.id ?? up.unitid) === unitid &&
+                      parseFloat(up.quantity) === qty
+                  );
+                  if (found) {
+                    price = found;
+                  }
                 }
-              }
 
-              // If STILL nothing → just use fallback default
-              if (!price) {
-                pricingToUse = variant.pricing[0];
-                price = variant.pricing[0].unitprices[0];
-              }
+                if (!price) {
+                  price = variant.pricing[0]?.unitprices[0];
+                }
 
-              // FINAL RATE
-              const correctRate =
-                price?.offerprice && price.offerprice > 0
-                  ? price.offerprice
-                  : price?.salesrate ?? 0;
+                correctRate =
+                  price?.offerprice && price.offerprice > 0
+                    ? price.offerprice
+                    : price?.salesrate ?? 0;
+                discount = price?.discount ?? 0;
+              }
 
               setSelectedProduct((prev) => ({
                 ...prev,
                 salesunitid: unitid,
                 rate: Number(correctRate),
-                discount: Number(price?.discount ?? 0),
+                discount: Number(discount),
                 gst: Number(variant?.gst ?? 0),
                 unitquantity: Number(qty),
                 selectedUnitValue: e.target.value,

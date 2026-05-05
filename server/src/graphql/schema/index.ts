@@ -22,6 +22,7 @@ import { expenseNoteTypeDefs } from "./expensenote";
 import { channelTypeDefs } from "./channel";
 import { stockAdjustmentTypeDefs } from "./stockadjustments";
 import { salesRouteSchema } from "./salesroutes";
+import { priceListTypeDefs } from "./pricelists";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -47,5 +48,6 @@ export const typeDefs = [
   expenseNoteTypeDefs,
   channelTypeDefs,
   stockAdjustmentTypeDefs,
-  salesRouteSchema
+  salesRouteSchema,
+  priceListTypeDefs
 ];

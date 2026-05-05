@@ -290,6 +290,8 @@ export const productServiceTypeDefs = gql`
 
   input PricingInput {
     region: String
+    # Accepts either a Channel ID, the legacy keyword "enduser", or null.
+    # The resolver normalizes all of these to a real Channel ObjectId.
     channel: String
     unitprices: [UnitPriceInput]
   }
