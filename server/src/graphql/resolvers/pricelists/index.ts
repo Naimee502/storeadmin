@@ -8,6 +8,9 @@ export const priceListResolvers = {
     getPriceLists: async (_: any, { adminid }: { adminid: string }) => {
       return await PriceList.find({ adminid, status: true }).sort({ createdAt: -1 });
     },
+    getDeletedPriceLists: async (_: any, { adminid }: { adminid: string }) => {
+      return await PriceList.find({ adminid, status: false }).sort({ createdAt: -1 });
+    },
     getPriceListById: async (_: any, { id }: { id: string }) => {
       return await PriceList.findById(id).populate("items.productid").populate("items.unitid");
     },
@@ -54,6 +57,10 @@ export const priceListResolvers = {
     },
     deletePriceList: async (_: any, { id }: any) => {
       await PriceList.findByIdAndUpdate(id, { status: false });
+      return true;
+    },
+    resetPriceList: async (_: any, { id }: any) => {
+      await PriceList.findByIdAndUpdate(id, { status: true });
       return true;
     },
     createPriceAssignment: async (_: any, { input }: any, context: any) => {

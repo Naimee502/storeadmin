@@ -5,6 +5,7 @@ import {
   GET_PRICE_LIST_BY_ID,
   GET_PRICE_ASSIGNMENTS,
   RESOLVE_PRICE,
+  GET_DELETED_PRICE_LISTS,
 } from "../../queries/pricelists";
 import {
   CREATE_PRICE_LIST,
@@ -13,6 +14,7 @@ import {
   CREATE_PRICE_ASSIGNMENT,
   UPDATE_PRICE_ASSIGNMENT,
   DELETE_PRICE_ASSIGNMENT,
+  RESET_PRICE_LIST,
 } from "../../mutations/pricelists";
 
 export const usePriceListQuery = () => {
@@ -20,6 +22,18 @@ export const usePriceListQuery = () => {
   const adminid = admin?.id;
 
   const { data, loading, error, refetch } = useQuery(GET_PRICE_LISTS, {
+    variables: { adminid },
+    skip: !adminid,
+  });
+
+  return { data, loading, error, refetch };
+};
+
+export const useDeletedPriceListQuery = () => {
+  const { admin } = useAppSelector((state) => state.auth);
+  const adminid = admin?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_PRICE_LISTS, {
     variables: { adminid },
     skip: !adminid,
   });
@@ -63,8 +77,9 @@ export const usePriceListMutations = () => {
   const [createPriceList] = useMutation(CREATE_PRICE_LIST);
   const [updatePriceList] = useMutation(UPDATE_PRICE_LIST);
   const [deletePriceList] = useMutation(DELETE_PRICE_LIST);
+  const [resetPriceList] = useMutation(RESET_PRICE_LIST);
 
-  return { createPriceList, updatePriceList, deletePriceList };
+  return { createPriceList, updatePriceList, deletePriceList, resetPriceList };
 };
 
 export const usePriceAssignmentMutations = () => {

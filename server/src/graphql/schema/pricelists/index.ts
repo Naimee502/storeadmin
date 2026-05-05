@@ -45,6 +45,7 @@ export const priceListTypeDefs = gql`
   }
 
   input PriceListInput {
+    adminid: ID
     name: String!
     description: String
     items: [PriceListItemInput]
@@ -52,6 +53,7 @@ export const priceListTypeDefs = gql`
   }
 
   input PriceAssignmentInput {
+    adminid: ID
     pricelistid: ID!
     targettype: String!
     targetid: String!
@@ -62,6 +64,7 @@ export const priceListTypeDefs = gql`
   extend type Query {
     getPriceLists(adminid: ID!): [PriceList]
     getPriceListById(id: ID!): PriceList
+    getDeletedPriceLists(adminid: ID!): [PriceList]
     getPriceAssignments(adminid: ID!): [PriceAssignment]
     resolvePrice(
       productid: ID!
@@ -77,6 +80,7 @@ export const priceListTypeDefs = gql`
     createPriceList(input: PriceListInput!): PriceList
     updatePriceList(id: ID!, input: PriceListInput!): PriceList
     deletePriceList(id: ID!): Boolean
+    resetPriceList(id: ID!): Boolean
     createPriceAssignment(input: PriceAssignmentInput!): PriceAssignment
     updatePriceAssignment(id: ID!, input: PriceAssignmentInput!): PriceAssignment
     deletePriceAssignment(id: ID!): Boolean

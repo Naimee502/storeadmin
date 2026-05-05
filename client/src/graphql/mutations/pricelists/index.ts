@@ -24,6 +24,12 @@ export const DELETE_PRICE_LIST = gql`
   }
 `;
 
+export const RESET_PRICE_LIST = gql`
+  mutation ResetPriceList($id: ID!) {
+    resetPriceList(id: $id)
+  }
+`;
+
 export const CREATE_PRICE_ASSIGNMENT = gql`
   mutation CreatePriceAssignment($input: PriceAssignmentInput!) {
     createPriceAssignment(input: $input) {

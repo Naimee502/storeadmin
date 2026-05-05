@@ -6,7 +6,7 @@ import Button from "../../../components/button";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
 import { usePriceListByIdQuery, usePriceListMutations } from "../../../graphql/hooks/pricelists";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 
 const AddEditPriceList = () => {
@@ -14,6 +14,9 @@ const AddEditPriceList = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -30,69 +33,76 @@ const AddEditPriceList = () => {
   const units = unitData?.getUnits || [];
 
   useEffect(() => {
-    if (isEdit && priceListData?.getPriceListById) {
-      const pl = priceListData.getPriceListById;
-      setFormData({
-        name: pl.name,
-        description: pl.description || "",
-        items: pl.items.map((i: any) => ({
-          productid: i.productid?.id,
-          variantid: i.variantid,
-          unitid: i.unitid?.id,
-          quantity: i.quantity,
-          rate: i.rate,
-          discount: i.discount,
-          discounttype: i.discounttype,
-        })),
-      });
+    if (products.length > 0) {
+      // 1. Generate master list of all available unit prices
+      const masterItems = products.flatMap((p: any) =>
+        (p.productvariants || []).flatMap((v: any) =>
+          (v.unitprices || []).map((up: any) => ({
+            productid: p.id,
+            productname: p.name,
+            variantid: v.id,
+            variantname: v.name,
+            unitid: up.unitid?.id || up.unitid,
+            unitname: up.unitid?.unitname || up.unitname || "Unit",
+            quantity: up.quantity,
+            rate: up.salesrate,
+            discount: 0,
+            discounttype: "fixed",
+          }))
+        )
+      );
+
+      if (isEdit && priceListData?.getPriceListById) {
+        const pl = priceListData.getPriceListById;
+        const existingItems = pl.items || [];
+        
+        // Merge master list with saved values
+        const mergedItems = masterItems.map(m => {
+          const found = existingItems.find((e: any) => 
+            (e.productid?.id || e.productid) === m.productid && 
+            e.variantid === m.variantid && 
+            (e.unitid?.id || e.unitid) === m.unitid && 
+            e.quantity === m.quantity
+          );
+          if (found) {
+            return {
+              ...m,
+              rate: found.rate,
+              discount: found.discount,
+              discounttype: found.discounttype,
+            };
+          }
+          return m;
+        });
+
+        setFormData({
+          name: pl.name,
+          description: pl.description || "",
+          items: mergedItems,
+        });
+      } else if (!isEdit && formData.items.length === 0) {
+        setFormData(prev => ({
+          ...prev,
+          items: masterItems,
+        }));
+      }
     }
-  }, [isEdit, priceListData]);
+  }, [products, priceListData, isEdit]);
 
-  const handleAddItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        {
-          productid: "",
-          variantid: "",
-          unitid: "",
-          quantity: 1,
-          rate: 0,
-          discount: 0,
-          discounttype: "fixed",
-        },
-      ],
-    }));
+  const calculateOfferRate = (rate: number, discount: number, type: string) => {
+    const r = parseFloat(rate.toString()) || 0;
+    const d = parseFloat(discount.toString()) || 0;
+    if (type === "percentage") {
+      return r - (r * d) / 100;
+    }
+    return r - d;
   };
 
-  const handleRemoveItem = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
-  };
+
 
   const handleItemChange = (index: number, field: string, value: any) => {
     const newItems = [...formData.items];
-    
-    if (field === "productvariant") {
-      const [pid, vid] = value.split("--");
-      newItems[index].productid = pid;
-      newItems[index].variantid = vid;
-      
-      // Auto-fill default rate if possible
-      const product = products.find((p: any) => p.id === pid);
-      const variant = product?.productvariants.find((v: any) => v.id === vid);
-      if (variant?.unitprices?.[0]) {
-        const up = variant.unitprices[0];
-        newItems[index].unitid = up.unitid?.id || up.unitid;
-        newItems[index].rate = up.salesrate;
-      }
-    } else {
-      newItems[index][field] = value;
-    }
-    
+    newItems[index][field] = value;
     setFormData({ ...formData, items: newItems });
   };
 
@@ -112,6 +122,7 @@ const AddEditPriceList = () => {
         discount: parseFloat(i.discount),
         discounttype: i.discounttype,
       })),
+      adminid: adminId,
       status: true,
     };
 
@@ -154,9 +165,6 @@ const AddEditPriceList = () => {
           <div className="border rounded-xl p-4 bg-white shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Products & Rates</h3>
-              <Button type="button" variant="outline" onClick={handleAddItem}>
-                + Add Product
-              </Button>
             </div>
 
             <div className="overflow-x-auto">
@@ -164,58 +172,29 @@ const AddEditPriceList = () => {
                 <thead>
                   <tr className="bg-gray-50 text-left text-sm">
                     <th className="p-2 border">Product & Variant</th>
-                    <th className="p-2 border">Unit</th>
                     <th className="p-2 border w-24">Qty</th>
+                    <th className="p-2 border">Unit</th>
                     <th className="p-2 border w-32">Rate</th>
-                    <th className="p-2 border w-32">Discount</th>
-                    <th className="p-2 border">Action</th>
+                    <th className="p-2 border w-40">Discount</th>
+                    <th className="p-2 border w-32">Offer Rate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {formData.items.map((item, index) => (
-                    <tr key={index} className="text-sm">
-                      <td className="p-2 border">
-                        <select
-                          className="w-full p-1 border rounded"
-                          value={`${item.productid}--${item.variantid}`}
-                          onChange={(e) => handleItemChange(index, "productvariant", e.target.value)}
-                        >
-                          <option value="">Select Product</option>
-                          {products.flatMap((p: any) =>
-                            p.productvariants.map((v: any) => (
-                              <option key={`${p.id}--${v.id}`} value={`${p.id}--${v.id}`}>
-                                {p.name} - {v.name}
-                              </option>
-                            ))
-                          )}
-                        </select>
+                    <tr key={index} className="text-sm hover:bg-gray-50">
+                      <td className="p-2 border bg-gray-50 font-medium">
+                        {item.productname} - {item.variantname}
                       </td>
-                      <td className="p-2 border">
-                        <select
-                          className="w-full p-1 border rounded"
-                          value={item.unitid}
-                          onChange={(e) => handleItemChange(index, "unitid", e.target.value)}
-                        >
-                          <option value="">Select Unit</option>
-                          {units.map((u: any) => (
-                            <option key={u.id} value={u.id}>
-                              {u.unitname}
-                            </option>
-                          ))}
-                        </select>
+                      <td className="p-2 border text-center bg-gray-50">
+                        {item.quantity}
+                      </td>
+                      <td className="p-2 border bg-gray-50">
+                        {item.unitname}
                       </td>
                       <td className="p-2 border">
                         <input
                           type="number"
-                          className="w-full p-1 border rounded"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          className="w-full p-1 border rounded"
+                          className="w-full p-1 border rounded focus:ring-1 focus:ring-blue-500 outline-none"
                           value={item.rate}
                           onChange={(e) => handleItemChange(index, "rate", e.target.value)}
                         />
@@ -224,12 +203,12 @@ const AddEditPriceList = () => {
                         <div className="flex gap-1">
                           <input
                             type="number"
-                            className="w-2/3 p-1 border rounded"
+                            className="w-2/3 p-1 border rounded focus:ring-1 focus:ring-blue-500 outline-none"
                             value={item.discount}
                             onChange={(e) => handleItemChange(index, "discount", e.target.value)}
                           />
                           <select
-                            className="w-1/3 p-1 border rounded text-xs"
+                            className="w-1/3 p-1 border rounded text-xs outline-none"
                             value={item.discounttype}
                             onChange={(e) => handleItemChange(index, "discounttype", e.target.value)}
                           >
@@ -238,14 +217,8 @@ const AddEditPriceList = () => {
                           </select>
                         </div>
                       </td>
-                      <td className="p-2 border text-center">
-                        <button
-                          type="button"
-                          className="text-red-500 hover:text-red-700"
-                          onClick={() => handleRemoveItem(index)}
-                        >
-                          Remove
-                        </button>
+                      <td className="p-2 border font-bold text-blue-700 bg-blue-50/30">
+                        ₹{calculateOfferRate(item.rate, item.discount, item.discounttype).toFixed(2)}
                       </td>
                     </tr>
                   ))}

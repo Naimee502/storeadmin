@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
@@ -13,18 +13,20 @@ const PriceLists = () => {
   const priceLists = data?.getPriceLists ?? [];
   const { deletePriceList } = usePriceListMutations();
 
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
   const columns = [
     { label: "Seq No", key: "seqNo" },
     { label: "Name", key: "name" },
     { label: "Description", key: "description" },
-    { label: "Created At", key: "createdAt" },
     { label: "Status", key: "status" },
   ];
 
   const tableData = priceLists.map((item: any, index: number) => ({
     ...item,
     seqNo: index + 1,
-    createdAt: new Date(parseInt(item.createdAt)).toLocaleDateString(),
     status: item.status ? "Active" : "Inactive",
   }));
 
@@ -39,6 +41,8 @@ const PriceLists = () => {
           showEdit={true}
           showDelete={true}
           showAdd={true}
+          showExport={false}
+          showImport={false}
           onEdit={(row) => navigate(`/pricelists/addedit/${row.id}`)}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete "${row.name}"?`)) {
@@ -53,6 +57,8 @@ const PriceLists = () => {
             }
           }}
           onAdd={() => navigate("/pricelists/addedit")}
+          showDeleted={true}
+          onShowDeleted={() => navigate("/pricelists/deletedentries")}
           isLoading={loading}
         />
       </div>
