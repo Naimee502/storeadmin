@@ -34,7 +34,6 @@ export const GET_ACCOUNTS = gql`
       upiid
       billingcycle
       duedays
-      isposcustomer
       latitude
       longitude
       otp
@@ -100,7 +99,6 @@ export const GET_ACCOUNT_BY_ID = gql`
       upiid
       billingcycle
       duedays
-      isposcustomer
       latitude
       longitude
       otp

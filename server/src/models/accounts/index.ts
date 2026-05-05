@@ -93,8 +93,6 @@ const accountSchema = new mongoose.Schema(
     },
     duedays: { type: Number, default: 0 },
 
-    isposcustomer: { type: Boolean, default: false },
-
     //is Channel Customer in Admin True
     assignaccountid: {
       type: mongoose.Schema.Types.ObjectId,

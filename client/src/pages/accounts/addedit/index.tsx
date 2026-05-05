@@ -55,7 +55,6 @@ const AddEditAccount = () => {
     billingcycle: "monthly",
     duedays: "",
     type: "customer",
-    isposcustomer: false,
     status: true,
     accountgroupid: "",
     assignaccountid: "",
@@ -94,7 +93,6 @@ const AddEditAccount = () => {
         billingcycle: a.billingcycle || "monthly",
         duedays: a.duedays || "",
         type: a.type || "customer",
-        isposcustomer: a.isposcustomer ?? false,
         status: a.status ?? true,
         accountgroupid: a.accountgroupid?.id || "",
         assignaccountid: a.assignaccountid?.id || "",
@@ -137,13 +135,34 @@ const AddEditAccount = () => {
     }
 
     const input = {
-      ...formValues,
+      name: formValues.name,
+      mobile: formValues.mobile,
+      email: formValues.email,
+      address: formValues.address,
+      city: formValues.city,
+      state: formValues.state,
+      country: formValues.country,
+      pincode: formValues.pincode,
+      gstnumber: formValues.gstnumber,
+      pan: formValues.pan,
+      openingbalance: Number(formValues.openingbalance) || 0,
+      openingbalancetype: formValues.openingbalancetype,
+      creditlimit: Number(formValues.creditlimit) || 0,
+      bankname: formValues.bankname,
+      bankaccountnumber: formValues.bankaccountnumber,
+      ifsc: formValues.ifsc,
+      upiid: formValues.upiid,
+      billingcycle: formValues.billingcycle,
+      duedays: Number(formValues.duedays) || 0,
+      type: formValues.type,
+      status: formValues.status,
+      accountgroupid: formValues.accountgroupid,
       assignaccountid: formValues.assignaccountid || null,
       salesmanid: formValues.salesmanid || null,
+      admin: formValues.admin,
+      branchid: formValues.branchid || null,
       channel: formValues.channel || null,
       region: formValues.region || "default",
-      creditlimit: Number(formValues.creditlimit) || 0,
-      duedays: Number(formValues.duedays) || 0,
     };
 
     console.log("Submitting Input:", JSON.stringify(input));
@@ -279,9 +298,9 @@ const AddEditAccount = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm sm:text-base font-medium px-2">Financial Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Opening Balance" name="openingbalance" type="number" value={formValues.openingbalance} onChange={(e) => handleChange("openingbalance", parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter opening balance" error={formErrors.openingbalance}/>
+                <FormField label="Opening Balance" name="openingbalance" type="number" value={formValues.openingbalance} onChange={(e) => handleChange("openingbalance", e.target.value === "" ? "" : parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter opening balance" error={formErrors.openingbalance}/>
                 <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
-                <FormField label="Credit Limit" name="creditlimit" type="number" value={formValues.creditlimit} onChange={(e) => handleChange("creditlimit", parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter credit limit" />
+                <FormField label="Credit Limit" name="creditlimit" type="number" value={formValues.creditlimit} onChange={(e) => handleChange("creditlimit", e.target.value === "" ? "" : parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter credit limit" />
                 <FormField label="GST Number" name="gstnumber" value={formValues.gstnumber} onChange={(e) => handleChange("gstnumber", e.target.value)} placeholder="Enter GST number" />
                 <FormField label="PAN" name="pan" value={formValues.pan} onChange={(e) => handleChange("pan", e.target.value)} placeholder="Enter PAN" />
               </div>
@@ -304,8 +323,7 @@ const AddEditAccount = () => {
             <legend className="text-sm sm:text-base font-medium px-2">Preferences</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <FormField label="Billing Cycle" name="billingcycle" type="select" value={formValues.billingcycle} onChange={(e) => handleChange("billingcycle", e.target.value)} options={[{ label: "Daily", value: "daily" }, { label: "Weekly", value: "weekly" }, { label: "Monthly", value: "monthly" }]} placeholder="Select billing cycle" />
-              <FormField label="Due Days" name="duedays" type="number" value={formValues.duedays} onChange={(e) => handleChange("duedays", parseInt(e.target.value))} placeholder="Enter due days" />
-              <FormSwitch label="POS Customer" name="isposcustomer" checked={formValues.isposcustomer} onChange={(val) => handleChange("isposcustomer", val)} />
+              <FormField label="Due Days" name="duedays" type="number" value={formValues.duedays} onChange={(e) => handleChange("duedays", e.target.value === "" ? "" : parseInt(e.target.value))} placeholder="Enter due days" />
               <FormSwitch label="Status" name="status" checked={formValues.status} onChange={(val) => handleChange("status", val)} />
             </div>
           </fieldset>

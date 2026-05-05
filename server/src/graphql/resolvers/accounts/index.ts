@@ -34,7 +34,6 @@ export const accountResolvers = {
       if (filter?.pincode) query.pincode = filter.pincode;
       if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
       if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
-      if (typeof filter?.isposcustomer === "boolean") query.isposcustomer = filter.isposcustomer;
       if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
       if (filter?.salesmanid) query.salesmanid = filter.salesmanid;
       if (typeof filter?.duedays === "number") query.duedays = filter.duedays;

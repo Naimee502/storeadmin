@@ -30,7 +30,6 @@ export const ADD_ACCOUNT = gql`
       upiid
       billingcycle
       duedays
-      isposcustomer
       assignaccountid {
         id
         name
@@ -92,7 +91,6 @@ export const EDIT_ACCOUNT = gql`
       upiid
       billingcycle
       duedays
-      isposcustomer
       assignaccountid {
         id
         name

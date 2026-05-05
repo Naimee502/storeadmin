@@ -59,7 +59,6 @@ export const accountTypeDefs = gql`
     upiid: String
     billingcycle: String
     duedays: Int
-    isposcustomer: Boolean
     assignaccountid: Account
     salesmanid: Salesman
     latitude: Float
@@ -98,7 +97,6 @@ export const accountTypeDefs = gql`
     upiid: String
     billingcycle: String
     duedays: Int
-    isposcustomer: Boolean
     assignaccountid: ID
     salesmanid: ID
     latitude: Float
@@ -128,7 +126,6 @@ export const accountTypeDefs = gql`
     pincode: String
     billingcycle: String
     openingbalancetype: String
-    isposcustomer: Boolean
     status: Boolean
     createdFrom: String
     createdTo: String
