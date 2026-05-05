@@ -208,16 +208,11 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     </button>
                 </div>
 
-                {/* Unit Prices */}
                 <div className="border-t pt-4 space-y-2 pb-4">
                     <h4 className="font-semibold">Unit Prices</h4>
-                    <div className="border p-2 rounded relative bg-gray-50 space-y-2">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <button type="button" onClick={() => addUnitPrice(index)} className="w-10 h-10 mt-6 py-1 border rounded text-sm bg-white hover:bg-gray-100">➕</button>
-                        </div>
-
+                    <div className="space-y-2">
                         {(variant.unitprices || []).map((up, upIndex) => (
-                            <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 rounded bg-white p-2 relative">
+                            <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 border rounded bg-gray-50 p-2 relative">
                                 {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
                                     <FormField
                                         key={f}
@@ -254,7 +249,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 {variant.unitprices.length > 1 && (
                                     <button
                                         type="button"
-                                        className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
+                                        className="w-10 h-10 mt-6 right-2 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
                                         onClick={() => removeUnitPrice(index, upIndex)}
                                     >
                                         ❌
@@ -263,6 +258,13 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             </div>
                         ))}
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => addUnitPrice(index)}
+                        className="px-3 py-1 border rounded text-sm"
+                    >
+                        ➕ Add Unit Price
+                    </button>
                 </div>
 
                 {/* Serials */}
