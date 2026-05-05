@@ -9,8 +9,6 @@ export const GET_PRODUCT_SERVICES = gql`
       branchid
       isservice
       isserialised
-      isshowinpos
-      isfeatured
       name
       description
       imageurl
@@ -111,8 +109,6 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       branchid
       isservice
       isserialised
-      isshowinpos
-      isfeatured
       name
       description
       imageurl

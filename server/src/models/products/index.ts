@@ -93,8 +93,6 @@ export interface IProductService extends Document {
   branchid: Types.ObjectId;
   isservice: boolean;
   isserialised: boolean;
-  isshowinpos?: boolean;
-  isfeatured?: boolean;
   name: string;
   description?: string;
   imageurl?: string;
@@ -123,8 +121,6 @@ const productServiceSchema = new Schema<IProductService>(
     vendorid: { type: Schema.Types.ObjectId, ref: "Vendor" },
     branchid: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     isservice: { type: Boolean, default: false },
-    isshowinpos: { type: Boolean, default: false },
-    isfeatured: { type: Boolean, default: false },
     isserialised: { type: Boolean, default: false },
     name: { type: String, required: true },
     description: { type: String, default: "" },

@@ -55,8 +55,6 @@ const AddEditProductService = () => {
   branchid: branchId,
   isservice: false,
   isserialised: false,
-  isshowinpos: false,
-  isfeatured: false,
   name: "",
   description: "",
   imageurl: "",
@@ -172,8 +170,6 @@ const AddEditProductService = () => {
       branchid: p.branchid ?? branchId ?? "",
       isservice: p.isservice ?? false,
       isserialised: p.isserialised ?? false,
-      isshowinpos: p.isshowinpos ?? false,
-      isfeatured: p.isfeatured ?? false,
       name: p.name ?? "",
       description: p.description ?? "",
       imageurl: p.imageurl ?? "",
@@ -737,8 +733,6 @@ const AddEditProductService = () => {
 
       isservice: !!formData.isservice,
       isserialised: !!formData.isserialised,
-      isshowinpos: !!formData.isshowinpos,
-      isfeatured: !!formData.isfeatured,
 
       productvariants: formData.isservice ? [] : (formData.productvariants || []).map(v => ({
         id: v.id || undefined,
@@ -916,8 +910,6 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Options</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
-              <FormField label="Show In POS" name="isshowinpos" type="checkbox" value={formData.isshowinpos} onChange={handleChange} />
-              <FormField label="Featured" name="isfeatured" type="checkbox" value={formData.isfeatured} onChange={handleChange} />
               <FormField label="Status" name="status" type="checkbox" value={formData.status} onChange={handleChange} />
               {/* <FormField label="Is Service" name="isservice" type="checkbox" value={formData.isservice} onChange={handleChange} /> */}
               <FormField label="Is Product Serialised" name={`isserialised`} type="checkbox" value={formData.isserialised} onChange={handleChange} />

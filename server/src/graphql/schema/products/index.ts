@@ -115,8 +115,6 @@ export const productServiceTypeDefs = gql`
     vendorid: ID
     branchid: ID!
     isservice: Boolean
-    isshowinpos: Boolean
-    isfeatured: Boolean
     isserialised: Boolean
     name: String!
     description: String
@@ -156,8 +154,6 @@ export const productServiceTypeDefs = gql`
     brandid: ID
     sizeid: ID
     status: Boolean
-    isfeatured: Boolean
-    isshowinpos: Boolean
     name_contains: String
     productcode: String
     productbarcode: String
@@ -176,8 +172,6 @@ export const productServiceTypeDefs = gql`
     vendorid: ID
     branchid: ID!
     isservice: Boolean
-    isshowinpos: Boolean
-    isfeatured: Boolean
     isserialised: Boolean
     name: String!
     description: String

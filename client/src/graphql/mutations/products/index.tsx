@@ -9,8 +9,6 @@ export const ADD_PRODUCT_SERVICE = gql`
       branchid
       isservice
       isserialised
-      isshowinpos
-      isfeatured
       name
       description
       imageurl
@@ -117,8 +115,6 @@ export const UPDATE_PRODUCT_SERVICE = gql`
       branchid
       isservice
       isserialised
-      isshowinpos
-      isfeatured
       name
       description
       imageurl
