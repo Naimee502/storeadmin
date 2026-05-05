@@ -41,7 +41,7 @@ interface DataTableProps {
     showEdit?: boolean;
     showDelete?: boolean;
     showAdd?: boolean;
-    showReset?: boolean;
+    showReset?: boolean | ((row: any) => boolean);
     showPrint?: boolean;
     showBarcode?: boolean | ((row: any) => boolean);
     showConvert?: boolean;
@@ -312,7 +312,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 <FaTrash />
                                             </button>
                                         )}
-                                        {showReset && (
+                                        {(typeof showReset === "function" ? showReset(row) : showReset) && (
                                             <button onClick={() => onReset?.(row)} title="Reset" className="text-yellow-600">
                                                 <FaUndo />
                                             </button>

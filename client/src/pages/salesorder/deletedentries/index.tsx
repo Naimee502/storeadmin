@@ -43,6 +43,7 @@ const DeletedSalesOrders = () => {
     { label: "Order No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
     { label: "Created By", key: "createdby_name" },
+    { label: "Status", key: "orderStatus" },
   ];
 
   const capitalizeFirst = (text: string) =>
@@ -63,6 +64,7 @@ const DeletedSalesOrders = () => {
       billtype_billnumber: `${capitalizeFirst(String(order.billtype))}-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
+      orderStatus: order.isConverted ? "Invoiced" : "Deleted",
     };
   });
 
@@ -77,10 +79,11 @@ const DeletedSalesOrders = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={true}
+          showReset={(row) => !row.isConverted}
           showImport={false}
           showExport={false}
           showAdd={false}
+          showDeleted={false}
           onReset={async (row) => {
             try {
               await resetSalesOrderMutation({

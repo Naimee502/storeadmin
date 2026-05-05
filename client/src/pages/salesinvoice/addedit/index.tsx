@@ -169,6 +169,7 @@ const AddEditSalesInvoice = () => {
       setInvoiceType(order.ordertype || "retail");
       setNotes(order.notes || "");
       setIsService(order.isservice || false);
+      setBillNumber(""); // Allow auto-generate for the new invoice
 
       const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
         productserviceid: p.productserviceid?.id || "",
