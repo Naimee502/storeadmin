@@ -64,7 +64,7 @@ const SalesOrders = () => {
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
-      billtype_billnumber: `${capitalizeFirst(String(order.billtype))}-${order.billnumber}`,
+      billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
       status: order.status ? "Active" : "Inactive",
@@ -117,6 +117,8 @@ const SalesOrders = () => {
             }
           }}
           onAdd={() => navigate("/salesorder/addedit")}
+          showConvert={true}
+          onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
           onShowDeleted={() => navigate("/salesorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

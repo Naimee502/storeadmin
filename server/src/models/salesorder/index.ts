@@ -43,6 +43,7 @@ const salesOrderSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
+    isConverted: { type: Boolean, default: false },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

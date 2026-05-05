@@ -42,6 +42,9 @@ export const GET_SALES_INVOICES = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
@@ -90,6 +93,9 @@ export const GET_DELETED_SALES_INVOICES = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
@@ -138,6 +144,9 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt

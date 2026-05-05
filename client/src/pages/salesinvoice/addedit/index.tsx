@@ -4,10 +4,11 @@ import Button from "../../../components/button";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../graphql/hooks/salesinvoice";
+import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
@@ -20,6 +21,10 @@ const AddEditSalesInvoice = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { addSalesInvoiceMutation, editSalesInvoiceMutation } = useSalesInvoiceMutations();
+  const { editSalesOrderMutation } = useSalesOrderMutations();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const orderId = queryParams.get("orderId");
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -63,6 +68,8 @@ const AddEditSalesInvoice = () => {
   const [notes, setNotes] = useState("");
   // Fetch invoice if editing
   const { data } = useSalesInvoiceByIDQuery(id || "");
+  // Fetch order if converting
+  const { data: orderData } = useSalesOrderByIDQuery(orderId || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Party Accounts
@@ -87,10 +94,7 @@ const AddEditSalesInvoice = () => {
   }, [accountData, refetch]);
 
   useEffect(() => {
-    if (!isEdit) {
-      // --- NEW INVOICE MODE
-      setBillNumber("");
-    } else if (data?.getSalesInvoiceById) {
+    if (isEdit && data?.getSalesInvoiceById) {
       // --- EDIT MODE
       const invoice = data.getSalesInvoiceById;
 
@@ -150,8 +154,43 @@ const AddEditSalesInvoice = () => {
       });
 
       setProducts(mappedProducts);
+    } else if (orderData?.getSalesOrderById) {
+      // --- CONVERT FROM ORDER MODE
+      const order = orderData.getSalesOrderById;
+      setPaymentType(order.paymenttype || "");
+      setPartyAccount({
+        id: order.partyacc?.id || "",
+        name: order.partyacc?.accountname || "",
+        mobile: order.partyacc?.mobile || "",
+      });
+      setTaxOrSupplyType(order.taxorsupplytype || "");
+      setBillDate(order.billdate || new Date().toISOString().slice(0, 10));
+      setBillType(order.billtype || "");
+      setInvoiceType(order.ordertype || "retail");
+      setNotes(order.notes || "");
+      setIsService(order.isservice || false);
+
+      const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
+        productserviceid: p.productserviceid?.id || "",
+        variantid: p.variantid?.id || null,
+        salesunitid: p.salesunitid?.id || null,
+        productname: p.productserviceid?.name || "Unknown",
+        unitquantity: p.unitqty || 1,
+        quantity: p.qty || 0,
+        rate: p.rate || 0,
+        gst: p.gst || 0,
+        discount: p.discount || 0,
+        total: p.amount || 0,
+        salesaccountid: p.salesaccountid?.id || null,
+        purchaseaccountid: p.purchaseaccountid?.id || null,
+        serviceaccountid: p.serviceaccountid?.id || null,
+      }));
+      setProducts(mappedProducts);
+    } else if (!isEdit && !orderId) {
+      // --- NEW INVOICE MODE
+      setBillNumber("");
     }
-  }, [isEdit, data, salesInvoices]);
+  }, [isEdit, data, orderId, orderData, salesInvoices]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -228,9 +267,12 @@ const AddEditSalesInvoice = () => {
       createdby_id: creatorInfo.id,
       createdby_name: creatorInfo.name,
       createdby_type: creatorInfo.type,
+      paymenttype: paymentType,
+      partyacc: partyAccount?.id || partyAccount,
       taxorsupplytype: taxOrSupplyType,
       billdate: billDate,
       billtype: billType,
+      billnumber: billNumber,
       notes,
       invoicetype: invoiceType,
       subtotal: productsTotal,
@@ -242,7 +284,7 @@ const AddEditSalesInvoice = () => {
         productserviceid: p.productserviceid,
         variantid: p.variantid,
         salesunitid: getUnitId(p.salesunitid) ?? null,
-        unitqty: p.unitquantity ?? 0,
+        unitqty: p.unitquantity ?? 1,
         gst: p.gst ?? 0,
         qty: p.quantity ?? 0,
         rate: p.rate ?? 0,
@@ -264,6 +306,29 @@ const AddEditSalesInvoice = () => {
         dispatch(showMessage({ message: "Invoice updated successfully", type: "success" }));
       } else {
         await addSalesInvoiceMutation({ variables: { input } });
+        if (orderId) {
+          const orderInput = {
+            paymenttype: paymentType,
+            partyacc: partyAccount?.id || partyAccount,
+            taxorsupplytype: taxOrSupplyType,
+            billdate: billDate,
+            billtype: billType,
+            billnumber: orderData?.getSalesOrderById?.billnumber, // Keep original order number or use new one? User said "Update in Sales Order Entry", usually means update the content.
+            notes,
+            ordertype: invoiceType,
+            subtotal: productsTotal,
+            totaldiscount: totalDiscount,
+            totalgst: taxAmount,
+            totalamount: grandTotal,
+            adminid: adminId,
+            branchid: branchId,
+            productservice: input.productservice,
+            isservice: isService,
+            isConverted: true,
+            status,
+          };
+          await editSalesOrderMutation({ variables: { id: orderId, input: orderInput } });
+        }
         dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
       }
       await refetch();
@@ -350,6 +415,14 @@ const AddEditSalesInvoice = () => {
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
+              />
+              <FormField
+                label="Bill Number"
+                name="billNumber"
+                type="text"
+                value={billNumber}
+                onChange={(e) => setBillNumber(e.target.value)}
+                placeholder="Leave blank for auto-generate"
               />
               <FormField
                 label="Bill Type"

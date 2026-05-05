@@ -59,6 +59,9 @@ export const ADD_SALES_ORDER = gql`
       }
     }
     isservice
+    createdby_id
+    createdby_name
+    createdby_type
     status
     createdAt
     updatedAt

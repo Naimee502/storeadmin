@@ -243,18 +243,19 @@ for (const item of newInv.productservice) {
     });
 
     if (cgst && sgst) {
-      const splitAmt = parseFloat((gstAmt / 2).toFixed(2));
+      const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+      const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
 
       entries.push({
         ledgerid: cgst._id,
-        debit: splitAmt,
+        debit: cgstAmt,
         credit: 0,
         remarks: `CGST on ${productName}`,
       });
 
       entries.push({
         ledgerid: sgst._id,
-        debit: splitAmt,
+        debit: sgstAmt,
         credit: 0,
         remarks: `SGST on ${productName}`,
       });
@@ -286,9 +287,28 @@ for (const item of newInv.productservice) {
   entries.push({
     ledgerid: vendor.ledgerid,
     debit: 0,
-    credit: totalDebit,
+    credit: 0, // Will be set below
     remarks: `Purchase Invoice #${newInv.billnumber}`
   });
+
+  // ============================
+  // ⚖️ FINAL BALANCE ADJUSTMENT
+  // ============================
+  const tempDebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const tempCredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+
+  if (tempDebit !== tempCredit) {
+    const diff = parseFloat((tempDebit - tempCredit).toFixed(2));
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry.credit !== undefined) {
+      lastEntry.credit = parseFloat((lastEntry.credit + diff).toFixed(2));
+    } else if (lastEntry.debit !== undefined) {
+      lastEntry.debit = parseFloat((lastEntry.debit - diff).toFixed(2));
+    }
+  }
+
+  const finalTotalDebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  totalDebit = finalTotalDebit; // Sync with existing variable
 
   // ============================
   // 🔄 UPSERT INVOICE JOURNAL

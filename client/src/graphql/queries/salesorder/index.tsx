@@ -42,6 +42,10 @@ export const GET_SALES_ORDERS = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
+      isConverted
       status
       createdAt
       updatedAt
@@ -90,6 +94,10 @@ export const GET_DELETED_SALES_ORDERS = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
+      isConverted
       status
       createdAt
       updatedAt
@@ -138,6 +146,10 @@ export const GET_SALES_ORDER_BY_ID = gql`
         discount
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
+      isConverted
       status
       createdAt
       updatedAt

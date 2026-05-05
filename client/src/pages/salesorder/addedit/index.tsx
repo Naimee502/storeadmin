@@ -163,9 +163,12 @@ const AddEditSalesOrder = () => {
       createdby_id: creatorInfo.id,
       createdby_name: creatorInfo.name,
       createdby_type: creatorInfo.type,
+      paymenttype: paymentType,
+      partyacc: partyAccount?.id || partyAccount,
       taxorsupplytype: taxOrSupplyType || "taxInvoice",
       billdate: billDate,
       billtype: billType || "taxInvoice",
+      billnumber: billNumber,
       notes,
       ordertype: orderType,
       subtotal: productsTotal,
@@ -177,7 +180,7 @@ const AddEditSalesOrder = () => {
         productserviceid: p.productserviceid,
         variantid: p.variantid,
         salesunitid: p.salesunitid,
-        unitqty: p.unitquantity ?? 0,
+        unitqty: p.unitquantity ?? 1,
         gst: p.gst ?? 0,
         qty: p.quantity ?? 0,
         rate: p.rate ?? 0,
@@ -250,6 +253,14 @@ const AddEditSalesOrder = () => {
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
                 error={errors.billDate}
+              />
+              <FormField
+                label="Order Number"
+                name="billNumber"
+                type="text"
+                value={billNumber}
+                onChange={(e) => setBillNumber(e.target.value)}
+                placeholder="Leave blank for auto-generate"
               />
             </div>
           </fieldset>

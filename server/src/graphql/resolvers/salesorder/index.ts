@@ -30,6 +30,7 @@ const formatOrder = (order: any) => ({
   createdby_id: order.createdby_id,
   createdby_name: order.createdby_name,
   createdby_type: order.createdby_type,
+  isConverted: order.isConverted,
 
   productservice: order.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
@@ -58,7 +59,7 @@ const formatOrder = (order: any) => ({
 export const salesOrderResolvers = {
   Query: {
     getSalesOrders: async (_: any, { filter = {} }: { filter?: any }) => {
-      const query: any = { status: true };
+      const query: any = { status: true, isConverted: filter.isConverted !== undefined ? filter.isConverted : false };
 
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
@@ -83,7 +84,7 @@ export const salesOrderResolvers = {
     },
 
     getDeletedSalesOrders: async (_: any, { filter = {} }: { filter?: any }) => {
-      const query: any = { status: false };
+      const query: any = { $or: [{ status: false }, { isConverted: true }] };
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
 

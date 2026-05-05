@@ -235,6 +235,7 @@ const AddEditPurchaseInvoice = () => {
         productserviceid: p.productserviceid,
         variantid: p.variantid,
         purchaseunitid: getUnitId(p.purchaseunitid) ?? null,
+        unitqty: p.unitquantity ?? 1,
         gst: p.gst ?? 0,
         qty: p.quantity ?? 0,
         rate: p.rate ?? 0,

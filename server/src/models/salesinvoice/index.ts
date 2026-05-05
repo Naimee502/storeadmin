@@ -208,19 +208,20 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       });
 
       if (cgst && sgst) {
-        const splitAmount = parseFloat((gstAmt / 2).toFixed(2));
+        const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+        const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
 
         entries.push({
           ledgerid: cgst._id,
           debit: 0,
-          credit: splitAmount,
+          credit: cgstAmt,
           remarks: `CGST on ${productName}`,
         });
 
         entries.push({
           ledgerid: sgst._id,
           debit: 0,
-          credit: splitAmount,
+          credit: sgstAmt,
           remarks: `SGST on ${productName}`
         });
       } else {
@@ -324,21 +325,30 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   }
 
   // ===================== BALANCE CHECK ======================
-  const totalDebitSum = parseFloat(
-    entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2)
-  );
-  const totalCreditSum = parseFloat(
-    entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2)
-  );
+  // ===================== FINAL BALANCE ADJUSTMENT ======================
+  const tempDebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const tempCredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+
+  if (tempDebit !== tempCredit) {
+    const diff = parseFloat((tempDebit - tempCredit).toFixed(2));
+    // Adjust the last entry's credit to balance
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry.credit !== undefined) {
+      lastEntry.credit = parseFloat((lastEntry.credit + diff).toFixed(2));
+    } else if (lastEntry.debit !== undefined) {
+      lastEntry.debit = parseFloat((lastEntry.debit - diff).toFixed(2));
+    }
+  }
+
+  const totalDebitSum = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const totalCreditSum = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
 
   console.log("🔵 Total Debit :", totalDebitSum);
   console.log("🔴 Total Credit:", totalCreditSum);
 
   if (Math.abs(totalDebitSum - totalCreditSum) > 0.01) {
-    console.error("❌ Transaction not balanced!");
-    throw new Error(
-      `Transaction not balanced (Debit ${totalDebitSum} ≠ Credit ${totalCreditSum})`
-    );
+    console.error("❌ Transaction not balanced even after adjustment!");
+    throw new Error(`Transaction not balanced (Debit ${totalDebitSum} ≠ Credit ${totalCreditSum})`);
   }
 
   // ===================== SAVE / UPDATE TRANSACTION ======================

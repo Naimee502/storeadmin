@@ -11,6 +11,7 @@ import {
     FaUndo,
     FaPrint,
     FaBarcode,
+    FaFileInvoice,
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
@@ -43,6 +44,7 @@ interface DataTableProps {
     showReset?: boolean;
     showPrint?: boolean;
     showBarcode?: boolean | ((row: any) => boolean);
+    showConvert?: boolean;
     showDeleted?: boolean;
     showImport?: boolean;
     showExport?: boolean;
@@ -55,6 +57,7 @@ interface DataTableProps {
     onReset?: (row: any) => void;
     onPrint?: (row: any) => void;
     onBarcode?: (row: any) => void;
+    onConvert?: (row: any) => void;
     onShowDeleted?: () => void;
     onImport?: () => void;
     onExport?: () => void;
@@ -78,6 +81,7 @@ const DataTable: React.FC<DataTableProps> = ({
     showReset = false,
     showPrint = false,
     showBarcode = false,
+    showConvert = false,
     showDeleted = true,
     showImport = true,
     showExport = true,
@@ -90,6 +94,7 @@ const DataTable: React.FC<DataTableProps> = ({
     onReset,
     onPrint,
     onBarcode,
+    onConvert,
     onShowDeleted,
     onImport,
     onExport,
@@ -320,6 +325,11 @@ const DataTable: React.FC<DataTableProps> = ({
                                         {showBarcode && (
                                             <button onClick={() => onBarcode?.(row)} title="Barcode" className="text-purple-600">
                                                 <FaBarcode />
+                                            </button>
+                                        )}
+                                        {showConvert && (
+                                            <button onClick={() => onConvert?.(row)} title="Convert to Invoice" className="text-orange-600">
+                                                <FaFileInvoice />
                                             </button>
                                         )}
                                     </td>

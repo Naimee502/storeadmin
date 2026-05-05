@@ -54,6 +54,7 @@ export const salesOrderTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    isConverted: Boolean
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -80,6 +81,7 @@ export const salesOrderTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    isConverted: Boolean
     status: Boolean
   }
 
@@ -94,6 +96,7 @@ export const salesOrderTypeDefs = gql`
     ordertype: String
     billdateFrom: String
     billdateTo: String
+    isConverted: Boolean
     status: Boolean
   }
 
