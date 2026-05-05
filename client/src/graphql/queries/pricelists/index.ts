@@ -60,7 +60,21 @@ export const GET_PRICE_ASSIGNMENTS = gql`
       }
       targettype
       targetid
-      priority
+      status
+    }
+  }
+`;
+
+export const GET_DELETED_PRICE_ASSIGNMENTS = gql`
+  query GetDeletedPriceAssignments($adminid: ID!) {
+    getDeletedPriceAssignments(adminid: $adminid) {
+      id
+      pricelistid {
+        id
+        name
+      }
+      targettype
+      targetid
       status
     }
   }

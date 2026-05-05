@@ -55,13 +55,13 @@ const AddEditPriceList = () => {
       if (isEdit && priceListData?.getPriceListById) {
         const pl = priceListData.getPriceListById;
         const existingItems = pl.items || [];
-        
+
         // Merge master list with saved values
         const mergedItems = masterItems.map(m => {
-          const found = existingItems.find((e: any) => 
-            (e.productid?.id || e.productid) === m.productid && 
-            e.variantid === m.variantid && 
-            (e.unitid?.id || e.unitid) === m.unitid && 
+          const found = existingItems.find((e: any) =>
+            (e.productid?.id || e.productid) === m.productid &&
+            e.variantid === m.variantid &&
+            (e.unitid?.id || e.unitid) === m.unitid &&
             e.quantity === m.quantity
           );
           if (found) {
@@ -234,7 +234,7 @@ const AddEditPriceList = () => {
             <Button type="button" variant="outline" onClick={() => navigate("/pricelists")}>
               Cancel
             </Button>
-            <Button type="submit">Save Price List</Button>
+            <Button type="submit" variant="outline">Save Price List</Button>
           </div>
         </form>
       </div>

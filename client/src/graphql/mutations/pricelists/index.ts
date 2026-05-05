@@ -51,3 +51,9 @@ export const DELETE_PRICE_ASSIGNMENT = gql`
     deletePriceAssignment(id: $id)
   }
 `;
+
+export const RESET_PRICE_ASSIGNMENT = gql`
+  mutation ResetPriceAssignment($id: ID!) {
+    resetPriceAssignment(id: $id)
+  }
+`;

@@ -3,9 +3,8 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 export interface IPriceAssignment extends Document {
   adminid: Types.ObjectId;
   pricelistid: Types.ObjectId;
-  targettype: "customer" | "channel" | "region" | "route";
+  targettype: "customer" | "channel" | "region" | "route" | "channel_region";
   targetid?: Types.ObjectId | string; // Account ID, Channel ID, or Region string
-  priority: number; // 1 (highest) to 5 (lowest)
   status: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -17,11 +16,10 @@ const priceAssignmentSchema = new Schema<IPriceAssignment>(
     pricelistid: { type: Schema.Types.ObjectId, ref: "PriceList", required: true },
     targettype: { 
       type: String, 
-      enum: ["customer", "channel", "region", "route"], 
+      enum: ["customer", "channel", "region", "route", "channel_region"], 
       required: true 
     },
     targetid: { type: Schema.Types.Mixed, required: true },
-    priority: { type: Number, default: 5 },
     status: { type: Boolean, default: true },
   },
   { timestamps: true }

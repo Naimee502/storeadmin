@@ -38,7 +38,7 @@ interface Option {
 
 interface FormFieldProps {
   label: string;
-  name: string;
+  name?: string;
   type?: InputType;
   value?: any;
   onChange: (e: React.ChangeEvent<any> | { target: { name: string; value: any } }) => void;
@@ -54,6 +54,7 @@ interface FormFieldProps {
   disabled?: boolean;
   addable?: boolean;
   onAddNew?: () => void;
+  required?: boolean;
 }
 
 const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
@@ -112,6 +113,7 @@ const FormField: React.FC<FormFieldProps> = ({
   disabled,
   addable = false,
   onAddNew,
+  required,
 }) => {
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
@@ -129,6 +131,7 @@ const FormField: React.FC<FormFieldProps> = ({
           value={value ?? ''}
           onChange={onChange}
           disabled={disabled}
+          required={required}
           placeholder={placeholder}
           className={`w-full p-2 text-sm outline-none bg-transparent ${className}`}
         />
@@ -192,6 +195,7 @@ const FormField: React.FC<FormFieldProps> = ({
             });
           }}
           disabled={disabled}
+          required={required}
           className={`w-full text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none ${className}`}
         >
           {!isMultiSelect && <option value="">Select {label}</option>}
@@ -271,6 +275,7 @@ const FormField: React.FC<FormFieldProps> = ({
         value={value ?? ''}
         onChange={onChange}
         disabled={disabled}
+        required={required}
         placeholder={placeholder ?? (type === 'number' ? '0' : placeholder)}
         accept={accept}
         className={`w-full text-sm bg-transparent outline-none ${className}`}

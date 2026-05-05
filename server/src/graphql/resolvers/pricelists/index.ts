@@ -17,10 +17,16 @@ export const priceListResolvers = {
     getPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
       return await PriceAssignment.find({ adminid, status: true }).populate("pricelistid");
     },
+    getDeletedPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
+      return await PriceAssignment.find({ adminid, status: false }).populate("pricelistid");
+    },
     resolvePrice: async (_: any, { productid, variantid, unitid, accountid, channelid, region }: any) => {
       let assignments = [];
       if (accountid) {
         assignments.push(...await PriceAssignment.find({ targettype: "customer", targetid: accountid, status: true }));
+      }
+      if (channelid && region) {
+        assignments.push(...await PriceAssignment.find({ targettype: "channel_region", targetid: `${channelid}--${region}`, status: true }));
       }
       if (channelid) {
         assignments.push(...await PriceAssignment.find({ targettype: "channel", targetid: channelid, status: true }));
@@ -28,8 +34,7 @@ export const priceListResolvers = {
       if (region) {
         assignments.push(...await PriceAssignment.find({ targettype: "region", targetid: region, status: true }));
       }
-      
-      assignments.sort((a, b) => a.priority - b.priority);
+      if (assignments.length === 0) return null;
       
       for (const assignment of assignments) {
         const priceList = await PriceList.findById(assignment.pricelistid);
@@ -72,6 +77,10 @@ export const priceListResolvers = {
     },
     deletePriceAssignment: async (_: any, { id }: any) => {
       await PriceAssignment.findByIdAndUpdate(id, { status: false });
+      return true;
+    },
+    resetPriceAssignment: async (_: any, { id }: any) => {
+      await PriceAssignment.findByIdAndUpdate(id, { status: true });
       return true;
     },
   },

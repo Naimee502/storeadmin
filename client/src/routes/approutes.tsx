@@ -78,6 +78,7 @@ import PriceLists from "../pages/pricelists";
 import AddEditPriceList from "../pages/pricelists/addedit";
 import PriceAssignments from "../pages/priceassignments";
 import DeletedPriceLists from "../pages/pricelists/deletedentries";
+import DeletedPriceAssignments from "../pages/priceassignments/deletedentries";
 
 const AppRoutes = () => {
     return (
@@ -786,6 +787,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <PriceAssignments />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/priceassignments/deletedentries"
+          element={
+            <ProtectedRoutes>
+              <DeletedPriceAssignments />
             </ProtectedRoutes>
           }
         />

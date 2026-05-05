@@ -28,7 +28,6 @@ export const priceListTypeDefs = gql`
     pricelistid: PriceList
     targettype: String!
     targetid: String!
-    priority: Int
     status: Boolean
     createdAt: Date
     updatedAt: Date
@@ -57,7 +56,6 @@ export const priceListTypeDefs = gql`
     pricelistid: ID!
     targettype: String!
     targetid: String!
-    priority: Int
     status: Boolean
   }
 
@@ -66,6 +64,7 @@ export const priceListTypeDefs = gql`
     getPriceListById(id: ID!): PriceList
     getDeletedPriceLists(adminid: ID!): [PriceList]
     getPriceAssignments(adminid: ID!): [PriceAssignment]
+    getDeletedPriceAssignments(adminid: ID!): [PriceAssignment]
     resolvePrice(
       productid: ID!
       variantid: ID!
@@ -84,5 +83,6 @@ export const priceListTypeDefs = gql`
     createPriceAssignment(input: PriceAssignmentInput!): PriceAssignment
     updatePriceAssignment(id: ID!, input: PriceAssignmentInput!): PriceAssignment
     deletePriceAssignment(id: ID!): Boolean
+    resetPriceAssignment(id: ID!): Boolean
   }
 `;
