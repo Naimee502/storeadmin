@@ -4,10 +4,11 @@ import Button from "../../../components/button";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
+import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
@@ -19,6 +20,10 @@ const AddEditPurchaseInvoice = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
+  const { editPurchaseOrderMutation } = usePurchaseOrderMutations();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const orderId = queryParams.get("orderId");
 
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
@@ -58,6 +63,8 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch invoice if editing
   const { data } = usePurchaseInvoiceByIDQuery(id || "");
+  // Fetch purchase order if converting
+  const { data: orderData } = usePurchaseOrderByIDQuery(orderId || "");
   console.log('Pucrhase Edit:', JSON.stringify(data))
 
   const { data: productData, refetch } = useProductServicesQuery();
@@ -70,7 +77,37 @@ const AddEditPurchaseInvoice = () => {
   }, [accountData, refetch]);
 
   useEffect(() => {
-    if (!isEdit) {
+    if (!isEdit && orderId && orderData?.getPurchaseOrderById) {
+      // --- CONVERT FROM PURCHASE ORDER MODE
+      const order = orderData.getPurchaseOrderById;
+      setPaymentType(order.paymenttype || "");
+      setPartyAccount(order.partyacc?.id || "");
+      setTaxOrSupplyType(order.taxorsupplytype || "");
+      setBillDate(order.billdate || new Date().toISOString().slice(0, 10));
+      setBillType(order.billtype || "");
+      setInvoiceType(order.ordertype || "retail");
+      setNotes(order.notes || "");
+      setIsService(order.isservice || false);
+      setBillNumber(""); // Allow auto-generate for the new invoice
+
+      const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
+        productserviceid: p.productserviceid?.id || "",
+        variantid: p.variantid?.id || null,
+        purchaseunitid: p.purchaseunitid?.id || null,
+        productname: `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""}`,
+        unitquantity: p.unitqty || 1,
+        quantity: p.qty || 0,
+        rate: p.rate || 0,
+        gst: p.gst || 0,
+        discount: p.discount || 0,
+        total: p.amount || 0,
+        salesaccountid: p.salesaccountid?.id || null,
+        purchaseaccountid: p.purchaseaccountid?.id || null,
+        serviceaccountid: p.serviceaccountid?.id || null,
+        selectedUnitValue: p.purchaseunitid && p.unitqty ? `${p.purchaseunitid.id}--${p.unitqty}` : null,
+      }));
+      setProducts(mappedProducts);
+    } else if (!isEdit) {
       // --- NEW INVOICE MODE
       if (purchaseInvoices.length > 0) {
         const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
@@ -136,7 +173,7 @@ const AddEditPurchaseInvoice = () => {
 
       setProducts(mappedProducts);
     }
-  }, [isEdit, data, purchaseInvoices]);
+  }, [isEdit, data, orderId, orderData, purchaseInvoices]);
 
 
   const handleTaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,7 +221,6 @@ const AddEditPurchaseInvoice = () => {
     if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
     if (!billDate) newErrors.billDate = "Bill date is required";
     if (!billType) newErrors.billType = "Bill type is required";
-    if (!billNumber) newErrors.billNumber = "Bill number is required";
     if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
     if (!products || products.length === 0) newErrors.products = "At least one product is required";
 
@@ -256,6 +292,32 @@ const AddEditPurchaseInvoice = () => {
         dispatch(showMessage({ message: "Purchase Invoice updated successfully", type: "success" }));
       } else {
         await addPurchaseInvoiceMutation({ variables: { input } });
+        if (orderId) {
+          // Mark the source Purchase Order as converted
+          const orderInput = {
+            paymenttype: paymentType,
+            partyacc: partyAccount,
+            taxorsupplytype: taxOrSupplyType,
+            billdate: billDate,
+            billtype: billType,
+            billnumber: orderData?.getPurchaseOrderById?.billnumber,
+            notes,
+            ordertype: invoiceType,
+            subtotal: productsTotal,
+            totaldiscount: totalDiscount,
+            totalgst: taxAmount,
+            totalamount: grandTotal,
+            adminid: adminId,
+            branchid: branchId,
+            productservice: input.productservice,
+            isservice: isService,
+            isConverted: true,
+            status,
+          };
+          await editPurchaseOrderMutation({
+            variables: { id: orderId, input: orderInput },
+          });
+        }
         dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
       await refetch();
@@ -349,6 +411,7 @@ const AddEditPurchaseInvoice = () => {
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
                 disabled={isEdit}
+                placeholder="Leave blank for auto-generate"
               />
               <FormField
                 label="Invoice Type"

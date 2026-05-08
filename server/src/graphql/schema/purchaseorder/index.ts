@@ -1,16 +1,8 @@
 import { gql } from 'apollo-server-express';
 
-export const purchaseInvoiceTypeDefs = gql`
-  type SimpleRef {
-    id: ID
-    name: String
-    unitname: String
-    accountname: String
-    mobile: String
-    ledgername: String
-  }
+export const purchaseOrderTypeDefs = gql`
 
-  type PurchaseInvoiceProductService {
+  type PurchaseOrderProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
     purchaseunitid: SimpleRef
@@ -20,28 +12,29 @@ export const purchaseInvoiceTypeDefs = gql`
     rate: Float
     amount: Float
     discount: Float
-    purchaseaccountid: SimpleRef
     salesaccountid: SimpleRef
+    purchaseaccountid: SimpleRef
     serviceaccountid: SimpleRef
   }
 
-  input PurchaseInvoiceProductServiceInput {
+  input PurchaseOrderProductServiceInput {
     productserviceid: ID!
     variantid: ID
     purchaseunitid: ID
-    unitqty: Int
+    unitqty: Int!
     gst: Float!
     qty: Int!
     rate: Float!
     amount: Float!
     discount: Float
-    purchaseaccountid: ID
     salesaccountid: ID
+    purchaseaccountid: ID
     serviceaccountid: ID
   }
 
-  type PurchaseInvoice {
+  type PurchaseOrder {
     id: ID!
+    purchasemenid: SimpleRef
     paymenttype: String!
     partyacc: SimpleRef!
     taxorsupplytype: String!
@@ -49,66 +42,74 @@ export const purchaseInvoiceTypeDefs = gql`
     billtype: String!
     billnumber: String
     notes: String
-    invoicetype: String!
+    ordertype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseInvoiceProductService!]!
+    productservice: [PurchaseOrderProductService!]!
     isservice: Boolean!
-    autocreate: Boolean!
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
+    isConverted: Boolean
     status: Boolean!
     createdAt: String
     updatedAt: String
   }
 
-  input PurchaseInvoiceInput {
+  input PurchaseOrderInput {
+    purchasemenid: ID
     paymenttype: String!
     partyacc: ID!
-    taxorsupplytype: String!
+    taxorsupplytype: String
     billdate: String!
-    billtype: String!
+    billtype: String
     billnumber: String
     notes: String
-    invoicetype: String!
+    ordertype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseInvoiceProductServiceInput!]!
+    productservice: [PurchaseOrderProductServiceInput!]!
     isservice: Boolean
-    autocreate: Boolean
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
+    isConverted: Boolean
     status: Boolean
   }
 
-  input PurchaseInvoiceFilterInput {
+  input PurchaseOrderFilterInput {
     adminid: ID
     branchid: ID
-    supplierid: ID
+    purchasemenid: ID
     paymenttype: String
     partyacc: ID
     taxorsupplytype: String
     billtype: String
-    invoicetype: String
+    ordertype: String
     billdateFrom: String
     billdateTo: String
+    isConverted: Boolean
     status: Boolean
   }
 
-  type Query {
-    getPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
-    getDeletedPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
-    getPurchaseInvoiceById(id: ID!, adminid: ID): PurchaseInvoice
+  extend type Query {
+    getPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
+    getDeletedPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
+    getPurchaseOrderById(id: ID!): PurchaseOrder
   }
 
-  type Mutation {
-    addPurchaseInvoice(input: PurchaseInvoiceInput!): PurchaseInvoice!
-    editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
-    deletePurchaseInvoice(id: ID!): Boolean!
-    resetPurchaseInvoice(id: ID!): Boolean!
+  extend type Mutation {
+    addPurchaseOrder(input: PurchaseOrderInput!): PurchaseOrder!
+    editPurchaseOrder(id: ID!, input: PurchaseOrderInput!): PurchaseOrder!
+    deletePurchaseOrder(id: ID!): Boolean!
+    resetPurchaseOrder(id: ID!): Boolean!
   }
 `;

@@ -6,17 +6,17 @@ import HomeLayout from "../../../layouts/home";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
 import {
-  useDeletedSalesOrdersQuery,
-  useSalesOrderMutations,
-} from "../../../graphql/hooks/salesorder";
+  useDeletedPurchaseOrdersQuery,
+  usePurchaseOrderMutations,
+} from "../../../graphql/hooks/purchaseorder";
 
-const DeletedSalesOrders = () => {
+const DeletedPurchaseOrders = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  
-  const { data, refetch } = useDeletedSalesOrdersQuery();
-  const { resetSalesOrderMutation } = useSalesOrderMutations();
-  const orderList = data?.getDeletedSalesOrders || [];
+
+  const { data, refetch } = useDeletedPurchaseOrdersQuery();
+  const { resetPurchaseOrderMutation } = usePurchaseOrderMutations();
+  const orderList = data?.getDeletedPurchaseOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   useEffect(() => {
@@ -61,19 +61,18 @@ const DeletedSalesOrders = () => {
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
-      billtype_billnumber: `SO-${order.billnumber}`,
+      billtype_billnumber: `PO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
       orderStatus: order.isConverted ? "Invoiced" : "Deleted",
     };
   });
 
-
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
-          title="Deleted Sales Orders"
+          title="Deleted Purchase Orders"
           columns={columns}
           data={tableData}
           showView={false}
@@ -86,7 +85,7 @@ const DeletedSalesOrders = () => {
           showDeleted={false}
           onReset={async (row) => {
             try {
-              await resetSalesOrderMutation({
+              await resetPurchaseOrderMutation({
                 variables: { id: row.id },
               });
               await refetch();
@@ -115,14 +114,4 @@ const DeletedSalesOrders = () => {
   );
 };
 
-// Simple Button component if not imported
-const Button = ({ children, variant, onClick }: any) => (
-    <button 
-        onClick={onClick}
-        className={`px-4 py-2 rounded ${variant === 'outline' ? 'border border-gray-300' : 'bg-blue-500 text-white'}`}
-    >
-        {children}
-    </button>
-);
-
-export default DeletedSalesOrders;
+export default DeletedPurchaseOrders;

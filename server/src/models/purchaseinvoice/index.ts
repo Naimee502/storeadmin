@@ -16,7 +16,7 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     taxorsupplytype: { type: String, required: true },
     billdate: { type: String, required: true },
     billtype: { type: String, required: true },
-    billnumber: { type: String, required: true },
+    billnumber: { type: String },
     notes: { type: String },
 
     invoicetype: { type: String, required: true },
@@ -51,6 +51,23 @@ const purchaseInvoiceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// 🔢 Auto-generate bill number when blank
+purchaseInvoiceSchema.pre("save", async function (next) {
+  if (!this.billnumber) {
+    const lastInvoice = await mongoose
+      .model("PurchaseInvoice")
+      .findOne({ adminid: this.adminid })
+      .sort({ createdAt: -1 });
+    let nextNum = 1;
+    if (lastInvoice && lastInvoice.billnumber) {
+      const lastNum = parseInt(lastInvoice.billnumber, 10);
+      if (!isNaN(lastNum)) nextNum = lastNum + 1;
+    }
+    this.billnumber = nextNum.toString().padStart(6, "0");
+  }
+  next();
+});
 
 // ✅ Convert ledger ref
 function ledgerId(x: any) {
