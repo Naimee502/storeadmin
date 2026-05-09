@@ -81,6 +81,7 @@ import SalesRoutes from "../pages/salesroutes";
 import AddEditSalesRoute from "../pages/salesroutes/addedit";
 import DeletedSalesRoutes from "../pages/salesroutes/deletedentries";
 import PriceLists from "../pages/pricelists";
+import Attendance from "../pages/attendance";
 import AddEditPriceList from "../pages/pricelists/addedit";
 import PriceAssignments from "../pages/priceassignments";
 import DeletedPriceLists from "../pages/pricelists/deletedentries";
@@ -865,6 +866,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoutes>
               <DeletedPriceAssignments />
+            </ProtectedRoutes>
+          }
+        />
+        {/* ---- Attendance & Leave (consolidated) ---- */}
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoutes>
+              <Attendance />
             </ProtectedRoutes>
           }
         />

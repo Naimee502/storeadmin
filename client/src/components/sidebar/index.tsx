@@ -10,7 +10,8 @@ import {
   FaMoneyCheckAlt,
   FaRoute,
   FaSitemap,
-  FaWrench
+  FaWrench,
+  FaCalendarCheck
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -81,6 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-xl" />, moduleId: "expensenote" },
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-xl" />, moduleId: "transactions" },
     { to: '/payments', label: 'Payments', icon: <FaWallet className="text-xl" />, moduleId: "payments" },
+    { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-xl" />, moduleId: "attendance" },
   ];
 
   // Admin links

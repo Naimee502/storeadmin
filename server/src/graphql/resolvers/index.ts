@@ -25,6 +25,7 @@ import { salesRouteResolvers } from "./salesroutes";
 import { priceListResolvers } from "./pricelists";
 import { salesOrderResolvers } from "./salesorder";
 import { purchaseOrderResolvers } from "./purchaseorder";
+import { attendanceResolvers } from "./attendance";
 
 export const resolvers = [
   branchResolvers,
@@ -53,5 +54,6 @@ export const resolvers = [
   salesRouteResolvers,
   priceListResolvers,
   salesOrderResolvers,
-  purchaseOrderResolvers
+  purchaseOrderResolvers,
+  attendanceResolvers
 ];

@@ -25,6 +25,7 @@ import { salesRouteSchema } from "./salesroutes";
 import { priceListTypeDefs } from "./pricelists";
 import { salesOrderTypeDefs } from "./salesorder";
 import { purchaseOrderTypeDefs } from "./purchaseorder";
+import { attendanceTypeDefs } from "./attendance";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -53,5 +54,6 @@ export const typeDefs = [
   salesRouteSchema,
   priceListTypeDefs,
   salesOrderTypeDefs,
-  purchaseOrderTypeDefs
+  purchaseOrderTypeDefs,
+  attendanceTypeDefs
 ];
