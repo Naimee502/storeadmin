@@ -14,7 +14,6 @@ import {
   X as XIcon,
   PauseCircle,
   RotateCcw,
-  UserPlus,
   Package,
 } from "lucide-react";
 
@@ -31,6 +30,7 @@ import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PaymentDrawer from "../../components/paymentdrawer";
 import PosAddCustomer from "../../components/posaddcustomer";
+import FormField from "../../components/formfiled";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import {
   getBaseQuantity,
@@ -510,7 +510,20 @@ export default function POSDashboard() {
   };
 
   /* ---------- Submit / Save ---------- */
-  const handlePaymentComplete = async ({ paymentType, customer }: any) => {
+  const handlePaymentComplete = async ({ paymentType }: any) => {
+    // Customer is selected in the cart (selectedParty), NOT in the drawer.
+    // The drawer only returns paymentType / paidAmount / balance now to
+    // avoid the duplicate-dropdown bug.
+    if (!selectedParty?.id) {
+      dispatch(
+        showMessage({
+          message: "Please pick a customer in the cart before completing payment.",
+          type: "error",
+        })
+      );
+      return;
+    }
+
     const input = {
       branchid: branchId,
       adminid: adminId,
@@ -518,7 +531,7 @@ export default function POSDashboard() {
       createdby_name: creatorInfo.name,
       createdby_type: creatorInfo.type,
       paymenttype: paymentType,
-      partyacc: customer,
+      partyacc: selectedParty.id,
       taxorsupplytype: "taxInvoice",
       billdate: new Date().toISOString().slice(0, 10),
       billtype: "taxInvoice",
@@ -963,29 +976,27 @@ export default function POSDashboard() {
               </div>
             </div>
 
-            {/* Customer Pick */}
+            {/* Customer Pick — uses the standard FormField dropdown so it
+                matches the rest of the system (search, "Add New" footer
+                inside the dropdown menu, consistent styling). The drawer
+                no longer has a customer picker, so this is the single
+                source of truth for the buyer on the bill. */}
             <div className="p-3 border-b bg-slate-50">
-              <div className="text-[11px] text-slate-500 mb-1 flex items-center justify-between">
-                <span>Customer</span>
-                <button
-                  onClick={() => setAddCustomerOpen(true)}
-                  className="text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  <UserPlus size={12} /> New
-                </button>
-              </div>
-              <select
+              <FormField
+                label="Customer"
+                name="customer"
+                type="select"
                 value={selectedParty?.id || ""}
-                onChange={(e) => onPickCustomer(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-md text-sm px-2 py-1.5"
-              >
-                <option value="">Walk-in customer</option>
-                {customerOptions.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.mobile ? `• ${c.mobile}` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(e: any) => onPickCustomer(e.target.value)}
+                options={customerOptions.map((c: any) => ({
+                  value: c.id,
+                  label: `${c.name}${c.mobile ? ` • ${c.mobile}` : ""}`,
+                }))}
+                searchable
+                addable
+                onAddNew={() => setAddCustomerOpen(true)}
+                placeholder="Walk-in customer"
+              />
             </div>
 
             {/* Cart Lines */}

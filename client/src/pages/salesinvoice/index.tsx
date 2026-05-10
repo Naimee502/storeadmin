@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addSalesInvoices } from "../../redux/slices/salesinvoice";
@@ -10,6 +10,7 @@ import {
   useSalesInvoicesQuery,
   useSalesInvoiceMutations,
 } from "../../graphql/hooks/salesinvoice";
+import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 
@@ -23,6 +24,64 @@ const SalesInvoices = () => {
   const invoiceList = data?.getSalesInvoices || [];
   console.log("Fetched Sales Invoices:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+
+  // Build a Set of source-invoice ids that already have an active Sales
+  // Return. Used to hide the per-row "Return" action so the user cannot
+  // create a duplicate return against the same invoice. (Server still
+  // validates per-line quantities as a safety net.)
+  const { data: returnsData } = useSalesReturnsQuery();
+  const returnedInvoiceIds = useMemo(() => {
+    const set = new Set<string>();
+    (returnsData?.getSalesReturns ?? []).forEach((r: any) => {
+      if (r.sourceInvoiceId) set.add(String(r.sourceInvoiceId));
+    });
+    return set;
+  }, [returnsData]);
+
+  // Resolve the company name across role types so the WhatsApp share
+  // signs the message off as the company, not the branch.
+  const auth = useAppSelector((state) => state.auth);
+  const companyName =
+    auth.type === "admin"
+      ? auth.admin?.companyName
+      : auth.type === "branch"
+        ? auth.branch?.admin?.companyName
+        : auth.type === "staff"
+          ? auth.staff?.admin?.companyName
+          : "";
+
+  // Open WhatsApp web/app with a pre-filled invoice summary. If the
+  // customer has a stored mobile we open the chat directly with them;
+  // otherwise we fall back to the share-text sheet.
+  const handleWhatsAppShare = (row: any) => {
+    const orig = invoiceList.find((inv: any) => inv.id === row.id);
+    if (!orig) return;
+
+    const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
+    const items = (orig.productservice || [])
+      .map(
+        (p: any, i: number) =>
+          `${i + 1}. ${p.productserviceid?.name ?? "Item"} x ${p.qty} @ ${Number(p.rate).toFixed(2)}`
+      )
+      .join("\n");
+
+    const text =
+      `*Invoice INV-${orig.billnumber}*\n` +
+      `Date: ${orig.billdate}\n` +
+      `Customer: ${orig.partyacc?.accountname ?? "-"}\n\n` +
+      `${items}\n\n` +
+      `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
+      `Thank you for your business!\n` +
+      `${companyName ? `— ${companyName}` : ""}`;
+
+    // wa.me requires a phone number with country code; if missing we
+    // fall back to the bare share link which prompts the user to pick
+    // a chat manually.
+    const url = mobile
+      ? `https://wa.me/${mobile}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   // Use ref for the printable component
   const componentRef = useRef<HTMLDivElement>(null);
@@ -123,7 +182,11 @@ const SalesInvoices = () => {
           showExport={false}
           showAdd={true}
           showPrint={true}
-          showReturn={true}
+          showWhatsApp={true}
+          onWhatsApp={handleWhatsAppShare}
+          // Hide the Return button on invoices that already have an active
+          // Sales Return — prevents duplicate returns from the list view.
+          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id))}
           onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesinvoice/addedit/${row.id}`)}

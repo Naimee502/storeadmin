@@ -14,6 +14,7 @@ import {
     FaFileInvoice,
     FaReply,
     FaBan,
+    FaWhatsapp,
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
@@ -45,6 +46,9 @@ interface DataTableProps {
     showAdd?: boolean;
     showReset?: boolean | ((row: any) => boolean);
     showPrint?: boolean;
+    // Per-row WhatsApp share. Hidden by default. Passed-in handler decides
+    // what content to share (text summary, link to PDF, etc).
+    showWhatsApp?: boolean | ((row: any) => boolean);
     showBarcode?: boolean | ((row: any) => boolean);
     showConvert?: boolean;
     // Per-row action: create a Return doc (Sales/Purchase Return) from this invoice.
@@ -63,6 +67,7 @@ interface DataTableProps {
     onAdd?: () => void;
     onReset?: (row: any) => void;
     onPrint?: (row: any) => void;
+    onWhatsApp?: (row: any) => void;
     onBarcode?: (row: any) => void;
     onConvert?: (row: any) => void;
     onReturn?: (row: any) => void;
@@ -89,6 +94,7 @@ const DataTable: React.FC<DataTableProps> = ({
     showAdd = true,
     showReset = false,
     showPrint = false,
+    showWhatsApp = false,
     showBarcode = false,
     showConvert = false,
     showReturn = false,
@@ -104,6 +110,7 @@ const DataTable: React.FC<DataTableProps> = ({
     onAdd,
     onReset,
     onPrint,
+    onWhatsApp,
     onBarcode,
     onConvert,
     onReturn,
@@ -333,6 +340,19 @@ const DataTable: React.FC<DataTableProps> = ({
                                         {showPrint && (
                                             <button onClick={() => onPrint?.(row)} title="Print" className="text-green-600">
                                                 <FaPrint />
+                                            </button>
+                                        )}
+                                        {(typeof showWhatsApp === "function" ? showWhatsApp(row) : showWhatsApp) && (
+                                            <button
+                                                onClick={() => onWhatsApp?.(row)}
+                                                title="Share on WhatsApp"
+                                                aria-label="Share on WhatsApp"
+                                                // Same icon-only style as the other row actions; uses
+                                                // WhatsApp's brand green (#25D366) so it's clearly
+                                                // distinct from the green Print icon next to it.
+                                                style={{ color: "#25D366" }}
+                                            >
+                                                <FaWhatsapp size={18} />
                                             </button>
                                         )}
                                         {showBarcode && (

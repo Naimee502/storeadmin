@@ -36,7 +36,21 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
 
-    const branch = useAppSelector((state) => state.auth.branch);
+    // Resolve the company name from whichever auth role is active. Admins
+    // have it directly on `admin.companyName`; branch and staff users get
+    // it via their parent admin. Falls back to "---" only if everything
+    // is missing (which shouldn't happen for an authenticated session).
+    const auth = useAppSelector((state) => state.auth);
+    const branch = auth.branch;
+    const companyName =
+      auth.type === "admin"
+        ? auth.admin?.companyName
+        : auth.type === "branch"
+          ? auth.branch?.admin?.companyName
+          : auth.type === "staff"
+            ? auth.staff?.admin?.companyName
+            : "";
+
     const products = invoice.productservice || [];
 
     /* ================= CALCULATIONS ================= */
@@ -88,12 +102,14 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
           <thead>
             <tr>
               <td colSpan={8} className="text-center text-lg font-bold">
-                {branch?.branchname || "---"}
+                {companyName || "---"}
               </td>
             </tr>
 
             <tr>
               <td colSpan={8} className="text-center">
+                {/* Branch contact still appears below the company name so
+                    the bill carries a usable address/phone for the buyer. */}
                 {branch?.address || "---"}
                 <br />
                 {branch?.city || "---"} -{" "}
@@ -239,7 +255,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"
               </td>
               <td colSpan={3} className="text-right align-bottom">
-                For, {branch?.branchname || "---"}
+                For, {companyName || "---"}
                 <br />
                 <br />
                 Authorised Signatory

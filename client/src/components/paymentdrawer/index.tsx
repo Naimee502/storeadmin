@@ -1,27 +1,14 @@
+// PaymentDrawer
+//
+// Right-side drawer that completes a POS sale. Handles the LAST mile of the
+// transaction only: payment mode + paid amount + change due. The customer is
+// already chosen in the cart (POS Dashboard) and arrives via `onComplete`'s
+// caller, so we deliberately do NOT show another customer picker here —
+// having two pickers leads to duplicate selection and inconsistent state.
+
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import FormField from "../formfiled";
-import { useAccountsQuery } from "../../graphql/hooks/accounts";
-import { useStaffQuery } from "../../graphql/hooks/staffaccounts";
-import { useNavigate } from "react-router";
-import PosAddCustomer from "../posaddcustomer";
-
-// ---------------------------
-// TYPES
-// ---------------------------
-
-type CustomerAccount = {
-  id: string;
-  name: string;
-  mobile: string;
-  type: string;
-};
-
-type StaffAccount = {
-  id: string;
-  name: string;
-  role: string;
-};
 
 interface PaymentDrawerProps {
   open: boolean;
@@ -31,7 +18,6 @@ interface PaymentDrawerProps {
 }
 
 interface CompletePaymentData {
-  customer: string;
   paymentType: PaymentMode;
   paidAmount: number;
   balance: number;
@@ -40,56 +26,34 @@ interface CompletePaymentData {
 type PaymentMode = "cash" | "bank" | "upi" | "card" | "cheque";
 
 type ErrorState = Partial<{
-  customer: string;
   paymentType: string;
   paidAmount: string;
 }>;
 
-// ---------------------------
-// COMPONENT
-// ---------------------------
 export default function PaymentDrawer({
   open,
   onClose,
   total,
   onComplete,
 }: PaymentDrawerProps) {
-  const navigate = useNavigate();
-
-  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
-  const [customer, setCustomer] = useState<string>("");
   const [paymentType, setPaymentType] = useState<PaymentMode>("cash");
   const [paidAmount, setPaidAmount] = useState<number | "">(total);
   const [errors, setErrors] = useState<ErrorState>({});
- 
 
-  // ---------------------------
-  // QUERIES
-  // ---------------------------
-  const { data: accData, refetch: refetchAccounts } = useAccountsQuery();
-  const customers: CustomerAccount[] =
-    (accData?.getAccounts || []).filter(
-      (a: CustomerAccount) => a.type === "customer"
-    );
-
-  // ---------------------------
-  // BALANCE CALCULATION
-  // ---------------------------
   const numericPaid = paidAmount === "" ? 0 : paidAmount;
   const balance = numericPaid - total;
 
-  // Reset when opened
+  // Reset paid amount each time the drawer opens so it tracks the current cart
   useEffect(() => {
-    if (open) setPaidAmount(total);
+    if (open) {
+      setPaidAmount(total);
+      setErrors({});
+    }
   }, [open, total]);
 
-  // ---------------------------
-  // VALIDATION
-  // ---------------------------
   const validate = (): boolean => {
     const newErrors: ErrorState = {};
 
-    if (!customer) newErrors.customer = "Please select a customer.";
     if (!paymentType) newErrors.paymentType = "Select payment mode.";
 
     if (paidAmount === "" || isNaN(Number(paidAmount))) {
@@ -102,27 +66,18 @@ export default function PaymentDrawer({
     return Object.keys(newErrors).length === 0;
   };
 
-  // ---------------------------
-  // SUBMIT
-  // ---------------------------
   const handleComplete = () => {
     if (!validate()) return;
 
     const finalPaid = Number(paidAmount);
 
-    const payload: CompletePaymentData = {
-      customer,
+    onComplete({
       paymentType,
       paidAmount: finalPaid,
       balance: finalPaid - total,
-    };
-
-    onComplete(payload);
+    });
   };
 
-  // ---------------------------
-  // UI
-  // ---------------------------
   return (
     <>
       {open && (
@@ -134,7 +89,7 @@ export default function PaymentDrawer({
 
       <div
         className={`
-          fixed top-0 right-0 h-full w-full md:w-[420px] bg-white 
+          fixed top-0 right-0 h-full w-full md:w-[420px] bg-white
           shadow-xl z-50 p-5 transform transition-transform duration-300
           ${open ? "translate-x-0" : "translate-x-full"}
         `}
@@ -145,27 +100,6 @@ export default function PaymentDrawer({
             <X />
           </button>
         </div>
-
-        {/* CUSTOMER */}
-        <FormField
-          label="Customer"
-          name="customer"
-          type="select"
-          value={customer}
-          onChange={(e) => {
-                setCustomer(e.target.value);
-                setErrors((prev) => ({ ...prev, customer: undefined }));
-          }}
-          options={customers.map((c) => ({
-            value: c.id,
-            label: `${c.name} (${c.mobile})`,
-          }))}
-          searchable
-          error={errors.customer}
-          addable
-          onAddNew={() => setAddCustomerOpen(true)}
-        />
-
 
         {/* PAYMENT MODE */}
         <FormField
@@ -193,12 +127,10 @@ export default function PaymentDrawer({
           value={paidAmount}
           onChange={(e) => {
             const v = e.target.value;
-
             if (v === "") {
               setPaidAmount("");
               return;
             }
-
             const num = parseFloat(v);
             if (!isNaN(num)) setPaidAmount(num);
             setErrors((prev) => ({ ...prev, paidAmount: undefined }));
@@ -220,17 +152,6 @@ export default function PaymentDrawer({
             </span>
           </div>
         </div>
-
-        <PosAddCustomer
-          open={addCustomerOpen}
-          onClose={() => setAddCustomerOpen(false)}
-          onCreated={async (newId) => {
-            await refetchAccounts();
-            setErrors((prev) => ({ ...prev, customer: undefined }));      
-            setCustomer(newId);         
-          }}
-          mode="customer"
-        />
 
         {/* SUBMIT */}
         <button

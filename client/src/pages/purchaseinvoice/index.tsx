@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addPurchaseInvoices } from "../../redux/slices/purchaseinvoice";
@@ -10,6 +10,7 @@ import {
   usePurchaseInvoicesQuery,
   usePurchaseInvoiceMutations,
 } from "../../graphql/hooks/purchaseinvoice";
+import { usePurchaseReturnsQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 
@@ -21,6 +22,56 @@ const PurchaseInvoices = () => {
   const { deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
   const invoiceList = data?.getPurchaseInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+
+  // Set of source-invoice ids that already have an active Purchase Return.
+  // The per-row "Return" action is hidden for these to prevent duplicates.
+  const { data: returnsData } = usePurchaseReturnsQuery();
+  const returnedInvoiceIds = useMemo(() => {
+    const set = new Set<string>();
+    (returnsData?.getPurchaseReturns ?? []).forEach((r: any) => {
+      if (r.sourceInvoiceId) set.add(String(r.sourceInvoiceId));
+    });
+    return set;
+  }, [returnsData]);
+
+  // Resolve company name to sign off the WhatsApp share message.
+  const auth = useAppSelector((state) => state.auth);
+  const companyName =
+    auth.type === "admin"
+      ? auth.admin?.companyName
+      : auth.type === "branch"
+        ? auth.branch?.admin?.companyName
+        : auth.type === "staff"
+          ? auth.staff?.admin?.companyName
+          : "";
+
+  // Open WhatsApp pre-filled with a purchase invoice summary. Useful for
+  // forwarding bills to a manager or accountant for approval.
+  const handleWhatsAppShare = (row: any) => {
+    const orig = invoiceList.find((inv: any) => inv.id === row.id);
+    if (!orig) return;
+
+    const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
+    const items = (orig.productservice || [])
+      .map(
+        (p: any, i: number) =>
+          `${i + 1}. ${p.productserviceid?.name ?? "Item"} x ${p.qty} @ ${Number(p.rate).toFixed(2)}`
+      )
+      .join("\n");
+
+    const text =
+      `*Purchase Invoice INV-${orig.billnumber}*\n` +
+      `Date: ${orig.billdate}\n` +
+      `Vendor: ${orig.partyacc?.accountname ?? "-"}\n\n` +
+      `${items}\n\n` +
+      `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
+      `${companyName ? `— ${companyName}` : ""}`;
+
+    const url = mobile
+      ? `https://wa.me/${mobile}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   // Print states and ref
   const componentRef = useRef<HTMLDivElement>(null);
@@ -119,7 +170,11 @@ const PurchaseInvoices = () => {
           showExport={false}
           showAdd={true}
           showPrint={true}
-          showReturn={true}
+          showWhatsApp={true}
+          onWhatsApp={handleWhatsAppShare}
+          // Hide the Return button on invoices that already have an active
+          // Purchase Return — prevents duplicate returns from the list view.
+          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id))}
           onReturn={(row) => navigate(`/purchasereturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseinvoice/addedit/${row.id}`)}
