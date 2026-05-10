@@ -11,7 +11,8 @@ import {
   FaRoute,
   FaSitemap,
   FaWrench,
-  FaCalendarCheck
+  FaCalendarCheck,
+  FaUndoAlt
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
@@ -75,8 +76,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" />, moduleId: "products" },
     { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-xl" /> },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" />, moduleId: "salesinvoice" },
+    { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "salesinvoice" },
     { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-xl" /> },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" />, moduleId: "purchaseinvoice" },
+    { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "purchaseinvoice" },
     { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" />, moduleId: "transferstock" },
     { to: '/stockadjustments', label: 'Stock Adjustments', icon: <FaWrench className="text-xl" />, moduleId: "transferstock" },
     { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-xl" />, moduleId: "expensenote" },
@@ -125,14 +128,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       '/products',
       '/salesorder',
       '/salesinvoice',
+      '/salesreturn',
       '/purchaseorder',
       '/purchaseinvoice',
+      '/purchasereturn',
       '/transferstock',
       '/stockadjustments',
       '/expensenote',
-      '/transactions',   
+      '/transactions',
       '/payments',
-      '/accountledgers'        
+      '/accountledgers'
     ].includes(link.to)
   ));
 

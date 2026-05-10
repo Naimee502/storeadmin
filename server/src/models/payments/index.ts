@@ -9,7 +9,7 @@ const paymentSchema = new mongoose.Schema(
 
     paymentdate: { type: Date, default: Date.now },
 
-    type: { type: String, enum: ["receipt", "payment"], required: true },
+    type: { type: String, enum: ["receipt", "payment", "refund"], required: true },
 
     mode: {
       type: String,
@@ -24,7 +24,7 @@ const paymentSchema = new mongoose.Schema(
     invoices: [
       {
         invoiceid: { type: mongoose.Schema.Types.ObjectId, refPath: "invoices.invoicemodel" },
-        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice"] },
+        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "SalesReturn", "PurchaseReturn"] },
         settledamount: { type: Number, required: true },
       },
     ],

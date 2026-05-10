@@ -17,7 +17,7 @@ const PurchaseOrders = () => {
   const { type } = useAppSelector((state) => state.auth);
 
   const { data, refetch } = usePurchaseOrdersQuery();
-  const { deletePurchaseOrderMutation } = usePurchaseOrderMutations();
+  const { deletePurchaseOrderMutation, cancelPurchaseOrderMutation } = usePurchaseOrderMutations();
   const orderList = data?.getPurchaseOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -66,7 +66,11 @@ const PurchaseOrders = () => {
       billtype_billnumber: `PO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
-      status: order.status ? "Active" : "Inactive",
+      status: order.cancelStatus === "cancelled"
+        ? "Cancelled"
+        : (order.status ? "Active" : "Inactive"),
+      cancelStatus: order.cancelStatus,
+      isConverted: order.isConverted,
     };
   });
 
@@ -125,6 +129,18 @@ const PurchaseOrders = () => {
                   navigate(`/purchaseinvoice/addedit?orderId=${row.id}`)
               : undefined
           }
+          showCancel={(row: any) => !row.isConverted && row.cancelStatus !== "cancelled"}
+          onCancel={async (row: any) => {
+            const reason = window.prompt(`Cancel Purchase Order ${row.billnumber}? Enter reason:`);
+            if (reason === null) return;
+            try {
+              await cancelPurchaseOrderMutation({ variables: { id: row.id, reason } });
+              await refetch();
+              dispatch(showMessage({ message: "Order cancelled.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to cancel.", type: "error" }));
+            }
+          }}
           onShowDeleted={() => navigate("/purchaseorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

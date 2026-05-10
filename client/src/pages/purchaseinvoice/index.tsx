@@ -119,6 +119,8 @@ const PurchaseInvoices = () => {
           showExport={false}
           showAdd={true}
           showPrint={true}
+          showReturn={true}
+          onReturn={(row) => navigate(`/purchasereturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseinvoice/addedit/${row.id}`)}
           onDelete={async (row) => {

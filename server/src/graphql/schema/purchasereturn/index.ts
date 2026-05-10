@@ -1,8 +1,7 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
-export const purchaseOrderTypeDefs = gql`
-
-  type PurchaseOrderProductService {
+export const purchaseReturnTypeDefs = gql`
+  type PurchaseReturnProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
     purchaseunitid: SimpleRef
@@ -17,7 +16,7 @@ export const purchaseOrderTypeDefs = gql`
     serviceaccountid: SimpleRef
   }
 
-  input PurchaseOrderProductServiceInput {
+  input PurchaseReturnProductServiceInput {
     productserviceid: ID!
     variantid: ID
     purchaseunitid: ID
@@ -32,89 +31,85 @@ export const purchaseOrderTypeDefs = gql`
     serviceaccountid: ID
   }
 
-  type PurchaseOrder {
+  type PurchaseReturn {
     id: ID!
-    purchasemenid: SimpleRef
+    sourceInvoiceId: ID!
+    sourceBillNumber: String
     paymenttype: String!
     partyacc: SimpleRef!
     taxorsupplytype: String!
-    billdate: String!
+    returndate: String!
     billtype: String!
     billnumber: String
     notes: String
-    ordertype: String
+    reason: String
+    refundMode: String
+    invoicetype: String!
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseOrderProductService!]!
+    productservice: [PurchaseReturnProductService!]!
     isservice: Boolean!
+    autocreate: Boolean!
     createdby_id: ID
     createdby_name: String
     createdby_type: String
-    isConverted: Boolean
-    cancelStatus: String
-    cancelReason: String
-    cancelledAt: String
     status: Boolean!
     createdAt: String
     updatedAt: String
   }
 
-  input PurchaseOrderInput {
-    purchasemenid: ID
+  input PurchaseReturnInput {
+    sourceInvoiceId: ID!
+    sourceBillNumber: String
     paymenttype: String!
     partyacc: ID!
     taxorsupplytype: String
-    billdate: String!
+    returndate: String!
     billtype: String
     billnumber: String
     notes: String
-    ordertype: String
+    reason: String
+    refundMode: String
+    invoicetype: String!
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseOrderProductServiceInput!]!
+    productservice: [PurchaseReturnProductServiceInput!]!
     isservice: Boolean
+    autocreate: Boolean
     createdby_id: ID
     createdby_name: String
     createdby_type: String
-    isConverted: Boolean
     status: Boolean
   }
 
-  input PurchaseOrderFilterInput {
+  input PurchaseReturnFilterInput {
     adminid: ID
     branchid: ID
-    purchasemenid: ID
-    paymenttype: String
+    sourceInvoiceId: ID
     partyacc: ID
-    taxorsupplytype: String
-    billtype: String
-    ordertype: String
-    billdateFrom: String
-    billdateTo: String
-    isConverted: Boolean
+    returndateFrom: String
+    returndateTo: String
     status: Boolean
   }
 
   extend type Query {
-    getPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
-    getDeletedPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
-    getPurchaseOrderById(id: ID!): PurchaseOrder
+    getPurchaseReturns(filter: PurchaseReturnFilterInput): [PurchaseReturn!]!
+    getDeletedPurchaseReturns(filter: PurchaseReturnFilterInput): [PurchaseReturn!]!
+    getPurchaseReturnById(id: ID!, adminid: ID): PurchaseReturn
   }
 
   extend type Mutation {
-    addPurchaseOrder(input: PurchaseOrderInput!): PurchaseOrder!
-    editPurchaseOrder(id: ID!, input: PurchaseOrderInput!): PurchaseOrder!
-    deletePurchaseOrder(id: ID!): Boolean!
-    resetPurchaseOrder(id: ID!): Boolean!
-    cancelPurchaseOrder(id: ID!, reason: String): PurchaseOrder!
-    reopenPurchaseOrder(id: ID!): PurchaseOrder!
+    addPurchaseReturn(input: PurchaseReturnInput!): PurchaseReturn!
+    editPurchaseReturn(id: ID!, input: PurchaseReturnInput!): PurchaseReturn!
+    deletePurchaseReturn(id: ID!): Boolean!
+    resetPurchaseReturn(id: ID!): Boolean!
   }
 `;

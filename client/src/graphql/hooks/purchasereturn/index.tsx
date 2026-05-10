@@ -1,0 +1,61 @@
+import { useMutation, useQuery } from "@apollo/client";
+import {
+  ADD_PURCHASE_RETURN,
+  EDIT_PURCHASE_RETURN,
+  DELETE_PURCHASE_RETURN,
+  RESET_PURCHASE_RETURN,
+} from "../../mutations/purchasereturn";
+import {
+  GET_PURCHASE_RETURNS,
+  GET_PURCHASE_RETURN_BY_ID,
+  GET_DELETED_PURCHASE_RETURNS,
+} from "../../queries/purchasereturn";
+import { useAppSelector } from "../../../redux/hooks";
+
+export const usePurchaseReturnMutations = () => {
+  const [addPurchaseReturnMutation] = useMutation(ADD_PURCHASE_RETURN);
+  const [editPurchaseReturnMutation] = useMutation(EDIT_PURCHASE_RETURN);
+  const [deletePurchaseReturnMutation] = useMutation(DELETE_PURCHASE_RETURN);
+  const [resetPurchaseReturnMutation] = useMutation(RESET_PURCHASE_RETURN);
+  return {
+    addPurchaseReturnMutation,
+    editPurchaseReturnMutation,
+    deletePurchaseReturnMutation,
+    resetPurchaseReturnMutation,
+  };
+};
+
+export const usePurchaseReturnsQuery = () => {
+  const { type, admin, branch } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+  });
+  return { data, loading, error, refetch };
+};
+
+export const useDeletedPurchaseReturnsQuery = () => {
+  const { type, admin, branch } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_DELETED_PURCHASE_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+  });
+  return { data, loading, error, refetch };
+};
+
+export const usePurchaseReturnByIDQuery = (id?: string) => {
+  const { type, admin, branch } = useAppSelector((s) => s.auth);
+  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+
+  const { data, loading, error } = useQuery(GET_PURCHASE_RETURN_BY_ID, {
+    variables: { id, adminid },
+    skip: !id,
+  });
+  return { data, loading, error };
+};

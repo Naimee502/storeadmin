@@ -83,6 +83,12 @@ import DeletedSalesRoutes from "../pages/salesroutes/deletedentries";
 import PriceLists from "../pages/pricelists";
 import Attendance from "../pages/attendance";
 import DeletedAttendanceEntries from "../pages/attendance/deletedentries";
+import SalesReturns from "../pages/salesreturn";
+import AddEditSalesReturn from "../pages/salesreturn/addedit";
+import DeletedSalesReturns from "../pages/salesreturn/deletedentries";
+import PurchaseReturns from "../pages/purchasereturn";
+import AddEditPurchaseReturn from "../pages/purchasereturn/addedit";
+import DeletedPurchaseReturns from "../pages/purchasereturn/deletedentries";
 import AddEditPriceList from "../pages/pricelists/addedit";
 import PriceAssignments from "../pages/priceassignments";
 import DeletedPriceLists from "../pages/pricelists/deletedentries";
@@ -884,6 +890,72 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <DeletedAttendanceEntries />
+          </ProtectedRoutes>
+        }
+      />
+      {/* ---- Sales Return (Credit Note) ---- */}
+      <Route
+        path="/salesreturn"
+        element={
+          <ProtectedRoutes>
+            <SalesReturns />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesreturn/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesReturn />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesreturn/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesReturn />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesreturn/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSalesReturns />
+          </ProtectedRoutes>
+        }
+      />
+      {/* ---- Purchase Return (Debit Note) ---- */}
+      <Route
+        path="/purchasereturn"
+        element={
+          <ProtectedRoutes>
+            <PurchaseReturns />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchasereturn/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseReturn />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchasereturn/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseReturn />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchasereturn/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPurchaseReturns />
           </ProtectedRoutes>
         }
       />

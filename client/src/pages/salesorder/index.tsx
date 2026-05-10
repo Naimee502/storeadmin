@@ -18,7 +18,7 @@ const SalesOrders = () => {
   const dispatch = useAppDispatch();
   
   const { data, refetch } = useSalesOrdersQuery();
-  const { deleteSalesOrderMutation } = useSalesOrderMutations();
+  const { deleteSalesOrderMutation, cancelSalesOrderMutation } = useSalesOrderMutations();
   const orderList = data?.getSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -67,7 +67,12 @@ const SalesOrders = () => {
       billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
-      status: order.status ? "Active" : "Inactive",
+      status: order.cancelStatus === "cancelled"
+        ? "Cancelled"
+        : (order.status ? "Active" : "Inactive"),
+      // expose raw flags so per-row showCancel / showConvert can branch on them
+      cancelStatus: order.cancelStatus,
+      isConverted: order.isConverted,
     };
   });
 
@@ -119,6 +124,20 @@ const SalesOrders = () => {
           onAdd={() => navigate("/salesorder/addedit")}
           showConvert={true}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
+          // Show "Cancel Order" only on orders that are still open (not converted,
+          // not already cancelled).
+          showCancel={(row: any) => !row.isConverted && row.cancelStatus !== "cancelled"}
+          onCancel={async (row: any) => {
+            const reason = window.prompt(`Cancel Sales Order ${row.billnumber}? Enter reason:`);
+            if (reason === null) return; // user clicked Cancel on prompt
+            try {
+              await cancelSalesOrderMutation({ variables: { id: row.id, reason } });
+              await refetch();
+              dispatch(showMessage({ message: "Order cancelled.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to cancel.", type: "error" }));
+            }
+          }}
           onShowDeleted={() => navigate("/salesorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

@@ -126,5 +126,36 @@ export const purchaseOrderResolvers = {
     resetPurchaseOrder: async (_: any, { id }: { id: string }) => {
       return !!(await PurchaseOrder.findByIdAndUpdate(id, { status: true }));
     },
+
+    cancelPurchaseOrder: async (_: any, { id, reason }: { id: string; reason?: string }) => {
+      const existing = await PurchaseOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Purchase Order not found");
+      if (existing.isConverted) {
+        throw new Error("Order already converted to invoice. Create a Purchase Return against the invoice instead.");
+      }
+      if (existing.cancelStatus === "cancelled") {
+        throw new Error("Order is already cancelled");
+      }
+      const updated = await PurchaseOrder.findByIdAndUpdate(
+        id,
+        { cancelStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
+        { new: true }
+      ).populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
+
+    reopenPurchaseOrder: async (_: any, { id }: { id: string }) => {
+      const existing = await PurchaseOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Purchase Order not found");
+      if (existing.cancelStatus !== "cancelled") {
+        throw new Error("Order is not in cancelled state");
+      }
+      const updated = await PurchaseOrder.findByIdAndUpdate(
+        id,
+        { cancelStatus: "open", cancelReason: null, cancelledAt: null },
+        { new: true }
+      ).populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
   },
 };

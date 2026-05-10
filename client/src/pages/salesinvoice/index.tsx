@@ -123,6 +123,8 @@ const SalesInvoices = () => {
           showExport={false}
           showAdd={true}
           showPrint={true}
+          showReturn={true}
+          onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesinvoice/addedit/${row.id}`)}
           onDelete={async (row) => {

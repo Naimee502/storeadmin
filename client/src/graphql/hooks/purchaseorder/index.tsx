@@ -3,7 +3,9 @@ import {
   ADD_PURCHASE_ORDER,
   EDIT_PURCHASE_ORDER,
   DELETE_PURCHASE_ORDER,
-  RESET_PURCHASE_ORDER
+  RESET_PURCHASE_ORDER,
+  CANCEL_PURCHASE_ORDER,
+  REOPEN_PURCHASE_ORDER,
 } from '../../mutations/purchaseorder';
 
 import {
@@ -19,12 +21,16 @@ export const usePurchaseOrderMutations = () => {
   const [editPurchaseOrderMutation] = useMutation(EDIT_PURCHASE_ORDER);
   const [deletePurchaseOrderMutation] = useMutation(DELETE_PURCHASE_ORDER);
   const [resetPurchaseOrderMutation] = useMutation(RESET_PURCHASE_ORDER);
+  const [cancelPurchaseOrderMutation] = useMutation(CANCEL_PURCHASE_ORDER);
+  const [reopenPurchaseOrderMutation] = useMutation(REOPEN_PURCHASE_ORDER);
 
   return {
     addPurchaseOrderMutation,
     editPurchaseOrderMutation,
     deletePurchaseOrderMutation,
-    resetPurchaseOrderMutation
+    resetPurchaseOrderMutation,
+    cancelPurchaseOrderMutation,
+    reopenPurchaseOrderMutation,
   };
 };
 

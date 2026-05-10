@@ -12,6 +12,8 @@ import {
     FaPrint,
     FaBarcode,
     FaFileInvoice,
+    FaReply,
+    FaBan,
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
@@ -45,6 +47,11 @@ interface DataTableProps {
     showPrint?: boolean;
     showBarcode?: boolean | ((row: any) => boolean);
     showConvert?: boolean;
+    // Per-row action: create a Return doc (Sales/Purchase Return) from this invoice.
+    // Hidden by default. May be a function for conditional visibility per row.
+    showReturn?: boolean | ((row: any) => boolean);
+    // Per-row action: cancel an order (Sales Order / Purchase Order).
+    showCancel?: boolean | ((row: any) => boolean);
     showDeleted?: boolean;
     showImport?: boolean;
     showExport?: boolean;
@@ -58,6 +65,8 @@ interface DataTableProps {
     onPrint?: (row: any) => void;
     onBarcode?: (row: any) => void;
     onConvert?: (row: any) => void;
+    onReturn?: (row: any) => void;
+    onCancel?: (row: any) => void;
     onShowDeleted?: () => void;
     onImport?: () => void;
     onExport?: () => void;
@@ -82,6 +91,8 @@ const DataTable: React.FC<DataTableProps> = ({
     showPrint = false,
     showBarcode = false,
     showConvert = false,
+    showReturn = false,
+    showCancel = false,
     showDeleted = true,
     showImport = true,
     showExport = true,
@@ -95,6 +106,8 @@ const DataTable: React.FC<DataTableProps> = ({
     onPrint,
     onBarcode,
     onConvert,
+    onReturn,
+    onCancel,
     onShowDeleted,
     onImport,
     onExport,
@@ -330,6 +343,16 @@ const DataTable: React.FC<DataTableProps> = ({
                                         {showConvert && (
                                             <button onClick={() => onConvert?.(row)} title="Convert to Invoice" className="text-orange-600">
                                                 <FaFileInvoice />
+                                            </button>
+                                        )}
+                                        {(typeof showReturn === "function" ? showReturn(row) : showReturn) && (
+                                            <button onClick={() => onReturn?.(row)} title="Create Return" className="text-purple-600">
+                                                <FaReply />
+                                            </button>
+                                        )}
+                                        {(typeof showCancel === "function" ? showCancel(row) : showCancel) && (
+                                            <button onClick={() => onCancel?.(row)} title="Cancel Order" className="text-rose-600">
+                                                <FaBan />
                                             </button>
                                         )}
                                     </td>

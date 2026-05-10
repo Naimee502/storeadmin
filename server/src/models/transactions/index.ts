@@ -12,7 +12,7 @@ const transactionSchema = new mongoose.Schema(
     source: {
       docmodel: {
         type: String,
-        enum: ["SalesInvoice", "PurchaseInvoice", "Payment", "Receipt", "Journal", "ExpenseNote", "Other"],
+        enum: ["SalesInvoice", "PurchaseInvoice", "SalesReturn", "PurchaseReturn", "Payment", "Receipt", "Journal", "ExpenseNote", "Other"],
       },
       docid: { type: mongoose.Schema.Types.ObjectId },
     },

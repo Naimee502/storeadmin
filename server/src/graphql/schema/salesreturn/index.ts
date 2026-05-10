@@ -1,11 +1,14 @@
-import { gql } from 'apollo-server-express';
+import { gql } from "apollo-server-express";
 
-export const purchaseOrderTypeDefs = gql`
+export const salesReturnTypeDefs = gql`
+  # NOTE: SimpleRef is already defined in salesinvoice schema.
+  # We re-use the same shape here without redeclaring, since both files are
+  # merged into one typeDefs array.
 
-  type PurchaseOrderProductService {
+  type SalesReturnProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
-    purchaseunitid: SimpleRef
+    salesunitid: SimpleRef
     unitqty: Int
     gst: Float
     qty: Int
@@ -17,10 +20,10 @@ export const purchaseOrderTypeDefs = gql`
     serviceaccountid: SimpleRef
   }
 
-  input PurchaseOrderProductServiceInput {
+  input SalesReturnProductServiceInput {
     productserviceid: ID!
     variantid: ID
-    purchaseunitid: ID
+    salesunitid: ID
     unitqty: Int!
     gst: Float!
     qty: Int!
@@ -32,89 +35,87 @@ export const purchaseOrderTypeDefs = gql`
     serviceaccountid: ID
   }
 
-  type PurchaseOrder {
+  type SalesReturn {
     id: ID!
-    purchasemenid: SimpleRef
+    sourceInvoiceId: ID!
+    sourceBillNumber: String
+    salesmenid: SimpleRef
     paymenttype: String!
     partyacc: SimpleRef!
     taxorsupplytype: String!
-    billdate: String!
+    returndate: String!
     billtype: String!
     billnumber: String
     notes: String
-    ordertype: String
+    reason: String
+    refundMode: String
+    invoicetype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseOrderProductService!]!
+    productservice: [SalesReturnProductService!]!
     isservice: Boolean!
+    autocreate: Boolean!
     createdby_id: ID
     createdby_name: String
     createdby_type: String
-    isConverted: Boolean
-    cancelStatus: String
-    cancelReason: String
-    cancelledAt: String
     status: Boolean!
     createdAt: String
     updatedAt: String
   }
 
-  input PurchaseOrderInput {
-    purchasemenid: ID
+  input SalesReturnInput {
+    sourceInvoiceId: ID!
+    sourceBillNumber: String
+    salesmenid: ID
     paymenttype: String!
     partyacc: ID!
     taxorsupplytype: String
-    billdate: String!
+    returndate: String!
     billtype: String
     billnumber: String
     notes: String
-    ordertype: String
+    reason: String
+    refundMode: String
+    invoicetype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
     adminid: ID!
     branchid: ID!
-    productservice: [PurchaseOrderProductServiceInput!]!
+    productservice: [SalesReturnProductServiceInput!]!
     isservice: Boolean
+    autocreate: Boolean
     createdby_id: ID
     createdby_name: String
     createdby_type: String
-    isConverted: Boolean
     status: Boolean
   }
 
-  input PurchaseOrderFilterInput {
+  input SalesReturnFilterInput {
     adminid: ID
     branchid: ID
-    purchasemenid: ID
-    paymenttype: String
+    sourceInvoiceId: ID
     partyacc: ID
-    taxorsupplytype: String
-    billtype: String
-    ordertype: String
-    billdateFrom: String
-    billdateTo: String
-    isConverted: Boolean
+    returndateFrom: String
+    returndateTo: String
     status: Boolean
   }
 
   extend type Query {
-    getPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
-    getDeletedPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
-    getPurchaseOrderById(id: ID!): PurchaseOrder
+    getSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
+    getDeletedSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
+    getSalesReturnById(id: ID!, adminid: ID): SalesReturn
   }
 
   extend type Mutation {
-    addPurchaseOrder(input: PurchaseOrderInput!): PurchaseOrder!
-    editPurchaseOrder(id: ID!, input: PurchaseOrderInput!): PurchaseOrder!
-    deletePurchaseOrder(id: ID!): Boolean!
-    resetPurchaseOrder(id: ID!): Boolean!
-    cancelPurchaseOrder(id: ID!, reason: String): PurchaseOrder!
-    reopenPurchaseOrder(id: ID!): PurchaseOrder!
+    addSalesReturn(input: SalesReturnInput!): SalesReturn!
+    editSalesReturn(id: ID!, input: SalesReturnInput!): SalesReturn!
+    deleteSalesReturn(id: ID!): Boolean!
+    resetSalesReturn(id: ID!): Boolean!
   }
 `;

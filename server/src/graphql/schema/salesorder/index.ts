@@ -55,6 +55,9 @@ export const salesOrderTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     isConverted: Boolean
+    cancelStatus: String
+    cancelReason: String
+    cancelledAt: String
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -111,5 +114,7 @@ export const salesOrderTypeDefs = gql`
     editSalesOrder(id: ID!, input: SalesOrderInput!): SalesOrder!
     deleteSalesOrder(id: ID!): Boolean!
     resetSalesOrder(id: ID!): Boolean!
+    cancelSalesOrder(id: ID!, reason: String): SalesOrder!
+    reopenSalesOrder(id: ID!): SalesOrder!
   }
 `;

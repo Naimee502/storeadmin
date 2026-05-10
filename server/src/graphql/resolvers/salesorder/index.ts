@@ -126,5 +126,41 @@ export const salesOrderResolvers = {
     resetSalesOrder: async (_: any, { id }: { id: string }) => {
       return !!(await SalesOrder.findByIdAndUpdate(id, { status: true }));
     },
+
+    // Cancel an open order before it gets converted to a Sales Invoice.
+    // Refuses if the order has already been converted, since there is no
+    // safe automatic reversal — the invoice would need to be returned via
+    // the SalesReturn flow instead.
+    cancelSalesOrder: async (_: any, { id, reason }: { id: string; reason?: string }) => {
+      const existing = await SalesOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Sales Order not found");
+      if (existing.isConverted) {
+        throw new Error("Order already converted to invoice. Create a Sales Return against the invoice instead.");
+      }
+      if (existing.cancelStatus === "cancelled") {
+        throw new Error("Order is already cancelled");
+      }
+      const updated = await SalesOrder.findByIdAndUpdate(
+        id,
+        { cancelStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
+        { new: true }
+      ).populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
+
+    // Re-open a cancelled order if it was cancelled by mistake.
+    reopenSalesOrder: async (_: any, { id }: { id: string }) => {
+      const existing = await SalesOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Sales Order not found");
+      if (existing.cancelStatus !== "cancelled") {
+        throw new Error("Order is not in cancelled state");
+      }
+      const updated = await SalesOrder.findByIdAndUpdate(
+        id,
+        { cancelStatus: "open", cancelReason: null, cancelledAt: null },
+        { new: true }
+      ).populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
   },
 };

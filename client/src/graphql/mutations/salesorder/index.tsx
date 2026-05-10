@@ -146,3 +146,23 @@ export const RESET_SALES_ORDER = gql`
     resetSalesOrder(id: $id)
   }
 `;
+
+export const CANCEL_SALES_ORDER = gql`
+  mutation CancelSalesOrder($id: ID!, $reason: String) {
+    cancelSalesOrder(id: $id, reason: $reason) {
+      id
+      cancelStatus
+      cancelReason
+      cancelledAt
+    }
+  }
+`;
+
+export const REOPEN_SALES_ORDER = gql`
+  mutation ReopenSalesOrder($id: ID!) {
+    reopenSalesOrder(id: $id) {
+      id
+      cancelStatus
+    }
+  }
+`;

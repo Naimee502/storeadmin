@@ -44,6 +44,12 @@ const salesOrderSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },
+    // Order lifecycle status. "open" → in flight, "cancelled" → user
+    // cancelled before conversion, "converted" → became a Sales Invoice.
+    // Kept alongside the existing soft-delete `status` boolean.
+    cancelStatus: { type: String, default: "open" },
+    cancelReason: { type: String },
+    cancelledAt: { type: Date },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

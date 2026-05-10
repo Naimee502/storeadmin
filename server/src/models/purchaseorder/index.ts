@@ -44,6 +44,10 @@ const purchaseOrderSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },
+    // Order lifecycle: "open" / "cancelled" / "converted".
+    cancelStatus: { type: String, default: "open" },
+    cancelReason: { type: String },
+    cancelledAt: { type: Date },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
