@@ -19,7 +19,12 @@ const AdminRegister = () => {
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
 
+  // Module list mirrors the sidebar (`components/sidebar/index.tsx`) so any
+  // entry the admin un-checks here disappears from that user's side menu
+  // via the `filterLinks` helper. Order here roughly follows the sidebar
+  // sections: master data → operations → distribution → cross-cutting.
   const allModules = [
+    // Admin / master setup
     "branches",
     "accounts",
     "accountgroups",
@@ -36,21 +41,35 @@ const AdminRegister = () => {
     "sizes",
     "units",
     "products",
+
+    // Sales / Purchase pipeline
+    "salesorder",
     "salesinvoice",
+    "salesreturn",       // ← new credit-note module
+    "purchaseorder",
     "purchaseinvoice",
-    "salesorders",
-    "purchaseorders",
+    "purchasereturn",    // ← new debit-note module
+
+    // Inventory ops
     "stockadjustments",
     "transferstock",
+
+    // Pricing (distribution)
+    "pricelists",        // ← previously gated under "products"
+    "priceassignments",  // ← previously gated under "products"
+
+    // Accounting / Cross-cutting
     "transactions",
     "payments",
     "expensenote",
     "attendance",
+
+    // Future / uncategorised
     "bom",
     "production",
     "reports",
     "posdashboard",
-    "settings"
+    "settings",
   ];
 
   const [allowedmodules, setAllowedmodules] = useState<string[]>(allModules);

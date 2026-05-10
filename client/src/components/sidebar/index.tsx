@@ -74,12 +74,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-xl" />, moduleId: "staffaccounts" },
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-xl" />, moduleId: "accounts" },
     { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-xl" />, moduleId: "products" },
-    { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-xl" /> },
+    { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-xl" />, moduleId: "salesorder" },
     { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-xl" />, moduleId: "salesinvoice" },
-    { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "salesinvoice" },
-    { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-xl" /> },
+    { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "salesreturn" },
+    { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-xl" />, moduleId: "purchaseorder" },
     { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-xl" />, moduleId: "purchaseinvoice" },
-    { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "purchaseinvoice" },
+    { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-xl" />, moduleId: "purchasereturn" },
     { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-xl" />, moduleId: "transferstock" },
     { to: '/stockadjustments', label: 'Stock Adjustments', icon: <FaWrench className="text-xl" />, moduleId: "transferstock" },
     { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-xl" />, moduleId: "expensenote" },
@@ -118,8 +118,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const distributionLinks: SidebarLink[] = [
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-xl" />, moduleId: "channels" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-xl" />, moduleId: "salesroutes" },
-    { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-xl" />, moduleId: "products" },
-    { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-xl" />, moduleId: "products" },
+    { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-xl" />, moduleId: "pricelists" },
+    { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-xl" />, moduleId: "priceassignments" },
   ];
 
   // Filter common links to avoid duplicates in admin
