@@ -82,804 +82,813 @@ import AddEditSalesRoute from "../pages/salesroutes/addedit";
 import DeletedSalesRoutes from "../pages/salesroutes/deletedentries";
 import PriceLists from "../pages/pricelists";
 import Attendance from "../pages/attendance";
+import DeletedAttendanceEntries from "../pages/attendance/deletedentries";
 import AddEditPriceList from "../pages/pricelists/addedit";
 import PriceAssignments from "../pages/priceassignments";
 import DeletedPriceLists from "../pages/pricelists/deletedentries";
 import DeletedPriceAssignments from "../pages/priceassignments/deletedentries";
 
 const AppRoutes = () => {
-    return (
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route
-          path="/adminregister"
-          element={
-            <PublicRoutes>
-              <AdminRegister />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/adminregister/list"
-          element={
-            <PublicRoutes>
-              <AdminList />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/adminregister/deletedentries"
-          element={
-            <PublicRoutes>
-              <DeletedAdmins />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/subscription"
-          element={
-            <PublicRoutes>
-              <Subscription />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/subscriptionreview"
-          element={
-            <PublicRoutes>
-              <SubscriptionReview />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <PublicRoutes>
-              <Login />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/forgotpassword"
-          element={
-            <PublicRoutes>
-              <ForgotPassword />
-            </PublicRoutes>
-          }
-        />
-        <Route
-          path="/home"
-          element={
-            <ProtectedRoutes>
-              <Home />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoutes>
-              <Profile />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoutes>
-              <Settings />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/branches"
-          element={
-            <ProtectedRoutes>
-              <Branches />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/branches/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditBranch />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/branches/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditBranch />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/branches/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedBranches />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/categories"
-          element={
-            <ProtectedRoutes>
-              <Categories />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/categories/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedCategories />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/subcategories"
-          element={
-            <ProtectedRoutes>
-              <SubCategories />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/subcategories/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedSubCategories />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/sizes"
-          element={
-            <ProtectedRoutes>
-              <Sizes />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/sizes/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedSizes />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/brands"
-          element={
-            <ProtectedRoutes>
-              <Brands />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/brands/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedBrands />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/models"
-          element={
-            <ProtectedRoutes>
-              <Models />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/models/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedModels />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/productgroups"
-          element={
-            <ProtectedRoutes>
-              <ProductGroups />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/productgroups/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedProductGroups />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/units"
-          element={
-            <ProtectedRoutes>
-              <Units />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/units/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedUnits />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accountgroups"
-          element={
-            <ProtectedRoutes>
-              <AccountGroups />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accountgroups/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedAccountGroups />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accountledgers"
-          element={
-            <ProtectedRoutes>
-              <AccountLedgers />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accountledgers/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedAccountLedgers />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accounts"
-          element={
-            <ProtectedRoutes>
-              <Accounts />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accounts/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditAccount />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accounts/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditAccount />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/accounts/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedAccounts />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/staffaccounts"
-          element={
-            <ProtectedRoutes>
-              <StaffAccounts />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/staffaccounts/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedStaffAccounts />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/products"
-          element={
-            <ProtectedRoutes>
-              <Products />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/products/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedProducts />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/products/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditProduct />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/products/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditProduct />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesinvoice"
-          element={
-            <ProtectedRoutes>
-              <SalesInvoices />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesinvoice/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesInvoice />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesinvoice/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedSalesInvoices />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesinvoice/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesInvoice />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseinvoice"
-          element={
-            <ProtectedRoutes>
-              <PurchaseInvoices />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseinvoice/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedPurchaseInvoices />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseinvoice/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditPurchaseInvoice />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseinvoice/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditPurchaseInvoice />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesorder"
-          element={
-            <ProtectedRoutes>
-              <SalesOrders />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesorder/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesOrder />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesorder/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesOrder />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesorder/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedSalesOrders />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseorder"
-          element={
-            <ProtectedRoutes>
-              <PurchaseOrders />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseorder/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditPurchaseOrder />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseorder/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditPurchaseOrder />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/purchaseorder/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedPurchaseOrders />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transferstock"
-          element={
-            <ProtectedRoutes>
-              <TransferStock />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transferstock/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedTransferStocks />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/expensenote"
-          element={
-            <ProtectedRoutes>
-              <ExpenseNote />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/expensenote/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditExpenseNote />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/expensenote/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditExpenseNote />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/expensenote/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedExpenseNotes />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transactions"
-          element={
-            <ProtectedRoutes>
-              <Transaction />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transactions/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditTransaction />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transactions/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditTransaction />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/transactions/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedTransactions />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/payments"
-          element={
-            <ProtectedRoutes>
-              <Payment />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/payments/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditPayment />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/payments/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditPayment />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/payments/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedPayments />
-            </ProtectedRoutes>
-          }
-        />
-        {/* ---- Reports ---- */}
-        <Route
-          path="/reports/sales"
-          element={
-            <ProtectedRoutes>
-              <SalesReports />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/reports/purchase"
-          element={
-            <ProtectedRoutes>
-              <PurchaseReports />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/reports/stock"
-          element={
-            <ProtectedRoutes>
-              <StockReports />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/reports/gst"
-          element={
-            <ProtectedRoutes>
-              <GSTReports />
-            </ProtectedRoutes>
-          }
-        />
-         <Route
-          path="/reports/accounting"
-          element={
-            <ProtectedRoutes>
-              <AccountingFinanceReports />
-            </ProtectedRoutes>
-          }
-        />
-         <Route
-          path="/reports/party"
-          element={
-            <ProtectedRoutes>
-              <PartyReports />
-            </ProtectedRoutes>
-          }
-        />
-         <Route
-          path="/reports/salesmen"
-          element={
-            <ProtectedRoutes>
-              <SalesmanReports />
-            </ProtectedRoutes>
-          }
-        />
-         <Route
-          path="/reports/analytical"
-          element={
-            <ProtectedRoutes>
-              <AnalyticalReports />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/posdashboard"
-          element={
-            <ProtectedRoutes>
-              <POSDashboard/>
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/channels"
-          element={
-            <ProtectedRoutes>
-              <Channels />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/channels/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedChannels />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/stockadjustments"
-          element={
-            <ProtectedRoutes>
-              <StockAdjustments />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/stockadjustments/add"
-          element={
-            <ProtectedRoutes>
-              <AddEditStockAdjustment />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/stockadjustments/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditStockAdjustment />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/stockadjustments/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedStockAdjustments />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesroutes"
-          element={
-            <ProtectedRoutes>
-              <SalesRoutes />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesroutes/add"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesRoute />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesroutes/edit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditSalesRoute />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/salesroutes/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedSalesRoutes />
-            </ProtectedRoutes>
-          }
-        />
-        {/* ---- Price Lists ---- */}
-        <Route
-          path="/pricelists"
-          element={
-            <ProtectedRoutes>
-              <PriceLists />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/pricelists/addedit"
-          element={
-            <ProtectedRoutes>
-              <AddEditPriceList />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/pricelists/addedit/:id"
-          element={
-            <ProtectedRoutes>
-              <AddEditPriceList />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/pricelists/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedPriceLists />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/priceassignments"
-          element={
-            <ProtectedRoutes>
-              <PriceAssignments />
-            </ProtectedRoutes>
-          }
-        />
-        <Route
-          path="/priceassignments/deletedentries"
-          element={
-            <ProtectedRoutes>
-              <DeletedPriceAssignments />
-            </ProtectedRoutes>
-          }
-        />
-        {/* ---- Attendance & Leave (consolidated) ---- */}
-        <Route
-          path="/attendance"
-          element={
-            <ProtectedRoutes>
-              <Attendance />
-            </ProtectedRoutes>
-          }
-        />
-      </Routes>
-    );
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/adminregister"
+        element={
+          <PublicRoutes>
+            <AdminRegister />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/adminregister/list"
+        element={
+          <PublicRoutes>
+            <AdminList />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/adminregister/deletedentries"
+        element={
+          <PublicRoutes>
+            <DeletedAdmins />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/subscription"
+        element={
+          <PublicRoutes>
+            <Subscription />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/subscriptionreview"
+        element={
+          <PublicRoutes>
+            <SubscriptionReview />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          <PublicRoutes>
+            <Login />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/forgotpassword"
+        element={
+          <PublicRoutes>
+            <ForgotPassword />
+          </PublicRoutes>
+        }
+      />
+      <Route
+        path="/home"
+        element={
+          <ProtectedRoutes>
+            <Home />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoutes>
+            <Profile />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoutes>
+            <Settings />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/branches"
+        element={
+          <ProtectedRoutes>
+            <Branches />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/branches/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditBranch />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/branches/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditBranch />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/branches/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedBranches />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/categories"
+        element={
+          <ProtectedRoutes>
+            <Categories />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/categories/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedCategories />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/subcategories"
+        element={
+          <ProtectedRoutes>
+            <SubCategories />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/subcategories/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSubCategories />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/sizes"
+        element={
+          <ProtectedRoutes>
+            <Sizes />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/sizes/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSizes />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/brands"
+        element={
+          <ProtectedRoutes>
+            <Brands />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/brands/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedBrands />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/models"
+        element={
+          <ProtectedRoutes>
+            <Models />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/models/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedModels />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/productgroups"
+        element={
+          <ProtectedRoutes>
+            <ProductGroups />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/productgroups/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedProductGroups />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/units"
+        element={
+          <ProtectedRoutes>
+            <Units />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/units/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedUnits />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accountgroups"
+        element={
+          <ProtectedRoutes>
+            <AccountGroups />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accountgroups/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedAccountGroups />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accountledgers"
+        element={
+          <ProtectedRoutes>
+            <AccountLedgers />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accountledgers/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedAccountLedgers />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accounts"
+        element={
+          <ProtectedRoutes>
+            <Accounts />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accounts/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditAccount />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accounts/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditAccount />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accounts/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedAccounts />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/staffaccounts"
+        element={
+          <ProtectedRoutes>
+            <StaffAccounts />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/staffaccounts/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedStaffAccounts />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoutes>
+            <Products />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/products/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedProducts />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/products/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditProduct />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/products/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditProduct />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesinvoice"
+        element={
+          <ProtectedRoutes>
+            <SalesInvoices />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesinvoice/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesInvoice />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesinvoice/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSalesInvoices />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesinvoice/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesInvoice />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseinvoice"
+        element={
+          <ProtectedRoutes>
+            <PurchaseInvoices />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseinvoice/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPurchaseInvoices />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseinvoice/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseInvoice />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseinvoice/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseInvoice />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesorder"
+        element={
+          <ProtectedRoutes>
+            <SalesOrders />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesorder/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesOrder />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesorder/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesOrder />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesorder/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSalesOrders />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseorder"
+        element={
+          <ProtectedRoutes>
+            <PurchaseOrders />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseorder/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseOrder />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseorder/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditPurchaseOrder />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/purchaseorder/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPurchaseOrders />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transferstock"
+        element={
+          <ProtectedRoutes>
+            <TransferStock />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transferstock/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedTransferStocks />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/expensenote"
+        element={
+          <ProtectedRoutes>
+            <ExpenseNote />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/expensenote/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditExpenseNote />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/expensenote/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditExpenseNote />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/expensenote/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedExpenseNotes />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transactions"
+        element={
+          <ProtectedRoutes>
+            <Transaction />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transactions/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditTransaction />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transactions/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditTransaction />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transactions/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedTransactions />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/payments"
+        element={
+          <ProtectedRoutes>
+            <Payment />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/payments/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditPayment />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/payments/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditPayment />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/payments/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPayments />
+          </ProtectedRoutes>
+        }
+      />
+      {/* ---- Reports ---- */}
+      <Route
+        path="/reports/sales"
+        element={
+          <ProtectedRoutes>
+            <SalesReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/purchase"
+        element={
+          <ProtectedRoutes>
+            <PurchaseReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/stock"
+        element={
+          <ProtectedRoutes>
+            <StockReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/gst"
+        element={
+          <ProtectedRoutes>
+            <GSTReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/accounting"
+        element={
+          <ProtectedRoutes>
+            <AccountingFinanceReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/party"
+        element={
+          <ProtectedRoutes>
+            <PartyReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/salesmen"
+        element={
+          <ProtectedRoutes>
+            <SalesmanReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/analytical"
+        element={
+          <ProtectedRoutes>
+            <AnalyticalReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/posdashboard"
+        element={
+          <ProtectedRoutes>
+            <POSDashboard />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/channels"
+        element={
+          <ProtectedRoutes>
+            <Channels />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/channels/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedChannels />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/stockadjustments"
+        element={
+          <ProtectedRoutes>
+            <StockAdjustments />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/stockadjustments/add"
+        element={
+          <ProtectedRoutes>
+            <AddEditStockAdjustment />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/stockadjustments/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditStockAdjustment />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/stockadjustments/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedStockAdjustments />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesroutes"
+        element={
+          <ProtectedRoutes>
+            <SalesRoutes />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesroutes/add"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesRoute />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesroutes/edit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditSalesRoute />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/salesroutes/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedSalesRoutes />
+          </ProtectedRoutes>
+        }
+      />
+      {/* ---- Price Lists ---- */}
+      <Route
+        path="/pricelists"
+        element={
+          <ProtectedRoutes>
+            <PriceLists />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/pricelists/addedit"
+        element={
+          <ProtectedRoutes>
+            <AddEditPriceList />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/pricelists/addedit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditPriceList />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/pricelists/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPriceLists />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/priceassignments"
+        element={
+          <ProtectedRoutes>
+            <PriceAssignments />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/priceassignments/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedPriceAssignments />
+          </ProtectedRoutes>
+        }
+      />
+      {/* ---- Attendance & Leave (consolidated) ---- */}
+      <Route
+        path="/attendance"
+        element={
+          <ProtectedRoutes>
+            <Attendance />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/attendance/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedAttendanceEntries />
+          </ProtectedRoutes>
+        }
+      />
+    </Routes>
+  );
 };
 
 export default AppRoutes;

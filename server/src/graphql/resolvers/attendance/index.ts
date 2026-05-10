@@ -1,15 +1,10 @@
 import {
-  Attendance,
-  Holiday,
-  LeaveType,
-  LeaveRequest,
-  LeaveBalance,
+  Attendance, Holiday, LeaveType, LeaveRequest, LeaveBalance,
 } from "../../../models/attendance";
 import { StaffAccount } from "../../../models/staffaccounts";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
-const toDateStr = (d: Date) =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 const toStaffRef = (doc: any) => {
   if (!doc) return null;
@@ -51,9 +46,7 @@ const formatLog = (log: any) => {
     staffid:
       log.staffid && typeof log.staffid === "object" && (log.staffid as any).name !== undefined
         ? toStaffRef(log.staffid)
-        : log.staffid
-        ? { id: String(log.staffid) }
-        : null,
+        : log.staffid ? { id: String(log.staffid) } : null,
     firstPunchIn: toIso(log.firstPunchIn),
     lastPunchOut: toIso(log.lastPunchOut),
     createdAt: toIso(log.createdAt),
@@ -84,15 +77,11 @@ const formatLeaveRequest = (lr: any) => {
     staffid:
       lr.staffid && typeof lr.staffid === "object" && (lr.staffid as any).name !== undefined
         ? toStaffRef(lr.staffid)
-        : lr.staffid
-        ? { id: String(lr.staffid) }
-        : null,
+        : lr.staffid ? { id: String(lr.staffid) } : null,
     leavetypeid:
       lr.leavetypeid && typeof lr.leavetypeid === "object" && (lr.leavetypeid as any).name !== undefined
         ? toLeaveTypeRef(lr.leavetypeid)
-        : lr.leavetypeid
-        ? { id: String(lr.leavetypeid) }
-        : null,
+        : lr.leavetypeid ? { id: String(lr.leavetypeid) } : null,
     approvedAt: toIso(lr.approvedAt),
     createdAt: toIso(lr.createdAt),
     updatedAt: toIso(lr.updatedAt),
@@ -111,15 +100,11 @@ const formatLeaveBalance = (lb: any) => {
     staffid:
       lb.staffid && typeof lb.staffid === "object" && (lb.staffid as any).name !== undefined
         ? toStaffRef(lb.staffid)
-        : lb.staffid
-        ? { id: String(lb.staffid) }
-        : null,
+        : lb.staffid ? { id: String(lb.staffid) } : null,
     leavetypeid:
       lb.leavetypeid && typeof lb.leavetypeid === "object" && (lb.leavetypeid as any).name !== undefined
         ? toLeaveTypeRef(lb.leavetypeid)
-        : lb.leavetypeid
-        ? { id: String(lb.leavetypeid) }
-        : null,
+        : lb.leavetypeid ? { id: String(lb.leavetypeid) } : null,
     allocated, used, pending, carriedForward, balance,
   };
 };
@@ -262,7 +247,7 @@ export const attendanceResolvers = {
       return list.map(formatLeaveRequest);
     },
     getLeaveBalances: async (_: any, { filter = {} }: any) => {
-      const q: any = { status_active: true };
+      const q: any = { status_active: { $ne: false } };
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.staffid) q.staffid = filter.staffid;
       if (filter.leavetypeid) q.leavetypeid = filter.leavetypeid;
@@ -273,7 +258,7 @@ export const attendanceResolvers = {
     getMyLeaveBalances: async (_: any, __: any, ctx: any) => {
       const staffid = ctx?.user?.id;
       if (!staffid) return [];
-      const list = await LeaveBalance.find({ staffid, status_active: true }).populate("leavetypeid").lean();
+      const list = await LeaveBalance.find({ staffid, status_active: { $ne: false } }).populate("leavetypeid").lean();
       return list.map(formatLeaveBalance);
     },
     getDeletedAttendanceLogs: async (_: any, { filter = {} }: any) => {
@@ -360,17 +345,25 @@ export const attendanceResolvers = {
       const created = formatted!.punches[formatted!.punches.length - 1];
       return { log: formatted, punch: created };
     },
-    addManualAttendance: async (_: any, { input }: any) => {
+    addManualAttendance: async (_: any, { input }: any, ctx: any) => {
       const staff = await StaffAccount.findById(input.staffid).lean();
       if (!staff) throw new Error("Staff not found");
       const adminid = (staff as any).admin;
-      const branchid = (staff as any).branchid;
+      // Match the punch resolver: prefer staff.branchid, fall back to the
+      // request context's branchid so the saved log carries a branchid that
+      // the dashboard's branch filter will match.
+      const branchid = (staff as any).branchid || ctx?.branchid;
       const log = await Attendance.findOneAndUpdate(
         { adminid, staffid: input.staffid, date: input.date },
         { $set: { adminid, branchid, staffid: input.staffid, date: input.date, status: input.status,
             firstPunchIn: input.firstPunchIn ? new Date(input.firstPunchIn) : undefined,
             lastPunchOut: input.lastPunchOut ? new Date(input.lastPunchOut) : undefined,
-            notes: input.notes } },
+            notes: input.notes,
+            // Always restore status_active. Without this, re-adding manual
+            // attendance for a previously soft-deleted (staff, date) row
+            // would update the existing soft-deleted document and leave it
+            // hidden from getAttendanceLogs (which filters status_active:true).
+            status_active: true } },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       ).populate("staffid").lean();
       return formatLog(log);
@@ -384,9 +377,7 @@ export const attendanceResolvers = {
         { new: true }).populate("staffid").lean();
       return formatLog(log);
     },
-    deleteAttendanceLog: async (_: any, { id }: { id: string }) => {
-      return !!(await Attendance.findByIdAndUpdate(id, { status_active: false }));
-    },
+    deleteAttendanceLog: async (_: any, { id }: { id: string }) => !!(await Attendance.findByIdAndUpdate(id, { status_active: false })),
     deletePunch: async (_: any, { logid, punchid }: any) => {
       const log = await Attendance.findByIdAndUpdate(logid, { $pull: { punches: { _id: punchid } } }, { new: true }).populate("staffid").lean();
       return formatLog(log);
@@ -399,9 +390,7 @@ export const attendanceResolvers = {
       const updated = await Holiday.findByIdAndUpdate(id, input, { new: true }).lean();
       return updated ? formatHoliday(updated) : null;
     },
-    deleteHoliday: async (_: any, { id }: { id: string }) => {
-      return !!(await Holiday.findByIdAndUpdate(id, { status: false }));
-    },
+    deleteHoliday: async (_: any, { id }: { id: string }) => !!(await Holiday.findByIdAndUpdate(id, { status: false })),
     addLeaveType: async (_: any, { input }: any) => {
       const created = await LeaveType.create(input);
       return formatLeaveType(created.toObject());
@@ -410,9 +399,7 @@ export const attendanceResolvers = {
       const updated = await LeaveType.findByIdAndUpdate(id, input, { new: true }).lean();
       return updated ? formatLeaveType(updated) : null;
     },
-    deleteLeaveType: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveType.findByIdAndUpdate(id, { status: false }));
-    },
+    deleteLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: false })),
     addLeaveRequest: async (_: any, { input }: any, ctx: any) => {
       const created = await LeaveRequest.create({ ...input, appliedFromIp: ctx?.req?.ip });
       const year = new Date(input.fromDate).getFullYear();
@@ -461,8 +448,7 @@ export const attendanceResolvers = {
       const year = new Date(lr.fromDate).getFullYear();
       await LeaveBalance.findOneAndUpdate(
         { adminid: lr.adminid, staffid: lr.staffid, leavetypeid: lr.leavetypeid, year },
-        { $inc: { pending: -lr.totalDays } },
-        { new: true }
+        { $inc: { pending: -lr.totalDays } }, { new: true }
       );
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
       return formatLeaveRequest(populated);
@@ -484,34 +470,20 @@ export const attendanceResolvers = {
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
       return formatLeaveRequest(populated);
     },
-    deleteLeaveRequest: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: false }));
-    },
-    resetAttendanceLog: async (_: any, { id }: { id: string }) => {
-      return !!(await Attendance.findByIdAndUpdate(id, { status_active: true }));
-    },
-    resetHoliday: async (_: any, { id }: { id: string }) => {
-      return !!(await Holiday.findByIdAndUpdate(id, { status: true }));
-    },
-    resetLeaveType: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveType.findByIdAndUpdate(id, { status: true }));
-    },
-    resetLeaveRequest: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: true }));
-    },
-    deleteLeaveBalance: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: false }));
-    },
+    deleteLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: false })),
+    resetAttendanceLog: async (_: any, { id }: { id: string }) => !!(await Attendance.findByIdAndUpdate(id, { status_active: true })),
+    resetHoliday: async (_: any, { id }: { id: string }) => !!(await Holiday.findByIdAndUpdate(id, { status: true })),
+    resetLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: true })),
+    resetLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: true })),
+    resetLeaveBalance: async (_: any, { id }: { id: string }) => !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: true })),
+    deleteLeaveBalance: async (_: any, { id }: { id: string }) => !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: false })),
     upsertLeaveBalance: async (_: any, { input }: any) => {
       const lb = await LeaveBalance.findOneAndUpdate(
         { adminid: input.adminid, staffid: input.staffid, leavetypeid: input.leavetypeid, year: input.year },
-        { $set: { allocated: input.allocated, carriedForward: input.carriedForward ?? 0 } },
+        { $set: { allocated: input.allocated, carriedForward: input.carriedForward ?? 0, status_active: true } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       ).populate("staffid").populate("leavetypeid").lean();
       return formatLeaveBalance(lb);
-    },
-    resetLeaveBalance: async (_: any, { id }: { id: string }) => {
-      return !!(await LeaveBalance.findByIdAndUpdate(id, { status_active: true }));
     },
   },
 };

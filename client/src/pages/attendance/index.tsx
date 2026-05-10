@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
+import { useNavigate, useLocation } from "react-router";
 import { FaPlus, FaPrint, FaQrcode, FaIdBadge } from "react-icons/fa";
 
 import HomeLayout from "../../layouts/home";
@@ -21,11 +22,6 @@ import {
   GET_LEAVE_TYPES,
   GET_LEAVE_REQUESTS,
   GET_LEAVE_BALANCES,
-  GET_DELETED_ATTENDANCE_LOGS,
-  GET_DELETED_HOLIDAYS,
-  GET_DELETED_LEAVE_TYPES,
-  GET_DELETED_LEAVE_REQUESTS,
-  GET_DELETED_LEAVE_BALANCES,
 } from "../../graphql/queries/attendance";
 import {
   PUNCH,
@@ -47,11 +43,6 @@ import {
   DELETE_LEAVE_REQUEST,
   UPSERT_LEAVE_BALANCE,
   DELETE_LEAVE_BALANCE,
-  RESET_ATTENDANCE_LOG,
-  RESET_HOLIDAY,
-  RESET_LEAVE_TYPE,
-  RESET_LEAVE_REQUEST,
-  RESET_LEAVE_BALANCE,
 } from "../../graphql/mutations/attendance";
 import { GET_STAFF } from "../../graphql/queries/staffaccounts";
 
@@ -91,8 +82,14 @@ const cap = (s?: string | null) => {
 /* ================================================================== */
 
 const Attendance: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((s: any) => s.auth);
+  // tab can be passed back via navigation state when returning from deleted page
+  const initialTab = (location.state as any)?.tab as
+    | "logs" | "punches" | "holidays" | "leavetypes" | "leaverequests" | "balances" | "cards"
+    | undefined;
   const adminId =
     type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : undefined;
   const branchId = useAppSelector((s: any) => s.selectedBranch?.branchId);
@@ -105,7 +102,7 @@ const Attendance: React.FC = () => {
     | "leaverequests"
     | "balances"
     | "cards"
-  >("logs");
+  >(initialTab || "logs");
 
   /* ---------------- Scan-to-punch ---------------- */
   const [scanOpen, setScanOpen] = useState(false);
@@ -120,14 +117,7 @@ const Attendance: React.FC = () => {
   const [printIds, setPrintIds] = useState<string[] | null>(null); // ids to print, or null = none
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ---------------- Deleted-view toggle per tab ---------------- */
-  const [viewDeleted, setViewDeleted] = useState({
-    logs: false,
-    holidays: false,
-    leavetypes: false,
-    leaverequests: false,
-    balances: false,
-  });
+
 
   /* ------------------ data ------------------ */
   const logsQ = useQuery(GET_ATTENDANCE_LOGS, {
@@ -163,27 +153,19 @@ const Attendance: React.FC = () => {
     skip: !adminId,
   });
 
-  /* Deleted views (lazy: only fetch when toggled on) */
-  const deletedLogsQ = useQuery(GET_DELETED_ATTENDANCE_LOGS, {
-    variables: { filter: { adminid: adminId, branchid: branchId } },
-    skip: !adminId || !viewDeleted.logs,
-  });
-  const deletedHolidaysQ = useQuery(GET_DELETED_HOLIDAYS, {
-    variables: { filter: { adminid: adminId } },
-    skip: !adminId || !viewDeleted.holidays,
-  });
-  const deletedLeaveTypesQ = useQuery(GET_DELETED_LEAVE_TYPES, {
-    variables: { adminid: adminId },
-    skip: !adminId || !viewDeleted.leavetypes,
-  });
-  const deletedLeaveReqsQ = useQuery(GET_DELETED_LEAVE_REQUESTS, {
-    variables: { filter: { adminid: adminId, branchid: branchId } },
-    skip: !adminId || !viewDeleted.leaverequests,
-  });
-  const deletedLeaveBalancesQ = useQuery(GET_DELETED_LEAVE_BALANCES, {
-    variables: { filter: { adminid: adminId } },
-    skip: !adminId || !viewDeleted.balances,
-  });
+  /* Refetch all active queries on mount — matches categories module so
+     returning from /attendance/deletedentries shows fresh data. */
+  useEffect(() => {
+    if (!adminId) return;
+    logsQ.refetch();
+    punchesQ.refetch();
+    summaryQ.refetch();
+    holidaysQ.refetch();
+    leaveTypesQ.refetch();
+    leaveRequestsQ.refetch();
+    leaveBalancesQ.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminId, branchId]);
 
   const staffOptions = useMemo(
     () =>
@@ -235,11 +217,7 @@ const Attendance: React.FC = () => {
   const [deleteLeaveReqMut] = useMutation(DELETE_LEAVE_REQUEST);
   const [upsertLeaveBalMut] = useMutation(UPSERT_LEAVE_BALANCE);
   const [deleteLeaveBalMut] = useMutation(DELETE_LEAVE_BALANCE);
-  const [resetLogMut] = useMutation(RESET_ATTENDANCE_LOG);
-  const [resetHolidayMut] = useMutation(RESET_HOLIDAY);
-  const [resetLeaveTypeMut] = useMutation(RESET_LEAVE_TYPE);
-  const [resetLeaveReqMut] = useMutation(RESET_LEAVE_REQUEST);
-  const [resetLeaveBalMut] = useMutation(RESET_LEAVE_BALANCE);
+
 
   const notify = (msg: string, type: "success" | "error" = "success") =>
     dispatch(showMessage({ message: msg, type }));
@@ -259,16 +237,19 @@ const Attendance: React.FC = () => {
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const openModal = (kind: ModalKind, initial: any = {}, editingRow: any = null) => {
     setModal(kind);
     setForm(initial);
     setEditing(editingRow);
+    setFormErrors({});
   };
   const closeModal = () => {
     setModal(null);
     setEditing(null);
     setForm({});
+    setFormErrors({});
   };
 
   const onChange = (e: any) => {
@@ -277,6 +258,91 @@ const Attendance: React.FC = () => {
       ...prev,
       [name]: t === "checkbox" ? checked : value,
     }));
+    // Clear error for the changed field so the red border disappears as
+    // the user types — same behaviour as the categories module.
+    if (name && formErrors[name]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  /* ------------------ validation ------------------ */
+  // Required-field rules per modal kind, mirroring the Categories module's
+  // validateForm() pattern. Returns true when no errors were found.
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    const req = (key: string, label: string) => {
+      const v = form[key];
+      if (v === undefined || v === null || (typeof v === "string" && !v.trim())) {
+        errors[key] = `${label} is required`;
+      }
+    };
+
+    switch (modal) {
+      case "punch":
+        req("staffid", "Staff");
+        req("type", "Type");
+        break;
+      case "manualAttendance":
+      case "editLog":
+        req("staffid", "Staff");
+        req("date", "Date");
+        req("status", "Status");
+        break;
+      case "holiday":
+        req("date", "Date");
+        req("name", "Name");
+        req("type", "Type");
+        break;
+      case "leaveType":
+        req("name", "Name");
+        req("code", "Code");
+        req("accrualType", "Accrual Type");
+        if (
+          form.totalDaysPerYear === "" ||
+          form.totalDaysPerYear === null ||
+          form.totalDaysPerYear === undefined ||
+          isNaN(parseFloat(form.totalDaysPerYear))
+        ) {
+          errors.totalDaysPerYear = "Days / Year is required";
+        }
+        break;
+      case "leaveRequest":
+        req("staffid", "Staff");
+        req("leavetypeid", "Leave Type");
+        req("fromDate", "From date");
+        req("toDate", "To date");
+        req("reason", "Reason");
+        if (
+          form.totalDays === "" ||
+          form.totalDays === null ||
+          form.totalDays === undefined ||
+          isNaN(parseFloat(form.totalDays))
+        ) {
+          errors.totalDays = "Total days is required";
+        }
+        break;
+      case "rejectLeave":
+        req("rejectionReason", "Rejection reason");
+        break;
+      case "leaveBalance":
+        req("staffid", "Staff");
+        req("leavetypeid", "Leave Type");
+        req("year", "Year");
+        break;
+      default:
+        break;
+    }
+
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      notify("Please fix the highlighted fields", "error");
+      return false;
+    }
+    return true;
   };
 
   /* ================================================================ */
@@ -443,10 +509,7 @@ const Attendance: React.FC = () => {
   /* ================================================================ */
   /* TAB: Daily Logs                                                  */
   /* ================================================================ */
-  const logSource = viewDeleted.logs
-    ? deletedLogsQ.data?.getDeletedAttendanceLogs ?? []
-    : logsQ.data?.getAttendanceLogs ?? [];
-  const logRows = logSource.map((l: any, i: number) => ({
+  const logRows = (logsQ.data?.getAttendanceLogs ?? []).map((l: any, i: number) => ({
     ...l,
     seqNo: i + 1,
     staffName: cap(l.staffid?.name),
@@ -513,7 +576,7 @@ const Attendance: React.FC = () => {
       )}
 
       <DataTable
-        title={viewDeleted.logs ? "Deleted Attendance Logs" : "Attendance Daily Logs"}
+        title="Attendance Daily Logs"
         columns={[
           { label: "Seq", key: "seqNo" },
           { label: "Date", key: "date" },
@@ -525,15 +588,17 @@ const Attendance: React.FC = () => {
           { label: "Work", key: "work" },
         ]}
         data={logRows}
-        showAdd={!viewDeleted.logs}
-        showEdit={!viewDeleted.logs}
-        showDelete={!viewDeleted.logs}
-        showReset={viewDeleted.logs}
+        showAdd={true}
+        showEdit={true}
+        showDelete={true}
+        showReset={false}
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={!viewDeleted.logs}
-        onShowDeleted={() => setViewDeleted((v) => ({ ...v, logs: !v.logs }))}
+        showDeleted={true}
+        onShowDeleted={() =>
+          navigate("/attendance/deletedentries", { state: { from: "logs" } })
+        }
         onAdd={() =>
           openModal("manualAttendance", {
             staffid: "",
@@ -563,24 +628,13 @@ const Attendance: React.FC = () => {
             return;
           try {
             await deleteLogMut({ variables: { id: row.id } });
-            await Promise.all([logsQ.refetch(), deletedLogsQ.refetch()]);
+            await logsQ.refetch();
             notify("Log deleted.");
           } catch {
             notify("Failed to delete log.", "error");
           }
         }}
-        onReset={async (row) => {
-          if (!window.confirm(`Restore attendance log for ${row.staffName} on ${row.date}?`)) return;
-          try {
-            await resetLogMut({ variables: { id: row.id } });
-            await Promise.all([deletedLogsQ.refetch(), logsQ.refetch()]);
-            notify("Log restored.");
-            setViewDeleted((v) => ({ ...v, logs: false }));
-          } catch {
-            notify("Failed to restore log.", "error");
-          }
-        }}
-        isLoading={viewDeleted.logs ? deletedLogsQ.loading : logsQ.loading}
+        isLoading={logsQ.loading}
         defaultEntriesPerPage={10}
       />
     </>
@@ -628,38 +682,40 @@ const Attendance: React.FC = () => {
   /* ================================================================ */
   /* TAB: Holidays                                                    */
   /* ================================================================ */
-  const holidaySource = viewDeleted.holidays
-    ? deletedHolidaysQ.data?.getDeletedHolidays ?? []
-    : holidaysQ.data?.getHolidays ?? [];
-  const holidayRows = holidaySource.map((h: any, i: number) => ({
+  const holidayRows = (holidaysQ.data?.getHolidays ?? []).map((h: any, i: number) => ({
     ...h,
     seqNo: i + 1,
-    name: cap(h.name),
-    type: cap(h.type),
-    description: h.description ?? "-",
+    // Display-only labels (capitalized). Original `name`, `type`, `description`
+    // are preserved on the row so edit forms get the raw values that match
+    // dropdown option values (e.g. "public", not "Public").
+    nameLabel: cap(h.name),
+    typeLabel: cap(h.type),
+    descriptionLabel: h.description ?? "-",
   }));
 
   const renderHolidaysTab = () => (
     <>
       <DataTable
-        title={viewDeleted.holidays ? "Deleted Holidays" : "Holidays"}
+        title="Holidays"
         columns={[
           { label: "Seq", key: "seqNo" },
           { label: "Date", key: "date" },
-          { label: "Name", key: "name" },
-          { label: "Type", key: "type" },
-          { label: "Description", key: "description" },
+          { label: "Name", key: "nameLabel" },
+          { label: "Type", key: "typeLabel" },
+          { label: "Description", key: "descriptionLabel" },
         ]}
         data={holidayRows}
-        showAdd={!viewDeleted.holidays}
-        showEdit={!viewDeleted.holidays}
-        showDelete={!viewDeleted.holidays}
-        showReset={viewDeleted.holidays}
+        showAdd={true}
+        showEdit={true}
+        showDelete={true}
+        showReset={false}
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={!viewDeleted.holidays}
-        onShowDeleted={() => setViewDeleted((v) => ({ ...v, holidays: !v.holidays }))}
+        showDeleted={true}
+        onShowDeleted={() =>
+          navigate("/attendance/deletedentries", { state: { from: "holidays" } })
+        }
         onAdd={() =>
           openModal("holiday", {
             date: todayStr(),
@@ -684,24 +740,13 @@ const Attendance: React.FC = () => {
           if (!window.confirm(`Delete holiday "${row.name}"?`)) return;
           try {
             await deleteHolidayMut({ variables: { id: row.id } });
-            await Promise.all([holidaysQ.refetch(), deletedHolidaysQ.refetch()]);
+            await holidaysQ.refetch();
             notify("Holiday deleted.");
           } catch {
             notify("Failed to delete holiday.", "error");
           }
         }}
-        onReset={async (row) => {
-          if (!window.confirm(`Restore holiday "${row.name}"?`)) return;
-          try {
-            await resetHolidayMut({ variables: { id: row.id } });
-            await Promise.all([deletedHolidaysQ.refetch(), holidaysQ.refetch()]);
-            notify("Holiday restored.");
-            setViewDeleted((v) => ({ ...v, holidays: false }));
-          } catch {
-            notify("Failed to restore holiday.", "error");
-          }
-        }}
-        isLoading={viewDeleted.holidays ? deletedHolidaysQ.loading : holidaysQ.loading}
+        isLoading={holidaysQ.loading}
         defaultEntriesPerPage={10}
       />
     </>
@@ -710,114 +755,101 @@ const Attendance: React.FC = () => {
   /* ================================================================ */
   /* TAB: Leave Types                                                 */
   /* ================================================================ */
-  const leaveTypeSource = viewDeleted.leavetypes
-    ? deletedLeaveTypesQ.data?.getDeletedLeaveTypes ?? []
-    : leaveTypesQ.data?.getLeaveTypes ?? [];
-  const leaveTypeRows = leaveTypeSource.map(
+  const leaveTypeRows = (leaveTypesQ.data?.getLeaveTypes ?? []).map(
     (lt: any, i: number) => ({
       ...lt,
       seqNo: i + 1,
-      name: cap(lt.name),
-      code: cap(lt.code),
-      accrualType: cap(lt.accrualType),
+      // Display-only labels (capitalized). Original `name`, `code`, `accrualType`
+      // are preserved so the edit form's dropdown values match.
+      nameLabel: cap(lt.name),
+      codeLabel: cap(lt.code),
+      accrualLabel: cap(lt.accrualType),
       paid: lt.isPaid ? "Yes" : "No",
     })
   );
 
   const renderLeaveTypesTab = () => (
     <>
-    <DataTable
-      title={viewDeleted.leavetypes ? "Deleted Leave Types" : "Leave Types"}
-      columns={[
-        { label: "Seq", key: "seqNo" },
-        { label: "Code", key: "code" },
-        { label: "Name", key: "name" },
-        { label: "Days/Yr", key: "totalDaysPerYear" },
-        { label: "Paid", key: "paid" },
-        { label: "Accrual", key: "accrualType" },
-      ]}
-      data={leaveTypeRows}
-      showAdd={!viewDeleted.leavetypes}
-      showEdit={!viewDeleted.leavetypes}
-      showDelete={!viewDeleted.leavetypes}
-      showReset={viewDeleted.leavetypes}
-      showView={false}
-      showImport={false}
-      showExport={false}
-      showDeleted={!viewDeleted.leavetypes}
-      onShowDeleted={() => setViewDeleted((v) => ({ ...v, leavetypes: !v.leavetypes }))}
-      onAdd={() =>
-        openModal("leaveType", {
-          name: "",
-          code: "",
-          totalDaysPerYear: 0,
-          accrualType: "yearly",
-          carryForward: false,
-          maxCarryForward: 0,
-          isPaid: true,
-          allowHalfDay: true,
-          requiresApproval: true,
-          requiresAttachment: false,
-          color: "#3b82f6",
-          description: "",
-          status: true,
-        })
-      }
-      onEdit={(row) =>
-        openModal(
-          "leaveType",
-          {
-            name: row.name,
-            code: row.code,
-            totalDaysPerYear: row.totalDaysPerYear ?? 0,
-            accrualType: row.accrualType ?? "yearly",
-            carryForward: !!row.carryForward,
-            maxCarryForward: row.maxCarryForward ?? 0,
-            isPaid: !!row.isPaid,
-            allowHalfDay: !!row.allowHalfDay,
-            requiresApproval: !!row.requiresApproval,
-            requiresAttachment: !!row.requiresAttachment,
-            color: row.color ?? "#3b82f6",
-            description: row.description ?? "",
-            status: row.status ?? true,
-          },
-          row
-        )
-      }
-      onDelete={async (row) => {
-        if (!window.confirm(`Delete leave type "${row.name}"?`)) return;
-        try {
-          await deleteLeaveTypeMut({ variables: { id: row.id } });
-          await Promise.all([leaveTypesQ.refetch(), deletedLeaveTypesQ.refetch()]);
-          notify("Leave type deleted.");
-        } catch {
-          notify("Failed to delete leave type.", "error");
+      <DataTable
+        title="Leave Types"
+        columns={[
+          { label: "Seq", key: "seqNo" },
+          { label: "Code", key: "codeLabel" },
+          { label: "Name", key: "nameLabel" },
+          { label: "Days/Yr", key: "totalDaysPerYear" },
+          { label: "Paid", key: "paid" },
+          { label: "Accrual", key: "accrualLabel" },
+        ]}
+        data={leaveTypeRows}
+        showAdd={true}
+        showEdit={true}
+        showDelete={true}
+        showReset={false}
+        showView={false}
+        showImport={false}
+        showExport={false}
+        showDeleted={true}
+        onShowDeleted={() =>
+          navigate("/attendance/deletedentries", { state: { from: "leavetypes" } })
         }
-      }}
-      onReset={async (row) => {
-        if (!window.confirm(`Restore leave type "${row.name}"?`)) return;
-        try {
-          await resetLeaveTypeMut({ variables: { id: row.id } });
-          await Promise.all([deletedLeaveTypesQ.refetch(), leaveTypesQ.refetch()]);
-          notify("Leave type restored.");
-          setViewDeleted((v) => ({ ...v, leavetypes: false }));
-        } catch {
-          notify("Failed to restore.", "error");
+        onAdd={() =>
+          openModal("leaveType", {
+            name: "",
+            code: "",
+            totalDaysPerYear: 0,
+            accrualType: "yearly",
+            carryForward: false,
+            maxCarryForward: 0,
+            isPaid: true,
+            allowHalfDay: true,
+            requiresApproval: true,
+            requiresAttachment: false,
+            color: "#3b82f6",
+            description: "",
+            status: true,
+          })
         }
-      }}
-      isLoading={viewDeleted.leavetypes ? deletedLeaveTypesQ.loading : leaveTypesQ.loading}
-      defaultEntriesPerPage={10}
-    />
+        onEdit={(row) =>
+          openModal(
+            "leaveType",
+            {
+              name: row.name,
+              code: row.code,
+              totalDaysPerYear: row.totalDaysPerYear ?? 0,
+              accrualType: row.accrualType ?? "yearly",
+              carryForward: !!row.carryForward,
+              maxCarryForward: row.maxCarryForward ?? 0,
+              isPaid: !!row.isPaid,
+              allowHalfDay: !!row.allowHalfDay,
+              requiresApproval: !!row.requiresApproval,
+              requiresAttachment: !!row.requiresAttachment,
+              color: row.color ?? "#3b82f6",
+              description: row.description ?? "",
+              status: row.status ?? true,
+            },
+            row
+          )
+        }
+        onDelete={async (row) => {
+          if (!window.confirm(`Delete leave type "${row.name}"?`)) return;
+          try {
+            await deleteLeaveTypeMut({ variables: { id: row.id } });
+            await leaveTypesQ.refetch();
+            notify("Leave type deleted.");
+          } catch {
+            notify("Failed to delete leave type.", "error");
+          }
+        }}
+        isLoading={leaveTypesQ.loading}
+        defaultEntriesPerPage={10}
+      />
     </>
   );
 
   /* ================================================================ */
   /* TAB: Leave Requests                                              */
   /* ================================================================ */
-  const requestSource = viewDeleted.leaverequests
-    ? deletedLeaveReqsQ.data?.getDeletedLeaveRequests ?? []
-    : leaveRequestsQ.data?.getLeaveRequests ?? [];
-  const requestRows = requestSource.map(
+  const requestRows = (leaveRequestsQ.data?.getLeaveRequests ?? []).map(
     (r: any, i: number) => ({
       ...r,
       seqNo: i + 1,
@@ -859,77 +891,68 @@ const Attendance: React.FC = () => {
 
   const renderLeaveRequestsTab = () => (
     <>
-    <DataTable
-      title={viewDeleted.leaverequests ? "Deleted Leave Requests" : "Leave Requests"}
-      columns={[
-        { label: "Seq", key: "seqNo" },
-        { label: "Staff", key: "staffName" },
-        { label: "Type", key: "typeName" },
-        { label: "Dates", key: "range" },
-        { label: "Days", key: "totalDays" },
-        { label: "Status", key: "status" },
-        { label: "Reason", key: "reason" },
-      ]}
-      data={requestRows}
-      showAdd={!viewDeleted.leaverequests}
-      showEdit={!viewDeleted.leaverequests}
-      showDelete={!viewDeleted.leaverequests}
-      showReset={viewDeleted.leaverequests}
-      showView={false}
-      showImport={false}
-      showExport={false}
-      showDeleted={!viewDeleted.leaverequests}
-      onShowDeleted={() => setViewDeleted((v) => ({ ...v, leaverequests: !v.leaverequests }))}
-      onAdd={() =>
-        openModal("leaveRequest", {
-          staffid: "",
-          leavetypeid: "",
-          fromDate: todayStr(),
-          toDate: todayStr(),
-          halfDay: false,
-          totalDays: 1,
-          reason: "",
-        })
-      }
-      onEdit={(row) =>
-        openModal(
-          "leaveRequest",
-          {
-            staffid: row.staffid?.id ?? "",
-            leavetypeid: row.leavetypeid?.id ?? "",
-            fromDate: row.fromDate,
-            toDate: row.toDate,
-            halfDay: !!row.halfDay,
-            totalDays: row.totalDays,
-            reason: row.reason ?? "",
-          },
-          row
-        )
-      }
-      onDelete={async (row) => {
-        if (!window.confirm("Delete this leave request?")) return;
-        try {
-          await deleteLeaveReqMut({ variables: { id: row.id } });
-          await Promise.all([leaveRequestsQ.refetch(), deletedLeaveReqsQ.refetch()]);
-          notify("Leave request deleted.");
-        } catch {
-          notify("Failed to delete.", "error");
+      <DataTable
+        title="Leave Requests"
+        columns={[
+          { label: "Seq", key: "seqNo" },
+          { label: "Staff", key: "staffName" },
+          { label: "Type", key: "typeName" },
+          { label: "Dates", key: "range" },
+          { label: "Days", key: "totalDays" },
+          { label: "Status", key: "status" },
+          { label: "Reason", key: "reason" },
+        ]}
+        data={requestRows}
+        showAdd={true}
+        showEdit={true}
+        showDelete={true}
+        showReset={false}
+        showView={false}
+        showImport={false}
+        showExport={false}
+        showDeleted={true}
+        onShowDeleted={() =>
+          navigate("/attendance/deletedentries", { state: { from: "leaverequests" } })
         }
-      }}
-      onReset={async (row) => {
-        if (!window.confirm("Restore this leave request?")) return;
-        try {
-          await resetLeaveReqMut({ variables: { id: row.id } });
-          await Promise.all([deletedLeaveReqsQ.refetch(), leaveRequestsQ.refetch()]);
-          notify("Leave request restored.");
-          setViewDeleted((v) => ({ ...v, leaverequests: false }));
-        } catch {
-          notify("Failed to restore.", "error");
+        onAdd={() =>
+          openModal("leaveRequest", {
+            staffid: "",
+            leavetypeid: "",
+            fromDate: todayStr(),
+            toDate: todayStr(),
+            halfDay: false,
+            totalDays: 1,
+            reason: "",
+          })
         }
-      }}
-      isLoading={viewDeleted.leaverequests ? deletedLeaveReqsQ.loading : leaveRequestsQ.loading}
-      defaultEntriesPerPage={10}
-    />
+        onEdit={(row) =>
+          openModal(
+            "leaveRequest",
+            {
+              staffid: row.staffid?.id ?? "",
+              leavetypeid: row.leavetypeid?.id ?? "",
+              fromDate: row.fromDate,
+              toDate: row.toDate,
+              halfDay: !!row.halfDay,
+              totalDays: row.totalDays,
+              reason: row.reason ?? "",
+            },
+            row
+          )
+        }
+        onDelete={async (row) => {
+          if (!window.confirm("Delete this leave request?")) return;
+          try {
+            await deleteLeaveReqMut({ variables: { id: row.id } });
+            await leaveRequestsQ.refetch();
+            notify("Leave request deleted.");
+          } catch {
+            notify("Failed to delete.", "error");
+          }
+        }}
+        isLoading={leaveRequestsQ.loading}
+        defaultEntriesPerPage={10}
+      />
     </>
   );
 
@@ -941,10 +964,7 @@ const Attendance: React.FC = () => {
   /* ================================================================ */
   /* TAB: Leave Balances                                              */
   /* ================================================================ */
-  const balanceSource = viewDeleted.balances
-    ? deletedLeaveBalancesQ.data?.getDeletedLeaveBalances ?? []
-    : leaveBalancesQ.data?.getLeaveBalances ?? [];
-  const balanceRows = balanceSource.map(
+  const balanceRows = (leaveBalancesQ.data?.getLeaveBalances ?? []).map(
     (b: any, i: number) => ({
       ...b,
       seqNo: i + 1,
@@ -955,7 +975,7 @@ const Attendance: React.FC = () => {
 
   const renderLeaveBalancesTab = () => (
     <DataTable
-      title={viewDeleted.balances ? "Deleted Leave Balances" : "Leave Balances"}
+      title="Leave Balances"
       columns={[
         { label: "Seq", key: "seqNo" },
         { label: "Staff", key: "staffName" },
@@ -968,15 +988,17 @@ const Attendance: React.FC = () => {
         { label: "Balance", key: "balance" },
       ]}
       data={balanceRows}
-      showAdd={!viewDeleted.balances}
-      showEdit={!viewDeleted.balances}
-      showDelete={!viewDeleted.balances}
-      showReset={viewDeleted.balances}
+      showAdd={true}
+      showEdit={true}
+      showDelete={true}
+      showReset={false}
       showView={false}
       showImport={false}
       showExport={false}
-      showDeleted={!viewDeleted.balances}
-      onShowDeleted={() => setViewDeleted((v) => ({ ...v, balances: !v.balances }))}
+      showDeleted={true}
+      onShowDeleted={() =>
+        navigate("/attendance/deletedentries", { state: { from: "balances" } })
+      }
       onAdd={() =>
         openModal("leaveBalance", {
           staffid: "",
@@ -1004,25 +1026,13 @@ const Attendance: React.FC = () => {
           return;
         try {
           await deleteLeaveBalMut({ variables: { id: row.id } });
-          await Promise.all([leaveBalancesQ.refetch(), deletedLeaveBalancesQ.refetch()]);
+          await leaveBalancesQ.refetch();
           notify("Leave balance deleted.");
         } catch {
           notify("Failed to delete leave balance.", "error");
         }
       }}
-      onReset={async (row) => {
-        if (!window.confirm(`Restore leave balance for ${row.staffName} (${row.typeName}) year ${row.year}?`))
-          return;
-        try {
-          await resetLeaveBalMut({ variables: { id: row.id } });
-          await Promise.all([deletedLeaveBalancesQ.refetch(), leaveBalancesQ.refetch()]);
-          notify("Leave balance restored.");
-          setViewDeleted((v) => ({ ...v, balances: false }));
-        } catch {
-          notify("Failed to restore leave balance.", "error");
-        }
-      }}
-      isLoading={viewDeleted.balances ? deletedLeaveBalancesQ.loading : leaveBalancesQ.loading}
+      isLoading={leaveBalancesQ.loading}
       defaultEntriesPerPage={10}
     />
   );
@@ -1174,7 +1184,7 @@ const Attendance: React.FC = () => {
   /* Modal handlers                                                   */
   /* ================================================================ */
   const submitPunch = async () => {
-    if (!form.staffid || !form.type) return notify("Staff & type required", "error");
+    if (!validateForm()) return;
     try {
       await punchMut({
         variables: {
@@ -1199,9 +1209,12 @@ const Attendance: React.FC = () => {
   };
 
   const submitManualAttendance = async () => {
-    if (!form.staffid || !form.date || !form.status)
-      return notify("Staff, date and status are required", "error");
+    if (!validateForm()) return;
     try {
+      // NOTE: ManualAttendanceInput on the server only accepts the fields
+      // below. adminid/branchid are derived from the staff record by the
+      // resolver, so do NOT send them or the GraphQL validator will reject
+      // the request and the entry won't be saved.
       await addManualMut({
         variables: {
           input: {
@@ -1214,7 +1227,7 @@ const Attendance: React.FC = () => {
           },
         },
       });
-      await logsQ.refetch();
+      await refetchAll();
       notify("Attendance saved.");
       closeModal();
     } catch (e: any) {
@@ -1224,6 +1237,7 @@ const Attendance: React.FC = () => {
 
   const submitEditLog = async () => {
     if (!editing?.id) return;
+    if (!validateForm()) return;
     try {
       await editLogMut({
         variables: {
@@ -1238,7 +1252,7 @@ const Attendance: React.FC = () => {
           },
         },
       });
-      await logsQ.refetch();
+      await refetchAll();
       notify("Log updated.");
       closeModal();
     } catch (e: any) {
@@ -1247,7 +1261,7 @@ const Attendance: React.FC = () => {
   };
 
   const submitHoliday = async () => {
-    if (!form.date || !form.name) return notify("Date & name required", "error");
+    if (!validateForm()) return;
     try {
       const input = {
         adminid: adminId,
@@ -1273,7 +1287,7 @@ const Attendance: React.FC = () => {
   };
 
   const submitLeaveType = async () => {
-    if (!form.name || !form.code) return notify("Name & code required", "error");
+    if (!validateForm()) return;
     try {
       const input = {
         adminid: adminId,
@@ -1306,8 +1320,7 @@ const Attendance: React.FC = () => {
   };
 
   const submitLeaveRequest = async () => {
-    if (!form.staffid || !form.leavetypeid || !form.reason)
-      return notify("Staff, leave type & reason required", "error");
+    if (!validateForm()) return;
     try {
       const input = {
         adminid: adminId,
@@ -1337,8 +1350,8 @@ const Attendance: React.FC = () => {
   };
 
   const submitReject = async () => {
-    if (!editing?.id || !form.rejectionReason)
-      return notify("Reason required", "error");
+    if (!editing?.id) return;
+    if (!validateForm()) return;
     try {
       await rejectLeaveReqMut({
         variables: {
@@ -1358,8 +1371,7 @@ const Attendance: React.FC = () => {
   };
 
   const submitLeaveBalance = async () => {
-    if (!form.staffid || !form.leavetypeid || !form.year)
-      return notify("Staff, leave type & year required", "error");
+    if (!validateForm()) return;
     try {
       await upsertLeaveBalMut({
         variables: {
@@ -1410,6 +1422,7 @@ const Attendance: React.FC = () => {
             onChange={onChange}
             searchable
             required
+            error={formErrors.staffid}
           />
           <FormField
             label="Type"
@@ -1424,6 +1437,7 @@ const Attendance: React.FC = () => {
             value={form.type}
             onChange={onChange}
             required
+            error={formErrors.type}
           />
           <FormField
             label="Timestamp (optional)"
@@ -1492,6 +1506,7 @@ const Attendance: React.FC = () => {
             searchable
             disabled={modal === "editLog"}
             required
+            error={formErrors.staffid}
           />
           <FormField
             label="Date"
@@ -1501,6 +1516,7 @@ const Attendance: React.FC = () => {
             onChange={onChange}
             disabled={modal === "editLog"}
             required
+            error={formErrors.date}
           />
           <FormField
             label="Status"
@@ -1517,6 +1533,7 @@ const Attendance: React.FC = () => {
             value={form.status}
             onChange={onChange}
             required
+            error={formErrors.status}
           />
           <div className="grid grid-cols-2 gap-3">
             <FormField
@@ -1555,8 +1572,16 @@ const Attendance: React.FC = () => {
             value={form.date}
             onChange={onChange}
             required
+            error={formErrors.date}
           />
-          <FormField label="Name" name="name" value={form.name} onChange={onChange} required />
+          <FormField
+            label="Name"
+            name="name"
+            value={form.name}
+            onChange={onChange}
+            required
+            error={formErrors.name}
+          />
           <FormField
             label="Type"
             name="type"
@@ -1569,6 +1594,8 @@ const Attendance: React.FC = () => {
             ]}
             value={form.type}
             onChange={onChange}
+            required
+            error={formErrors.type}
           />
           <FormField
             label="Description"
@@ -1585,8 +1612,22 @@ const Attendance: React.FC = () => {
       return (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Name" name="name" value={form.name} onChange={onChange} required />
-            <FormField label="Code" name="code" value={form.code} onChange={onChange} required />
+            <FormField
+              label="Name"
+              name="name"
+              value={form.name}
+              onChange={onChange}
+              required
+              error={formErrors.name}
+            />
+            <FormField
+              label="Code"
+              name="code"
+              value={form.code}
+              onChange={onChange}
+              required
+              error={formErrors.code}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <FormField
@@ -1595,6 +1636,8 @@ const Attendance: React.FC = () => {
               type="number"
               value={form.totalDaysPerYear}
               onChange={onChange}
+              required
+              error={formErrors.totalDaysPerYear}
             />
             <FormField
               label="Accrual"
@@ -1608,6 +1651,8 @@ const Attendance: React.FC = () => {
               ]}
               value={form.accrualType}
               onChange={onChange}
+              required
+              error={formErrors.accrualType}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -1681,6 +1726,7 @@ const Attendance: React.FC = () => {
             onChange={onChange}
             searchable
             required
+            error={formErrors.staffid}
           />
           <FormField
             label="Leave Type"
@@ -1691,6 +1737,7 @@ const Attendance: React.FC = () => {
             onChange={onChange}
             searchable
             required
+            error={formErrors.leavetypeid}
           />
           <div className="grid grid-cols-2 gap-3">
             <FormField
@@ -1700,6 +1747,7 @@ const Attendance: React.FC = () => {
               value={form.fromDate}
               onChange={onChange}
               required
+              error={formErrors.fromDate}
             />
             <FormField
               label="To"
@@ -1708,6 +1756,7 @@ const Attendance: React.FC = () => {
               value={form.toDate}
               onChange={onChange}
               required
+              error={formErrors.toDate}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -1725,6 +1774,7 @@ const Attendance: React.FC = () => {
               value={form.totalDays}
               onChange={onChange}
               required
+              error={formErrors.totalDays}
             />
           </div>
           <FormField
@@ -1733,6 +1783,7 @@ const Attendance: React.FC = () => {
             value={form.reason}
             onChange={onChange}
             required
+            error={formErrors.reason}
           />
           {buttons(submitLeaveRequest)}
         </div>
@@ -1748,6 +1799,7 @@ const Attendance: React.FC = () => {
             value={form.rejectionReason}
             onChange={onChange}
             required
+            error={formErrors.rejectionReason}
           />
           {buttons(submitReject)}
         </div>
@@ -1767,6 +1819,7 @@ const Attendance: React.FC = () => {
             searchable
             disabled={!!editing}
             required
+            error={formErrors.staffid}
           />
           <FormField
             label="Leave Type"
@@ -1778,6 +1831,7 @@ const Attendance: React.FC = () => {
             searchable
             disabled={!!editing}
             required
+            error={formErrors.leavetypeid}
           />
           <FormField
             label="Year"
@@ -1787,6 +1841,7 @@ const Attendance: React.FC = () => {
             onChange={onChange}
             disabled={!!editing}
             required
+            error={formErrors.year}
           />
           <FormField
             label="Allocated"
@@ -1843,19 +1898,16 @@ const Attendance: React.FC = () => {
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList className="flex flex-wrap">
-            <TabsTrigger value="logs">Daily Logs</TabsTrigger>
-            <TabsTrigger value="punches">Punches</TabsTrigger>
+            <TabsTrigger value="logs">Record Punch</TabsTrigger>
+            <TabsTrigger value="leaverequests">Leave Requests</TabsTrigger>
             <TabsTrigger value="holidays">Holidays</TabsTrigger>
             <TabsTrigger value="leavetypes">Leave Types</TabsTrigger>
-            <TabsTrigger value="leaverequests">Leave Requests</TabsTrigger>
             <TabsTrigger value="balances">Balances</TabsTrigger>
+            <TabsTrigger value="punches">Punches</TabsTrigger>
             <TabsTrigger value="cards">Staff Cards</TabsTrigger>
           </TabsList>
 
           <TabsContent value="logs">{renderLogsTab()}</TabsContent>
-          <TabsContent value="punches">{renderPunchesTab()}</TabsContent>
-          <TabsContent value="holidays">{renderHolidaysTab()}</TabsContent>
-          <TabsContent value="leavetypes">{renderLeaveTypesTab()}</TabsContent>
           <TabsContent value="leaverequests">
             {requestActions.length > 0 && (
               <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -1902,7 +1954,10 @@ const Attendance: React.FC = () => {
             )}
             {renderLeaveRequestsTab()}
           </TabsContent>
+          <TabsContent value="holidays">{renderHolidaysTab()}</TabsContent>
+          <TabsContent value="leavetypes">{renderLeaveTypesTab()}</TabsContent>
           <TabsContent value="balances">{renderLeaveBalancesTab()}</TabsContent>
+          <TabsContent value="punches">{renderPunchesTab()}</TabsContent>
           <TabsContent value="cards">{renderCardsTab()}</TabsContent>
         </Tabs>
 
@@ -1966,9 +2021,8 @@ const Attendance: React.FC = () => {
                   {scanLog.map((entry, i) => (
                     <div
                       key={i}
-                      className={`text-sm flex justify-between px-2 py-1 rounded ${
-                        entry.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-                      }`}
+                      className={`text-sm flex justify-between px-2 py-1 rounded ${entry.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                        }`}
                     >
                       <span>
                         {entry.staff} · {entry.type}
