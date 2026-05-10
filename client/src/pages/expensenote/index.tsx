@@ -51,13 +51,23 @@ const ExpenseNote = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Expense No", key: "expensenumber" },
     { label: "Date", key: "expensedate" },
-    { label: "Ledger", key: "ledgername" },   // ✅ AFTER DATE
+    { label: "Category", key: "categoryLabel" },
+    { label: "Staff", key: "staffLabel" },
+    { label: "Ledger", key: "ledgername" },
     { label: "Payment Type", key: "paymenttype" },
     { label: "Narration", key: "narration" },
     { label: "Total Amount", key: "totalamount" },
     { label: "GST", key: "totalgst" },
     { label: "Status", key: "status" },
   ];
+
+  // Friendly label per category
+  const CATEGORY_LABEL: Record<string, string> = {
+    general: "General",
+    tada: "TA/DA",
+    salary: "Salary",
+    other: "Other",
+  };
 
   /* =========================
      FORMAT DATA
@@ -78,11 +88,17 @@ const ExpenseNote = () => {
     const capitalize = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 
+    const staffLabel = exp.staffid
+      ? `${exp.staffid.name}${exp.staffid.staffcode ? ` (${exp.staffid.staffcode})` : ""}`
+      : "-";
+
     return {
       ...exp,
       seqNo: index + 1,
       expensedate: formattedDate,
-      ledgername: exp.ledgerid?.ledgername || "-", // ✅ Ravi Patel - #ACC0001
+      categoryLabel: CATEGORY_LABEL[exp.category || "general"] || "General",
+      staffLabel,
+      ledgername: exp.ledgerid?.ledgername || "-",
       paymenttype: capitalize(exp.paymenttype),
       totalamount: Number(exp.totalamount || 0).toFixed(2),
       totalgst: Number(exp.totalgst || 0).toFixed(2),

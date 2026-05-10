@@ -1,5 +1,38 @@
 import { gql } from "@apollo/client";
 
+const EXPENSE_NOTE_FIELDS = `
+  id
+  adminid
+  branchid
+  expensenumber
+  expensedate
+  paymenttype
+  ledgerid { id ledgername }
+  category
+  staffid {
+    id
+    name
+    staffcode
+    role
+    ledgerid
+    salary
+  }
+  salaryPeriod
+  narration
+  notes
+  expenses {
+    expenseledgerid { id ledgername }
+    amount
+    gstpercent
+    remarks
+  }
+  totalamount
+  totalgst
+  status
+  createdAt
+  updatedAt
+`;
+
 /* =========================
    QUERIES
    ========================= */
@@ -7,32 +40,7 @@ import { gql } from "@apollo/client";
 export const GET_EXPENSE_NOTES = gql`
   query GetExpenseNotes($filter: ExpenseNoteFilterInput) {
     getExpenseNotes(filter: $filter) {
-      id
-      adminid
-      branchid
-      expensenumber
-      expensedate
-      paymenttype
-      ledgerid {
-        id
-        ledgername
-      }
-      narration
-      notes
-      expenses {
-        expenseledgerid {
-          id
-          ledgername
-        }
-        amount
-        gstpercent
-        remarks
-      }
-      totalamount
-      totalgst
-      status
-      createdAt
-      updatedAt
+      ${EXPENSE_NOTE_FIELDS}
     }
   }
 `;
@@ -40,32 +48,7 @@ export const GET_EXPENSE_NOTES = gql`
 export const GET_DELETED_EXPENSE_NOTES = gql`
   query GetDeletedExpenseNotes($filter: ExpenseNoteFilterInput) {
     getDeletedExpenseNotes(filter: $filter) {
-      id
-      adminid
-      branchid
-      expensenumber
-      expensedate
-      paymenttype
-      ledgerid {
-        id
-        ledgername
-      }
-      narration
-      notes
-      expenses {
-        expenseledgerid {
-          id
-          ledgername
-        }
-        amount
-        gstpercent
-        remarks
-      }
-      totalamount
-      totalgst
-      status
-      createdAt
-      updatedAt
+      ${EXPENSE_NOTE_FIELDS}
     }
   }
 `;
@@ -73,32 +56,18 @@ export const GET_DELETED_EXPENSE_NOTES = gql`
 export const GET_EXPENSE_NOTE_BY_ID = gql`
   query GetExpenseNoteById($id: ID!, $adminid: ID) {
     getExpenseNoteById(id: $id, adminid: $adminid) {
+      ${EXPENSE_NOTE_FIELDS}
+    }
+  }
+`;
+
+// Used by the form to lazily fetch (and create if missing) the canonical
+// expense ledger for "tada" or "salary".
+export const GET_EXPENSE_CATEGORY_LEDGER = gql`
+  query GetExpenseCategoryLedger($adminid: ID!, $category: String!) {
+    getExpenseCategoryLedger(adminid: $adminid, category: $category) {
       id
-      adminid
-      branchid
-      expensenumber
-      expensedate
-      paymenttype
-      ledgerid {
-        id
-        ledgername
-      }
-      narration
-      notes
-      expenses {
-        expenseledgerid {
-          id
-          ledgername
-        }
-        amount
-        gstpercent
-        remarks
-      }
-      totalamount
-      totalgst
-      status
-      createdAt
-      updatedAt
+      ledgername
     }
   }
 `;
@@ -110,32 +79,7 @@ export const GET_EXPENSE_NOTE_BY_ID = gql`
 export const ADD_EXPENSE_NOTE = gql`
   mutation AddExpenseNote($input: ExpenseNoteInput!) {
     addExpenseNote(input: $input) {
-      id
-      adminid
-      branchid
-      expensenumber
-      expensedate
-      paymenttype
-      ledgerid {
-        id
-        ledgername
-      }
-      narration
-      notes
-      expenses {
-        expenseledgerid {
-          id
-          ledgername
-        }
-        amount
-        gstpercent
-        remarks
-      }
-      totalamount
-      totalgst
-      status
-      createdAt
-      updatedAt
+      ${EXPENSE_NOTE_FIELDS}
     }
   }
 `;
@@ -143,32 +87,7 @@ export const ADD_EXPENSE_NOTE = gql`
 export const EDIT_EXPENSE_NOTE = gql`
   mutation EditExpenseNote($id: ID!, $input: ExpenseNoteInput!) {
     editExpenseNote(id: $id, input: $input) {
-      id
-      adminid
-      branchid
-      expensenumber
-      expensedate
-      paymenttype
-      ledgerid {
-        id
-        ledgername
-      }
-      narration
-      notes
-      expenses {
-        expenseledgerid {
-          id
-          ledgername
-        }
-        amount
-        gstpercent
-        remarks
-      }
-      totalamount
-      totalgst
-      status
-      createdAt
-      updatedAt
+      ${EXPENSE_NOTE_FIELDS}
     }
   }
 `;

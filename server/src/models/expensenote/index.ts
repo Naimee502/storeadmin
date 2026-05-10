@@ -52,6 +52,38 @@ const expenseNoteSchema = new mongoose.Schema(
       default: null,
     },
 
+    /**
+     * Expense purpose. "general" = ad-hoc expense (default behaviour),
+     * "tada" = Travelling/Daily Allowance for a salesman/staff,
+     * "salary" = monthly salary entry for a staff member.
+     * Used to drive smart UX in the form and to filter reports.
+     */
+    category: {
+      type: String,
+      enum: ["general", "tada", "salary", "other"],
+      default: "general",
+      index: true,
+    },
+
+    /**
+     * Optional staff link. Set when category is tada/salary so we can
+     * report "total expense paid to staff X this month" cleanly. The
+     * actual ledger CREDIT (or expense-line metadata) still flows through
+     * the existing `ledgerid` and `expenses[]` plumbing.
+     */
+    staffid: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StaffAccount",
+      default: null,
+      index: true,
+    },
+
+    /**
+     * Salary period like "2026-05" — only meaningful when category=salary.
+     * Used to prevent paying the same staff member twice for the same month.
+     */
+    salaryPeriod: { type: String, default: null },
+
     narration: { type: String },
     notes: { type: String },
 
@@ -140,10 +172,35 @@ expenseNoteSchema.pre("save", async function (next) {
 /* ===========================================================
    VALIDATION
    =========================================================== */
-expenseNoteSchema.pre("validate", function (next) {
+expenseNoteSchema.pre("validate", async function (next) {
   if (this.paymenttype === "credit" && !this.ledgerid) {
-    throw new Error("❌ Party ledger required for credit expense");
+    return next(new Error("❌ Party ledger required for credit expense"));
   }
+
+  // Prevent duplicate salary payment to same staff for same period
+  if (
+    this.category === "salary" &&
+    this.salaryPeriod &&
+    this.staffid &&
+    this.isNew
+  ) {
+    const ExpenseNote = mongoose.model("ExpenseNote");
+    const dupe = await ExpenseNote.findOne({
+      adminid: this.adminid,
+      category: "salary",
+      staffid: this.staffid,
+      salaryPeriod: this.salaryPeriod,
+      status: true,
+    });
+    if (dupe) {
+      return next(
+        new Error(
+          `❌ Salary already recorded for this staff for ${this.salaryPeriod}.`
+        )
+      );
+    }
+  }
+
   next();
 });
 

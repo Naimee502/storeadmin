@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 
 import {
   ADD_EXPENSE_NOTE,
@@ -11,6 +11,7 @@ import {
   GET_EXPENSE_NOTES,
   GET_EXPENSE_NOTE_BY_ID,
   GET_DELETED_EXPENSE_NOTES,
+  GET_EXPENSE_CATEGORY_LEDGER,
 } from "../../queries/expensenote";
 
 import { useAppSelector } from "../../../redux/hooks";
@@ -83,4 +84,15 @@ export const useExpenseNoteByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+/* =========================
+   CATEGORY LEDGER (TA/DA, Salary)
+   Used by the form to fetch (and create on first use) the canonical
+   expense ledger for a category. We use a lazy query because it only
+   runs when the user changes the category dropdown.
+   ========================= */
+
+export const useExpenseCategoryLedgerLazy = () => {
+  return useLazyQuery(GET_EXPENSE_CATEGORY_LEDGER);
 };

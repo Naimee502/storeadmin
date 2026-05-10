@@ -1,4 +1,21 @@
-import { useState, useEffect } from "react";
+// Add / Edit an Expense Note (voucher).
+//
+// Tally-style multi-line journal voucher with three smart presets:
+//   - "general" — ad-hoc expenses (existing behaviour)
+//   - "tada"    — Travelling/Daily Allowance for a salesman or staff
+//   - "salary"  — monthly salary entry for a staff member
+//
+// When the user picks "tada" or "salary":
+//   1. We lazy-fetch (and create-if-missing) the canonical expense ledger
+//      ("TA/DA Expense" or "Staff Salary") and pin it into line 1.
+//   2. A staff selector appears. Selecting a staff:
+//        - For salary: pre-fills line 1 amount from staff.salary
+//        - For credit payment type: pins the staff's personal ledger as
+//          the party ledger (the credit side of the voucher).
+//   3. A salary-period field shows up for category=salary so the server
+//      can prevent paying the same staff twice for the same month.
+
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import { FaCalendarAlt, FaFileAlt, FaTrash } from "react-icons/fa";
@@ -11,9 +28,24 @@ import { showMessage } from "../../../redux/slices/message";
 import {
   useExpenseNoteMutations,
   useExpenseNoteByIDQuery,
+  useExpenseCategoryLedgerLazy,
 } from "../../../graphql/hooks/expensenote";
 
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+
+const CATEGORY_OPTIONS = [
+  { label: "General Expense", value: "general" },
+  { label: "TA / DA (Salesman/Staff travel)", value: "tada" },
+  { label: "Salary", value: "salary" },
+  { label: "Other", value: "other" },
+];
+
+const monthYear = (d: Date = new Date()) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
+};
 
 const AddEditExpenseNote = () => {
   const { id } = useParams();
@@ -36,13 +68,37 @@ const AddEditExpenseNote = () => {
 
   const { data: existingData } = useExpenseNoteByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
+  const { data: staffData } = useStaffQuery();
+  const [fetchCategoryLedger] = useExpenseCategoryLedgerLazy();
 
   const ledgerList = ledgerData?.getAccountLedgers || [];
+  const staffList = staffData?.getStaffAccounts || [];
+
+  // For TA/DA, restrict the staff dropdown to roles that travel; for
+  // salary, every staff role is paid. Pure cosmetic — server doesn't enforce.
+  const filteredStaffOptions = useMemo(
+    () => (category: string) => {
+      const filtered =
+        category === "tada"
+          ? staffList.filter((s: any) =>
+              ["salesman", "deliveryboy", "staff"].includes(s.role)
+            )
+          : staffList;
+      return filtered.map((s: any) => ({
+        label: `${s.name} (${s.staffcode}) · ${s.role}`,
+        value: s.id,
+      }));
+    },
+    [staffList]
+  );
 
   const [formValues, setFormValues] = useState({
     expensedate: new Date().toISOString().slice(0, 10),
     paymenttype: "cash",
-    ledgerid: "",
+    ledgerid: "",            // party ledger (credit side, for "credit" paymenttype)
+    category: "general",     // general | tada | salary | other
+    staffid: "",             // selected staff member id (for tada/salary)
+    salaryPeriod: monthYear(), // YYYY-MM (only used when category=salary)
     narration: "",
     notes: "",
     expenses: [
@@ -74,6 +130,9 @@ const AddEditExpenseNote = () => {
         expensedate: formatDate(e.expensedate),
         paymenttype: e.paymenttype,
         ledgerid: e.ledgerid?.id || "",
+        category: e.category || "general",
+        staffid: e.staffid?.id || "",
+        salaryPeriod: e.salaryPeriod || monthYear(),
         narration: e.narration || "",
         notes: e.notes || "",
         expenses:
@@ -94,23 +153,12 @@ const AddEditExpenseNote = () => {
 
   const formatDate = (date: any) => {
     if (!date) return "";
-
-    // Handle timestamp string or number
     const timestamp =
-      typeof date === "string" && /^\d+$/.test(date)
-        ? Number(date)
-        : date;
-
+      typeof date === "string" && /^\d+$/.test(date) ? Number(date) : date;
     const d = new Date(timestamp);
-
-    if (isNaN(d.getTime())) {
-      console.warn("Invalid date received:", date);
-      return "";
-    }
-
-    return d.toISOString().slice(0, 10); // yyyy-mm-dd (HTML date input)
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
   };
-
 
   /* =========================
      HANDLERS
@@ -119,6 +167,86 @@ const AddEditExpenseNote = () => {
   const handleChange = (name: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  // When the user picks TA/DA or Salary, fetch (and lazily create) the
+  // canonical expense ledger and pin it as the first expense line. We only
+  // touch line 1 — additional lines stay untouched if the user added them.
+  const handleCategoryChange = async (category: string) => {
+    setFormValues((prev) => ({
+      ...prev,
+      category,
+      staffid: "",          // reset selection when category flips
+    }));
+
+    if (category === "tada" || category === "salary") {
+      try {
+        const { data } = await fetchCategoryLedger({
+          variables: { adminid: adminId, category },
+        });
+        const ledger = data?.getExpenseCategoryLedger;
+        if (ledger?.id) {
+          setFormValues((prev) => {
+            const next = { ...prev };
+            next.expenses = [...next.expenses];
+            // Replace line-1 ledger; create line-1 if list empty
+            if (!next.expenses.length) {
+              next.expenses.push({
+                expenseledgerid: ledger.id,
+                amount: "",
+                gstpercent: "",
+                remarks: "",
+              });
+            } else {
+              next.expenses[0] = {
+                ...next.expenses[0],
+                expenseledgerid: ledger.id,
+              };
+            }
+            return next;
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch category ledger", err);
+      }
+    }
+  };
+
+  // Selecting a staff member for TA/DA or Salary triggers smart fills.
+  const handleStaffChange = (staffid: string) => {
+    const staff = staffList.find((s: any) => s.id === staffid);
+    setFormValues((prev) => {
+      const next = { ...prev, staffid };
+
+      // For credit payments, pin the staff's personal ledger as the
+      // party (credit-side) ledger. Cash/bank doesn't need this.
+      if (next.paymenttype === "credit" && staff?.ledgerid?.id) {
+        next.ledgerid = staff.ledgerid.id;
+      }
+
+      // For salary, prefill amount on line 1 from staff's configured salary.
+      if (next.category === "salary" && staff?.salary && next.expenses.length) {
+        next.expenses = [...next.expenses];
+        next.expenses[0] = {
+          ...next.expenses[0],
+          amount: staff.salary,
+          remarks:
+            next.expenses[0].remarks ||
+            `Salary for ${staff.name} - ${next.salaryPeriod}`,
+        };
+        // Recompute totals after the prefill
+        recomputeTotals(next);
+      } else if (next.category === "tada" && staff && next.expenses.length) {
+        next.expenses = [...next.expenses];
+        next.expenses[0] = {
+          ...next.expenses[0],
+          remarks:
+            next.expenses[0].remarks || `TA/DA for ${staff.name}`,
+        };
+      }
+
+      return next;
+    });
   };
 
   const handleExpenseChange = (
@@ -170,6 +298,21 @@ const AddEditExpenseNote = () => {
     }));
   };
 
+  // Mutates `obj.totalamount` / `obj.totalgst` in place. Used inside
+  // `setFormValues` callbacks where we already hold a fresh draft.
+  const recomputeTotals = (obj: any) => {
+    let total = 0;
+    let gst = 0;
+    obj.expenses.forEach((r: any) => {
+      const amt = Number(r.amount || 0);
+      const gstp = Number(r.gstpercent || 0);
+      total += amt;
+      gst += (amt * gstp) / 100;
+    });
+    obj.totalamount = total + gst;
+    obj.totalgst = gst;
+  };
+
   /* =========================
      VALIDATION
      ========================= */
@@ -177,15 +320,27 @@ const AddEditExpenseNote = () => {
   const validate = () => {
     const errors: { [key: string]: string } = {};
 
-    if (!formValues.paymenttype)
-      errors.paymenttype = "Payment type required";
+    if (!formValues.paymenttype) errors.paymenttype = "Payment type required";
+
+    if (formValues.paymenttype === "credit" && !formValues.ledgerid) {
+      errors.ledgerid = "Party ledger required for credit expense";
+    }
 
     if (
-      formValues.expenses.some(
-        (e) => !e.expenseledgerid || !e.amount
-      )
+      (formValues.category === "tada" || formValues.category === "salary") &&
+      !formValues.staffid
     ) {
-      errors.expenses = "All expense rows must be complete";
+      errors.staffid = "Select a staff member";
+    }
+
+    if (formValues.category === "salary" && !formValues.salaryPeriod) {
+      errors.salaryPeriod = "Salary period (YYYY-MM) required";
+    }
+
+    if (
+      formValues.expenses.some((e) => !e.expenseledgerid || !e.amount)
+    ) {
+      errors.expenses = "All expense rows must have a ledger and amount";
     }
 
     return errors;
@@ -199,11 +354,30 @@ const AddEditExpenseNote = () => {
     const errors = validate();
     if (Object.keys(errors).length) {
       setFormErrors(errors);
+      dispatch(
+        showMessage({
+          message: "Please fix highlighted fields",
+          type: "error",
+        })
+      );
       return;
     }
 
     const input = {
-      ...formValues,
+      adminid: formValues.adminid,
+      branchid: formValues.branchid,
+      expensedate: formValues.expensedate,
+      paymenttype: formValues.paymenttype,
+      ledgerid: formValues.ledgerid || undefined,
+      category: formValues.category,
+      staffid: formValues.staffid || undefined,
+      salaryPeriod:
+        formValues.category === "salary" ? formValues.salaryPeriod : undefined,
+      narration: formValues.narration,
+      notes: formValues.notes,
+      totalamount: formValues.totalamount,
+      totalgst: formValues.totalgst,
+      status: formValues.status,
       expenses: formValues.expenses.map((e) => ({
         expenseledgerid: e.expenseledgerid,
         amount: Number(e.amount),
@@ -214,9 +388,7 @@ const AddEditExpenseNote = () => {
 
     try {
       if (isEdit) {
-        await editExpenseNoteMutation({
-          variables: { id, input },
-        });
+        await editExpenseNoteMutation({ variables: { id, input } });
         dispatch(
           showMessage({
             message: "Expense note updated successfully",
@@ -232,12 +404,11 @@ const AddEditExpenseNote = () => {
           })
         );
       }
-
       navigate("/expensenote");
-    } catch (err) {
+    } catch (err: any) {
       dispatch(
         showMessage({
-          message: "Error saving expense note",
+          message: err?.message || "Error saving expense note",
           type: "error",
         })
       );
@@ -247,6 +418,10 @@ const AddEditExpenseNote = () => {
   /* =========================
      UI
      ========================= */
+
+  const showStaff =
+    formValues.category === "tada" || formValues.category === "salary";
+  const showSalaryPeriod = formValues.category === "salary";
 
   return (
     <HomeLayout>
@@ -265,10 +440,74 @@ const AddEditExpenseNote = () => {
               type="date"
               name="expensedate"
               value={formValues.expensedate}
-              onChange={(e) =>
-                handleChange("expensedate", e.target.value)
-              }
+              onChange={(e) => handleChange("expensedate", e.target.value)}
               icon={<FaCalendarAlt />}
+            />
+
+            <FormField
+              label="Category"
+              type="select"
+              name="category"
+              value={formValues.category}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              options={CATEGORY_OPTIONS}
+            />
+
+            <FormField
+              label="Payment Type"
+              type="select"
+              name="paymenttype"
+              value={formValues.paymenttype}
+              onChange={(e) => handleChange("paymenttype", e.target.value)}
+              options={[
+                { label: "Cash", value: "cash" },
+                { label: "Bank", value: "bank" },
+                { label: "Credit", value: "credit" },
+              ]}
+            />
+
+            {showStaff && (
+              <FormField
+                label={
+                  formValues.category === "salary"
+                    ? "Staff (whose salary)"
+                    : "Staff / Salesman"
+                }
+                type="select"
+                name="staffid"
+                value={formValues.staffid}
+                onChange={(e) => handleStaffChange(e.target.value)}
+                options={filteredStaffOptions(formValues.category)}
+                searchable
+                required
+                error={formErrors.staffid}
+              />
+            )}
+
+            {showSalaryPeriod && (
+              <FormField
+                label="Salary Period (YYYY-MM)"
+                name="salaryPeriod"
+                value={formValues.salaryPeriod}
+                onChange={(e) => handleChange("salaryPeriod", e.target.value)}
+                placeholder="2026-05"
+                required
+                error={formErrors.salaryPeriod}
+              />
+            )}
+
+            <FormField
+              label="Paid To / Party Ledger"
+              type="select"
+              name="ledgerid"
+              value={formValues.ledgerid}
+              onChange={(e) => handleChange("ledgerid", e.target.value)}
+              options={ledgerList.map((l) => ({
+                label: l.ledgername,
+                value: l.id,
+              }))}
+              searchable
+              error={formErrors.ledgerid}
             />
 
             <FormField
@@ -277,44 +516,16 @@ const AddEditExpenseNote = () => {
               value={formValues.narration}
               onChange={(e) => handleChange("narration", e.target.value)}
               icon={<FaFileAlt />}
-              placeholder="Enter narration"                        
-            />
-
-            <FormField
-                label="Paid To / Party Ledger"
-                type="select"
-                name="ledgerid"
-                value={formValues.ledgerid}
-                onChange={(e) => handleChange("ledgerid", e.target.value)}
-                options={ledgerList.map((l) => ({
-                    label: l.ledgername,
-                    value: l.id,
-                }))}
-                searchable
-            />
-
-            <FormField
-              label="Payment Type"
-              type="select"
-              name="paymenttype"
-              value={formValues.paymenttype}
-              onChange={(e) =>
-                handleChange("paymenttype", e.target.value)
-              }
-              options={[
-                { label: "Cash", value: "cash" },
-                { label: "Bank", value: "bank" },
-                { label: "Credit", value: "credit" },
-              ]}
+              placeholder="Enter narration"
             />
 
             <FormField
               label="Notes"
               name="notes"
-              value={formValues.notes} 
+              value={formValues.notes}
               onChange={(e) => handleChange("notes", e.target.value)}
               icon={<FaFileAlt />}
-              placeholder="Enter notes"                        
+              placeholder="Enter notes"
             />
 
             <FormSwitch
@@ -324,6 +535,14 @@ const AddEditExpenseNote = () => {
               onChange={(val) => handleChange("status", val)}
             />
           </div>
+
+          {showStaff && formValues.staffid && (
+            <div className="mt-3 text-xs text-gray-600 bg-blue-50 border border-blue-100 rounded p-2">
+              {formValues.category === "salary"
+                ? "Salary amount auto-filled from staff record. The salary period prevents the same staff from being paid twice for the same month."
+                : "TA/DA expense: amount is per-trip. For credit payment, the staff's personal ledger is the credit side and gets cleared via a Payment voucher later."}
+            </div>
+          )}
         </fieldset>
 
         {/* EXPENSES */}
@@ -341,11 +560,7 @@ const AddEditExpenseNote = () => {
                 name={`expenseledgerid-${i}`}
                 value={e.expenseledgerid}
                 onChange={(ev) =>
-                  handleExpenseChange(
-                    i,
-                    "expenseledgerid",
-                    ev.target.value
-                  )
+                  handleExpenseChange(i, "expenseledgerid", ev.target.value)
                 }
                 options={ledgerList.map((l) => ({
                   label: l.ledgername,
@@ -411,10 +626,7 @@ const AddEditExpenseNote = () => {
 
         {/* ACTIONS */}
         <div className="flex justify-end gap-4">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/expensenote")}
-          >
+          <Button variant="outline" onClick={() => navigate("/expensenote")}>
             Cancel
           </Button>
           <Button variant="outline" onClick={handleSubmit}>
