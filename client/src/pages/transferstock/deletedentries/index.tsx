@@ -1,4 +1,5 @@
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -13,6 +14,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "transferstock"));
   const dispatch = useAppDispatch();
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const frombranchid = branchId ? branchId : undefined;
@@ -90,6 +92,7 @@ const DeletedTransferStocks = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Transfer Stocks"
           columns={columns}
           data={tableData}
@@ -100,7 +103,7 @@ const DeletedTransferStocks = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             if (
               window.confirm(

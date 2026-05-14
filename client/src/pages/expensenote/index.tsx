@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 
@@ -14,6 +15,7 @@ import { showMessage } from "../../redux/slices/message";
 
 const ExpenseNote = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "expensenote"));
   const dispatch = useAppDispatch();
 
   const { data, refetch } = useExpenseNotesQuery();
@@ -114,15 +116,16 @@ const ExpenseNote = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Expense Notes"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
+          
+          
+          
+          
+          
+          
           onEdit={(row) =>
             navigate(`/expensenote/addedit/${row.id}`)
           }

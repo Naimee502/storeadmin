@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -11,6 +12,7 @@ import { useEffect } from "react";
 
 const DeletedProducts = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "products"));
   const dispatch = useAppDispatch();
 
   const { data: deletedData, refetch } = useDeletedProductServicesQuery();
@@ -100,6 +102,7 @@ const DeletedProducts = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Products / Services"
           columns={columns}
           data={tableData}
@@ -110,7 +113,7 @@ const DeletedProducts = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             const confirmed = window.confirm(
               `Are you sure you want to reset deleted item "${row.name}"?`

@@ -22,7 +22,21 @@ const branchSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
       required: true
-  },  
+  },
+
+  // Per-branch module allowance (set by Admin)
+  allowedmodules: {
+    type: [String],
+    default: null,
+  },
+
+  // Per-branch permission override. If a key is set here, it wins over
+  // Admin.defaultPermissions. If it's missing, the admin default applies.
+  // Same shape as Admin.defaultPermissions.
+  permissions: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
 }, { timestamps: true });
 
 branchSchema.index({ admin: 1, branchcode: 1 }, { unique: true });

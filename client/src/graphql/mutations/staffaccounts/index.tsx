@@ -21,6 +21,7 @@ export const ADD_STAFF = gql`
       target
       role
       status
+      allowedmodules
       assignedChannels {
         id
         channelName
@@ -62,6 +63,7 @@ export const EDIT_STAFF = gql`
       target
       role
       status
+      allowedmodules
       assignedChannels {
         id
         channelName
@@ -109,6 +111,7 @@ export const LOGIN_STAFF = gql`
           id
           branchname
         }
+        allowedmodules
         admin {
           id
           name

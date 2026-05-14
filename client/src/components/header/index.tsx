@@ -59,13 +59,13 @@ const Header: React.FC<HeaderProps> = ({
       <div className="ml-auto flex items-center gap-2 sm:gap-4">
         {/* Only show POS Dashboard button when branch login */}
         {isAdmin && (
-          <button
-            onClick={() => navigate('/posdashboard')}
+        <button
+          onClick={() => navigate('/posdashboard')}
             className="p-2 rounded-md hover:bg-gray-700 text-black"
-            title="POS Dashboard"
-          >
-            <FaCashRegister className="text-sm sm:text-base" />
-          </button>
+          title="POS Dashboard"
+        >
+          <FaCashRegister className="text-sm sm:text-base" />
+        </button>
         )}
 
         {/* Branch Dropdown */}

@@ -8,9 +8,11 @@ import HomeLayout from "../../layouts/home";
 import { useBrandsQuery, useBrandMutations } from "../../graphql/hooks/brands";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addBrands } from "../../redux/slices/brands";  
+import { addBrands } from "../../redux/slices/brands";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Brands = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "brands"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -181,12 +183,10 @@ const Brands = () => {
           title="Manage Brands"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button on this page.
           showAdd={false}
+          showView={false}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {

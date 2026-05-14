@@ -20,6 +20,11 @@ interface IAdmin extends Document {
   rejected: boolean;
   businesstype: "retail" | "wholesale" | "manufacturer" | "service" | "trader" | "exporter" | "other";
   allowedmodules: string[];
+  // Per-module action defaults that propagate to every Branch / Staff
+  // under this admin unless overridden. Stored as Mixed JSON because the
+  // action set evolves over time and we don't want to migrate the schema
+  // on each addition.
+  defaultPermissions: Record<string, Record<string, boolean>>;
   createdAt: Date;
   updatedAt: Date;
   status: Boolean,
@@ -56,8 +61,20 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
     },
     allowedmodules: {
       type: [String],
-      default: ['/accounts/*', '/reports/*', '/settings'],
+      default: null,
     },
+
+    // Default permission template applied to every Branch/Staff under this
+    // admin unless they override individually. Shape:
+    //   { <module>: { view, add, edit, delete, print, return, cancel,
+    //                 convert, whatsapp, import, export } }
+    // Stored as Mixed because the action set may grow over time and we
+    // don't want to migrate the schema on each addition.
+    defaultPermissions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
     status: { type: Boolean, default: true },
   },
   { timestamps: true }

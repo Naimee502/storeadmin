@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -11,6 +12,7 @@ import { useEffect } from "react";
 
 const DeletedProductGroups = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "productgroups"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedProductGroupsQuery();
   const { resetProductGroupMutation } = useProductGroupMutations();
@@ -39,6 +41,7 @@ const DeletedProductGroups = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Product Groups"
           columns={columns}
           data={tableData}
@@ -49,7 +52,7 @@ const DeletedProductGroups = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             if (
               window.confirm(

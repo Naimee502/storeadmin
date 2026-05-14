@@ -1,13 +1,15 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { useAppDispatch } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { usePriceListQuery, usePriceListMutations } from "../../graphql/hooks/pricelists";
 
 const PriceLists = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "pricelists"));
   const dispatch = useAppDispatch();
   const { data, refetch, loading } = usePriceListQuery();
   const priceLists = data?.getPriceLists ?? [];
@@ -34,15 +36,16 @@ const PriceLists = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Price List Master"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showAdd={true}
-          showExport={false}
-          showImport={false}
+          
+          
+          
+          
+          
+          
           onEdit={(row) => navigate(`/pricelists/addedit/${row.id}`)}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete "${row.name}"?`)) {

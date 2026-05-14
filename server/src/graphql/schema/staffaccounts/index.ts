@@ -36,9 +36,9 @@ export const staffAccountTypeDefs = gql`
     accountgroupid: AccountGroup
     ledgerid: AccountLedger
     staffcode: String
-    name: String!
-    mobile: String!
-    email: String!
+    name: String
+    mobile: String
+    email: String
     password: String        
     profilepicture: String
     imageurl: String
@@ -48,6 +48,7 @@ export const staffAccountTypeDefs = gql`
     target: Float
     role: String           
     status: Boolean!
+    allowedmodules: [String]
     assignedChannels: [Channel]
     createdAt: String
     updatedAt: String
@@ -57,9 +58,9 @@ export const staffAccountTypeDefs = gql`
     admin: ID
     branchid: ID
     accountgroupid: ID
-    name: String!
-    mobile: String!
-    email: String!
+    name: String
+    mobile: String
+    email: String
     password: String        
     profilepicture: String
     imageurl: String
@@ -69,6 +70,7 @@ export const staffAccountTypeDefs = gql`
     target: Float
     role: String           
     status: Boolean
+    allowedmodules: [String]
     assignedChannels: [ID]
   }
 

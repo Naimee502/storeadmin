@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -12,6 +13,7 @@ import { showLoading, hideLoading } from "../../../redux/slices/loader";
 
 const DeletedTransactions = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "transactions"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedTransactionsQuery();
   const { resetTransactionMutation } = useTransactionMutations();
@@ -76,6 +78,7 @@ const DeletedTransactions = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Deleted Transactions"
           columns={columns}
           data={tableData}
@@ -83,7 +86,7 @@ const DeletedTransactions = () => {
           showEdit={false}
           showDelete={false}
           showAdd={false}
-          showReset={true} // ✅ Reset action
+           // ✅ Reset action
           onReset={async (row: any) => {
             if (
               window.confirm(

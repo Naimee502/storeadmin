@@ -13,8 +13,10 @@ import {
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Accounts = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,12 +139,8 @@ const Accounts = () => {
           title="Manage Party Accounts"
           columns={columns}
           data={tableData}
+          {...actions}
           showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
           onEdit={(row) => navigate(`/accounts/addedit/${row.id}`)}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete account "${row.name}"?`)) {

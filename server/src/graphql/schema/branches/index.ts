@@ -35,22 +35,24 @@ export const branchTypeDefs = gql`
     email: String!
     status: Boolean!
     admin: Admin  
+    allowedmodules: [String]
   }
 
   input BranchInput {
-    branchname: String!
-    mobile: String!
-    password: String!
-    logo: String!
-    imageurl: String!
-    location: String!
-    address: String!
-    city: String!
-    pincode: String!
-    phone: String!
-    email: String!
-    status: Boolean!
+    branchname: String
+    mobile: String
+    password: String
+    logo: String
+    imageurl: String
+    location: String
+    address: String
+    city: String
+    pincode: String
+    phone: String
+    email: String
+    status: Boolean
     admin: ID  
+    allowedmodules: [String]
   }
 
   type LoginBranchResponse {

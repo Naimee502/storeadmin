@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {  
@@ -11,6 +12,7 @@ import { useEffect } from "react";
 
 const DeletedAccountLedgers = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "accountledgers"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedAccountLedgersQuery();
   const { resetAccountLedgerMutation } = useAccountLedgerMutations();
@@ -43,6 +45,7 @@ const DeletedAccountLedgers = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Deleted Account Ledgers"
           columns={columns}
           data={tableData}
@@ -53,7 +56,7 @@ const DeletedAccountLedgers = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             if (window.confirm(`Restore deleted ledger "${row.ledgername}"?`)) {
               try {

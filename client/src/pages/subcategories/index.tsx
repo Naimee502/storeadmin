@@ -12,8 +12,10 @@ import {
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const SubCategories = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "subcategories"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -243,12 +245,10 @@ const SubCategories = () => {
           title="Manage SubCategories"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button on this page.
           showAdd={false}
+          showView={false}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {

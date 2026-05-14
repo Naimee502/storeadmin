@@ -29,6 +29,7 @@ import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
 import { useChannelsQuery } from "../../graphql/hooks/channels";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 type FormValues = {
   branchid: string;
@@ -49,6 +50,7 @@ type FormValues = {
 };
 
 const StaffAccounts = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "staffaccounts"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -511,12 +513,10 @@ const StaffAccounts = () => {
           title="Manage Staff Accounts"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
+          {...actions}
+          // Inline form replaces the Add button here.
           showAdd={false}
-          showImport={false}
-          showExport={false}
+          showView={false}
           onEdit={handleEdit}
           onDelete={async (row: any) => {
             if (window.confirm(`Are you sure you want to delete staff "${row.name}"?`)) {

@@ -11,8 +11,10 @@ import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addAccountLedgers } from "../../redux/slices/accountledgers";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const AccountLedgers = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "accountledgers"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
@@ -171,13 +173,10 @@ const AccountLedgers = () => {
           title="Manage Account Ledgers"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showDeleted={true}
+          {...actions}
+          // Inline form replaces the Add button here.
           showAdd={false}
-          showExport={false}
-          showImport={false}
+          showView={false}
           onEdit={handleEdit}
           onDelete={async (row) => {
             if (window.confirm(`Delete ledger "${row.ledgername}"?`)) {

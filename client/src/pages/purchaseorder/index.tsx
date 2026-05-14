@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -12,6 +13,7 @@ import {
 
 const PurchaseOrders = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
   const dispatch = useAppDispatch();
 
   const { type } = useAppSelector((state) => state.auth);
@@ -81,15 +83,16 @@ const PurchaseOrders = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Purchase Orders"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
+          
+          
+          
+          
+          
+          
           showPrint={false}
           onView={(row) => navigate(`/purchaseorder/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseorder/addedit/${row.id}`)}

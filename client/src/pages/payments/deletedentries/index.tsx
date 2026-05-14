@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { useDeletedPaymentsQuery, usePaymentMutations } from "../../../graphql/hooks/payments";
@@ -11,6 +12,7 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 
 const DeletedPayments = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "payments"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedPaymentsQuery();
   const { resetPaymentMutation } = usePaymentMutations();
@@ -73,7 +75,8 @@ const DeletedPayments = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <DataTable
+        <DataTable          
+          {...actions}
           title="Deleted Payments"
           columns={columns}
           data={tableData}
@@ -81,7 +84,7 @@ const DeletedPayments = () => {
           showEdit={false}
           showDelete={false}
           showAdd={false}
-          showReset={true} // ✅ Reset action
+           // ✅ Reset action
           onReset={async (row: any) => {
             if (
               window.confirm(

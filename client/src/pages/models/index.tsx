@@ -9,8 +9,10 @@ import { useModelsQuery, useModelMutations } from "../../graphql/hooks/models";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addModels } from "../../redux/slices/models";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Models = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "models"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -181,12 +183,10 @@ const Models = () => {
           title="Manage Models"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button on this page.
           showAdd={false}
+          showView={false}
           onView={(row) => console.log("View", row)}
           onEdit={handleEdit}
           onDelete={async (row) => {

@@ -9,8 +9,10 @@ import HomeLayout from "../../layouts/home";
 import { useBranchesQuery, useBranchMutations } from "../../graphql/hooks/branches";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Branches = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "branches"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,12 +137,9 @@ const Branches = () => {
           title="Manage Branches"
           columns={columns}
           data={tableData}
+          {...actions}
+          // Branches list never had a view page wired; keep that explicit.
           showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
           onView={() => console.log("View button clicked")}
           onEdit={(row) => navigate(`/branches/addedit/${row.id}`)}
           onDelete={async (row) => {

@@ -48,6 +48,7 @@ export const EDIT_BRANCH = gql`
       phone
       email
       status
+      allowedmodules
       admin {
         id
         name
@@ -93,6 +94,7 @@ export const LOGIN_BRANCH = gql`
         phone
         email
         status
+        allowedmodules
         admin {
           id
           name

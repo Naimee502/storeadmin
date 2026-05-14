@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -11,6 +12,7 @@ import { useEffect } from "react";
 
 const DeletedAdmins = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "adminregister"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useGetDeletedAdminsQuery();
   const [resetAdmin] = useResetAdminMutation();
@@ -44,6 +46,7 @@ const DeletedAdmins = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Admins"
           columns={columns}
           data={tableData}
@@ -54,7 +57,7 @@ const DeletedAdmins = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             if (window.confirm(`Are you sure you want to restore admin "${row.name}"?`)) {
               try {

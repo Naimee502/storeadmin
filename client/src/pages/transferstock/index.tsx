@@ -9,6 +9,7 @@ import FormSwitch from "../../components/formswitch";
 import { FaExchangeAlt, FaCalendarAlt } from "react-icons/fa";
 import { showMessage } from "../../redux/slices/message";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import { useNavigate } from "react-router";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
@@ -42,6 +43,7 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const TransferStock = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "transferstock"));
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
@@ -440,15 +442,16 @@ const TransferStock = () => {
         </div>
 
         <DataTable
+          {...actions}
           title="Manage Transfer Stocks"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={false}
+          
+          
+          
+          
+          
+          
           onEdit={handleEdit}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete transfer stock for product "${row.productname}"?`)) {

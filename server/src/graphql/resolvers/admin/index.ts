@@ -38,7 +38,7 @@ export const adminResolvers = {
         rejected: false,
         // Optional defaults (if not provided in input)
         businesstype: input.businesstype || 'retail',
-        allowedmodules: input.allowedmodules || ['/accounts/*', '/reports/*', '/settings'],
+        allowedmodules: input.allowedmodules || [],
         status: input.status ?? true,
       });
 

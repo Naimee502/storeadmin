@@ -11,8 +11,10 @@ import {
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Payment = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "payments"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { data, refetch } = usePaymentsQuery();
@@ -81,12 +83,7 @@ const Payment = () => {
           title="Manage Payments"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
+          {...actions}
           onEdit={(row) => navigate(`/payments/addedit/${row.id}`)}
           onDelete={async (row: any) => {
             if (window.confirm(`Delete payment ${row.paymentcode}?`)) {

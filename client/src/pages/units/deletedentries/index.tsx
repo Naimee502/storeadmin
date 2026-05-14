@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -11,6 +12,7 @@ import { useEffect } from "react";
 
 const DeletedUnits = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "units"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedUnitsQuery();
   const { resetUnitMutation } = useUnitMutations();
@@ -39,6 +41,7 @@ const DeletedUnits = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Units"
           columns={columns}
           data={tableData}
@@ -49,7 +52,7 @@ const DeletedUnits = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row) => {
             if (
               window.confirm(

@@ -31,6 +31,23 @@ const staffAccountSchema = new mongoose.Schema(
       { type: mongoose.Schema.Types.ObjectId, ref: "Channel" }
     ],
 
+    // Per-staff permission override. Resolution order at runtime:
+    //   Staff.permissions > Branch.permissions > Admin.defaultPermissions.
+    // A missing key means "inherit from parent".
+    // Per-staff permission override. Resolution order at runtime:
+    //   Staff.permissions > Branch.permissions > Admin.defaultPermissions.
+    // A missing key means "inherit from parent".
+    permissions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
+    // Per-staff module allowance (set by Branch/Admin)
+    allowedmodules: {
+      type: [String],
+      default: null,
+    },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

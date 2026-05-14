@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/tabs"
 
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 import {
   GET_ATTENDANCE_LOGS,
@@ -83,6 +84,7 @@ const cap = (s?: string | null) => {
 
 const Attendance: React.FC = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "attendance"));
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((s: any) => s.auth);
@@ -588,9 +590,7 @@ const Attendance: React.FC = () => {
           { label: "Work", key: "work" },
         ]}
         data={logRows}
-        showAdd={true}
-        showEdit={true}
-        showDelete={true}
+        {...actions}
         showReset={false}
         showView={false}
         showImport={false}
@@ -667,6 +667,7 @@ const Attendance: React.FC = () => {
         { label: "Remarks", key: "remarks" },
       ]}
       data={punchRows}
+      {...actions}
       showAdd={false}
       showEdit={false}
       showDelete={false}
@@ -705,9 +706,7 @@ const Attendance: React.FC = () => {
           { label: "Description", key: "descriptionLabel" },
         ]}
         data={holidayRows}
-        showAdd={true}
-        showEdit={true}
-        showDelete={true}
+        {...actions}
         showReset={false}
         showView={false}
         showImport={false}
@@ -781,9 +780,7 @@ const Attendance: React.FC = () => {
           { label: "Accrual", key: "accrualLabel" },
         ]}
         data={leaveTypeRows}
-        showAdd={true}
-        showEdit={true}
-        showDelete={true}
+        {...actions}
         showReset={false}
         showView={false}
         showImport={false}
@@ -903,9 +900,7 @@ const Attendance: React.FC = () => {
           { label: "Reason", key: "reason" },
         ]}
         data={requestRows}
-        showAdd={true}
-        showEdit={true}
-        showDelete={true}
+        {...actions}
         showReset={false}
         showView={false}
         showImport={false}
@@ -988,9 +983,7 @@ const Attendance: React.FC = () => {
         { label: "Balance", key: "balance" },
       ]}
       data={balanceRows}
-      showAdd={true}
-      showEdit={true}
-      showDelete={true}
+      {...actions}
       showReset={false}
       showView={false}
       showImport={false}

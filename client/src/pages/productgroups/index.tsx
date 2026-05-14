@@ -9,8 +9,10 @@ import { useProductGroupsQuery, useProductGroupMutations } from "../../graphql/h
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addProductGroups } from "../../redux/slices/productgroups";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const ProductGroups = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "productgroups"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -182,12 +184,10 @@ const ProductGroups = () => {
           title="Manage Product Groups"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button on this page.
           showAdd={false}
+          showView={false}
           onView={(row) => console.log("View", row)}
           onEdit={handleEdit}
           onDelete={async (row) => {

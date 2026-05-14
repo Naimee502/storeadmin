@@ -13,11 +13,14 @@ import {
 import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 
 const SalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const M = "salesinvoice";
+  const actions = useAppSelector(state => selectModuleActions(state, M));
   
   const { data, refetch } = useSalesInvoicesQuery();
   const { deleteSalesInvoiceMutation } = useSalesInvoiceMutations();
@@ -175,18 +178,13 @@ const SalesInvoices = () => {
           title="Manage Sales Invoices"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
-          showPrint={true}
-          showWhatsApp={true}
+          {...actions}
           onWhatsApp={handleWhatsAppShare}
-          // Hide the Return button on invoices that already have an active
-          // Sales Return — prevents duplicate returns from the list view.
-          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id))}
+          // Combine the "no duplicate return" rule with the user's
+          // permission to perform a return at all.
+          showReturn={(row: any) =>
+            actions.showReturn && !returnedInvoiceIds.has(String(row.id))
+          }
           onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesinvoice/addedit/${row.id}`)}

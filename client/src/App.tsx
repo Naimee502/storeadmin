@@ -8,9 +8,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        {/* ✅ Show global message notifications */}
         <Message />
-        {/* ✅ App routing */}
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

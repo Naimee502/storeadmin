@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import { useQuery, useMutation } from "@apollo/client";
 
 import HomeLayout from "../../../layouts/home";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../components/tabs";
 
@@ -52,6 +53,7 @@ type DeletedTab = "logs" | "holidays" | "leavetypes" | "leaverequests" | "balanc
 
 const DeletedAttendanceEntries: React.FC = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "attendance"));
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((s: any) => s.auth);
@@ -189,6 +191,7 @@ const DeletedAttendanceEntries: React.FC = () => {
 
           <TabsContent value="logs">
             <DataTable
+          {...actions}
               title="Deleted Attendance Logs"
               columns={[
                 { label: "Seq", key: "seqNo" },
@@ -226,6 +229,7 @@ const DeletedAttendanceEntries: React.FC = () => {
 
           <TabsContent value="holidays">
             <DataTable
+          {...actions}
               title="Deleted Holidays"
               columns={[
                 { label: "Seq", key: "seqNo" },
@@ -260,6 +264,7 @@ const DeletedAttendanceEntries: React.FC = () => {
 
           <TabsContent value="leavetypes">
             <DataTable
+          {...actions}
               title="Deleted Leave Types"
               columns={[
                 { label: "Seq", key: "seqNo" },
@@ -295,6 +300,7 @@ const DeletedAttendanceEntries: React.FC = () => {
 
           <TabsContent value="leaverequests">
             <DataTable
+          {...actions}
               title="Deleted Leave Requests"
               columns={[
                 { label: "Seq", key: "seqNo" },
@@ -331,6 +337,7 @@ const DeletedAttendanceEntries: React.FC = () => {
 
           <TabsContent value="balances">
             <DataTable
+          {...actions}
               title="Deleted Leave Balances"
               columns={[
                 { label: "Seq", key: "seqNo" },

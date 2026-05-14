@@ -93,6 +93,14 @@ export const defaultAccountGroups = [
   { name: "Depreciation", category: "expenses" },
   { name: "Finance Charges", category: "expenses" },
   { name: "Commission Expense", category: "expenses" },
+
+  // MANUFACTURING (BOM / Production) — pre-seeded so accounting is ready
+  // when the Manufacturing module ships, regardless of whether the admin
+  // has it enabled today.
+  { name: "Manufacturing Expenses", category: "expenses" },
+  { name: "Raw Materials", category: "assets" },
+  { name: "Work-in-Progress", category: "assets" },
+  { name: "Finished Goods", category: "assets" },
 ];
 
 
@@ -152,7 +160,17 @@ export const defaultLedgers = [
   { name: "Discount Allowed", group: "Indirect Expenses" },
 
   // Rounding
-  { name: "Round Off", group: "Indirect Expenses" }
+  { name: "Round Off", group: "Indirect Expenses" },
+
+  // Manufacturing — base ledgers under each manufacturing group, keeps
+  // BOM/Production journal entries (when implemented) immediately balanced.
+  { name: "Raw Material Consumed", group: "Manufacturing Expenses" },
+  { name: "Direct Labour", group: "Manufacturing Expenses" },
+  { name: "Factory Overheads", group: "Manufacturing Expenses" },
+  { name: "Power & Fuel", group: "Manufacturing Expenses" },
+  { name: "Raw Materials Stock", group: "Raw Materials" },
+  { name: "Work-in-Progress Stock", group: "Work-in-Progress" },
+  { name: "Finished Goods Stock", group: "Finished Goods" },
 ];
 
 

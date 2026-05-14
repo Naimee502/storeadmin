@@ -1,16 +1,18 @@
 import React, { useEffect } from "react";
 import HomeLayout from "../../../layouts/home";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import { useDeletedPriceAssignmentQuery, usePriceAssignmentMutations } from "../../../graphql/hooks/pricelists";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { regionOptions } from "../../../utils/constants";
 import { useNavigate } from "react-router";
 
 const DeletedPriceAssignments = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "priceassignments"));
   const dispatch = useAppDispatch();
   const { data: assignmentData, refetch, loading } = useDeletedPriceAssignmentQuery();
   const { data: channelData } = useChannelsQuery();
@@ -117,6 +119,7 @@ const DeletedPriceAssignments = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Price Assignments"
           columns={columns}
           data={tableData}
@@ -127,7 +130,7 @@ const DeletedPriceAssignments = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={handleReset}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}

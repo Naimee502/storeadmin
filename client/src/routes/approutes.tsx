@@ -5,6 +5,7 @@ import Login from "../pages/login";
 import Home from "../pages/home";
 import Profile from "../pages/profile";
 import Settings from "../pages/settings";
+import BusinessSettings from "../pages/businesssettings";
 import ForgotPassword from "../pages/forgotpassword";
 import Branches from "../pages/branches";
 import AddEditBranch from "../pages/branches/addedit";
@@ -63,6 +64,7 @@ import GSTReports from "../pages/reports/gst";
 import AccountingFinanceReports from "../pages/reports/accounting";
 import PartyReports from "../pages/reports/party/inde";
 import SalesmanReports from "../pages/reports/salesman";
+import AttendanceReports from "../pages/reports/attendance";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
 import AnalyticalReports from "../pages/reports/analytics";
@@ -176,6 +178,14 @@ const AppRoutes = () => {
           <ProtectedRoutes>
             <Settings />
           </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/businesssettings"
+        element={
+          <PublicRoutes>
+            <BusinessSettings />
+          </PublicRoutes>
         }
       />
       <Route
@@ -736,6 +746,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <AnalyticalReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/attendance"
+        element={
+          <ProtectedRoutes>
+            <AttendanceReports />
           </ProtectedRoutes>
         }
       />

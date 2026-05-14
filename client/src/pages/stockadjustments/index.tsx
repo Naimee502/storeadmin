@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { format } from "date-fns";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -13,6 +14,7 @@ import {
 
 const StockAdjustmentsList: React.FC = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "stockadjustments"));
   const dispatch = useAppDispatch();
 
   const { admin, branch, type } = useAppSelector((state: any) => state.auth);
@@ -100,16 +102,17 @@ const StockAdjustmentsList: React.FC = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Stock Adjustments"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
+          
+          
+          
           showReset={false}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
+          
+          
+          
           showDeleted={true}
           onEdit={(row) => navigate(`/stockadjustments/addedit/${row.id}`)}
           onDelete={(row) => handleDelete(row)}

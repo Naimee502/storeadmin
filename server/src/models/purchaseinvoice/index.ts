@@ -8,6 +8,7 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
+import { AdminSettings } from "../adminsettings";
 
 const purchaseInvoiceSchema = new mongoose.Schema(
   {
@@ -83,8 +84,19 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
       : newInv.branchid;
     if (!branchid) return;
     
-  if (!newInv.autocreate) {
-    console.log("Auto-create is disabled for Purchase Invoice. Skipping stock and transactions.");
+  // Resolve auto-posting flags. Per-invoice `autocreate` overrides; if it's
+  // not provided we fall back to AdminSettings so accounting doesn't depend
+  // on the user remembering to toggle the checkbox.
+  const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const wantsLedger =
+    newInv.autocreate ??
+    settings?.autoCreateLedgerOnPurchaseInvoice ?? true;
+  const wantsStock =
+    newInv.autocreate ??
+    settings?.autoCreateStockOnPurchaseInvoice ?? true;
+
+  if (!wantsLedger && !wantsStock) {
+    console.log("Auto-create disabled (per-invoice or AdminSettings). Skipping.");
     return;
   }
   // ============================

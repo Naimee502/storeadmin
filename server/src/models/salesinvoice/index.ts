@@ -8,7 +8,8 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
-import { StaffAccount } from "../staffaccounts"; 
+import { StaffAccount } from "../staffaccounts";
+import { AdminSettings } from "../adminsettings";
 
 const salesInvoiceSchema = new mongoose.Schema(
   {
@@ -84,9 +85,21 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     : newInv.branchid;
 
   if (!branchid) return console.log("Branch ID missing");
-  
-  if (!newInv.autocreate) {
-    console.log("Auto-create is disabled. Skipping stock and transactions.");
+
+  // Resolve auto-posting flags. Per-invoice `autocreate` still wins (legacy
+  // override), but when omitted we fall back to org-wide AdminSettings so
+  // users don't toggle two checkboxes on every save. Defaults to TRUE so
+  // first-time users get accounting wired without setup steps.
+  const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const wantsLedger =
+    newInv.autocreate ??
+    settings?.autoCreateLedgerOnSalesInvoice ?? true;
+  const wantsStock =
+    newInv.autocreate ??
+    settings?.autoCreateStockOnSalesInvoice ?? true;
+
+  if (!wantsLedger && !wantsStock) {
+    console.log("Auto-create disabled (per-invoice or AdminSettings). Skipping.");
     return;
   }
   

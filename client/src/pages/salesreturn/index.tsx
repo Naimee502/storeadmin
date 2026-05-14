@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -14,6 +15,7 @@ const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerC
 
 const SalesReturns = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "salesreturn"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useSalesReturnsQuery();
   const { deleteSalesReturnMutation } = useSalesReturnMutations();
@@ -62,15 +64,16 @@ const SalesReturns = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Sales Returns (Credit Notes)"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
+          
+          
+          
+          
+          
+          
           showDeleted={true}
           onAdd={() => {
             // No source picked yet → user lands on "select invoice" mode

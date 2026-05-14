@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addPurchaseInvoices } from "../../redux/slices/purchaseinvoice";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -16,6 +17,7 @@ import { useReactToPrint } from "react-to-print";
 
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "purchaseinvoice"));
   const dispatch = useAppDispatch();
 
   const { data, refetch } = usePurchaseInvoicesQuery();
@@ -24,7 +26,6 @@ const PurchaseInvoices = () => {
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Set of source-invoice ids that already have an active Purchase Return.
-  // The per-row "Return" action is hidden for these to prevent duplicates.
   const { data: returnsData } = usePurchaseReturnsQuery();
   const returnedInvoiceIds = useMemo(() => {
     const set = new Set<string>();
@@ -45,8 +46,6 @@ const PurchaseInvoices = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
-  // Open WhatsApp pre-filled with a purchase invoice summary. Useful for
-  // forwarding bills to a manager or accountant for approval.
   const handleWhatsAppShare = (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
@@ -73,12 +72,10 @@ const PurchaseInvoices = () => {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  // Print states and ref
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
   const [readyToPrint, setReadyToPrint] = useState(false);
 
-  // react-to-print hook
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
     documentTitle: "Purchase Invoice",
@@ -108,14 +105,12 @@ const PurchaseInvoices = () => {
     fetchInvoices();
   }, [dispatch, refetch]);
 
-  // Trigger printing when printInvoice is set
   useEffect(() => {
     if (printInvoice) {
       setReadyToPrint(true);
     }
   }, [printInvoice]);
 
-  // Call print function when ready and ref is available
   useEffect(() => {
     if (readyToPrint && componentRef.current) {
       handlePrint?.();
@@ -134,12 +129,11 @@ const PurchaseInvoices = () => {
     { label: "Status", key: "status" },
   ];
 
-  // ✅ Reusable Helpers
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
   const tableData = invoiceList.map((invoice: any, index: number) => {
-    const totalqty = invoice.productservice.reduce(
+    const totalqty = (invoice.productservice || []).reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
@@ -148,7 +142,7 @@ const PurchaseInvoices = () => {
       ...invoice,
       seqNo: index + 1,
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
-      totalitem: invoice.productservice.length,
+      totalitem: invoice.productservice?.length || 0,
       totalqty,
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
@@ -160,20 +154,13 @@ const PurchaseInvoices = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Purchase Invoices"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={true}
           showPrint={true}
           showWhatsApp={true}
           onWhatsApp={handleWhatsAppShare}
-          // Hide the Return button on invoices that already have an active
-          // Purchase Return — prevents duplicate returns from the list view.
           showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id))}
           onReturn={(row) => navigate(`/purchasereturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
@@ -214,7 +201,6 @@ const PurchaseInvoices = () => {
           isLoading={isLoading}
         />
 
-        {/* Hidden printable invoice component */}
         {printInvoice && (
           <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
             <PrintableInvoice ref={componentRef} invoice={printInvoice} />

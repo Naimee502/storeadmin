@@ -12,8 +12,10 @@ import {
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addAccountGroups } from "../../redux/slices/accountgroups";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const AccountGroups = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "accountgroups"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,13 +206,10 @@ const AccountGroups = () => {
           title="Manage Account Groups"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showDeleted={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button here.
           showAdd={false}
+          showView={false}
           onEdit={handleEdit}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete "${row.accountgroupname}"?`)) {

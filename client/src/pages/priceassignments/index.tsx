@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import HomeLayout from "../../layouts/home";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import FormField from "../../components/formfiled";
 import Button from "../../components/button";
@@ -13,6 +14,7 @@ import { regionOptions } from "../../utils/constants";
 
 const PriceAssignments = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "priceassignments"));
   const dispatch = useAppDispatch();
   const { admin } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
@@ -244,15 +246,16 @@ const PriceAssignments = () => {
         )}
 
         <DataTable
+          {...actions}
           title="Price Assignments"
           columns={columns}
           data={tableData}
-          showView={false}
-          showAdd={false}
-          showExport={false}
-          showImport={false}
-          showEdit={true}
-          showDelete={true}
+          
+          
+          
+          
+          
+          
           onEdit={(row) => {
             setEditId(row.id);
             setFormData({

@@ -16,6 +16,8 @@ interface AdminData {
   noOfBranches: number;
   businesstype: 'retail' | 'wholesale' | 'manufacturer' | 'service' | 'trader' | 'other';
   allowedmodules: string[];
+  isMultibranch?: boolean;
+  isChannelCustomers?: boolean;
   isExpiringSoon?: boolean;
 }
 
@@ -34,6 +36,7 @@ interface BranchData {
   password: string;
   status: boolean;
   admin?: AdminData;
+  allowedmodules?: string[];
 }
 
 interface StaffData {
@@ -46,6 +49,7 @@ interface StaffData {
     branchname: string;
   };
   admin?: AdminData;
+  allowedmodules?: string[];
 }
 
 interface AuthState {
@@ -91,8 +95,22 @@ const authSlice = createSlice({
       }
     },
     clearAuthData: () => initialState,
+    // After the Settings → Modules tab toggles modules on/off we patch the
+    // cached admin in redux so the sidebar and `usePermission` consumers
+    // re-render without a full re-login.
+    setAllowedModules: (state, action: PayloadAction<string[]>) => {
+      if (state.admin) {
+        state.admin.allowedmodules = action.payload;
+      }
+      if (state.branch?.admin) {
+        state.branch.admin.allowedmodules = action.payload;
+      }
+      if (state.staff?.admin) {
+        state.staff.admin.allowedmodules = action.payload;
+      }
+    },
   },
 });
 
-export const { saveAuthData, clearAuthData } = authSlice.actions;
+export const { saveAuthData, clearAuthData, setAllowedModules } = authSlice.actions;
 export default authSlice.reducer;

@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { useAppDispatch } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
@@ -13,8 +13,10 @@ import {
   useProductServiceMutations,
   useProductServicesQuery,
 } from "../../graphql/hooks/products";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const ProductServices = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "products"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,13 +181,9 @@ const ProductServices = () => {
           title="Manage Product Services"
           columns={columns}
           data={tableData}
+          {...actions}
           showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
           showPrint={false}
-          showAdd={true}
           showBarcode={true}
           onEdit={(row) =>
             navigate(`/products/addedit/${row.id}`, {

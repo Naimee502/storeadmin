@@ -51,6 +51,10 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             ? auth.staff?.admin?.companyName
             : "";
 
+    const { settings } = useAppSelector((state: any) => state.adminsettings);
+    const encrypt = settings?.encryptInvoicePrices;
+    const mask = (val: number) => encrypt ? val / 10 : val;
+
     const products = invoice.productservice || [];
 
     /* ================= CALCULATIONS ================= */
@@ -186,10 +190,10 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                   </td>
                   <td className="text-center">{item.hsn || "-"}</td>
                   <td className="text-center">{item.qty}</td>
-                  <td className="text-center">{item.rate.toFixed(2)}</td>
-                  <td className="text-center">{discount.toFixed(2)}</td>
+                  <td className="text-center">{mask(item.rate).toFixed(2)}</td>
+                  <td className="text-center">{mask(discount).toFixed(2)}</td>
                   <td className="text-center">{item.gst}</td>
-                  <td className="text-center">{total.toFixed(2)}</td>
+                  <td className="text-center">{mask(total).toFixed(2)}</td>
                 </tr>
               );
             })}
@@ -200,7 +204,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 Sub Total
               </td>
               <td className="text-right">
-                {productsTotal.toFixed(2)}
+                {mask(productsTotal).toFixed(2)}
               </td>
             </tr>
 
@@ -209,7 +213,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 Total Discount
               </td>
               <td className="text-right">
-                {totalDiscount.toFixed(2)}
+                {mask(totalDiscount).toFixed(2)}
               </td>
             </tr>
 
@@ -218,7 +222,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 Total GST
               </td>
               <td className="text-right">
-                {totalGST.toFixed(2)}
+                {mask(totalGST).toFixed(2)}
               </td>
             </tr>
 
@@ -227,7 +231,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 Grand Total
               </td>
               <td className="text-right font-bold">
-                {grandTotal.toFixed(2)}
+                {mask(grandTotal).toFixed(2)}
               </td>
             </tr>
 
@@ -236,7 +240,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
               <td colSpan={8}>
                 <strong>Amount in Words:</strong>{" "}
                 {invoice.amountinwords ||
-                  `${toWords(grandTotal)} Rupees`}
+                  `${toWords(Math.round(mask(grandTotal)))} Rupees`}
               </td>
             </tr>
 

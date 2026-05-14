@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
@@ -12,6 +13,7 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
 const DeletedAccounts = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
   const dispatch = useAppDispatch();
 
   // ✅ Use unified query with status = false
@@ -60,6 +62,7 @@ const DeletedAccounts = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Deleted Accounts"
           columns={columns}
           data={tableData}
@@ -70,7 +73,7 @@ const DeletedAccounts = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          
           onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted account "${row.name}"?`)) {
               try {

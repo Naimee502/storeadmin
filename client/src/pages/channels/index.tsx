@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { 
@@ -15,6 +16,7 @@ import { useNavigate } from "react-router";
 const Channels = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "channels"));
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   
@@ -128,15 +130,16 @@ const Channels = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...actions}
           title="Manage Channels"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
-          showAdd={false}
+          
+          
+          
+          
+          
+          
           onEdit={(row: any) => handleEdit(row)}
           onDelete={async (row: any) => {
             if (row.isDefault) {

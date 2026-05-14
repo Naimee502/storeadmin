@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import {
   useDeletedSalesRoutesQuery,
@@ -17,6 +18,7 @@ const DAY_SHORT: Record<string, string> = {
 
 const DeletedSalesRoutes: React.FC = () => {
   const navigate = useNavigate();
+  const actions = useAppSelector(state => selectModuleActions(state, "salesroutes"));
   const dispatch = useAppDispatch();
   const { admin, branch, type } = useAppSelector((state: any) => state.auth);
   const selectedBranchId = useAppSelector(
@@ -91,13 +93,14 @@ const DeletedSalesRoutes: React.FC = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-10">
         <DataTable
+          {...actions}
           title="Deleted Sales Routes"
           columns={columns}
           data={tableData}
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={true}
+          
           showDeleted={false}
           showImport={false}
           showExport={false}

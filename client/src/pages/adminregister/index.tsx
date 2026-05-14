@@ -5,6 +5,7 @@ import FormField from "../../components/formfiled";
 import Button from "../../components/button";
 import registerImage from "../../assets/images/login.jpg";
 import { useCreateAdminMutation } from "../../graphql/hooks/admin";
+import { ADMIN_REGISTER_MODULES, SECTION_LABELS, findModule } from "../../config/modules";
 
 const AdminRegister = () => {
   const navigate = useNavigate();
@@ -19,58 +20,12 @@ const AdminRegister = () => {
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
 
-  // Module list mirrors the sidebar (`components/sidebar/index.tsx`) so any
-  // entry the admin un-checks here disappears from that user's side menu
-  // via the `filterLinks` helper. Order here roughly follows the sidebar
-  // sections: master data → operations → distribution → cross-cutting.
-  const allModules = [
-    // Admin / master setup
-    "branches",
-    "accounts",
-    "accountgroups",
-    "accountledgers",
-    "staffaccounts",
-    "permissions",
-    "channels",
-    "salesroutes",
-    "categories",
-    "subcategories",
-    "brands",
-    "models",
-    "productgroups",
-    "sizes",
-    "units",
-    "products",
-
-    // Sales / Purchase pipeline
-    "salesorder",
-    "salesinvoice",
-    "salesreturn",       // ← new credit-note module
-    "purchaseorder",
-    "purchaseinvoice",
-    "purchasereturn",    // ← new debit-note module
-
-    // Inventory ops
-    "stockadjustments",
-    "transferstock",
-
-    // Pricing (distribution)
-    "pricelists",        // ← previously gated under "products"
-    "priceassignments",  // ← previously gated under "products"
-
-    // Accounting / Cross-cutting
-    "transactions",
-    "payments",
-    "expensenote",
-    "attendance",
-
-    // Future / uncategorised
-    "bom",
-    "production",
-    "reports",
-    "posdashboard",
-    "settings",
-  ];
+  // Module list comes from the shared catalog (`config/modules.ts`) so
+  // adding a new module anywhere in the app automatically wires it into
+  // this checklist. Only modules flagged `inAdminRegister: true` show up.
+  // System modules like Settings/Permissions are always available — they
+  // aren't checkboxes here.
+  const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
 
   const [allowedmodules, setAllowedmodules] = useState<string[]>(allModules);
 
@@ -277,20 +232,65 @@ const AdminRegister = () => {
               </div>
             </div>
 
-            {/* Allowed Modules at the end */}
+            {/* Allowed Modules — grouped by business section so an admin
+                taking the system for "orders only" can quickly tick the
+                whole Sales pipeline and skip the rest. */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Modules</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border p-3 rounded bg-gray-50 h-40 overflow-y-auto shadow-inner">
-                {allModules.map((module) => (
-                  <label key={module} className="flex items-center space-x-2 text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allowedmodules.includes(module)}
-                      onChange={() => handleModuleToggle(module)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                    />
-                    <span className="truncate capitalize select-none" title={module}>{module}</span>
-                  </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Allowed Modules</label>
+                <div className="flex gap-3 text-[11px]">
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:underline"
+                    onClick={() => setAllowedmodules(allModules)}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:underline"
+                    onClick={() => setAllowedmodules([])}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div className="border p-3 rounded bg-gray-50 max-h-72 overflow-y-auto shadow-inner space-y-3">
+                {Object.entries(
+                  ADMIN_REGISTER_MODULES.reduce<Record<string, typeof ADMIN_REGISTER_MODULES>>(
+                    (acc, m) => {
+                      (acc[m.section] ||= [] as any).push(m);
+                      return acc;
+                    },
+                    {}
+                  )
+                ).map(([section, items]) => (
+                  <div key={section}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                      {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {items.map((m) => (
+                        <label
+                          key={m.id}
+                          className="flex items-center space-x-2 text-xs cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allowedmodules.includes(m.id)}
+                            onChange={() => handleModuleToggle(m.id)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                          />
+                          <span
+                            className="truncate select-none"
+                            title={`${m.label} (${m.id})`}
+                          >
+                            {findModule(m.id)?.label || m.id}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

@@ -1,8 +1,11 @@
 import { combineReducers } from '@reduxjs/toolkit';
 import authReducer from '../slices/auth';
+import adminsettingsReducer from "../slices/adminsettings";
+import permissionsReducer from "../slices/permissions";
 import selectedBranchReducer from "../slices/branch";
 import brachesReducer from '../slices/branches';
 import categoriesReducer from "../slices/categories";
+import subcategoriesReducer from "../slices/subcategories";
 import unitsReducer from "../slices/units";
 import sizesReducer from "../slices/sizes";
 import brandsReducer from "../slices/brands";
@@ -23,9 +26,12 @@ import purchaseorderReducer from '../slices/purchaseorder';
 
 const appReducer = combineReducers({
   auth: authReducer,
+  adminsettings: adminsettingsReducer,
+  permissions: permissionsReducer,
   selectedBranch: selectedBranchReducer,
   branches: brachesReducer,
   categories: categoriesReducer,
+  subcategories: subcategoriesReducer,
   units: unitsReducer,
   sizes: sizesReducer,
   brands: brandsReducer,

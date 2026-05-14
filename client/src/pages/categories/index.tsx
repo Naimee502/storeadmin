@@ -9,22 +9,33 @@ import { useCategoriesQuery, useCategoryMutations } from "../../graphql/hooks/ca
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addCategories } from "../../redux/slices/categories";
-
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Categories = () => {
+  const actions = useAppSelector(state => selectModuleActions(state, "categories"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
   const { data, refetch } = useCategoriesQuery();
-  const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } = useCategoryMutations();
   const categoryList = data?.getCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-  console.log("Category List:", JSON.stringify(categoryList));
+
+  const adminId =
+    type === "admin"
+      ? admin?.id
+      : type === "branch"
+      ? branch?.admin?.id
+      : undefined;
+
+  const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } =
+    useCategoryMutations();
 
   // Form state for add/edit
-  const [formValues, setFormValues] = useState({ categoryname: "", status: true });
+  const [formValues, setFormValues] = useState({
+    categoryname: "",
+    status: true,
+  });
   const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,7 +57,10 @@ const Categories = () => {
 
   // Handle Edit button click: populate form and open form
   const handleEdit = (row: any) => {
-    setFormValues({ categoryname: row.categoryname, status: row.status === "Active" });
+    setFormValues({
+      categoryname: row.categoryname,
+      status: row.status === "Active",
+    });
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -55,10 +69,7 @@ const Categories = () => {
     const fetchAndDispatch = async () => {
       dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.categories) {
-          dispatch(addCategories(data.categories));
-        }
+        await refetch();
       } catch (error) {
         console.error("Error fetching categories:", error);
       } finally {
@@ -74,7 +85,7 @@ const Categories = () => {
     dispatch(showLoading());
     try {
       if (isEditing && editingId) {
-        // Update mutation
+        // Edit mutation
         await editCategoryMutation({
           variables: {
             id: editingId,
@@ -106,15 +117,12 @@ const Categories = () => {
       setEditingId(null);
     } catch (error) {
       if (error?.message?.includes("E11000")) {
-        const duplicateField = error?.message?.includes("categoryname")
-        ? "Category name"
-        : "Field";
-        dispatch(showMessage({ message: `${duplicateField} already exists.`, type: 'error' }));
+        dispatch(showMessage({ message: "Category name already exists.", type: "error" }));
       } else {
-        dispatch(showMessage({ message: 'Failed to save category. Please try again.', type: 'error' }));
+        dispatch(showMessage({ message: "Failed to save category. Please try again.", type: "error" }));
       }
     } finally {
-          dispatch(hideLoading());
+      dispatch(hideLoading());
     }
   };
 
@@ -125,10 +133,10 @@ const Categories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = categoryList.map((category: any, index: number) => ({
-    ...category,
+  const tableData = categoryList.map((cat: any, index: number) => ({
+    ...cat,
     seqNo: index + 1,
-    status: category.status ? "Active" : "Inactive",
+    status: cat.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
@@ -163,7 +171,7 @@ const Categories = () => {
         status: row.Status === "true" || row.Status === "1" || row.Status === true,
       }));
 
-      // You can dispatch import API here (optional)
+      // TODO: Call addCategories mutation for bulk insert
       console.log("Imported Categories:", importedCategories);
     };
 
@@ -190,12 +198,10 @@ const Categories = () => {
           title="Manage Categories"
           columns={columns}
           data={tableData}
-          showView={false}
-          showEdit={true}
-          showDelete={true}
-          showImport={false}
-          showExport={false}
+          {...actions}
+          // Inline form replaces the Add button on this page.
           showAdd={false}
+          showView={false}
           onView={(row) => console.log("View", row)}
           onEdit={(row) => handleEdit(row)}
           onDelete={async (row) => {
@@ -213,12 +219,17 @@ const Categories = () => {
           onImport={handleImportClick}
           onExport={handleExport}
           onAdd={() => navigate("/categories")}
-          onShowDeleted={() =>navigate("/categories/deletedentries")}
+          onShowDeleted={() => navigate("/categories/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
           formFields={[
-            { name: "categoryname", label: "Category Name", type: 'text', placeholder: "Enter category name" },
+            {
+              name: "categoryname",
+              label: "Category Name",
+              type: "text",
+              placeholder: "Enter category name",
+            },
           ]}
           formValues={formValues}
           formErrors={formErrors}
