@@ -18,7 +18,6 @@ import {
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
-import { findModule } from '../../config/modules';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -26,7 +25,6 @@ interface SidebarProps {
   onHoverChange: (hovered: boolean) => void;
 }
 
-// TypeScript types for sidebar items
 type SidebarLink = {
   to: string;
   label: string;
@@ -53,14 +51,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const isBranch = role === "branch";
   const isStaff = role === "staff";
 
-  // HIERARCHICAL MODULE ALLOWANCE (Nested Whitelist)
-  // 1. SaaS Level: What the Super Admin allowed for the whole business
   const businessAllowed = admin?.allowedmodules;
 
-  // 2. Local Level: What the parent allowed for this specific account
-  // - For Admin: Uses businessAllowed directly.
-  // - For Branch: Uses branch.allowedmodules (set by Admin).
-  // - For Staff: Uses staff.allowedmodules (set by Branch).
   const localAllowed =
     isAdmin
       ? businessAllowed
@@ -70,19 +62,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
           ? staff?.allowedmodules
           : undefined;
 
-  /**
-   * Visibility check for hierarchical allowance.
-   * A module is shown ONLY if it's allowed at BOTH the Business (SaaS) level 
-   * AND the Local level (Branch/Staff setting).
-   */
   const isModuleAllowed = (moduleId: string) => {
-    // 1. Check Business (SaaS) Level
     if (Array.isArray(businessAllowed) && businessAllowed.length > 0) {
       if (!businessAllowed.map(m => m.toLowerCase()).includes(moduleId.toLowerCase())) return false;
     }
 
-    // 2. Check Local Level (Branch/Staff specific checklist)
-    // If localAllowed is null/empty, we default to whatever the parent allowed (Business level).
     if (Array.isArray(localAllowed) && localAllowed.length > 0) {
       if (!localAllowed.map(m => m.toLowerCase()).includes(moduleId.toLowerCase())) return false;
     }
@@ -90,7 +74,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     return true;
   };
 
-  // Feature-to-module map matching Settings page
   const FEATURE_TO_MODULES: Record<string, string[]> = {
     enableGst: ["reports.gst"],
   };
@@ -100,26 +83,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       const moduleId = link.moduleId;
       if (!moduleId) return true;
 
-      // 1. SaaS Feature Gate
       if (settings) {
         const flag = Object.entries(FEATURE_TO_MODULES).find(([_, ids]) => ids.includes(moduleId))?.[0];
         if (flag && settings[flag] === false) return false;
       }
 
-      // 2. Hierarchical Module Allowance Gate (Nested Whitelist)
       if (!isModuleAllowed(moduleId)) return false;
 
-      // 3. Admin/Branch Default: If we passed the checks above, they see it.
       if (isAdmin || isBranch) return true;
 
-      // 4. Staff Permission Matrix
       if (isLoaded) {
         const userPerm = permissions[moduleId]?.view;
         if (userPerm === false) return false;
         if (userPerm === true) return true;
       }
 
-      // Default for non-admins: show if not explicitly denied.
       return true;
     });
   };
@@ -176,9 +154,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave className="text-xl" />, moduleId: "accountledgers" },
   ];
 
-  // Reports links — each report has its own moduleId so an admin can hide
-  // individual reports (e.g. give an "order-only" admin Sales Reports but
-  // not GST/Accounting). Keys match the entries in `config/modules.ts`.
   const reportsLinks: SidebarLink[] = [
     { to: '/reports/sales',      label: 'Sales Reports',       icon: <FaChartBar className="text-xl" />,       moduleId: "reports.sales" },
     { to: '/reports/purchase',   label: 'Purchase Reports',    icon: <FaFileAlt className="text-xl" />,        moduleId: "reports.purchase" },
@@ -191,7 +166,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/reports/attendance', label: 'Attendance & Leave',  icon: <FaCalendarCheck className="text-xl" />,  moduleId: "reports.attendance" },
   ];
 
-  // Distribution links
   const distributionLinks: SidebarLink[] = [
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-xl" />, moduleId: "channels" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-xl" />, moduleId: "salesroutes" },
@@ -204,18 +178,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const filteredReportsLinks = filterLinks(reportsLinks);
   const filteredDistributionLinks = filterLinks(distributionLinks);
 
-  // Settings link — shown for both admin and branch users.
   const settingsLinks: SidebarLink[] =
     isAdmin || isBranch
       ? [{ to: "/settings", label: "Settings", icon: <FaCog className="text-xl" /> }]
       : [];
 
-  // Sidebar items construction
   const sidebarItems: SidebarItem[] = [homeLink];
 
   if (isAdmin) {
     sidebarItems.push(...filteredAdminLinks);
-    // Add unique branch links (those not already in admin links)
     const uniqueBranchLinks = filteredBranchLinks.filter(
       (bl) => !adminLinks.some((al) => al.to === bl.to)
     );
@@ -224,19 +195,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     sidebarItems.push(...filteredBranchLinks);
   }
 
-  // Distribution section
   if (filteredDistributionLinks.length > 0) {
     sidebarItems.push({ label: "Distribution", isSection: true });
     sidebarItems.push(...filteredDistributionLinks);
   }
 
-  // Reports section
   if (filteredReportsLinks.length > 0) {
     sidebarItems.push({ label: "Reports", isSection: true });
     sidebarItems.push(...filteredReportsLinks);
   }
 
-  // System section
   if (settingsLinks.length > 0) {
     sidebarItems.push({ label: "System", isSection: true });
     sidebarItems.push(...settingsLinks);
@@ -244,7 +212,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
 
   return (
     <>
-      {/* Mobile Toggle Button */}
       <button
         onClick={toggleSidebar}
         className="sm:hidden fixed top-2 left-2 z-50 bg-[#34495e] text-white p-2 rounded-md"
@@ -252,7 +219,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
         ☰
       </button>
 
-      {/* Sidebar */}
       <aside
           onMouseEnter={() => handleHover(true)}
           onMouseLeave={() => handleHover(false)}
