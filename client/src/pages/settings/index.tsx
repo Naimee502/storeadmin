@@ -141,7 +141,8 @@ const SubModulesTab: React.FC<{
 
   const parentAllowed = useMemo(() => {
     const list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
-    if (!list || list.length === 0) return ADMIN_REGISTER_MODULES.map(m => m.id);
+    // If list is null/undefined, show all (SaaS default). If empty [], show nothing.
+    if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map(m => m.id);
     return list;
   }, [isAdmin, admin, branch]);
 
@@ -150,13 +151,13 @@ const SubModulesTab: React.FC<{
       return (branchesData?.getBranches ?? []).map((b: any) => ({
         id: b.id,
         name: b.branchname,
-        currentAllowed: b.allowedmodules || []
+        currentAllowed: b.allowedmodules // Preserve null if not set
       }));
     }
     return (staffData?.getStaffAccounts ?? []).map((s: any) => ({
       id: s.id,
       name: s.name,
-      currentAllowed: s.allowedmodules || []
+      currentAllowed: s.allowedmodules // Preserve null if not set
     }));
   }, [scope, branchesData, staffData]);
 
@@ -167,7 +168,9 @@ const SubModulesTab: React.FC<{
   useEffect(() => {
     const selected = targets.find(t => t.id === scopeid);
     if (selected) {
-      setDraft(selected.currentAllowed.length > 0 ? selected.currentAllowed : parentAllowed);
+      // If currentAllowed is exactly null/undefined, it means "never set, use parent default"
+      // If it's an array (even empty []), it means "explicit selection made"
+      setDraft(selected.currentAllowed !== null && selected.currentAllowed !== undefined ? selected.currentAllowed : parentAllowed);
     } else {
       setDraft([]);
     }
@@ -276,7 +279,8 @@ const PermissionsTab: React.FC<{
   title: string;
   dispatch: any;
   effectiveOverlay?: any;
-}> = ({ scope, scopeid, title, dispatch, effectiveOverlay }) => {
+  parentAllowed?: string[];
+}> = ({ scope, scopeid, title, dispatch, effectiveOverlay, parentAllowed }) => {
   const [load, { data, loading }] = usePermissionsLazy();
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
@@ -289,6 +293,14 @@ const PermissionsTab: React.FC<{
     if (data?.getPermissions) setDraft(data.getPermissions.permissions || {});
   }, [data]);
 
+  const visibleModules = useMemo(() => {
+    let list = MODULES.filter((m) => m.section !== "system");
+    if (parentAllowed) {
+      list = list.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
+    }
+    return list;
+  }, [parentAllowed]);
+
   if (!scopeid) return <div className="text-sm text-gray-500">Pick a target first.</div>;
   if (loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
@@ -300,8 +312,6 @@ const PermissionsTab: React.FC<{
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
     }
   };
-
-  const visibleModules = MODULES.filter((m) => m.section !== "system");
 
   const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
 
@@ -413,6 +423,8 @@ const AccessTab: React.FC<{
   dispatch: any;
   scopeMode?: "branch" | "staff";
 }> = ({ adminId, dispatch, scopeMode }) => {
+  const { type, admin, branch } = useAppSelector((s: any) => s.auth);
+  const isAdmin = type === "admin";
   const [scope, setScope] = useState<"branch" | "staff">(
     scopeMode ? scopeMode : "branch"
   );
@@ -443,7 +455,14 @@ const AccessTab: React.FC<{
         </div>
       </div>
       {scopeid && (
-        <PermissionsTab scope={scope} scopeid={scopeid} title={`Per-${scope} override — empty cells inherit from admin defaults`} dispatch={dispatch} effectiveOverlay={effectiveData?.getEffectivePermissions?.permissions} />
+        <PermissionsTab 
+          scope={scope} 
+          scopeid={scopeid} 
+          title={`Per-${scope} override — empty cells inherit from admin defaults`} 
+          dispatch={dispatch} 
+          effectiveOverlay={effectiveData?.getEffectivePermissions?.permissions} 
+          parentAllowed={isAdmin ? admin?.allowedmodules : branch?.allowedmodules}
+        />
       )}
     </div>
   );

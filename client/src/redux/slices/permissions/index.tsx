@@ -30,24 +30,28 @@ export const { setPermissions, clearPermissions } = permissionsSlice.actions;
 
 // Selectors for slice-based access
 export const selectModuleActions = (state: any, moduleId: string) => {
-  const { type } = state.auth;
+  const role = state.auth.type?.toString().toLowerCase();
   const { permissions, isLoaded } = state.permissions;
   
   const mod = findModule(moduleId);
   
   // Fresh install admin bypass: if admin and no permissions saved, grant all.
-  const isAdminBypass = type === "admin" && isLoaded && Object.keys(permissions).length === 0;
+  const isAdminBypass = role === "admin" && isLoaded && Object.keys(permissions).length === 0;
 
   const allow = (action: ModuleAction) => {
     if (isAdminBypass) return true;
     if (!mod || !mod.actions.includes(action)) return false;
 
-    const userPerm = permissions[moduleId]?.[action];
+    // Use normalized moduleId for lookup
+    const targetId = moduleId.toLowerCase();
+    const sectionPerms = Object.entries(permissions).find(([k]) => k.toLowerCase() === targetId)?.[1] as any;
+
+    const userPerm = sectionPerms?.[action];
     if (userPerm === false) return false;
     if (userPerm === true) return true;
 
     // If undefined:
-    if (type === "admin") return true; // Admins get access by default if in allowedModules (checked by Sidebar/Router)
+    if (role === "admin") return true; 
     return false; // Others are denied by default if undefined
   };
 

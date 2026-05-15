@@ -88,6 +88,7 @@ const Attendance: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((s: any) => s.auth);
+  const isStaff = type === "staff";
   // tab can be passed back via navigation state when returning from deleted page
   const initialTab = (location.state as any)?.tab as
     | "logs" | "punches" | "holidays" | "leavetypes" | "leaverequests" | "balances" | "cards"
@@ -1893,11 +1894,11 @@ const Attendance: React.FC = () => {
           <TabsList className="flex flex-wrap">
             <TabsTrigger value="logs">Record Punch</TabsTrigger>
             <TabsTrigger value="leaverequests">Leave Requests</TabsTrigger>
-            <TabsTrigger value="holidays">Holidays</TabsTrigger>
-            <TabsTrigger value="leavetypes">Leave Types</TabsTrigger>
-            <TabsTrigger value="balances">Balances</TabsTrigger>
-            <TabsTrigger value="punches">Punches</TabsTrigger>
-            <TabsTrigger value="cards">Staff Cards</TabsTrigger>
+            {!isStaff && <TabsTrigger value="holidays">Holidays</TabsTrigger>}
+            {!isStaff && <TabsTrigger value="leavetypes">Leave Types</TabsTrigger>}
+            {!isStaff && <TabsTrigger value="balances">Balances</TabsTrigger>}
+            {!isStaff && <TabsTrigger value="punches">Punches</TabsTrigger>}
+            {!isStaff && <TabsTrigger value="cards">Staff Cards</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="logs">{renderLogsTab()}</TabsContent>
@@ -1947,11 +1948,11 @@ const Attendance: React.FC = () => {
             )}
             {renderLeaveRequestsTab()}
           </TabsContent>
-          <TabsContent value="holidays">{renderHolidaysTab()}</TabsContent>
-          <TabsContent value="leavetypes">{renderLeaveTypesTab()}</TabsContent>
-          <TabsContent value="balances">{renderLeaveBalancesTab()}</TabsContent>
-          <TabsContent value="punches">{renderPunchesTab()}</TabsContent>
-          <TabsContent value="cards">{renderCardsTab()}</TabsContent>
+          {!isStaff && <TabsContent value="holidays">{renderHolidaysTab()}</TabsContent>}
+          {!isStaff && <TabsContent value="leavetypes">{renderLeaveTypesTab()}</TabsContent>}
+          {!isStaff && <TabsContent value="balances">{renderLeaveBalancesTab()}</TabsContent>}
+          {!isStaff && <TabsContent value="punches">{renderPunchesTab()}</TabsContent>}
+          {!isStaff && <TabsContent value="cards">{renderCardsTab()}</TabsContent>}
         </Tabs>
 
         <Modal

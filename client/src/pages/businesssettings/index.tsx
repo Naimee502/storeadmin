@@ -121,6 +121,7 @@ const BusinessSettings = () => {
                 scopeid={selectedAdminId}
                 title="Admin defaults — apply to all branches/staff unless overridden"
                 dispatch={dispatch}
+                parentAllowed={admin?.allowedmodules}
               />
             )}
           </>
@@ -242,7 +243,15 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const settings = settingsData?.getAdminSettings;
   const [updateAdmin] = useUpdateAdminMutation();
 
-  const allCatalogIds = useMemo(() => ADMIN_REGISTER_MODULES.map((m) => m.id), []);
+  const myAllowed = loggedInAdmin?.allowedmodules;
+
+  const eligibleModules = useMemo(() => {
+    // If myAllowed is null/undefined, show all. If empty [], show nothing.
+    if (myAllowed === undefined || myAllowed === null) return ADMIN_REGISTER_MODULES;
+    return ADMIN_REGISTER_MODULES.filter(m => myAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
+  }, [myAllowed]);
+
+  const allCatalogIds = useMemo(() => eligibleModules.map((m: any) => m.id), [eligibleModules]);
   const [draft, setDraft] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
 
@@ -285,9 +294,9 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   const grouped = useMemo(() => {
     const map: Record<string, typeof ADMIN_REGISTER_MODULES> = {};
-    ADMIN_REGISTER_MODULES.forEach((m) => { (map[m.section] ||= [] as any).push(m); });
+    eligibleModules.forEach((m) => { (map[m.section] ||= [] as any).push(m); });
     return map;
-  }, []);
+  }, [eligibleModules]);
 
   return (
     <div className="space-y-4">
@@ -342,7 +351,8 @@ const PermissionsTab: React.FC<{
   scopeid?: string;
   title: string;
   dispatch: any;
-}> = ({ scope, scopeid, title, dispatch }) => {
+  parentAllowed?: string[];
+}> = ({ scope, scopeid, title, dispatch, parentAllowed }) => {
   const [load, { data, loading }] = usePermissionsLazy();
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
@@ -355,6 +365,14 @@ const PermissionsTab: React.FC<{
     if (data?.getPermissions) setDraft(data.getPermissions.permissions || {});
   }, [data]);
 
+  const visibleModules = useMemo(() => {
+    let list = MODULES.filter((m) => m.section !== "system");
+    if (parentAllowed) {
+      list = list.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
+    }
+    return list;
+  }, [parentAllowed]);
+
   if (!scopeid || loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
   const handleSave = async () => {
@@ -365,8 +383,6 @@ const PermissionsTab: React.FC<{
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
     }
   };
-
-  const visibleModules = MODULES.filter(m => m.section !== "system");
 
   const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
 

@@ -16,8 +16,6 @@ const PurchaseOrders = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
   const dispatch = useAppDispatch();
 
-  const { type } = useAppSelector((state) => state.auth);
-
   const { data, refetch } = usePurchaseOrdersQuery();
   const { deletePurchaseOrderMutation, cancelPurchaseOrderMutation } = usePurchaseOrderMutations();
   const orderList = data?.getPurchaseOrders || [];
@@ -76,9 +74,6 @@ const PurchaseOrders = () => {
     };
   });
 
-  // Convert is allowed to branch login (and admin) — staff cannot convert
-  const canConvert = type === "branch" || type === "admin";
-
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
@@ -87,52 +82,24 @@ const PurchaseOrders = () => {
           title="Manage Purchase Orders"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
           showPrint={false}
           onView={(row) => navigate(`/purchaseorder/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseorder/addedit/${row.id}`)}
           onDelete={async (row) => {
-            if (
-              window.confirm(
-                `Are you sure you want to delete order ${row.billnumber}?`
-              )
-            ) {
+            if (window.confirm(`Are you sure you want to delete order ${row.billnumber}?`)) {
               try {
-                await deletePurchaseOrderMutation({
-                  variables: { id: row.id },
-                });
+                await deletePurchaseOrderMutation({ variables: { id: row.id } });
                 await refetch();
-                dispatch(
-                  showMessage({
-                    message: "Order deleted successfully.",
-                    type: "success",
-                  })
-                );
+                dispatch(showMessage({ message: "Order deleted successfully.", type: "success" }));
               } catch (error) {
-                console.error("Delete error:", error);
-                dispatch(
-                  showMessage({
-                    message: "Failed to delete order.",
-                    type: "error",
-                  })
-                );
+                dispatch(showMessage({ message: "Failed to delete order.", type: "error" }));
               }
             }
           }}
           onAdd={() => navigate("/purchaseorder/addedit")}
-          showConvert={canConvert}
-          onConvert={
-            canConvert
-              ? (row) =>
-                  navigate(`/purchaseinvoice/addedit?orderId=${row.id}`)
-              : undefined
-          }
-          showCancel={(row: any) => !row.isConverted && row.cancelStatus !== "cancelled"}
+          showConvert={actions.showConvert}
+          onConvert={(row) => navigate(`/purchaseinvoice/addedit?orderId=${row.id}`)}
+          showCancel={(row: any) => actions.showCancel && !row.isConverted && row.cancelStatus !== "cancelled"}
           onCancel={async (row: any) => {
             const reason = window.prompt(`Cancel Purchase Order ${row.billnumber}? Enter reason:`);
             if (reason === null) return;

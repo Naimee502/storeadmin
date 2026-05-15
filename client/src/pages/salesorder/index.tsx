@@ -10,9 +10,6 @@ import {
   useSalesOrdersQuery,
   useSalesOrderMutations,
 } from "../../graphql/hooks/salesorder";
-// import PrintableInvoice from "../../components/printinvoice"; // Sales Order might need its own print component later
-// import { useReactToPrint } from "react-to-print";
-
 
 const SalesOrders = () => {
   const navigate = useNavigate();
@@ -72,12 +69,10 @@ const SalesOrders = () => {
       status: order.cancelStatus === "cancelled"
         ? "Cancelled"
         : (order.status ? "Active" : "Inactive"),
-      // expose raw flags so per-row showCancel / showConvert can branch on them
       cancelStatus: order.cancelStatus,
       isConverted: order.isConverted,
     };
   });
-
 
   return (
     <HomeLayout>
@@ -87,52 +82,27 @@ const SalesOrders = () => {
           title="Manage Sales Orders"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
-          showPrint={false} // Disable print for now
+          showPrint={false}
           onView={(row) => navigate(`/salesorder/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesorder/addedit/${row.id}`)}
           onDelete={async (row) => {
-            if (
-              window.confirm(
-                `Are you sure you want to delete order ${row.billnumber}?`
-              )
-            ) {
+            if (window.confirm(`Are you sure you want to delete order ${row.billnumber}?`)) {
               try {
-                await deleteSalesOrderMutation({
-                  variables: { id: row.id },
-                });
+                await deleteSalesOrderMutation({ variables: { id: row.id } });
                 await refetch();
-                dispatch(
-                  showMessage({
-                    message: "Order deleted successfully.",
-                    type: "success",
-                  })
-                );
+                dispatch(showMessage({ message: "Order deleted successfully.", type: "success" }));
               } catch (error) {
-                console.error("Delete error:", error);
-                dispatch(
-                  showMessage({
-                    message: "Failed to delete order.",
-                    type: "error",
-                  })
-                );
+                dispatch(showMessage({ message: "Failed to delete order.", type: "error" }));
               }
             }
           }}
           onAdd={() => navigate("/salesorder/addedit")}
-          showConvert={true}
+          showConvert={actions.showConvert}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
-          // Show "Cancel Order" only on orders that are still open (not converted,
-          // not already cancelled).
-          showCancel={(row: any) => !row.isConverted && row.cancelStatus !== "cancelled"}
+          showCancel={(row: any) => actions.showCancel && !row.isConverted && row.cancelStatus !== "cancelled"}
           onCancel={async (row: any) => {
             const reason = window.prompt(`Cancel Sales Order ${row.billnumber}? Enter reason:`);
-            if (reason === null) return; // user clicked Cancel on prompt
+            if (reason === null) return;
             try {
               await cancelSalesOrderMutation({ variables: { id: row.id, reason } });
               await refetch();

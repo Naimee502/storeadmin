@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   FaBars,
   FaBuilding,
@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fa';
 import { Menu } from '@headlessui/react';
 import { useNavigate } from 'react-router';
+import { useAppSelector } from '../../redux/hooks';
 
 interface Branch {
   id: string;
@@ -37,6 +38,36 @@ const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const selectedBranch = branches.find((b) => b.id === selectedBranchId);
 
+  const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
+
+  const businessAllowed = admin?.allowedmodules;
+  const role = type?.toString().toLowerCase();
+
+  const localAllowed =
+    role === "admin"
+      ? businessAllowed
+      : role === "branch"
+        ? branch?.allowedmodules
+        : role === "staff"
+          ? staff?.allowedmodules
+          : undefined;
+
+  const isPosAllowed = useMemo(() => {
+    const moduleId = "posdashboard";
+
+    // 1. Business Level (SaaS)
+    if (businessAllowed && Array.isArray(businessAllowed)) {
+      if (!businessAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;
+    }
+
+    // 2. Local Level
+    if (localAllowed && Array.isArray(localAllowed)) {
+      if (!localAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;
+    }
+
+    return true;
+  }, [businessAllowed, localAllowed]);
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[60px] bg-[#34495e] text-white flex items-center px-2 sm:px-2 z-[1000]">
       {/* Menu Button */}
@@ -57,15 +88,14 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Right-side controls */}
       <div className="ml-auto flex items-center gap-2 sm:gap-4">
-        {/* Only show POS Dashboard button when branch login */}
-        {isAdmin && (
-        <button
-          onClick={() => navigate('/posdashboard')}
+        {isPosAllowed && (
+          <button
+            onClick={() => navigate('/posdashboard')}
             className="p-2 rounded-md hover:bg-gray-700 text-black"
-          title="POS Dashboard"
-        >
-          <FaCashRegister className="text-sm sm:text-base" />
-        </button>
+            title="POS Dashboard"
+          >
+            <FaCashRegister className="text-sm sm:text-base" />
+          </button>
         )}
 
         {/* Branch Dropdown */}
@@ -102,9 +132,8 @@ const Header: React.FC<HeaderProps> = ({
               {({ active }) => (
                 <button
                   onClick={onLogoutClick}
-                  className={`${
-                    active ? 'bg-gray-100' : ''
-                  } w-full text-left px-3 py-2 text-xs sm:text-sm text-red-600 flex items-center gap-2`}
+                  className={`${active ? 'bg-gray-100' : ''
+                    } w-full text-left px-3 py-2 text-xs sm:text-sm text-red-600 flex items-center gap-2`}
                 >
                   <FaSignOutAlt className="text-sm" />
                   Logout
