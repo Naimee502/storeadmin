@@ -95,8 +95,8 @@ const authSlice = createSlice({
       }
     },
     clearAuthData: () => initialState,
-    // After the Settings → Modules tab toggles modules on/off we patch the
-    // cached admin in redux so the sidebar and `usePermission` consumers
+    // After BusinessSettings → Modules tab toggles modules on/off we patch
+    // the cached admin in redux so the sidebar and `usePermission` consumers
     // re-render without a full re-login.
     setAllowedModules: (state, action: PayloadAction<string[]>) => {
       if (state.admin) {
@@ -109,8 +109,22 @@ const authSlice = createSlice({
         state.staff.admin.allowedmodules = action.payload;
       }
     },
+    // After Settings → Branch Modules tab saves, patch the cached branch
+    // allowedmodules so the sidebar re-renders for branch-level users.
+    setBranchAllowedModules: (state, action: PayloadAction<string[]>) => {
+      if (state.branch) {
+        state.branch.allowedmodules = action.payload;
+      }
+    },
+    // After Settings → Staff Modules tab saves, patch the cached staff
+    // allowedmodules so the sidebar re-renders for staff-level users.
+    setStaffAllowedModules: (state, action: PayloadAction<string[]>) => {
+      if (state.staff) {
+        state.staff.allowedmodules = action.payload;
+      }
+    },
   },
 });
 
-export const { saveAuthData, clearAuthData, setAllowedModules } = authSlice.actions;
+export const { saveAuthData, clearAuthData, setAllowedModules, setBranchAllowedModules, setStaffAllowedModules } = authSlice.actions;
 export default authSlice.reducer;

@@ -17,6 +17,7 @@ export const GET_STAFF = gql`
       target
       role
       status
+      allowedmodules
       accountgroupid {
         id
         accountgroupname
@@ -57,6 +58,7 @@ export const GET_DELETED_STAFF = gql`
       target
       role
       status
+      allowedmodules
       accountgroupid {
         id
         accountgroupname
@@ -98,6 +100,7 @@ export const GET_STAFF_BY_ID = gql`
       target
       role
       status
+      allowedmodules
       accountgroupid {
         id
         accountgroupname

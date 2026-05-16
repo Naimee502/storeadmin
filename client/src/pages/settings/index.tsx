@@ -1,6 +1,11 @@
-// Settings — central control plane for the admin.
-// Now simplified to only show Branch/Staff management for Admins.
-// Business-level settings have moved to /businesssettings.
+// Settings — central control plane for the admin/branch.
+//
+// KEY DESIGN:
+//  1. A single global dropdown at the top selects the target
+//     (Branch for Admin, Staff for Branch). All child-management tabs share it.
+//  2. When admin is logged in AND the SaaS flags are enabled, business-level
+//     tabs (General, Business Modules, Business Permissions) are also shown
+//     so the admin can manage everything from one page.
 
 import { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../layouts/home";
@@ -23,11 +28,25 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 
-type TabKey = "branch_modules" | "staff_modules" | "access";
+// Business-level tab components (reused from /businesssettings)
+import {
+  BusinessGeneralTab,
+  BusinessModulesTab,
+  BusinessPermissionsTab,
+} from "../businesssettings";
+
+type TabKey =
+  | "general"              // Business General (flag-gated)
+  | "business_modules"     // Business Modules (flag-gated)
+  | "business_permissions" // Business Permissions (flag-gated)
+  | "branch_modules"
+  | "staff_modules"
+  | "access";
 
 const Settings = () => {
   const dispatch = useAppDispatch();
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
+  const { settings: adminSettings } = useAppSelector((st: any) => st.adminsettings);
   const adminId =
     type === "admin"
       ? admin?.id
@@ -41,9 +60,71 @@ const Settings = () => {
   const isAdmin = role === "admin";
   const isBranch = role === "branch";
 
+  // ── Global target selection (lifted from individual tabs) ──
+  const { data: branchesData } = useBranchesQuery();
+  const { data: staffData } = useStaffQuery();
+
+  const targetOptions = useMemo(() => {
+    if (isAdmin) {
+      return (branchesData?.getBranches ?? []).map((b: any) => ({
+        value: b.id,
+        label: b.branchname,
+      }));
+    }
+    if (isBranch) {
+      return (staffData?.getStaffAccounts ?? []).map((s: any) => ({
+        value: s.id,
+        label: s.name,
+      }));
+    }
+    return [];
+  }, [isAdmin, isBranch, branchesData, staffData]);
+
+  const [selectedTargetId, setSelectedTargetId] = useState<string>("");
+
+  // ── Parent-allowed modules (strict hierarchy) ──
+  const parentAllowed = useMemo(() => {
+    const list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
+    if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id);
+    return list;
+  }, [isAdmin, admin, branch]);
+
+  // ── Target's effective allowed modules ──
+  const targetEffectiveAllowed = useMemo(() => {
+    if (!selectedTargetId) return parentAllowed;
+
+    let targetAllowed: string[] | null | undefined = undefined;
+    if (isAdmin) {
+      const selectedBranch = (branchesData?.getBranches ?? []).find((b: any) => b.id === selectedTargetId);
+      targetAllowed = selectedBranch?.allowedmodules;
+    } else if (isBranch) {
+      const selectedStaff = (staffData?.getStaffAccounts ?? []).find((s: any) => s.id === selectedTargetId);
+      targetAllowed = selectedStaff?.allowedmodules;
+    }
+
+    if (targetAllowed === null || targetAllowed === undefined) return parentAllowed;
+    const parentLower = parentAllowed.map((p) => p.toLowerCase());
+    return targetAllowed.filter((id: string) => parentLower.includes(id.toLowerCase()));
+  }, [selectedTargetId, parentAllowed, isAdmin, isBranch, branchesData, staffData]);
+
+  // ── Build visible tabs ──
+  // Business tabs: shown to admin when SaaS flags allow (hide ONLY if flag === false)
+  // Child tabs: Branch Modules + Branch Access for admin, Staff Modules + Staff Access for branch
   const visibleTabs: Array<[TabKey, string]> = useMemo(() => {
     const tabs: Array<[TabKey, string]> = [];
+
     if (isAdmin) {
+      // Business-level tabs (flag-gated)
+      if (!adminSettings || adminSettings.allowAdminToManageBusinessSettings !== false) {
+        tabs.push(["general", "General"]);
+      }
+      if (!adminSettings || adminSettings.allowAdminToManageModules !== false) {
+        tabs.push(["business_modules", "Business Modules"]);
+      }
+      if (!adminSettings || adminSettings.allowAdminToManagePermissions !== false) {
+        tabs.push(["business_permissions", "Business Permissions"]);
+      }
+      // Child-management tabs
       tabs.push(["branch_modules", "Branch Modules"]);
       tabs.push(["access", "Branch Access"]);
     } else if (isBranch) {
@@ -51,9 +132,19 @@ const Settings = () => {
       tabs.push(["access", "Staff Access"]);
     }
     return tabs;
-  }, [isAdmin, isBranch]);
+  }, [isAdmin, isBranch, adminSettings]);
 
   const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.[0] ?? "access");
+
+  // Auto-fix current tab if it becomes hidden
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.find((t) => t[0] === tab)) {
+      setTab(visibleTabs[0][0]);
+    }
+  }, [visibleTabs, tab]);
+
+  // Business tabs don't need a target selection — they work on the logged-in admin
+  const isBusinessTab = tab === "general" || tab === "business_modules" || tab === "business_permissions";
 
   if (type === "staff") {
     return (
@@ -72,6 +163,21 @@ const Settings = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <h1 className="text-2xl font-semibold mb-4">Settings</h1>
 
+        {/* ── GLOBAL Selection Dropdown (only for child-management tabs) ── */}
+        {!isBusinessTab && (
+          <div className="bg-white border rounded-lg p-3 mb-4">
+            <FormField
+              label={isAdmin ? "Select Branch" : "Select Staff Member"}
+              type="select"
+              name="selectedTargetId"
+              value={selectedTargetId}
+              onChange={(e: any) => setSelectedTargetId(e.target.value)}
+              options={targetOptions}
+              searchable
+            />
+          </div>
+        )}
+
         <div className="flex border-b mb-4 overflow-x-auto">
           {visibleTabs.map(([key, label]) => (
             <button
@@ -88,26 +194,58 @@ const Settings = () => {
           ))}
         </div>
 
-        {tab === "branch_modules" && isAdmin && (
-          <SubModulesTab 
-            scope="branch" 
-            title="Configure modules allowed for each Branch"
-            dispatch={dispatch} 
-          />
+        {/* ── Business-level tabs (no target needed, works on logged-in admin) ── */}
+        {tab === "general" && isAdmin && (
+          <BusinessGeneralTab adminId={admin?.id} dispatch={dispatch} />
         )}
-        {tab === "staff_modules" && isBranch && (
-          <SubModulesTab 
-            scope="staff" 
-            title="Configure modules allowed for your Staff"
-            dispatch={dispatch} 
-          />
+        {tab === "business_modules" && isAdmin && (
+          <BusinessModulesTab adminId={admin?.id} dispatch={dispatch} />
         )}
-        {tab === "access" && (
-          <AccessTab
-            adminId={adminId}
+        {tab === "business_permissions" && isAdmin && (
+          <BusinessPermissionsTab
+            scope="admin"
+            scopeid={admin?.id}
+            title="Admin defaults — apply to all branches/staff unless overridden"
             dispatch={dispatch}
-            scopeMode={isAdmin ? "branch" : "staff"}
+            parentAllowed={admin?.allowedmodules}
           />
+        )}
+
+        {/* ── Child-management tabs (need target selection) ── */}
+        {!isBusinessTab && !selectedTargetId ? (
+          <div className="text-center py-10 bg-white border rounded-lg text-gray-500 text-sm">
+            Please select {isAdmin ? "a Branch" : "a Staff member"} above to manage settings.
+          </div>
+        ) : (
+          <>
+            {tab === "branch_modules" && isAdmin && (
+              <SubModulesTab
+                scope="branch"
+                title="Configure modules allowed for this Branch"
+                dispatch={dispatch}
+                selectedTargetId={selectedTargetId}
+                parentAllowed={parentAllowed}
+              />
+            )}
+            {tab === "staff_modules" && isBranch && (
+              <SubModulesTab
+                scope="staff"
+                title="Configure modules allowed for this Staff member"
+                dispatch={dispatch}
+                selectedTargetId={selectedTargetId}
+                parentAllowed={parentAllowed}
+              />
+            )}
+            {tab === "access" && (
+              <AccessTab
+                adminId={adminId}
+                dispatch={dispatch}
+                scopeMode={isAdmin ? "branch" : "staff"}
+                selectedTargetId={selectedTargetId}
+                parentAllowed={targetEffectiveAllowed}
+              />
+            )}
+          </>
         )}
       </div>
     </HomeLayout>
@@ -124,67 +262,66 @@ const SubModulesTab: React.FC<{
   scope: "branch" | "staff";
   title: string;
   dispatch: any;
-}> = ({ scope, title, dispatch }) => {
-  const { type, admin, branch } = useAppSelector((s: any) => s.auth);
-  const role = type?.toString().toLowerCase();
-  const isAdmin = role === "admin";
-  const isBranch = role === "branch";
-
-  const [scopeid, setScopeid] = useState<string>("");
+  selectedTargetId: string;          // ← from global dropdown
+  parentAllowed: string[];           // ← strict parent chain
+}> = ({ scope, title, dispatch, selectedTargetId, parentAllowed }) => {
   const [draft, setDraft] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
 
-  const { data: branchesData } = useBranchesQuery();
-  const { data: staffData } = useStaffQuery();
+  const { data: branchesData, refetch: refetchBranches } = useBranchesQuery();
+  const { data: staffData, refetch: refetchStaff } = useStaffQuery();
   const { editBranchMutation } = useBranchMutations();
   const { editStaffMutation } = useStaffMutations();
 
-  const parentAllowed = useMemo(() => {
-    const list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
-    // If list is null/undefined, show all (SaaS default). If empty [], show nothing.
-    if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map(m => m.id);
-    return list;
-  }, [isAdmin, admin, branch]);
-
+  // Build lookup for current target's existing allowedmodules
   const targets = useMemo(() => {
     if (scope === "branch") {
       return (branchesData?.getBranches ?? []).map((b: any) => ({
         id: b.id,
         name: b.branchname,
-        currentAllowed: b.allowedmodules // Preserve null if not set
+        currentAllowed: b.allowedmodules, // Preserve null if not set
       }));
     }
     return (staffData?.getStaffAccounts ?? []).map((s: any) => ({
       id: s.id,
       name: s.name,
-      currentAllowed: s.allowedmodules // Preserve null if not set
+      currentAllowed: s.allowedmodules, // Preserve null if not set
     }));
   }, [scope, branchesData, staffData]);
 
-  const targetOptions = useMemo(() => 
-    targets.map(t => ({ value: t.id, label: t.name })), 
-  [targets]);
-
+  // When target changes, load its existing modules (or default to parent)
   useEffect(() => {
-    const selected = targets.find(t => t.id === scopeid);
+    const selected = targets.find((t) => t.id === selectedTargetId);
     if (selected) {
-      // If currentAllowed is exactly null/undefined, it means "never set, use parent default"
-      // If it's an array (even empty []), it means "explicit selection made"
-      setDraft(selected.currentAllowed !== null && selected.currentAllowed !== undefined ? selected.currentAllowed : parentAllowed);
+      // null/undefined = "never set, use parent default"; array (even []) = "explicit selection"
+      const current =
+        selected.currentAllowed !== null && selected.currentAllowed !== undefined
+          ? selected.currentAllowed
+          : parentAllowed;
+      // STRICT: intersect with parentAllowed — child can never have more than parent
+      setDraft(current.filter((id: string) => parentAllowed.map((p) => p.toLowerCase()).includes(id.toLowerCase())));
     } else {
       setDraft([]);
     }
     setDirty(false);
-  }, [scopeid, targets, parentAllowed]);
+  }, [selectedTargetId, targets, parentAllowed]);
 
   const handleSave = async () => {
-    if (!scopeid) return;
+    if (!selectedTargetId) return;
     try {
-      const input = { allowedmodules: draft };
+      // STRICT: final save also intersects with parentAllowed
+      const cleaned = draft.filter((id) =>
+        parentAllowed.map((p) => p.toLowerCase()).includes(id.toLowerCase())
+      );
+      const input = { allowedmodules: cleaned };
       if (scope === "branch") {
-        await editBranchMutation({ variables: { id: scopeid, input } });
+        await editBranchMutation({ variables: { id: selectedTargetId, input } });
+        // Refetch so Apollo cache has the updated allowedmodules
+        await refetchBranches();
       } else {
-        await editStaffMutation({ variables: { id: scopeid, input } });
+        await editStaffMutation({ variables: { id: selectedTargetId, input } });
+        // Refetch so Apollo cache has the updated allowedmodules
+        await refetchStaff();
       }
       dispatch(showMessage({ message: "Modules updated successfully.", type: "success" }));
       setDirty(false);
@@ -200,9 +337,14 @@ const SubModulesTab: React.FC<{
     );
   };
 
-  const eligibleModules = useMemo(() => 
-    ADMIN_REGISTER_MODULES.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase())),
-  [parentAllowed]);
+  // STRICT: only show modules the parent (admin/branch) is allowed
+  const eligibleModules = useMemo(
+    () =>
+      ADMIN_REGISTER_MODULES.filter((m) =>
+        parentAllowed.map((id) => id.toLowerCase()).includes(m.id.toLowerCase())
+      ),
+    [parentAllowed]
+  );
 
   const grouped = useMemo(() => {
     const map: Record<string, typeof ADMIN_REGISTER_MODULES> = {};
@@ -214,23 +356,9 @@ const SubModulesTab: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border rounded-lg p-3 text-sm">
-        <FormField
-          label={scope === "branch" ? "Select Branch" : "Select Staff member"}
-          type="select"
-          name="scopeid"
-          value={scopeid}
-          onChange={(e: any) => setScopeid(e.target.value)}
-          options={targetOptions}
-          searchable
-        />
-      </div>
-
-      {scopeid && (
-        <div className="space-y-4">
-          <div className="text-sm text-gray-600 font-medium">{title}</div>
-          {Object.entries(grouped).map(([section, items]) => (
-            <div key={section} className="bg-white border rounded-lg p-3">
+      <div className="text-sm text-gray-600 font-medium">{title}</div>
+      {Object.entries(grouped).map(([section, items]) => (
+        <div key={section} className="bg-white border rounded-lg p-3">
           <div className="flex items-center justify-between mb-2 px-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
@@ -254,21 +382,26 @@ const SubModulesTab: React.FC<{
               Select All {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
             </label>
           </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
-                {items.map((m: any) => (
-                  <label key={m.id} className={`flex items-center gap-2 px-2 py-1 rounded border ${draft.includes(m.id) ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"}`}>
-                    <input type="checkbox" checked={draft.includes(m.id)} onChange={() => toggleOne(m.id)} />
-                    <span className="font-medium truncate">{m.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={handleSave} disabled={!dirty}>Save Allowance</Button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
+            {items.map((m: any) => (
+              <label
+                key={m.id}
+                className={`flex items-center gap-2 px-2 py-1 rounded border ${
+                  draft.includes(m.id) ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+                }`}
+              >
+                <input type="checkbox" checked={draft.includes(m.id)} onChange={() => toggleOne(m.id)} />
+                <span className="font-medium truncate">{m.label}</span>
+              </label>
+            ))}
           </div>
         </div>
-      )}
+      ))}
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleSave} disabled={!dirty}>
+          Save Allowance
+        </Button>
+      </div>
     </div>
   );
 };
@@ -304,16 +437,26 @@ const PermissionsTab: React.FC<{
   if (!scopeid) return <div className="text-sm text-gray-500">Pick a target first.</div>;
   if (loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
+  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
+
   const handleSave = async () => {
     try {
-      await setPermissions({ variables: { scope, scopeid, permissions: draft } });
+      // CRITICAL: Build a complete permissions object with explicit true/false
+      // for every visible module's every action. This prevents the backend from
+      // cascading parent defaults (true) for missing/undefined actions.
+      const completePerms: Record<string, Record<string, boolean>> = {};
+      visibleModules.forEach((m) => {
+        completePerms[m.id] = {};
+        m.actions.forEach((a) => {
+          completePerms[m.id][a] = !!draft?.[m.id]?.[a]; // undefined/missing → false
+        });
+      });
+      await setPermissions({ variables: { scope, scopeid, permissions: completePerms } });
       dispatch(showMessage({ message: "Permissions saved.", type: "success" }));
     } catch (e: any) {
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
     }
   };
-
-  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
 
   return (
     <div className="space-y-4">
@@ -421,49 +564,26 @@ const PermissionsTab: React.FC<{
 const AccessTab: React.FC<{
   adminId?: string;
   dispatch: any;
-  scopeMode?: "branch" | "staff";
-}> = ({ adminId, dispatch, scopeMode }) => {
-  const { type, admin, branch } = useAppSelector((s: any) => s.auth);
-  const isAdmin = type === "admin";
-  const [scope, setScope] = useState<"branch" | "staff">(
-    scopeMode ? scopeMode : "branch"
-  );
-  const [scopeid, setScopeid] = useState<string>("");
-  const { data: branchesData } = useBranchesQuery();
-  const { data: staffData } = useStaffQuery();
-
-  const options = useMemo(() => {
-    if (scope === "branch") {
-      return (branchesData?.getBranches ?? []).map((b: any) => ({ value: b.id, label: b.branchname }));
-    }
-    return (staffData?.getStaffAccounts ?? []).map((s: any) => ({ value: s.id, label: s.name }));
-  }, [scope, branchesData, staffData]);
-
+  scopeMode: "branch" | "staff";
+  selectedTargetId: string;          // ← from global dropdown
+  parentAllowed: string[];           // ← strict parent chain
+}> = ({ adminId, dispatch, scopeMode, selectedTargetId, parentAllowed }) => {
   const [load, { data: effectiveData }] = useEffectivePermissionsLazy();
+
   useEffect(() => {
-    if (scopeid) load({ variables: { scope, scopeid } });
-  }, [scope, scopeid, load]);
+    if (selectedTargetId) load({ variables: { scope: scopeMode, scopeid: selectedTargetId } });
+  }, [scopeMode, selectedTargetId, load]);
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border rounded-lg p-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {!scopeMode && (
-            <FormField label="Scope" type="select" name="scope" value={scope} onChange={(e: any) => { setScope(e.target.value); setScopeid(""); }} options={[{ value: "branch", label: "Branch" }, { value: "staff", label: "Staff" }]} />
-          )}
-          <FormField label={scope === "branch" ? "Pick a branch" : "Pick a staff member"} type="select" name="scopeid" value={scopeid} onChange={(e: any) => setScopeid(e.target.value)} options={options} searchable />
-        </div>
-      </div>
-      {scopeid && (
-        <PermissionsTab 
-          scope={scope} 
-          scopeid={scopeid} 
-          title={`Per-${scope} override — empty cells inherit from admin defaults`} 
-          dispatch={dispatch} 
-          effectiveOverlay={effectiveData?.getEffectivePermissions?.permissions} 
-          parentAllowed={isAdmin ? admin?.allowedmodules : branch?.allowedmodules}
-        />
-      )}
+      <PermissionsTab
+        scope={scopeMode}
+        scopeid={selectedTargetId}
+        title={`Per-${scopeMode} override — empty cells inherit from admin defaults`}
+        dispatch={dispatch}
+        effectiveOverlay={effectiveData?.getEffectivePermissions?.permissions}
+        parentAllowed={parentAllowed}
+      />
     </div>
   );
 };

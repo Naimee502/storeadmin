@@ -17,6 +17,7 @@ export const GET_BRANCHES = gql`
       phone
       email
       status
+      allowedmodules
       admin {
         id
         name
@@ -55,6 +56,7 @@ export const GET_DELETED_BRANCHES = gql`
       phone
       email
       status
+      allowedmodules
       admin {
         id
         name
@@ -93,6 +95,7 @@ export const GET_BRANCH_BY_ID = gql`
       phone
       email
       status
+      allowedmodules
       admin {
         id
         name

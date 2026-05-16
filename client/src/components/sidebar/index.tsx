@@ -51,26 +51,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const isBranch = role === "branch";
   const isStaff = role === "staff";
 
+  // ── Strict hierarchical module allowance chain ──
+  // Level 1: Business / SaaS (admin.allowedmodules) — mandatory
   const businessAllowed = admin?.allowedmodules;
 
-  const localAllowed =
-    isAdmin
-      ? businessAllowed
-      : isBranch
-        ? branch?.allowedmodules
-        : isStaff
-          ? staff?.allowedmodules
-          : undefined;
+  // Level 2: Branch-level override (only when logged in as branch or staff)
+  const branchAllowed = isBranch
+    ? branch?.allowedmodules
+    : isStaff
+      ? staff?.branchid ? undefined // staff doesn't carry branch allowedmodules directly
+      : undefined
+    : undefined;
 
+  // Level 3: Staff-level override (only when logged in as staff)
+  const staffAllowed = isStaff ? staff?.allowedmodules : undefined;
+
+  // For admin: only businessAllowed matters (admin IS the business level)
+  // For branch: businessAllowed ∩ branchAllowed
+  // For staff: businessAllowed ∩ branchAllowed ∩ staffAllowed
   const isModuleAllowed = (moduleId: string) => {
-    // 1. Business Level (SaaS) — Mandatory check
+    const mid = moduleId.toLowerCase();
+    const includes = (arr: string[]) => arr.map((m: any) => m.toString().toLowerCase()).includes(mid);
+
+    // 1. Business Level (SaaS) — Mandatory check for all roles
     if (businessAllowed && Array.isArray(businessAllowed)) {
-      if (!businessAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;
+      if (!includes(businessAllowed)) return false;
     }
 
-    // 2. Local Level (Branch/Staff specific checklist)
-    if (localAllowed && Array.isArray(localAllowed)) {
-      if (!localAllowed.map((m: any) => m.toString().toLowerCase()).includes(moduleId.toLowerCase())) return false;
+    // 2. Branch Level — checked for branch and staff roles
+    if ((isBranch || isStaff) && branchAllowed && Array.isArray(branchAllowed)) {
+      if (!includes(branchAllowed)) return false;
+    }
+
+    // 3. Staff Level — only checked for staff role
+    if (isStaff && staffAllowed && Array.isArray(staffAllowed)) {
+      if (!includes(staffAllowed)) return false;
     }
 
     return true;
@@ -115,16 +130,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   };
 
   // Dynamic Sidebar Link Registry
+  // PRIMARY driver: moduleId + isModuleAllowed (allowedmodules chain)
+  // SECONDARY: roles[] is kept only for links that are structurally role-specific
+  //   (e.g. "Branches" only makes sense for admin to manage)
+  //   All other links use roles: ["admin", "branch", "staff"] so moduleId is the real gate.
   const ALL_LINKS: (SidebarLink & { roles: string[]; section?: string })[] = [
-    { to: '/branches', label: 'Branches', icon: <FaCodeBranch />, moduleId: "branches", roles: ["admin"] },
-    { to: '/categories', label: 'Categories', icon: <FaTags />, moduleId: "categories", roles: ["admin"] },
-    { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent />, moduleId: "subcategories", roles: ["admin"] },
-    { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined />, moduleId: "sizes", roles: ["admin"] },
-    { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark />, moduleId: "brands", roles: ["admin"] },
-    { to: '/models', label: 'Models', icon: <FaMobileAlt />, moduleId: "models", roles: ["admin"] },
-    { to: '/productgroups', label: 'Product Groups', icon: <FaLayerGroup />, moduleId: "productgroups", roles: ["admin"] },
-    { to: '/units', label: 'Units', icon: <FaBalanceScale />, moduleId: "units", roles: ["admin"] },
-    { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers />, moduleId: "accountgroups", roles: ["admin"] },
+    { to: '/branches', label: 'Branches', icon: <FaCodeBranch />, moduleId: "branches", roles: ["admin", "branch", "staff"] },
+    { to: '/categories', label: 'Categories', icon: <FaTags />, moduleId: "categories", roles: ["admin", "branch", "staff"] },
+    { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent />, moduleId: "subcategories", roles: ["admin", "branch", "staff"] },
+    { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined />, moduleId: "sizes", roles: ["admin", "branch", "staff"] },
+    { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark />, moduleId: "brands", roles: ["admin", "branch", "staff"] },
+    { to: '/models', label: 'Models', icon: <FaMobileAlt />, moduleId: "models", roles: ["admin", "branch", "staff"] },
+    { to: '/productgroups', label: 'Product Groups', icon: <FaLayerGroup />, moduleId: "productgroups", roles: ["admin", "branch", "staff"] },
+    { to: '/units', label: 'Units', icon: <FaBalanceScale />, moduleId: "units", roles: ["admin", "branch", "staff"] },
+    { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers />, moduleId: "accountgroups", roles: ["admin", "branch", "staff"] },
     { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave />, moduleId: "accountledgers", roles: ["admin", "branch", "staff"] },
     { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie />, moduleId: "staffaccounts", roles: ["admin", "branch", "staff"] },
     { to: '/accounts', label: 'Party Accounts', icon: <FaUser />, moduleId: "accounts", roles: ["admin", "branch", "staff"] },
@@ -141,12 +160,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar />, moduleId: "transactions", roles: ["admin", "branch", "staff"] },
     { to: '/payments', label: 'Payments', icon: <FaWallet />, moduleId: "payments", roles: ["admin", "branch", "staff"] },
     { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck />, moduleId: "attendance", roles: ["admin", "branch", "staff"] },
-   
+
     { to: '/channels', label: 'Channels', icon: <FaSitemap />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/pricelists', label: 'Price Lists', icon: <FaTags />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList />, moduleId: "priceassignments", roles: ["admin", "branch", "staff"], section: "Distribution" },
-    
+
     { to: '/reports/sales', label: 'Sales Reports', icon: <FaChartBar />, moduleId: "reports.sales", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/purchase', label: 'Purchase Reports', icon: <FaFileAlt />, moduleId: "reports.purchase", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/stock', label: 'Stock Reports', icon: <FaClipboardList />, moduleId: "reports.stock", roles: ["admin", "branch", "staff"], section: "Reports" },
@@ -194,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
             isHovered ? 'w-56' : 'w-14'
           } ${isOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}
       >
-        <div className="p-2 flex flex-col space-y-1 overflow-x-hidden overflow-y-auto" key={localAllowed?.join(',') || 'all'}>
+        <div className="p-2 flex flex-col space-y-1 overflow-x-hidden overflow-y-auto" key={`${businessAllowed?.join(',') || 'all'}_${branchAllowed?.join(',') || 'x'}_${staffAllowed?.join(',') || 'x'}`}>
           {sidebarItems.map((item: any, index: any) =>
             'isSection' in item && item.isSection ? (
               <div key={`section-${index}-${item.label}`} className="mt-4 border-t border-gray-500/30">

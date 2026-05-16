@@ -47,16 +47,26 @@ const BusinessSettings = () => {
     }
   }, [type, admin, selectedAdminId]);
 
+  // ── Flag-based tab gating ──
+  // When the logged-in admin is viewing their OWN settings, the SaaS flags
+  // control which tabs they can see. When viewing another admin, show all.
+  //
+  // Logic: hide tab ONLY when flag is EXPLICITLY false AND viewing self.
+  //   - s not loaded (null/undefined) → show all (don't block during load)
+  //   - flag undefined (never set)    → show (default = allowed)
+  //   - flag === true                 → show
+  //   - flag === false                → HIDE (SaaS owner disabled it)
   const visibleTabs = useMemo(() => {
     const tabs: Array<[TabKey, string]> = [];
     const isSelf = selectedAdminId === admin?.id;
-    if (!isSelf || s?.allowAdminToManageBusinessSettings !== false) {
+
+    if (!isSelf || !s || s.allowAdminToManageBusinessSettings !== false) {
       tabs.push(["general", "General"]);
     }
-    if (!isSelf || s?.allowAdminToManageModules !== false) {
+    if (!isSelf || !s || s.allowAdminToManageModules !== false) {
       tabs.push(["modules", "Business Modules"]);
     }
-    if (!isSelf || s?.allowAdminToManagePermissions !== false) {
+    if (!isSelf || !s || s.allowAdminToManagePermissions !== false) {
       tabs.push(["permissions", "Business Permissions"]);
     }
     return tabs;
@@ -121,7 +131,12 @@ const BusinessSettings = () => {
                 scopeid={selectedAdminId}
                 title="Admin defaults — apply to all branches/staff unless overridden"
                 dispatch={dispatch}
-                parentAllowed={admin?.allowedmodules}
+                parentAllowed={
+                  // Use the TARGET admin's allowedmodules so we only show
+                  // modules that are actually enabled for this admin.
+                  adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules
+                  ?? admin?.allowedmodules
+                }
               />
             )}
           </>
@@ -137,6 +152,11 @@ const BusinessSettings = () => {
 };
 
 export default BusinessSettings;
+
+// ── Exported for reuse in /settings page when flags are enabled ──
+export { GeneralTab as BusinessGeneralTab };
+export { ModulesTab as BusinessModulesTab };
+export { PermissionsTab as BusinessPermissionsTab };
 
 /* =====================================================================
    GENERAL TAB
@@ -375,16 +395,26 @@ const PermissionsTab: React.FC<{
 
   if (!scopeid || loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
+  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
+
   const handleSave = async () => {
     try {
-      await setPermissions({ variables: { scope, scopeid, permissions: draft } });
+      // CRITICAL: Build a complete permissions object with explicit true/false
+      // for every visible module's every action. This prevents the backend from
+      // cascading parent defaults (true) for missing/undefined actions.
+      const completePerms: Record<string, Record<string, boolean>> = {};
+      visibleModules.forEach((m) => {
+        completePerms[m.id] = {};
+        m.actions.forEach((a) => {
+          completePerms[m.id][a] = !!draft?.[m.id]?.[a]; // undefined/missing → false
+        });
+      });
+      await setPermissions({ variables: { scope, scopeid, permissions: completePerms } });
       dispatch(showMessage({ message: "Permissions saved.", type: "success" }));
     } catch (e: any) {
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
     }
   };
-
-  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
 
   return (
     <div className="space-y-4">
