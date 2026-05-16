@@ -9,6 +9,7 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
+import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
@@ -25,9 +26,23 @@ const AddEditPurchaseInvoice = () => {
   const queryParams = new URLSearchParams(location.search);
   const orderId = queryParams.get("orderId");
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+
+  // Fetch branches to auto-detect when staff has no branch assigned
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
+  const adminId = type === 'admin' ? admin?.id
+    : type === 'branch' ? (branch?.admin?.id || admin?.id || storedAdminId)
+    : type === 'staff' ? (staff?.admin?.id || admin?.id || storedAdminId)
+    : (admin?.id || storedAdminId);
+  const branchId = type === 'admin' ? (selectedBranchId || firstBranchId)
+    : type === 'branch' ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : type === 'staff' ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : (selectedBranchId || storedBranchId || firstBranchId);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const [paymentType, setPaymentType] = useState("");

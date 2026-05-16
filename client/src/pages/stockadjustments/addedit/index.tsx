@@ -9,6 +9,7 @@ import {
   useGetStockAdjustmentById,
 } from "../../../graphql/hooks/stockadjustments";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 
@@ -63,12 +64,23 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
 
-  const { admin, branch, type } = useAppSelector((state: any) => state.auth);
+  const { admin, branch, staff, type } = useAppSelector((state: any) => state.auth);
   const selectedBranchId = useAppSelector(
     (state: any) => state.selectedBranch.branchId
   );
-  const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
-  const branchId = selectedBranchId || branch?.id;
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
+  const adminId = type === "admin" ? admin?.id
+    : type === "branch" ? (branch?.admin?.id || admin?.id || storedAdminId)
+    : type === "staff" ? (staff?.admin?.id || admin?.id || storedAdminId)
+    : (admin?.id || storedAdminId);
+  const branchId = type === "admin" ? (selectedBranchId || firstBranchId)
+    : type === "branch" ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : (selectedBranchId || storedBranchId || firstBranchId);
 
   // ── Header state ──────────────────────────────────────────────────────────
   const [adjDate, setAdjDate] = useState(

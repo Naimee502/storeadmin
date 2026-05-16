@@ -45,14 +45,25 @@ const TransferStock = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "transferstock"));
   const dispatch = useAppDispatch();
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
-  const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+
+  const adminId = type === 'admin' ? admin?.id
+    : type === 'branch' ? (branch?.admin?.id || admin?.id || storedAdminId)
+    : type === 'staff' ? (staff?.admin?.id || admin?.id || storedAdminId)
+    : (admin?.id || storedAdminId);
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
+  const branchId = type === 'admin' ? (selectedBranchId || firstBranchId)
+    : type === 'branch' ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : type === 'staff' ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : (selectedBranchId || storedBranchId || firstBranchId);
   const frombranchid = branchId ? branchId : undefined;
   const { data: transfersData, refetch } = useTransferStocksQuery();
   console.log("TransferStocksData:", JSON.stringify(transfersData));
-
-  const { data: branchesData } = useBranchesQuery();
   const { data: productData, refetch: productRefetch } = useProductServicesQuery();
   console.log("ProductServicesData:", JSON.stringify(productData));
   const transferProductData = productData?.getProductServices ?? [];

@@ -15,12 +15,21 @@ const DeletedStockAdjustments: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const { admin, branch, type } = useAppSelector((state: any) => state.auth);
+  const { admin, branch, staff, type } = useAppSelector((state: any) => state.auth);
   const selectedBranchId = useAppSelector(
     (state: any) => state.selectedBranch.branchId
   );
-  const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
-  const branchId = selectedBranchId || branch?.id;
+  const storedAdminId = localStorage.getItem("adminid") || "";
+  const storedBranchId = localStorage.getItem("branchid") || "";
+
+  const adminId = type === "admin" ? admin?.id
+    : type === "branch" ? (branch?.admin?.id || admin?.id || storedAdminId)
+    : type === "staff" ? (staff?.admin?.id || admin?.id || storedAdminId)
+    : (admin?.id || storedAdminId);
+  const branchId = type === "admin" ? selectedBranchId
+    : type === "branch" ? (branch?.id || selectedBranchId || storedBranchId)
+    : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId)
+    : (selectedBranchId || storedBranchId);
 
   const { data, loading, refetch } = useDeletedStockAdjustments({
     adminid: adminId,
