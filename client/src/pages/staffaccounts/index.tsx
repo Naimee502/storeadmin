@@ -151,7 +151,7 @@ const StaffAccounts = () => {
   // LOAD INTO FORM WHILE EDIT
   const handleEdit = useCallback((row: any) => {
     setFormValues({
-      branchid: null,
+      branchid: row.branchid?.id || branchId || "",
       accountgroupid: row.accountgroupid?.id || "",
       name: row.name || "",
       mobile: row.mobile || "",
@@ -164,7 +164,7 @@ const StaffAccounts = () => {
       commission: row.commission || 0,
       target: row.target || 0,
       status: Boolean(row.status),
-      role: row.role || "staff", // <-- load existing role if present
+      role: row.role?.toLowerCase() || "staff", // <-- load existing role (lowercase to match select options)
       assignedChannels: row.assignedChannels?.map((c: any) => c.id) || [],
     });
 
@@ -211,7 +211,7 @@ const StaffAccounts = () => {
 
     // main payload
     const payload: any = {
-      branchid: null,
+      branchid: formValues.branchid || branchId || null,
       accountgroupid: formValues.accountgroupid,
       name: formValues.name,
       mobile: formValues.mobile,
@@ -250,7 +250,7 @@ const StaffAccounts = () => {
 
       // reset form
       setFormValues({
-        branchid: null,
+        branchid: branchId || "",
         accountgroupid: "",
         name: "",
         mobile: "",

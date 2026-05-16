@@ -12,11 +12,21 @@ export const staffAccountTypeDefs = gql`
     transactionId: String
     needsReview: Boolean!
     rejected: Boolean!
+    businesstype: String
+    companyName: String
+    mobile: String
+    noOfBranches: Int
+    isMultibranch: Boolean
+    isChannelCustomers: Boolean
+    isExpiringSoon: Boolean
+    allowedmodules: [String]
   }
 
   type Branch {
     id: ID!
     branchname: String
+    admin: Admin
+    allowedmodules: [String]
   }
 
   type AccountGroup {

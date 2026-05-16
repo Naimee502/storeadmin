@@ -87,15 +87,16 @@ const Attendance: React.FC = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "attendance"));
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { type, admin, branch } = useAppSelector((s: any) => s.auth);
+  const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
   const isStaff = type === "staff";
   // tab can be passed back via navigation state when returning from deleted page
   const initialTab = (location.state as any)?.tab as
     | "logs" | "punches" | "holidays" | "leavetypes" | "leaverequests" | "balances" | "cards"
     | undefined;
   const adminId =
-    type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : undefined;
-  const branchId = useAppSelector((s: any) => s.selectedBranch?.branchId);
+    type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? (staff?.admin?.id ?? admin?.id) : undefined;
+  const selectedBranchId = useAppSelector((s: any) => s.selectedBranch?.branchId);
+  const branchId = type === "staff" ? (staff?.branchid?.id || selectedBranchId) : selectedBranchId;
 
   const [tab, setTab] = useState<
     | "logs"
@@ -544,7 +545,7 @@ const Attendance: React.FC = () => {
           icon={<FaPlus />}
           onClick={() =>
             openModal("punch", {
-              staffid: "",
+              staffid: isStaff ? (staff?.id || "") : "",
               type: "in",
               source: "web",
               remarks: "",
@@ -602,7 +603,7 @@ const Attendance: React.FC = () => {
         }
         onAdd={() =>
           openModal("manualAttendance", {
-            staffid: "",
+            staffid: isStaff ? (staff?.id || "") : "",
             date: todayStr(),
             status: "present",
             firstPunchIn: "",
@@ -912,7 +913,7 @@ const Attendance: React.FC = () => {
         }
         onAdd={() =>
           openModal("leaveRequest", {
-            staffid: "",
+            staffid: isStaff ? (staff?.id || "") : "",
             leavetypeid: "",
             fromDate: todayStr(),
             toDate: todayStr(),
@@ -995,7 +996,7 @@ const Attendance: React.FC = () => {
       }
       onAdd={() =>
         openModal("leaveBalance", {
-          staffid: "",
+          staffid: isStaff ? (staff?.id || "") : "",
           leavetypeid: "",
           year: new Date().getFullYear(),
           allocated: 0,

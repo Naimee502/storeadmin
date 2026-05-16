@@ -8,6 +8,7 @@ import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
+import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
@@ -21,9 +22,22 @@ const AddEditSalesOrder = () => {
   const { addSalesOrderMutation, editSalesOrderMutation } = useSalesOrderMutations();
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
-  const branchId = type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : selectedBranchId;
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+
+  // Fetch branches to auto-detect when staff has no branch assigned
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
+  const adminId = type === 'admin' ? admin?.id
+    : type === 'branch' ? (branch?.admin?.id || admin?.id || storedAdminId)
+    : type === 'staff' ? (staff?.admin?.id || admin?.id || storedAdminId)
+    : (admin?.id || storedAdminId);
+  const branchId = type === 'admin' ? (selectedBranchId || firstBranchId)
+    : type === 'branch' ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : type === 'staff' ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+    : (selectedBranchId || storedBranchId || firstBranchId);
 
   const creatorInfo = useMemo(() => {
     if (type === 'admin' && admin) return { id: admin.id, name: admin.name, type: 'admin' };
@@ -154,6 +168,12 @@ const AddEditSalesOrder = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    if (!adminId || !branchId) {
+      console.error("Session error debug:", { type, adminId, branchId, staff, admin, selectedBranchId, storedBranchId });
+      dispatch(showMessage({ message: `Session error: ${!adminId ? 'Admin' : 'Branch'} ID is missing. Please re-login.`, type: "error" }));
       return;
     }
 

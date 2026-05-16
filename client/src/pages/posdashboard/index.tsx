@@ -28,6 +28,7 @@ import { useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../graphql/h
 import { useSalesOrderMutations, useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
+import { useBranchesQuery } from "../../graphql/hooks/branches";
 import PaymentDrawer from "../../components/paymentdrawer";
 import PosAddCustomer from "../../components/posaddcustomer";
 import FormField from "../../components/formfiled";
@@ -178,23 +179,32 @@ export default function POSDashboard() {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
+  const selectedBranchId = useAppSelector(
+    (state) => state.selectedBranch.branchId
+  );
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+
+  // Fetch branches to auto-detect when staff has no branch assigned
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
   const adminId =
     type === "admin"
       ? admin?.id
       : type === "branch"
-      ? branch?.admin?.id
+      ? (branch?.admin?.id || admin?.id || storedAdminId)
       : type === "staff"
-      ? staff?.admin?.id
-      : undefined;
-  const selectedBranchId = useAppSelector(
-    (state) => state.selectedBranch.branchId
-  );
+      ? (staff?.admin?.id || admin?.id || storedAdminId)
+      : (admin?.id || storedAdminId);
   const branchId =
-    type === "branch"
-      ? branch?.id
+    type === "admin"
+      ? (selectedBranchId || firstBranchId)
+      : type === "branch"
+      ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
       : type === "staff"
-      ? staff?.branchid?.id
-      : selectedBranchId;
+      ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+      : (selectedBranchId || storedBranchId || firstBranchId);
 
   const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
   const { addSalesOrderMutation } = useSalesOrderMutations();
@@ -523,6 +533,16 @@ export default function POSDashboard() {
       dispatch(
         showMessage({
           message: "Please pick a customer in the cart before completing payment.",
+          type: "error",
+        })
+      );
+      return;
+    }
+
+    if (!adminId || !branchId) {
+      dispatch(
+        showMessage({
+          message: "Session error: Admin or Branch ID is missing. Please re-login.",
           type: "error",
         })
       );

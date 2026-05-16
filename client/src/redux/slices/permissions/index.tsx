@@ -84,9 +84,9 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     if (userPerm === false) return false;
     if (userPerm === true) return true;
 
-    // If undefined:
-    if (role === "admin") return true;
-    return false; // Others are denied by default if undefined
+    // If undefined: module is already in allowedmodules (checked above),
+    // so allow the action for all roles. Admin can explicitly deny via false.
+    return true;
   };
 
   return {

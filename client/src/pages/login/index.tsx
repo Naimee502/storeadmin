@@ -62,6 +62,7 @@ const Login = () => {
 
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", staff.branchid?.id || "");
+        localStorage.setItem("adminid", admin.id || "");
         dispatch(setBranchId(staff.branchid?.id || ""));
         dispatch(saveAuthData({ type: "staff", staff: staff }));
         login();
@@ -76,6 +77,7 @@ const Login = () => {
         if (!admin || !accessToken) throw new Error("Invalid credentials");
 
         localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("adminid", admin.id || "");
 
         if (!admin.subscribed) {
           if (admin.needsReview) {
@@ -142,6 +144,7 @@ const Login = () => {
 
         localStorage.setItem("accessToken", accessToken);
         localStorage.setItem("branchid", branch.id);
+        localStorage.setItem("adminid", admin.id || "");
         dispatch(setBranchId(branch.id));
         dispatch(saveAuthData({ type: "branch", branch: branch }));
         login();

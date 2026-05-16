@@ -11,6 +11,7 @@ import {
   usePurchaseOrderByIDQuery,
   usePurchaseOrderMutations,
 } from "../../../graphql/hooks/purchaseorder";
+import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import PosAddCustomer from "../../../components/posaddcustomer";
@@ -24,23 +25,32 @@ const AddEditPurchaseOrder = () => {
     usePurchaseOrderMutations();
 
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector(
+    (state) => state.selectedBranch.branchId
+  );
+  const storedBranchId = localStorage.getItem("branchid") || "";
+  const storedAdminId = localStorage.getItem("adminid") || "";
+
+  // Fetch branches to auto-detect when staff has no branch assigned
+  const { data: branchesData } = useBranchesQuery();
+  const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
+
   const adminId =
     type === "admin"
       ? admin?.id
       : type === "branch"
-      ? branch?.admin?.id
+      ? (branch?.admin?.id || admin?.id || storedAdminId)
       : type === "staff"
-      ? staff?.admin?.id
-      : undefined;
-  const selectedBranchId = useAppSelector(
-    (state) => state.selectedBranch.branchId
-  );
+      ? (staff?.admin?.id || admin?.id || storedAdminId)
+      : (admin?.id || storedAdminId);
   const branchId =
-    type === "branch"
-      ? branch?.id
+    type === "admin"
+      ? (selectedBranchId || firstBranchId)
+      : type === "branch"
+      ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
       : type === "staff"
-      ? staff?.branchid?.id
-      : selectedBranchId;
+      ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
+      : (selectedBranchId || storedBranchId || firstBranchId);
 
   const creatorInfo = useMemo(() => {
     if (type === "admin" && admin)
@@ -191,6 +201,11 @@ const AddEditPurchaseOrder = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    if (!adminId || !branchId) {
+      dispatch(showMessage({ message: "Session error: Admin or Branch ID is missing. Please re-login.", type: "error" }));
       return;
     }
 
