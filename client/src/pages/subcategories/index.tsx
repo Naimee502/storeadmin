@@ -23,12 +23,7 @@ const SubCategories = () => {
   const { data: categoriesList, refetch: categoriesRefetch} = useCategoriesQuery();
   const categoryData = categoriesList?.getCategories || [];
 
-  const adminId =
-    type === "admin"
-      ? admin?.id
-      : type === "branch"
-      ? branch?.admin?.id
-      : undefined;
+  const adminId = admin?.id;
 
   const { data, refetch } = useSubCategoriesQuery();
   const {

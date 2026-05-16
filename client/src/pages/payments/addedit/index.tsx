@@ -17,7 +17,7 @@ const AddEditPayment = () => {
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((state) => state.auth);
 
-  const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
+  const adminId = admin?.id;
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const { data: existingData } = usePaymentByIDQuery(id || "");

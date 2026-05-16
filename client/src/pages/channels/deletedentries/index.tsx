@@ -12,7 +12,7 @@ import { showMessage } from "../../../redux/slices/message";
 const ChannelDeletedEntries = () => {
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
   
   const { data, refetch } = useDeletedChannelsQuery(adminId);
   const [resetChannel] = useResetChannelMutation();

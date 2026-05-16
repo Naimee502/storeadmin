@@ -17,7 +17,7 @@ const ProductGroups = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
   const { data, refetch } = useProductGroupsQuery();
   const { addProductGroupMutation, editProductGroupMutation, deleteProductGroupMutation } = useProductGroupMutations();
   const productGroupList = data?.getProductGroups || [];

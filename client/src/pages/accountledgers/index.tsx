@@ -19,8 +19,7 @@ const AccountLedgers = () => {
   const dispatch = useAppDispatch();
 
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId =
-    type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
 
   const { data, refetch } = useAccountLedgersQuery();
   const { data: accountGroupsData } = useAccountGroupsQuery();

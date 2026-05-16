@@ -32,7 +32,7 @@ const AddEditProductService = () => {
   const dispatch = useAppDispatch();
   const { admin, branch, type } = useAppSelector((state) => state.auth);
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
-  const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
+  const adminId = admin?.id;
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: subCategoryDate, refetch: refetchSubCategories } = useSubCategoriesQuery();

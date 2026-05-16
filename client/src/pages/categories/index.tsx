@@ -21,12 +21,7 @@ const Categories = () => {
   const categoryList = data?.getCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  const adminId =
-    type === "admin"
-      ? admin?.id
-      : type === "branch"
-      ? branch?.admin?.id
-      : undefined;
+  const adminId = admin?.id;
 
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } =
     useCategoryMutations();

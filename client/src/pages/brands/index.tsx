@@ -17,7 +17,7 @@ const Brands = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
   const { data, refetch } = useBrandsQuery();
   const { addBrandMutation, editBrandMutation, deleteBrandMutation } = useBrandMutations();
   const brandList = data?.getBrands || [];

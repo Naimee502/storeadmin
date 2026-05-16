@@ -24,7 +24,7 @@ const AddEditAccount = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
   const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
 
   const { data: existingData } = useAccountByIDQuery(id || "");

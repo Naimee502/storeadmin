@@ -18,7 +18,7 @@ const Channels = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "channels"));
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
-  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+  const adminId = admin?.id;
   
   const { data, refetch } = useChannelsQuery(adminId);
   const [createChannel] = useCreateChannelMutation();
