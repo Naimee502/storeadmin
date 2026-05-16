@@ -596,7 +596,7 @@ const Attendance: React.FC = () => {
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={true}
+        showDeleted={actions.showDeleted}
         onShowDeleted={() =>
           navigate("/attendance/deletedentries", { state: { from: "logs" } })
         }
@@ -712,7 +712,7 @@ const Attendance: React.FC = () => {
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={true}
+        showDeleted={actions.showDeleted}
         onShowDeleted={() =>
           navigate("/attendance/deletedentries", { state: { from: "holidays" } })
         }
@@ -786,7 +786,7 @@ const Attendance: React.FC = () => {
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={true}
+        showDeleted={actions.showDeleted}
         onShowDeleted={() =>
           navigate("/attendance/deletedentries", { state: { from: "leavetypes" } })
         }
@@ -906,7 +906,7 @@ const Attendance: React.FC = () => {
         showView={false}
         showImport={false}
         showExport={false}
-        showDeleted={true}
+        showDeleted={actions.showDeleted}
         onShowDeleted={() =>
           navigate("/attendance/deletedentries", { state: { from: "leaverequests" } })
         }
@@ -989,7 +989,7 @@ const Attendance: React.FC = () => {
       showView={false}
       showImport={false}
       showExport={false}
-      showDeleted={true}
+      showDeleted={actions.showDeleted}
       onShowDeleted={() =>
         navigate("/attendance/deletedentries", { state: { from: "balances" } })
       }

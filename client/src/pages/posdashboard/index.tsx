@@ -24,8 +24,8 @@ import { useModelsQuery } from "../../graphql/hooks/models";
 import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
-import { useSalesInvoiceMutations } from "../../graphql/hooks/salesinvoice";
-import { useSalesOrderMutations } from "../../graphql/hooks/salesorder";
+import { useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
+import { useSalesOrderMutations, useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import PaymentDrawer from "../../components/paymentdrawer";
@@ -198,18 +198,23 @@ export default function POSDashboard() {
 
   const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
   const { addSalesOrderMutation } = useSalesOrderMutations();
-  const salesInvoices = useAppSelector(
-    (state) => state.salesinvoice.invoices
-  );
+
+  // Fetch invoices & orders from server so we compute the real next number
+  const { data: invoicesData, refetch: refetchInvoices } = useSalesInvoicesQuery();
+  const { data: ordersData, refetch: refetchOrders } = useSalesOrdersQuery();
+  const serverInvoices = invoicesData?.getSalesInvoices ?? [];
+  const serverOrders = ordersData?.getSalesOrders ?? [];
 
   // Staff is mainly an order-taker, not a billing person — default to ORDER mode
   useEffect(() => {
     if (type === "staff") setIsOrderMode(true);
   }, [type]);
 
+  // Derive bill number from the actual server data based on current mode
   useEffect(() => {
-    setBillNumber(getNextBillNumber(salesInvoices));
-  }, [salesInvoices]);
+    const list = isOrderMode ? serverOrders : serverInvoices;
+    setBillNumber(getNextBillNumber(list));
+  }, [isOrderMode, serverInvoices, serverOrders]);
 
   /* ---------- Keyboard shortcuts: F2 search, F3 barcode ---------- */
   useEffect(() => {
@@ -586,6 +591,9 @@ export default function POSDashboard() {
         );
       }
       await refetchProducts();
+      // Refetch so the next bill/order number updates
+      if (isOrderMode) await refetchOrders();
+      else await refetchInvoices();
     } catch (error: any) {
       console.error("Error:", error);
       dispatch(showMessage({ message: "An error occurred", type: "error" }));

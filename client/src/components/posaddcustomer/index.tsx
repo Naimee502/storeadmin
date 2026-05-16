@@ -64,10 +64,11 @@ export default function PosAddCustomer({
     onCreated: (id: string) => void;
     mode?: "customer" | "vendor"; // ⭐ NEW PROP
 }) {
-    const { admin, branch, type } = useAppSelector((s) => s.auth);
+    const { admin, branch, staff, type } = useAppSelector((s) => s.auth);
+    const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-    const adminId = type === "admin" ? admin?.id : branch?.admin?.id;
-    const branchId = useAppSelector((state) => state.selectedBranch.branchId);
+    const adminId = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+    const branchId = type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : selectedBranchId;
 
     const { addAccountMutation } = useAccountMutations();
     const { data: accountGroupData } = useAccountGroupsQuery();

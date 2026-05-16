@@ -26,10 +26,10 @@ export const useSalesReturnMutations = () => {
 };
 
 export const useSalesReturnsQuery = () => {
-  const { type, admin, branch } = useAppSelector((s) => s.auth);
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
-  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
-  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_RETURNS, {
     variables: { filter: { adminid, branchid } },
@@ -38,10 +38,10 @@ export const useSalesReturnsQuery = () => {
 };
 
 export const useDeletedSalesReturnsQuery = () => {
-  const { type, admin, branch } = useAppSelector((s) => s.auth);
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
-  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
-  const branchid = type === "admin" ? selectedBranchId : branch?.id;
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SALES_RETURNS, {
     variables: { filter: { adminid, branchid } },
@@ -50,8 +50,8 @@ export const useDeletedSalesReturnsQuery = () => {
 };
 
 export const useSalesReturnByIDQuery = (id?: string) => {
-  const { type, admin, branch } = useAppSelector((s) => s.auth);
-  const adminid = type === "admin" ? admin?.id : branch?.admin?.id;
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_SALES_RETURN_BY_ID, {
     variables: { id, adminid },

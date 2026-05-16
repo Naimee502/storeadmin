@@ -28,10 +28,10 @@ export const useCategoryMutations = () => {
 };
 
 export const useCategoriesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_CATEGORIES, {
     variables: { adminId },
@@ -46,10 +46,10 @@ export const useCategoriesQuery = () => {
 };
 
 export const useDeletedCategoriesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_CATEGORIES, {
     variables: { adminId },
@@ -64,10 +64,10 @@ export const useDeletedCategoriesQuery = () => {
 };
 
 export const useCategoryByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_CATEGORY_BY_ID, {
     variables: { id, adminId },

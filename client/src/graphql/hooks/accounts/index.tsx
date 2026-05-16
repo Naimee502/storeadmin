@@ -26,13 +26,13 @@ export const useAccountMutations = () => {
 };
 
 export const useAccountsQuery = (status: boolean = true) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchid =
-    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS, {
     variables: {
@@ -52,10 +52,10 @@ export const useDeletedAccountsQuery = () => {
 };
 
 export const useAccountByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_ACCOUNT_BY_ID, {
     variables: { id, adminId },

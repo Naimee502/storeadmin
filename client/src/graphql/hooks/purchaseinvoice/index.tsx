@@ -29,11 +29,11 @@ export const usePurchaseInvoiceMutations = () => {
 
 // ----------------- Purchase Invoices Query -----------------
 export const usePurchaseInvoicesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
-  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped inside filter
@@ -44,11 +44,11 @@ export const usePurchaseInvoicesQuery = () => {
 
 // ----------------- Deleted Purchase Invoices Query -----------------
 export const useDeletedPurchaseInvoicesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
-  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_PURCHASE_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrap inside filter
@@ -59,8 +59,8 @@ export const useDeletedPurchaseInvoicesQuery = () => {
 
 // ----------------- Purchase Invoice by ID Query -----------------
 export const usePurchaseInvoiceByIDQuery = (id?: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_PURCHASE_INVOICE_BY_ID, {
     variables: { id, adminid }, // ✅ top-level

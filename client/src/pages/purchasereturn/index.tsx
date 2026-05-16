@@ -72,7 +72,7 @@ const PurchaseReturns = () => {
           
           
           
-          showDeleted={true}
+          showDeleted={actions.showDeleted}
           onAdd={() => navigate("/purchasereturn/addedit")}
           onEdit={(row) => navigate(`/purchasereturn/addedit/${row.id}`)}
           onDelete={async (row) => {

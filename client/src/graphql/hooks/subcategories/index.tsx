@@ -30,13 +30,15 @@ export const useSubCategoryMutations = () => {
 
 // 🔹 Fetch all active SubCategories (optional filter by categoryId)
 export const useSubCategoriesQuery = (categoryId?: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
     type === 'admin'
       ? admin?.id
       : type === 'branch'
       ? branch?.admin?.id
+      : type === 'staff'
+      ? staff?.admin?.id
       : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SUBCATEGORIES, {
@@ -48,13 +50,15 @@ export const useSubCategoriesQuery = (categoryId?: string) => {
 
 // 🔹 Fetch all deleted SubCategories (optional filter by categoryId)
 export const useDeletedSubCategoriesQuery = (categoryId?: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
     type === 'admin'
       ? admin?.id
       : type === 'branch'
       ? branch?.admin?.id
+      : type === 'staff'
+      ? staff?.admin?.id
       : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SUBCATEGORIES, {
@@ -66,13 +70,15 @@ export const useDeletedSubCategoriesQuery = (categoryId?: string) => {
 
 // 🔹 Fetch a single SubCategory by ID
 export const useSubCategoryByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
     type === 'admin'
       ? admin?.id
       : type === 'branch'
       ? branch?.admin?.id
+      : type === 'staff'
+      ? staff?.admin?.id
       : undefined;
 
   const { data, loading, error } = useQuery(GET_SUBCATEGORY_BY_ID, {

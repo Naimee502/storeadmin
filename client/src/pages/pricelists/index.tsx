@@ -60,7 +60,7 @@ const PriceLists = () => {
             }
           }}
           onAdd={() => navigate("/pricelists/addedit")}
-          showDeleted={true}
+          showDeleted={actions.showDeleted}
           onShowDeleted={() => navigate("/pricelists/deletedentries")}
           isLoading={loading}
         />

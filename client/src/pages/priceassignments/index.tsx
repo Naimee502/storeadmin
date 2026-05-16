@@ -265,7 +265,7 @@ const PriceAssignments = () => {
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          showDeleted={true}
+          showDeleted={actions.showDeleted}
           onShowDeleted={() => navigate("/priceassignments/deletedentries")}
           onDelete={async (row) => {
             if (window.confirm("Delete this assignment?")) {

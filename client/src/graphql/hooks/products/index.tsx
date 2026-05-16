@@ -30,13 +30,13 @@ export const useProductServicesQuery = (
   limit: number = 100,
   offset: number = 0
 ) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchid =
-    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PRODUCT_SERVICES, {
     variables: {
@@ -56,13 +56,13 @@ export const useProductServicesQuery = (
 };
 
 export const useProductServiceByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchId =
-    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PRODUCT_SERVICE_BY_ID, {
     variables: { id, adminId, branchId },

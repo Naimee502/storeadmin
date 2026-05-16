@@ -28,10 +28,10 @@ export const useModelMutations = () => {
 };
 
 export const useModelsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_MODELS, {
     variables: { adminId },
@@ -47,10 +47,10 @@ export const useModelsQuery = () => {
 };
 
 export const useDeletedModelsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_MODELS, {
     variables: { adminId },
@@ -66,10 +66,10 @@ export const useDeletedModelsQuery = () => {
 };
 
 export const useModelByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_MODEL_BY_ID, {
     variables: { id, adminId },

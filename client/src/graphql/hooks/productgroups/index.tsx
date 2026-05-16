@@ -27,10 +27,10 @@ export const useProductGroupMutations = () => {
 };
 
 export const useProductGroupsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PRODUCTGROUPS, {
     variables: { adminId },
@@ -45,10 +45,10 @@ export const useProductGroupsQuery = () => {
 };
 
 export const useDeletedProductGroupsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_PRODUCTGROUPS, {
     variables: { adminId },
@@ -63,10 +63,10 @@ export const useDeletedProductGroupsQuery = () => {
 };
 
 export const useProductGroupByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_PRODUCTGROUP_BY_ID, {
     variables: { id, adminId },

@@ -30,11 +30,11 @@ export const useSalesInvoiceMutations = () => {
 
 // ----------------- Sales Invoices Query -----------------
 export const useSalesInvoicesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
-  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrap inside filter
@@ -45,11 +45,11 @@ export const useSalesInvoicesQuery = () => {
 
 // ----------------- Deleted Sales Invoices Query -----------------
 export const useDeletedSalesInvoicesQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
-  const branchid = type === 'admin' ? selectedBranchId : branch?.id;
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_SALES_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrap inside filter
@@ -60,8 +60,8 @@ export const useDeletedSalesInvoicesQuery = () => {
 
 // ----------------- Sales Invoice by ID Query -----------------
 export const useSalesInvoiceByIDQuery = (id?: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const adminid = type === 'admin' ? admin?.id : branch?.admin?.id;
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_SALES_INVOICE_BY_ID, {
     variables: { id, adminid }, // ✅ Pass top-level, not inside filter

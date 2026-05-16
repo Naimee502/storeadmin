@@ -27,10 +27,10 @@ export const useBrandMutations = () => {
 };
 
 export const useBrandsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_BRANDS, {
     variables: { adminId }, 
@@ -45,10 +45,10 @@ export const useBrandsQuery = () => {
 };
 
 export const useDeletedBrandsQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_BRANDS, {
     variables: { adminId }, // pass adminId optionally
@@ -63,10 +63,10 @@ export const useDeletedBrandsQuery = () => {
 };
 
 export const useBrandByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_BRAND_BY_ID, {
     variables: { id, adminId }, // pass both id and optional adminId

@@ -74,7 +74,7 @@ const SalesReturns = () => {
           
           
           
-          showDeleted={true}
+          showDeleted={actions.showDeleted}
           onAdd={() => {
             // No source picked yet → user lands on "select invoice" mode
             navigate("/salesreturn/addedit");

@@ -38,14 +38,14 @@ export const useStaffMutations = () => {
 // STAFF LIST QUERY
 // ---------------------------------------------
 export const useStaffQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const branchid =
     type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_STAFF, {
     variables: { filter: { adminId } },
@@ -59,14 +59,14 @@ export const useStaffQuery = () => {
 // DELETED STAFF QUERY
 // ---------------------------------------------
 export const useDeletedStaffQuery = () => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const branchid =
     type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : undefined;
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_DELETED_STAFF, {
     variables: { filter: { adminId } },
@@ -80,10 +80,10 @@ export const useDeletedStaffQuery = () => {
 // GET STAFF BY ID
 // ---------------------------------------------
 export const useStaffByIDQuery = (id: string) => {
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
-    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : undefined;
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
 
   const { data, loading, error } = useQuery(GET_STAFF_BY_ID, {
     variables: { id, adminId },

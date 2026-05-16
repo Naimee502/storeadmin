@@ -113,7 +113,7 @@ const StockAdjustmentsList: React.FC = () => {
           
           
           
-          showDeleted={true}
+          showDeleted={actions.showDeleted}
           onEdit={(row) => navigate(`/stockadjustments/addedit/${row.id}`)}
           onDelete={(row) => handleDelete(row)}
           onAdd={() => navigate("/stockadjustments/add")}
