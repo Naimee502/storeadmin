@@ -48,6 +48,7 @@ const Payment = () => {
     { label: "Date", key: "paymentdate" },
     { label: "Leadger", key: "ledgername" },
     { label: "Amount", key: "amount" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
 
@@ -72,6 +73,7 @@ const Payment = () => {
       mode: capitalizeFirstLetter(pay.mode),
       ledgername: pay?.ledgerid?.ledgername || "-",
       amount: pay.amount?.toFixed(2) || "0.00",
+      createdByDisplay: pay.createdby_name || "N/A",
       status: pay.status ? "Active" : "Inactive",
     };
   });

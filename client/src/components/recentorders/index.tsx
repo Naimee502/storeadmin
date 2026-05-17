@@ -246,12 +246,13 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Total Qty", key: "totalqty" },
           { label: "Amount", key: "totalamountFormatted" },
           { label: "Refund", key: "refundLabel" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
         const data = salesReturns.slice().reverse().map((r: any, idx: number) => ({
           ...r,
           seqNo: idx + 1,
-          cnNo: `SR-${r.billnumber}`,
+          cnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
           returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
           partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
@@ -259,6 +260,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
           totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
           refundLabel: capitalizeFirst(r.refundMode),
+          createdby_name: r.createdby_name || "N/A",
           statusLabel: r.status ? "Active" : "Inactive",
         }));
         return (
@@ -292,19 +294,21 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Total Qty", key: "totalqty" },
           { label: "Amount", key: "totalamountFormatted" },
           { label: "Refund", key: "refundLabel" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
         const data = purchaseReturns.slice().reverse().map((r: any, idx: number) => ({
           ...r,
           seqNo: idx + 1,
-          dnNo: `PR-${r.billnumber}`,
+          dnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
           returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
           partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
-          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
+          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,  
           refundLabel: capitalizeFirst(r.refundMode),
+          createdby_name: r.createdby_name || "N/A",
           statusLabel: r.status ? "Active" : "Inactive",
         }));
         return (
@@ -337,6 +341,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Unit", key: "transferunitname" },
           { label: "Purchase Rate", key: "purchaserateFormatted" },
           { label: "Date", key: "transferdate" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
         const data = transferStocks.slice().reverse().map((stock: any, idx: number) => ({
@@ -349,6 +354,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           transferunitname: stock.transferunitname || "Unit",
           purchaserateFormatted: `₹${Number(stock.purchaserate ?? 0).toFixed(2)}`,
           transferdate: stock.transferdate || stock.createdAt?.substring(0, 10) || "-",
+          createdby_name: stock.createdby_name || "N/A",
           statusLabel: stock.status ? "Active" : "Inactive",
         }));
         return (
@@ -382,7 +388,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Payment Type", key: "paymenttype" },
           { label: "Narration", key: "narration" },
           { label: "Total Amount", key: "totalamountFormatted" },
-          { label: "GST", key: "totalgstFormatted" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
         const data = expenseNotes.slice().reverse().map((exp: any, idx: number) => {
@@ -409,6 +415,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             paymenttype: capitalizeFirst(exp.paymenttype || exp.paymentmode),
             narration: exp.narration || exp.remarks || "-",
             totalamountFormatted: `₹${Number(exp.totalamount || exp.amount || 0).toFixed(2)}`,
+            createdby_name: exp.createdby_name || "N/A",
             totalgstFormatted: `₹${Number(exp.totalgst || 0).toFixed(2)}`,
             status: exp.status ? "Active" : "Inactive",
           };
@@ -442,6 +449,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Date", key: "paymentdate" },
           { label: "Ledger", key: "ledgername" },
           { label: "Amount", key: "amountFormatted" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
         const data = payments.slice().reverse().map((pay: any, idx: number) => {
@@ -460,6 +468,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             mode: capitalizeFirst(pay.mode),
             ledgername: pay.ledgerid?.ledgername || "-",
             amountFormatted: `₹${Number(pay.amount || pay.totalamount || 0).toFixed(2)}`,
+            createdby_name: pay.createdby_name || "N/A",
             status: pay.status ? "Active" : "Inactive",
           };
         });

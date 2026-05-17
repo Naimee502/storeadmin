@@ -96,8 +96,20 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
 
 export const purchaseReturnResolvers = {
   Query: {
-    getPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }) => {
+    getPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const q: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        q.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        q.createdby_id = user?.id;
+      }
+
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
       if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
@@ -111,8 +123,20 @@ export const purchaseReturnResolvers = {
       return rows.map(formatReturn);
     },
 
-    getDeletedPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }) => {
+    getDeletedPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const q: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        q.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        q.createdby_id = user?.id;
+      }
+
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
       const rows = await PurchaseReturn.find(q).populate(populateFields).lean();
@@ -126,12 +150,21 @@ export const purchaseReturnResolvers = {
   },
 
   Mutation: {
-    addPurchaseReturn: async (_: any, { input }: any) => {
+    addPurchaseReturn: async (_: any, { input }: any, context: any) => {
       const sourceInv = await validateReturnQuantities(input);
       if (sourceInv?.billnumber && !input.sourceBillNumber) {
         input.sourceBillNumber = sourceInv.billnumber;
       }
-      const created = await PurchaseReturn.create(input);
+
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await PurchaseReturn.create({ ...input, ...createdbyData });
       const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
       return formatReturn(fresh);
     },

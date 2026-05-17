@@ -246,6 +246,7 @@ const TransferStock = () => {
     { label: "Unit", key: "transferunitname" },
     { label: "Purchase Rate", key: "purchaserate" },
     { label: "Date", key: "transferdate" },
+    { label: "Created By", key: "createdByDisplay" },
     {
       label: "Status",
       key: "status",
@@ -286,6 +287,7 @@ const TransferStock = () => {
       productname: product?.name || stock.productid,
       purchaserate: product?.productvariants[0]?.purchaserate,
       transferunitname: unitName,   // ⇦ NEW FIELD
+      createdByDisplay: stock.createdby_name || "N/A",
       status: stock.status ? "Active" : "Inactive",
     };
   });

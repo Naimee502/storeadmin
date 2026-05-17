@@ -60,6 +60,7 @@ const ExpenseNote = () => {
     { label: "Narration", key: "narration" },
     { label: "Total Amount", key: "totalamount" },
     { label: "GST", key: "totalgst" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
 
@@ -104,6 +105,7 @@ const ExpenseNote = () => {
       paymenttype: capitalize(exp.paymenttype),
       totalamount: Number(exp.totalamount || 0).toFixed(2),
       totalgst: Number(exp.totalgst || 0).toFixed(2),
+      createdByDisplay: exp.createdby_name || "N/A",
       status: exp.status ? "Active" : "Inactive",
     };
   });

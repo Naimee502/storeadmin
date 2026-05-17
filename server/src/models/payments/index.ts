@@ -35,7 +35,10 @@ const paymentSchema = new mongoose.Schema(
 
     transactionid: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
 
-    createdby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdby_id: { type: mongoose.Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
+
     updatedby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     status: { type: Boolean, default: true },

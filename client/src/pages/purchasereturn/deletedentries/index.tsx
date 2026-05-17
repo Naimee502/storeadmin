@@ -39,12 +39,14 @@ const DeletedPurchaseReturns = () => {
     { label: "Date", key: "returndate" },
     { label: "Vendor", key: "partyacc" },
     { label: "Amount", key: "totalamount" },
+    { label: "Created By", key: "createdByDisplay" },
   ];
 
   const rows = list.map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
     partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+    createdByDisplay: r.createdby_name || "N/A",
   }));
 
   return (

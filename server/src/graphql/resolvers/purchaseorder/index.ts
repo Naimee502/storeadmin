@@ -58,8 +58,19 @@ const formatOrder = (order: any) => ({
 // ✅ GraphQL resolvers
 export const purchaseOrderResolvers = {
   Query: {
-    getPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }) => {
+    getPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: true, isConverted: filter.isConverted !== undefined ? filter.isConverted : false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
@@ -83,8 +94,22 @@ export const purchaseOrderResolvers = {
       return orders.map(formatOrder);
     },
 
-    getDeletedPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }) => {
+    getDeletedPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { $or: [{ status: false }, { isConverted: true }] };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      } else {
+        query.$or = [{ status: false }, { isConverted: true }];
+      }
+
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
 
@@ -104,8 +129,16 @@ export const purchaseOrderResolvers = {
   },
 
   Mutation: {
-    addPurchaseOrder: async (_: any, { input }: any) => {
-      const created = await PurchaseOrder.create(input);
+    addPurchaseOrder: async (_: any, { input }: any, context: any) => {
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await PurchaseOrder.create({ ...input, ...createdbyData });
       return await PurchaseOrder.findById(created._id)
         .populate(populateFields)
         .lean()

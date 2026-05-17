@@ -87,6 +87,10 @@ const expenseNoteSchema = new mongoose.Schema(
     narration: { type: String },
     notes: { type: String },
 
+    createdby_id: { type: mongoose.Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
+
     /* ======================
        EXPENSE LINES
        ====================== */

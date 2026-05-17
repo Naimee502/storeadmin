@@ -99,9 +99,20 @@ const populatePaths = ["ledgerid", "staffid", "expenses.expenseledgerid"];
 
 export const expenseNoteResolvers = {
   Query: {
-    getExpenseNotes: async (_: any, args: { filter?: any }) => {
+    getExpenseNotes: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
       const query: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
@@ -126,9 +137,20 @@ export const expenseNoteResolvers = {
       return records.map(formatExpense);
     },
 
-    getDeletedExpenseNotes: async (_: any, args: { filter?: any }) => {
+    getDeletedExpenseNotes: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
       const query: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
@@ -165,14 +187,22 @@ export const expenseNoteResolvers = {
   },
 
   Mutation: {
-    addExpenseNote: async (_: any, { input }: any) => {
+    addExpenseNote: async (_: any, { input }: any, context: any) => {
       // For TA/DA + salary, ensure the canonical expense ledger exists
       // *before* saving, since the journal poster will look it up.
       if (input.category && input.category !== "general" && input.category !== "other") {
         await ensureCategoryLedger(input.adminid, input.category);
       }
 
-      const created = await ExpenseNote.create(input);
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await ExpenseNote.create({ ...input, ...createdbyData });
       const populated = (await ExpenseNote.findById(created._id)
         .populate(populatePaths)
         .lean()) as any;

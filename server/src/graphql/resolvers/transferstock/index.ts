@@ -3,8 +3,19 @@ import { TransferStock } from "../../../models/transferstock";
 
 export const transferStockResolvers = {
   Query: {
-    getTransferStocks: async (_: any, { adminId, frombranchid }: { adminId?: string; frombranchid?: string }) => {
+    getTransferStocks: async (_: any, { adminId, frombranchid }: { adminId?: string; frombranchid?: string }, context: any) => {
       const filter: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        filter.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { frombranchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        filter.createdby_id = user?.id;
+      }
 
       if (adminId) filter.admin = new mongoose.Types.ObjectId(adminId);
       if (frombranchid) filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
@@ -14,8 +25,19 @@ export const transferStockResolvers = {
         .populate("admin"); // only populate admin if schema expects object
     },
 
-    getDeletedTransferStocks: async (_: any, { adminId, frombranchid }: { adminId?: string; frombranchid?: string }) => {
+    getDeletedTransferStocks: async (_: any, { adminId, frombranchid }: { adminId?: string; frombranchid?: string }, context: any) => {
       const filter: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        filter.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { frombranchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        filter.createdby_id = user?.id;
+      }
 
       if (adminId) filter.admin = new mongoose.Types.ObjectId(adminId);
       if (frombranchid) filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
@@ -34,8 +56,16 @@ export const transferStockResolvers = {
   },
 
   Mutation: {
-    addTransferStock: async (_: any, { input }: any) => {
-      const newDoc = await TransferStock.create(input);
+    addTransferStock: async (_: any, { input }: any, context: any) => {
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const newDoc = await TransferStock.create({ ...input, ...createdbyData });
       await TransferStock.adjustStock(null, newDoc);
       // return IDs only
       return await TransferStock.findById(newDoc._id)

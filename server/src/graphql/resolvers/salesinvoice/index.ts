@@ -57,8 +57,19 @@ const formatInvoice = (inv: any) => ({
 // ✅ GraphQL resolvers
 export const salesInvoiceResolvers = {
   Query: {
-    getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }) => {
+    getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       // Add filters if provided
       if (filter.branchid) query.branchid = filter.branchid;
@@ -85,8 +96,20 @@ export const salesInvoiceResolvers = {
       return invoices.map(formatInvoice);
     },
 
-    getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }) => {
+    getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
+
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
       if (filter.salesmenid) query.salesmenid = filter.salesmenid;
@@ -107,8 +130,16 @@ export const salesInvoiceResolvers = {
   },
 
   Mutation: {
-    addSalesInvoice: async (_: any, { input }: any) => {
-      const created = await SalesInvoice.create(input);
+    addSalesInvoice: async (_: any, { input }: any, context: any) => {
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await SalesInvoice.create({ ...input, ...createdbyData });
       return await SalesInvoice.findById(created._id)
         .populate(populateFields)
         .lean()

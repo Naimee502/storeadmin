@@ -12,6 +12,10 @@ import { AdminSettings } from "../adminsettings";
 
 const purchaseInvoiceSchema = new mongoose.Schema(
   {
+    createdby_id: { type: mongoose.Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
+
     paymenttype: { type: String, required: true },
     partyacc: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
     taxorsupplytype: { type: String, required: true },

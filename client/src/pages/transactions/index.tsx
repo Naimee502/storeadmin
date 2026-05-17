@@ -45,6 +45,7 @@ const Transaction = () => {
     { label: "Narration", key: "narration" },
     { label: "Total Debit", key: "totaldebit" },
     { label: "Total Credit", key: "totalcredit" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
 
@@ -72,6 +73,7 @@ const Transaction = () => {
       entrytype: capitalizeFirstLetter(txn.entrytype),
       totaldebit: txn.totaldebit?.toFixed(2) || "0.00",
       totalcredit: txn.totalcredit?.toFixed(2) || "0.00",
+      createdByDisplay: txn.createdby_name || "N/A",
       status: txn.status ? "Active" : "Inactive",
     };
   });

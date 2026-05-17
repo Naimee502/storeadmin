@@ -12,6 +12,9 @@ interface ITransferStock extends Document {
   batchnumber?: string;
   transferqty: number;
   transferdate: string;
+  createdby_id?: Types.ObjectId;
+  createdby_name?: string;
+  createdby_type?: string;
   status?: boolean;
   admin: Types.ObjectId;
 }
@@ -30,6 +33,11 @@ const transferStockSchema = new Schema<ITransferStock, TransferStockModel>(
     batchnumber: { type: String },
     transferqty: { type: Number, required: true },
     transferdate: { type: String, required: true },
+
+    createdby_id: { type: Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
+
     status: { type: Boolean, default: true },
     admin: { type: Schema.Types.ObjectId, ref: 'Admin', required: true },
   },

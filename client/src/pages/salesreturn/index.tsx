@@ -47,6 +47,7 @@ const SalesReturns = () => {
     { label: "Total Qty", key: "totalqty" },
     { label: "Amount", key: "totalamount" },
     { label: "Refund", key: "refundLabel" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "statusLabel" },
   ];
 
@@ -57,6 +58,7 @@ const SalesReturns = () => {
     totalitem: r.productservice?.length || 0,
     totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
     refundLabel: cap(r.refundMode),
+    createdByDisplay: r.createdby_name || "N/A",
     statusLabel: r.status ? "Active" : "Inactive",
   }));
 

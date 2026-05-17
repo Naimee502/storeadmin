@@ -17,6 +17,9 @@ export interface IStockAdjustment extends Document {
   reason: string;
   items: IStockAdjustmentItem[];
   totalamount: number;
+  createdby_id?: Types.ObjectId;
+  createdby_name?: string;
+  createdby_type?: string;
   status: boolean;
 }
 
@@ -38,6 +41,11 @@ const stockAdjustmentSchema = new mongoose.Schema(
     reason: { type: String },
     items: [stockAdjustmentItemSchema],
     totalamount: { type: Number, required: true, default: 0 },
+
+    createdby_id: { type: mongoose.Schema.Types.ObjectId },
+    createdby_name: { type: String },
+    createdby_type: { type: String },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

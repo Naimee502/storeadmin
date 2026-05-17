@@ -63,6 +63,7 @@ const DeletedStockAdjustments: React.FC = () => {
     { label: "Type", key: "type" },
     { label: "Reason", key: "reason" },
     { label: "Total Amount", key: "totalamount" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
 
@@ -73,6 +74,7 @@ const DeletedStockAdjustments: React.FC = () => {
       ? format(new Date(item.adjustmentdate), "dd MMM yyyy")
       : "-",
     totalamount: `₹${(item.totalamount ?? 0).toFixed(2)}`,
+    createdByDisplay: item.createdby_name || "N/A",
     status: item.status ? "Active" : "Deleted",
   }));
 

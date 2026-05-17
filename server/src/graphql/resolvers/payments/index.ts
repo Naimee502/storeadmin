@@ -3,9 +3,20 @@ import { Payment } from "../../../models/payments";
 
 export const paymentResolvers = {
   Query: {
-    getPayments: async (_: any, args: { filter?: any }) => {
+    getPayments: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
       const query: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
@@ -46,9 +57,20 @@ export const paymentResolvers = {
       }));
     },
 
-    getDeletedPayments: async (_: any, args: { filter?: any }) => {
+    getDeletedPayments: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
       const query: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
 
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
@@ -122,8 +144,16 @@ export const paymentResolvers = {
   },
 
   Mutation: {
-    addPayment: async (_: any, { input }: any) => {
-      const created = await Payment.create(input);
+    addPayment: async (_: any, { input }: any, context: any) => {
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await Payment.create({ ...input, ...createdbyData });
 
       const populated = await Payment.findById(created._id)
         .populate("ledgerid")

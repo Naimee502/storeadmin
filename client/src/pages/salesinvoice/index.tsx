@@ -144,7 +144,7 @@ const SalesInvoices = () => {
     { label: "Billing Date", key: "billdate" },
     { label: "Billing No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
-    { label: "Created By", key: "createdby_name" },
+    { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
 
@@ -165,7 +165,7 @@ const SalesInvoices = () => {
       totalqty,
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
-      createdby_name: invoice.createdby_name || "N/A",
+      createdByDisplay: invoice.createdby_name || "N/A",
       status: invoice.status ? "Active" : "Inactive",
     };
   });

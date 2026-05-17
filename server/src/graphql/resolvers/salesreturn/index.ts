@@ -107,8 +107,22 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
 
 export const salesReturnResolvers = {
   Query: {
-    getSalesReturns: async (_: any, { filter = {} }: { filter?: any }) => {
+    getSalesReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const q: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      // Admin: see all | Branch: see their branch entries | Staff: see their own entries
+      if (user?.type === 'branch') {
+        q.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        q.createdby_id = user?.id;
+      }
+      // Admin sees all entries (no additional filter)
+
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
       if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
@@ -122,8 +136,20 @@ export const salesReturnResolvers = {
       return rows.map(formatReturn);
     },
 
-    getDeletedSalesReturns: async (_: any, { filter = {} }: { filter?: any }) => {
+    getDeletedSalesReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const q: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering (same logic as getSalesReturns)
+      if (user?.type === 'branch') {
+        q.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        q.createdby_id = user?.id;
+      }
+
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
       const rows = await SalesReturn.find(q).populate(populateFields).lean();
@@ -137,13 +163,22 @@ export const salesReturnResolvers = {
   },
 
   Mutation: {
-    addSalesReturn: async (_: any, { input }: any) => {
+    addSalesReturn: async (_: any, { input }: any, context: any) => {
       const sourceInv = await validateReturnQuantities(input);
       // Stamp source bill number for friendly display
       if (sourceInv?.billnumber && !input.sourceBillNumber) {
         input.sourceBillNumber = sourceInv.billnumber;
       }
-      const created = await SalesReturn.create(input);
+
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin', // 'admin', 'branch', 'staff'
+      };
+
+      const created = await SalesReturn.create({ ...input, ...createdbyData });
       const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
       return formatReturn(fresh);
     },

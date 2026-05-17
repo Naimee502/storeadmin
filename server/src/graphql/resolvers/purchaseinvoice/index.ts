@@ -52,8 +52,20 @@ const formatInvoice = (inv: any) => ({
 // ✅ GraphQL resolvers
 export const purchaseInvoiceResolvers = {
   Query: {
-    getPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }) => {
+    getPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: true };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
+
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
       if (filter.supplierid) query.supplierid = filter.supplierid;
@@ -73,8 +85,20 @@ export const purchaseInvoiceResolvers = {
       return invoices.map(formatInvoice);
     },
 
-    getDeletedPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }) => {
+    getDeletedPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: false };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
+
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
       if (filter.supplierid) query.supplierid = filter.supplierid;
@@ -94,8 +118,16 @@ export const purchaseInvoiceResolvers = {
   },
 
   Mutation: {
-    addPurchaseInvoice: async (_: any, { input }: any) => {
-      const created = await PurchaseInvoice.create(input);
+    addPurchaseInvoice: async (_: any, { input }: any, context: any) => {
+      // ✅ Extract user info from context and populate createdby fields
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      const created = await PurchaseInvoice.create({ ...input, ...createdbyData });
       const invoice = await PurchaseInvoice.findById(created._id)
         .populate(populateFields)
         .lean();
