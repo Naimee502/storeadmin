@@ -73,7 +73,7 @@ const DeletedAccounts = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          
+          showReset={actions.canReset}
           onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted account "${row.name}"?`)) {
               try {

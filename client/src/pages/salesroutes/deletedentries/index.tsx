@@ -105,6 +105,7 @@ const DeletedSalesRoutes: React.FC = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
+          showReset={actions.canReset}
           onReset={(row) => handleReset(row)}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
@@ -12,6 +13,7 @@ import {
 const DeletedBranches = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "branches"));
 
   // Fetch deleted branches (status: false)
   const { data, refetch } = useDeletedBranchesQuery();
@@ -57,7 +59,7 @@ const DeletedBranches = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          showReset={actions.canReset}
           onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted branch "${row.branchname}"?`)) {
               try {

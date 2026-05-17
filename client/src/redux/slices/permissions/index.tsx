@@ -101,7 +101,7 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     showWhatsApp: allow("whatsapp"),
     showImport: allow("import"),
     showExport: allow("export"),
-    showReset: allow("reset"),
+    canReset: allow("reset"),
     showDeleted: allow("delete"),
   };
 };

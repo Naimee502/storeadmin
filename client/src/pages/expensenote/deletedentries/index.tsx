@@ -105,6 +105,7 @@ const DeletedExpenseNotes = () => {
           showEdit={false}
           showDelete={false}
           showAdd={false}
+          showReset={actions.canReset}
           showImport={false}
           showExport={false}
           

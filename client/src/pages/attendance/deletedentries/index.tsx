@@ -207,7 +207,7 @@ const DeletedAttendanceEntries: React.FC = () => {
               showEdit={false}
               showDelete={false}
               showDeleted={false}
-              showReset
+              showReset={actions.canReset}
               showView={false}
               showImport={false}
               showExport={false}
@@ -243,7 +243,7 @@ const DeletedAttendanceEntries: React.FC = () => {
               showEdit={false}
               showDelete={false}
               showDeleted={false}
-              showReset
+              showReset={actions.canReset}
               showView={false}
               showImport={false}
               showExport={false}
@@ -279,7 +279,7 @@ const DeletedAttendanceEntries: React.FC = () => {
               showEdit={false}
               showDelete={false}
               showDeleted={false}
-              showReset
+              showReset={actions.canReset}
               showView={false}
               showImport={false}
               showExport={false}
@@ -316,7 +316,7 @@ const DeletedAttendanceEntries: React.FC = () => {
               showEdit={false}
               showDelete={false}
               showDeleted={false}
-              showReset
+              showReset={actions.canReset}
               showView={false}
               showImport={false}
               showExport={false}
@@ -355,7 +355,7 @@ const DeletedAttendanceEntries: React.FC = () => {
               showEdit={false}
               showDelete={false}
               showDeleted={false}
-              showReset
+              showReset={actions.canReset}
               showView={false}
               showImport={false}
               showExport={false}

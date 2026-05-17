@@ -130,6 +130,7 @@ const DeletedPriceAssignments = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
+          showReset={actions.canReset}
           
           onReset={handleReset}
           entriesOptions={[5, 10, 25]}

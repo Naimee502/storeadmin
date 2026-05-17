@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
@@ -13,6 +14,7 @@ import {
 const DeletedPurchaseOrders = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
 
   const { data, refetch } = useDeletedPurchaseOrdersQuery();
   const { resetPurchaseOrderMutation } = usePurchaseOrderMutations();
@@ -78,7 +80,7 @@ const DeletedPurchaseOrders = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={(row) => !row.isConverted}
+          showReset={(row) => actions.canReset && !row.isConverted}
           showImport={false}
           showExport={false}
           showAdd={false}

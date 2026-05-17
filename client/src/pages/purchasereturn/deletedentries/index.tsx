@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
@@ -13,6 +14,7 @@ import {
 const DeletedPurchaseReturns = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "purchasereturn"));
   const { data, refetch } = useDeletedPurchaseReturnsQuery();
   const { resetPurchaseReturnMutation } = usePurchaseReturnMutations();
 
@@ -58,7 +60,7 @@ const DeletedPurchaseReturns = () => {
           showView={false}
           showImport={false}
           showExport={false}
-          showReset={true}
+          showReset={actions.canReset}
           showDeleted={false}
           onReset={async (row) => {
             if (!window.confirm(`Restore Purchase Return ${row.billnumber}?`)) return;

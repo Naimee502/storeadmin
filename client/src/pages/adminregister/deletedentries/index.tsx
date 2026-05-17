@@ -57,7 +57,7 @@ const DeletedAdmins = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          
+          showReset={actions.canReset}
           onReset={async (row) => {
             if (window.confirm(`Are you sure you want to restore admin "${row.name}"?`)) {
               try {

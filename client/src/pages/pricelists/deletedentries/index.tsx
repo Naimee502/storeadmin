@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -12,6 +13,7 @@ import { useNavigate } from "react-router";
 const DeletedPriceLists = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "pricelists"));
 
   const { data: deletedData, refetch } = useDeletedPriceListQuery();
   const deletedList = deletedData?.getDeletedPriceLists ?? [];
@@ -77,7 +79,7 @@ const DeletedPriceLists = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          showReset={actions.canReset}
           onReset={handleReset}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}

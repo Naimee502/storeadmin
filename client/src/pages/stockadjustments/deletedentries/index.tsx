@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { format } from "date-fns";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
@@ -14,6 +15,7 @@ import {
 const DeletedStockAdjustments: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "stockadjustments"));
 
   const { admin, branch, staff, type } = useAppSelector((state: any) => state.auth);
   const selectedBranchId = useAppSelector(
@@ -114,7 +116,7 @@ const DeletedStockAdjustments: React.FC = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={true}
+          showReset={actions.canReset}
           showImport={false}
           showExport={false}
           showAdd={false}

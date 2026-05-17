@@ -86,6 +86,7 @@ const DeletedTransactions = () => {
           showEdit={false}
           showDelete={false}
           showAdd={false}
+          showReset={actions.canReset}
            // ✅ Reset action
           onReset={async (row: any) => {
             if (

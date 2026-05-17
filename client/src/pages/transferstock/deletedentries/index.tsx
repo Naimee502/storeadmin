@@ -103,6 +103,7 @@ const DeletedTransferStocks = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
+          showReset={actions.canReset}
           
           onReset={async (row) => {
             if (

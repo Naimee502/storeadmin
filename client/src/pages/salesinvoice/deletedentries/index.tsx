@@ -1,4 +1,5 @@
-import { useAppDispatch } from "../../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -12,6 +13,7 @@ import { useEffect } from "react";
 const DeletedSalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "salesinvoice"));
 
   const { data, refetch } = useDeletedSalesInvoicesQuery();
   const invoiceList = data?.getDeletedSalesInvoices || [];
@@ -73,7 +75,7 @@ const DeletedSalesInvoices = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={true}
+          showReset={actions.canReset}
           onReset={async (row) => {
             if (
               window.confirm(

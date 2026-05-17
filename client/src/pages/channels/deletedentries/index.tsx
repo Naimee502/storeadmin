@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { 
@@ -11,6 +12,7 @@ import { showMessage } from "../../../redux/slices/message";
 
 const ChannelDeletedEntries = () => {
   const dispatch = useAppDispatch();
+  const actions = useAppSelector(state => selectModuleActions(state, "channels"));
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
   
@@ -73,7 +75,7 @@ const ChannelDeletedEntries = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={true}
+          showReset={actions.canReset}
           onReset={(row: any) => handleReset(row)}
           isLoading={isLoading}
         />
