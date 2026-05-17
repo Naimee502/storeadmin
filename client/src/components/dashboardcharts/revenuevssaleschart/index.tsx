@@ -78,8 +78,9 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" as const },
+      legend: { position: "top" as const, labels: { font: { size: 10 } } },
       tooltip: { mode: "index" as const, intersect: false },
     },
     scales: {
@@ -87,22 +88,32 @@ const RevenueAndSalesChart: React.FC<Props> = ({ salesInvoices = [] }) => {
         type: "linear" as const,
         display: true,
         position: "left" as const,
-        title: { display: true, text: "Revenue (₹)" },
+        ticks: { font: { size: 10 } },
+        title: { display: true, text: "Revenue (₹)", font: { size: 10 } },
       },
       y2: {
         type: "linear" as const,
         display: true,
         position: "right" as const,
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Units Sold" },
+        ticks: { font: { size: 10 } },
+        title: { display: true, text: "Units Sold", font: { size: 10 } },
+      },
+      x: {
+        ticks: { font: { size: 10 } },
       },
     },
   };
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <h2 className="text-md font-semibold mb-2">💰 Revenue & Sales</h2>
-      <Bar data={chartData} options={options} />
+    <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs font-sans flex flex-col justify-between h-80 sm:h-96">
+      <div>
+        <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Revenue & Volume</h3>
+        <p className="text-[10px] text-gray-500 mb-2">Daily ledger billing correlation</p>
+      </div>
+      <div className="flex-1 min-h-[220px]">
+        <Bar data={chartData} options={options} />
+      </div>
     </div>
   );
 };

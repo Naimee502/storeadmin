@@ -13,7 +13,7 @@ interface ProductVariant {
 interface Product {
   id: string;
   branchid?: string;
-  currentstock?: number; // fallback if no variants
+  currentstock?: number;
   productvariants?: ProductVariant[];
 }
 
@@ -24,7 +24,7 @@ interface Transfer {
   productid?: string;
   transferqty?: number;
   variantid?: string | { id?: string };
-  transferunitid?: string | { id?: string }; // possible unit on transfer
+  transferunitid?: string | { id?: string };
 }
 
 interface InvoiceItem {
@@ -34,14 +34,13 @@ interface InvoiceItem {
   unitqty?: number;
   salesunitid?: string | { id?: string };
   purchaseunitid?: string | { id?: string };
-  // keep flexible for other shapes
 }
 
 interface SalesInvoice {
   id: string;
   billdate?: string;
-  products?: InvoiceItem[]; // original API property
-  productservice?: InvoiceItem[]; // older name
+  products?: InvoiceItem[];
+  productservice?: InvoiceItem[];
 }
 
 interface PurchaseInvoice {
@@ -70,7 +69,6 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
       let totalSalesStockOut = 0;
       let totalTransferStockOut = 0;
 
-      // Step 1: Build variant stock map and an index of variant -> variant object for conversions
       const variantStockMap: Record<string, number> = {};
       const variantIndex: Record<string, ProductVariant> = {};
 
@@ -81,13 +79,10 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
             variantIndex[variant.id] = variant;
           }
         } else if (product.id) {
-          // no variants: use product.id as key
           variantStockMap[product.id] = product.currentstock ?? 0;
-          // no variantIndex entry for product-level fallback
         }
       }
 
-      // helper to get factor to base unit for a given variant and a given unitId
       const getConversionFactor = (
         variant: ProductVariant | undefined,
         unitId?: string | { id?: string } | undefined
@@ -102,18 +97,15 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
         return conv?.factor ?? 1;
       };
 
-      // helper to resolve variant id consistently
       const resolveVariantId = (v?: string | { id?: string } | undefined) =>
         typeof v === "string" ? v : v?.id;
 
-      // Step 2: Process Sales Invoices (subtract from variantStockMap, apply conversion)
       for (const inv of invoices) {
         const items: InvoiceItem[] = inv.products ?? inv.productservice ?? [];
         for (const p of items) {
           const variantId = resolveVariantId(p.variantid);
           if (!variantId) continue;
           const variant = variantIndex[variantId];
-          // determine unit used in sale (salesunitid or fallback to base)
           const unitRef = (p as any).salesunitid ?? (p as any).unitid ?? undefined;
           const baseQty = (p.qty ?? 0) * (p.unitqty ?? 1);
           const factor = getConversionFactor(variant, unitRef);
@@ -122,13 +114,11 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
             variantStockMap[variantId] -= qtyInBase;
             totalSalesStockOut += qtyInBase;
           } else {
-            // if variant not in map but present elsewhere, still count sales out
             totalSalesStockOut += qtyInBase;
           }
         }
       }
 
-      // Step 3: Transfers (subtract when frombranchid === branchId)
       for (const t of transfers) {
         if (t.status && t.frombranchid === branchId) {
           const variantId = resolveVariantId(t.variantid);
@@ -146,7 +136,6 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
         }
       }
 
-      // Step 4: Purchase Stock In — convert purchase units to base unit and ADD to variantStockMap
       for (const pInvoice of purchaseInvoices) {
         const items: InvoiceItem[] = pInvoice.products ?? pInvoice.productservice ?? [];
         for (const p of items) {
@@ -160,13 +149,11 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
           if (variantId && variantStockMap[variantId] !== undefined) {
             variantStockMap[variantId] += qtyInBase;
           } else if (variantId) {
-            // create entry if missing so currentStock reflects it
             variantStockMap[variantId] = qtyInBase;
           }
         }
       }
 
-      // Step 5: Calculate total current stock from variantStockMap
       const totalCurrentStock = products.reduce((sum, p) => {
         if (p.productvariants?.length) {
           return (
@@ -189,47 +176,60 @@ const StockInOutDoughnutChart: React.FC<Props> = ({
     }, [products, transfers, invoices, purchaseInvoices, branchId]);
 
   const doughnutData = {
-    labels: ["Purchase Stock In", "Sales Stock Out", "Transfer Stock Out", "Current Stock"],
+    labels: ["Purchase In", "Sales Out", "Transfers Out", "Current Stock"],
     datasets: [
       {
         data: [purchaseStockIn, salesStockOut, transferStockOut, currentStock],
         backgroundColor: [
-          "rgba(75, 192, 192, 0.6)",
-          "rgba(255, 99, 132, 0.6)",
-          "rgba(255, 159, 64, 0.6)",
-          "rgba(99, 102, 241, 0.6)"
+          "rgba(16, 185, 129, 0.7)",
+          "rgba(239, 68, 68, 0.7)",
+          "rgba(245, 158, 11, 0.7)",
+          "rgba(99, 102, 241, 0.7)",
         ],
         borderColor: [
-          "rgba(75, 192, 192, 1)",
-          "rgba(255, 99, 132, 1)",
-          "rgba(255, 159, 64, 1)",
-          "rgba(79, 70, 229, 1)"
+          "rgba(5, 150, 105, 1)",
+          "rgba(220, 38, 38, 1)",
+          "rgba(217, 119, 6, 1)",
+          "rgba(79, 70, 229, 1)",
         ],
         borderWidth: 1,
       },
     ],
   };
 
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "bottom" as const, labels: { boxWidth: 12, font: { size: 10 } } },
+    },
+  };
+
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <h2 className="text-md font-semibold mb-2">📦 Stock In / Out Summary</h2>
-      <Doughnut data={doughnutData} />
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm">
-        <div className="bg-green-50 rounded-xl p-3 shadow-sm">
-          <p className="text-xs text-gray-500 mb-1">Purchase Stock In</p>
-          <p className="text-2xl font-bold text-green-600">{purchaseStockIn}</p>
+    <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs font-sans flex flex-col justify-between h-80 sm:h-96">
+      <div>
+        <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Inventory Movement</h3>
+        <p className="text-[10px] text-gray-500 mb-2">Real-time stock flow distribution</p>
+      </div>
+      <div className="flex-1 relative min-h-[160px] flex items-center justify-center py-2">
+        <Doughnut data={doughnutData} options={options} />
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-left pt-2 border-t border-gray-100">
+        <div className="p-1.5 bg-emerald-50 rounded border border-emerald-100">
+          <p className="text-[9px] font-bold text-emerald-800 capitalize tracking-tight leading-none">Purchased In</p>
+          <p className="text-sm font-black text-emerald-900 mt-1 leading-none">{purchaseStockIn}</p>
         </div>
-        <div className="bg-red-50 rounded-xl p-3 shadow-sm">
-          <p className="text-xs text-gray-500 mb-1">Sales Stock Out</p>
-          <p className="text-2xl font-bold text-red-600">{salesStockOut}</p>
+        <div className="p-1.5 bg-rose-50 rounded border border-rose-100">
+          <p className="text-[9px] font-bold text-rose-800 capitalize tracking-tight leading-none">Sold Out</p>
+          <p className="text-sm font-black text-rose-900 mt-1 leading-none">{salesStockOut}</p>
         </div>
-        <div className="bg-orange-50 rounded-xl p-3 shadow-sm">
-          <p className="text-xs text-gray-500 mb-1">Transfer Stock Out</p>
-          <p className="text-2xl font-bold text-orange-500">{transferStockOut}</p>
+        <div className="p-1.5 bg-amber-50 rounded border border-amber-100">
+          <p className="text-[9px] font-bold text-amber-800 capitalize tracking-tight leading-none">Transfers Out</p>
+          <p className="text-sm font-black text-amber-900 mt-1 leading-none">{transferStockOut}</p>
         </div>
-        <div className="bg-indigo-50 rounded-xl p-3 shadow-sm">
-          <p className="text-xs text-gray-500 mb-1">Current Stock</p>
-          <p className="text-2xl font-bold text-indigo-600">{currentStock}</p>
+        <div className="p-1.5 bg-indigo-50 rounded border border-indigo-100">
+          <p className="text-[9px] font-bold text-indigo-800 capitalize tracking-tight leading-none">Current Stock</p>
+          <p className="text-sm font-black text-indigo-900 mt-1 leading-none">{currentStock}</p>
         </div>
       </div>
     </div>

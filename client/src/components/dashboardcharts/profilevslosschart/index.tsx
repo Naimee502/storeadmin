@@ -23,7 +23,7 @@ interface TransactionEntry {
 
 interface Transaction {
   id: string;
-  transactiondate: string; // timestamp in ms
+  transactiondate: string;
   entries: TransactionEntry[];
   source: { docmodel: string; docid: string };
   totaldebit: number;
@@ -38,21 +38,19 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
   const { chartData, chartOptions } = useMemo(() => {
     const getMonthYear = (timestamp: string) => {
       let ts = Number(timestamp);
-      if (ts < 1e12) ts = ts * 1000; // Convert seconds to ms if needed
+      if (ts < 1e12) ts = ts * 1000;
       const date = new Date(ts);
       return date.toLocaleString("default", { month: "short", year: "numeric" });
     };
 
     const monthlyData: Record<string, { revenue: number; expense: number }> = {};
 
-    // ✅ Use transactions directly
     transactions.forEach((trx) => {
       const monthYear = getMonthYear(trx.transactiondate);
 
       if (!monthlyData[monthYear]) monthlyData[monthYear] = { revenue: 0, expense: 0 };
 
       trx.entries.forEach((entry) => {
-        // Revenue: SalesInvoice credits minus sales commissions
         if (trx.source.docmodel === "SalesInvoice") {
           if (entry.credit > 0) monthlyData[monthYear].revenue += entry.credit;
           if (entry.debit > 0 && entry.ledgerid.ledgername.includes("Commission")) {
@@ -60,7 +58,6 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
           }
         }
 
-        // Expenses: PurchaseInvoice debits, taxes, commissions, or expense ledgers
         if (trx.source.docmodel === "PurchaseInvoice") {
           if (entry.debit > 0) monthlyData[monthYear].expense += entry.debit;
         }
@@ -74,8 +71,6 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
       });
     });
 
-    console.log("Monthly Profit/Loss Calculation:", monthlyData);
-
     const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
       const [aMonth, aYear] = a.split(" ");
       const [bMonth, bYear] = b.split(" ");
@@ -88,13 +83,13 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
       labels: sortedMonths,
       datasets: [
         {
-          label: "Profit / Loss (₹)",
+          label: "Net Balance (₹)",
           data: profitLoss,
           backgroundColor: profitLoss.map((v) =>
-            v >= 0 ? "rgba(34,197,94,0.7)" : "rgba(239,68,68,0.7)"
+            v >= 0 ? "rgba(16, 185, 129, 0.7)" : "rgba(239, 68, 68, 0.7)"
           ),
           borderColor: profitLoss.map((v) =>
-            v >= 0 ? "rgba(22,163,74,1)" : "rgba(220,38,38,1)"
+            v >= 0 ? "rgba(5, 150, 105, 1)" : "rgba(220, 38, 38, 1)"
           ),
           borderWidth: 1,
         },
@@ -103,9 +98,9 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
 
     const options = {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
-        legend: { position: "top" as const },
-        title: { display: true, text: "Monthly Profit vs Loss" },
+        legend: { position: "top" as const, labels: { font: { size: 10 } } },
         tooltip: {
           callbacks: {
             label: function (context: any) {
@@ -116,8 +111,8 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
         },
       },
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: "Amount (₹)" } },
-        x: { title: { display: true, text: "Month-Year" } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 } }, title: { display: true, text: "Amount (₹)", font: { size: 10 } } },
+        x: { ticks: { font: { size: 10 } } },
       },
     };
 
@@ -125,9 +120,14 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
   }, [transactions]);
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <h2 className="text-md font-semibold mb-2">📊 Profit vs Loss</h2>
-      <Bar data={chartData} options={chartOptions} />
+    <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs font-sans flex flex-col justify-between h-80 sm:h-96">
+      <div>
+        <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Profit vs Loss Trend</h3>
+        <p className="text-[10px] text-gray-500 mb-2">Monthly ledger net cashflow summary</p>
+      </div>
+      <div className="flex-1 min-h-[220px]">
+        <Bar data={chartData} options={chartOptions} />
+      </div>
     </div>
   );
 };

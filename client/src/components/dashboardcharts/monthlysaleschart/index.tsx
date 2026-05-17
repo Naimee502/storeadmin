@@ -1,5 +1,3 @@
-// components/Charts/MonthlySalesChart.tsx
-
 import React, { useMemo } from "react";
 import { Line } from "react-chartjs-2";
 import {
@@ -16,7 +14,6 @@ import {
 // Register ChartJS modules
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// Types
 export interface SalesInvoiceProductService {
   qty?: number;
   amount?: number;
@@ -39,20 +36,16 @@ const MonthlySalesChart: React.FC<Props> = ({ salesInvoices }) => {
     const monthlyRevenueMap: Record<string, number> = {};
     const monthlyUnitsMap: Record<string, number> = {};
 
-    // Step 1: Aggregate revenue and units sold per month
     salesInvoices.forEach((invoice) => {
       const date = new Date(invoice.billdate);
-      const monthLabel = date.toLocaleString("default", { month: "short", year: "numeric" }); // e.g., "Nov 2025"
+      const monthLabel = date.toLocaleString("default", { month: "short", year: "numeric" });
 
-      // Revenue
       monthlyRevenueMap[monthLabel] = (monthlyRevenueMap[monthLabel] ?? 0) + (invoice.totalamount ?? 0);
 
-      // Units sold
       const unitsSold = (invoice.productservice ?? []).reduce((sum, p) => sum + (p.qty ?? 0), 0);
       monthlyUnitsMap[monthLabel] = (monthlyUnitsMap[monthLabel] ?? 0) + unitsSold;
     });
 
-    // Step 2: Sort months chronologically
     const parseMonthYearToDate = (label: string) => {
       const [month, year] = label.split(" ");
       return new Date(parseInt(year), new Date(`${month} 1, 2000`).getMonth());
@@ -62,7 +55,6 @@ const MonthlySalesChart: React.FC<Props> = ({ salesInvoices }) => {
       (a, b) => parseMonthYearToDate(a).getTime() - parseMonthYearToDate(b).getTime()
     );
 
-    // Step 3: Prepare datasets
     const revenueData = sortedLabels.map((label) => monthlyRevenueMap[label]);
     const unitsData = sortedLabels.map((label) => monthlyUnitsMap[label]);
 
@@ -77,8 +69,8 @@ const MonthlySalesChart: React.FC<Props> = ({ salesInvoices }) => {
           fill: true,
           yAxisID: "y1",
           tension: 0.4,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          pointRadius: 3,
+          pointHoverRadius: 5,
         },
         {
           label: "Units Sold",
@@ -88,8 +80,8 @@ const MonthlySalesChart: React.FC<Props> = ({ salesInvoices }) => {
           fill: true,
           yAxisID: "y2",
           tension: 0.4,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          pointRadius: 3,
+          pointHoverRadius: 5,
         },
       ],
     };
@@ -97,31 +89,42 @@ const MonthlySalesChart: React.FC<Props> = ({ salesInvoices }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" as const },
+      legend: { position: "top" as const, labels: { font: { size: 10 } } },
       tooltip: { mode: "index" as const, intersect: false },
-      title: { display: true, text: "📈 Monthly Revenue & Units Sold" },
     },
     scales: {
       y1: {
         type: "linear" as const,
         display: true,
         position: "left" as const,
-        title: { display: true, text: "Revenue (₹)" },
+        ticks: { font: { size: 10 } },
+        title: { display: true, text: "Revenue (₹)", font: { size: 10 } },
       },
       y2: {
         type: "linear" as const,
         display: true,
         position: "right" as const,
         grid: { drawOnChartArea: false },
-        title: { display: true, text: "Units Sold" },
+        ticks: { font: { size: 10 } },
+        title: { display: true, text: "Units Sold", font: { size: 10 } },
+      },
+      x: {
+        ticks: { font: { size: 10 } },
       },
     },
   };
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <Line data={chartData} options={options} />
+    <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs font-sans flex flex-col justify-between h-80 sm:h-96">
+      <div>
+        <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Monthly Revenue & Units</h3>
+        <p className="text-[10px] text-gray-500 mb-2">Aggregate ledger revenue vs volume</p>
+      </div>
+      <div className="flex-1 min-h-[220px]">
+        <Line data={chartData} options={options} />
+      </div>
     </div>
   );
 };

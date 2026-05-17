@@ -82,6 +82,7 @@ interface DataTableProps {
     onFormChange?: (name: string, value: string) => void;
     onFormSubmit?: () => void;
     onActiveToggle?: (checked: boolean) => void;
+    showActionsColumn?: boolean;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -124,6 +125,7 @@ const DataTable: React.FC<DataTableProps> = ({
     formErrors,
     onFormChange,
     onFormSubmit,
+    showActionsColumn = true,
 }) => {
     const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useState(1);
@@ -288,7 +290,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                         </div>
                                     </th>
                                 ))}
-                                <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>
+                                {showActionsColumn && <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>}
                             </tr>
                             <tr>
                                 {columns.map((col) => (
@@ -302,7 +304,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                         />
                                     </th>
                                 ))}
-                                <th></th>
+                                {showActionsColumn && <th></th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -316,66 +318,65 @@ const DataTable: React.FC<DataTableProps> = ({
                                             {row[col.key]}
                                         </td>
                                     ))}
-                                    <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
-                                        {showView && (
-                                            <button onClick={() => onView?.(row)} title="View">
-                                                <FaEye />
-                                            </button>
-                                        )}
-                                        {showEdit && (
-                                            <button onClick={() => onEdit?.(row)} title="Edit">
-                                                <FaEdit />
-                                            </button>
-                                        )}
-                                        {showDelete && (
-                                            <button onClick={() => onDelete?.(row)} title="Delete" className="text-red-500">
-                                                <FaTrash />
-                                            </button>
-                                        )}
-                                        {(typeof showReset === "function" ? showReset(row) : showReset) && (
-                                            <button onClick={() => onReset?.(row)} title="Reset" className="text-yellow-600">
-                                                <FaUndo />
-                                            </button>
-                                        )}
-                                        {showPrint && (
-                                            <button onClick={() => onPrint?.(row)} title="Print" className="text-green-600">
-                                                <FaPrint />
-                                            </button>
-                                        )}
-                                        {(typeof showWhatsApp === "function" ? showWhatsApp(row) : showWhatsApp) && (
-                                            <button
-                                                onClick={() => onWhatsApp?.(row)}
-                                                title="Share on WhatsApp"
-                                                aria-label="Share on WhatsApp"
-                                                // Same icon-only style as the other row actions; uses
-                                                // WhatsApp's brand green (#25D366) so it's clearly
-                                                // distinct from the green Print icon next to it.
-                                                style={{ color: "#25D366" }}
-                                            >
-                                                <FaWhatsapp size={18} />
-                                            </button>
-                                        )}
-                                        {showBarcode && (
-                                            <button onClick={() => onBarcode?.(row)} title="Barcode" className="text-purple-600">
-                                                <FaBarcode />
-                                            </button>
-                                        )}
-                                        {showConvert && (
-                                            <button onClick={() => onConvert?.(row)} title="Convert to Invoice" className="text-orange-600">
-                                                <FaFileInvoice />
-                                            </button>
-                                        )}
-                                        {(typeof showReturn === "function" ? showReturn(row) : showReturn) && (
-                                            <button onClick={() => onReturn?.(row)} title="Create Return" className="text-purple-600">
-                                                <FaReply />
-                                            </button>
-                                        )}
-                                        {(typeof showCancel === "function" ? showCancel(row) : showCancel) && (
-                                            <button onClick={() => onCancel?.(row)} title="Cancel Order" className="text-rose-600">
-                                                <FaBan />
-                                            </button>
-                                        )}
-                                    </td>
+                                    {showActionsColumn && (
+                                        <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
+                                            {showView && (
+                                                <button onClick={() => onView?.(row)} title="View">
+                                                    <FaEye />
+                                                </button>
+                                            )}
+                                            {showEdit && (
+                                                <button onClick={() => onEdit?.(row)} title="Edit">
+                                                    <FaEdit />
+                                                </button>
+                                            )}
+                                            {showDelete && (
+                                                <button onClick={() => onDelete?.(row)} title="Delete" className="text-red-500">
+                                                    <FaTrash />
+                                                </button>
+                                            )}
+                                            {(typeof showReset === "function" ? showReset(row) : showReset) && (
+                                                <button onClick={() => onReset?.(row)} title="Reset" className="text-yellow-600">
+                                                    <FaUndo />
+                                                </button>
+                                            )}
+                                            {showPrint && (
+                                                <button onClick={() => onPrint?.(row)} title="Print" className="text-green-600">
+                                                    <FaPrint />
+                                                </button>
+                                            )}
+                                            {(typeof showWhatsApp === "function" ? showWhatsApp(row) : showWhatsApp) && (
+                                                <button
+                                                    onClick={() => onWhatsApp?.(row)}
+                                                    title="Share on WhatsApp"
+                                                    aria-label="Share on WhatsApp"
+                                                    style={{ color: "#25D366" }}
+                                                >
+                                                    <FaWhatsapp size={18} />
+                                                </button>
+                                            )}
+                                            {showBarcode && (
+                                                <button onClick={() => onBarcode?.(row)} title="Barcode" className="text-purple-600">
+                                                    <FaBarcode />
+                                                </button>
+                                            )}
+                                            {showConvert && (
+                                                <button onClick={() => onConvert?.(row)} title="Convert to Invoice" className="text-orange-600">
+                                                    <FaFileInvoice />
+                                                </button>
+                                            )}
+                                            {(typeof showReturn === "function" ? showReturn(row) : showReturn) && (
+                                                <button onClick={() => onReturn?.(row)} title="Create Return" className="text-purple-600">
+                                                    <FaReply />
+                                                </button>
+                                            )}
+                                            {(typeof showCancel === "function" ? showCancel(row) : showCancel) && (
+                                                <button onClick={() => onCancel?.(row)} title="Cancel Order" className="text-rose-600">
+                                                    <FaBan />
+                                                </button>
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
