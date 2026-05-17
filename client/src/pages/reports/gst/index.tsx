@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
+import { FaCalculator, FaMoneyCheckAlt, FaFileInvoiceDollar, FaBoxes, FaFileAlt, FaFileContract } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
@@ -8,19 +9,19 @@ import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 
-const GSTReports: React.FC = () => {
-  const reportTabs = [
-    "GST Summary",
-    "GST Payable",
-    "GST Receivable",
-    "GST by Product",
-    "GSTR-1",
-    "GSTR-2",
-  ];
+const reportTabsObj = [
+  { id: "GST Summary", label: "GST Summary", icon: <FaCalculator className="text-blue-600" /> },
+  { id: "GST Payable", label: "GST Payable", icon: <FaMoneyCheckAlt className="text-amber-600" /> },
+  { id: "GST Receivable", label: "GST Receivable", icon: <FaFileInvoiceDollar className="text-emerald-600" /> },
+  { id: "GST by Product", label: "GST by Product", icon: <FaBoxes className="text-purple-600" /> },
+  { id: "GSTR-1", label: "GSTR-1", icon: <FaFileAlt className="text-rose-600" /> },
+  { id: "GSTR-2", label: "GSTR-2", icon: <FaFileContract className="text-indigo-600" /> },
+];
 
-  const [activeTab, setActiveTab] = useState(reportTabs[0]);
+const GSTReports: React.FC = () => {
+  const [activeTab, setActiveTab] = useState(reportTabsObj[0].id);
   const [filters, setFilters] = useState({});
-const [appliedFilters, setAppliedFilters] = useState({} as any);
+  const [appliedFilters, setAppliedFilters] = useState({} as any);
 
   const { data: accountsData } = useAccountsQuery();
   const { data: salesData } = useSalesInvoicesQuery();
@@ -390,21 +391,26 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+        <div className="flex flex-wrap gap-2 mb-4">
+          {reportTabsObj.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
         <ReportTable
           title="GST Reports"

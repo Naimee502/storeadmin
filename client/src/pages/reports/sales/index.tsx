@@ -12,8 +12,13 @@ import PrintableInvoice from "../../../components/printinvoice";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
 import { normalizeToYMD } from "../../../utils/helper";
+import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 
-const reportTabs = ["Sales Invoice", "Sales Order", "Sales Return (CN)"];
+const reportTabs = [
+  { id: "Sales Order", label: "Sales Order", icon: <FaClipboardList className="text-amber-600" /> },
+  { id: "Sales Invoice", label: "Sales Invoice", icon: <FaFileInvoiceDollar className="text-blue-600" /> },
+  { id: "Sales Return (CN)", label: "Sales Return (CN)", icon: <FaUndoAlt className="text-rose-600" /> },
+];
 
 // Safely capitalize a value that may be string | boolean | null | undefined
 const cap = (val: any): string => {
@@ -27,7 +32,7 @@ const SalesReports: React.FC = () => {
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  const [activeTab, setActiveTab] = useState(reportTabs[0]);
+  const [activeTab, setActiveTab] = useState(reportTabs[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
@@ -91,12 +96,6 @@ const SalesReports: React.FC = () => {
     return invoiceList
       .map((inv, idx) => {
         const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
-        const paymentTypeStr = inv.paymenttype
-          ? inv.paymenttype.charAt(0).toUpperCase() + inv.paymenttype.slice(1)
-          : "";
-        const billtypeCap = inv.billtype
-          ? inv.billtype.charAt(0).toUpperCase() + inv.billtype.slice(1)
-          : "";
         const partyAccObj = inv.partyacc;
         const partyaccStr = partyAccObj
           ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
@@ -112,11 +111,11 @@ const SalesReports: React.FC = () => {
 
         return {
           seqNo: idx + 1,
-          billNo: `${billtypeCap}-${inv.billnumber}`,
+          billNo: `${cap(inv.billtype)}-${inv.billnumber}`,
           billdate: normalizeToYMD(inv.billdate) || "",
           partyacc: partyaccStr,
           partyaccId: partyAccObj?.id || "Unknown",
-          paymenttype: paymentTypeStr,
+          paymenttype: cap(inv.paymenttype),
           productname: productNames,
           productIds,
           totalitem: inv.productservice?.length ?? 0,
@@ -312,21 +311,26 @@ const SalesReports: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+        <div className="flex flex-wrap gap-2 mb-4">
+          {reportTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <ReportTable

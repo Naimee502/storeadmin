@@ -5,6 +5,14 @@ import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../.
 import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { normalizeToYMD } from "../../../utils/helper";
+import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt } from "react-icons/fa";
+
+const reportTabsObj = [
+  { id: "Current Stock", label: "Current Stock", icon: <FaBoxes className="text-blue-600" /> },
+  { id: "Low Stock", label: "Low Stock", icon: <FaExclamationTriangle className="text-amber-600" /> },
+  { id: "Stock Valuation", label: "Stock Valuation", icon: <FaChartLine className="text-emerald-600" /> },
+  { id: "Stock Transfers", label: "Stock Transfers", icon: <FaExchangeAlt className="text-purple-600" /> },
+];
 
 const StockReports: React.FC = () => {
   const { data: productData } = useProductServicesQuery();
@@ -19,8 +27,7 @@ const StockReports: React.FC = () => {
   const deletedTransfers = deletedTransferData?.getDeletedTransferStocks || [];
   const branches = branchData?.getBranches || [];
 
-  const reportTabs = ["Current Stock", "Low Stock", "Stock Valuation", "Stock Transfers"];
-  const [activeTab, setActiveTab] = useState<string>(reportTabs[0]);
+  const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
@@ -186,21 +193,26 @@ const StockReports: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+        <div className="flex flex-wrap gap-2 mb-4">
+          {reportTabsObj.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
         <ReportTable
           title="Stock Reports"

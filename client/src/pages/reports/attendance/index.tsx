@@ -17,6 +17,14 @@ import {
 } from "../../../graphql/queries/attendance";
 import { useAppSelector } from "../../../redux/hooks";
 import { normalizeToYMD } from "../../../utils/helper";
+import { FaCalendarDay, FaUserClock, FaCalendarCheck, FaUserTimes } from "react-icons/fa";
+
+const reportTabsObj = [
+  { id: "Daily Logs", label: "Daily Logs", icon: <FaCalendarDay className="text-blue-600" /> },
+  { id: "Punch Trail", label: "Punch Trail", icon: <FaUserClock className="text-amber-600" /> },
+  { id: "Leave Summary", label: "Leave Summary", icon: <FaCalendarCheck className="text-emerald-600" /> },
+  { id: "Leave Requests", label: "Leave Requests", icon: <FaUserTimes className="text-rose-600" /> },
+];
 
 /* ── Helpers ── */
 const fmtDateTime = (iso?: string | null) => {
@@ -37,8 +45,7 @@ const cap = (s?: string | null) =>
 
 /* ── Component ── */
 const AttendanceReports: React.FC = () => {
-  const reportTabs = ["Daily Logs", "Punch Trail", "Leave Summary", "Leave Requests"];
-  const [activeTab, setActiveTab] = useState<string>(reportTabs[0]);
+  const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
@@ -311,21 +318,26 @@ const AttendanceReports: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+        <div className="flex flex-wrap gap-2 mb-4 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+          {reportTabsObj.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
         <ReportTable
           title={title}

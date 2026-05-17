@@ -293,20 +293,22 @@ const ReportTable: React.FC<ReportTableProps> = ({
             </div>
 
             {/* Apply + Reset buttons — same row */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-gray-200">
               <button
+                type="button"
                 onClick={handleApply}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 !bg-slate-900 !text-white rounded-md hover:!bg-black text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-slate-900"
               >
-                <FaCheck size={12} />
-                <span>Apply</span>
+                <FaCheck className="!text-white flex-shrink-0" size={14} />
+                <span className="!text-white font-bold">Apply Filter</span>
               </button>
               <button
+                type="button"
                 onClick={handleReset}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 !bg-gray-600 !text-white rounded-md hover:!bg-gray-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-gray-600"
               >
-                <FaSync size={12} />
-                <span>Reset</span>
+                <FaSync className="!text-white flex-shrink-0" size={14} />
+                <span className="!text-white font-bold">Reset Filter</span>
               </button>
             </div>
           </div>
@@ -316,13 +318,13 @@ const ReportTable: React.FC<ReportTableProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
           {/* Left: entries selector + export buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1">
               <span className="text-gray-600">Show</span>
               <select
                 value={entriesPerPage}
                 onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="border rounded px-2 py-1 text-sm"
+                className="border rounded px-2 py-1 text-sm bg-white"
               >
                 {entriesOptions.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
@@ -330,33 +332,38 @@ const ReportTable: React.FC<ReportTableProps> = ({
             </div>
 
             {/* Export buttons with visible icon + text */}
-            {showExport && (
-              <button
-                onClick={handleExcelExport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
-              >
-                <FaFileExcel size={14} />
-                <span>Excel</span>
-              </button>
-            )}
-            {showCsv && (
-              <button
-                onClick={handleCsvExport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium"
-              >
-                <FaFileCsv size={14} />
-                <span>CSV</span>
-              </button>
-            )}
-            {showPdf && (
-              <button
-                onClick={handlePdfExport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
-              >
-                <FaFilePdf size={14} />
-                <span>PDF</span>
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {showExport && (
+                <button
+                  type="button"
+                  onClick={handleExcelExport}
+                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-emerald-600 !text-white rounded-md hover:!bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-emerald-600"
+                >
+                  <FaFileExcel className="!text-white flex-shrink-0" size={15} />
+                  <span className="!text-white font-bold">Export Excel</span>
+                </button>
+              )}
+              {showCsv && (
+                <button
+                  type="button"
+                  onClick={handleCsvExport}
+                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-teal-600 !text-white rounded-md hover:!bg-teal-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-teal-600"
+                >
+                  <FaFileCsv className="!text-white flex-shrink-0" size={15} />
+                  <span className="!text-white font-bold">Export CSV</span>
+                </button>
+              )}
+              {showPdf && (
+                <button
+                  type="button"
+                  onClick={handlePdfExport}
+                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-rose-600 !text-white rounded-md hover:!bg-rose-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-rose-600"
+                >
+                  <FaFilePdf className="!text-white flex-shrink-0" size={15} />
+                  <span className="!text-white font-bold">Export PDF</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Right: global search */}

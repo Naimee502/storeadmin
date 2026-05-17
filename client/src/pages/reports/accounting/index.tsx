@@ -1,24 +1,29 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
+import { FaBookOpen, FaChartPie, FaBalanceScale, FaWater, FaListUl, FaHandHoldingUsd, FaReceipt } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
+import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+import { normalizeToYMD } from "../../../utils/helper";
+
+const reportTabsObj = [
+    { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-blue-600" /> },
+    { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-emerald-600" /> },
+    { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-purple-600" /> },
+    { id: "Cash Flow Statement", label: "Cash Flow Statement", icon: <FaWater className="text-cyan-600" /> },
+    { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-amber-600" /> },
+    { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-rose-600" /> },
+    { id: "Expense Notes", label: "Expense Notes", icon: <FaReceipt className="text-rose-600" /> },
+];
 
 const AccountingFinanceReports: React.FC = () => {
-    const reportTabs = [
-        "Ledger",
-        "Profit & Loss",
-        "Balance Sheet",
-        "Cash Flow Statement",
-        "Transactions Summary",
-        "Payments / Receipts",
-    ];
-
-    const [activeTab, setActiveTab] = useState(reportTabs[0]);
+    const [activeTab, setActiveTab] = useState(reportTabsObj[0].id);
     const [filters, setFilters] = useState<{ [key: string]: any }>({});
     const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
@@ -30,12 +35,16 @@ const AccountingFinanceReports: React.FC = () => {
     const { data: accountLedgerData } = useAccountLedgersQuery();
     const { data: transactionsData } = useTransactionsQuery();
     const { data: paymentsData } = usePaymentsQuery();
+    const { data: expenseData } = useExpenseNotesQuery();
+    const { data: staffData } = useStaffQuery();
 
     const accounts = accountsData?.getAccounts || [];
     const accountsGroup = accountsGroupData?.getAccountGroups || [];
     const ledgers = accountLedgerData?.getAccountLedgers || [];
     const transactions = transactionsData?.getTransactions || [];
     const payments = paymentsData?.getPayments || [];
+    const expenseNotes = expenseData?.getExpenseNotes || [];
+    const staff = staffData?.getStaffAccounts || [];
 
     // -----------------------------
     // Default date filter = last 30 days
@@ -304,16 +313,51 @@ const AccountingFinanceReports: React.FC = () => {
         value: a.id,
     }));
 
-    let tableData = [];
+    const staffOptions = staff.map((s: any) => ({
+        label: `${s.firstname || ""} ${s.lastname || ""}`.trim() || s.username || s.name,
+        value: s.id,
+    }));
+
+    const expenseTableData = useMemo(() => {
+        return expenseNotes
+            .filter((e: any) => {
+                const date = normalizeToYMD(e.date || e.expensedate);
+                if (appliedFilters.fromDate && date < appliedFilters.fromDate) return false;
+                if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
+                if (appliedFilters.staffId && (e.staffaccountid?.id || e.staffid?.id) !== appliedFilters.staffId) return false;
+                if (appliedFilters.category && e.category !== appliedFilters.category) return false;
+                if (appliedFilters.paymenttype && (e.paymentmode || e.paymenttype) !== appliedFilters.paymenttype) return false;
+                return true;
+            })
+            .map((e: any, idx: number) => ({
+                seqNo: idx + 1,
+                expenseNo: e.expensenumber || "-",
+                expenseDate: normalizeToYMD(e.date || e.expensedate) || "-",
+                category: e.category === "tada" ? "TA/DA" : e.category ? e.category.charAt(0).toUpperCase() + e.category.slice(1) : "-",
+                staffName: `${e.staffaccountid?.firstname || ""} ${e.staffaccountid?.lastname || ""}`.trim() || e.staffaccountid?.username || e.staffid?.name || "-",
+                ledger: e.ledgerid?.ledgername || "-",
+                paymentType: (e.paymentmode || e.paymenttype) ? (e.paymentmode || e.paymenttype).charAt(0).toUpperCase() + (e.paymentmode || e.paymenttype).slice(1) : "-",
+                narration: e.notes || e.narration || "-",
+                totalGst: Number(e.totalgst || 0).toFixed(2),
+                totalAmount: Number(e.amount || e.totalamount || 0).toFixed(2),
+                status: e.status ? e.status.charAt(0).toUpperCase() + e.status.slice(1) : "-",
+            }));
+    }, [expenseNotes, appliedFilters]);
+
+    let tableData: any[] = [];
     let columns: any[] = [];
     let filterFields: ReportFilterField[] = [
         { name: "fromDate", label: "From Date", type: "date" },
         { name: "toDate", label: "To Date", type: "date" },
     ];
+    let title = "Accounting & Finance Reports";
+    let exportFileName = "AccountingReport";
 
     switch (activeTab) {
         case "Ledger":
             tableData = ledgerData;
+            title = "Account Ledger Report";
+            exportFileName = "LedgerReport";
             columns = [
                 { label: "Transaction Code", key: "transactionCode" },
                 { label: "Date", key: "transactionDate" },
@@ -333,6 +377,8 @@ const AccountingFinanceReports: React.FC = () => {
 
         case "Payments / Receipts":
             tableData = paymentsDataReport;
+            title = "Payments & Receipts Report";
+            exportFileName = "PaymentsReceiptsReport";
             columns = [
                 { label: "Payment Code", key: "paymentCode" },
                 { label: "Date", key: "paymentDate" },
@@ -353,6 +399,8 @@ const AccountingFinanceReports: React.FC = () => {
 
         case "Profit & Loss":
             tableData = profitLossData;
+            title = "Profit & Loss Report";
+            exportFileName = "ProfitLossReport";
             columns = [
                 { label: "Account", key: "account" },
                 { label: "Amount (₹)", key: "amount", numeric: true },
@@ -361,6 +409,8 @@ const AccountingFinanceReports: React.FC = () => {
 
         case "Balance Sheet":
             tableData = balanceSheetData;
+            title = "Balance Sheet";
+            exportFileName = "BalanceSheet";
             columns = [
                 { label: "Account", key: "account" },
                 { label: "Amount (₹)", key: "amount", numeric: true },
@@ -369,6 +419,8 @@ const AccountingFinanceReports: React.FC = () => {
 
         case "Cash Flow Statement":
             tableData = cashFlowData;
+            title = "Cash Flow Statement";
+            exportFileName = "CashFlowStatement";
             columns = [
                 { label: "Account", key: "account" },
                 { label: "Amount (₹)", key: "amount", numeric: true },
@@ -377,9 +429,44 @@ const AccountingFinanceReports: React.FC = () => {
 
         case "Transactions Summary":
             tableData = transactionsSummaryData;
+            title = "Transactions Summary";
+            exportFileName = "TransactionsSummary";
             columns = [
                 { label: "Account", key: "account" },
                 { label: "Amount / Count", key: "amount" },
+            ];
+            break;
+
+        case "Expense Notes":
+            tableData = expenseTableData;
+            title = "Expense Notes Report";
+            exportFileName = "ExpenseNotesReport";
+            columns = [
+                { label: "Seq No", key: "seqNo" },
+                { label: "Expense No", key: "expenseNo" },
+                { label: "Date", key: "expenseDate" },
+                { label: "Category", key: "category" },
+                { label: "Staff", key: "staffName" },
+                { label: "Ledger", key: "ledger" },
+                { label: "Payment Type", key: "paymentType" },
+                { label: "Narration", key: "narration" },
+                { label: "GST (₹)", key: "totalGst", numeric: true },
+                { label: "Amount (₹)", key: "totalAmount", numeric: true },
+                { label: "Status", key: "status" },
+            ];
+            filterFields = [
+                ...filterFields,
+                { name: "staffId", label: "Staff", type: "select", options: staffOptions, searchable: true },
+                { name: "category", label: "Category", type: "select", options: [
+                    { label: "TA/DA", value: "tada" },
+                    { label: "Salary", value: "salary" },
+                    { label: "Others", value: "others" },
+                ]},
+                { name: "paymenttype", label: "Payment Type", type: "select", options: [
+                    { label: "Cash", value: "cash" },
+                    { label: "Bank", value: "bank" },
+                    { label: "Online", value: "online" },
+                ]},
             ];
             break;
 
@@ -389,24 +476,29 @@ const AccountingFinanceReports: React.FC = () => {
 
     return (
         <HomeLayout>
-            <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-                <div className="flex gap-2 mb-4 flex-wrap">
-                    {reportTabs.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                                activeTab === tab
-                                    ? "bg-blue-600 text-white border-blue-600"
-                                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                            }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
+            <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+                <div className="flex flex-wrap gap-2 mb-4 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+                    {reportTabsObj.map((tab) => {
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                                    isActive
+                                        ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                                        : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                                }`}
+                            >
+                                <span>{tab.icon}</span>
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
                 </div>
                 <ReportTable
-                    title="Accounting & Finance Reports"
+                    title={title}
                     columns={columns}
                     data={tableData}
                     filterFields={filterFields}
@@ -417,7 +509,7 @@ const AccountingFinanceReports: React.FC = () => {
                     showExport
                     showCsv
                     showPdf
-                    exportFileName="AccountingReport"
+                    exportFileName={exportFileName}
                     showTotals
                 />
             </div>

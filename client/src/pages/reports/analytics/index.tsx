@@ -3,31 +3,26 @@ import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
-import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { normalizeToYMD } from "../../../utils/helper";
+import { FaTrophy, FaHourglassHalf, FaChartLine } from "react-icons/fa";
+
+const reportTabsObj = [
+  { id: "Top Selling Products", label: "Top Selling Products", icon: <FaTrophy className="text-amber-500" /> },
+  { id: "Slow Moving Products", label: "Slow Moving Products", icon: <FaHourglassHalf className="text-blue-500" /> },
+  { id: "Profit Margin Analysis", label: "Profit Margin Analysis", icon: <FaChartLine className="text-emerald-500" /> },
+];
 
 const AnalyticalReports: React.FC = () => {
-  const reportTabs = [
-    "Top Selling Products",
-    "Slow Moving Products",
-    "Profit Margin Analysis",
-    "Expense Notes",
-  ];
-  const [activeTab, setActiveTab] = useState<string>(reportTabs[0]);
+  const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
   // Fetch data
   const { data: salesData } = useSalesInvoicesQuery();
   const { data: productData } = useProductServicesQuery();
-  const { data: expenseData } = useExpenseNotesQuery();
-  const { data: staffData } = useStaffQuery();
 
   const salesInvoices = salesData?.getSalesInvoices || [];
   const products = productData?.getProductServices || [];
-  const expenseNotes = expenseData?.getExpenseNotes || [];
-  const staff = staffData?.getStaffAccounts || [];
 
   // Initialize date filter (last 30 days)
   useEffect(() => {
@@ -108,42 +103,6 @@ const AnalyticalReports: React.FC = () => {
     }));
   }, [salesInvoices, appliedFilters]);
 
-  // ── Expense Notes ──
-  const staffOptions = staff.map((s: any) => ({ label: s.name, value: s.id }));
-
-  const expenseTableData = useMemo(() => {
-    return expenseNotes
-      .filter((e: any) => {
-        const date = normalizeToYMD(e.expensedate);
-        if (appliedFilters.fromDate && date < appliedFilters.fromDate) return false;
-        if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
-        if (appliedFilters.staffId && e.staffid?.id !== appliedFilters.staffId) return false;
-        if (appliedFilters.category && e.category !== appliedFilters.category) return false;
-        if (appliedFilters.paymenttype && e.paymenttype !== appliedFilters.paymenttype) return false;
-        return true;
-      })
-      .map((e: any, idx: number) => ({
-        seqNo: idx + 1,
-        expenseNo: e.expensenumber || "-",
-        expenseDate: normalizeToYMD(e.expensedate) || "-",
-        category:
-          e.category === "tada"
-            ? "TA/DA"
-            : e.category
-            ? e.category.charAt(0).toUpperCase() + e.category.slice(1)
-            : "-",
-        staffName: e.staffid?.name || "-",
-        ledger: e.ledgerid?.ledgername || "-",
-        paymentType: e.paymenttype
-          ? e.paymenttype.charAt(0).toUpperCase() + e.paymenttype.slice(1)
-          : "-",
-        narration: e.narration || "-",
-        totalGst: Number(e.totalgst || 0).toFixed(2),
-        totalAmount: Number(e.totalamount || 0).toFixed(2),
-        status: e.status ? e.status.charAt(0).toUpperCase() + e.status.slice(1) : "-",
-      }));
-  }, [expenseNotes, appliedFilters]);
-
   // ── Tab Config ──
   let tableData: any[] = [];
   let columns: any[] = [];
@@ -197,59 +156,30 @@ const AnalyticalReports: React.FC = () => {
         { name: "toDate", label: "To Date", type: "date" },
       ];
       break;
-
-    case "Expense Notes":
-      tableData = expenseTableData;
-      title = "Expense Notes Report";
-      exportFileName = "ExpenseNoteReport";
-      columns = [
-        { label: "Seq No", key: "seqNo" },
-        { label: "Expense No", key: "expenseNo" },
-        { label: "Date", key: "expenseDate" },
-        { label: "Category", key: "category" },
-        { label: "Staff", key: "staffName" },
-        { label: "Ledger", key: "ledger" },
-        { label: "Payment Type", key: "paymentType" },
-        { label: "Narration", key: "narration" },
-        { label: "GST (₹)", key: "totalGst", numeric: true },
-        { label: "Amount (₹)", key: "totalAmount", numeric: true },
-        { label: "Status", key: "status" },
-      ];
-      filterFields = [
-        { name: "fromDate", label: "From Date", type: "date" },
-        { name: "toDate", label: "To Date", type: "date" },
-        { name: "staffId", label: "Staff", type: "select", options: staffOptions, searchable: true },
-        { name: "category", label: "Category", type: "select", options: [
-          { label: "TA/DA", value: "tada" },
-          { label: "Salary", value: "salary" },
-          { label: "Others", value: "others" },
-        ]},
-        { name: "paymenttype", label: "Payment Type", type: "select", options: [
-          { label: "Cash", value: "cash" },
-          { label: "Bank", value: "bank" },
-          { label: "Online", value: "online" },
-        ]},
-      ];
-      break;
   }
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {reportTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
+        <div className="flex flex-wrap gap-2 mb-4 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+          {reportTabsObj.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
+                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
         <ReportTable
           title={title}
