@@ -121,41 +121,59 @@ export const purchaseInvoiceResolvers = {
 
   Mutation: {
     addPurchaseInvoice: async (_: any, { input }: any, context: any) => {
-      // ✅ Extract user info from context and populate createdby fields
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
-      };
+      try {
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
 
-      // ✅ Always use AdminSettings for autocreate (ignore user input)
-      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-      console.log("📋 AdminSettings fetched:", {
-        autoCreateLedgerOnPurchaseInvoice: settings?.autoCreateLedgerOnPurchaseInvoice,
-        autoCreateStockOnPurchaseInvoice: settings?.autoCreateStockOnPurchaseInvoice,
-      });
+        console.log("=== Purchase Invoice Create ===");
+        console.log("User from context:", user);
+        console.log("CreatedbyData:", createdbyData);
 
-      const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
-          stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
-        },
-      };
+        // ✅ Always use AdminSettings for autocreate (ignore user input)
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        console.log("📋 AdminSettings fetched:", {
+          autoCreateLedgerOnPurchaseInvoice: settings?.autoCreateLedgerOnPurchaseInvoice,
+          autoCreateStockOnPurchaseInvoice: settings?.autoCreateStockOnPurchaseInvoice,
+        });
 
-      console.log("✅ AutoCreate data being saved:", autoCreateData);
+        const autoCreateData = {
+          autocreate: {
+            ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
+            stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
+          },
+        };
 
-      const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
-      console.log("✅ Created invoice autocreate:", created.autocreate);
+        console.log("✅ AutoCreate data being saved:", autoCreateData);
 
-      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-      // (ensures Transaction/Payment Created By is never N/A)
-      await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+        const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
+        console.log("✅ Created invoice autocreate:", created.autocreate);
 
-      const invoice = await PurchaseInvoice.findById(created._id)
-        .populate(populateFields)
-        .lean();
-      return invoice ? formatInvoice(invoice) : null;
+        console.log("Created Purchase Invoice:", {
+          id: created._id,
+          createdby_id: created.createdby_id,
+          createdby_name: created.createdby_name,
+          createdby_type: created.createdby_type
+        });
+
+        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+        // (ensures Transaction/Payment Created By is never N/A)
+        await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+
+        const invoice = await PurchaseInvoice.findById(created._id)
+          .populate(populateFields)
+          .lean();
+        return invoice ? formatInvoice(invoice) : null;
+      } catch (error: any) {
+        console.error("=== ERROR Creating Purchase Invoice ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
+      }
     },
 
     editPurchaseInvoice: async (_: any, { id, input }: any, context: any) => {

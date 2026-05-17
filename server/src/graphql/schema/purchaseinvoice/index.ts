@@ -59,6 +59,9 @@ export const purchaseInvoiceTypeDefs = gql`
     productservice: [PurchaseInvoiceProductService!]!
     isservice: Boolean!
     autocreate: Boolean!
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -82,6 +85,9 @@ export const purchaseInvoiceTypeDefs = gql`
     productservice: [PurchaseInvoiceProductServiceInput!]!
     isservice: Boolean
     autocreate: Boolean
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean
   }
 

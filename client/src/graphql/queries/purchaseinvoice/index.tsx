@@ -37,6 +37,9 @@ export const GET_PURCHASE_INVOICES = gql`
         serviceaccountid { id ledgername }
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
@@ -80,6 +83,9 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
         serviceaccountid { id ledgername }
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
@@ -123,6 +129,9 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
         serviceaccountid { id ledgername }
       }
       isservice
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
