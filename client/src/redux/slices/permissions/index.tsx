@@ -56,6 +56,11 @@ const isModuleInAllowed = (state: any, moduleId: string): boolean => {
   return true;
 };
 
+// Selector to check if a specific module is allowed
+export const selectIsModuleAllowed = (state: any, moduleId: string): boolean => {
+  return isModuleInAllowed(state, moduleId);
+};
+
 // Selectors for slice-based access
 export const selectModuleActions = (state: any, moduleId: string) => {
   const role = state.auth.type?.toString().toLowerCase();

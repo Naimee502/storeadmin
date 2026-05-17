@@ -16,6 +16,8 @@ import {
   FaExchangeAlt,
   FaClipboardList,
 } from "react-icons/fa";
+import { useAppSelector } from "../../redux/hooks";
+import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 
 interface StatsCardsProps {
   customerData?: any;
@@ -54,6 +56,9 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string>("all");
+
+  const fullState = useAppSelector((state: any) => state);
+  const isAllowed = (moduleId: string) => selectIsModuleAllowed(fullState, moduleId);
 
   // Extract arrays
   const customers = Array.isArray(customerData?.getAccounts) ? customerData.getAccounts : [];
@@ -117,33 +122,37 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   const presentCount = attendanceSummary?.presentDays ?? 0;
   const pendingLeaves = leaveRequests.filter((l) => l.status?.toLowerCase() === "pending").length;
 
-  const stats = [
+  const rawStats = [
     // Financial & Invoicing (4 cards)
-    { category: "financial", label: "Invoiced Sales", value: `₹${totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${totalInvoices} Invoices`, icon: <FaFileInvoiceDollar />, path: "/salesinvoice", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
-    { category: "financial", label: "Purchase Bills", value: `₹${totalPurchases.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${purchaseinvoices.length} Bills`, icon: <FaReceipt />, path: "/purchaseinvoice", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
-    { category: "financial", label: "Expenses Total", value: `₹${totalExpenses.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${expenseNotes.length + payments.length} Entries`, icon: <FaMoneyCheckAlt />, path: "/expensenote", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
-    { category: "financial", label: "Net Cashflow", value: `₹${netBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: netBalance >= 0 ? "Surplus" : "Deficit", icon: <FaDollarSign />, path: "/transactions", color: netBalance >= 0 ? "text-emerald-600" : "text-rose-600", bgIcon: netBalance >= 0 ? "bg-emerald-50" : "bg-rose-50", borderHover: netBalance >= 0 ? "hover:border-emerald-400" : "hover:border-rose-400" },
+    { moduleId: "salesinvoice", category: "financial", label: "Invoiced Sales", value: `₹${totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${totalInvoices} Invoices`, icon: <FaFileInvoiceDollar />, path: "/salesinvoice", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
+    { moduleId: "purchaseinvoice", category: "financial", label: "Purchase Bills", value: `₹${totalPurchases.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${purchaseinvoices.length} Bills`, icon: <FaReceipt />, path: "/purchaseinvoice", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
+    { moduleId: "expensenote", category: "financial", label: "Expenses Total", value: `₹${totalExpenses.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${expenseNotes.length + payments.length} Entries`, icon: <FaMoneyCheckAlt />, path: "/expensenote", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
+    { moduleId: "transactions", category: "financial", label: "Net Cashflow", value: `₹${netBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: netBalance >= 0 ? "Surplus" : "Deficit", icon: <FaDollarSign />, path: "/transactions", color: netBalance >= 0 ? "text-emerald-600" : "text-rose-600", bgIcon: netBalance >= 0 ? "bg-emerald-50" : "bg-rose-50", borderHover: netBalance >= 0 ? "hover:border-emerald-400" : "hover:border-rose-400" },
 
     // Orders & Returns (4 cards)
-    { category: "orders", label: "Pending SO", value: pendingSO, sub: `${salesOrders.length} Total Orders`, icon: <FaClipboardList />, path: "/salesorder", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
-    { category: "orders", label: "Pending PO", value: pendingPO, sub: `${purchaseOrders.length} Total POs`, icon: <FaClipboardList />, path: "/purchaseorder", color: "text-purple-600", bgIcon: "bg-purple-50", borderHover: "hover:border-purple-400" },
-    { category: "orders", label: "Sales Returns", value: `₹${totalSalesReturnVal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${salesReturns.length} Cr Notes`, icon: <FaUndoAlt />, path: "/salesreturn", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
-    { category: "orders", label: "Purchase Returns", value: `₹${totalPurchaseReturnVal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${purchaseReturns.length} Dr Notes`, icon: <FaUndoAlt />, path: "/purchasereturn", color: "text-cyan-600", bgIcon: "bg-cyan-50", borderHover: "hover:border-cyan-400" },
+    { moduleId: "salesorder", category: "orders", label: "Pending SO", value: pendingSO, sub: `${salesOrders.length} Total Orders`, icon: <FaClipboardList />, path: "/salesorder", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
+    { moduleId: "purchaseorder", category: "orders", label: "Pending PO", value: pendingPO, sub: `${purchaseOrders.length} Total POs`, icon: <FaClipboardList />, path: "/purchaseorder", color: "text-purple-600", bgIcon: "bg-purple-50", borderHover: "hover:border-purple-400" },
+    { moduleId: "salesreturn", category: "orders", label: "Sales Returns", value: `₹${totalSalesReturnVal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${salesReturns.length} Cr Notes`, icon: <FaUndoAlt />, path: "/salesreturn", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
+    { moduleId: "purchasereturn", category: "orders", label: "Purchase Returns", value: `₹${totalPurchaseReturnVal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${purchaseReturns.length} Dr Notes`, icon: <FaUndoAlt />, path: "/purchasereturn", color: "text-cyan-600", bgIcon: "bg-cyan-50", borderHover: "hover:border-cyan-400" },
 
     // Inventory & Stock (4 cards)
-    { category: "inventory", label: "Total Products", value: totalProducts, sub: "Catalog Items", icon: <FaArchive />, path: "/products", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
-    { category: "inventory", label: "Stock Units", value: totalCurrentStock, sub: "Total Stock Qty", icon: <FaBoxes />, path: "/products", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
-    { category: "inventory", label: "Low Stock Alert", value: lowStockCount, sub: "Below Minimum", icon: <FaExclamationTriangle />, path: "/products", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
-    { category: "inventory", label: "Stock Transfers", value: totalOutgoingTransfer, sub: `${transfers.length} Shipments`, icon: <FaExchangeAlt />, path: "/transferstock", color: "text-orange-600", bgIcon: "bg-orange-50", borderHover: "hover:border-orange-400" },
+    { moduleId: "products", category: "inventory", label: "Total Products", value: totalProducts, sub: "Catalog Items", icon: <FaArchive />, path: "/products", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
+    { moduleId: "products", category: "inventory", label: "Stock Units", value: totalCurrentStock, sub: "Total Stock Qty", icon: <FaBoxes />, path: "/products", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
+    { moduleId: "products", category: "inventory", label: "Low Stock Alert", value: lowStockCount, sub: "Below Minimum", icon: <FaExclamationTriangle />, path: "/products", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
+    { moduleId: "transferstock", category: "inventory", label: "Stock Transfers", value: totalOutgoingTransfer, sub: `${transfers.length} Shipments`, icon: <FaExchangeAlt />, path: "/transferstock", color: "text-orange-600", bgIcon: "bg-orange-50", borderHover: "hover:border-orange-400" },
 
     // HR & Operations (4 cards)
-    { category: "hr", label: "Party Accounts", value: customerCount, sub: "Debtors / Creditors", icon: <FaUsers />, path: "/accounts", color: "text-slate-600", bgIcon: "bg-slate-50", borderHover: "hover:border-slate-400" },
-    { category: "hr", label: "Staff Accounts", value: activeStaffCount, sub: `${staff.length} Registered`, icon: <FaUserTie />, path: "/staffaccounts", color: "text-indigo-600", bgIcon: "bg-indigo-50", borderHover: "hover:border-indigo-400" },
-    { category: "hr", label: "Present Today", value: `${presentCount} Staff`, sub: "Attendance Pulse", icon: <FaCalendarCheck />, path: "/attendance", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
-    { category: "hr", label: "Pending Leaves", value: pendingLeaves, sub: "Awaiting Approval", icon: <FaCalendarCheck />, path: "/attendance", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
+    { moduleId: "accounts", category: "hr", label: "Party Accounts", value: customerCount, sub: "Debtors / Creditors", icon: <FaUsers />, path: "/accounts", color: "text-slate-600", bgIcon: "bg-slate-50", borderHover: "hover:border-slate-400" },
+    { moduleId: "staffaccounts", category: "hr", label: "Staff Accounts", value: activeStaffCount, sub: `${staff.length} Registered`, icon: <FaUserTie />, path: "/staffaccounts", color: "text-indigo-600", bgIcon: "bg-indigo-50", borderHover: "hover:border-indigo-400" },
+    { moduleId: "attendance", category: "hr", label: "Present Today", value: `${presentCount} Staff`, sub: "Attendance Pulse", icon: <FaCalendarCheck />, path: "/attendance", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
+    { moduleId: "attendance", category: "hr", label: "Pending Leaves", value: pendingLeaves, sub: "Awaiting Approval", icon: <FaCalendarCheck />, path: "/attendance", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
   ];
 
-  const categories = [
+  const allowedStats = rawStats.filter(s => isAllowed(s.moduleId));
+
+  if (allowedStats.length === 0) return null;
+
+  const rawCategories = [
     { id: "all", label: "All Modules", icon: <FaBoxes className="text-blue-500" /> },
     { id: "financial", label: "Financial & Accounting", icon: <FaDollarSign className="text-emerald-500" /> },
     { id: "orders", label: "Orders & Returns", icon: <FaClipboardList className="text-amber-500" /> },
@@ -151,7 +160,12 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     { id: "hr", label: "HR & Party Operations", icon: <FaUsers className="text-indigo-500" /> },
   ];
 
-  const displayedStats = activeCategory === "all" ? stats : stats.filter((s) => s.category === activeCategory);
+  const allowedCategories = rawCategories.filter(c => {
+    if (c.id === "all") return allowedStats.length > 0;
+    return allowedStats.some(s => s.category === c.id);
+  });
+
+  const displayedStats = activeCategory === "all" ? allowedStats : allowedStats.filter((s) => s.category === activeCategory);
 
   return (
     <div className="bg-white p-4 sm:p-5 rounded-lg shadow-xs border border-gray-200 space-y-4 font-sans">
@@ -161,7 +175,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
           <p className="text-xs text-gray-500">Key metrics across accounting, orders, inventory, and staff</p>
         </div>
         <div className="flex flex-wrap gap-1 bg-gray-50 p-1 rounded border border-gray-200">
-          {categories.map((c) => {
+          {allowedCategories.map((c) => {
             const isActive = activeCategory === c.id;
             return (
               <button
@@ -181,7 +195,6 @@ const StatsCards: React.FC<StatsCardsProps> = ({
         </div>
       </div>
 
-      {/* Exactly 8 cards per row on large screens */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
         {displayedStats.map((item) => (
           <div

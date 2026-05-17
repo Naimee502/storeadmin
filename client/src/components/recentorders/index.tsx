@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FaFileInvoiceDollar,
   FaClipboardList,
@@ -8,6 +8,8 @@ import {
   FaCalendarCheck,
 } from "react-icons/fa";
 import DataTable from "../datatable";
+import { useAppSelector } from "../../redux/hooks";
+import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 
 interface RecentOrdersProps {
   salesInvoiceData?: any;
@@ -37,20 +39,33 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<string>("salesinvoices");
 
+  const fullState = useAppSelector((state: any) => state);
+  const isAllowed = (moduleId: string) => selectIsModuleAllowed(fullState, moduleId);
+
   const salesInvoices = Array.isArray(salesInvoiceData?.getSalesInvoices) ? salesInvoiceData.getSalesInvoices : [];
   const transferStocks = Array.isArray(transferStockData?.getTransferStocks) ? transferStockData.getTransferStocks : [];
 
-  const tabs = [
-    { id: "salesinvoices", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" /> },
-    { id: "salesorders", label: "Sales Orders", count: salesOrders.length, icon: <FaClipboardList className="text-emerald-600" /> },
-    { id: "purchaseorders", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" /> },
-    { id: "salesreturns", label: "Sales Returns", count: salesReturns.length, icon: <FaUndoAlt className="text-rose-600" /> },
-    { id: "purchasereturns", label: "Purchase Returns", count: purchaseReturns.length, icon: <FaUndoAlt className="text-indigo-600" /> },
-    { id: "transfers", label: "Transfer Stock", count: transferStocks.length, icon: <FaExchangeAlt className="text-teal-600" /> },
-    { id: "expenses", label: "Expense Notes", count: expenseNotes.length, icon: <FaMoneyCheckAlt className="text-purple-600" /> },
-    { id: "payments", label: "Payments", count: payments.length, icon: <FaMoneyCheckAlt className="text-cyan-600" /> },
-    { id: "leaves", label: "Attendance & Leave", count: leaveRequests.length, icon: <FaCalendarCheck className="text-orange-600" /> },
+  const rawTabs = [
+    { id: "salesinvoices", moduleId: "salesinvoice", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" /> },
+    { id: "salesorders", moduleId: "salesorder", label: "Sales Orders", count: salesOrders.length, icon: <FaClipboardList className="text-emerald-600" /> },
+    { id: "purchaseorders", moduleId: "purchaseorder", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" /> },
+    { id: "salesreturns", moduleId: "salesreturn", label: "Sales Returns", count: salesReturns.length, icon: <FaUndoAlt className="text-rose-600" /> },
+    { id: "purchasereturns", moduleId: "purchasereturn", label: "Purchase Returns", count: purchaseReturns.length, icon: <FaUndoAlt className="text-indigo-600" /> },
+    { id: "transfers", moduleId: "transferstock", label: "Transfer Stock", count: transferStocks.length, icon: <FaExchangeAlt className="text-teal-600" /> },
+    { id: "expenses", moduleId: "expensenote", label: "Expense Notes", count: expenseNotes.length, icon: <FaMoneyCheckAlt className="text-purple-600" /> },
+    { id: "payments", moduleId: "payments", label: "Payments", count: payments.length, icon: <FaMoneyCheckAlt className="text-cyan-600" /> },
+    { id: "leaves", moduleId: "attendance", label: "Attendance & Leave", count: leaveRequests.length, icon: <FaCalendarCheck className="text-orange-600" /> },
   ];
+
+  const tabs = rawTabs.filter((t) => isAllowed(t.moduleId));
+
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [fullState, activeTab]);
+
+  if (tabs.length === 0) return null;
 
   const capitalizeFirst = (text?: string | null) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "-";

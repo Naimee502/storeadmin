@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,6 +13,8 @@ import {
 } from "chart.js";
 import { Bar, Doughnut } from "react-chartjs-2";
 import { FaChartLine, FaChartBar, FaClipboardCheck, FaUserClock } from "react-icons/fa";
+import { useAppSelector } from "../../redux/hooks";
+import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 
 import MonthlySalesChart from "./monthlysaleschart";
 import RevenueAndSalesChart from "./revenuevssaleschart";
@@ -69,6 +71,9 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   branchId,
 }) => {
   const [activeTab, setActiveTab] = useState<string>("core");
+
+  const fullState = useAppSelector((state: any) => state);
+  const isAllowed = (moduleId: string) => selectIsModuleAllowed(fullState, moduleId);
 
   const invoices = salesInvoiceData?.getSalesInvoices ?? [];
   const purchaseInvoices = purchaseInvoiceData?.getPurchaseInvoices ?? [];
@@ -144,55 +149,47 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
     },
   };
 
-  // Monthly Sales Returns Trend
-  const monthlySRData = useMemo(() => {
-    const map: Record<string, number> = {};
-    salesReturns.forEach((sr) => {
-      const dateStr = sr.returndate || sr.createdAt;
-      if (!dateStr) return;
-      const monthLabel = new Date(dateStr).toLocaleString("default", { month: "short", year: "2-digit" });
-      map[monthLabel] = (map[monthLabel] || 0) + (sr.totalamount ?? 0);
+  const getMonthlyReturns = (returns: any[]) => {
+    const monthly = new Array(12).fill(0);
+    returns.forEach((r) => {
+      const dateStr = r.returndate || r.createdAt;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          monthly[d.getMonth()] += Number(r.totalamount ?? 0);
+        }
+      }
     });
-    const labels = Object.keys(map).slice(-6);
-    const data = labels.map((l) => map[l]);
-    return {
-      labels: labels.length ? labels : ["Current"],
-      datasets: [
-        {
-          label: "Sales Return Value (₹)",
-          data: data.length ? data : [0],
-          backgroundColor: "rgba(239, 68, 68, 0.7)",
-          borderColor: "rgba(220, 38, 38, 1)",
-          borderWidth: 1,
-        },
-      ],
-    };
-  }, [salesReturns]);
+    return monthly;
+  };
 
-  // Monthly Purchase Returns Trend
-  const monthlyPRData = useMemo(() => {
-    const map: Record<string, number> = {};
-    purchaseReturns.forEach((pr) => {
-      const dateStr = pr.returndate || pr.createdAt;
-      if (!dateStr) return;
-      const monthLabel = new Date(dateStr).toLocaleString("default", { month: "short", year: "2-digit" });
-      map[monthLabel] = (map[monthLabel] || 0) + (pr.totalamount ?? 0);
-    });
-    const labels = Object.keys(map).slice(-6);
-    const data = labels.map((l) => map[l]);
-    return {
-      labels: labels.length ? labels : ["Current"],
-      datasets: [
-        {
-          label: "Debit Note Value (₹)",
-          data: data.length ? data : [0],
-          backgroundColor: "rgba(59, 130, 246, 0.7)",
-          borderColor: "rgba(37, 99, 235, 1)",
-          borderWidth: 1,
-        },
-      ],
-    };
-  }, [purchaseReturns]);
+  const monthlySRData = {
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    datasets: [
+      {
+        label: "Sales Returns (₹)",
+        data: getMonthlyReturns(salesReturns),
+        backgroundColor: "rgba(239, 68, 68, 0.8)",
+        borderColor: "#ef4444",
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ],
+  };
+
+  const monthlyPRData = {
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    datasets: [
+      {
+        label: "Purchase Returns (₹)",
+        data: getMonthlyReturns(purchaseReturns),
+        backgroundColor: "rgba(59, 130, 246, 0.8)",
+        borderColor: "#3b82f6",
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ],
+  };
 
   const trendOptions = {
     responsive: true,
@@ -258,11 +255,11 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   };
 
   const punctualityData = {
-    labels: ["On-Time Staff", "Late Instances"],
+    labels: ["On Time", "Late Arrival"],
     datasets: [
       {
-        data: [Math.max(0, present - late), late],
-        backgroundColor: ["#14b8a6", "#8b5cf6"],
+        data: [present - late >= 0 ? present - late : 0, late],
+        backgroundColor: ["#10b981", "#f59e0b"],
         borderWidth: 1,
       },
     ],
@@ -276,12 +273,22 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
     },
   };
 
-  const tabs = [
-    { id: "core", label: "Core Financial Analytics", icon: <FaChartLine className="text-emerald-500" /> },
-    { id: "sales", label: "Sales & Target Performance", icon: <FaChartBar className="text-blue-500" /> },
-    { id: "orders", label: "Order & Returns Valuation", icon: <FaClipboardCheck className="text-amber-500" /> },
-    { id: "attendance", label: "Staff Attendance Breakdown", icon: <FaUserClock className="text-purple-500" /> },
+  const rawTabs = [
+    { id: "core", label: "Core Financial Analytics", icon: <FaChartLine className="text-emerald-500" />, check: () => isAllowed("salesinvoice") || isAllowed("purchaseinvoice") || isAllowed("transactions") },
+    { id: "sales", label: "Sales & Target Performance", icon: <FaChartBar className="text-blue-500" />, check: () => isAllowed("salesinvoice") || isAllowed("salesorder") },
+    { id: "orders", label: "Order & Returns Valuation", icon: <FaClipboardCheck className="text-amber-500" />, check: () => isAllowed("salesorder") || isAllowed("purchaseorder") || isAllowed("salesreturn") || isAllowed("purchasereturn") },
+    { id: "attendance", label: "Staff Attendance Breakdown", icon: <FaUserClock className="text-purple-500" />, check: () => isAllowed("attendance") || isAllowed("staffaccounts") },
   ];
+
+  const allowedTabs = rawTabs.filter((t) => t.check());
+
+  useEffect(() => {
+    if (allowedTabs.length > 0 && !allowedTabs.some((t) => t.id === activeTab)) {
+      setActiveTab(allowedTabs[0].id);
+    }
+  }, [fullState, activeTab]);
+
+  if (allowedTabs.length === 0) return null;
 
   return (
     <div className="bg-white p-4 sm:p-5 rounded-lg shadow-xs border border-gray-200 space-y-4 font-sans mt-4">
@@ -291,7 +298,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
           <p className="text-xs text-gray-500">Interactive charts covering financial ledgers, inventory movement, orders, and staff</p>
         </div>
         <div className="flex flex-wrap gap-1 bg-gray-50 p-1 rounded border border-gray-200">
-          {tabs.map((t) => (
+          {allowedTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
