@@ -86,25 +86,31 @@ const DeletedPurchaseOrders = () => {
           showAdd={false}
           showDeleted={false}
           onReset={async (row) => {
-            try {
-              await resetPurchaseOrderMutation({
-                variables: { id: row.id },
-              });
-              await refetch();
-              dispatch(
-                showMessage({
-                  message: "Order restored successfully.",
-                  type: "success",
-                })
-              );
-            } catch (error) {
-              console.error("Restore error:", error);
-              dispatch(
-                showMessage({
-                  message: "Failed to restore order.",
-                  type: "error",
-                })
-              );
+            if (
+              window.confirm(
+                `Are you sure you want to restore order "${row.billtype_billnumber}"?`
+              )
+            ) {
+              try {
+                await resetPurchaseOrderMutation({
+                  variables: { id: row.id },
+                });
+                dispatch(
+                  showMessage({
+                    message: "Order restored successfully.",
+                    type: "success",
+                  })
+                );
+                navigate("/purchaseorder");
+              } catch (error) {
+                console.error("Restore error:", error);
+                dispatch(
+                  showMessage({
+                    message: "Failed to restore order.",
+                    type: "error",
+                  })
+                );
+              }
             }
           }}
           entriesOptions={[5, 10, 25, 50]}

@@ -66,7 +66,7 @@ const DeletedSalesOrders = () => {
       billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
-      orderStatus: order.isConverted ? "Invoiced" : "Deleted",
+      orderStatus: "Deleted",
     };
   });
 
@@ -81,31 +81,37 @@ const DeletedSalesOrders = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
-          showReset={(row) => actions.canReset && !row.isConverted}
+          showReset={actions.canReset}
           showImport={false}
           showExport={false}
           showAdd={false}
           showDeleted={false}
           onReset={async (row) => {
-            try {
-              await resetSalesOrderMutation({
-                variables: { id: row.id },
-              });
-              await refetch();
-              dispatch(
-                showMessage({
-                  message: "Order restored successfully.",
-                  type: "success",
-                })
-              );
-            } catch (error) {
-              console.error("Restore error:", error);
-              dispatch(
-                showMessage({
-                  message: "Failed to restore order.",
-                  type: "error",
-                })
-              );
+            if (
+              window.confirm(
+                `Are you sure you want to restore order "${row.billtype_billnumber}"?`
+              )
+            ) {
+              try {
+                await resetSalesOrderMutation({
+                  variables: { id: row.id },
+                });
+                dispatch(
+                  showMessage({
+                    message: "Order restored successfully.",
+                    type: "success",
+                  })
+                );
+                navigate("/salesorder");
+              } catch (error) {
+                console.error("Restore error:", error);
+                dispatch(
+                  showMessage({
+                    message: "Failed to restore order.",
+                    type: "error",
+                  })
+                );
+              }
             }
           }}
           entriesOptions={[5, 10, 25, 50]}

@@ -28,6 +28,9 @@ const EXPENSE_NOTE_FIELDS = `
   }
   totalamount
   totalgst
+  createdby_id
+  createdby_name
+  createdby_type
   status
   createdAt
   updatedAt

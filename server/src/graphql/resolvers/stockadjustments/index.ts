@@ -105,7 +105,7 @@ export const stockAdjustmentResolvers = {
   },
 
   Mutation: {
-    createStockAdjustment: async (_: any, { input }: any) => {
+    createStockAdjustment: async (_: any, { input }: any, context: any) => {
       try {
         const adminId = normalizeId(input.adminid);
         const branchId = normalizeId(input.branchid);
@@ -118,11 +118,31 @@ export const stockAdjustmentResolvers = {
           variantid: normalizeId(item.variantid)
         }));
 
+        // Extract user context from JWT token - match ExpenseNote pattern
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
+
+        console.log("=== Stock Adjustment Create ===");
+        console.log("User from context:", user);
+        console.log("CreatedbyData:", createdbyData);
+
         const newAdj = await StockAdjustment.create({
           ...input,
           adminid: adminId,
           branchid: branchId,
-          items
+          items,
+          ...createdbyData
+        });
+
+        console.log("Created Stock Adjustment:", {
+          id: newAdj._id,
+          createdby_id: newAdj.createdby_id,
+          createdby_name: newAdj.createdby_name,
+          createdby_type: newAdj.createdby_type
         });
 
         // Loop over items and adjust stock using manageStock

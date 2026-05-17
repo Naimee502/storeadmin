@@ -1,4 +1,5 @@
 import { SalesInvoice } from "../../../models/salesinvoice";
+import { AdminSettings } from "../../../models/adminsettings";
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
@@ -30,6 +31,7 @@ const formatInvoice = (inv: any) => ({
   createdby_id: inv.createdby_id,
   createdby_name: inv.createdby_name,
   createdby_type: inv.createdby_type,
+  autocreate: inv.autocreate || { ledger: true, stock: true },
 
   productservice: inv.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
@@ -139,21 +141,59 @@ export const salesInvoiceResolvers = {
         createdby_type: user?.type || 'admin',
       };
 
-      const created = await SalesInvoice.create({ ...input, ...createdbyData });
+      // ✅ Always use AdminSettings for autocreate (ignore user input)
+      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+      console.log("📋 AdminSettings fetched:", {
+        autoCreateLedgerOnSalesInvoice: settings?.autoCreateLedgerOnSalesInvoice,
+        autoCreateStockOnSalesInvoice: settings?.autoCreateStockOnSalesInvoice,
+      });
+
+      const autoCreateData = {
+        autocreate: {
+          ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
+          stock: settings?.autoCreateStockOnSalesInvoice ?? true,
+        },
+      };
+
+      console.log("✅ AutoCreate data being saved:", autoCreateData);
+
+      const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
+      console.log("✅ Created invoice autocreate:", created.autocreate);
+
+      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+      // (ensures Transaction/Payment Created By is never N/A)
+      await SalesInvoice.adjustStockAndTransactions(null, created, createdbyData);
+
       return await SalesInvoice.findById(created._id)
         .populate(populateFields)
         .lean()
         .then(formatInvoice);
     },
 
-    editSalesInvoice: async (_: any, { id, input }: any) => {
+    editSalesInvoice: async (_: any, { id, input }: any, context: any) => {
+      const { user } = context;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
       const oldInv = await SalesInvoice.findById(id);
       if (!oldInv) throw new Error("Invoice not found");
 
-      const updated = await SalesInvoice.findByIdAndUpdate(id, input, { new: true });
+      // ✅ Always use AdminSettings for autocreate (ignore user input)
+      const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
+      const autoCreateData = {
+        autocreate: {
+          ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
+          stock: settings?.autoCreateStockOnSalesInvoice ?? true,
+        },
+      };
+
+      const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
 
       if (updated) {
-        await SalesInvoice.adjustStockAndTransactions(oldInv, updated);
+        await SalesInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
       }
 
       const inv = await SalesInvoice.findById(id)

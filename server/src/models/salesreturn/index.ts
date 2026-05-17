@@ -73,7 +73,9 @@ const salesReturnSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
-    autocreate: { type: Boolean, default: true },     // auto post journal/stock by default
+    autocreate: {
+      ledger: { type: Boolean, default: true }
+    },
     status: { type: Boolean, default: true },          // soft-delete flag
   },
   { timestamps: true }
@@ -359,19 +361,20 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   });
 };
 
-// ✅ Trigger on save
-salesReturnSchema.post("save", async function (doc: any, next) {
-  try {
-    await (SalesReturn as any).adjustStockAndTransactions(null, doc);
-    next();
-  } catch (e: any) {
-    console.error("Sales return auto error", e);
-    next(e);
-  }
-});
+// ❌ DISABLED: Post "save" hook - resolvers now call adjustStockAndTransactions explicitly WITH userContext
+// This prevents duplicate Transaction/Payment creation and ensures Created By is never N/A
+// salesReturnSchema.post("save", async function (doc: any, next) {
+//   try {
+//     await (SalesReturn as any).adjustStockAndTransactions(null, doc);
+//     next();
+//   } catch (e: any) {
+//     console.error("Sales return auto error", e);
+//     next(e);
+//   }
+// });
 
 interface SalesReturnModel extends mongoose.Model<any> {
-  adjustStockAndTransactions(oldDoc: any, newDoc: any): Promise<void>;
+  adjustStockAndTransactions(oldDoc: any, newDoc: any, userContext?: any): Promise<void>;
 }
 
 export const SalesReturn = mongoose.model<any, SalesReturnModel>("SalesReturn", salesReturnSchema);

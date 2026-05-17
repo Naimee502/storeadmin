@@ -29,7 +29,9 @@ export const GET_TRANSACTIONS = gql`
       }
       totaldebit
       totalcredit
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt
@@ -65,7 +67,9 @@ export const GET_DELETED_TRANSACTIONS = gql`
       }
       totaldebit
       totalcredit
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt
@@ -101,7 +105,9 @@ export const GET_TRANSACTION_BY_ID = gql`
       }
       totaldebit
       totalcredit
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt

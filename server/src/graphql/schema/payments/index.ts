@@ -42,7 +42,9 @@ export const paymentTypeDefs = gql`
     reference: String
     remarks: String
     transactionid: ID
-    createdby: ID
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     updatedby: ID
     status: Boolean!
     createdAt: String
@@ -63,7 +65,9 @@ export const paymentTypeDefs = gql`
     reference: String
     remarks: String
     transactionid: ID
-    createdby: ID
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     updatedby: ID
     status: Boolean
   }

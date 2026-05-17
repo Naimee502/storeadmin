@@ -29,6 +29,9 @@ export const stockAdjustmentTypeDefs = gql`
     reason: String
     items: [StockAdjustmentItem]
     totalamount: Float
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean
     createdAt: Date
     updatedAt: Date
@@ -50,6 +53,9 @@ export const stockAdjustmentTypeDefs = gql`
     reason: String
     items: [StockAdjustmentItemInput]!
     totalamount: Float!
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean
   }
 

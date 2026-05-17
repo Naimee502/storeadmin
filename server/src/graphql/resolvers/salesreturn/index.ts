@@ -3,6 +3,7 @@
 
 import { SalesReturn } from "../../../models/salesreturn";
 import { SalesInvoice } from "../../../models/salesinvoice";
+import { AdminSettings } from "../../../models/adminsettings";
 
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
@@ -178,18 +179,48 @@ export const salesReturnResolvers = {
         createdby_type: user?.type || 'admin', // 'admin', 'branch', 'staff'
       };
 
-      const created = await SalesReturn.create({ ...input, ...createdbyData });
+      // ✅ Set autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+      const autoCreateData = {
+        autocreate: input.autocreate ?? {
+          ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
+        },
+      };
+
+      const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+
+      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+      // (ensures Transaction/Payment Created By is never N/A)
+      await SalesReturn.adjustStockAndTransactions(null, created, createdbyData);
+
       const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
       return formatReturn(fresh);
     },
 
-    editSalesReturn: async (_: any, { id, input }: any) => {
+    editSalesReturn: async (_: any, { id, input }: any, context: any) => {
       await validateReturnQuantities(input, id);
       const oldRet = await SalesReturn.findById(id);
       if (!oldRet) throw new Error("Sales Return not found");
-      const updated = await SalesReturn.findByIdAndUpdate(id, input, { new: true });
+
+      // ✅ Extract user context for adjustStockAndTransactions
+      const { user } = context;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      // ✅ Ensure autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(oldRet.adminid);
+      const autoCreateData = input.autocreate ? {} : {
+        autocreate: {
+          ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
+        },
+      };
+
+      const updated = await SalesReturn.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
       if (updated) {
-        await SalesReturn.adjustStockAndTransactions(oldRet, updated);
+        await SalesReturn.adjustStockAndTransactions(oldRet, updated, userContext);
       }
       const fresh = await SalesReturn.findById(id).populate(populateFields).lean();
       return fresh ? formatReturn(fresh) : null;

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { ExpenseNote } from "../../../models/expensenote";
 import { AccountLedger } from "../../../models/accountledgers";
 import { AccountGroup } from "../../../models/accountgroups";
+import { AdminSettings } from "../../../models/adminsettings";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -202,7 +203,22 @@ export const expenseNoteResolvers = {
         createdby_type: user?.type || 'admin',
       };
 
-      const created = await ExpenseNote.create({ ...input, ...createdbyData });
+      // ✅ Set autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+      const autoCreateData = {
+        autocreate: input.autocreate ?? {
+          ledger: settings?.autoCreateLedgerOnExpense ?? true,
+        },
+      };
+
+      const created = await ExpenseNote.create({ ...input, ...createdbyData, ...autoCreateData });
+
+      // ✅ Explicitly call createJournalAndPayment WITH userContext
+      // (ensures Transaction/Payment Created By is never N/A)
+      if (created.autocreate?.ledger) {
+        await ExpenseNote.createJournalAndPayment(created, createdbyData);
+      }
+
       const populated = (await ExpenseNote.findById(created._id)
         .populate(populatePaths)
         .lean()) as any;
@@ -210,10 +226,35 @@ export const expenseNoteResolvers = {
       return formatExpense(populated);
     },
 
-    editExpenseNote: async (_: any, { id, input }: any) => {
-      const updated = (await ExpenseNote.findByIdAndUpdate(id, input, { new: true })
+    editExpenseNote: async (_: any, { id, input }: any, context: any) => {
+      const oldExp = await ExpenseNote.findById(id);
+      if (!oldExp) throw new Error("Expense note not found");
+
+      // ✅ Extract user context for createJournalAndPayment
+      const { user } = context;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      // ✅ Ensure autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(oldExp.adminid);
+      const autoCreateData = input.autocreate ? {} : {
+        autocreate: {
+          ledger: settings?.autoCreateLedgerOnExpense ?? true,
+        },
+      };
+
+      const updated = (await ExpenseNote.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true })
         .populate(populatePaths)
         .lean()) as any;
+
+      // ✅ Call createJournalAndPayment with userContext if autocreate is enabled
+      if (updated && updated.autocreate?.ledger) {
+        await ExpenseNote.createJournalAndPayment(updated, userContext);
+      }
+
       return formatExpense(updated);
     },
 

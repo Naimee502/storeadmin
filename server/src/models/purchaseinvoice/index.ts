@@ -51,7 +51,10 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
-    autocreate: { type: Boolean, default: false },
+    autocreate: {
+      ledger: { type: Boolean, default: true },
+      stock: { type: Boolean, default: true }
+    },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
@@ -81,7 +84,14 @@ function ledgerId(x: any) {
   return x._id || x.id || null;
 }
 
-purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any) {
+purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any, userContext?: any) {
+  console.log("🔵 adjustStockAndTransactions called for invoice:", newInv.billnumber);
+  console.log("   userContext:", userContext);
+  console.log("   newInv.createdby_id:", newInv.createdby_id);
+  console.log("   newInv.createdby_name:", newInv.createdby_name);
+  console.log("   newInv.createdby_type:", newInv.createdby_type);
+  console.log("   ⚠️  POST SAVE HOOK SHOULD BE DISABLED - if you see duplicate 'adjustStockAndTransactions' calls, the server needs restart!");
+
   const branchid =
     typeof newInv.branchid === "string"
       ? new mongoose.Types.ObjectId(newInv.branchid)
@@ -352,13 +362,33 @@ for (const item of newInv.productservice) {
   });
 
   if (invoiceTrx) {
+    const txCreatedById = userContext?.createdby_id || newInv.createdby_id;
+    const txCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+    const txCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
     invoiceTrx.entries = entries;
     invoiceTrx.transactiondate = newInv.billdate;
     invoiceTrx.totaldebit = totalDebit;
     invoiceTrx.totalcredit = totalDebit;
     invoiceTrx.status = true;
+    // ✅ Also update createdby if userContext is provided
+    if (userContext) {
+      invoiceTrx.createdby_id = txCreatedById;
+      invoiceTrx.createdby_name = txCreatedByName;
+      invoiceTrx.createdby_type = txCreatedByType;
+    }
+    console.log("   Updated with createdby_id:", txCreatedById);
     await invoiceTrx.save();
   } else {
+    const txCreatedById = userContext?.createdby_id || newInv.createdby_id;
+    const txCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+    const txCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+    console.log("✅ Creating Invoice Transaction:");
+    console.log("   createdby_id:", txCreatedById);
+    console.log("   createdby_name:", txCreatedByName);
+    console.log("   createdby_type:", txCreatedByType);
+
     invoiceTrx = await Transaction.create({
       adminid: newInv.adminid,
       branchid: newInv.branchid,
@@ -368,8 +398,13 @@ for (const item of newInv.productservice) {
       narration: `Purchase Invoice #${newInv.billnumber}`,
       entries,
       totaldebit: totalDebit,
-      totalcredit: totalDebit
+      totalcredit: totalDebit,
+      createdby_id: txCreatedById,
+      createdby_name: txCreatedByName,
+      createdby_type: txCreatedByType,
     });
+
+    console.log("   Created Transaction ID:", invoiceTrx._id);
   }
 
   // ============================
@@ -433,6 +468,15 @@ for (const item of newInv.productservice) {
     return;
   }
 
+  const payTxCreatedById = userContext?.createdby_id || newInv.createdby_id;
+  const payTxCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+  const payTxCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+  console.log("✅ Creating Payment Transaction:");
+  console.log("   createdby_id:", payTxCreatedById);
+  console.log("   createdby_name:", payTxCreatedByName);
+  console.log("   createdby_type:", payTxCreatedByType);
+
   const payTrx = await Transaction.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
@@ -442,10 +486,24 @@ for (const item of newInv.productservice) {
     narration: `Payment for Purchase Invoice #${newInv.billnumber}`,
     entries: paymentEntries,
     totaldebit: newInv.totalamount,
-    totalcredit: newInv.totalamount
+    totalcredit: newInv.totalamount,
+    createdby_id: payTxCreatedById,
+    createdby_name: payTxCreatedByName,
+    createdby_type: payTxCreatedByType,
   });
 
-  await Payment.create({
+  console.log("   Created Payment Transaction ID:", payTrx._id);
+
+  const payRecCreatedById = userContext?.createdby_id || newInv.createdby_id;
+  const payRecCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+  const payRecCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+  console.log("✅ Creating Payment Record:");
+  console.log("   createdby_id:", payRecCreatedById);
+  console.log("   createdby_name:", payRecCreatedByName);
+  console.log("   createdby_type:", payRecCreatedByType);
+
+  const paymentRecord = await Payment.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
     type: "payment",
@@ -457,25 +515,31 @@ for (const item of newInv.productservice) {
     ],
     amount: newInv.totalamount,
     remarks: `Payment for Purchase Invoice #${newInv.billnumber}`,
-    transactionid: payTrx._id
+    transactionid: payTrx._id,
+    createdby_id: payRecCreatedById,
+    createdby_name: payRecCreatedByName,
+    createdby_type: payRecCreatedByType,
   });
+
+  console.log("   Created Payment Record ID:", paymentRecord._id);
 };
 
 // ============================
-// ✅ Handle new invoice (create)
+// ❌ DISABLED: Post "save" hook - resolvers now call adjustStockAndTransactions explicitly WITH userContext
+// This prevents duplicate Transaction/Payment creation and ensures Created By is never N/A
 // ============================
-purchaseInvoiceSchema.post("save", async function (doc: any, next) {
-  try {
-    await (PurchaseInvoice as any).adjustStockAndTransactions(null, doc);
-    next();
-  } catch (e: any) {
-    console.error("Purchase invoice auto error", e);
-    next(e);
-  }
-});
+// purchaseInvoiceSchema.post("save", async function (doc: any, next) {
+//   try {
+//     await (PurchaseInvoice as any).adjustStockAndTransactions(null, doc);
+//     next();
+//   } catch (e: any) {
+//     console.error("Purchase invoice auto error", e);
+//     next(e);
+//   }
+// });
 
 interface PurchaseInvoiceModel extends mongoose.Model<any> {
-  adjustStockAndTransactions(oldInvoice: any, newInvoice: any): Promise<void>;
+  adjustStockAndTransactions(oldInvoice: any, newInvoice: any, userContext?: any): Promise<void>;
 }
 
 export const PurchaseInvoice = mongoose.model<any, PurchaseInvoiceModel>(

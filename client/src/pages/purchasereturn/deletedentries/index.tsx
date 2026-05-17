@@ -68,8 +68,8 @@ const DeletedPurchaseReturns = () => {
             if (!window.confirm(`Restore Purchase Return ${row.billnumber}?`)) return;
             try {
               await resetPurchaseReturnMutation({ variables: { id: row.id } });
-              await refetch();
-              dispatch(showMessage({ message: "Restored.", type: "success" }));
+              dispatch(showMessage({ message: "Restored successfully.", type: "success" }));
+              navigate("/purchasereturn");
             } catch (e) {
               dispatch(showMessage({ message: "Restore failed.", type: "error" }));
             }

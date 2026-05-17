@@ -9,6 +9,9 @@ export const GET_STOCK_ADJUSTMENTS = gql`
       type
       reason
       totalamount
+      createdby_id
+      createdby_name
+      createdby_type
       status
       createdAt
     }
@@ -24,6 +27,9 @@ export const GET_STOCK_ADJUSTMENT_BY_ID = gql`
       type
       reason
       totalamount
+      createdby_id
+      createdby_name
+      createdby_type
       status
       items {
         productid {

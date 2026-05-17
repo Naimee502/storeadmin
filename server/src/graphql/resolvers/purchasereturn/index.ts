@@ -3,6 +3,7 @@
 
 import { PurchaseReturn } from "../../../models/purchasereturn";
 import { PurchaseInvoice } from "../../../models/purchaseinvoice";
+import { AdminSettings } from "../../../models/adminsettings";
 
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
@@ -164,18 +165,48 @@ export const purchaseReturnResolvers = {
         createdby_type: user?.type || 'admin',
       };
 
-      const created = await PurchaseReturn.create({ ...input, ...createdbyData });
+      // ✅ Set autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+      const autoCreateData = {
+        autocreate: input.autocreate ?? {
+          ledger: settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+        },
+      };
+
+      const created = await PurchaseReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+
+      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+      // (ensures Transaction/Payment Created By is never N/A)
+      await PurchaseReturn.adjustStockAndTransactions(null, created, createdbyData);
+
       const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
       return formatReturn(fresh);
     },
 
-    editPurchaseReturn: async (_: any, { id, input }: any) => {
+    editPurchaseReturn: async (_: any, { id, input }: any, context: any) => {
       await validateReturnQuantities(input, id);
       const oldRet = await PurchaseReturn.findById(id);
       if (!oldRet) throw new Error("Purchase Return not found");
-      const updated = await PurchaseReturn.findByIdAndUpdate(id, input, { new: true });
+
+      // ✅ Extract user context for adjustStockAndTransactions
+      const { user } = context;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || 'admin',
+      };
+
+      // ✅ Ensure autocreate flag from AdminSettings
+      const settings = await AdminSettings.getOrCreateForAdmin(oldRet.adminid);
+      const autoCreateData = input.autocreate ? {} : {
+        autocreate: {
+          ledger: settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+        },
+      };
+
+      const updated = await PurchaseReturn.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
       if (updated) {
-        await PurchaseReturn.adjustStockAndTransactions(oldRet, updated);
+        await PurchaseReturn.adjustStockAndTransactions(oldRet, updated, userContext);
       }
       const fresh = await PurchaseReturn.findById(id).populate(populateFields).lean();
       return fresh ? formatReturn(fresh) : null;

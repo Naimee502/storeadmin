@@ -91,6 +91,10 @@ const expenseNoteSchema = new mongoose.Schema(
     createdby_name: { type: String },
     createdby_type: { type: String },
 
+    autocreate: {
+      ledger: { type: Boolean, default: true }
+    },
+
     /* ======================
        EXPENSE LINES
        ====================== */
@@ -211,7 +215,7 @@ expenseNoteSchema.pre("validate", async function (next) {
 /* ===========================================================
    CREATE JOURNAL + PAYMENT
    =========================================================== */
-expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any) {
+expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, userContext?: any) {
   const entries: any[] = [];
   let totalDebit = 0;
 
@@ -321,6 +325,10 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any) {
   /* ======================
      TRANSACTION
      ====================== */
+  const txCreatedById = userContext?.createdby_id || doc.createdby_id;
+  const txCreatedByName = userContext?.createdby_name || doc.createdby_name;
+  const txCreatedByType = userContext?.createdby_type || doc.createdby_type;
+
   const trx = await Transaction.create({
     adminid: doc.adminid,
     branchid: doc.branchid,
@@ -331,12 +339,19 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any) {
     entries,
     totaldebit: totalDebit,
     totalcredit: totalDebit,
+    createdby_id: txCreatedById,
+    createdby_name: txCreatedByName,
+    createdby_type: txCreatedByType,
   });
 
   /* ======================
      PAYMENT
      ====================== */
   if (doc.paymenttype !== "credit") {
+    const payCreatedById = userContext?.createdby_id || doc.createdby_id;
+    const payCreatedByName = userContext?.createdby_name || doc.createdby_name;
+    const payCreatedByType = userContext?.createdby_type || doc.createdby_type;
+
     await Payment.create({
       adminid: doc.adminid,
       branchid: doc.branchid,
@@ -346,28 +361,32 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any) {
       transactionid: trx._id,
       ledgerid: entries[entries.length - 1].ledgerid,
       remarks: `Expense Payment ${doc.expensenumber}`,
+      createdby_id: payCreatedById,
+      createdby_name: payCreatedByName,
+      createdby_type: payCreatedByType,
     });
   }
 };
 
 /* ===========================================================
-   AUTO POST AFTER SAVE
+   ❌ DISABLED: Post "save" hook - resolvers now call createJournalAndPayment explicitly WITH userContext
+   This prevents duplicate Transaction/Payment creation and ensures Created By is never N/A
    =========================================================== */
-expenseNoteSchema.post("save", async function (doc: any, next) {
-  try {
-    await (ExpenseNote as any).createJournalAndPayment(doc);
-    next();
-  } catch (err:any) {
-    console.error("Expense posting failed", err);
-    next(err);
-  }
-});
+// expenseNoteSchema.post("save", async function (doc: any, next) {
+//   try {
+//     await (ExpenseNote as any).createJournalAndPayment(doc);
+//     next();
+//   } catch (err:any) {
+//     console.error("Expense posting failed", err);
+//     next(err);
+//   }
+// });
 
 /* ===========================================================
    EXPORT
    =========================================================== */
 interface ExpenseNoteModel extends mongoose.Model<any> {
-  createJournalAndPayment(doc: any): Promise<void>;
+  createJournalAndPayment(doc: any, userContext?: any): Promise<void>;
 }
 
 export const ExpenseNote = mongoose.model<any, ExpenseNoteModel>(

@@ -68,8 +68,8 @@ const DeletedSalesReturns = () => {
             if (!window.confirm(`Restore Sales Return ${row.billnumber}?`)) return;
             try {
               await resetSalesReturnMutation({ variables: { id: row.id } });
-              await refetch();
-              dispatch(showMessage({ message: "Restored.", type: "success" }));
+              dispatch(showMessage({ message: "Restored successfully.", type: "success" }));
+              navigate("/salesreturn");
             } catch (e) {
               dispatch(showMessage({ message: "Restore failed.", type: "error" }));
             }

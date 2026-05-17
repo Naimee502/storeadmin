@@ -95,7 +95,7 @@ export const salesOrderResolvers = {
     },
 
     getDeletedSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { $or: [{ status: false }, { isConverted: true }] };
+      const query: any = { status: false };
       const { user } = context;
 
       // ✅ Role-based filtering
@@ -106,8 +106,6 @@ export const salesOrderResolvers = {
         ];
       } else if (user?.type === 'staff') {
         query.createdby_id = user?.id;
-      } else {
-        query.$or = [{ status: false }, { isConverted: true }];
       }
 
       if (filter.branchid) query.branchid = filter.branchid;

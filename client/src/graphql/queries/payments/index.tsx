@@ -28,7 +28,9 @@ export const GET_PAYMENTS = gql`
       reference
       remarks
       transactionid
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt
@@ -64,7 +66,9 @@ export const GET_DELETED_PAYMENTS = gql`
       reference
       remarks
       transactionid
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt
@@ -100,7 +104,9 @@ export const GET_PAYMENT_BY_ID = gql`
       reference
       remarks
       transactionid
-      createdby
+      createdby_id
+      createdby_name
+      createdby_type
       updatedby
       status
       createdAt

@@ -57,6 +57,9 @@ export const expenseNoteTypeDefs = gql`
     expenses: [ExpenseLine!]!
     totalamount: Float!
     totalgst: Float
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -80,6 +83,9 @@ export const expenseNoteTypeDefs = gql`
     expenses: [ExpenseLineInput!]!
     totalamount: Float!
     totalgst: Float
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     status: Boolean
   }
 

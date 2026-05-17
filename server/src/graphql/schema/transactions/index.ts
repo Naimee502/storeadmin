@@ -49,7 +49,9 @@ export const transactionTypeDefs = gql`
     entries: [TransactionEntry!]!
     totaldebit: Float!
     totalcredit: Float!
-    createdby: ID
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     updatedby: ID
     status: Boolean!
     createdAt: String
@@ -64,7 +66,9 @@ export const transactionTypeDefs = gql`
     transactiondate: String
     narration: String
     entries: [TransactionEntryInput!]!
-    createdby: ID
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
     updatedby: ID
     status: Boolean
   }

@@ -66,7 +66,9 @@ const purchaseReturnSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
-    autocreate: { type: Boolean, default: true },
+    autocreate: {
+      ledger: { type: Boolean, default: true }
+    },
     status: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -317,18 +319,20 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
   });
 };
 
-purchaseReturnSchema.post("save", async function (doc: any, next) {
-  try {
-    await (PurchaseReturn as any).adjustStockAndTransactions(null, doc);
-    next();
-  } catch (e: any) {
-    console.error("Purchase return auto error", e);
-    next(e);
-  }
-});
+// ❌ DISABLED: Post "save" hook - resolvers now call adjustStockAndTransactions explicitly WITH userContext
+// This prevents duplicate Transaction/Payment creation and ensures Created By is never N/A
+// purchaseReturnSchema.post("save", async function (doc: any, next) {
+//   try {
+//     await (PurchaseReturn as any).adjustStockAndTransactions(null, doc);
+//     next();
+//   } catch (e: any) {
+//     console.error("Purchase return auto error", e);
+//     next(e);
+//   }
+// });
 
 interface PurchaseReturnModel extends mongoose.Model<any> {
-  adjustStockAndTransactions(oldDoc: any, newDoc: any): Promise<void>;
+  adjustStockAndTransactions(oldDoc: any, newDoc: any, userContext?: any): Promise<void>;
 }
 
 export const PurchaseReturn = mongoose.model<any, PurchaseReturnModel>("PurchaseReturn", purchaseReturnSchema);

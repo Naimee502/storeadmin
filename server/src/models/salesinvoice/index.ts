@@ -54,7 +54,10 @@ const salesInvoiceSchema = new mongoose.Schema(
     ],
 
     isservice: { type: Boolean, default: false },
-    autocreate: { type: Boolean, default: false },
+    autocreate: {
+      ledger: { type: Boolean, default: true },
+      stock: { type: Boolean, default: true }
+    },
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
@@ -79,7 +82,14 @@ function ledgerId(x: any) {
   return x._id || x.id || null;
 }
 
-salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any) {
+salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any, userContext?: any) {
+  console.log("🔵 adjustStockAndTransactions called for invoice:", newInv.billnumber);
+  console.log("   userContext:", userContext);
+  console.log("   newInv.createdby_id:", newInv.createdby_id);
+  console.log("   newInv.createdby_name:", newInv.createdby_name);
+  console.log("   newInv.createdby_type:", newInv.createdby_type);
+  console.log("   ⚠️  POST SAVE HOOK SHOULD BE DISABLED - if you see duplicate 'adjustStockAndTransactions' calls, the server needs restart!");
+
   const branchid = typeof newInv.branchid === "string"
     ? new mongoose.Types.ObjectId(newInv.branchid)
     : newInv.branchid;
@@ -372,13 +382,33 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   if (invoiceTrx) {
     console.log("🔄 Updating existing transaction...");
+    const txCreatedById = userContext?.createdby_id || newInv.createdby_id;
+    const txCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+    const txCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
     invoiceTrx.entries = entries;
     invoiceTrx.transactiondate = newInv.billdate;
     invoiceTrx.totaldebit = totalDebitSum;
     invoiceTrx.totalcredit = totalCreditSum;
     invoiceTrx.status = true;
+    // ✅ Also update createdby if userContext is provided
+    if (userContext) {
+      invoiceTrx.createdby_id = txCreatedById;
+      invoiceTrx.createdby_name = txCreatedByName;
+      invoiceTrx.createdby_type = txCreatedByType;
+    }
+    console.log("   Updated with createdby_id:", txCreatedById);
     await invoiceTrx.save();
   } else {
+    const txCreatedById = userContext?.createdby_id || newInv.createdby_id;
+    const txCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+    const txCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+    console.log("✅ Creating Invoice Transaction:");
+    console.log("   createdby_id:", txCreatedById);
+    console.log("   createdby_name:", txCreatedByName);
+    console.log("   createdby_type:", txCreatedByType);
+
     invoiceTrx = await Transaction.create({
       adminid: newInv.adminid,
       branchid: newInv.branchid,
@@ -389,7 +419,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       entries,
       totaldebit: totalDebitSum,
       totalcredit: totalCreditSum,
+      createdby_id: txCreatedById,
+      createdby_name: txCreatedByName,
+      createdby_type: txCreatedByType,
     });
+
+    console.log("   Created Transaction ID:", invoiceTrx._id);
   }
 
   // ====================== PAYMENT HANDLING ======================
@@ -471,28 +506,55 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   // ------------------------- UPDATE EXISTING PAYMENT -------------------------
   if (oldPayment) {
+    const payCreatedById = userContext?.createdby_id || newInv.createdby_id;
+    const payCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+    const payCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
     oldPayment.mode = newInv.paymenttype;
     oldPayment.ledgerid = customer.ledgerid;
     oldPayment.amount = payAmount;
     oldPayment.invoices[0].settledamount = payAmount;
+    // ✅ Also update createdby if userContext is provided
+    if (userContext) {
+      oldPayment.createdby_id = payCreatedById;
+      oldPayment.createdby_name = payCreatedByName;
+      oldPayment.createdby_type = payCreatedByType;
+    }
     await oldPayment.save();
+
+    const updateData: any = {
+      $set: {
+        entries: paymentEntries,
+        totaldebit: payAmount,
+        totalcredit: payAmount,
+        transactiondate: newInv.billdate,
+        narration: `Receipt for Sales Invoice #${newInv.billnumber}`,
+      },
+    };
+    // ✅ Also update createdby in transaction if userContext is provided
+    if (userContext) {
+      updateData.$set.createdby_id = payCreatedById;
+      updateData.$set.createdby_name = payCreatedByName;
+      updateData.$set.createdby_type = payCreatedByType;
+    }
 
     await Transaction.updateOne(
       { _id: oldPayment.transactionid },
-      {
-        $set: {
-          entries: paymentEntries,
-          totaldebit: payAmount,
-          totalcredit: payAmount,
-          transactiondate: newInv.billdate,
-          narration: `Receipt for Sales Invoice #${newInv.billnumber}`,
-        },
-      }
+      updateData
     );
     return;
   }
 
   // ------------------------- CREATE NEW PAYMENT TRANSACTION -------------------------
+  const payTxCreatedById = userContext?.createdby_id || newInv.createdby_id;
+  const payTxCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+  const payTxCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+  console.log("✅ Creating Payment Transaction:");
+  console.log("   createdby_id:", payTxCreatedById);
+  console.log("   createdby_name:", payTxCreatedByName);
+  console.log("   createdby_type:", payTxCreatedByType);
+
   const payTrx = await Transaction.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
@@ -503,10 +565,24 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     entries: paymentEntries,
     totaldebit: payAmount,
     totalcredit: payAmount,
+    createdby_id: payTxCreatedById,
+    createdby_name: payTxCreatedByName,
+    createdby_type: payTxCreatedByType,
   });
 
+  console.log("   Created Payment Transaction ID:", payTrx._id);
+
   // ------------------------- CREATE PAYMENT RECORD -------------------------
-  await Payment.create({
+  const payRecCreatedById = userContext?.createdby_id || newInv.createdby_id;
+  const payRecCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+  const payRecCreatedByType = userContext?.createdby_type || newInv.createdby_type;
+
+  console.log("✅ Creating Payment Record:");
+  console.log("   createdby_id:", payRecCreatedById);
+  console.log("   createdby_name:", payRecCreatedByName);
+  console.log("   createdby_type:", payRecCreatedByType);
+
+  const paymentRecord = await Payment.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
     type: "receipt",
@@ -523,23 +599,29 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     amount: payAmount,
     remarks: `Receipt for Sales Invoice #${newInv.billnumber}`,
     transactionid: payTrx._id,
+    createdby_id: payRecCreatedById,
+    createdby_name: payRecCreatedByName,
+    createdby_type: payRecCreatedByType,
   });
+
+  console.log("   Created Payment Record ID:", paymentRecord._id);
 
   };
 
-// ✅ Trigger on save
-salesInvoiceSchema.post("save", async function (doc: any, next) {
-  try {
-    await (SalesInvoice as any).adjustStockAndTransactions(null, doc);
-    next();
-  } catch (e: any) {
-    console.error("Sales invoice auto error", e);
-    next(e);
-  }
-});
+// ❌ DISABLED: Post "save" hook - resolvers now call adjustStockAndTransactions explicitly WITH userContext
+// This prevents duplicate Transaction/Payment creation and ensures Created By is never N/A
+// salesInvoiceSchema.post("save", async function (doc: any, next) {
+//   try {
+//     await (SalesInvoice as any).adjustStockAndTransactions(null, doc);
+//     next();
+//   } catch (e: any) {
+//     console.error("Sales invoice auto error", e);
+//     next(e);
+//   }
+// });
 
 interface SalesInvoiceModel extends mongoose.Model<any> {
-  adjustStockAndTransactions(oldInvoice: any, newInvoice: any): Promise<void>;
+  adjustStockAndTransactions(oldInvoice: any, newInvoice: any, userContext?: any): Promise<void>;
 }
 
 export const SalesInvoice = mongoose.model<any, SalesInvoiceModel>("SalesInvoice", salesInvoiceSchema);

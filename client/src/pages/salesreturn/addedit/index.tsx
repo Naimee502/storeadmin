@@ -86,7 +86,6 @@ const AddEditSalesReturn: React.FC = () => {
   const [taxorsupplytype, setTaxOrSupplyType] = useState("");
   const [invoicetype, setInvoiceType] = useState("retail");
   const [isservice, setIsService] = useState(false);
-  const [autocreate, setAutoCreate] = useState(true);
   const [salesmenid, setSalesmenid] = useState<string | undefined>(undefined);
   const [lines, setLines] = useState<Line[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,7 +124,6 @@ const AddEditSalesReturn: React.FC = () => {
     setTaxOrSupplyType(ret.taxorsupplytype || "");
     setInvoiceType(ret.invoicetype || "retail");
     setIsService(!!ret.isservice);
-    setAutoCreate(ret.autocreate ?? true);
     setSalesmenid(ret.salesmenid?.id);
     setLines(
       (ret.productservice ?? []).map((p: any) => ({
@@ -267,7 +265,6 @@ const AddEditSalesReturn: React.FC = () => {
       adminid: adminId,
       branchid: branchId,
       isservice,
-      autocreate,
       createdby_id: creator.id,
       createdby_name: creator.name,
       createdby_type: creator.type,
