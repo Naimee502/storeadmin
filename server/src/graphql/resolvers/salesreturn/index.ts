@@ -28,6 +28,8 @@ const formatReturn = (r: any) => ({
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
   salesmenid: toSimpleRef(r.salesmenid, ["name"]),
   partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
+  // Convert autocreate object to boolean for GraphQL (DB stores as { ledger: true }, but schema expects Boolean)
+  autocreate: r.autocreate?.ledger ?? r.autocreate ?? true,
   productservice: r.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
       (v: any) => String(v._id) === String(ps.variantid)
@@ -165,36 +167,47 @@ export const salesReturnResolvers = {
 
   Mutation: {
     addSalesReturn: async (_: any, { input }: any, context: any) => {
-      const sourceInv = await validateReturnQuantities(input);
-      // Stamp source bill number for friendly display
-      if (sourceInv?.billnumber && !input.sourceBillNumber) {
-        input.sourceBillNumber = sourceInv.billnumber;
+      try {
+        const sourceInv = await validateReturnQuantities(input);
+        // Stamp source bill number for friendly display
+        if (sourceInv?.billnumber && !input.sourceBillNumber) {
+          input.sourceBillNumber = sourceInv.billnumber;
+        }
+
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin', // 'admin', 'branch', 'staff'
+        };
+
+        // ✅ Set autocreate flag from AdminSettings
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        const autoCreateData = {
+          autocreate: {
+            ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
+          },
+        };
+
+        const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+
+        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+        // (ensures Transaction/Payment Created By is never N/A)
+        await SalesReturn.adjustStockAndTransactions(null, created, createdbyData);
+
+        console.log("=== Sales Return Created Successfully ===");
+        console.log("Bill Number:", created.billnumber);
+        console.log("CreatedBy:", createdbyData);
+
+        const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
+        return formatReturn(fresh);
+      } catch (error: any) {
+        console.error("=== ERROR Creating Sales Return ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
       }
-
-      // ✅ Extract user info from context and populate createdby fields
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin', // 'admin', 'branch', 'staff'
-      };
-
-      // ✅ Set autocreate flag from AdminSettings
-      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-      const autoCreateData = {
-        autocreate: input.autocreate ?? {
-          ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
-        },
-      };
-
-      const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
-
-      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-      // (ensures Transaction/Payment Created By is never N/A)
-      await SalesReturn.adjustStockAndTransactions(null, created, createdbyData);
-
-      const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
-      return formatReturn(fresh);
     },
 
     editSalesReturn: async (_: any, { id, input }: any, context: any) => {
@@ -212,7 +225,11 @@ export const salesReturnResolvers = {
 
       // ✅ Ensure autocreate flag from AdminSettings
       const settings = await AdminSettings.getOrCreateForAdmin(oldRet.adminid);
-      const autoCreateData = input.autocreate ? {} : {
+      const autoCreateData = input.autocreate !== undefined ? {
+        autocreate: {
+          ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
+        },
+      } : {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
         },

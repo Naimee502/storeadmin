@@ -130,19 +130,38 @@ export const purchaseOrderResolvers = {
 
   Mutation: {
     addPurchaseOrder: async (_: any, { input }: any, context: any) => {
-      // ✅ Extract user info from context and populate createdby fields
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
-      };
+      try {
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
 
-      const created = await PurchaseOrder.create({ ...input, ...createdbyData });
-      return await PurchaseOrder.findById(created._id)
-        .populate(populateFields)
-        .lean()
-        .then(formatOrder);
+        console.log("=== Purchase Order Create ===");
+        console.log("User from context:", user);
+        console.log("CreatedbyData:", createdbyData);
+
+        const created = await PurchaseOrder.create({ ...input, ...createdbyData });
+
+        console.log("Created Purchase Order:", {
+          id: created._id,
+          createdby_id: created.createdby_id,
+          createdby_name: created.createdby_name,
+          createdby_type: created.createdby_type
+        });
+
+        return await PurchaseOrder.findById(created._id)
+          .populate(populateFields)
+          .lean()
+          .then(formatOrder);
+      } catch (error: any) {
+        console.error("=== ERROR Creating Purchase Order ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
+      }
     },
 
     editPurchaseOrder: async (_: any, { id, input }: any) => {

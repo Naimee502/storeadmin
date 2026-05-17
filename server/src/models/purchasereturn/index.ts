@@ -95,7 +95,7 @@ function ledgerId(x: any) {
   return x._id || x.id || null;
 }
 
-purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: any, newRet: any) {
+purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: any, newRet: any, userContext?: any) {
   const branchid = typeof newRet.branchid === "string"
     ? new mongoose.Types.ObjectId(newRet.branchid)
     : newRet.branchid;
@@ -255,6 +255,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
       entries,
       totaldebit: totalDebit,
       totalcredit: totalCredit,
+      createdby_id: userContext?.createdby_id,
+      createdby_name: userContext?.createdby_name,
+      createdby_type: userContext?.createdby_type,
     });
   }
 
@@ -301,6 +304,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     entries: refundEntries,
     totaldebit: refundAmt,
     totalcredit: refundAmt,
+    createdby_id: userContext?.createdby_id,
+    createdby_name: userContext?.createdby_name,
+    createdby_type: userContext?.createdby_type,
   });
 
   await Payment.create({
@@ -316,6 +322,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     amount: refundAmt,
     remarks: `Refund for Purchase Return ${newRet.billnumber}`,
     transactionid: refundTrx._id,
+    createdby_id: userContext?.createdby_id,
+    createdby_name: userContext?.createdby_name,
+    createdby_type: userContext?.createdby_type,
   });
 };
 

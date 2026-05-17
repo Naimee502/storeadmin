@@ -128,19 +128,38 @@ export const salesOrderResolvers = {
 
   Mutation: {
     addSalesOrder: async (_: any, { input }: any, context: any) => {
-      // ✅ Extract user info from context and populate createdby fields
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
-      };
+      try {
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
 
-      const created = await SalesOrder.create({ ...input, ...createdbyData });
-      return await SalesOrder.findById(created._id)
-        .populate(populateFields)
-        .lean()
-        .then(formatOrder);
+        console.log("=== Sales Order Create ===");
+        console.log("User from context:", user);
+        console.log("CreatedbyData:", createdbyData);
+
+        const created = await SalesOrder.create({ ...input, ...createdbyData });
+
+        console.log("Created Sales Order:", {
+          id: created._id,
+          createdby_id: created.createdby_id,
+          createdby_name: created.createdby_name,
+          createdby_type: created.createdby_type
+        });
+
+        return await SalesOrder.findById(created._id)
+          .populate(populateFields)
+          .lean()
+          .then(formatOrder);
+      } catch (error: any) {
+        console.error("=== ERROR Creating Sales Order ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
+      }
     },
 
     editSalesOrder: async (_: any, { id, input }: any) => {

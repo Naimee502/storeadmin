@@ -26,6 +26,8 @@ const formatReturn = (r: any) => ({
   id: r._id.toString(),
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
   partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
+  // Convert autocreate object to boolean for GraphQL (DB stores as { ledger: true }, but schema expects Boolean)
+  autocreate: r.autocreate?.ledger ?? r.autocreate ?? true,
   productservice: r.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
       (v: any) => String(v._id) === String(ps.variantid)
@@ -168,8 +170,8 @@ export const purchaseReturnResolvers = {
       // ✅ Set autocreate flag from AdminSettings
       const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
       const autoCreateData = {
-        autocreate: input.autocreate ?? {
-          ledger: settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+        autocreate: {
+          ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
         },
       };
 
@@ -198,7 +200,11 @@ export const purchaseReturnResolvers = {
 
       // ✅ Ensure autocreate flag from AdminSettings
       const settings = await AdminSettings.getOrCreateForAdmin(oldRet.adminid);
-      const autoCreateData = input.autocreate ? {} : {
+      const autoCreateData = input.autocreate !== undefined ? {
+        autocreate: {
+          ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+        },
+      } : {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnPurchaseReturn ?? true,
         },
