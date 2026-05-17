@@ -319,7 +319,7 @@ const AttendanceReports: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap gap-2 mb-4 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+        <div className="flex flex-wrap gap-2 mb-4">
           {reportTabsObj.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
