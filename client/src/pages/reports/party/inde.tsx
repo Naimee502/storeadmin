@@ -240,7 +240,7 @@ const PartyReports: React.FC = () => {
       columns = [
         { label: "Customer", key: "customer" },
         { label: "Ledger", key: "ledger" },
-        { label: "Outstanding", key: "outstanding" },
+        { label: "Outstanding (₹)", key: "outstanding", numeric: true },
       ];
       break;
     case "Vendor Outstanding":
@@ -248,7 +248,7 @@ const PartyReports: React.FC = () => {
       columns = [
         { label: "Vendor", key: "vendor" },
         { label: "Ledger", key: "ledger" },
-        { label: "Outstanding", key: "outstanding" },
+        { label: "Outstanding (₹)", key: "outstanding", numeric: true },
       ];
       break;
     case "Receivable / Payable Aging":
@@ -257,8 +257,8 @@ const PartyReports: React.FC = () => {
         { label: "Account", key: "account" },
         { label: "Ledger", key: "ledger" },
         { label: "Type", key: "type" },
-        { label: "Outstanding", key: "outstanding" },
-        { label: "Due Days", key: "dueDays" },
+        { label: "Outstanding (₹)", key: "outstanding", numeric: true },
+        { label: "Due Days", key: "dueDays", numeric: true },
       ];
       break;
   }
@@ -266,6 +266,21 @@ const PartyReports: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {reportTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                activeTab === tab
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
         <ReportTable
           title="Party Reports"
           columns={columns}
@@ -275,11 +290,11 @@ const PartyReports: React.FC = () => {
           setFilters={setFilters}
           appliedFilters={appliedFilters}
           setAppliedFilters={setAppliedFilters}
-          defaultTab={activeTab}
-          tabs={reportTabs}
-          onTabChange={setActiveTab}
           showExport
           showCsv
+          showPdf
+          exportFileName="PartyReport"
+          showTotals
         />
       </div>
     </HomeLayout>

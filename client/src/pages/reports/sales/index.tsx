@@ -1,77 +1,70 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { addSalesInvoices } from "../../../redux/slices/salesinvoice";
 import HomeLayout from "../../../layouts/home";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { useSalesInvoicesQuery, useDeletedSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
+import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
+import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import PrintableInvoice from "../../../components/printinvoice";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
-import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD } from "../../../utils/helper";
+
+const reportTabs = ["Sales Invoice", "Sales Order", "Sales Return (CN)"];
+
+// Safely capitalize a value that may be string | boolean | null | undefined
+const cap = (val: any): string => {
+  if (!val && val !== false) return "-";
+  if (typeof val === "boolean") return val ? "Active" : "Inactive";
+  const s = String(val);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 
 const SalesReports: React.FC = () => {
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  // -----------------------
-  // Queries
-  // -----------------------
+  const [activeTab, setActiveTab] = useState(reportTabs[0]);
+  const [filters, setFilters] = useState<{ [key: string]: any }>({});
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+
+  // -- Data
   const { data: activeData, refetch: refetchActive } = useSalesInvoicesQuery();
   const { data: deletedData, refetch: refetchDeleted } = useDeletedSalesInvoicesQuery();
+  const { data: ordersData } = useSalesOrdersQuery();
+  const { data: returnsData } = useSalesReturnsQuery();
+  const { data: accountData } = useAccountsQuery();
+  const { data: productData } = useProductServicesQuery();
+
   const activeInvoices = activeData?.getSalesInvoices || [];
   const deletedInvoices = deletedData?.getDeletedSalesInvoices || [];
-
-  const { data: accountData } = useAccountsQuery();
+  const salesOrders = ordersData?.getSalesOrders || [];
+  const salesReturns = returnsData?.getSalesReturns || [];
   const accountsList = accountData?.getAccounts || [];
-
-  const { data: productData } = useProductServicesQuery();
   const productList = productData?.getProductServices ?? [];
 
-  // -----------------------
-  // Printable
-  // -----------------------
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
 
-  // -----------------------
-  // Filters & Tabs
-  // -----------------------
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
-  const [activeTab, setActiveTab] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
-  const reportTabs = ["daily", "weekly", "monthly", "yearly"];
-
-  // -----------------------
-  // Initialize date filter
-  // -----------------------
+  // Default last 30 days
   useEffect(() => {
-     const today = new Date();
-     const to = today.toISOString().slice(0, 10);
-     const from = new Date(
-       today.getFullYear(),
-       today.getMonth(),
-       today.getDate() - 30
-     )
-       .toISOString()
-       .slice(0, 10);
- 
-     setFilters({ fromDate: from, toDate: to });
-     setAppliedFilters({ fromDate: from, toDate: to });
-   }, []);
+    const today = new Date();
+    const to = today.toISOString().slice(0, 10);
+    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+      .toISOString().slice(0, 10);
+    setFilters({ fromDate: from, toDate: to });
+    setAppliedFilters({ fromDate: from, toDate: to });
+  }, []);
 
-  // -----------------------
-  // Refetch invoices
-  // -----------------------
+  // Refetch invoices when status filter changes
   useEffect(() => {
     const fetchInvoices = async () => {
       dispatch(showLoading());
       try {
-        const status = appliedFilters.status;
-        const isDeleted = status === "Inactive";
+        const isDeleted = appliedFilters.status === "Inactive";
         const { data } = await (isDeleted ? refetchDeleted() : refetchActive());
         if (data) {
           const invoices = isDeleted ? data.getDeletedSalesInvoices : data.getSalesInvoices;
@@ -86,9 +79,7 @@ const SalesReports: React.FC = () => {
     fetchInvoices();
   }, [dispatch, appliedFilters.status, refetchActive, refetchDeleted]);
 
-  // -----------------------
-  // Build table rows
-  // -----------------------
+  // ── Sales Invoice Data ──
   const invoiceList =
     appliedFilters.status === "Inactive"
       ? deletedInvoices
@@ -96,187 +87,263 @@ const SalesReports: React.FC = () => {
       ? activeInvoices
       : [...activeInvoices, ...deletedInvoices];
 
-  const tableDataRaw = invoiceList.map((inv, idx) => {
-    const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
+  const invoiceTableData = useMemo(() => {
+    return invoiceList
+      .map((inv, idx) => {
+        const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
+        const paymentTypeStr = inv.paymenttype
+          ? inv.paymenttype.charAt(0).toUpperCase() + inv.paymenttype.slice(1)
+          : "";
+        const billtypeCap = inv.billtype
+          ? inv.billtype.charAt(0).toUpperCase() + inv.billtype.slice(1)
+          : "";
+        const partyAccObj = inv.partyacc;
+        const partyaccStr = partyAccObj
+          ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
+          : "Unknown";
+        const productNames = (inv.productservice ?? [])
+          .map((p: any) => {
+            const prodName = p.productserviceid?.name || "Unknown";
+            const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+            return `${prodName}${variantName}`;
+          })
+          .join(", ");
+        const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid?.id);
 
-    // --- Payment Type capitalized
-    const paymentTypeStr = inv.paymenttype
-      ? inv.paymenttype.charAt(0).toUpperCase() + inv.paymenttype.slice(1)
-      : "";
-
-    // --- Billing No with capitalized billtype
-    const billtypeCap = inv.billtype
-      ? inv.billtype.charAt(0).toUpperCase() + inv.billtype.slice(1)
-      : "";
-    const billNoStr = `${billtypeCap}-${inv.billnumber}`;
-
-    // --- Party Account formatted
-    const partyAccObj = inv.partyacc;
-    const partyaccStr = partyAccObj
-      ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
-      : "Unknown";
-
-    // --- Products formatted
-    const productNames = (inv.productservice ?? [])
-      .map((p: any) => {
-        const prodName = p.productserviceid?.name || "Unknown";
-        const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-        return `${prodName}${variantName}`;
+        return {
+          seqNo: idx + 1,
+          billNo: `${billtypeCap}-${inv.billnumber}`,
+          billdate: normalizeToYMD(inv.billdate) || "",
+          partyacc: partyaccStr,
+          partyaccId: partyAccObj?.id || "Unknown",
+          paymenttype: paymentTypeStr,
+          productname: productNames,
+          productIds,
+          totalitem: inv.productservice?.length ?? 0,
+          totalqty,
+          totalamount: inv.totalamount,
+          status: inv.status ? "Active" : "Inactive",
+        };
       })
-      .join(", ");
+      .filter((row) => {
+        let ok = true;
+        if (appliedFilters.partyacc) ok = ok && row.partyaccId === appliedFilters.partyacc;
+        const pf = appliedFilters.productIds;
+        if (pf) {
+          if (Array.isArray(pf) && pf.length > 0) {
+            const selected = pf.map((p: any) => (typeof p === "string" ? p : p.value ?? p));
+            ok = ok && row.productIds.some((id: any) => selected.includes(id));
+          } else if (typeof pf === "string") {
+            ok = ok && row.productIds.includes(pf);
+          } else if (typeof pf === "object" && pf.value) {
+            ok = ok && row.productIds.includes(pf.value);
+          }
+        }
+        if (appliedFilters.status) ok = ok && row.status === appliedFilters.status;
+        if (appliedFilters.paymenttype) ok = ok && row.paymenttype === appliedFilters.paymenttype;
+        if (appliedFilters.fromDate) ok = ok && row.billdate >= appliedFilters.fromDate;
+        if (appliedFilters.toDate) ok = ok && row.billdate <= appliedFilters.toDate;
+        return ok;
+      });
+  }, [invoiceList, appliedFilters]);
 
-    const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid?.id);
+  // ── Sales Order Data ──
+  const orderTableData = useMemo(() => {
+    return salesOrders
+      .filter((o: any) => {
+        const date = normalizeToYMD(o.billdate) || "";
+        if (appliedFilters.fromDate && date < appliedFilters.fromDate) return false;
+        if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
+        if (appliedFilters.partyacc && o.partyacc?.id !== appliedFilters.partyacc) return false;
+        if (appliedFilters.paymenttype && o.paymenttype?.toLowerCase() !== appliedFilters.paymenttype.toLowerCase()) return false;
+        if (appliedFilters.orderStatus && o.status?.toLowerCase() !== appliedFilters.orderStatus.toLowerCase()) return false;
+        return true;
+      })
+      .map((o: any, idx: number) => {
+        const totalQty = (o.productservice || []).reduce((s: number, p: any) => s + (p.qty || 0), 0);
+        return {
+          seqNo: idx + 1,
+          orderNo: `SO-${o.billnumber}`,
+          orderDate: normalizeToYMD(o.billdate) || "",
+          partyName: o.partyacc?.accountname || "-",
+          paymentType: cap(o.paymenttype),
+          totalItems: (o.productservice || []).length,
+          totalQty,
+          totalAmount: Number(o.totalamount || 0).toFixed(2),
+          isConverted: o.isConverted ? "Yes" : "No",
+          status: cap(o.status),
+        };
+      });
+  }, [salesOrders, appliedFilters]);
 
-    return {
-      ...inv,
-      seqNo: idx + 1,
-      totalitem: inv.productservice?.length ?? 0,
-      totalqty,
-      billtype_billnumber: billNoStr,
-      status: inv.status ? "Active" : "Inactive",
-      partyaccId: partyAccObj?.id || "Unknown",
-      partyacc: partyaccStr,
-      productname: productNames,
-      productIds,
-      paymenttype: paymentTypeStr,
-      billdate: normalizeToYMD(inv.billdate) || "",
-    };
-  });
+  // ── Sales Return Data ──
+  const returnTableData = useMemo(() => {
+    return salesReturns
+      .filter((r: any) => {
+        const date = normalizeToYMD(r.returndate) || "";
+        if (appliedFilters.fromDate && date < appliedFilters.fromDate) return false;
+        if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
+        if (appliedFilters.partyacc && r.partyacc?.id !== appliedFilters.partyacc) return false;
+        return true;
+      })
+      .map((r: any, idx: number) => {
+        const totalQty = (r.productservice || []).reduce((s: number, p: any) => s + (p.qty || 0), 0);
+        return {
+          seqNo: idx + 1,
+          cnNo: `CN-${r.billnumber}`,
+          returnDate: normalizeToYMD(r.returndate) || "",
+          sourceInvoice: r.sourceBillNumber || "-",
+          partyName: r.partyacc?.accountname || "-",
+          totalItems: (r.productservice || []).length,
+          totalQty,
+          discount: Number(r.totaldiscount || 0).toFixed(2),
+          gst: Number(r.totalgst || 0).toFixed(2),
+          totalAmount: Number(r.totalamount || 0).toFixed(2),
+          refundMode: cap(r.refundMode),
+          reason: r.reason || "-",
+          status: cap(r.status),
+        };
+      });
+  }, [salesReturns, appliedFilters]);
 
-  // -----------------------
-  // Apply filters safely
-  // -----------------------
-  const tableData = tableDataRaw.filter((row) => {
-    let ok = true;
+  // ── Per-tab config ──
+  const partyOptions = accountsList.map((a) => ({ label: a.accountname || a.name, value: a.id }));
+  const productOptions = productList.map((p) => ({ label: p.name, value: p.id }));
 
-    if (appliedFilters.partyacc) ok = ok && row.partyaccId === appliedFilters.partyacc;
+  let tableData: any[] = [];
+  let columns: any[] = [];
+  let filterFields: ReportFilterField[] = [];
+  let title = "Sales Reports";
+  let exportFileName = "SalesReport";
 
-    const pf = appliedFilters.productIds;
-    if (pf) {
-      if (Array.isArray(pf) && pf.length > 0) {
-        const selected = pf.map((p: any) => (typeof p === "string" ? p : p.value ?? p));
-        ok = ok && row.productIds.some((id) => selected.includes(id));
-      } else if (typeof pf === "string") {
-        ok = ok && row.productIds.includes(pf);
-      } else if (typeof pf === "object" && pf.value) {
-        ok = ok && row.productIds.includes(pf.value);
-      }
-    }
+  switch (activeTab) {
+    case "Sales Invoice":
+      tableData = invoiceTableData;
+      title = "Sales Invoice Report";
+      exportFileName = "SalesInvoiceReport";
+      columns = [
+        { label: "Seq No", key: "seqNo" },
+        { label: "Bill No", key: "billNo" },
+        { label: "Date", key: "billdate" },
+        { label: "Party A/c", key: "partyacc" },
+        { label: "Payment Type", key: "paymenttype" },
+        { label: "Product(s)", key: "productname" },
+        { label: "Total Items", key: "totalitem", numeric: true },
+        { label: "Total Qty", key: "totalqty", numeric: true },
+        { label: "Total Amount (₹)", key: "totalamount", numeric: true },
+        { label: "Status", key: "status" },
+      ];
+      filterFields = [
+        { name: "partyacc", label: "Party A/c", type: "select", options: partyOptions, searchable: true },
+        { name: "productIds", label: "Product", type: "select", options: productOptions, searchable: true },
+        { name: "paymenttype", label: "Payment Type", type: "select", options: [
+          { label: "Cash", value: "Cash" },
+          { label: "Credit", value: "Credit" },
+          { label: "Online", value: "Online" },
+        ]},
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+        { name: "status", label: "Status", type: "select", options: [
+          { label: "Active", value: "Active" },
+          { label: "Inactive", value: "Inactive" },
+        ]},
+      ];
+      break;
 
-    if (appliedFilters.status) ok = ok && row.status === appliedFilters.status;
+    case "Sales Order":
+      tableData = orderTableData;
+      title = "Sales Order Report";
+      exportFileName = "SalesOrderReport";
+      columns = [
+        { label: "Seq No", key: "seqNo" },
+        { label: "Order No", key: "orderNo" },
+        { label: "Date", key: "orderDate" },
+        { label: "Party", key: "partyName" },
+        { label: "Payment Type", key: "paymentType" },
+        { label: "Items", key: "totalItems", numeric: true },
+        { label: "Qty", key: "totalQty", numeric: true },
+        { label: "Amount (₹)", key: "totalAmount", numeric: true },
+        { label: "Converted", key: "isConverted" },
+        { label: "Status", key: "status" },
+      ];
+      filterFields = [
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+        { name: "partyacc", label: "Party", type: "select", options: partyOptions, searchable: true },
+        { name: "paymenttype", label: "Payment Type", type: "select", options: [
+          { label: "Cash", value: "cash" },
+          { label: "Credit", value: "credit" },
+          { label: "Online", value: "online" },
+        ]},
+        { name: "orderStatus", label: "Status", type: "select", options: [
+          { label: "Active", value: "active" },
+          { label: "Converted", value: "converted" },
+          { label: "Cancelled", value: "cancelled" },
+        ]},
+      ];
+      break;
 
-    const rowDate = row.billdate;
-    const from = appliedFilters.fromDate;
-    const to = appliedFilters.toDate;
-    if (from && typeof rowDate === "string") ok = ok && rowDate >= from;
-    if (to && typeof rowDate === "string") ok = ok && rowDate <= to;
-
-    return ok;
-  });
-
-  // -----------------------
-  // Table columns & filters
-  // -----------------------
-  const columns = [
-    { label: "Seq Number", key: "seqNo" },
-    { label: "Payment Type", key: "paymenttype" },
-    { label: "Party A/c", key: "partyacc" },
-    { label: "Product(s)", key: "productname" },
-    { label: "Total Items", key: "totalitem" },
-    { label: "Total Qty", key: "totalqty" },
-    { label: "Billing Date", key: "billdate" },
-    { label: "Billing No", key: "billtype_billnumber" },
-    { label: "Total Amount", key: "totalamount" },
-    { label: "Status", key: "status" },
-  ];
-
-  const mappedFilterFields: ReportFilterField[] = [
-    {
-      name: "partyacc",
-      label: "Party A/c",
-      type: "select",
-      options: accountsList.map((a) => ({ label: a.accountname || a.name, value: a.id })),
-      searchable: true,
-    },
-    {
-      name: "productIds",
-      label: "Product",
-      type: "select",
-      options: productList.map((p) => ({ label: p.name, value: p.id })),
-      searchable: true,
-    },
-    { name: "fromDate", label: "From Date", type: "date" },
-    { name: "toDate", label: "To Date", type: "date" },
-    {
-      name: "status",
-      label: "Status",
-      type: "select",
-      options: [
-        { label: "Active", value: "Active" },
-        { label: "Inactive", value: "Inactive" },
-      ],
-    },
-  ];
-
-  // -----------------------
-  // Export functions
-  // -----------------------
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(tableData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SalesReport");
-    XLSX.writeFile(wb, "SalesReport.xlsx");
-  };
-
-  const exportCSV = () => {
-    const csv = Papa.unparse(tableData);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "SalesReport.csv");
-    link.click();
-  };
+    case "Sales Return (CN)":
+      tableData = returnTableData;
+      title = "Sales Return Report (Credit Notes)";
+      exportFileName = "SalesReturnReport";
+      columns = [
+        { label: "Seq No", key: "seqNo" },
+        { label: "CN No", key: "cnNo" },
+        { label: "Return Date", key: "returnDate" },
+        { label: "Source Invoice", key: "sourceInvoice" },
+        { label: "Party", key: "partyName" },
+        { label: "Items", key: "totalItems", numeric: true },
+        { label: "Qty", key: "totalQty", numeric: true },
+        { label: "Discount (₹)", key: "discount", numeric: true },
+        { label: "GST (₹)", key: "gst", numeric: true },
+        { label: "Amount (₹)", key: "totalAmount", numeric: true },
+        { label: "Refund Mode", key: "refundMode" },
+        { label: "Reason", key: "reason" },
+        { label: "Status", key: "status" },
+      ];
+      filterFields = [
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+        { name: "partyacc", label: "Party", type: "select", options: partyOptions, searchable: true },
+      ];
+      break;
+  }
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {reportTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                activeTab === tab
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
         <ReportTable
-          title="Sales Reports"
+          title={title}
           columns={columns}
           data={tableData}
-          filterFields={mappedFilterFields}
+          filterFields={filterFields}
           filters={filters}
           setFilters={setFilters}
           appliedFilters={appliedFilters}
           setAppliedFilters={setAppliedFilters}
-          defaultTab={activeTab}
-          tabs={reportTabs}
-          onTabChange={(tab) => {
-            const { from, to } = applyDateShortcut(tab as "daily" | "weekly" | "monthly" | "yearly");
-
-            const fromYMD = from ? normalizeToYMD(from.split("/").reverse().join("-")) : null;
-            const toYMD = to ? normalizeToYMD(to.split("/").reverse().join("-")) : null;
-
-            setFilters((prev) => ({
-              ...prev,
-              fromDate: fromYMD,
-              toDate: toYMD,
-            }));
-
-            setAppliedFilters((prev) => ({
-              ...prev,
-              fromDate: fromYMD,
-              toDate: toYMD,
-            }));
-
-            setActiveTab(tab as "daily" | "weekly" | "monthly" | "yearly");
-          }}
           showExport
           showCsv
-          onExport={exportExcel}
-          onCsvExport={exportCSV}
+          showPdf
+          exportFileName={exportFileName}
           isLoading={isLoading}
+          showTotals
         />
 
         {printInvoice && (

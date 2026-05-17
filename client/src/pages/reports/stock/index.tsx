@@ -4,7 +4,7 @@ import ReportTable, { type ReportFilterField } from "../../../components/reportt
 import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
-import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD } from "../../../utils/helper";
 
 const StockReports: React.FC = () => {
   const { data: productData } = useProductServicesQuery();
@@ -105,8 +105,8 @@ const StockReports: React.FC = () => {
       columns = [
         { label: "Product", key: "productName" },
         { label: "Variant", key: "variantName" },
-        { label: "Current Stock", key: "currentStock" },
-        { label: "Stock Value", key: "stockValue" },
+        { label: "Current Stock", key: "currentStock", numeric: true },
+        { label: "Stock Value (₹)", key: "stockValue", numeric: true },
         { label: "Rack Location", key: "rackLocation" },
         { label: "Status", key: "status" },
       ];
@@ -125,8 +125,9 @@ const StockReports: React.FC = () => {
       columns = [
         { label: "Product", key: "productName" },
         { label: "Variant", key: "variantName" },
-        { label: "Current Stock", key: "currentStock" },
-        { label: "Reorder Level", key: "reorderLevel" },
+        { label: "Current Stock", key: "currentStock", numeric: true },
+        { label: "Min Stock", key: "minimumStock", numeric: true },
+        { label: "Reorder Level", key: "reorderLevel", numeric: true },
         { label: "Rack Location", key: "rackLocation" },
         { label: "Status", key: "status" },
       ];
@@ -145,8 +146,8 @@ const StockReports: React.FC = () => {
       columns = [
         { label: "Product", key: "productName" },
         { label: "Variant", key: "variantName" },
-        { label: "Current Stock", key: "currentStock" },
-        { label: "Stock Value", key: "stockValue" },
+        { label: "Current Stock", key: "currentStock", numeric: true },
+        { label: "Stock Value (₹)", key: "stockValue", numeric: true },
         { label: "Status", key: "status" },
       ];
       filterFields = [
@@ -170,7 +171,7 @@ const StockReports: React.FC = () => {
         { label: "Variant", key: "variantName" },
         { label: "From Branch", key: "fromBranch" },
         { label: "To Branch", key: "toBranch" },
-        { label: "Qty", key: "qty" },
+        { label: "Qty", key: "qty", numeric: true },
         { label: "Transfer Date", key: "transferDate" },
         { label: "Status", key: "status" },
       ];
@@ -186,6 +187,21 @@ const StockReports: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {reportTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                activeTab === tab
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
         <ReportTable
           title="Stock Reports"
           columns={columns}
@@ -195,11 +211,11 @@ const StockReports: React.FC = () => {
           setFilters={setFilters}
           appliedFilters={appliedFilters}
           setAppliedFilters={setAppliedFilters}
-          defaultTab={activeTab}
-          tabs={reportTabs}
-          onTabChange={(tab) => setActiveTab(tab)}
           showExport
           showCsv
+          showPdf
+          exportFileName="StockReport"
+          showTotals
         />
       </div>
     </HomeLayout>

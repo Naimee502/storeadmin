@@ -171,8 +171,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/reports/stock', label: 'Stock Reports', icon: <FaClipboardList />, moduleId: "reports.stock", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/gst', label: 'GST Reports', icon: <FaFileInvoiceDollar />, moduleId: "reports.gst", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/accounting', label: 'Accounting / Finance', icon: <FaWallet />, moduleId: "reports.accounting", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/party', label: 'Party / Vendor ', icon: <FaUsers />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/salesmen', label: 'Salesmen Reports', icon: <FaUserTie />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/party', label: 'Party / Vendor', icon: <FaUsers />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/salesmen', label: 'Staff Reports', icon: <FaUserTie />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine />, moduleId: "reports.analytical", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];

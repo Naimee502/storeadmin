@@ -286,10 +286,10 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
         { label: "Invoice No", key: "invoiceNo" },
         { label: "Date", key: "invoiceDate" },
         { label: "Customer", key: "partyName" },
-        { label: "Taxable", key: "taxable" },
-        { label: "CGST", key: "cgst" },
-        { label: "SGST", key: "sgst" },
-        { label: "Total GST", key: "totalGst" },
+        { label: "Taxable (₹)", key: "taxable", numeric: true },
+        { label: "CGST (₹)", key: "cgst", numeric: true },
+        { label: "SGST (₹)", key: "sgst", numeric: true },
+        { label: "Total GST (₹)", key: "totalGst", numeric: true },
       ];
 
       filterFields.push({
@@ -307,10 +307,10 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
         { label: "Invoice No", key: "invoiceNo" },
         { label: "Date", key: "invoiceDate" },
         { label: "Vendor", key: "partyName" },
-        { label: "Taxable", key: "taxable" },
-        { label: "CGST", key: "cgst" },
-        { label: "SGST", key: "sgst" },
-        { label: "Total GST", key: "totalGst" },
+        { label: "Taxable (₹)", key: "taxable", numeric: true },
+        { label: "CGST (₹)", key: "cgst", numeric: true },
+        { label: "SGST (₹)", key: "sgst", numeric: true },
+        { label: "Total GST (₹)", key: "totalGst", numeric: true },
       ];
 
       filterFields.push({
@@ -335,10 +335,10 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
 
       columns = [
         { label: "Product", key: "productName" },
-        { label: "Taxable", key: "taxable" },
-        { label: "CGST", key: "cgst" },
-        { label: "SGST", key: "sgst" },
-        { label: "Total GST", key: "totalGst" },
+        { label: "Taxable (₹)", key: "taxable", numeric: true },
+        { label: "CGST (₹)", key: "cgst", numeric: true },
+        { label: "SGST (₹)", key: "sgst", numeric: true },
+        { label: "Total GST (₹)", key: "totalGst", numeric: true },
       ];
 
       filterFields.push({
@@ -357,12 +357,12 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
         { label: "Date", key: "invoiceDate" },
         { label: "Customer", key: "customer" },
         { label: "GSTIN", key: "gstin" },
-        { label: "Taxable", key: "taxable" },
-        { label: "CGST", key: "cgst" },
-        { label: "SGST", key: "sgst" },
-        { label: "IGST", key: "igst" },
-        { label: "Total GST", key: "totalGst" },
-        { label: "Invoice Amount", key: "invoiceAmount" },
+        { label: "Taxable (₹)", key: "taxable", numeric: true },
+        { label: "CGST (₹)", key: "cgst", numeric: true },
+        { label: "SGST (₹)", key: "sgst", numeric: true },
+        { label: "IGST (₹)", key: "igst", numeric: true },
+        { label: "Total GST (₹)", key: "totalGst", numeric: true },
+        { label: "Invoice Amount (₹)", key: "invoiceAmount", numeric: true },
       ];
       break;
 
@@ -373,12 +373,12 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
         { label: "Date", key: "invoiceDate" },
         { label: "Vendor", key: "vendor" },
         { label: "GSTIN", key: "gstin" },
-        { label: "Taxable", key: "taxable" },
-        { label: "CGST", key: "cgst" },
-        { label: "SGST", key: "sgst" },
-        { label: "IGST", key: "igst" },
-        { label: "Total GST", key: "totalGst" },
-        { label: "Invoice Amount", key: "invoiceAmount" },
+        { label: "Taxable (₹)", key: "taxable", numeric: true },
+        { label: "CGST (₹)", key: "cgst", numeric: true },
+        { label: "SGST (₹)", key: "sgst", numeric: true },
+        { label: "IGST (₹)", key: "igst", numeric: true },
+        { label: "Total GST (₹)", key: "totalGst", numeric: true },
+        { label: "Invoice Amount (₹)", key: "invoiceAmount", numeric: true },
       ];
       break;
   }
@@ -391,6 +391,21 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {reportTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                activeTab === tab
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
         <ReportTable
           title="GST Reports"
           columns={columns}
@@ -400,11 +415,11 @@ const [appliedFilters, setAppliedFilters] = useState({} as any);
           setFilters={setFilters}
           appliedFilters={appliedFilters}
           setAppliedFilters={setAppliedFilters}
-          defaultTab={activeTab}
-          tabs={reportTabs}
-          onTabChange={setActiveTab}
           showExport
           showCsv
+          showPdf
+          exportFileName="GSTReport"
+          showTotals
         />
       </div>
     </HomeLayout>

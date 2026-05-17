@@ -318,8 +318,8 @@ const AccountingFinanceReports: React.FC = () => {
                 { label: "Transaction Code", key: "transactionCode" },
                 { label: "Date", key: "transactionDate" },
                 { label: "Account Ledger", key: "accountName" },
-                { label: "Debit", key: "debit" },
-                { label: "Credit", key: "credit" },
+                { label: "Debit (₹)", key: "debit", numeric: true },
+                { label: "Credit (₹)", key: "credit", numeric: true },
                 { label: "Remarks", key: "remarks" },
             ];
             filterFields.push({
@@ -339,7 +339,7 @@ const AccountingFinanceReports: React.FC = () => {
                 { label: "Party", key: "partyName" },
                 { label: "Type", key: "type" },
                 { label: "Mode", key: "mode" },
-                { label: "Amount", key: "amount" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
                 { label: "Remarks", key: "remarks" },
             ];
             filterFields.push({
@@ -355,7 +355,7 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = profitLossData;
             columns = [
                 { label: "Account", key: "account" },
-                { label: "Amount", key: "amount" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
             ];
             break;
 
@@ -363,7 +363,7 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = balanceSheetData;
             columns = [
                 { label: "Account", key: "account" },
-                { label: "Amount", key: "amount" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
             ];
             break;
 
@@ -371,7 +371,7 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = cashFlowData;
             columns = [
                 { label: "Account", key: "account" },
-                { label: "Amount", key: "amount" },
+                { label: "Amount (₹)", key: "amount", numeric: true },
             ];
             break;
 
@@ -379,7 +379,7 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = transactionsSummaryData;
             columns = [
                 { label: "Account", key: "account" },
-                { label: "Amount", key: "amount" },
+                { label: "Amount / Count", key: "amount" },
             ];
             break;
 
@@ -390,6 +390,21 @@ const AccountingFinanceReports: React.FC = () => {
     return (
         <HomeLayout>
             <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+                <div className="flex gap-2 mb-4 flex-wrap">
+                    {reportTabs.map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                                activeTab === tab
+                                    ? "bg-blue-600 text-white border-blue-600"
+                                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                            }`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
                 <ReportTable
                     title="Accounting & Finance Reports"
                     columns={columns}
@@ -399,11 +414,11 @@ const AccountingFinanceReports: React.FC = () => {
                     setFilters={setFilters}
                     appliedFilters={appliedFilters}
                     setAppliedFilters={setAppliedFilters}
-                    defaultTab={activeTab}
-                    tabs={reportTabs}
-                    onTabChange={setActiveTab}
                     showExport
                     showCsv
+                    showPdf
+                    exportFileName="AccountingReport"
+                    showTotals
                 />
             </div>
         </HomeLayout>

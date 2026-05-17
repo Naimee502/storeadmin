@@ -1,14 +1,9 @@
 // Attendance & Leave Reports
 //
-// Three tabs:
-//   - Daily Logs    → flatten getAttendanceLogs into a per-day per-staff list
-//   - Punch Trail   → per-punch list (audit / discrepancy investigations)
-//   - Leave Summary → per-staff allocation/used/pending/balance from
-//                     getLeaveBalances (already aggregated server-side)
-//
-// We deliberately reuse the existing attendance module's queries instead
-// of building a parallel reporting endpoint — same data, just shaped for
-// the ReportTable component (date-range filters + tabs + export).
+// Tabs:
+//   - Daily Logs     → per-day attendance per staff
+//   - Punch Trail    → individual punch records
+//   - Leave Summary  → leave balances per staff
 
 import React, { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../../layouts/home";
@@ -18,15 +13,17 @@ import {
   GET_ATTENDANCE_LOGS,
   GET_ATTENDANCE_PUNCHES,
   GET_LEAVE_BALANCES,
+  GET_LEAVE_REQUESTS,
 } from "../../../graphql/queries/attendance";
 import { useAppSelector } from "../../../redux/hooks";
-import { applyDateShortcut, normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD } from "../../../utils/helper";
 
+/* ── Helpers ── */
 const fmtDateTime = (iso?: string | null) => {
   if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return d.toLocaleString("en-IN");
 };
 
 const minutesToHm = (m?: number | null) => {
@@ -38,13 +35,14 @@ const minutesToHm = (m?: number | null) => {
 const cap = (s?: string | null) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "-";
 
+/* ── Component ── */
 const AttendanceReports: React.FC = () => {
-  const reportTabs = ["Daily Logs", "Punch Trail", "Leave Summary"];
+  const reportTabs = ["Daily Logs", "Punch Trail", "Leave Summary", "Leave Requests"];
   const [activeTab, setActiveTab] = useState<string>(reportTabs[0]);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  // Resolve scope from auth — same pattern as the operational pages.
+  // Resolve scope from auth
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
   const adminId =
     type === "admin"
@@ -67,28 +65,22 @@ const AttendanceReports: React.FC = () => {
     const today = new Date();
     const to = today.toISOString().slice(0, 10);
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString()
-      .slice(0, 10);
-    setFilters({ from, to });
-    setAppliedFilters({ from, to });
+      .toISOString().slice(0, 10);
+    setFilters({ fromDate: from, toDate: to });
+    setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  const filterDef: ReportFilterField[] = [
-    { name: "from", label: "From", type: "date" },
-    { name: "to", label: "To", type: "date" },
-  ];
-
-  /* ============================ DATA ============================ */
+  /* ── Queries ── */
   const logsQ = useQuery(GET_ATTENDANCE_LOGS, {
     variables: {
       filter: {
         adminid: adminId,
         branchid: branchId,
-        dateFrom: appliedFilters.from,
-        dateTo: appliedFilters.to,
+        dateFrom: appliedFilters.fromDate,
+        dateTo: appliedFilters.toDate,
       },
     },
-    skip: !adminId,
+    skip: !adminId || (activeTab !== "Daily Logs"),
   });
 
   const punchesQ = useQuery(GET_ATTENDANCE_PUNCHES, {
@@ -96,8 +88,8 @@ const AttendanceReports: React.FC = () => {
       filter: {
         adminid: adminId,
         branchid: branchId,
-        dateFrom: appliedFilters.from,
-        dateTo: appliedFilters.to,
+        dateFrom: appliedFilters.fromDate,
+        dateTo: appliedFilters.toDate,
       },
     },
     skip: !adminId || activeTab !== "Punch Trail",
@@ -108,10 +100,29 @@ const AttendanceReports: React.FC = () => {
     skip: !adminId || activeTab !== "Leave Summary",
   });
 
-  /* ============================ ROWS ============================ */
-  const dailyRows = useMemo(
-    () =>
-      (logsQ.data?.getAttendanceLogs ?? []).map((l: any, i: number) => ({
+  const leaveReqQ = useQuery(GET_LEAVE_REQUESTS, {
+    variables: {
+      filter: {
+        adminid: adminId,
+        branchid: branchId,
+      },
+    },
+    skip: !adminId || activeTab !== "Leave Requests",
+  });
+
+  /* ── Row builders ── */
+  const dailyRows = useMemo(() => {
+    const rows = logsQ.data?.getAttendanceLogs ?? [];
+    return rows
+      .filter((l: any) => {
+        const d = l.date;
+        if (appliedFilters.fromDate && d < appliedFilters.fromDate) return false;
+        if (appliedFilters.toDate && d > appliedFilters.toDate) return false;
+        if (appliedFilters.staffName && !(l.staffid?.name ?? "").toLowerCase().includes(appliedFilters.staffName.toLowerCase())) return false;
+        if (appliedFilters.status && cap(l.status) !== appliedFilters.status) return false;
+        return true;
+      })
+      .map((l: any, i: number) => ({
         seq: i + 1,
         date: l.date,
         staff: l.staffid?.name ?? "-",
@@ -119,119 +130,217 @@ const AttendanceReports: React.FC = () => {
         status: cap(l.status),
         firstIn: fmtDateTime(l.firstPunchIn),
         lastOut: fmtDateTime(l.lastPunchOut),
-        work: minutesToHm(l.totalWorkMinutes),
-        late: l.isLate ? `${l.lateByMinutes ?? 0}m` : "-",
-        ot: minutesToHm(l.overtimeMinutes),
-      })),
-    [logsQ.data]
-  );
+        workHours: minutesToHm(l.totalWorkMinutes),
+        breakHours: minutesToHm(l.totalBreakMinutes),
+        late: l.isLate ? `${l.lateByMinutes ?? 0} min` : "-",
+        overtime: minutesToHm(l.overtimeMinutes),
+        notes: l.notes ?? "-",
+      }));
+  }, [logsQ.data, appliedFilters]);
 
-  const punchRows = useMemo(
-    () =>
-      (punchesQ.data?.getAttendancePunches ?? []).map((p: any, i: number) => ({
-        seq: i + 1,
-        type: cap(p.type),
-        when: fmtDateTime(p.timestamp),
-        source: cap(p.source),
-        address: p.address ?? "-",
-        remarks: p.remarks ?? "-",
-      })),
-    [punchesQ.data]
-  );
+  const punchRows = useMemo(() => {
+    return (punchesQ.data?.getAttendancePunches ?? []).map((p: any, i: number) => ({
+      seq: i + 1,
+      type: cap(p.type),
+      when: fmtDateTime(p.timestamp),
+      source: cap(p.source),
+      address: p.address ?? "-",
+      remarks: p.remarks ?? "-",
+    }));
+  }, [punchesQ.data]);
 
-  const balanceRows = useMemo(
-    () =>
-      (balancesQ.data?.getLeaveBalances ?? []).map((b: any, i: number) => ({
+  const balanceRows = useMemo(() => {
+    return (balancesQ.data?.getLeaveBalances ?? [])
+      .filter((b: any) => {
+        if (appliedFilters.leaveYear && String(b.year) !== String(appliedFilters.leaveYear)) return false;
+        return true;
+      })
+      .map((b: any, i: number) => ({
         seq: i + 1,
         staff: b.staffid?.name ?? "-",
         code: b.staffid?.staffcode ?? "-",
-        type: b.leavetypeid?.name ?? "-",
+        leaveType: b.leavetypeid?.name ?? "-",
         year: b.year,
         allocated: b.allocated,
         used: b.used,
         pending: b.pending,
-        carried: b.carriedForward,
+        carriedForward: b.carriedForward,
         balance: b.balance,
-      })),
-    [balancesQ.data]
-  );
+      }));
+  }, [balancesQ.data, appliedFilters]);
 
-  /* ============================ COLUMNS ========================= */
-  const dailyColumns = [
-    { label: "Seq", key: "seq" },
-    { label: "Date", key: "date" },
-    { label: "Staff", key: "staff" },
-    { label: "Code", key: "code" },
-    { label: "Status", key: "status" },
-    { label: "First In", key: "firstIn" },
-    { label: "Last Out", key: "lastOut" },
-    { label: "Work", key: "work" },
-    { label: "Late", key: "late" },
-    { label: "OT", key: "ot" },
+  const leaveReqRows = useMemo(() => {
+    return (leaveReqQ.data?.getLeaveRequests ?? [])
+      .filter((r: any) => {
+        const from = r.fromDate ? normalizeToYMD(r.fromDate) : null;
+        if (appliedFilters.fromDate && from && from < appliedFilters.fromDate) return false;
+        if (appliedFilters.toDate && from && from > appliedFilters.toDate) return false;
+        if (appliedFilters.leaveStatus && cap(r.status) !== appliedFilters.leaveStatus) return false;
+        return true;
+      })
+      .map((r: any, i: number) => ({
+        seq: i + 1,
+        staff: r.staffid?.name ?? "-",
+        code: r.staffid?.staffcode ?? "-",
+        leaveType: r.leavetypeid?.name ?? "-",
+        fromDate: r.fromDate ? normalizeToYMD(r.fromDate) : "-",
+        toDate: r.toDate ? normalizeToYMD(r.toDate) : "-",
+        totalDays: r.totalDays,
+        halfDay: r.halfDay ? "Yes" : "No",
+        reason: r.reason ?? "-",
+        status: cap(r.status),
+        approvedBy: r.approvedByName ?? "-",
+      }));
+  }, [leaveReqQ.data, appliedFilters]);
+
+  /* ── Per-tab config ── */
+  type TabConfig = { columns: any[]; rows: any[]; filterFields: ReportFilterField[]; title: string; exportFileName: string };
+
+  const statusOptions = [
+    { label: "Present", value: "Present" },
+    { label: "Absent", value: "Absent" },
+    { label: "Half Day", value: "Half day" },
+    { label: "Leave", value: "Leave" },
+    { label: "Holiday", value: "Holiday" },
+    { label: "Week Off", value: "Week off" },
   ];
 
-  const punchColumns = [
-    { label: "Seq", key: "seq" },
-    { label: "Type", key: "type" },
-    { label: "When", key: "when" },
-    { label: "Source", key: "source" },
-    { label: "Address", key: "address" },
-    { label: "Remarks", key: "remarks" },
+  const leaveStatusOptions = [
+    { label: "Pending", value: "Pending" },
+    { label: "Approved", value: "Approved" },
+    { label: "Rejected", value: "Rejected" },
   ];
 
-  const balanceColumns = [
-    { label: "Seq", key: "seq" },
-    { label: "Staff", key: "staff" },
-    { label: "Code", key: "code" },
-    { label: "Type", key: "type" },
-    { label: "Year", key: "year" },
-    { label: "Allocated", key: "allocated" },
-    { label: "Used", key: "used" },
-    { label: "Pending", key: "pending" },
-    { label: "C/F", key: "carried" },
-    { label: "Balance", key: "balance" },
-  ];
-
-  const tabConfig: Record<string, { columns: any[]; rows: any[]; title: string }> = {
-    "Daily Logs": { columns: dailyColumns, rows: dailyRows, title: "Daily Attendance Logs" },
-    "Punch Trail": { columns: punchColumns, rows: punchRows, title: "Punch Trail" },
-    "Leave Summary": { columns: balanceColumns, rows: balanceRows, title: "Leave Balance Summary" },
+  const tabConfigs: Record<string, TabConfig> = {
+    "Daily Logs": {
+      title: "Daily Attendance Logs",
+      exportFileName: "AttendanceDailyLogs",
+      filterFields: [
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+        { name: "status", label: "Status", type: "select", options: statusOptions },
+      ],
+      columns: [
+        { label: "Seq", key: "seq" },
+        { label: "Date", key: "date" },
+        { label: "Staff", key: "staff" },
+        { label: "Staff Code", key: "code" },
+        { label: "Status", key: "status" },
+        { label: "First In", key: "firstIn" },
+        { label: "Last Out", key: "lastOut" },
+        { label: "Work Hours", key: "workHours" },
+        { label: "Break Hours", key: "breakHours" },
+        { label: "Late By", key: "late" },
+        { label: "Overtime", key: "overtime" },
+        { label: "Notes", key: "notes" },
+      ],
+      rows: dailyRows,
+    },
+    "Punch Trail": {
+      title: "Punch Trail",
+      exportFileName: "AttendancePunchTrail",
+      filterFields: [
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+      ],
+      columns: [
+        { label: "Seq", key: "seq" },
+        { label: "Type", key: "type" },
+        { label: "Date & Time", key: "when" },
+        { label: "Source", key: "source" },
+        { label: "Address", key: "address" },
+        { label: "Remarks", key: "remarks" },
+      ],
+      rows: punchRows,
+    },
+    "Leave Summary": {
+      title: "Leave Balance Summary",
+      exportFileName: "LeaveBalanceSummary",
+      filterFields: [
+        {
+          name: "leaveYear",
+          label: "Year",
+          type: "select",
+          options: Array.from({ length: 5 }, (_, i) => {
+            const y = new Date().getFullYear() - i;
+            return { label: String(y), value: String(y) };
+          }),
+        },
+      ],
+      columns: [
+        { label: "Seq", key: "seq" },
+        { label: "Staff", key: "staff" },
+        { label: "Staff Code", key: "code" },
+        { label: "Leave Type", key: "leaveType" },
+        { label: "Year", key: "year" },
+        { label: "Allocated", key: "allocated", numeric: true },
+        { label: "Used", key: "used", numeric: true },
+        { label: "Pending", key: "pending", numeric: true },
+        { label: "Carried Fwd", key: "carriedForward", numeric: true },
+        { label: "Balance", key: "balance", numeric: true },
+      ],
+      rows: balanceRows,
+    },
+    "Leave Requests": {
+      title: "Leave Requests",
+      exportFileName: "LeaveRequests",
+      filterFields: [
+        { name: "fromDate", label: "From Date", type: "date" },
+        { name: "toDate", label: "To Date", type: "date" },
+        { name: "leaveStatus", label: "Status", type: "select", options: leaveStatusOptions },
+      ],
+      columns: [
+        { label: "Seq", key: "seq" },
+        { label: "Staff", key: "staff" },
+        { label: "Staff Code", key: "code" },
+        { label: "Leave Type", key: "leaveType" },
+        { label: "From Date", key: "fromDate" },
+        { label: "To Date", key: "toDate" },
+        { label: "Days", key: "totalDays", numeric: true },
+        { label: "Half Day", key: "halfDay" },
+        { label: "Reason", key: "reason" },
+        { label: "Status", key: "status" },
+        { label: "Approved By", key: "approvedBy" },
+      ],
+      rows: leaveReqRows,
+    },
   };
 
-  const { columns, rows, title } = tabConfig[activeTab];
+  const { columns, rows, filterFields, title, exportFileName } =
+    tabConfigs[activeTab] ?? tabConfigs["Daily Logs"];
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h1 className="text-2xl font-semibold mb-4">Attendance & Leave Reports</h1>
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {reportTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                activeTab === tab
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
         <ReportTable
           title={title}
-          tabs={reportTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
           columns={columns}
           data={rows}
-          filters={filterDef}
-          filterValues={filters}
-          onFilterChange={(name, value) =>
-            setFilters((prev) => ({ ...prev, [name]: value }))
-          }
-          onApplyFilters={() => {
-            const normalized: any = { ...filters };
-            if (normalized.from) normalized.from = normalizeToYMD(normalized.from);
-            if (normalized.to) normalized.to = normalizeToYMD(normalized.to);
-            setAppliedFilters(normalized);
-          }}
-          onResetFilters={() => {
-            const today = new Date();
-            const to = today.toISOString().slice(0, 10);
-            const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-              .toISOString()
-              .slice(0, 10);
-            setFilters({ from, to });
-            setAppliedFilters({ from, to });
-          }}
-          dateShortcuts={(key) => applyDateShortcut(key, setFilters, setAppliedFilters)}
+          filterFields={filterFields}
+          filters={filters}
+          setFilters={setFilters}
+          appliedFilters={appliedFilters}
+          setAppliedFilters={setAppliedFilters}
+          showExport
+          showCsv
+          showPdf
+          exportFileName={exportFileName}
+          showTotals
         />
       </div>
     </HomeLayout>
