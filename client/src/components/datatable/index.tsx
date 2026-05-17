@@ -244,33 +244,37 @@ const DataTable: React.FC<DataTableProps> = ({
                     {showImport && (
                         <button
                             onClick={onImport}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-blue-600 text-black rounded hover:bg-blue-700"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-sky-600 !text-white rounded-md hover:!bg-sky-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-sky-600"
                         >
-                            <FaFileImport /> Import
+                            <FaFileImport className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Import</span>
                         </button>
                     )}
                     {showExport && (
                         <button
                             onClick={onExport}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-green-600 text-black rounded hover:bg-green-700"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-emerald-600 !text-white rounded-md hover:!bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-emerald-600"
                         >
-                            <FaFileExport /> Export
+                            <FaFileExport className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Export</span>
                         </button>
                     )}
                     {showDeleted && (
                         <button
                             onClick={onShowDeleted}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-red-600 text-black rounded hover:bg-red-700"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-rose-600 !text-white rounded-md hover:!bg-rose-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-rose-600"
                         >
-                            <FaTrashRestore /> Deleted Entries
+                            <FaTrashRestore className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Deleted Entries</span>
                         </button>
                     )}
                     {showAdd && (
                         <button
                             onClick={onAdd}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1 bg-indigo-600 text-black rounded hover:bg-indigo-700"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
                         >
-                            <FaPlus /> Add New
+                            <FaPlus className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Add New</span>
                         </button>
                     )}
                 </div>

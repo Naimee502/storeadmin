@@ -12,7 +12,7 @@ import { setAdminSettings } from '../../redux/slices/adminsettings';
 
 const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = ({ children, hideNav }) => {
   const dispatch = useAppDispatch();
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isSidebarHovered, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
 
@@ -89,7 +89,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
         {/* Scrollable content area */}
         <main
           className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out ${
-            !hideNav ? (isSidebarHovered ? 'sm:ml-56 pt-[60px]' : 'sm:ml-14 pt-[60px]') : ''
+            !hideNav ? ((isSidebarOpen || isSidebarHovered) ? 'sm:ml-64 pt-[60px]' : 'sm:ml-16 pt-[60px]') : ''
           }`}
         >
           <div>{children}</div>

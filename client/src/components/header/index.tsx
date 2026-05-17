@@ -69,39 +69,40 @@ const Header: React.FC<HeaderProps> = ({
   }, [businessAllowed, localAllowed]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[60px] bg-[#34495e] text-white flex items-center px-2 sm:px-2 z-[1000]">
+    <header className="fixed top-0 left-0 right-0 h-[60px] bg-slate-950 border-b border-slate-800 text-white flex items-center px-4 z-[1000] shadow-md">
       {/* Menu Button */}
       {onMenuClick && (
         <button
-          className="mr-2 sm:mr-4 p-1 sm:p-2 rounded-md bg-transparent hover:bg-gray-700 text-black text-lg sm:text-xl"
+          className="mr-3 sm:mr-5 p-2 rounded-md bg-transparent hover:bg-slate-800 text-white transition-colors cursor-pointer"
           onClick={onMenuClick}
-          aria-label="Open menu"
+          aria-label="Toggle sidebar"
         >
-          <FaTachometerAlt className="text-xl sm:text-2xl" />
+          <FaBars className="text-cyan-400 text-xl sm:text-2xl transition-transform hover:scale-110" />
         </button>
       )}
 
       {/* Title */}
-      <h3 className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold truncate max-w-[150px] sm:max-w-[200px] md:max-w-none">
+      <h3 className="text-sm sm:text-base font-extrabold tracking-wide truncate max-w-[150px] sm:max-w-[300px] md:max-w-none text-white">
         {title}
       </h3>
 
       {/* Right-side controls */}
-      <div className="ml-auto flex items-center gap-2 sm:gap-4">
+      <div className="ml-auto flex items-center gap-3 sm:gap-5">
         {isPosAllowed && (
           <button
             onClick={() => navigate('/posdashboard')}
-            className="p-2 rounded-md hover:bg-gray-700 text-black"
+            className="p-2 rounded-md hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 shadow-sm"
             title="POS Dashboard"
           >
-            <FaCashRegister className="text-sm sm:text-base" />
+            <FaCashRegister className="text-emerald-400 text-base" />
+            <span className="hidden sm:inline text-xs font-bold text-emerald-400">POS</span>
           </button>
         )}
 
         {/* Branch Dropdown */}
         {!isAdmin && (
           <select
-            className="text-white bg-[#2c3e50] border border-white rounded px-2 py-1 text-xs sm:text-sm focus:outline-none"
+            className="text-white bg-slate-900 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-cyan-400 shadow-sm"
             value={selectedBranchId}
             onChange={(e) => onBranchChange?.(e.target.value)}
           >
@@ -116,15 +117,15 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Profile Dropdown */}
         <Menu as="div" className="relative inline-block text-left">
-          <Menu.Button className="flex items-center px-2 py-2 text-black hover:bg-gray-700 rounded-md">
-            <FaChevronDown className="text-sm sm:text-base" />
+          <Menu.Button className="flex items-center px-2 py-2 hover:bg-slate-800 rounded-md transition-colors cursor-pointer">
+            <FaChevronDown className="text-cyan-400 text-sm sm:text-base" />
           </Menu.Button>
 
-          <Menu.Items className="absolute right-2 sm:right-0 mt-2 w-40 sm:w-48 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black/5 focus:outline-none z-50 text-sm sm:text-base">
+          <Menu.Items className="absolute right-2 sm:right-0 mt-2 w-48 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black/5 focus:outline-none z-50 text-sm">
             {/* Branch/Admin Name */}
-            <div className="px-3 py-2 flex items-center gap-2 text-gray-700 text-xs sm:text-sm">
-              <FaBuilding className="text-gray-500 text-sm" />
-              {selectedBranch?.branchname || (isAdmin ? "Business" : "Admin")}
+            <div className="px-3 py-2 flex items-center gap-2 text-gray-700 text-xs sm:text-sm font-semibold bg-gray-50 rounded-t-md border-b">
+              <FaBuilding className="text-cyan-600 text-sm flex-shrink-0" />
+              <span className="truncate">{selectedBranch?.branchname || (isAdmin ? "Business" : "Admin")}</span>
             </div>
 
             {/* Logout */}
@@ -132,10 +133,9 @@ const Header: React.FC<HeaderProps> = ({
               {({ active }) => (
                 <button
                   onClick={onLogoutClick}
-                  className={`${active ? 'bg-gray-100' : ''
-                    } w-full text-left px-3 py-2 text-xs sm:text-sm text-red-600 flex items-center gap-2`}
+                  className={`${active ? 'bg-rose-50' : ''} w-full text-left px-3 py-2.5 text-xs sm:text-sm font-bold text-rose-600 flex items-center gap-2 rounded-b-md transition-colors`}
                 >
-                  <FaSignOutAlt className="text-sm" />
+                  <FaSignOutAlt className="text-rose-600 text-sm flex-shrink-0" />
                   Logout
                 </button>
               )}
