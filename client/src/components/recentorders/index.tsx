@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
 import {
   FaFileInvoiceDollar,
   FaClipboardList,
@@ -37,49 +36,66 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   leaveRequests = [],
 }) => {
   const [activeTab, setActiveTab] = useState<string>("salesinvoices");
-  const navigate = useNavigate();
 
   const salesInvoices = Array.isArray(salesInvoiceData?.getSalesInvoices) ? salesInvoiceData.getSalesInvoices : [];
-  const purchaseInvoices = Array.isArray(purchaseInvoiceData?.getPurchaseInvoices) ? purchaseInvoiceData.getPurchaseInvoices : [];
   const transferStocks = Array.isArray(transferStockData?.getTransferStocks) ? transferStockData.getTransferStocks : [];
 
   const tabs = [
-    { id: "salesinvoices", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" />, path: "/salesinvoice" },
-    { id: "salesorders", label: "Sales Orders", count: salesOrders.length, icon: <FaClipboardList className="text-emerald-600" />, path: "/salesorder" },
-    { id: "purchaseorders", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" />, path: "/purchaseorder" },
-    { id: "salesreturns", label: "Sales Returns", count: salesReturns.length, icon: <FaUndoAlt className="text-rose-600" />, path: "/salesreturn" },
-    { id: "purchasereturns", label: "Purchase Returns", count: purchaseReturns.length, icon: <FaUndoAlt className="text-indigo-600" />, path: "/purchasereturn" },
-    { id: "transfers", label: "Transfer Stock", count: transferStocks.length, icon: <FaExchangeAlt className="text-teal-600" />, path: "/transferstock" },
-    { id: "expenses", label: "Expense Notes & Payments", count: expenseNotes.length + payments.length, icon: <FaMoneyCheckAlt className="text-purple-600" />, path: "/expensenote" },
-    { id: "leaves", label: "Attendance & Leave", count: leaveRequests.length, icon: <FaCalendarCheck className="text-orange-600" />, path: "/attendance" },
+    { id: "salesinvoices", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" /> },
+    { id: "salesorders", label: "Sales Orders", count: salesOrders.length, icon: <FaClipboardList className="text-emerald-600" /> },
+    { id: "purchaseorders", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" /> },
+    { id: "salesreturns", label: "Sales Returns", count: salesReturns.length, icon: <FaUndoAlt className="text-rose-600" /> },
+    { id: "purchasereturns", label: "Purchase Returns", count: purchaseReturns.length, icon: <FaUndoAlt className="text-indigo-600" /> },
+    { id: "transfers", label: "Transfer Stock", count: transferStocks.length, icon: <FaExchangeAlt className="text-teal-600" /> },
+    { id: "expenses", label: "Expense Notes", count: expenseNotes.length, icon: <FaMoneyCheckAlt className="text-purple-600" /> },
+    { id: "payments", label: "Payments", count: payments.length, icon: <FaMoneyCheckAlt className="text-cyan-600" /> },
+    { id: "leaves", label: "Attendance & Leave", count: leaveRequests.length, icon: <FaCalendarCheck className="text-orange-600" /> },
   ];
 
-  const capitalizeFirst = (text: string) =>
-    text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
+  const capitalizeFirst = (text?: string | null) =>
+    text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "-";
+
+  const CATEGORY_LABEL: Record<string, string> = {
+    general: "General",
+    tada: "TA/DA",
+    salary: "Salary",
+    other: "Other",
+  };
 
   const renderTableContent = () => {
     switch (activeTab) {
       case "salesinvoices": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Bill No", key: "billNo" },
-          { label: "Billing Date", key: "billdate" },
-          { label: "Party A/c", key: "partyName" },
+          { label: "Seq Number", key: "seqNo" },
           { label: "Payment Type", key: "paymenttype" },
-          { label: "Total Items", key: "itemCount" },
-          { label: "Total Amount", key: "amountFormatted" },
+          { label: "Party A/c", key: "partyacc" },
+          { label: "Total Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
+          { label: "Billing Date", key: "billdate" },
+          { label: "Billing No", key: "billtype_billnumber" },
+          { label: "Total Amount", key: "totalamountFormatted" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        const data = salesInvoices.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
-          seqNo: idx + 1,
-          billNo: `${capitalizeFirst(item.billtype || "Bill")}-${item.billnumber}`,
-          partyName: item.partyacc?.accountname ?? "Cash",
-          paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
-          itemCount: `${(item.productservice || []).length} Items`,
-          amountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
-          status: item.status ? "Active" : "Cancelled",
-        }));
+        const data = salesInvoices.slice().reverse().map((item: any, idx: number) => {
+          const totalqty = (item.productservice || []).reduce(
+            (sum: number, p: any) => sum + (p.qty || 0),
+            0
+          );
+          return {
+            ...item,
+            seqNo: idx + 1,
+            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            totalitem: (item.productservice || []).length,
+            totalqty,
+            billdate: item.billdate || "-",
+            billtype_billnumber: `INV-${item.billnumber}`,
+            paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
+            totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
+            createdby_name: item.createdby_name || "N/A",
+            status: item.status ? "Active" : "Inactive",
+          };
+        });
         return (
           <DataTable
             title="Sales Invoices"
@@ -102,21 +118,36 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "salesorders": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Order No", key: "orderNo" },
+          { label: "Seq Number", key: "seqNo" },
+          { label: "Payment Type", key: "paymenttype" },
+          { label: "Party A/c", key: "partyacc" },
+          { label: "Total Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
           { label: "Order Date", key: "billdate" },
-          { label: "Customer Party A/c", key: "partyName" },
-          { label: "Order Value", key: "amountFormatted" },
+          { label: "Order No", key: "billtype_billnumber" },
+          { label: "Total Amount", key: "totalamountFormatted" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        const data = salesOrders.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
-          seqNo: idx + 1,
-          orderNo: `SO-${item.billnumber}`,
-          partyName: item.partyacc?.accountname ?? "Customer",
-          amountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
-          status: item.isConverted ? "Converted" : "Pending",
-        }));
+        const data = salesOrders.slice().reverse().map((item: any, idx: number) => {
+          const totalqty = (item.productservice || []).reduce(
+            (sum: number, p: any) => sum + (p.qty || 0),
+            0
+          );
+          return {
+            ...item,
+            seqNo: idx + 1,
+            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            totalitem: (item.productservice || []).length,
+            totalqty,
+            billdate: item.billdate || "-",
+            billtype_billnumber: `SO-${item.billnumber}`,
+            paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
+            totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
+            createdby_name: item.createdby_name || "N/A",
+            status: item.cancelStatus === "cancelled" ? "Cancelled" : (item.status ? "Active" : "Inactive"),
+          };
+        });
         return (
           <DataTable
             title="Sales Orders"
@@ -139,21 +170,36 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "purchaseorders": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "PO No", key: "poNo" },
-          { label: "PO Date", key: "billdate" },
-          { label: "Supplier Party A/c", key: "partyName" },
-          { label: "PO Value", key: "amountFormatted" },
+          { label: "Seq Number", key: "seqNo" },
+          { label: "Payment Type", key: "paymenttype" },
+          { label: "Party A/c", key: "partyacc" },
+          { label: "Total Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
+          { label: "Order Date", key: "billdate" },
+          { label: "Order No", key: "billtype_billnumber" },
+          { label: "Total Amount", key: "totalamountFormatted" },
+          { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        const data = purchaseOrders.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
-          seqNo: idx + 1,
-          poNo: `PO-${item.billnumber}`,
-          partyName: item.partyacc?.accountname ?? "Vendor",
-          amountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
-          status: item.isConverted ? "Converted" : "Pending",
-        }));
+        const data = purchaseOrders.slice().reverse().map((item: any, idx: number) => {
+          const totalqty = (item.productservice || []).reduce(
+            (sum: number, p: any) => sum + (p.qty || 0),
+            0
+          );
+          return {
+            ...item,
+            seqNo: idx + 1,
+            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            totalitem: (item.productservice || []).length,
+            totalqty,
+            billdate: item.billdate || "-",
+            billtype_billnumber: `PO-${item.billnumber}`,
+            paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
+            totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
+            createdby_name: item.createdby_name || "N/A",
+            status: item.cancelStatus === "cancelled" ? "Cancelled" : (item.status ? "Active" : "Inactive"),
+          };
+        });
         return (
           <DataTable
             title="Purchase Orders"
@@ -176,23 +222,29 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "salesreturns": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Return Bill No", key: "returnNo" },
-          { label: "Return Date", key: "returndate" },
-          { label: "Party A/c", key: "partyName" },
-          { label: "Original Bill No", key: "origBill" },
-          { label: "Refund Amount", key: "amountFormatted" },
-          { label: "Status", key: "status" },
+          { label: "Seq", key: "seqNo" },
+          { label: "CN No", key: "cnNo" },
+          { label: "Against", key: "sourceBillNumber" },
+          { label: "Date", key: "returndate" },
+          { label: "Customer", key: "partyacc" },
+          { label: "Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
+          { label: "Amount", key: "totalamountFormatted" },
+          { label: "Refund", key: "refundLabel" },
+          { label: "Status", key: "statusLabel" },
         ];
-        const data = salesReturns.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
+        const data = salesReturns.slice().reverse().map((r: any, idx: number) => ({
+          ...r,
           seqNo: idx + 1,
-          returnNo: `SR-${item.billnumber}`,
-          returndate: item.returndate || item.createdAt?.substring(0, 10),
-          partyName: item.partyacc?.accountname ?? "Customer",
-          origBill: item.sourceBillNumber || "N/A",
-          amountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
-          status: "Completed",
+          cnNo: `SR-${r.billnumber}`,
+          sourceBillNumber: r.sourceBillNumber || "N/A",
+          returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
+          partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+          totalitem: r.productservice?.length || 0,
+          totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
+          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
+          refundLabel: capitalizeFirst(r.refundMode),
+          statusLabel: r.status ? "Active" : "Inactive",
         }));
         return (
           <DataTable
@@ -216,23 +268,29 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "purchasereturns": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Debit Note No", key: "debitNo" },
-          { label: "Return Date", key: "returndate" },
-          { label: "Supplier Party A/c", key: "partyName" },
-          { label: "Original PO/Bill No", key: "origBill" },
-          { label: "Claim Amount", key: "amountFormatted" },
-          { label: "Status", key: "status" },
+          { label: "Seq", key: "seqNo" },
+          { label: "DN No", key: "dnNo" },
+          { label: "Against", key: "sourceBillNumber" },
+          { label: "Date", key: "returndate" },
+          { label: "Vendor", key: "partyacc" },
+          { label: "Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
+          { label: "Amount", key: "totalamountFormatted" },
+          { label: "Refund", key: "refundLabel" },
+          { label: "Status", key: "statusLabel" },
         ];
-        const data = purchaseReturns.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
+        const data = purchaseReturns.slice().reverse().map((r: any, idx: number) => ({
+          ...r,
           seqNo: idx + 1,
-          debitNo: `PR-${item.billnumber}`,
-          returndate: item.returndate || item.createdAt?.substring(0, 10),
-          partyName: item.partyacc?.accountname ?? "Supplier",
-          origBill: item.sourceBillNumber || "N/A",
-          amountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
-          status: "Completed",
+          dnNo: `PR-${r.billnumber}`,
+          sourceBillNumber: r.sourceBillNumber || "N/A",
+          returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
+          partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+          totalitem: r.productservice?.length || 0,
+          totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
+          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
+          refundLabel: capitalizeFirst(r.refundMode),
+          statusLabel: r.status ? "Active" : "Inactive",
         }));
         return (
           <DataTable
@@ -256,19 +314,27 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "transfers": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Transfer Ref ID", key: "refId" },
-          { label: "Product Ref ID", key: "prodRef" },
-          { label: "Quantity Transferred", key: "qtyFormatted" },
-          { label: "Status", key: "status" },
+          { label: "Seq Number", key: "seqNo" },
+          { label: "From Branch", key: "frombranchname" },
+          { label: "To Branch", key: "tobranchname" },
+          { label: "Product", key: "productname" },
+          { label: "Qty", key: "transferqty" },
+          { label: "Unit", key: "transferunitname" },
+          { label: "Purchase Rate", key: "purchaserateFormatted" },
+          { label: "Date", key: "transferdate" },
+          { label: "Status", key: "statusLabel" },
         ];
-        const data = transferStocks.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
+        const data = transferStocks.slice().reverse().map((stock: any, idx: number) => ({
+          ...stock,
           seqNo: idx + 1,
-          refId: item.id.substring(0, 8).toUpperCase(),
-          prodRef: item.productid || "N/A",
-          qtyFormatted: `${item.transferqty ?? 0} Units`,
-          status: item.status ? "Completed" : "Cancelled",
+          frombranchname: stock.frombranchname || stock.frombranchid || "Branch",
+          tobranchname: stock.tobranchname || stock.tobranchid || "Branch",
+          productname: stock.productname || stock.productid || "Product",
+          transferqty: stock.transferqty ?? 0,
+          transferunitname: stock.transferunitname || "Unit",
+          purchaserateFormatted: `₹${Number(stock.purchaserate ?? 0).toFixed(2)}`,
+          transferdate: stock.transferdate || stock.createdAt?.substring(0, 10) || "-",
+          statusLabel: stock.status ? "Active" : "Inactive",
         }));
         return (
           <DataTable
@@ -291,27 +357,100 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
       }
 
       case "expenses": {
-        const combined = [...expenseNotes, ...payments].sort((a: any, b: any) => (new Date(b.createdAt || 0)).getTime() - (new Date(a.createdAt || 0)).getTime());
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Entry Ref", key: "refId" },
-          { label: "Category / Particulars", key: "categoryName" },
-          { label: "Payment Mode", key: "mode" },
+          { label: "Seq", key: "seqNo" },
+          { label: "Expense No", key: "expensenumber" },
+          { label: "Date", key: "expensedate" },
+          { label: "Category", key: "categoryLabel" },
+          { label: "Staff", key: "staffLabel" },
+          { label: "Ledger", key: "ledgername" },
+          { label: "Payment Type", key: "paymenttype" },
+          { label: "Narration", key: "narration" },
+          { label: "Total Amount", key: "totalamountFormatted" },
+          { label: "GST", key: "totalgstFormatted" },
+          { label: "Status", key: "status" },
+        ];
+        const data = expenseNotes.slice().reverse().map((exp: any, idx: number) => {
+          let formattedDate = "-";
+          if (exp.expensedate) {
+            const timestamp = Number(exp.expensedate);
+            const dt = new Date(timestamp);
+            if (!isNaN(dt.getTime())) {
+              formattedDate = dt.toLocaleDateString("en-IN");
+            }
+          }
+          const staffLabel = exp.staffid
+            ? `${exp.staffid.name}${exp.staffid.staffcode ? ` (${exp.staffid.staffcode})` : ""}`
+            : "-";
+
+          return {
+            ...exp,
+            seqNo: idx + 1,
+            expensenumber: exp.expensenumber || exp.billnumber || "-",
+            expensedate: formattedDate,
+            categoryLabel: CATEGORY_LABEL[exp.category || "general"] || "General",
+            staffLabel,
+            ledgername: exp.ledgerid?.ledgername || "-",
+            paymenttype: capitalizeFirst(exp.paymenttype || exp.paymentmode),
+            narration: exp.narration || exp.remarks || "-",
+            totalamountFormatted: `₹${Number(exp.totalamount || exp.amount || 0).toFixed(2)}`,
+            totalgstFormatted: `₹${Number(exp.totalgst || 0).toFixed(2)}`,
+            status: exp.status ? "Active" : "Inactive",
+          };
+        });
+        return (
+          <DataTable
+            title="Expense Notes"
+            columns={columns}
+            data={data}
+            showAdd={false}
+            showDeleted={false}
+            showImport={false}
+            showExport={false}
+            showPrint={false}
+            showView={false}
+            showEdit={false}
+            showDelete={false}
+            showActionsColumn={false}
+            defaultEntriesPerPage={5}
+            entriesOptions={[5, 10, 25, 50]}
+          />
+        );
+      }
+
+      case "payments": {
+        const columns = [
+          { label: "Seq", key: "seqNo" },
+          { label: "Code", key: "paymentcode" },
+          { label: "Type", key: "type" },
+          { label: "Mode", key: "mode" },
+          { label: "Date", key: "paymentdate" },
+          { label: "Ledger", key: "ledgername" },
           { label: "Amount", key: "amountFormatted" },
           { label: "Status", key: "status" },
         ];
-        const data = combined.map((item: any, idx: number) => ({
-          ...item,
-          seqNo: idx + 1,
-          refId: item.billnumber || item.paymentcode || item.id.substring(0, 8).toUpperCase(),
-          categoryName: item.category || item.narration || item.remarks || "General Ledger Entry",
-          mode: capitalizeFirst(item.paymentmode || item.paymenttype || "Bank / Cash"),
-          amountFormatted: `₹${Number(item.amount ?? item.totalamount ?? 0).toFixed(2)}`,
-          status: "Active",
-        }));
+        const data = payments.slice().reverse().map((pay: any, idx: number) => {
+          let formattedDate = "-";
+          if (pay.paymentdate) {
+            const ts = Number(pay.paymentdate);
+            const dt = new Date(ts);
+            if (!isNaN(dt.getTime())) formattedDate = dt.toLocaleDateString("en-IN");
+          }
+          return {
+            ...pay,
+            seqNo: idx + 1,
+            paymentcode: pay.paymentcode || pay.billnumber || "-",
+            paymentdate: formattedDate,
+            type: capitalizeFirst(pay.type),
+            mode: capitalizeFirst(pay.mode),
+            ledgername: pay.ledgerid?.ledgername || "-",
+            amountFormatted: `₹${Number(pay.amount || pay.totalamount || 0).toFixed(2)}`,
+            status: pay.status ? "Active" : "Inactive",
+          };
+        });
         return (
           <DataTable
-            title="Expenses & Payments"
+            title="Payments"
             columns={columns}
             data={data}
             showAdd={false}
@@ -331,25 +470,27 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "leaves": {
         const columns = [
-          { label: "#", key: "seqNo" },
-          { label: "Staff Member", key: "staffName" },
-          { label: "Leave Type", key: "leaveType" },
-          { label: "Duration", key: "duration" },
-          { label: "Total Days", key: "totalDays" },
+          { label: "Seq", key: "seqNo" },
+          { label: "Staff", key: "staffName" },
+          { label: "Type", key: "typeName" },
+          { label: "Dates", key: "range" },
+          { label: "Days", key: "totalDays" },
           { label: "Status", key: "status" },
+          { label: "Reason", key: "reason" },
         ];
-        const data = leaveRequests.slice().reverse().map((item: any, idx: number) => ({
-          ...item,
+        const data = leaveRequests.slice().reverse().map((r: any, idx: number) => ({
+          ...r,
           seqNo: idx + 1,
-          staffName: item.staffid?.name || "Staff Member",
-          leaveType: item.leavetypeid?.name || "General Leave",
-          duration: `${item.fromdate} to ${item.todate}`,
-          totalDays: `${item.totaldays ?? 1} Days`,
-          status: capitalizeFirst(item.status || "Pending"),
+          staffName: capitalizeFirst(r.staffid?.name),
+          typeName: capitalizeFirst(r.leavetypeid?.name),
+          range: `${r.fromDate || r.fromdate || "-"} → ${r.toDate || r.todate || "-"}`,
+          totalDays: `${r.totalDays ?? r.totaldays ?? 1} Days`,
+          status: capitalizeFirst(r.status),
+          reason: capitalizeFirst(r.reason),
         }));
         return (
           <DataTable
-            title="Attendance & Leaves"
+            title="Attendance & Leave"
             columns={columns}
             data={data}
             showAdd={false}
@@ -377,7 +518,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
         <div>
           <h2 className="text-base font-bold text-[#2c3e50]">Multi-Module Activity Records</h2>
-          <p className="text-xs text-gray-500">Latest active entries across invoices, orders, returns, transfers, and staff</p>
+          <p className="text-xs text-gray-500">Latest active entries across invoices, orders, returns, transfers, expenses, payments, and staff</p>
         </div>
       </div>
 
