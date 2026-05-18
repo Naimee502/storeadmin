@@ -155,7 +155,7 @@ export default function PaymentDrawer({
 
         {/* SUBMIT */}
         <button
-          className="mt-6 w-full bg-blue-600 text-blue-600 py-3 rounded-lg font-semibold border"
+          className="mt-6 w-full !bg-slate-900 hover:!bg-slate-800 !text-white py-3 rounded-lg font-bold shadow-md !border-0 transition-all cursor-pointer"
           onClick={handleComplete}
         >
           Complete Order
