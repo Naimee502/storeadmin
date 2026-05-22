@@ -36,10 +36,6 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
 
-    // Resolve the company name from whichever auth role is active. Admins
-    // have it directly on `admin.companyName`; branch and staff users get
-    // it via their parent admin. Falls back to "---" only if everything
-    // is missing (which shouldn't happen for an authenticated session).
     const auth = useAppSelector((state) => state.auth);
     const branch = auth.branch;
     const companyName =
@@ -52,8 +48,6 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             : "";
 
     const { settings } = useAppSelector((state: any) => state.adminsettings);
-    const encrypt = settings?.encryptInvoicePrices;
-    const mask = (val: number) => encrypt ? val / 10 : val;
 
     const products = invoice.productservice || [];
 
@@ -76,6 +70,9 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
     }, 0);
 
     const grandTotal = (productsTotal - totalDiscount) + totalGST;
+
+    const encrypt = settings?.encryptInvoicePrices && grandTotal > 100000;
+    const mask = (val: number) => encrypt ? val / 10 : val;
 
     return (
       <div
