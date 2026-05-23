@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -12,6 +12,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { FaTrash } from "react-icons/fa";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,8 +39,6 @@ interface AdjItem {
   rate: number;
   amount: number;
   _variants: Variant[];
-  _searchText: string;
-  _showDropdown: boolean;
 }
 
 const emptyItem = (): AdjItem => ({
@@ -52,8 +51,6 @@ const emptyItem = (): AdjItem => ({
   rate: 0,
   amount: 0,
   _variants: [],
-  _searchText: "",
-  _showDropdown: false,
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -65,27 +62,26 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const isEdit = Boolean(id);
 
   const { admin, branch, staff, type } = useAppSelector((state: any) => state.auth);
-  const selectedBranchId = useAppSelector(
-    (state: any) => state.selectedBranch.branchId
-  );
+  const selectedBranchId = useAppSelector((state: any) => state.selectedBranch.branchId);
   const storedBranchId = localStorage.getItem("branchid") || "";
   const storedAdminId = localStorage.getItem("adminid") || "";
   const { data: branchesData } = useBranchesQuery();
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
-  const adminId = type === "admin" ? admin?.id
+  const adminId =
+    type === "admin" ? admin?.id
     : type === "branch" ? (branch?.admin?.id || admin?.id || storedAdminId)
     : type === "staff" ? (staff?.admin?.id || admin?.id || storedAdminId)
     : (admin?.id || storedAdminId);
-  const branchId = type === "admin" ? (selectedBranchId || firstBranchId)
+
+  const branchId =
+    type === "admin" ? (selectedBranchId || firstBranchId)
     : type === "branch" ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
     : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
     : (selectedBranchId || storedBranchId || firstBranchId);
 
   // ── Header state ──────────────────────────────────────────────────────────
-  const [adjDate, setAdjDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [adjDate, setAdjDate] = useState(new Date().toISOString().split("T")[0]);
   const [adjType, setAdjType] = useState<"Shortage" | "Excess">("Shortage");
   const [reason, setReason] = useState("");
 
@@ -118,7 +114,6 @@ const StockAdjustmentAddEdit: React.FC = () => {
 
     const adj = editData.getStockAdjustmentById;
 
-    // Header
     setAdjDate(
       adj.adjustmentdate
         ? new Date(adj.adjustmentdate).toISOString().split("T")[0]
@@ -127,95 +122,74 @@ const StockAdjustmentAddEdit: React.FC = () => {
     setAdjType(adj.type as "Shortage" | "Excess");
     setReason(adj.reason || "");
 
-    // Items — map fetched items back to AdjItem shape
     const mappedItems: AdjItem[] = (adj.items || []).map((item: any) => {
       const productId = item.productid?.id || item.productid || "";
       const productName = item.productid?.name || "";
       const variantId = item.variantid || "";
-
-      // Find the product in allProducts to get variants + current stock
       const product = allProducts.find((p) => p.id === productId);
       const variants = product?.productvariants ?? [];
       const variant = variants.find((v) => v.id === variantId);
-      const sysStock = variant?.currentstock ?? 0;
 
       return {
         productid: productId,
         productname: productName,
         variantid: variantId,
         variantname: variant?.name ?? "",
-        systemstock: sysStock,
+        systemstock: variant?.currentstock ?? 0,
         quantity: item.quantity,
         rate: item.rate,
         amount: item.amount,
         _variants: variants,
-        _searchText: productName,
-        _showDropdown: false,
       };
     });
 
     setItems(mappedItems.length > 0 ? mappedItems : [emptyItem()]);
   }, [isEdit, editData, allProducts]);
 
-
-
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const filteredProducts = useCallback(
-    (search: string): Product[] => {
-      if (!search.trim()) return allProducts.slice(0, 20);
-      const q = search.toLowerCase();
-      return allProducts
-        .filter((p) => p.name.toLowerCase().includes(q))
-        .slice(0, 20);
-    },
-    [allProducts]
-  );
 
-  const applyProduct = (
-    rowIdx: number,
-    product: Product,
-    variant?: Variant
-  ) => {
+  const productOptions = allProducts.map((p) => ({
+    label:
+      p.name +
+      (p.productvariants && p.productvariants.length > 1
+        ? ` (${p.productvariants.length} variants)`
+        : ""),
+    value: p.id,
+  }));
+
+  const applyProduct = (rowIdx: number, product: Product, variant?: Variant) => {
     const v = variant ?? product.productvariants?.[0];
-    const sys = v?.currentstock ?? 0;
     setItems((prev) => {
       const next = [...prev];
       next[rowIdx] = {
-        ...next[rowIdx],
         productid: product.id,
         productname: product.name,
         variantid: v?.id ?? "",
         variantname: v?.name ?? "",
-        systemstock: sys,
+        systemstock: v?.currentstock ?? 0,
         quantity: 0,
         rate: v?.purchaserate ?? 0,
         amount: 0,
         _variants: product.productvariants ?? [],
-        _searchText: product.name,
-        _showDropdown: false,
       };
       return next;
     });
   };
 
-  const updateQty = (rowIdx: number, raw: string) => {
-    const qty = raw === "" ? 0 : Math.max(0, Number(raw));
+  const clearRow = (rowIdx: number) => {
     setItems((prev) => {
       const next = [...prev];
-      const item = { ...next[rowIdx] };
-      item.quantity = qty;
-      item.amount = qty * item.rate;
-      next[rowIdx] = item;
+      next[rowIdx] = emptyItem();
       return next;
     });
   };
 
-  const updateRate = (rowIdx: number, raw: string) => {
-    const rate = Number(raw) || 0;
+  const updateField = (rowIdx: number, field: "quantity" | "rate", raw: string) => {
+    const val = raw === "" ? 0 : Math.max(0, Number(raw));
     setItems((prev) => {
       const next = [...prev];
-      const item = { ...next[rowIdx], rate };
-      item.amount = item.quantity * rate;
+      const item = { ...next[rowIdx], [field]: val };
+      item.amount = item.quantity * item.rate;
       next[rowIdx] = item;
       return next;
     });
@@ -229,29 +203,6 @@ const StockAdjustmentAddEdit: React.FC = () => {
       return next.length === 0 ? [emptyItem()] : next;
     });
 
-  const updateSearch = (rowIdx: number, text: string) => {
-    setItems((prev) => {
-      const next = [...prev];
-      next[rowIdx] = {
-        ...next[rowIdx],
-        _searchText: text,
-        _showDropdown: true,
-        ...(text === ""
-          ? { productid: "", productname: "", variantid: "", variantname: "" }
-          : {}),
-      };
-      return next;
-    });
-  };
-
-  const closeDropdown = (rowIdx: number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      next[rowIdx] = { ...next[rowIdx], _showDropdown: false };
-      return next;
-    });
-  };
-
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,18 +210,16 @@ const StockAdjustmentAddEdit: React.FC = () => {
     const validItems = items.filter((i) => i.productid && i.quantity > 0);
     if (validItems.length === 0) {
       dispatch(
-        showMessage({
-          message: "Add at least one item with quantity > 0.",
-          type: "error",
-        })
+        showMessage({ message: "Add at least one item with quantity > 0.", type: "error" })
       );
       return;
     }
 
     const creatorName =
-      type === "admin" ? admin?.name :
-      type === "branch" ? branch?.branchname || branch?.name :
-      type === "staff" ? staff?.name : undefined;
+      type === "admin" ? admin?.name
+      : type === "branch" ? branch?.branchname || branch?.name
+      : type === "staff" ? staff?.name
+      : undefined;
 
     const payload = {
       adjustmentdate: adjDate,
@@ -279,7 +228,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
       totalamount: totalAmount,
       createdby_id: admin?.id || branch?.id || staff?.id,
       createdby_name: creatorName,
-      createdby_type: type || 'admin',
+      createdby_type: type || "admin",
       items: validItems.map((i) => ({
         productid: i.productid,
         variantid: i.variantid || undefined,
@@ -291,30 +240,16 @@ const StockAdjustmentAddEdit: React.FC = () => {
 
     try {
       if (isEdit && id) {
-        await updateStockAdjustment({
-          variables: { id, input: payload },
-        });
+        await updateStockAdjustment({ variables: { id, input: payload } });
         dispatch(
-          showMessage({
-            message: "Stock adjustment updated successfully!",
-            type: "success",
-          })
+          showMessage({ message: "Stock adjustment updated successfully!", type: "success" })
         );
       } else {
         await createStockAdjustment({
-          variables: {
-            input: {
-              ...payload,
-              adminid: adminId,
-              branchid: branchId,
-            },
-          },
+          variables: { input: { ...payload, adminid: adminId, branchid: branchId } },
         });
         dispatch(
-          showMessage({
-            message: "Stock adjustment saved successfully!",
-            type: "success",
-          })
+          showMessage({ message: "Stock adjustment saved successfully!", type: "success" })
         );
       }
       navigate("/stockadjustments");
@@ -339,20 +274,24 @@ const StockAdjustmentAddEdit: React.FC = () => {
     );
   }
 
+  const qtyColor = adjType === "Excess" ? "text-green-600" : "text-red-600";
+  const qtyBorder = adjType === "Excess" ? "border-green-400 focus-within:ring-green-400" : "border-red-400 focus-within:ring-red-400";
+  const qtyInputColor = adjType === "Excess" ? "text-green-700" : "text-red-700";
+  const qtySign = adjType === "Excess" ? "+" : "−";
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-10 text-sm">
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ── Title ─────────────────────────────────────────────────────── */}
+
+          {/* ── Title ──────────────────────────────────────────────────────── */}
           <h2 className="text-lg sm:text-2xl font-bold">
             {isEdit ? "Edit Stock Adjustment" : "Stock Adjustment Entry"}
           </h2>
 
-          {/* ── Header Section ────────────────────────────────────────────── */}
+          {/* ── Voucher Details ─────────────────────────────────────────────── */}
           <fieldset className="border rounded-xl p-4 space-y-4">
-            <legend className="text-sm font-semibold px-2">
-              Voucher Details
-            </legend>
+            <legend className="text-sm font-semibold px-2">Voucher Details</legend>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <FormField
                 label="Adjustment Date"
@@ -367,12 +306,10 @@ const StockAdjustmentAddEdit: React.FC = () => {
                 name="type"
                 type="select"
                 value={adjType}
-                onChange={(e: any) =>
-                  setAdjType(e.target.value as "Shortage" | "Excess")
-                }
+                onChange={(e: any) => setAdjType(e.target.value as "Shortage" | "Excess")}
                 options={[
-                  { value: "Shortage", label: "Shortage  (Decrease Stock)" },
-                  { value: "Excess", label: "Excess  (Increase Stock)" },
+                  { value: "Shortage", label: "Shortage — Decrease Stock" },
+                  { value: "Excess", label: "Excess — Increase Stock" },
                 ]}
                 required
               />
@@ -387,240 +324,151 @@ const StockAdjustmentAddEdit: React.FC = () => {
             </div>
           </fieldset>
 
-          {/* ── Items Table ───────────────────────────────────────────────── */}
+          {/* ── Stock Items ─────────────────────────────────────────────────── */}
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-semibold px-2">Stock Items</legend>
 
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-gray-100 text-gray-600 text-left">
-                    <th className="border px-2 py-2 w-6">#</th>
-                    <th className="border px-2 py-2 min-w-[200px]">Product</th>
-                    <th className="border px-2 py-2 min-w-[130px]">Variant</th>
-                    <th className="border px-2 py-2 text-right w-28">
-                      System Stock
-                    </th>
-                    <th className="border px-2 py-2 text-right w-28">
-                      {adjType === "Shortage" ? "Shortage" : "Excess"} Qty
-                    </th>
-                    <th className="border px-2 py-2 text-right w-24">
-                      Rate (₹)
-                    </th>
-                    <th className="border px-2 py-2 text-right w-28">
-                      Amount (₹)
-                    </th>
-                    <th className="border px-2 py-2 text-center w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, rowIdx) => (
-                    <tr
-                      key={rowIdx}
-                      className="border-b hover:bg-blue-50/40 transition-colors"
+            {/* Desktop column headers */}
+            <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_80px_110px_95px_95px_36px] gap-2 mb-2 px-1 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b pb-2">
+              <div>Product</div>
+              <div>Variant</div>
+              <div className="text-center">Sys. Stock</div>
+              <div className={`text-center font-bold ${qtyColor}`}>
+                {qtySign} Adj. Qty
+              </div>
+              <div className="text-right">Rate (₹)</div>
+              <div className="text-right">Amount (₹)</div>
+              <div />
+            </div>
+
+            {/* Item rows */}
+            {items.map((item, rowIdx) => {
+              const variantOptions = item._variants.map((v) => ({
+                label: v.name || "Default",
+                value: v.id,
+              }));
+
+              return (
+                <div
+                  key={rowIdx}
+                  className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_80px_110px_95px_95px_36px] gap-2 items-end mb-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 last:mb-0"
+                >
+                  {/* Product — FormField searchable select */}
+                  <FormField
+                    label="Product"
+                    name={`productid-${rowIdx}`}
+                    type="select"
+                    searchable
+                    value={item.productid}
+                    onChange={(e: any) => {
+                      const prod = allProducts.find((p) => p.id === e.target.value);
+                      if (prod) applyProduct(rowIdx, prod);
+                      else clearRow(rowIdx);
+                    }}
+                    options={productOptions}
+                    placeholder="Search product…"
+                  />
+
+                  {/* Variant — FormField select */}
+                  <FormField
+                    label="Variant"
+                    name={`variantid-${rowIdx}`}
+                    type="select"
+                    searchable={item._variants.length > 6}
+                    value={item.variantid}
+                    onChange={(e: any) => {
+                      const v = item._variants.find((v) => v.id === e.target.value);
+                      const prod = allProducts.find((p) => p.id === item.productid);
+                      if (v && prod) applyProduct(rowIdx, prod, v);
+                    }}
+                    options={variantOptions}
+                    disabled={!item.productid || item._variants.length <= 1}
+                    placeholder="Variant"
+                  />
+
+                  {/* System Stock (read-only display) */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-gray-700 sm:hidden">System Stock</span>
+                    <div className="flex items-center justify-center border border-gray-200 rounded-lg px-2 py-2 bg-gray-50 h-[38px]">
+                      <span className="text-gray-600 font-medium text-sm">{item.systemstock}</span>
+                    </div>
+                  </div>
+
+                  {/* Adjustment Qty — coloured input with sign prefix */}
+                  <div className="flex flex-col gap-1">
+                    <span className={`text-sm font-medium sm:hidden ${qtyColor}`}>
+                      {qtySign} Adj. Qty
+                    </span>
+                    <div
+                      className={`flex items-center gap-1 border rounded-lg px-2 h-[38px] focus-within:ring-2 ${qtyBorder}`}
                     >
-                      {/* Serial */}
-                      <td className="border px-2 py-1 text-gray-400 text-center">
-                        {rowIdx + 1}
-                      </td>
-
-                      {/* Product search */}
-                      <td className="border px-1 py-1 relative">
-                        <input
-                          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Search product…"
-                          value={item._searchText}
-                          onChange={(e) => updateSearch(rowIdx, e.target.value)}
-                          onFocus={() =>
-                            setItems((prev) => {
-                              const next = [...prev];
-                              next[rowIdx] = {
-                                ...next[rowIdx],
-                                _showDropdown: true,
-                              };
-                              return next;
-                            })
-                          }
-                          onBlur={() =>
-                            setTimeout(() => closeDropdown(rowIdx), 200)
-                          }
-                          autoComplete="off"
-                        />
-                        {item._showDropdown && (
-                          <ul className="absolute z-30 left-0 top-full mt-0.5 w-72 bg-white border border-gray-200 rounded shadow-lg max-h-52 overflow-auto">
-                            {filteredProducts(item._searchText).length === 0 ? (
-                              <li className="px-3 py-2 text-gray-400">
-                                No products found
-                              </li>
-                            ) : (
-                              filteredProducts(item._searchText).map((p) => (
-                                <li
-                                  key={p.id}
-                                  className="px-3 py-1.5 hover:bg-blue-50 cursor-pointer"
-                                  onMouseDown={() => applyProduct(rowIdx, p)}
-                                >
-                                  <span className="font-medium">{p.name}</span>
-                                  {p.productvariants &&
-                                    p.productvariants.length > 0 && (
-                                      <span className="text-gray-400 ml-1 text-xs">
-                                        ({p.productvariants.length} variants)
-                                      </span>
-                                    )}
-                                </li>
-                              ))
-                            )}
-                          </ul>
-                        )}
-                      </td>
-
-                      {/* Variant */}
-                      <td className="border px-1 py-1">
-                        {item._variants.length > 1 ? (
-                          <select
-                            className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
-                            value={item.variantid}
-                            onChange={(e) => {
-                              const v = item._variants.find(
-                                (v) => v.id === e.target.value
-                              );
-                              if (v) {
-                                const prod = allProducts.find(
-                                  (p) => p.id === item.productid
-                                );
-                                if (prod) applyProduct(rowIdx, prod, v);
-                              }
-                            }}
-                          >
-                            {item._variants.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.name || "Default"}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-gray-500 px-2">
-                            {item.variantname || "—"}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* System Stock (read-only) */}
-                      <td className="border px-2 py-1 text-right">
-                        <input
-                          type="number"
-                          readOnly
-                          value={item.systemstock}
-                          className="w-full text-right bg-gray-100 border border-gray-200 rounded px-1 py-1 text-gray-600 cursor-not-allowed"
-                          tabIndex={-1}
-                        />
-                      </td>
-
-                      {/* Qty — directly editable (primary input) */}
-                      <td className="border px-1 py-1">
-                        <div className="flex items-center gap-0.5">
-                          <span
-                            className={`text-xs font-bold ${
-                              adjType === "Excess"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {adjType === "Excess" ? "+" : "-"}
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.quantity === 0 ? "" : item.quantity}
-                            onChange={(e) => updateQty(rowIdx, e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="0"
-                            className={`w-full text-right border rounded px-1 py-1 focus:outline-none focus:ring-1 font-bold ${
-                              adjType === "Excess"
-                                ? "border-green-400 text-green-700 focus:ring-green-400"
-                                : "border-red-400 text-red-700 focus:ring-red-400"
-                            }`}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Rate */}
-                      <td className="border px-1 py-1">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.rate}
-                          onChange={(e) => updateRate(rowIdx, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          className="w-full text-right border border-gray-300 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </td>
-
-                      {/* Amount */}
-                      <td className="border px-2 py-1 text-right font-medium text-gray-800">
-                        {item.amount.toFixed(2)}
-                      </td>
-
-                      {/* Delete row */}
-                      <td className="border px-1 py-1 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(rowIdx)}
-                          className="text-red-400 hover:text-red-600 px-1"
-                          title="Remove row"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-
-                {/* Footer totals */}
-                <tfoot>
-                  <tr className="bg-gray-50 font-semibold text-gray-700">
-                    <td
-                      colSpan={4}
-                      className="border px-2 py-2 text-right text-xs text-gray-500"
-                    >
-                      Totals
-                    </td>
-                    <td className="border px-2 py-2 text-right">
-                      <span
-                        className={
-                          adjType === "Excess"
-                            ? "text-green-700"
-                            : "text-red-700"
-                        }
-                      >
-                        {adjType === "Excess" ? "+" : "-"}
-                        {totalQty.toFixed(2)}
+                      <span className={`font-bold text-base select-none ${qtyColor}`}>
+                        {qtySign}
                       </span>
-                    </td>
-                    <td className="border px-2 py-2" />
-                    <td className="border px-2 py-2 text-right text-base text-blue-700">
-                      ₹{totalAmount.toFixed(2)}
-                    </td>
-                    <td className="border" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantity === 0 ? "" : item.quantity}
+                        onChange={(e) => updateField(rowIdx, "quantity", e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="0"
+                        className={`w-full text-right bg-transparent outline-none text-sm font-bold ${qtyInputColor}`}
+                      />
+                    </div>
+                  </div>
 
-            {/* Add row button */}
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={addRow}
-                className="text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-300 hover:border-indigo-500 rounded px-3 py-1 transition-colors"
-              >
-                + Add Row
-              </button>
-            </div>
+                  {/* Rate */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-gray-700 sm:hidden">Rate (₹)</span>
+                    <div className="flex items-center border border-gray-300 rounded-lg px-2 h-[38px] focus-within:ring-2 focus-within:ring-blue-500">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.rate}
+                        onChange={(e) => updateField(rowIdx, "rate", e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        className="w-full text-right bg-transparent outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Amount (computed, read-only) */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-gray-700 sm:hidden">Amount (₹)</span>
+                    <div className="flex items-center justify-end border border-gray-200 rounded-lg px-3 h-[38px] bg-gray-50">
+                      <span className="text-gray-800 font-semibold text-sm">
+                        {item.amount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete row */}
+                  <div className="flex items-end justify-center">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(rowIdx)}
+                      className="w-9 h-9 flex items-center justify-center border border-red-300 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors"
+                      title="Remove row"
+                    >
+                      <FaTrash size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={addRow}
+              className="mt-2 text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-300 hover:border-indigo-500 rounded-lg px-4 py-1.5 transition-colors"
+            >
+              + Add Row
+            </button>
           </fieldset>
 
-          {/* ── Summary ───────────────────────────────────────────────────── */}
+          {/* ── Summary ─────────────────────────────────────────────────────── */}
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-semibold px-2">Summary</legend>
             <div className="flex flex-wrap gap-6 justify-end items-center text-sm">
@@ -632,13 +480,8 @@ const StockAdjustmentAddEdit: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">Total Qty Adjusted:</span>
-                <span
-                  className={`font-bold ${
-                    adjType === "Excess" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {adjType === "Excess" ? "+" : "-"}
-                  {totalQty.toFixed(2)}
+                <span className={`font-bold ${qtyColor}`}>
+                  {qtySign}{totalQty.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-base">
@@ -650,7 +493,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
             </div>
           </fieldset>
 
-          {/* ── Action Buttons ────────────────────────────────────────────── */}
+          {/* ── Actions ─────────────────────────────────────────────────────── */}
           <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
@@ -661,12 +504,8 @@ const StockAdjustmentAddEdit: React.FC = () => {
             </Button>
             <Button type="submit" variant="outline" disabled={saving}>
               {saving
-                ? isEdit
-                  ? "Updating…"
-                  : "Saving…"
-                : isEdit
-                ? "Update Adjustment"
-                : "Save Adjustment"}
+                ? isEdit ? "Updating…" : "Saving…"
+                : isEdit ? "Update Adjustment" : "Save Adjustment"}
             </Button>
           </div>
         </form>
