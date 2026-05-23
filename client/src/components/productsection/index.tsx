@@ -82,10 +82,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const { resolvePrice } = usePriceResolvers();
 
   useEffect(() => {
-    console.log("🔥 Party Account Received:", JSON.stringify(partyAccount));
-  }, [partyAccount]);
-
-  useEffect(() => {
     onProductsChange?.(products);
   }, [products, onProductsChange]);
 

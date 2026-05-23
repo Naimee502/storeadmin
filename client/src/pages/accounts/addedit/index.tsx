@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -18,21 +18,30 @@ import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
 import { regionOptions } from "../../../utils/constants";
 
+// Tally-style: auto-map party type to standard account group name patterns + category fallback
+const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
+  customer: { names: ["sundry debtor", "debtor", "trade receivable", "receivable"], category: "assets" },
+  vendor:   { names: ["sundry creditor", "creditor", "trade payable", "payable"],   category: "liabilities" },
+  bank:     { names: ["bank account", "bank", "cash"],                               category: "assets" },
+  expense:  { names: ["direct expense", "indirect expense", "expense"],              category: "expenses" },
+  other:    { names: ["miscellaneous", "suspense", "other"],                         category: "liabilities" },
+};
+
 const AddEditAccount = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { type, admin, branch } = useAppSelector((state: any) => state.auth);
+  const { admin } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
-  const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();
-  const { data: ledgersData } = useAccountLedgersQuery();
   const { data: assignAccountData } = useAccountsQuery();
   const { data: staffData } = useStaffQuery();
   const { data: channelData } = useChannelsQuery(adminId);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { data: _ledgersData } = useAccountLedgersQuery();
 
   const [formValues, setFormValues] = useState({
     name: "",
@@ -60,7 +69,7 @@ const AddEditAccount = () => {
     assignaccountid: "",
     salesmanid: "",
     admin: adminId || "",
-    branchid: null,
+    branchid: null as any,
     channel: "",
     region: "default",
   });
@@ -68,6 +77,33 @@ const AddEditAccount = () => {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   const { addAccountMutation, editAccountMutation } = useAccountMutations();
+
+  // Resolve which account group to auto-set for a given party type
+  const resolveAccountGroup = useCallback((partyType: string) => {
+    const groups = accountGroupData?.getAccountGroups || [];
+    if (!groups.length) return "";
+    const rule = TYPE_GROUP_MAP[partyType];
+    if (!rule) return "";
+
+    // 1. Try name match (case-insensitive substring)
+    const byName = groups.find((g: any) =>
+      rule.names.some(n => g.accountgroupname.toLowerCase().includes(n))
+    );
+    if (byName) return byName.id;
+
+    // 2. Fallback: category match
+    const byCat = groups.find((g: any) => g.category === rule.category);
+    return byCat?.id || "";
+  }, [accountGroupData]);
+
+  // Auto-set account group for new accounts when groups data loads
+  useEffect(() => {
+    if (isEdit) return;
+    const resolved = resolveAccountGroup(formValues.type);
+    if (resolved) {
+      setFormValues(prev => ({ ...prev, accountgroupid: resolved }));
+    }
+  }, [accountGroupData, isEdit]); // intentionally not including type — only on data load
 
   useEffect(() => {
     if (isEdit && existingData?.getAccountById) {
@@ -105,20 +141,27 @@ const AddEditAccount = () => {
     }
   }, [isEdit, existingData]);
 
-
-
   const handleChange = (name: string, value: any) => {
     setFormValues(prev => ({ ...prev, [name]: value }));
     setFormErrors(prev => ({ ...prev, [name]: "" }));
+  };
+
+  // When type changes: update field and auto-resolve account group
+  const handleTypeChange = (value: string) => {
+    const resolved = resolveAccountGroup(value);
+    setFormValues(prev => ({
+      ...prev,
+      type: value,
+      accountgroupid: resolved || prev.accountgroupid,
+    }));
+    setFormErrors(prev => ({ ...prev, type: "", accountgroupid: "" }));
   };
 
   const validate = () => {
     const errors: { [key: string]: string } = {};
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
-    if (!formValues.accountgroupid) errors.accountgroupid = "Account group required";
     if (!formValues.state) errors.state = "State is required";
-    // Financial validations
     if (formValues.openingbalance === "" || formValues.openingbalance === null) {
       errors.openingbalance = "Opening balance is required";
     } else if (isNaN(Number(formValues.openingbalance)) || Number(formValues.openingbalance) < 0) {
@@ -131,6 +174,13 @@ const AddEditAccount = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length) {
       setFormErrors(validationErrors);
+      return;
+    }
+
+    // Ensure account group is resolved before saving
+    const accountgroupid = formValues.accountgroupid || resolveAccountGroup(formValues.type);
+    if (!accountgroupid) {
+      dispatch(showMessage({ message: "No matching account group found. Please create a standard account group (e.g. Sundry Debtors, Sundry Creditors) first.", type: "error" }));
       return;
     }
 
@@ -156,7 +206,7 @@ const AddEditAccount = () => {
       duedays: Number(formValues.duedays) || 0,
       type: formValues.type,
       status: formValues.status,
-      accountgroupid: formValues.accountgroupid,
+      accountgroupid,
       assignaccountid: formValues.assignaccountid || null,
       salesmanid: formValues.salesmanid || null,
       admin: formValues.admin,
@@ -164,8 +214,6 @@ const AddEditAccount = () => {
       channel: formValues.channel || null,
       region: formValues.region || "default",
     };
-
-    console.log("Submitting Input:", JSON.stringify(input));
 
     try {
       if (isEdit) {
@@ -181,6 +229,9 @@ const AddEditAccount = () => {
     }
   };
 
+  const groups = accountGroupData?.getAccountGroups || [];
+  const autoGroupName = groups.find((g: any) => g.id === formValues.accountgroupid)?.accountgroupname;
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
@@ -194,81 +245,142 @@ const AddEditAccount = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm sm:text-base font-medium px-2">Account Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Name" name="name" value={formValues.name} onChange={(e) => handleChange("name", e.target.value)} icon={<FaUser />} error={formErrors.name} placeholder="Enter full name" />
-                <FormField label="Mobile" name="mobile" value={formValues.mobile} onChange={(e) => handleChange("mobile", e.target.value)} icon={<FaMobileAlt />} error={formErrors.mobile} placeholder="Enter mobile number" />
-                <FormField label="Email" name="email" type="email" value={formValues.email} onChange={(e) => handleChange("email", e.target.value)} icon={<FaEnvelope />} placeholder="Enter email address" />
                 <FormField
-                  label="Account Group"
-                  name="accountgroupid"
-                  type="select"
-                  value={formValues.accountgroupid}
-                  onChange={(e) => handleChange("accountgroupid", e.target.value)}
-                  options={
-                    accountGroupData?.getAccountGroups?.map((l) => ({
-                      label: l.accountgroupname,
-                      value: l.id,   
-                    })) || []
-                  }
-                  error={formErrors.accountgroupid}
-                  placeholder="Select Account Group"
-                  searchable
-                />
-                <FormField label="Type" name="type" type="select" value={formValues.type} onChange={(e) => handleChange("type", e.target.value)} options={[{ label: "Customer", value: "customer" }, { label: "Vendor", value: "vendor" }, { label: "Expense", value: "expense" }, { label: "Bank", value: "bank" }, { label: "Other", value: "other" }]} placeholder="Select type" />
-                <FormField
-                  label="Channel"
-                  name="channel"
-                  type="select"
-                  value={formValues.channel}
-                  onChange={(e) => handleChange("channel", e.target.value)}
-                  options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
-                  placeholder="Select Channel"
-                  searchable
+                  label="Name"
+                  name="name"
+                  value={formValues.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  icon={<FaUser />}
+                  error={formErrors.name}
+                  placeholder="Enter full name"
                 />
                 <FormField
-                  label="Region / Price Group"
-                  name="region"
-                  type="select"
-                  value={formValues.region}
-                  onChange={(e) => handleChange("region", e.target.value)}
-                  options={regionOptions}
-                  placeholder="Select Region"
-                  searchable
+                  label="Mobile"
+                  name="mobile"
+                  value={formValues.mobile}
+                  onChange={(e) => handleChange("mobile", e.target.value)}
+                  icon={<FaMobileAlt />}
+                  error={formErrors.mobile}
+                  placeholder="Enter mobile number"
                 />
-                {admin?.isChannelCustomers && (
-                  <>
-                    <FormField
-                      label="Assign Customer"
-                      name="assignaccountid"
-                      type="select"
-                      value={formValues.assignaccountid}
-                      onChange={(e) => handleChange("assignaccountid", e.target.value)}
-                      options={
-                        assignAccountData?.getAccounts
-                          ?.filter(acc => acc.id !== id) // optional: avoid self-reference
-                          ?.map(acc => ({ label: acc.name, value: acc.id })) || []
-                      }
-                      placeholder="Select Assign Customer"
-                      searchable
-                    />
+                <FormField
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formValues.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  icon={<FaEnvelope />}
+                  placeholder="Enter email address"
+                />
 
-                   <FormField
-                    label="Salesman"
+                {/* Party Type — auto-triggers account group selection */}
+                <FormField
+                  label="Party Type"
+                  name="type"
+                  type="select"
+                  value={formValues.type}
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  options={[
+                    { label: "Customer",          value: "customer" },
+                    { label: "Vendor / Supplier", value: "vendor" },
+                    { label: "Expense Account",   value: "expense" },
+                    { label: "Bank / Cash",        value: "bank" },
+                    { label: "Other",              value: "other" },
+                  ]}
+                  placeholder="Select type"
+                />
+
+                {/* Account Group — auto-set based on type, can be overridden */}
+                <div>
+                  <FormField
+                    label="Account Group"
+                    name="accountgroupid"
+                    type="select"
+                    value={formValues.accountgroupid}
+                    onChange={(e) => handleChange("accountgroupid", e.target.value)}
+                    options={groups.map((g: any) => ({ label: g.accountgroupname, value: g.id }))}
+                    error={formErrors.accountgroupid}
+                    placeholder="Select Account Group"
+                    searchable
+                  />
+                  {autoGroupName && (
+                    <p className="text-xs text-green-600 mt-0.5 pl-1">
+                      Auto-selected: <strong>{autoGroupName}</strong> — change if needed
+                    </p>
+                  )}
+                </div>
+
+                {/* Channel — used by price resolution engine to find channel-specific prices */}
+                <div>
+                  <FormField
+                    label="Sales Channel"
+                    name="channel"
+                    type="select"
+                    value={formValues.channel}
+                    onChange={(e) => handleChange("channel", e.target.value)}
+                    options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
+                    placeholder="Select Channel (optional)"
+                    searchable
+                  />
+                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                    Used for channel-specific pricing from price assignments
+                  </p>
+                </div>
+
+                {/* Region — used by price resolution engine to find region-specific prices */}
+                <div>
+                  <FormField
+                    label="Region / Price Zone"
+                    name="region"
+                    type="select"
+                    value={formValues.region}
+                    onChange={(e) => handleChange("region", e.target.value)}
+                    options={regionOptions}
+                    placeholder="Select Region (optional)"
+                    searchable
+                  />
+                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                    Used for region-specific pricing from price assignments
+                  </p>
+                </div>
+
+                {/* Salesman — links to sales route for salesman mobile app */}
+                <div>
+                  <FormField
+                    label="Assigned Salesman"
                     name="salesmanid"
                     type="select"
                     value={formValues.salesmanid}
                     onChange={(e) => handleChange("salesmanid", e.target.value)}
                     options={
                       staffData?.getStaffAccounts
-                        ?.filter((staff: any) => staff.role?.toLowerCase() === "salesman") // ✅ Only Salesman
-                        ?.map((staff: any) => ({
-                          label: staff.name,
-                          value: staff.id,
-                        })) || []
+                        ?.filter((staff: any) => staff.role?.toLowerCase() === "salesman")
+                        ?.map((staff: any) => ({ label: staff.name, value: staff.id })) || []
                     }
-                    placeholder="Select Salesman"
+                    placeholder="Select Salesman (optional)"
                     searchable
                   />
-                  </>
+                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                    Links this party to a salesman's sales route
+                  </p>
+                </div>
+
+                {/* Assign Customer — only for channel-customer admin setups */}
+                {admin?.isChannelCustomers && (
+                  <FormField
+                    label="Assign to Customer Account"
+                    name="assignaccountid"
+                    type="select"
+                    value={formValues.assignaccountid}
+                    onChange={(e) => handleChange("assignaccountid", e.target.value)}
+                    options={
+                      assignAccountData?.getAccounts
+                        ?.filter((acc: any) => acc.id !== id)
+                        ?.map((acc: any) => ({ label: acc.name, value: acc.id })) || []
+                    }
+                    placeholder="Select Customer Account (optional)"
+                    searchable
+                  />
                 )}
               </div>
             </fieldset>
@@ -282,8 +394,8 @@ const AddEditAccount = () => {
                 <FormField
                   label="State"
                   name="state"
-                  type="select"                     // make it a dropdown
-                  options={regionOptions}           // use the same enum array
+                  type="select"
+                  options={regionOptions}
                   value={formValues.state}
                   onChange={(e) => handleChange("state", e.target.value)}
                   placeholder="Select state"
@@ -298,9 +410,26 @@ const AddEditAccount = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm sm:text-base font-medium px-2">Financial Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Opening Balance" name="openingbalance" type="number" value={formValues.openingbalance} onChange={(e) => handleChange("openingbalance", e.target.value === "" ? "" : parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter opening balance" error={formErrors.openingbalance}/>
+                <FormField
+                  label="Opening Balance"
+                  name="openingbalance"
+                  type="number"
+                  value={formValues.openingbalance}
+                  onChange={(e) => handleChange("openingbalance", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  icon={<FaRupeeSign />}
+                  placeholder="Enter opening balance"
+                  error={formErrors.openingbalance}
+                />
                 <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
-                <FormField label="Credit Limit" name="creditlimit" type="number" value={formValues.creditlimit} onChange={(e) => handleChange("creditlimit", e.target.value === "" ? "" : parseFloat(e.target.value))} icon={<FaRupeeSign />} placeholder="Enter credit limit" />
+                <FormField
+                  label="Credit Limit"
+                  name="creditlimit"
+                  type="number"
+                  value={formValues.creditlimit}
+                  onChange={(e) => handleChange("creditlimit", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  icon={<FaRupeeSign />}
+                  placeholder="Enter credit limit"
+                />
                 <FormField label="GST Number" name="gstnumber" value={formValues.gstnumber} onChange={(e) => handleChange("gstnumber", e.target.value)} placeholder="Enter GST number" />
                 <FormField label="PAN" name="pan" value={formValues.pan} onChange={(e) => handleChange("pan", e.target.value)} placeholder="Enter PAN" />
               </div>
@@ -322,8 +451,27 @@ const AddEditAccount = () => {
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm sm:text-base font-medium px-2">Preferences</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <FormField label="Billing Cycle" name="billingcycle" type="select" value={formValues.billingcycle} onChange={(e) => handleChange("billingcycle", e.target.value)} options={[{ label: "Daily", value: "daily" }, { label: "Weekly", value: "weekly" }, { label: "Monthly", value: "monthly" }]} placeholder="Select billing cycle" />
-              <FormField label="Due Days" name="duedays" type="number" value={formValues.duedays} onChange={(e) => handleChange("duedays", e.target.value === "" ? "" : parseInt(e.target.value))} placeholder="Enter due days" />
+              <FormField
+                label="Billing Cycle"
+                name="billingcycle"
+                type="select"
+                value={formValues.billingcycle}
+                onChange={(e) => handleChange("billingcycle", e.target.value)}
+                options={[
+                  { label: "Daily",   value: "daily" },
+                  { label: "Weekly",  value: "weekly" },
+                  { label: "Monthly", value: "monthly" },
+                ]}
+                placeholder="Select billing cycle"
+              />
+              <FormField
+                label="Due Days"
+                name="duedays"
+                type="number"
+                value={formValues.duedays}
+                onChange={(e) => handleChange("duedays", e.target.value === "" ? "" : parseInt(e.target.value))}
+                placeholder="Enter due days"
+              />
               <FormSwitch label="Status" name="status" checked={formValues.status} onChange={(val) => handleChange("status", val)} />
             </div>
           </fieldset>
