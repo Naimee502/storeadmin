@@ -322,8 +322,11 @@ const AddEditExpenseNote = () => {
 
     if (!formValues.paymenttype) errors.paymenttype = "Payment type required";
 
-    if (formValues.paymenttype === "credit" && !formValues.ledgerid) {
-      errors.ledgerid = "Party ledger required for credit expense";
+    if (!formValues.ledgerid) {
+      errors.ledgerid =
+        formValues.paymenttype === "credit"
+          ? "Party ledger required for credit expense"
+          : "Payment account ledger is required";
     }
 
     if (
@@ -466,6 +469,10 @@ const AddEditExpenseNote = () => {
                 { label: "Cash", value: "cash" },
                 { label: "Bank", value: "bank" },
                 { label: "Credit", value: "credit" },
+                { label: "UPI", value: "upi" },
+                { label: "Card", value: "card" },
+                { label: "Cheque", value: "cheque" },
+                { label: "Other", value: "other" },
               ]}
             />
 
@@ -500,7 +507,11 @@ const AddEditExpenseNote = () => {
             )}
 
             <FormField
-              label="Paid To / Party Ledger"
+              label={
+                formValues.paymenttype === "credit"
+                  ? "Party Ledger (Payable)"
+                  : "Payment Account Ledger"
+              }
               type="select"
               name="ledgerid"
               value={formValues.ledgerid}
@@ -510,6 +521,7 @@ const AddEditExpenseNote = () => {
                 value: l.id,
               }))}
               searchable
+              required
               error={formErrors.ledgerid}
             />
 

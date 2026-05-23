@@ -37,7 +37,7 @@ const expenseNoteSchema = new mongoose.Schema(
 
     paymenttype: {
       type: String,
-      enum: ["cash", "bank", "credit"],
+      enum: ["cash", "bank", "credit", "upi", "card", "cheque", "other"],
       required: true,
     },
 
@@ -182,8 +182,8 @@ expenseNoteSchema.pre("save", async function (next) {
    VALIDATION
    =========================================================== */
 expenseNoteSchema.pre("validate", async function (next) {
-  if (this.paymenttype === "credit" && !this.ledgerid) {
-    return next(new Error("❌ Party ledger required for credit expense"));
+  if (!this.ledgerid) {
+    return next(new Error("❌ Payment account ledger is required for all expense types"));
   }
 
   // Prevent duplicate salary payment to same staff for same period
@@ -294,34 +294,19 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, us
   /* ======================
      CREDIT ENTRY
      ====================== */
-  if (doc.paymenttype === "credit") {
-    entries.push({
-      ledgerid: doc.ledgerid,
-      debit: 0,
-      credit: totalDebit,
-      remarks: `Expense Credit ${doc.expensenumber}`,
-    });
-  } else {
-    const ledgerName = doc.paymenttype === "cash" ? "Cash" : "Bank Account";
-
-    const payLedger = await AccountLedger.findOne({
-      admin: doc.adminid,
-      ledgername: ledgerName,
-    });
-
-    if (!payLedger) {
-        throw new Error(
-            `❌ Default ledger "${ledgerName}" not found. Please re-run admin setup.`
-        );
-    }
-
-    entries.push({
-      ledgerid: payLedger?._id,
-      debit: 0,
-      credit: totalDebit,
-      remarks: `Expense paid via ${doc.paymenttype}`,
-    });
+  // For ALL payment types — use the selected ledger directly (Tally-style)
+  // "credit" → party payable ledger; "cash/bank/upi/card/cheque" → payment account ledger
+  if (!doc.ledgerid) {
+    throw new Error("❌ Payment account / party ledger is required");
   }
+  entries.push({
+    ledgerid: doc.ledgerid,
+    debit: 0,
+    credit: totalDebit,
+    remarks: doc.paymenttype === "credit"
+      ? `Expense Credit ${doc.expensenumber}`
+      : `Expense paid via ${doc.paymenttype}`,
+  });
 
   /* ======================
      SAVE / UPDATE TRANSACTION
