@@ -124,21 +124,23 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   // not provided we fall back to AdminSettings so accounting doesn't depend
   // on the user remembering to toggle the checkbox.
   const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  // autocreate is stored as { ledger: bool, stock: bool } — must read .ledger/.stock,
+  // not the object itself (a non-null object is always truthy with ??).
   const wantsLedger =
-    newInv.autocreate ??
+    newInv.autocreate?.ledger ??
     settings?.autoCreateLedgerOnPurchaseInvoice ?? true;
   const wantsStock =
-    newInv.autocreate ??
+    newInv.autocreate?.stock ??
     settings?.autoCreateStockOnPurchaseInvoice ?? true;
 
   if (!wantsLedger && !wantsStock) {
-    console.log("Auto-create disabled (per-invoice or AdminSettings). Skipping.");
+    console.log("Auto-create disabled (AdminSettings). Skipping all journal & stock.");
     return;
   }
   // ============================
   // 📦 STOCK ADJUSTMENT
   // ============================
-  if (!newInv.isservice) {
+  if (wantsStock && !newInv.isservice) {
 
   // ============================
   // 1️⃣ Revert Old Invoice Stock
@@ -252,6 +254,11 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   }
 }
 
+
+  if (!wantsLedger) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal & payment entries.");
+    return;
+  }
 
 // ============================
 // 🧾 PURCHASE LEDGER ENTRIES (WITH REMARKS)

@@ -123,15 +123,17 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   // users don't toggle two checkboxes on every save. Defaults to TRUE so
   // first-time users get accounting wired without setup steps.
   const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  // autocreate is stored as { ledger: bool, stock: bool } — must read .ledger/.stock,
+  // not the object itself (a non-null object is always truthy with ??).
   const wantsLedger =
-    newInv.autocreate ??
+    newInv.autocreate?.ledger ??
     settings?.autoCreateLedgerOnSalesInvoice ?? true;
   const wantsStock =
-    newInv.autocreate ??
+    newInv.autocreate?.stock ??
     settings?.autoCreateStockOnSalesInvoice ?? true;
 
   if (!wantsLedger && !wantsStock) {
-    console.log("Auto-create disabled (per-invoice or AdminSettings). Skipping.");
+    console.log("Auto-create disabled (AdminSettings). Skipping all journal & stock.");
     return;
   }
 
@@ -144,7 +146,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const isIgst = companyState.toLowerCase() !== partyState.toLowerCase() && partyState !== "default";
   
   // ========================= STOCK ADJUSTMENT =========================
-  if (!newInv.isservice) {
+  if (wantsStock && !newInv.isservice) {
     // Restore old stock if invoice updated
     if (oldInv) {
       for (const item of oldInv.productservice) {
@@ -206,6 +208,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         { upsert: true }
       );
     }
+  }
+
+  if (!wantsLedger) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal & payment entries.");
+    return;
   }
 
   console.log("===== PROCESSING JOURNAL ENTRIES START =====");

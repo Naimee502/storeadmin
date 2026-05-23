@@ -323,48 +323,85 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, us
   }
 
   /* ======================
-     TRANSACTION
+     SAVE / UPDATE TRANSACTION
+     (find existing to avoid duplicates on edit)
      ====================== */
   const txCreatedById = userContext?.createdby_id || doc.createdby_id;
   const txCreatedByName = userContext?.createdby_name || doc.createdby_name;
   const txCreatedByType = userContext?.createdby_type || doc.createdby_type;
 
-  const trx = await Transaction.create({
-    adminid: doc.adminid,
-    branchid: doc.branchid,
-    entrytype: "auto",
-    source: { docmodel: "ExpenseNote", docid: doc._id },
-    transactiondate: doc.expensedate,
-    narration: `Expense Voucher ${doc.expensenumber}`,
-    entries,
-    totaldebit: totalDebit,
-    totalcredit: totalDebit,
-    createdby_id: txCreatedById,
-    createdby_name: txCreatedByName,
-    createdby_type: txCreatedByType,
+  let trx = await Transaction.findOne({
+    "source.docmodel": "ExpenseNote",
+    "source.docid": doc._id,
   });
 
+  if (trx) {
+    trx.entries = entries;
+    trx.totaldebit = totalDebit;
+    trx.totalcredit = totalDebit;
+    trx.transactiondate = doc.expensedate;
+    trx.narration = `Expense Voucher ${doc.expensenumber}`;
+    if (userContext) {
+      trx.createdby_id = txCreatedById;
+      trx.createdby_name = txCreatedByName;
+      trx.createdby_type = txCreatedByType;
+    }
+    await trx.save();
+  } else {
+    trx = await Transaction.create({
+      adminid: doc.adminid,
+      branchid: doc.branchid,
+      entrytype: "auto",
+      source: { docmodel: "ExpenseNote", docid: doc._id },
+      transactiondate: doc.expensedate,
+      narration: `Expense Voucher ${doc.expensenumber}`,
+      entries,
+      totaldebit: totalDebit,
+      totalcredit: totalDebit,
+      createdby_id: txCreatedById,
+      createdby_name: txCreatedByName,
+      createdby_type: txCreatedByType,
+    });
+  }
+
   /* ======================
-     PAYMENT
+     SAVE / UPDATE PAYMENT (cash / bank only)
+     (find existing via transactionid to avoid duplicates on edit)
      ====================== */
   if (doc.paymenttype !== "credit") {
     const payCreatedById = userContext?.createdby_id || doc.createdby_id;
     const payCreatedByName = userContext?.createdby_name || doc.createdby_name;
     const payCreatedByType = userContext?.createdby_type || doc.createdby_type;
+    const payLedgerId = entries[entries.length - 1].ledgerid;
 
-    await Payment.create({
-      adminid: doc.adminid,
-      branchid: doc.branchid,
-      type: "payment",
-      mode: doc.paymenttype,
-      amount: totalDebit,
-      transactionid: trx._id,
-      ledgerid: entries[entries.length - 1].ledgerid,
-      remarks: `Expense Payment ${doc.expensenumber}`,
-      createdby_id: payCreatedById,
-      createdby_name: payCreatedByName,
-      createdby_type: payCreatedByType,
-    });
+    const existingPayment = await Payment.findOne({ transactionid: trx._id });
+
+    if (existingPayment) {
+      existingPayment.amount = totalDebit;
+      existingPayment.mode = doc.paymenttype;
+      existingPayment.ledgerid = payLedgerId;
+      existingPayment.remarks = `Expense Payment ${doc.expensenumber}`;
+      if (userContext) {
+        existingPayment.createdby_id = payCreatedById;
+        existingPayment.createdby_name = payCreatedByName;
+        existingPayment.createdby_type = payCreatedByType;
+      }
+      await existingPayment.save();
+    } else {
+      await Payment.create({
+        adminid: doc.adminid,
+        branchid: doc.branchid,
+        type: "payment",
+        mode: doc.paymenttype,
+        amount: totalDebit,
+        transactionid: trx._id,
+        ledgerid: payLedgerId,
+        remarks: `Expense Payment ${doc.expensenumber}`,
+        createdby_id: payCreatedById,
+        createdby_name: payCreatedByName,
+        createdby_type: payCreatedByType,
+      });
+    }
   }
 };
 

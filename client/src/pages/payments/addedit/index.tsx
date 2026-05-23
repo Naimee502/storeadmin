@@ -96,21 +96,18 @@ const AddEditPayment = () => {
   }, [paymentsData, id, isEdit]);
 
   // ── Outstanding invoices for the selected party ────────────────────────
+  // Show ALL invoices for this party (any payment type) that still have
+  // outstanding balance — Tally allows settling any invoice regardless of
+  // how it was originally recorded (cash, credit, bank).
   const outstandingInvoices = useMemo(() => {
     if (!partyid) return [];
     const source =
       payType === "receipt"
         ? (salesInvData?.getSalesInvoices || []).filter(
-            (inv: any) =>
-              inv.partyacc?.id === partyid &&
-              inv.paymenttype === "credit" &&
-              inv.status
+            (inv: any) => inv.partyacc?.id === partyid && inv.status
           ).map((inv: any) => ({ ...inv, invoicemodel: "SalesInvoice" }))
         : (purchaseInvData?.getPurchaseInvoices || []).filter(
-            (inv: any) =>
-              inv.partyacc?.id === partyid &&
-              inv.paymenttype === "credit" &&
-              inv.status
+            (inv: any) => inv.partyacc?.id === partyid && inv.status
           ).map((inv: any) => ({ ...inv, invoicemodel: "PurchaseInvoice" }));
 
     return source
@@ -146,8 +143,16 @@ const AddEditPayment = () => {
     // Wait until invoice data is fetched
     if (!salesInvData && !purchaseInvData) return;
 
+    // Look up full invoice data from all invoices (not just outstanding),
+    // so we get billnumber and othercharges even for fully-settled invoices.
+    const allSales = salesInvData?.getSalesInvoices || [];
+    const allPurchase = purchaseInvData?.getPurchaseInvoices || [];
+
     const settled: SettledInvoice[] = (p.invoices || []).map((ei: any) => {
-      const match = outstandingInvoices.find((oi: any) => oi.id === ei.invoiceid);
+      const all = ei.invoicemodel === "PurchaseInvoice" ? allPurchase : allSales;
+      const match =
+        outstandingInvoices.find((oi: any) => oi.id === ei.invoiceid) ||
+        all.find((inv: any) => inv.id === ei.invoiceid);
       return {
         invoiceid: ei.invoiceid,
         invoicemodel: ei.invoicemodel,
@@ -547,8 +552,9 @@ const AddEditPayment = () => {
               </table>
               {settledInvoices.length > 0 && (
                 <p className="text-xs text-blue-600 mt-2">
-                  Other charges (freight, transport, etc.) from the linked invoices are already posted
-                  in the invoice journal entries and do not appear here separately.
+                  The settlement amount (₹{fmt(totalAmount)}) covers the full invoice total including
+                  other charges (freight, transport, etc.). Those charges were already journalised
+                  when the invoice was created — no separate entry needed here.
                 </p>
               )}
             </div>

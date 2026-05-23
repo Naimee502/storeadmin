@@ -134,8 +134,9 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
 
   if (!branchid) return console.log("Branch ID missing on Sales Return");
 
-  if (!newRet.autocreate) {
-    console.log("Auto-create is disabled. Skipping stock and transactions for Sales Return.");
+  // autocreate is stored as { ledger: bool } — check the nested .ledger property
+  if (newRet.autocreate?.ledger === false) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Sales Return.");
     return;
   }
 

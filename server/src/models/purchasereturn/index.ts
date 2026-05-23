@@ -124,8 +124,9 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     : newRet.branchid;
   if (!branchid) return;
 
-  if (!newRet.autocreate) {
-    console.log("Auto-create disabled. Skipping Purchase Return stock and journal.");
+  // autocreate is stored as { ledger: bool } — check the nested .ledger property
+  if (newRet.autocreate?.ledger === false) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Purchase Return.");
     return;
   }
 
