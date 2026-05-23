@@ -249,6 +249,10 @@ const AddEditSalesOrder = () => {
                   { value: "cash", label: "Cash" },
                   { value: "bank", label: "Bank" },
                   { value: "credit", label: "Credit" },
+                  { value: "upi", label: "UPI" },
+                  { value: "card", label: "Card" },
+                  { value: "cheque", label: "Cheque" },
+                  { value: "other", label: "Other" },
                 ]}
                 error={errors.paymentType}
               />

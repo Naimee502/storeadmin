@@ -57,6 +57,10 @@ export const salesReturnTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesReturnProductService!]!
+    othercharges: [OtherCharge]
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     autocreate: Boolean!
     createdby_id: ID
@@ -88,6 +92,10 @@ export const salesReturnTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesReturnProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     autocreate: Boolean
     createdby_id: ID

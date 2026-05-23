@@ -20,6 +20,7 @@ const populateFields = [
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
+  "othercharges.ledgerid",
 ];
 
 // ✅ Format invoice function
@@ -32,6 +33,11 @@ const formatInvoice = (inv: any) => ({
   createdby_name: inv.createdby_name,
   createdby_type: inv.createdby_type,
   autocreate: inv.autocreate || { ledger: true, stock: true },
+
+  othercharges: inv.othercharges?.map((oc: any) => ({
+    ...oc,
+    ledgerid: toSimpleRef(oc.ledgerid, ["ledgername"])
+  })) ?? [],
 
   productservice: inv.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(

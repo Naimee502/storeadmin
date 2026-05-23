@@ -23,7 +23,7 @@ interface CompletePaymentData {
   balance: number;
 }
 
-type PaymentMode = "cash" | "bank" | "upi" | "card" | "cheque";
+type PaymentMode = "cash" | "bank" | "credit" | "upi" | "card" | "cheque" | "other";
 
 type ErrorState = Partial<{
   paymentType: string;
@@ -110,10 +110,12 @@ export default function PaymentDrawer({
           onChange={(e) => setPaymentType(e.target.value as PaymentMode)}
           options={[
             { value: "cash", label: "Cash" },
-            { value: "bank", label: "Bank Transfer" },
+            { value: "bank", label: "Bank" },
+            { value: "credit", label: "Credit" },
             { value: "upi", label: "UPI" },
             { value: "card", label: "Card" },
             { value: "cheque", label: "Cheque" },
+            { value: "other", label: "Other" },
           ]}
           searchable
           error={errors.paymentType}

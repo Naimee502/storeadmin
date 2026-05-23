@@ -53,6 +53,28 @@ const salesInvoiceSchema = new mongoose.Schema(
       }
     ],
 
+    othercharges: [
+      {
+        ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
+        ledgername: { type: String },
+        amount: { type: Number, required: true },
+        gstpercent: { type: Number, default: 0 },
+        gstamount: { type: Number, default: 0 },
+        totalamount: { type: Number, required: true },
+        remarks: { type: String },
+      }
+    ],
+
+    deliverydate: { type: String },
+    duedate: { type: String },
+    transportname: { type: String },
+    vehiclenumber: { type: String },
+    ewaybillno: { type: String },
+    distance: { type: Number },
+    roundoff: { type: Number, default: 0 },
+    invoicediscount: { type: Number, default: 0 },
+    invoicediscounttype: { type: String, default: "amount" },
+
     isservice: { type: Boolean, default: false },
     autocreate: {
       ledger: { type: Boolean, default: true },
@@ -112,6 +134,14 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     console.log("Auto-create disabled (per-invoice or AdminSettings). Skipping.");
     return;
   }
+
+  // ========================= FETCH CUSTOMER & STATE =========================
+  const customer = await Account.findById(newInv.partyacc).select("ledgerid state");
+  if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing!");
+
+  const companyState = settings?.companyState || "gujarat";
+  const partyState = customer?.state || "gujarat";
+  const isIgst = companyState.toLowerCase() !== partyState.toLowerCase() && partyState !== "default";
   
   // ========================= STOCK ADJUSTMENT =========================
   if (!newInv.isservice) {
@@ -220,48 +250,60 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
     // ===================== GST LEDGERS =========================
     if (gstAmt > 0) {
-      const cgst = await AccountLedger.findOne({
-        ledgername: "Output CGST",
-        admin: newInv.adminid,
-      });
-
-      const sgst = await AccountLedger.findOne({
-        ledgername: "Output SGST",
-        admin: newInv.adminid,
-      });
-
-      if (cgst && sgst) {
-        const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
-        const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
-
-        entries.push({
-          ledgerid: cgst._id,
-          debit: 0,
-          credit: cgstAmt,
-          remarks: `CGST on ${productName}`,
-        });
-
-        entries.push({
-          ledgerid: sgst._id,
-          debit: 0,
-          credit: sgstAmt,
-          remarks: `SGST on ${productName}`
-        });
-      } else {
-        const gstAcc = await getOrCreateAccount(
-          "Output GST",
-          "other",
-          newInv.adminid,
-          newInv.branchid
-        );
-
-        if (gstAcc?._id) {
+      if (isIgst) {
+        let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newInv.adminid });
+        if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newInv.adminid, newInv.branchid) as any;
+        if (igst) {
           entries.push({
-            ledgerid: gstAcc._id,
+            ledgerid: (igst as any).ledgerid || igst._id,
             debit: 0,
             credit: gstAmt,
-            remarks: `GST on ${productName}`,
+            remarks: `IGST on ${productName}`,
           });
+        }
+      } else {
+        const cgst = await AccountLedger.findOne({
+          ledgername: "Output CGST",
+          admin: newInv.adminid,
+        });
+
+        const sgst = await AccountLedger.findOne({
+          ledgername: "Output SGST",
+          admin: newInv.adminid,
+        });
+
+        if (cgst && sgst) {
+          const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+          const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
+          entries.push({
+            ledgerid: cgst._id,
+            debit: 0,
+            credit: cgstAmt,
+            remarks: `CGST on ${productName}`,
+          });
+
+          entries.push({
+            ledgerid: sgst._id,
+            debit: 0,
+            credit: sgstAmt,
+            remarks: `SGST on ${productName}`
+          });
+        } else {
+          const gstAcc = await getOrCreateAccount(
+            "Output GST",
+            "other",
+            newInv.adminid,
+            newInv.branchid
+          );
+
+          if (gstAcc?._id || gstAcc?.ledgerid) {
+            entries.push({
+              ledgerid: gstAcc._id || gstAcc.ledgerid,
+              debit: 0,
+              credit: gstAmt,
+              remarks: `GST on ${productName}`,
+            });
+          }
         }
       }
     }
@@ -269,10 +311,88 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     lineIndex++;
   }
 
-  // ===================== CUSTOMER LEDGER ==========================
-  const customer = await Account.findById(newInv.partyacc).select("ledgerid");
-  if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing!");
+  // ===================== OTHER CHARGES ==========================
+  if (newInv.othercharges && newInv.othercharges.length > 0) {
+    for (const charge of newInv.othercharges) {
+      if (charge.amount > 0) {
+        entries.push({
+          ledgerid: charge.ledgerid,
+          debit: 0,
+          credit: charge.amount,
+          remarks: charge.remarks || charge.ledgername || "Other Charge",
+        });
 
+        if (charge.gstamount > 0) {
+          if (isIgst) {
+            let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newInv.adminid });
+            if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newInv.adminid, newInv.branchid) as any;
+            if (igst) {
+              entries.push({ ledgerid: (igst as any).ledgerid || igst._id, debit: 0, credit: charge.gstamount, remarks: `IGST on ${charge.ledgername || "Other Charge"}` });
+            }
+          } else {
+            const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newInv.adminid });
+            const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newInv.adminid });
+
+            if (cgst && sgst) {
+              const cgstAmt = parseFloat((charge.gstamount / 2).toFixed(2));
+              const sgstAmt = parseFloat((charge.gstamount - cgstAmt).toFixed(2));
+
+              entries.push({ ledgerid: cgst._id, debit: 0, credit: cgstAmt, remarks: `CGST on ${charge.ledgername || "Other Charge"}` });
+              entries.push({ ledgerid: sgst._id, debit: 0, credit: sgstAmt, remarks: `SGST on ${charge.ledgername || "Other Charge"}` });
+            } else {
+              const gstAcc = await getOrCreateAccount("Output GST", "other", newInv.adminid, newInv.branchid);
+              if (gstAcc?._id || gstAcc?.ledgerid) {
+                entries.push({ ledgerid: gstAcc._id || gstAcc.ledgerid, debit: 0, credit: charge.gstamount, remarks: `GST on ${charge.ledgername || "Other Charge"}` });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ===================== ROUND OFF ==========================
+  if (newInv.roundoff && newInv.roundoff !== 0) {
+    let roundOffLedger = await AccountLedger.findOne({ ledgername: "Round Off", admin: newInv.adminid });
+    if (!roundOffLedger) {
+      const created = await getOrCreateAccount("Round Off", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) roundOffLedger = { _id: created.ledgerid } as any;
+    }
+    
+    if (roundOffLedger) {
+      if (newInv.roundoff > 0) {
+        // Income (Credit)
+        entries.push({ ledgerid: roundOffLedger._id, debit: 0, credit: newInv.roundoff, remarks: "Round Off" });
+      } else {
+        // Expense (Debit)
+        entries.push({ ledgerid: roundOffLedger._id, debit: Math.abs(newInv.roundoff), credit: 0, remarks: "Round Off" });
+      }
+    }
+  }
+
+  // ===================== INVOICE DISCOUNT =======================
+  if (newInv.invoicediscount && newInv.invoicediscount !== 0) {
+    let discLedger = await AccountLedger.findOne({ ledgername: "Invoice Discount", admin: newInv.adminid });
+    if (!discLedger) {
+      const created = await getOrCreateAccount("Invoice Discount", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) discLedger = { _id: created.ledgerid } as any;
+    }
+    
+    // Calculate the actual discount amount in case it's a percentage
+    let discountAmount = newInv.invoicediscount;
+    if (newInv.invoicediscounttype === "percent") {
+      const taxableSubtotal = newInv.productservice.reduce((sum:any, item:any) => {
+        return sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty);
+      }, 0);
+      discountAmount = (taxableSubtotal * newInv.invoicediscount) / 100;
+    }
+    
+    if (discountAmount > 0 && discLedger) {
+      entries.push({ ledgerid: discLedger._id, debit: parseFloat(discountAmount.toFixed(2)), credit: 0, remarks: "Invoice Discount" });
+    }
+  }
+
+  // ===================== CUSTOMER LEDGER ==========================
   entries.push({
     ledgerid: customer.ledgerid,
     debit: parseFloat(newInv.totalamount.toFixed(2)),

@@ -24,6 +24,16 @@ interface Invoice {
   productservice?: Product[];
   totalamount?: number;
   amountinwords?: string;
+  othercharges?: { ledgerid?: any; ledgername?: string; totalamount: number }[];
+  deliverydate?: string;
+  duedate?: string;
+  transportname?: string;
+  vehiclenumber?: string;
+  ewaybillno?: string;
+  distance?: number;
+  roundoff?: number;
+  invoicediscount?: number;
+  invoicediscounttype?: string;
 }
 
 interface PrintableInvoiceProps {
@@ -69,7 +79,13 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
       return sum + (taxable * p.gst) / 100;
     }, 0);
 
-    const grandTotal = (productsTotal - totalDiscount) + totalGST;
+    const invDisc = invoice.invoicediscount || 0;
+    const computedInvDisc = invoice.invoicediscounttype === "percent" ? (taxableTotal * invDisc) / 100 : invDisc;
+
+    const otherChargesTotal = (invoice.othercharges || []).reduce((sum, c) => sum + (c.totalamount || 0), 0);
+    const roundOff = invoice.roundoff || 0;
+
+    const grandTotal = (productsTotal - totalDiscount) + totalGST - computedInvDisc + otherChargesTotal + roundOff;
 
     const encrypt = settings?.encryptInvoicePrices && grandTotal > 100000;
     const mask = (val: number) => encrypt ? val / 10 : val;
@@ -138,6 +154,24 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
               <td colSpan={3}>
                 <strong>Place of Supply:</strong>{" "}
                 {invoice.placeofsupply || "Rajkot"}
+              </td>
+            </tr>
+
+            <tr>
+              <td colSpan={3}>
+                <strong>Transport:</strong> {invoice.transportname || "---"}
+                <br />
+                <strong>Vehicle No:</strong> {invoice.vehiclenumber || "---"}
+              </td>
+              <td colSpan={2}>
+                <strong>E-Way Bill:</strong> {invoice.ewaybillno || "---"}
+                <br />
+                <strong>Distance:</strong> {invoice.distance || "---"} km
+              </td>
+              <td colSpan={3}>
+                <strong>Delivery Date:</strong> {invoice.deliverydate || "---"}
+                <br />
+                <strong>Due Date:</strong> {invoice.duedate || "---"}
               </td>
             </tr>
 
@@ -222,6 +256,39 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 {mask(totalGST).toFixed(2)}
               </td>
             </tr>
+
+            {(invoice.othercharges || []).map((c, idx) => (
+              <tr key={`oc-${idx}`}>
+                <td colSpan={7} className="text-right font-semibold">
+                  {c.ledgername || c.ledgerid?.ledgername || "Other Charge"}
+                </td>
+                <td className="text-right">
+                  {mask(c.totalamount || 0).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+
+            {computedInvDisc > 0 && (
+              <tr>
+                <td colSpan={7} className="text-right font-semibold">
+                  Invoice Discount
+                </td>
+                <td className="text-right">
+                  {mask(computedInvDisc).toFixed(2)}
+                </td>
+              </tr>
+            )}
+
+            {roundOff !== 0 && (
+              <tr>
+                <td colSpan={7} className="text-right font-semibold">
+                  Round Off
+                </td>
+                <td className="text-right">
+                  {mask(roundOff).toFixed(2)}
+                </td>
+              </tr>
+            )}
 
             <tr>
               <td colSpan={7} className="text-right font-bold">

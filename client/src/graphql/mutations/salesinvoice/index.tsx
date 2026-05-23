@@ -58,6 +58,23 @@ export const ADD_SALES_INVOICE = gql`
         accountname
       }
     }
+    othercharges {
+      ledgerid { id ledgername }
+      amount
+      gstpercent
+      gstamount
+      totalamount
+      remarks
+    }
+    deliverydate
+    duedate
+    transportname
+    vehiclenumber
+    ewaybillno
+    distance
+    roundoff
+    invoicediscount
+    invoicediscounttype
     isservice
     createdby_id
     createdby_name
@@ -127,6 +144,23 @@ export const EDIT_SALES_INVOICE = gql`
           accountname
         }
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       status
       createdAt

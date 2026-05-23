@@ -11,6 +11,26 @@ export const salesInvoiceTypeDefs = gql`
     ledgername: String
   }
 
+  type OtherCharge {
+    ledgerid: SimpleRef
+    ledgername: String
+    amount: Float
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float
+    remarks: String
+  }
+
+  input OtherChargeInput {
+    ledgerid: ID!
+    ledgername: String
+    amount: Float!
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float!
+    remarks: String
+  }
+
   type SalesInvoiceProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
@@ -59,6 +79,16 @@ export const salesInvoiceTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesInvoiceProductService!]!
+    othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     autocreate: Boolean!
     createdby_id: ID
@@ -86,6 +116,16 @@ export const salesInvoiceTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesInvoiceProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     autocreate: Boolean
     createdby_id: ID

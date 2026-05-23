@@ -19,6 +19,7 @@ import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
+import { AdminSettings } from "../adminsettings";
 
 const salesReturnSchema = new mongoose.Schema(
   {
@@ -71,6 +72,22 @@ const salesReturnSchema = new mongoose.Schema(
         serviceaccountid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger" },
       }
     ],
+
+    othercharges: [
+      {
+        ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
+        ledgername: { type: String },
+        amount: { type: Number, required: true },
+        gstpercent: { type: Number, default: 0 },
+        gstamount: { type: Number, default: 0 },
+        totalamount: { type: Number, required: true },
+        remarks: { type: String },
+      }
+    ],
+
+    roundoff: { type: Number, default: 0 },
+    invoicediscount: { type: Number, default: 0 },
+    invoicediscounttype: { type: String, default: "amount" },
 
     isservice: { type: Boolean, default: false },
     autocreate: {
@@ -183,6 +200,14 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   console.log("===== PROCESSING SALES RETURN JOURNAL ENTRIES =====");
   const entries: any[] = [];
 
+  const customer = await Account.findById(newRet.partyacc).select("ledgerid state");
+  if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing!");
+
+  const settings: any = await AdminSettings.getOrCreateForAdmin(newRet.adminid);
+  const companyState = settings?.companyState || "gujarat";
+  const partyState = customer?.state || "gujarat";
+  const isIgst = companyState.toLowerCase() !== partyState.toLowerCase() && partyState !== "default";
+
   // Find or create a "Sales Return" ledger to debit. Mirror the pattern used
   // for "Output CGST" creation in salesInvoice.
   let salesReturnLedger = await AccountLedger.findOne({
@@ -230,24 +255,113 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
     }
 
     if (gstAmt > 0) {
-      const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newRet.adminid });
-      const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newRet.adminid });
-      if (cgst && sgst) {
-        const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
-        const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
-        entries.push({ ledgerid: cgst._id, debit: cgstAmt, credit: 0, remarks: `Reversal of CGST on ${productName}` });
-        entries.push({ ledgerid: sgst._id, debit: sgstAmt, credit: 0, remarks: `Reversal of SGST on ${productName}` });
+      if (isIgst) {
+        let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newRet.adminid });
+        if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newRet.adminid, newRet.branchid) as any;
+        if (igst) {
+          entries.push({ ledgerid: (igst as any).ledgerid || igst._id, debit: gstAmt, credit: 0, remarks: `Reversal of IGST on ${productName}` });
+        }
       } else {
-        const gstAcc = await getOrCreateAccount("Output GST", "other", newRet.adminid, newRet.branchid);
-        if (gstAcc?.ledgerid) {
-          entries.push({ ledgerid: gstAcc.ledgerid, debit: gstAmt, credit: 0, remarks: `Reversal of GST on ${productName}` });
+        const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newRet.adminid });
+        const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newRet.adminid });
+        if (cgst && sgst) {
+          const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+          const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
+          entries.push({ ledgerid: cgst._id, debit: cgstAmt, credit: 0, remarks: `Reversal of CGST on ${productName}` });
+          entries.push({ ledgerid: sgst._id, debit: sgstAmt, credit: 0, remarks: `Reversal of SGST on ${productName}` });
+        } else {
+          const gstAcc = await getOrCreateAccount("Output GST", "other", newRet.adminid, newRet.branchid);
+          if (gstAcc?.ledgerid) {
+            entries.push({ ledgerid: gstAcc.ledgerid, debit: gstAmt, credit: 0, remarks: `Reversal of GST on ${productName}` });
+          }
         }
       }
     }
   }
 
+  // ===================== OTHER CHARGES ==========================
+  if (newRet.othercharges && newRet.othercharges.length > 0) {
+    for (const charge of newRet.othercharges) {
+      if (charge.amount > 0) {
+        entries.push({
+          ledgerid: charge.ledgerid,
+          debit: charge.amount,
+          credit: 0,
+          remarks: charge.remarks || charge.ledgername || "Reversal of Other Charge",
+        });
+
+        if (charge.gstamount > 0) {
+          if (isIgst) {
+            let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newRet.adminid });
+            if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newRet.adminid, newRet.branchid) as any;
+            if (igst) {
+              entries.push({ ledgerid: (igst as any).ledgerid || igst._id, debit: charge.gstamount, credit: 0, remarks: `Reversal of IGST on ${charge.ledgername || "Other Charge"}` });
+            }
+          } else {
+            const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newRet.adminid });
+            const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newRet.adminid });
+
+            if (cgst && sgst) {
+              const cgstAmt = parseFloat((charge.gstamount / 2).toFixed(2));
+              const sgstAmt = parseFloat((charge.gstamount - cgstAmt).toFixed(2));
+
+              entries.push({ ledgerid: cgst._id, debit: cgstAmt, credit: 0, remarks: `Reversal of CGST on ${charge.ledgername || "Other Charge"}` });
+              entries.push({ ledgerid: sgst._id, debit: sgstAmt, credit: 0, remarks: `Reversal of SGST on ${charge.ledgername || "Other Charge"}` });
+            } else {
+              const gstAcc = await getOrCreateAccount("Output GST", "other", newRet.adminid, newRet.branchid);
+              if (gstAcc?._id || gstAcc?.ledgerid) {
+                entries.push({ ledgerid: gstAcc._id || gstAcc.ledgerid, debit: charge.gstamount, credit: 0, remarks: `Reversal of GST on ${charge.ledgername || "Other Charge"}` });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ===================== ROUND OFF ==========================
+  if (newRet.roundoff && newRet.roundoff !== 0) {
+    let roundOffLedger = await AccountLedger.findOne({ ledgername: "Round Off", admin: newRet.adminid });
+    if (!roundOffLedger) {
+      const created = await getOrCreateAccount("Round Off", "indirect_expenses", newRet.adminid, newRet.branchid);
+      if (created) roundOffLedger = { _id: created.ledgerid } as any;
+    }
+    
+    if (roundOffLedger) {
+      if (newRet.roundoff > 0) {
+        // Income reversal (Debit)
+        entries.push({ ledgerid: roundOffLedger._id, debit: newRet.roundoff, credit: 0, remarks: "Reversal of Round Off" });
+      } else {
+        // Expense reversal (Credit)
+        entries.push({ ledgerid: roundOffLedger._id, debit: 0, credit: Math.abs(newRet.roundoff), remarks: "Reversal of Round Off" });
+      }
+    }
+  }
+
+  // ===================== INVOICE DISCOUNT =======================
+  if (newRet.invoicediscount && newRet.invoicediscount !== 0) {
+    let discLedger = await AccountLedger.findOne({ ledgername: "Invoice Discount", admin: newRet.adminid });
+    if (!discLedger) {
+      const created = await getOrCreateAccount("Invoice Discount", "indirect_expenses", newRet.adminid, newRet.branchid);
+      if (created) discLedger = { _id: created.ledgerid } as any;
+    }
+    
+    // Calculate the actual discount amount in case it's a percentage
+    let discountAmount = newRet.invoicediscount;
+    if (newRet.invoicediscounttype === "percent") {
+      const taxableSubtotal = newRet.productservice.reduce((sum:any, item:any) => {
+        return sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty);
+      }, 0);
+      discountAmount = (taxableSubtotal * newRet.invoicediscount) / 100;
+    }
+    
+    if (discountAmount > 0 && discLedger) {
+      // Reversal of discount given -> Credit
+      entries.push({ ledgerid: discLedger._id, debit: 0, credit: parseFloat(discountAmount.toFixed(2)), remarks: "Reversal of Invoice Discount" });
+    }
+  }
+
   // Credit customer ledger for the total return amount
-  const customer = await Account.findById(newRet.partyacc).select("ledgerid");
   if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing on Sales Return");
 
   entries.push({

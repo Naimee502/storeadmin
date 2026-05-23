@@ -41,6 +41,23 @@ export const GET_SALES_INVOICES = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -92,6 +109,23 @@ export const GET_DELETED_SALES_INVOICES = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -143,6 +177,23 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name

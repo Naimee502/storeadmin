@@ -71,6 +71,7 @@ const adminSettingsSchema = new mongoose.Schema(
     // New Features
     displayProductPriceOnWebsite: { type: Boolean, default: true },
     encryptInvoicePrices: { type: Boolean, default: false },
+    companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 
     /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs

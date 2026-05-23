@@ -35,6 +35,17 @@ const SALES_RETURN_FIELDS = `
     amount
     discount
   }
+  othercharges {
+    ledgerid { id ledgername }
+    amount
+    gstpercent
+    gstamount
+    totalamount
+    remarks
+  }
+  roundoff
+  invoicediscount
+  invoicediscounttype
   isservice
   autocreate
   createdby_id

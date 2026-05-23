@@ -20,6 +20,7 @@ const populateFields = [
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
+  "othercharges.ledgerid",
 ];
 
 const formatReturn = (r: any) => ({
@@ -30,6 +31,12 @@ const formatReturn = (r: any) => ({
   partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
   // Convert autocreate object to boolean for GraphQL (DB stores as { ledger: true }, but schema expects Boolean)
   autocreate: r.autocreate?.ledger ?? r.autocreate ?? true,
+
+  othercharges: r.othercharges?.map((oc: any) => ({
+    ...oc,
+    ledgerid: toSimpleRef(oc.ledgerid, ["ledgername"])
+  })) ?? [],
+
   productservice: r.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
       (v: any) => String(v._id) === String(ps.variantid)

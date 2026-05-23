@@ -3,6 +3,7 @@ import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
+import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
@@ -78,6 +79,17 @@ const AddEditSalesInvoice = () => {
     (state) => state.salesinvoice.invoices
   );
 
+  const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [transportName, setTransportName] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [ewayBillNo, setEwayBillNo] = useState("");
+  const [distance, setDistance] = useState<number | "">("");
+  const [roundOff, setRoundOff] = useState<number | "">("");
+  const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
+  const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+
   const [notes, setNotes] = useState("");
   // Fetch invoice if editing
   const { data } = useSalesInvoiceByIDQuery(id || "");
@@ -129,6 +141,25 @@ const AddEditSalesInvoice = () => {
       setTaxPercent(invoice.totalgst || 0);
       setStatus(invoice.status ?? true);
       setIsService(invoice.isservice ?? false);
+
+      setOtherCharges(invoice.othercharges?.map((c: any) => ({
+        ledgerid: c.ledgerid?.id || "",
+        ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+        amount: c.amount || 0,
+        gstpercent: c.gstpercent || 0,
+        gstamount: c.gstamount || 0,
+        totalamount: c.totalamount || 0,
+        remarks: c.remarks || "",
+      })) || []);
+      setDeliveryDate(invoice.deliverydate || "");
+      setDueDate(invoice.duedate || "");
+      setTransportName(invoice.transportname || "");
+      setVehicleNumber(invoice.vehiclenumber || "");
+      setEwayBillNo(invoice.ewaybillno || "");
+      setDistance(invoice.distance || "");
+      setRoundOff(invoice.roundoff || "");
+      setInvoiceDiscount(invoice.invoicediscount || "");
+      setInvoiceDiscountType(invoice.invoicediscounttype || "amount");
 
       // --- Products
       const mappedProducts = invoice.productservice.map((p: any) => {
@@ -183,6 +214,25 @@ const AddEditSalesInvoice = () => {
       setIsService(order.isservice || false);
       setBillNumber(""); // Allow auto-generate for the new invoice
 
+      setOtherCharges(order.othercharges?.map((c: any) => ({
+        ledgerid: c.ledgerid?.id || "",
+        ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+        amount: c.amount || 0,
+        gstpercent: c.gstpercent || 0,
+        gstamount: c.gstamount || 0,
+        totalamount: c.totalamount || 0,
+        remarks: c.remarks || "",
+      })) || []);
+      setDeliveryDate(order.deliverydate || "");
+      setDueDate(order.duedate || "");
+      setTransportName(order.transportname || "");
+      setVehicleNumber(order.vehiclenumber || "");
+      setEwayBillNo(order.ewaybillno || "");
+      setDistance(order.distance || "");
+      setRoundOff(order.roundoff || "");
+      setInvoiceDiscount(order.invoicediscount || "");
+      setInvoiceDiscountType(order.invoicediscounttype || "amount");
+
       const mappedProducts: InvoiceProduct[] = (order.productservice || []).map((p: any) => ({
         productserviceid: p.productserviceid?.id || "",
         variantid: p.variantid?.id || null,
@@ -231,11 +281,21 @@ const AddEditSalesInvoice = () => {
       grandTotalCalc += lineTotal;
     });
 
+    const invDisc = Number(invoiceDiscount) || 0;
+    const computedInvDisc = invoiceDiscountType === "percent" ? (taxableSubtotal * invDisc) / 100 : invDisc;
+
+    let otherChargesTotal = 0;
+    otherCharges.forEach((c) => {
+      otherChargesTotal += c.totalamount;
+    });
+
+    const finalGrandTotal = grandTotalCalc - computedInvDisc + otherChargesTotal + (Number(roundOff) || 0);
+
     setProductsTotal(productsTotalCalc);
-    setTotalDiscount(totalLineDiscount);
+    setTotalDiscount(totalLineDiscount + computedInvDisc);
     setTaxAmount(totalGSTAmount);
-    setGrandTotal(grandTotalCalc);
-  }, [products]);
+    setGrandTotal(finalGrandTotal);
+  }, [products, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType]);
 
 
   const validate = () => {
@@ -292,6 +352,23 @@ const AddEditSalesInvoice = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
+      othercharges: otherCharges.map(c => ({
+        ledgerid: c.ledgerid,
+        amount: c.amount,
+        gstpercent: c.gstpercent,
+        gstamount: c.gstamount,
+        totalamount: c.totalamount,
+        remarks: c.remarks,
+      })),
+      deliverydate: deliveryDate || null,
+      duedate: dueDate || null,
+      transportname: transportName || null,
+      vehiclenumber: vehicleNumber || null,
+      ewaybillno: ewayBillNo || null,
+      distance: distance ? Number(distance) : null,
+      roundoff: roundOff ? Number(roundOff) : 0,
+      invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
+      invoicediscounttype: invoiceDiscountType,
       isservice: isService,
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
@@ -332,6 +409,16 @@ const AddEditSalesInvoice = () => {
             totaldiscount: totalDiscount,
             totalgst: taxAmount,
             totalamount: grandTotal,
+            othercharges: input.othercharges,
+            deliverydate: input.deliverydate,
+            duedate: input.duedate,
+            transportname: input.transportname,
+            vehiclenumber: input.vehiclenumber,
+            ewaybillno: input.ewaybillno,
+            distance: input.distance,
+            roundoff: input.roundoff,
+            invoicediscount: input.invoicediscount,
+            invoicediscounttype: input.invoicediscounttype,
             adminid: adminId,
             branchid: branchId,
             productservice: input.productservice,
@@ -372,6 +459,7 @@ const AddEditSalesInvoice = () => {
                 options={[
                   { value: "cash", label: "Cash" },
                   { value: "bank", label: "Bank" },
+                  { value: "credit", label: "Credit" },
                   { value: "upi", label: "UPI" },
                   { value: "card", label: "Card" },
                   { value: "cheque", label: "Cheque" },
@@ -495,6 +583,61 @@ const AddEditSalesInvoice = () => {
             mode="customer"
           />
 
+          {/* Transport & Delivery */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                label="Delivery Date"
+                name="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+              />
+              <FormField
+                label="Due Date"
+                name="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              <FormField
+                label="Transport Name"
+                name="transportName"
+                type="text"
+                value={transportName}
+                onChange={(e) => setTransportName(e.target.value)}
+              />
+              <FormField
+                label="Vehicle Number"
+                name="vehicleNumber"
+                type="text"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+              />
+              <FormField
+                label="E-Way Bill No."
+                name="ewayBillNo"
+                type="text"
+                value={ewayBillNo}
+                onChange={(e) => setEwayBillNo(e.target.value)}
+              />
+              <FormField
+                label="Distance (km)"
+                name="distance"
+                type="number"
+                value={distance}
+                onChange={(e) => setDistance(e.target.value)}
+              />
+            </div>
+          </fieldset>
+
+          {/* Other Charges */}
+          <OtherChargesSection
+            otherCharges={otherCharges}
+            setOtherCharges={setOtherCharges}
+          />
+
           {/* Summary */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
@@ -502,6 +645,35 @@ const AddEditSalesInvoice = () => {
               <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />
               <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />
               <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <FormField
+                    label="Invoice Discount"
+                    name="invoiceDiscount"
+                    onChange={(e) => setInvoiceDiscount(e.target.value)}
+                    type="number"
+                    value={invoiceDiscount}
+                  />
+                </div>
+                <select
+                  className="border rounded p-2 text-sm h-10 mb-1"
+                  value={invoiceDiscountType}
+                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
+                >
+                  <option value="amount">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+
+              <FormField
+                label="Round Off"
+                name="roundOff"
+                onChange={(e) => setRoundOff(e.target.value)}
+                type="number"
+                value={roundOff}
+              />
+
               <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />
             </div>
           </fieldset>

@@ -23,6 +23,7 @@ import {
   useSalesInvoicesQuery,
   useSalesInvoiceByIDQuery,
 } from "../../../graphql/hooks/salesinvoice";
+import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
 
 type Line = {
   productserviceid: string;
@@ -90,6 +91,11 @@ const AddEditSalesReturn: React.FC = () => {
   const [lines, setLines] = useState<Line[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
+  const [roundOff, setRoundOff] = useState<number | "">("");
+  const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
+  const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+
   // Existing return (edit mode)
   const { data: existingData } = useSalesReturnByIDQuery(id || "");
   // Source invoice details
@@ -125,6 +131,20 @@ const AddEditSalesReturn: React.FC = () => {
     setInvoiceType(ret.invoicetype || "retail");
     setIsService(!!ret.isservice);
     setSalesmenid(ret.salesmenid?.id);
+    
+    setOtherCharges(ret.othercharges?.map((c: any) => ({
+      ledgerid: c.ledgerid?.id || "",
+      ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+      amount: c.amount || 0,
+      gstpercent: c.gstpercent || 0,
+      gstamount: c.gstamount || 0,
+      totalamount: c.totalamount || 0,
+      remarks: c.remarks || "",
+    })) || []);
+    setRoundOff(ret.roundoff || "");
+    setInvoiceDiscount(ret.invoicediscount || "");
+    setInvoiceDiscountType(ret.invoicediscounttype || "amount");
+
     setLines(
       (ret.productservice ?? []).map((p: any) => ({
         productserviceid: p.productserviceid?.id ?? p.productserviceid,
@@ -157,6 +177,19 @@ const AddEditSalesReturn: React.FC = () => {
     setInvoiceType(inv.invoicetype || "retail");
     setIsService(!!inv.isservice);
     setSalesmenid(inv.salesmenid?.id);
+
+    setOtherCharges(inv.othercharges?.map((c: any) => ({
+      ledgerid: c.ledgerid?.id || "",
+      ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+      amount: c.amount || 0,
+      gstpercent: c.gstpercent || 0,
+      gstamount: c.gstamount || 0,
+      totalamount: c.totalamount || 0,
+      remarks: c.remarks || "",
+    })) || []);
+    setRoundOff(inv.roundoff || "");
+    setInvoiceDiscount(inv.invoicediscount || "");
+    setInvoiceDiscountType(inv.invoicediscounttype || "amount");
 
     // Pre-populate full quantity from each line. User then reduces as needed.
     setLines(
@@ -210,14 +243,23 @@ const AddEditSalesReturn: React.FC = () => {
       totaldiscount += Number(l.discount) * Number(l.qty);
       totalgst += (taxable * Number(l.gst)) / 100;
     }
-    const totalamount = subtotal + totalgst;
+
+    const invDisc = Number(invoiceDiscount) || 0;
+    const computedInvDisc = invoiceDiscountType === "percent" ? (subtotal * invDisc) / 100 : invDisc;
+
+    let otherChargesTotal = 0;
+    otherCharges.forEach((c) => {
+      otherChargesTotal += c.totalamount;
+    });
+
+    const totalamount = subtotal + totalgst - computedInvDisc + otherChargesTotal + (Number(roundOff) || 0);
     return {
       subtotal: parseFloat(subtotal.toFixed(2)),
-      totaldiscount: parseFloat(totaldiscount.toFixed(2)),
+      totaldiscount: parseFloat((totaldiscount + computedInvDisc).toFixed(2)),
       totalgst: parseFloat(totalgst.toFixed(2)),
       totalamount: parseFloat(totalamount.toFixed(2)),
     };
-  }, [lines]);
+  }, [lines, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType]);
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
@@ -262,6 +304,17 @@ const AddEditSalesReturn: React.FC = () => {
       totaldiscount: totals.totaldiscount,
       totalgst: totals.totalgst,
       totalamount: totals.totalamount,
+      othercharges: otherCharges.map((c) => ({
+        ledgerid: c.ledgerid,
+        amount: c.amount,
+        gstpercent: c.gstpercent,
+        gstamount: c.gstamount,
+        totalamount: c.totalamount,
+        remarks: c.remarks,
+      })),
+      roundoff: roundOff ? Number(roundOff) : 0,
+      invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
+      invoicediscounttype: invoiceDiscountType,
       adminid: adminId,
       branchid: branchId,
       isservice,
@@ -425,14 +478,48 @@ const AddEditSalesReturn: React.FC = () => {
           </table>
         </div>
 
+        {/* Other Charges */}
+        <OtherChargesSection
+          otherCharges={otherCharges}
+          setOtherCharges={setOtherCharges}
+        />
+
         {errors.lines && <div className="text-red-600 text-sm mt-2">{errors.lines}</div>}
 
         {/* Totals */}
         <div className="flex justify-end mt-4">
           <div className="bg-white border border-gray-200 rounded-lg p-4 w-full sm:w-80 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>₹ {totals.subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Total Discount</span><span>₹ {totals.totaldiscount.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
+            <div className="flex justify-between items-center mt-2">
+              <span>Invoice Discount</span>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  className="border rounded px-2 w-20 text-right h-8"
+                  value={invoiceDiscount}
+                  onChange={(e) => setInvoiceDiscount(e.target.value)}
+                />
+                <select
+                  className="border rounded px-1 h-8"
+                  value={invoiceDiscountType}
+                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
+                >
+                  <option value="amount">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-between mt-2"><span>Total Line Discount</span><span>₹ {(totals.totaldiscount - (invoiceDiscountType === "percent" ? (totals.subtotal * (Number(invoiceDiscount)||0))/100 : (Number(invoiceDiscount)||0))).toFixed(2)}</span></div>
+            <div className="flex justify-between mt-2"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
+            <div className="flex justify-between items-center mt-2">
+              <span>Round Off</span>
+              <input
+                type="number"
+                className="border rounded px-2 w-20 text-right h-8"
+                value={roundOff}
+                onChange={(e) => setRoundOff(e.target.value)}
+              />
+            </div>
             <div className="flex justify-between font-semibold border-t pt-2 mt-2">
               <span>Refund Amount</span><span>₹ {totals.totalamount.toFixed(2)}</span>
             </div>
