@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -51,6 +51,39 @@ const AddEditProductService = () => {
     parentId: ""
   });
 
+
+  // Tally-style: auto-resolve standard account ledgers by name pattern
+  const ledgers = useMemo(() => ledgerData?.getAccountLedgers || [], [ledgerData]);
+
+  const autoSalesAccountId = useMemo(() => {
+    const exact = ledgers.find((l: any) =>
+      /^sales\s*(account)?$/i.test(l.ledgername?.trim())
+    );
+    if (exact) return exact.id;
+    return ledgers.find((l: any) =>
+      /\bsales\b/i.test(l.ledgername) && !/purchase|expense|return/i.test(l.ledgername)
+    )?.id || "";
+  }, [ledgers]);
+
+  const autoPurchaseAccountId = useMemo(() => {
+    const exact = ledgers.find((l: any) =>
+      /^purchase\s*(account)?$/i.test(l.ledgername?.trim())
+    );
+    if (exact) return exact.id;
+    return ledgers.find((l: any) =>
+      /\bpurchase\b/i.test(l.ledgername) && !/sales|return/i.test(l.ledgername)
+    )?.id || "";
+  }, [ledgers]);
+
+  const autoServiceAccountId = useMemo(() => {
+    const exact = ledgers.find((l: any) =>
+      /^service\s*(sales|account|income)?$/i.test(l.ledgername?.trim())
+    );
+    if (exact) return exact.id;
+    return ledgers.find((l: any) =>
+      /\bservice\b/i.test(l.ledgername) && !/purchase|expense/i.test(l.ledgername)
+    )?.id || "";
+  }, [ledgers]);
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
   const { addProductServiceMutation, updateProductServiceMutation } = useProductServiceMutations();
@@ -349,6 +382,17 @@ const AddEditProductService = () => {
     });
   }
   }, [productData]);
+
+  // Auto-set account ledgers for new products when ledger data loads
+  useEffect(() => {
+    if (isEdit) return;
+    setFormData((prev) => ({
+      ...prev,
+      salesaccountid:   prev.salesaccountid   || autoSalesAccountId,
+      purchaseaccountid: prev.purchaseaccountid || autoPurchaseAccountId,
+      serviceaccountid: prev.serviceaccountid  || autoServiceAccountId,
+    }));
+  }, [autoSalesAccountId, autoPurchaseAccountId, autoServiceAccountId, isEdit]);
 
   useEffect(() => {
     const valid = isEmptyDeep(errors);
@@ -848,7 +892,6 @@ const AddEditProductService = () => {
     }
 
     const payload = await generatePayload(isEdit);
-    console.log("Generated Payload:", JSON.stringify(payload, null, 2));
     try {
       if (isEdit) {
         await updateProductServiceMutation({
@@ -955,12 +998,70 @@ const AddEditProductService = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Sales Account" name="salesaccountid" type="select" placeholder="Select sales account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.salesaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Sales Account", "salesaccountid")} error={errors.salesaccountid}/>
-              <FormField label="Purchase Account" name="purchaseaccountid" type="select" placeholder="Select purchase account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.purchaseaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Purchase Account", "purchaseaccountid")} error={errors.purchaseaccountid}/>
-              {formData.isservice && (<FormField label="Service Account" name="serviceaccountid" type="select" placeholder="Select service account" options={ledgerData?.getAccountLedgers.map(a => ({ value: a.id, label: a.ledgername })) || []} value={formData.serviceaccountid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("account", "Service Account", "serviceaccountid")}/>)}
+              <div>
+                <FormField
+                  label="Sales Account"
+                  name="salesaccountid"
+                  type="select"
+                  placeholder="Select sales account"
+                  options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
+                  value={formData.salesaccountid}
+                  onChange={handleChange}
+                  searchable
+                  addable
+                  onAddNew={() => openQuickAdd("account", "Sales Account", "salesaccountid")}
+                  error={errors.salesaccountid}
+                />
+                {formData.salesaccountid && (
+                  <p className="text-xs text-green-600 mt-0.5 pl-1">
+                    Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.salesaccountid)?.ledgername}</strong> — change if needed
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <FormField
+                  label="Purchase Account"
+                  name="purchaseaccountid"
+                  type="select"
+                  placeholder="Select purchase account"
+                  options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
+                  value={formData.purchaseaccountid}
+                  onChange={handleChange}
+                  searchable
+                  addable
+                  onAddNew={() => openQuickAdd("account", "Purchase Account", "purchaseaccountid")}
+                  error={errors.purchaseaccountid}
+                />
+                {formData.purchaseaccountid && (
+                  <p className="text-xs text-green-600 mt-0.5 pl-1">
+                    Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.purchaseaccountid)?.ledgername}</strong> — change if needed
+                  </p>
+                )}
+              </div>
+
+              {formData.isservice && (
+                <div>
+                  <FormField
+                    label="Service Account"
+                    name="serviceaccountid"
+                    type="select"
+                    placeholder="Select service account"
+                    options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
+                    value={formData.serviceaccountid}
+                    onChange={handleChange}
+                    searchable
+                    addable
+                    onAddNew={() => openQuickAdd("account", "Service Account", "serviceaccountid")}
+                  />
+                  {formData.serviceaccountid && (
+                    <p className="text-xs text-green-600 mt-0.5 pl-1">
+                      Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.serviceaccountid)?.ledgername}</strong> — change if needed
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-
-
           </fieldset>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
@@ -79,6 +79,17 @@ const StaffAccounts = () => {
 
   const staffList = data?.getStaffAccounts || [];
 
+  // Tally-style: auto-resolve "Staff Account" group (server also auto-creates it if missing)
+  const staffAccountGroupId = useMemo(() => {
+    const groups = accountGroupList as any[];
+    const byName = groups.find(
+      (g) => g.accountgroupname?.toLowerCase() === "staff account"
+    );
+    if (byName) return byName.id;
+    const byCategory = groups.find((g) => g.category === "expenses");
+    return byCategory?.id || "";
+  }, [accountGroupList]);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { uploadImageMutation } = useImageUpload();
 
@@ -127,8 +138,6 @@ const StaffAccounts = () => {
     if (!formValues.name.trim()) errors.name = "Name is required";
     if (!formValues.mobile.trim()) errors.mobile = "Mobile is required";
     if (!formValues.email.trim()) errors.email = "Email is required";
-    if (!formValues.accountgroupid.trim())
-      errors.accountgroupid = "Account group is required";
 
     // role required
     if (!formValues.role || !formValues.role.trim())
@@ -171,6 +180,14 @@ const StaffAccounts = () => {
     setIsEditing(true);
     setEditingId(row.id);
   }, [branchId]);
+
+  // Auto-set account group for new staff when group data loads
+  useEffect(() => {
+    if (isEditing) return;
+    if (staffAccountGroupId) {
+      setFormValues((prev) => ({ ...prev, accountgroupid: staffAccountGroupId }));
+    }
+  }, [staffAccountGroupId, isEditing]);
 
   useEffect(() => {
     const fn = async () => {
@@ -248,10 +265,10 @@ const StaffAccounts = () => {
 
       await refetch();
 
-      // reset form
+      // reset form — pre-fill accountgroupid from auto-resolved group
       setFormValues({
         branchid: branchId || "",
-        accountgroupid: "",
+        accountgroupid: staffAccountGroupId,
         name: "",
         mobile: "",
         email: "",
@@ -390,20 +407,29 @@ const StaffAccounts = () => {
               searchable={false}
             />
 
-            {/* Account Groups */}
-            <FormField
-              label="Account Group"
-              name="accountgroupid"
-              type="select"
-              value={formValues.accountgroupid}
-              onChange={(e) => handleFormChange("accountgroupid", e.target.value)}
-              error={formErrors.accountgroupid}
-              options={accountGroupList?.map((group: any) => ({
-                label: group.accountgroupname,
-                value: group.id,
-              }))}
-              searchable
-            />
+            {/* Account Group — auto-selected as "Staff Account", can be overridden */}
+            <div>
+              <FormField
+                label="Account Group"
+                name="accountgroupid"
+                type="select"
+                value={formValues.accountgroupid}
+                onChange={(e) => handleFormChange("accountgroupid", e.target.value)}
+                error={formErrors.accountgroupid}
+                options={(accountGroupList as any[]).map((group: any) => ({
+                  label: group.accountgroupname,
+                  value: group.id,
+                }))}
+                searchable
+              />
+              {formValues.accountgroupid && (
+                <p className="text-xs text-green-600 mt-0.5 pl-1">
+                  Auto-selected: <strong>
+                    {(accountGroupList as any[]).find((g: any) => g.id === formValues.accountgroupid)?.accountgroupname || "Staff Account"}
+                  </strong> — change if needed
+                </p>
+              )}
+            </div>
 
             {/* Salary */}
             <FormField
