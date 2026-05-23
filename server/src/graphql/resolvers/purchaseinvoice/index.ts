@@ -102,7 +102,65 @@ export const purchaseInvoiceResolvers = {
           .lean();
 
         console.log("✅ Found", invoices.length, "invoices");
-        return invoices.map(formatInvoice);
+
+        // ✅ Filter out invoices that have been fully returned
+        const PurchaseReturn = require("../../../models/purchasereturn").PurchaseReturn;
+
+        const filteredInvoices = await Promise.all(
+          invoices.map(async (inv: any) => {
+            try {
+              // Get all active returns for this invoice
+              const returns = await PurchaseReturn.find({
+                sourceInvoiceId: inv._id,
+                status: true,
+              }).lean();
+
+              if (returns.length === 0) {
+                // No returns yet, include invoice
+                return inv;
+              }
+
+              // Calculate returned quantities per item
+              const returnedByItem: Record<string, number> = {};
+              returns.forEach((ret: any) => {
+                (ret.productservice ?? []).forEach((line: any) => {
+                  // ✅ Convert to string for consistent comparison
+                  const productId = String(line.productserviceid || "");
+                  const variantId = String(line.variantid || "");
+                  const key = `${productId}_${variantId}`;
+                  returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
+                });
+              });
+
+              console.log(`📊 Invoice ${inv.billnumber}: Returned items =`, returnedByItem);
+
+              // Check if ALL items are fully returned
+              const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
+                const productId = String(line.productserviceid || "");
+                const variantId = String(line.variantid || "");
+                const key = `${productId}_${variantId}`;
+                const invoicedQty = Number(line.qty) || 0;
+                const returnedQty = returnedByItem[key] || 0;
+
+                console.log(`  ${key}: invoiced=${invoicedQty}, returned=${returnedQty}, fullReturned=${returnedQty >= invoicedQty}`);
+                return returnedQty >= invoicedQty;
+              });
+
+              console.log(`  → Overall: allFullyReturned=${allFullyReturned}, includeInDropdown=${!allFullyReturned}`);
+
+              // Return invoice only if NOT all items are fully returned
+              return !allFullyReturned ? inv : null;
+            } catch (error: any) {
+              console.error(`❌ Error filtering invoice ${inv.billnumber}:`, error.message);
+              return inv; // Include on error (safe fallback)
+            }
+          })
+        );
+
+        // Filter out null values
+        const result = filteredInvoices.filter(Boolean).map(formatInvoice);
+        console.log("✅ After filtering fully-returned:", result.length, "of", invoices.length, "invoices");
+        return result;
       } catch (error: any) {
         console.error("❌ Error in getPurchaseInvoices:", error.message);
         throw error;

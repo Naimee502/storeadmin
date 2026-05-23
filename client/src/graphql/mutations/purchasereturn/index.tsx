@@ -31,8 +31,28 @@ const PURCHASE_RETURN_FIELDS = `
     amount
     discount
   }
+  othercharges {
+    ledgerid { id ledgername }
+    amount
+    gstpercent
+    gstamount
+    totalamount
+    remarks
+  }
+  deliverydate
+  duedate
+  transportname
+  vehiclenumber
+  ewaybillno
+  distance
+  roundoff
+  invoicediscount
+  invoicediscounttype
   isservice
   autocreate
+  createdby_id
+  createdby_name
+  createdby_type
   status
   createdAt
   updatedAt

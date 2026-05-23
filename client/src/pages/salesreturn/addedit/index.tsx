@@ -100,6 +100,12 @@ const AddEditSalesReturn: React.FC = () => {
   const [roundOff, setRoundOff] = useState<number | "">("");
   const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
   const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [transportName, setTransportName] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [ewayBillNo, setEwayBillNo] = useState("");
+  const [distance, setDistance] = useState<number | "">("");
 
   // Existing return (edit mode)
   const { data: existingData } = useSalesReturnByIDQuery(id || "");
@@ -107,14 +113,59 @@ const AddEditSalesReturn: React.FC = () => {
   const { data: sourceInvData } = useSalesInvoiceByIDQuery(sourceInvoiceId || "");
   // List of invoices for the picker
   const { data: invoicesData } = useSalesInvoicesQuery();
-  const invoiceOptions = useMemo(
-    () =>
-      (invoicesData?.getSalesInvoices ?? []).map((inv: any) => ({
-        value: inv.id,
-        label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount}`,
-      })),
-    [invoicesData]
-  );
+  const invoiceOptions = useMemo(() => {
+    // Calculate how much has been returned for each item in each invoice
+    const returnedByInvoiceAndItem = new Map<string, Record<string, number>>();
+
+    salesReturns
+      .filter((ret: any) => ret.status === true)  // Only active returns
+      .forEach((ret: any) => {
+        const invoiceId = ret.sourceInvoiceId;
+        if (!returnedByInvoiceAndItem.has(invoiceId)) {
+          returnedByInvoiceAndItem.set(invoiceId, {});
+        }
+        const itemMap = returnedByInvoiceAndItem.get(invoiceId)!;
+
+        (ret.productservice ?? []).forEach((line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          itemMap[key] = (itemMap[key] || 0) + (line.qty || 0);
+        });
+      });
+
+    // Filter invoices: only exclude if ALL items have been fully returned
+    return (invoicesData?.getSalesInvoices ?? [])
+      .filter((inv: any) => {
+        const returnedItems = returnedByInvoiceAndItem.get(inv.id);
+
+        // If no returns for this invoice, include it
+        if (!returnedItems) return true;
+
+        // Check if ALL items have been fully returned
+        const allItemsFullyReturned = (inv.productservice ?? []).every((line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const invoicedQty = line.qty || 0;
+          const returnedQty = returnedItems[key] || 0;
+          return returnedQty >= invoicedQty;  // All of this item returned
+        });
+
+        // Include invoice if NOT all items are fully returned (still has returnable items)
+        return !allItemsFullyReturned;
+      })
+      .map((inv: any) => {
+        const returnedItems = returnedByInvoiceAndItem.get(inv.id) || {};
+        const remainingQty = (inv.productservice ?? []).reduce((sum: number, line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const invoicedQty = line.qty || 0;
+          const returnedQty = returnedItems[key] || 0;
+          return sum + Math.max(0, invoicedQty - returnedQty);
+        }, 0);
+
+        return {
+          value: inv.id,
+          label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount} · Remaining: ${remainingQty}`,
+        };
+      });
+  }, [invoicesData, salesReturns]);
 
   // Mutations
   const { addSalesReturnMutation, editSalesReturnMutation } = useSalesReturnMutations();
@@ -150,6 +201,12 @@ const AddEditSalesReturn: React.FC = () => {
     setRoundOff(ret.roundoff || "");
     setInvoiceDiscount(ret.invoicediscount || "");
     setInvoiceDiscountType(ret.invoicediscounttype || "amount");
+    setDeliveryDate(ret.deliverydate || "");
+    setDueDate(ret.duedate || "");
+    setTransportName(ret.transportname || "");
+    setVehicleNumber(ret.vehiclenumber || "");
+    setEwayBillNo(ret.ewaybillno || "");
+    setDistance(ret.distance || "");
 
     setLines(
       (ret.productservice ?? []).map((p: any) => ({
@@ -173,6 +230,7 @@ const AddEditSalesReturn: React.FC = () => {
   useEffect(() => {
     if (isEdit) return;
     if (sourceInvoiceId) return; // Wait for source invoice to be selected
+    if (billnumber) return; // Already set
 
     // When no source invoice is selected in new mode, auto-calculate bill number
     if (salesReturns.length > 0) {
@@ -185,7 +243,7 @@ const AddEditSalesReturn: React.FC = () => {
     } else {
       setBillnumber("000001");
     }
-  }, [isEdit, salesReturns, sourceInvoiceId]);
+  }, [isEdit, sourceInvoiceId, billnumber]);
 
   // Hydrate from source invoice when adding/converting
   useEffect(() => {
@@ -214,23 +272,37 @@ const AddEditSalesReturn: React.FC = () => {
     setRoundOff(inv.roundoff || "");
     setInvoiceDiscount(inv.invoicediscount || "");
     setInvoiceDiscountType(inv.invoicediscounttype || "amount");
+    setDeliveryDate(inv.deliverydate || "");
+    setDueDate(inv.duedate || "");
+    setTransportName(inv.transportname || "");
+    setVehicleNumber(inv.vehiclenumber || "");
+    setEwayBillNo(inv.ewaybillno || "");
+    setDistance(inv.distance || "");
 
     // Pre-populate full quantity from each line. User then reduces as needed.
     setLines(
-      (inv.productservice ?? []).map((p: any) => ({
-        productserviceid: p.productserviceid?.id ?? p.productserviceid,
-        productName: p.productserviceid?.name ?? "Item",
-        variantid: p.variantid?.id ?? undefined,
-        variantName: p.variantid?.name,
-        salesunitid: p.salesunitid?.id,
-        unitqty: p.unitqty || 1,
-        gst: p.gst || 0,
-        rate: p.rate || 0,
-        discount: p.discount || 0,
-        qty: p.qty || 0,
-        originalQty: p.qty || 0,
-        amount: p.amount || 0,
-      }))
+      (inv.productservice ?? []).map((p: any) => {
+        // Recalculate amount without GST for return form
+        const rate = Number(p.rate) || 0;
+        const discount = Number(p.discount) || 0;
+        const qty = Number(p.qty) || 0;
+        const amount = parseFloat(((rate - discount) * qty).toFixed(2));
+
+        return {
+          productserviceid: p.productserviceid?.id ?? p.productserviceid,
+          productName: p.productserviceid?.name ?? "Item",
+          variantid: p.variantid?.id ?? undefined,
+          variantName: p.variantid?.name,
+          salesunitid: p.salesunitid?.id,
+          unitqty: p.unitqty || 1,
+          gst: p.gst || 0,
+          rate: rate,
+          discount: discount,
+          qty: qty,
+          originalQty: qty,
+          amount: amount, // ✅ Recalculated without GST
+        };
+      })
     );
   }, [isEdit, sourceInvData]);
 
@@ -306,7 +378,8 @@ const AddEditSalesReturn: React.FC = () => {
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!validate()) return;
 
     // Strip out lines with qty <= 0 so we don't post zero-value lines
@@ -320,7 +393,7 @@ const AddEditSalesReturn: React.FC = () => {
       taxorsupplytype: taxorsupplytype || "exclusive",
       returndate,
       billtype: billtype || "tax",
-      billnumber,
+      billnumber: isEdit ? billnumber : null,  // ✅ Let server generate for new records
       notes: notes || undefined,
       reason: reason || undefined,
       refundMode,
@@ -329,17 +402,25 @@ const AddEditSalesReturn: React.FC = () => {
       totaldiscount: totals.totaldiscount,
       totalgst: totals.totalgst,
       totalamount: totals.totalamount,
-      othercharges: otherCharges.map((c) => ({
-        ledgerid: c.ledgerid,
-        amount: c.amount,
-        gstpercent: c.gstpercent,
-        gstamount: c.gstamount,
-        totalamount: c.totalamount,
-        remarks: c.remarks,
-      })),
+      othercharges: otherCharges
+        .filter(c => c.ledgerid && c.amount > 0)
+        .map((c) => ({
+          ledgerid: c.ledgerid,
+          amount: c.amount,
+          gstpercent: c.gstpercent,
+          gstamount: c.gstamount,
+          totalamount: c.totalamount,
+          remarks: c.remarks,
+        })),
       roundoff: roundOff ? Number(roundOff) : 0,
       invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
       invoicediscounttype: invoiceDiscountType,
+      deliverydate: deliveryDate || null,
+      duedate: dueDate || null,
+      transportname: transportName || null,
+      vehiclenumber: vehicleNumber || null,
+      ewaybillno: ewayBillNo || null,
+      distance: distance ? Number(distance) : null,
       adminid: adminId,
       branchid: branchId,
       isservice,
@@ -367,7 +448,7 @@ const AddEditSalesReturn: React.FC = () => {
         await addSalesReturnMutation({ variables: { input } });
         dispatch(showMessage({ message: "Sales return saved.", type: "success" }));
       }
-      navigate("/salesreturn");
+      navigate(-1);
     } catch (err: any) {
       dispatch(
         showMessage({
@@ -380,161 +461,247 @@ const AddEditSalesReturn: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h1 className="text-xl font-semibold mb-4">
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
           {isEdit ? "Edit Sales Return" : "Add Sales Return (Credit Note)"}
-        </h1>
+        </h2>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <FormField
-              label="Source Invoice"
-              name="sourceInvoiceId"
-              type="select"
-              options={invoiceOptions}
-              value={sourceInvoiceId}
-              onChange={(e: any) => setSourceInvoiceId(e.target.value)}
-              searchable
-              disabled={isEdit}
-              required
-              error={errors.sourceInvoiceId}
-            />
-            <FormField
-              label="Return Date"
-              name="returndate"
-              type="date"
-              value={returndate}
-              onChange={(e: any) => setReturndate(e.target.value)}
-              required
-              error={errors.returndate}
-            />
-            <FormField
-              label="Refund Mode"
-              name="refundMode"
-              type="select"
-              options={[
-                { value: "auto", label: "Auto-refund (Cash/Bank only)" },
-                { value: "advance", label: "Hold as Customer Advance" },
-                { value: "skip", label: "Skip — journal entry only" },
-              ]}
-              value={refundMode}
-              onChange={(e: any) => setRefundMode(e.target.value)}
-            />
-            <FormField
-              label="Return Number"
-              name="billnumber"
-              type="text"
-              value={billnumber}
-              onChange={(e: any) => setBillnumber(e.target.value)}
-              placeholder="Auto-generated"
-              disabled={!isEdit && billnumber !== ""}
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Main Details */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Main Details</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                label="Source Invoice"
+                name="sourceInvoiceId"
+                type="select"
+                options={invoiceOptions}
+                value={sourceInvoiceId}
+                onChange={(e: any) => setSourceInvoiceId(e.target.value)}
+                searchable
+                disabled={isEdit}
+                required
+                error={errors.sourceInvoiceId}
+              />
+              <FormField
+                label="Return Date"
+                name="returndate"
+                type="date"
+                value={returndate}
+                onChange={(e: any) => setReturndate(e.target.value)}
+                required
+                error={errors.returndate}
+              />
+              <FormField
+                label="Return Number"
+                name="billnumber"
+                type="text"
+                value={billnumber}
+                onChange={(e: any) => setBillnumber(e.target.value)}
+                placeholder="Auto-generated"
+                disabled={!isEdit && billnumber !== ""}
+              />
+              <FormField
+                label="Payment Type"
+                name="paymentType"
+                type="select"
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+                options={[
+                  { value: "cash", label: "Cash" },
+                  { value: "bank", label: "Bank" },
+                  { value: "credit", label: "Credit" },
+                  { value: "upi", label: "UPI" },
+                  { value: "card", label: "Card" },
+                  { value: "cheque", label: "Cheque" },
+                  { value: "other", label: "Other" },
+                ]}
+                searchable
+              />
+              <FormField
+                label="Refund Mode"
+                name="refundMode"
+                type="select"
+                options={[
+                  { value: "auto", label: "Auto-refund (Cash/Bank only)" },
+                  { value: "advance", label: "Hold as Customer Advance" },
+                  { value: "skip", label: "Skip — journal entry only" },
+                ]}
+                value={refundMode}
+                onChange={(e: any) => setRefundMode(e.target.value)}
+              />
+              <FormField
+                label="Tax/Supply Type"
+                name="taxOrSupplyType"
+                type="select"
+                value={taxorsupplytype}
+                onChange={(e) => setTaxOrSupplyType(e.target.value)}
+                options={[
+                  { value: "taxInvoice", label: "Tax Invoice" },
+                  { value: "billOfSupply", label: "Bill of Supply" },
+                  { value: "other", label: "Other" },
+                ]}
+                searchable
+              />
+              <FormField
+                label="Reason"
+                name="reason"
+                value={reason}
+                onChange={(e: any) => setReason(e.target.value)}
+                placeholder="Damaged, wrong item, etc."
+              />
+              <FormField
+                label="Notes"
+                name="notes"
+                value={notes}
+                onChange={(e: any) => setNotes(e.target.value)}
+              />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <FormField
-              label="Reason"
-              name="reason"
-              value={reason}
-              onChange={(e: any) => setReason(e.target.value)}
-              placeholder="Damaged, wrong item, etc."
-            />
-            <FormField
-              label="Notes"
-              name="notes"
-              value={notes}
-              onChange={(e: any) => setNotes(e.target.value)}
-            />
-          </div>
-
-          {partyacc && (
-            <div className="mt-3 text-sm text-gray-600">
-              <span className="font-medium">Customer:</span>{" "}
-              {partyacc.accountname} {partyacc.mobile ? `· ${partyacc.mobile}` : ""}
-              {paymentType && (
-                <span className="ml-3">
-                  <span className="font-medium">Payment Type:</span> {paymentType}
-                </span>
+              {partyacc && (
+                <div className="col-span-1 md:col-span-3 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  <span className="font-medium">Customer:</span>{" "}
+                  {partyacc.accountname} {partyacc.mobile ? `· ${partyacc.mobile}` : ""}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </fieldset>
 
-        {/* Line items */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr className="text-left">
-                <th className="px-3 py-2">Product</th>
-                <th className="px-3 py-2">Original Qty</th>
-                <th className="px-3 py-2">Return Qty</th>
-                <th className="px-3 py-2">Rate</th>
-                <th className="px-3 py-2">Discount</th>
-                <th className="px-3 py-2">GST %</th>
-                <th className="px-3 py-2">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
-                    {sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
-                  </td>
-                </tr>
-              )}
-              {lines.map((l, i) => (
-                <tr key={`${l.productserviceid}_${l.variantid ?? "v"}_${i}`} className="border-t">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{l.productName}</div>
-                    {l.variantName && <div className="text-xs text-gray-500">{l.variantName}</div>}
-                  </td>
-                  <td className="px-3 py-2">{l.originalQty}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      className={`w-24 border rounded px-2 py-1 ${errors[`qty_${i}`] ? "border-red-500" : "border-gray-300"}`}
-                      value={l.qty}
-                      min={0}
-                      max={l.originalQty}
-                      onChange={(e) => updateLine(i, "qty", parseFloat(e.target.value) || 0)}
-                    />
-                    {errors[`qty_${i}`] && (
-                      <div className="text-xs text-red-600 mt-1">{errors[`qty_${i}`]}</div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{l.rate}</td>
-                  <td className="px-3 py-2">{l.discount}</td>
-                  <td className="px-3 py-2">{l.gst}</td>
-                  <td className="px-3 py-2">{l.amount.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {/* Line Items */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Return Items</legend>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">Original Qty</th>
+                    <th className="px-3 py-2">Return Qty</th>
+                    <th className="px-3 py-2">Rate</th>
+                    <th className="px-3 py-2">Discount</th>
+                    <th className="px-3 py-2">GST %</th>
+                    <th className="px-3 py-2">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
+                        {sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
+                      </td>
+                    </tr>
+                  )}
+                  {lines.map((l, i) => (
+                    <tr key={`${l.productserviceid}_${l.variantid ?? "v"}_${i}`} className="border-t">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{l.productName}</div>
+                        {l.variantName && <div className="text-xs text-gray-500">{l.variantName}</div>}
+                      </td>
+                      <td className="px-3 py-2">{l.originalQty}</td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          className={`w-24 border rounded px-2 py-1 ${errors[`qty_${i}`] ? "border-red-500" : "border-gray-300"}`}
+                          value={l.qty}
+                          min={0}
+                          max={l.originalQty}
+                          onChange={(e) => updateLine(i, "qty", parseFloat(e.target.value) || 0)}
+                        />
+                        {errors[`qty_${i}`] && (
+                          <div className="text-xs text-red-600 mt-1">{errors[`qty_${i}`]}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">{l.rate}</td>
+                      <td className="px-3 py-2">{l.discount}</td>
+                      <td className="px-3 py-2">{l.gst}</td>
+                      <td className="px-3 py-2">{l.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {errors.lines && <div className="text-red-600 text-sm">{errors.lines}</div>}
+          </fieldset>
 
-        {/* Other Charges */}
-        <OtherChargesSection
-          otherCharges={otherCharges}
-          setOtherCharges={setOtherCharges}
-        />
+          {/* Other Charges */}
+          <OtherChargesSection
+            otherCharges={otherCharges}
+            setOtherCharges={setOtherCharges}
+          />
 
-        {errors.lines && <div className="text-red-600 text-sm mt-2">{errors.lines}</div>}
+          {/* Transport & Delivery */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                label="Delivery Date"
+                name="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(e: any) => setDeliveryDate(e.target.value)}
+              />
+              <FormField
+                label="Due Date"
+                name="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e: any) => setDueDate(e.target.value)}
+              />
+              <FormField
+                label="Transport Name"
+                name="transportName"
+                type="text"
+                value={transportName}
+                onChange={(e: any) => setTransportName(e.target.value)}
+                placeholder="e.g., ABC Logistics"
+              />
+              <FormField
+                label="Vehicle Number"
+                name="vehicleNumber"
+                type="text"
+                value={vehicleNumber}
+                onChange={(e: any) => setVehicleNumber(e.target.value)}
+                placeholder="e.g., MH-01-AB-1234"
+              />
+              <FormField
+                label="E-Way Bill No."
+                name="ewayBillNo"
+                type="text"
+                value={ewayBillNo}
+                onChange={(e: any) => setEwayBillNo(e.target.value)}
+                placeholder="e.g., EWB123456789"
+              />
+              <FormField
+                label="Distance (km)"
+                name="distance"
+                type="number"
+                value={distance}
+                onChange={(e: any) => setDistance(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </fieldset>
 
-        {/* Totals */}
-        <div className="flex justify-end mt-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 w-full sm:w-80 text-sm">
-            <div className="flex justify-between"><span>Subtotal</span><span>₹ {totals.subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between items-center mt-2">
-              <span>Invoice Discount</span>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  className="border rounded px-2 w-20 text-right h-8"
-                  value={invoiceDiscount}
-                  onChange={(e) => setInvoiceDiscount(e.target.value)}
-                />
+          {/* Summary */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Summary</legend>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <FormField label="Subtotal" name="subtotal" onChange={() => ""} type="text" value={totals.subtotal.toFixed(2)} disabled />
+              <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totals.totaldiscount.toFixed(2)} disabled />
+              <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={totals.totalgst.toFixed(2)} disabled />
+              <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <FormField
+                    label="Invoice Discount"
+                    name="invoiceDiscount"
+                    onChange={(e) => setInvoiceDiscount(e.target.value)}
+                    type="number"
+                    value={invoiceDiscount}
+                  />
+                </div>
                 <select
-                  className="border rounded px-1 h-8"
+                  className="border rounded p-2 text-sm h-10 mb-1"
                   value={invoiceDiscountType}
                   onChange={(e) => setInvoiceDiscountType(e.target.value)}
                 >
@@ -542,33 +709,28 @@ const AddEditSalesReturn: React.FC = () => {
                   <option value="percent">%</option>
                 </select>
               </div>
-            </div>
-            <div className="flex justify-between mt-2"><span>Total Line Discount</span><span>₹ {(totals.totaldiscount - (invoiceDiscountType === "percent" ? (totals.subtotal * (Number(invoiceDiscount)||0))/100 : (Number(invoiceDiscount)||0))).toFixed(2)}</span></div>
-            <div className="flex justify-between mt-2"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
-            {otherCharges.length > 0 && (
-              <div className="flex justify-between mt-2"><span>Other Charges</span><span>₹ {otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)}</span></div>
-            )}
-            <div className="flex justify-between items-center mt-2">
-              <span>Round Off</span>
-              <input
-                type="number"
-                className="border rounded px-2 w-20 text-right h-8"
-                value={roundOff}
-                onChange={(e) => setRoundOff(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-between font-semibold border-t pt-2 mt-2">
-              <span>Refund Amount</span><span>₹ {totals.totalamount.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="flex justify-end gap-3 mt-4">
-          <Button variant="outline" onClick={() => navigate("/salesreturn")}>Cancel</Button>
-          <Button variant="outline" onClick={handleSubmit}>
-            {isEdit ? "Update" : "Save"}
-          </Button>
-        </div>
+              <FormField
+                label="Round Off"
+                name="roundOff"
+                onChange={(e) => setRoundOff(e.target.value)}
+                type="number"
+                value={roundOff}
+              />
+
+              <FormField label="Refund Amount" name="totalAmount" onChange={() => ""} type="text" value={totals.totalamount.toFixed(2)} disabled />
+            </div>
+          </fieldset>
+
+          <div className="mt-6 flex gap-4 justify-end">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="outline" disabled={lines.length === 0 || lines.every((l) => Number(l.qty) <= 0)}>
+              {isEdit ? "Update Return" : "Save Return"}
+            </Button>
+          </div>
+        </form>
       </div>
     </HomeLayout>
   );

@@ -13,10 +13,33 @@ import {
 import { useAppSelector } from "../../../redux/hooks";
 
 export const useSalesReturnMutations = () => {
-  const [addSalesReturnMutation] = useMutation(ADD_SALES_RETURN);
-  const [editSalesReturnMutation] = useMutation(EDIT_SALES_RETURN);
-  const [deleteSalesReturnMutation] = useMutation(DELETE_SALES_RETURN);
-  const [resetSalesReturnMutation] = useMutation(RESET_SALES_RETURN);
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const [addSalesReturnMutation] = useMutation(ADD_SALES_RETURN, {
+    refetchQueries: [
+      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+    ],
+  });
+  const [editSalesReturnMutation] = useMutation(EDIT_SALES_RETURN, {
+    refetchQueries: [
+      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+    ],
+  });
+  const [deleteSalesReturnMutation] = useMutation(DELETE_SALES_RETURN, {
+    refetchQueries: [
+      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+    ],
+  });
+  const [resetSalesReturnMutation] = useMutation(RESET_SALES_RETURN, {
+    refetchQueries: [
+      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+    ],
+  });
   return {
     addSalesReturnMutation,
     editSalesReturnMutation,

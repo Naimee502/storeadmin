@@ -58,6 +58,12 @@ export const salesReturnTypeDefs = gql`
     branchid: ID!
     productservice: [SalesReturnProductService!]!
     othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
@@ -93,6 +99,12 @@ export const salesReturnTypeDefs = gql`
     branchid: ID!
     productservice: [SalesReturnProductServiceInput!]!
     othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String

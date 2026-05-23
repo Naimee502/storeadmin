@@ -4,6 +4,7 @@ const SALES_RETURN_FIELDS = `
   id
   sourceInvoiceId
   sourceBillNumber
+  salesmenid { id name }
   paymenttype
   partyacc { id accountname mobile }
   taxorsupplytype
@@ -39,11 +40,20 @@ const SALES_RETURN_FIELDS = `
     totalamount
     remarks
   }
+  deliverydate
+  duedate
+  transportname
+  vehiclenumber
+  ewaybillno
+  distance
   roundoff
   invoicediscount
   invoicediscounttype
   isservice
   autocreate
+  createdby_id
+  createdby_name
+  createdby_type
   status
   createdAt
   updatedAt

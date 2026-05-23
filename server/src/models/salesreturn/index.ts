@@ -85,6 +85,13 @@ const salesReturnSchema = new mongoose.Schema(
       }
     ],
 
+    deliverydate: { type: String },
+    duedate: { type: String },
+    transportname: { type: String },
+    vehiclenumber: { type: String },
+    ewaybillno: { type: String },
+    distance: { type: Number },
+
     roundoff: { type: Number, default: 0 },
     invoicediscount: { type: Number, default: 0 },
     invoicediscounttype: { type: String, default: "amount" },
@@ -323,7 +330,7 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   if (newRet.roundoff && newRet.roundoff !== 0) {
     let roundOffLedger = await AccountLedger.findOne({ ledgername: "Round Off", admin: newRet.adminid });
     if (!roundOffLedger) {
-      const created = await getOrCreateAccount("Round Off", "indirect_expenses", newRet.adminid, newRet.branchid);
+      const created = await getOrCreateAccount("Round Off", "expense", newRet.adminid, newRet.branchid);
       if (created) roundOffLedger = { _id: created.ledgerid } as any;
     }
     
@@ -342,7 +349,7 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   if (newRet.invoicediscount && newRet.invoicediscount !== 0) {
     let discLedger = await AccountLedger.findOne({ ledgername: "Invoice Discount", admin: newRet.adminid });
     if (!discLedger) {
-      const created = await getOrCreateAccount("Invoice Discount", "indirect_expenses", newRet.adminid, newRet.branchid);
+      const created = await getOrCreateAccount("Invoice Discount", "expense", newRet.adminid, newRet.branchid);
       if (created) discLedger = { _id: created.ledgerid } as any;
     }
     

@@ -19,6 +19,7 @@ const populateFields = [
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
+  "othercharges.ledgerid",
 ];
 
 const formatReturn = (r: any) => ({
@@ -28,6 +29,12 @@ const formatReturn = (r: any) => ({
   partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
   // Convert autocreate object to boolean for GraphQL (DB stores as { ledger: true }, but schema expects Boolean)
   autocreate: r.autocreate?.ledger ?? r.autocreate ?? true,
+
+  othercharges: r.othercharges?.map((oc: any) => ({
+    ...oc,
+    ledgerid: toSimpleRef(oc.ledgerid, ["ledgername"])
+  })) ?? [],
+
   productservice: r.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
       (v: any) => String(v._id) === String(ps.variantid)
@@ -154,35 +161,56 @@ export const purchaseReturnResolvers = {
 
   Mutation: {
     addPurchaseReturn: async (_: any, { input }: any, context: any) => {
-      const sourceInv = await validateReturnQuantities(input);
-      if (sourceInv?.billnumber && !input.sourceBillNumber) {
-        input.sourceBillNumber = sourceInv.billnumber;
+      try {
+        console.log("🟢 SERVER: addPurchaseReturn called");
+        console.log("🟢 SERVER: Input received:", JSON.stringify(input, null, 2));
+
+        const sourceInv = await validateReturnQuantities(input);
+        console.log("🟢 SERVER: validateReturnQuantities passed");
+
+        if (sourceInv?.billnumber && !input.sourceBillNumber) {
+          input.sourceBillNumber = sourceInv.billnumber;
+        }
+
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
+
+        // ✅ Set autocreate flag from AdminSettings
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        const autoCreateData = {
+          autocreate: {
+            ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+          },
+        };
+
+        console.log("🟢 SERVER: Creating purchase return with data");
+        const created = await PurchaseReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+        console.log("🟢 SERVER: Purchase return created:", created._id);
+
+        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+        // (ensures Transaction/Payment Created By is never N/A)
+        console.log("🟢 SERVER: Calling adjustStockAndTransactions");
+        await PurchaseReturn.adjustStockAndTransactions(null, created, createdbyData);
+        console.log("🟢 SERVER: adjustStockAndTransactions completed");
+
+        const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
+        console.log("🟢 SERVER: Purchase return saved successfully");
+        return formatReturn(fresh);
+      } catch (error: any) {
+        console.error("🔴 SERVER: Error in addPurchaseReturn");
+        console.error("🔴 SERVER: Error name:", error.name);
+        console.error("🔴 SERVER: Error message:", error.message);
+        console.error("🔴 SERVER: Error stack:", error.stack);
+        if (error.errors) {
+          console.error("🔴 SERVER: Validation errors:", error.errors);
+        }
+        throw error;
       }
-
-      // ✅ Extract user info from context and populate createdby fields
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
-      };
-
-      // ✅ Set autocreate flag from AdminSettings
-      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-      const autoCreateData = {
-        autocreate: {
-          ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
-        },
-      };
-
-      const created = await PurchaseReturn.create({ ...input, ...createdbyData, ...autoCreateData });
-
-      // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-      // (ensures Transaction/Payment Created By is never N/A)
-      await PurchaseReturn.adjustStockAndTransactions(null, created, createdbyData);
-
-      const fresh = await PurchaseReturn.findById(created._id).populate(populateFields).lean();
-      return formatReturn(fresh);
     },
 
     editPurchaseReturn: async (_: any, { id, input }: any, context: any) => {

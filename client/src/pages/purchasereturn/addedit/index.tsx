@@ -100,14 +100,59 @@ const AddEditPurchaseReturn: React.FC = () => {
   const { data: sourceInvData } = usePurchaseInvoiceByIDQuery(sourceInvoiceId || "");
   const { data: invoicesData } = usePurchaseInvoicesQuery();
 
-  const invoiceOptions = useMemo(
-    () =>
-      (invoicesData?.getPurchaseInvoices ?? []).map((inv: any) => ({
-        value: inv.id,
-        label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount}`,
-      })),
-    [invoicesData]
-  );
+  const invoiceOptions = useMemo(() => {
+    // Calculate how much has been returned for each item in each invoice
+    const returnedByInvoiceAndItem = new Map<string, Record<string, number>>();
+
+    purchaseReturns
+      .filter((ret: any) => ret.status === true)  // Only active returns
+      .forEach((ret: any) => {
+        const invoiceId = ret.sourceInvoiceId;
+        if (!returnedByInvoiceAndItem.has(invoiceId)) {
+          returnedByInvoiceAndItem.set(invoiceId, {});
+        }
+        const itemMap = returnedByInvoiceAndItem.get(invoiceId)!;
+
+        (ret.productservice ?? []).forEach((line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          itemMap[key] = (itemMap[key] || 0) + (line.qty || 0);
+        });
+      });
+
+    // Filter invoices: only exclude if ALL items have been fully returned
+    return (invoicesData?.getPurchaseInvoices ?? [])
+      .filter((inv: any) => {
+        const returnedItems = returnedByInvoiceAndItem.get(inv.id);
+
+        // If no returns for this invoice, include it
+        if (!returnedItems) return true;
+
+        // Check if ALL items have been fully returned
+        const allItemsFullyReturned = (inv.productservice ?? []).every((line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const invoicedQty = line.qty || 0;
+          const returnedQty = returnedItems[key] || 0;
+          return returnedQty >= invoicedQty;  // All of this item returned
+        });
+
+        // Include invoice if NOT all items are fully returned (still has returnable items)
+        return !allItemsFullyReturned;
+      })
+      .map((inv: any) => {
+        const returnedItems = returnedByInvoiceAndItem.get(inv.id) || {};
+        const remainingQty = (inv.productservice ?? []).reduce((sum: number, line: any) => {
+          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const invoicedQty = line.qty || 0;
+          const returnedQty = returnedItems[key] || 0;
+          return sum + Math.max(0, invoicedQty - returnedQty);
+        }, 0);
+
+        return {
+          value: inv.id,
+          label: `INV-${inv.billnumber} · ${inv.partyacc?.accountname ?? "?"} · ₹${inv.totalamount} · Remaining: ${remainingQty}`,
+        };
+      });
+  }, [invoicesData, purchaseReturns]);
 
   const { addPurchaseReturnMutation, editPurchaseReturnMutation } = usePurchaseReturnMutations();
 
@@ -128,7 +173,16 @@ const AddEditPurchaseReturn: React.FC = () => {
     setTaxOrSupplyType(ret.taxorsupplytype || "");
     setInvoiceType(ret.invoicetype || "regular");
     setIsService(!!ret.isservice);
-    setOtherCharges(ret.othercharges || []);
+    // Format Other Charges properly
+    setOtherCharges(ret.othercharges?.map((c: any) => ({
+      ledgerid: c.ledgerid?.id || c.ledgerid || "",
+      ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+      amount: c.amount || 0,
+      gstpercent: c.gstpercent || 0,
+      gstamount: c.gstamount || 0,
+      totalamount: c.totalamount || 0,
+      remarks: c.remarks || "",
+    })) || []);
     setTransportName(ret.transportname || "");
     setVehicleNumber(ret.vehiclenumber || "");
     setEwayBillNo(ret.ewaybillno || "");
@@ -160,6 +214,7 @@ const AddEditPurchaseReturn: React.FC = () => {
   useEffect(() => {
     if (isEdit) return;
     if (sourceInvoiceId) return; // Wait for source invoice to be selected
+    if (billnumber) return; // Already set
 
     // When no source invoice is selected in new mode, auto-calculate bill number
     if (purchaseReturns.length > 0) {
@@ -172,7 +227,7 @@ const AddEditPurchaseReturn: React.FC = () => {
     } else {
       setBillnumber("000001");
     }
-  }, [isEdit, purchaseReturns, sourceInvoiceId]);
+  }, [isEdit, sourceInvoiceId, billnumber]);
 
   // Hydrate from source invoice
   useEffect(() => {
@@ -188,21 +243,53 @@ const AddEditPurchaseReturn: React.FC = () => {
     setInvoiceType(inv.invoicetype || "regular");
     setIsService(!!inv.isservice);
 
+    // Populate Other Charges with proper structure
+    setOtherCharges(inv.othercharges?.map((c: any) => ({
+      ledgerid: c.ledgerid?.id || "",
+      ledgername: c.ledgerid?.ledgername || c.ledgername || "",
+      amount: c.amount || 0,
+      gstpercent: c.gstpercent || 0,
+      gstamount: c.gstamount || 0,
+      totalamount: c.totalamount || 0,
+      remarks: c.remarks || "",
+    })) || []);
+
+    // Populate Transport & Delivery fields
+    setDeliveryDate(inv.deliverydate || "");
+    setDueDate(inv.duedate || "");
+    setTransportName(inv.transportname || "");
+    setVehicleNumber(inv.vehiclenumber || "");
+    setEwayBillNo(inv.ewaybillno || "");
+    setDistance(inv.distance || "");
+
+    // Populate Summary fields
+    setRoundOff(inv.roundoff || 0);
+    setInvoiceDiscount(inv.invoicediscount || 0);
+    setInvoiceDiscountType(inv.invoicediscounttype || "amount");
+
     setLines(
-      (inv.productservice ?? []).map((p: any) => ({
-        productserviceid: p.productserviceid?.id ?? p.productserviceid,
-        productName: p.productserviceid?.name ?? "Item",
-        variantid: p.variantid?.id ?? undefined,
-        variantName: p.variantid?.name,
-        purchaseunitid: p.purchaseunitid?.id,
-        unitqty: p.unitqty || 1,
-        gst: p.gst || 0,
-        rate: p.rate || 0,
-        discount: p.discount || 0,
-        qty: p.qty || 0,
-        originalQty: p.qty || 0,
-        amount: p.amount || 0,
-      }))
+      (inv.productservice ?? []).map((p: any) => {
+        // Recalculate amount without GST for return form
+        const rate = Number(p.rate) || 0;
+        const discount = Number(p.discount) || 0;
+        const qty = Number(p.qty) || 0;
+        const amount = parseFloat(((rate - discount) * qty).toFixed(2));
+
+        return {
+          productserviceid: p.productserviceid?.id ?? p.productserviceid,
+          productName: p.productserviceid?.name ?? "Item",
+          variantid: p.variantid?.id ?? undefined,
+          variantName: p.variantid?.name,
+          purchaseunitid: p.purchaseunitid?.id,
+          unitqty: p.unitqty || 1,
+          gst: p.gst || 0,
+          rate: rate,
+          discount: discount,
+          qty: qty,
+          originalQty: qty,
+          amount: amount, // ✅ Recalculated without GST
+        };
+      })
     );
   }, [isEdit, sourceInvData]);
 
@@ -239,7 +326,8 @@ const AddEditPurchaseReturn: React.FC = () => {
     const otherChargesTotal = otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0);
     const computedInvDisc = invoiceDiscountType === "percent" ? (subtotal * invoiceDiscount) / 100 : invoiceDiscount;
     const totalamount = subtotal + totalgst - computedInvDisc + otherChargesTotal + roundOff;
-    return {
+
+    const result = {
       subtotal: parseFloat(subtotal.toFixed(2)),
       totaldiscount: parseFloat(totaldiscount.toFixed(2)),
       totalgst: parseFloat(totalgst.toFixed(2)),
@@ -248,6 +336,18 @@ const AddEditPurchaseReturn: React.FC = () => {
       roundoff: parseFloat(roundOff.toFixed(2)),
       totalamount: parseFloat(totalamount.toFixed(2)),
     };
+
+    console.log("=== TOTALS CALCULATION ===");
+    console.log("Lines count:", lines.length);
+    console.log("Subtotal:", result.subtotal);
+    console.log("Total Discount:", result.totaldiscount);
+    console.log("Total GST:", result.totalgst);
+    console.log("Other Charges Total:", result.otherchargestotal);
+    console.log("Invoice Discount:", result.invoicediscount);
+    console.log("Round Off:", result.roundoff);
+    console.log("Final Total Amount:", result.totalamount);
+
+    return result;
   }, [lines, otherCharges, invoiceDiscount, invoiceDiscountType, roundOff]);
 
   const validate = (): boolean => {
@@ -264,16 +364,34 @@ const AddEditPurchaseReturn: React.FC = () => {
       if (q > l.originalQty) e[`qty_${i}`] = `Cannot exceed original ${l.originalQty}`;
     });
     setErrors(e);
+
+    console.log("=== VALIDATION RESULT ===");
+    console.log("Errors:", e);
+    console.log("sourceInvoiceId:", sourceInvoiceId);
+    console.log("returndate:", returndate);
+    console.log("partyacc:", partyacc);
+    console.log("lines count:", lines.length);
+    console.log("Lines with qty > 0:", lines.filter(l => Number(l.qty) > 0).length);
+
     if (Object.keys(e).length > 0) {
+      console.log("❌ Validation failed");
       dispatch(showMessage({ message: "Please fix highlighted fields", type: "error" }));
       return false;
     }
+    console.log("✅ Validation passed");
     return true;
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("🔴 handleSubmit called");
+    if (!validate()) {
+      console.log("❌ Validation failed, stopping submission");
+      return;
+    }
+    console.log("✅ Validation passed, proceeding with submission");
     const filteredLines = lines.filter((l) => Number(l.qty) > 0);
+    console.log("Filtered lines with qty > 0:", filteredLines.length);
 
     const input: any = {
       sourceInvoiceId,
@@ -282,7 +400,7 @@ const AddEditPurchaseReturn: React.FC = () => {
       taxorsupplytype: taxorsupplytype || "exclusive",
       returndate,
       billtype: billtype || "tax",
-      billnumber,
+      billnumber: isEdit ? billnumber : null,  // ✅ Let server generate for new records
       notes: notes || undefined,
       reason: reason || undefined,
       refundMode,
@@ -294,16 +412,16 @@ const AddEditPurchaseReturn: React.FC = () => {
       adminid: adminId,
       branchid: branchId,
       isservice,
-      othercharges: otherCharges,
-      transportname: transportName,
-      vehiclenumber: vehicleNumber,
-      ewaybillno: ewayBillNo,
-      distance: distance ? parseFloat(distance) : 0,
-      deliverydate: deliveryDate,
-      duedate: dueDate,
-      roundoff: roundOff,
-      invoicediscount: invoiceDiscount,
-      invoicediscounttype: invoiceDiscountType,
+      othercharges: otherCharges?.filter(c => c.ledgerid && c.amount > 0) || [],
+      transportname: transportName || null,
+      vehiclenumber: vehicleNumber || null,
+      ewaybillno: ewayBillNo || null,
+      distance: distance ? parseFloat(distance) : null,
+      deliverydate: deliveryDate || null,
+      duedate: dueDate || null,
+      roundoff: roundOff ? Number(roundOff) : 0,
+      invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
+      invoicediscounttype: invoiceDiscountType || "amount",
       createdby_id: creator.id,
       createdby_name: creator.name,
       createdby_type: creator.type,
@@ -321,15 +439,30 @@ const AddEditPurchaseReturn: React.FC = () => {
     };
 
     try {
+      console.log("=== PURCHASE RETURN SUBMISSION ===");
+      console.log("Input Data:", JSON.stringify(input, null, 2));
+      console.log("Mode:", isEdit ? "EDIT" : "ADD");
+
       if (isEdit && id) {
+        console.log("Editing ID:", id);
         await editPurchaseReturnMutation({ variables: { id, input } });
         dispatch(showMessage({ message: "Purchase return updated.", type: "success" }));
       } else {
+        console.log("Creating new Purchase Return");
         await addPurchaseReturnMutation({ variables: { input } });
         dispatch(showMessage({ message: "Purchase return saved.", type: "success" }));
       }
-      navigate("/purchasereturn");
+      console.log("✅ Success! Navigating back...");
+      navigate(-1);
     } catch (err: any) {
+      console.error("=== ERROR DETAILS ===");
+      console.error("Error Message:", err?.message);
+      console.error("Full Error:", err);
+      console.error("GraphQL Errors:", err?.graphQLErrors);
+      console.error("Network Error:", err?.networkError);
+      if (err?.graphQLErrors && err.graphQLErrors.length > 0) {
+        console.error("Detailed GraphQL Errors:", JSON.stringify(err.graphQLErrors, null, 2));
+      }
       dispatch(
         showMessage({
           message: err?.message || "Failed to save purchase return",
@@ -341,251 +474,276 @@ const AddEditPurchaseReturn: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h1 className="text-xl font-semibold mb-4">
+      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
           {isEdit ? "Edit Purchase Return" : "Add Purchase Return (Debit Note)"}
-        </h1>
+        </h2>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <FormField
-              label="Source Invoice"
-              name="sourceInvoiceId"
-              type="select"
-              options={invoiceOptions}
-              value={sourceInvoiceId}
-              onChange={(e: any) => setSourceInvoiceId(e.target.value)}
-              searchable
-              disabled={isEdit}
-              required
-              error={errors.sourceInvoiceId}
-            />
-            <FormField
-              label="Return Date"
-              name="returndate"
-              type="date"
-              value={returndate}
-              onChange={(e: any) => setReturndate(e.target.value)}
-              required
-              error={errors.returndate}
-            />
-            <FormField
-              label="Refund Mode"
-              name="refundMode"
-              type="select"
-              options={[
-                { value: "auto", label: "Auto-refund (Cash/Bank only)" },
-                { value: "advance", label: "Hold as Vendor Advance" },
-                { value: "skip", label: "Skip — journal entry only" },
-              ]}
-              value={refundMode}
-              onChange={(e: any) => setRefundMode(e.target.value)}
-            />
-            <FormField
-              label="Return Number"
-              name="billnumber"
-              type="text"
-              value={billnumber}
-              onChange={(e: any) => setBillnumber(e.target.value)}
-              placeholder="Auto-generated"
-              disabled={!isEdit && billnumber !== ""}
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Main Details */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Main Details</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                label="Source Invoice"
+                name="sourceInvoiceId"
+                type="select"
+                options={invoiceOptions}
+                value={sourceInvoiceId}
+                onChange={(e: any) => setSourceInvoiceId(e.target.value)}
+                searchable
+                disabled={isEdit}
+                required
+                error={errors.sourceInvoiceId}
+              />
+              <FormField
+                label="Return Date"
+                name="returndate"
+                type="date"
+                value={returndate}
+                onChange={(e: any) => setReturndate(e.target.value)}
+                required
+                error={errors.returndate}
+              />
+              <FormField
+                label="Return Number"
+                name="billnumber"
+                type="text"
+                value={billnumber}
+                onChange={(e: any) => setBillnumber(e.target.value)}
+                placeholder="Auto-generated"
+                disabled={!isEdit && billnumber !== ""}
+              />
+              <FormField
+                label="Payment Type"
+                name="paymentType"
+                type="select"
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
+                options={[
+                  { value: "cash", label: "Cash" },
+                  { value: "bank", label: "Bank" },
+                  { value: "credit", label: "Credit" },
+                  { value: "upi", label: "UPI" },
+                  { value: "card", label: "Card" },
+                  { value: "cheque", label: "Cheque" },
+                  { value: "other", label: "Other" },
+                ]}
+                searchable
+              />
+              <FormField
+                label="Refund Mode"
+                name="refundMode"
+                type="select"
+                options={[
+                  { value: "auto", label: "Auto-refund (Cash/Bank only)" },
+                  { value: "advance", label: "Hold as Vendor Advance" },
+                  { value: "skip", label: "Skip — journal entry only" },
+                ]}
+                value={refundMode}
+                onChange={(e: any) => setRefundMode(e.target.value)}
+              />
+              <FormField
+                label="Tax/Supply Type"
+                name="taxOrSupplyType"
+                type="select"
+                value={taxorsupplytype}
+                onChange={(e) => setTaxOrSupplyType(e.target.value)}
+                options={[
+                  { value: "taxInvoice", label: "Tax Invoice" },
+                  { value: "billOfSupply", label: "Bill of Supply" },
+                  { value: "other", label: "Other" },
+                ]}
+                searchable
+              />
+              <FormField
+                label="Reason"
+                name="reason"
+                value={reason}
+                onChange={(e: any) => setReason(e.target.value)}
+                placeholder="Damaged, wrong item, etc."
+              />
+              <FormField
+                label="Notes"
+                name="notes"
+                value={notes}
+                onChange={(e: any) => setNotes(e.target.value)}
+              />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <FormField label="Reason" name="reason" value={reason}
-              onChange={(e: any) => setReason(e.target.value)} placeholder="Damaged, wrong item, etc." />
-            <FormField label="Notes" name="notes" value={notes}
-              onChange={(e: any) => setNotes(e.target.value)} />
-          </div>
-
-          {partyacc && (
-            <div className="mt-3 text-sm text-gray-600">
-              <span className="font-medium">Vendor:</span>{" "}
-              {partyacc.accountname} {partyacc.mobile ? `· ${partyacc.mobile}` : ""}
-              {paymentType && (
-                <span className="ml-3">
-                  <span className="font-medium">Payment Type:</span> {paymentType}
-                </span>
+              {partyacc && (
+                <div className="col-span-1 md:col-span-3 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  <span className="font-medium">Vendor:</span>{" "}
+                  {partyacc.accountname} {partyacc.mobile ? `· ${partyacc.mobile}` : ""}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </fieldset>
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr className="text-left">
-                <th className="px-3 py-2">Product</th>
-                <th className="px-3 py-2">Original Qty</th>
-                <th className="px-3 py-2">Return Qty</th>
-                <th className="px-3 py-2">Rate</th>
-                <th className="px-3 py-2">Discount</th>
-                <th className="px-3 py-2">GST %</th>
-                <th className="px-3 py-2">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
-                    {sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
-                  </td>
-                </tr>
-              )}
-              {lines.map((l, i) => (
-                <tr key={`${l.productserviceid}_${l.variantid ?? "v"}_${i}`} className="border-t">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{l.productName}</div>
-                    {l.variantName && <div className="text-xs text-gray-500">{l.variantName}</div>}
-                  </td>
-                  <td className="px-3 py-2">{l.originalQty}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      className={`w-24 border rounded px-2 py-1 ${errors[`qty_${i}`] ? "border-red-500" : "border-gray-300"}`}
-                      value={l.qty}
-                      min={0}
-                      max={l.originalQty}
-                      onChange={(e) => updateLine(i, "qty", parseFloat(e.target.value) || 0)}
-                    />
-                    {errors[`qty_${i}`] && (
-                      <div className="text-xs text-red-600 mt-1">{errors[`qty_${i}`]}</div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{l.rate}</td>
-                  <td className="px-3 py-2">{l.discount}</td>
-                  <td className="px-3 py-2">{l.gst}</td>
-                  <td className="px-3 py-2">{l.amount.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {/* Return Items */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Return Items</legend>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">Original Qty</th>
+                    <th className="px-3 py-2">Return Qty</th>
+                    <th className="px-3 py-2">Rate</th>
+                    <th className="px-3 py-2">Discount</th>
+                    <th className="px-3 py-2">GST %</th>
+                    <th className="px-3 py-2">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
+                        {sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
+                      </td>
+                    </tr>
+                  )}
+                  {lines.map((l, i) => (
+                    <tr key={`${l.productserviceid}_${l.variantid ?? "v"}_${i}`} className="border-t">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{l.productName}</div>
+                        {l.variantName && <div className="text-xs text-gray-500">{l.variantName}</div>}
+                      </td>
+                      <td className="px-3 py-2">{l.originalQty}</td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          className={`w-24 border rounded px-2 py-1 ${errors[`qty_${i}`] ? "border-red-500" : "border-gray-300"}`}
+                          value={l.qty}
+                          min={0}
+                          max={l.originalQty}
+                          onChange={(e) => updateLine(i, "qty", parseFloat(e.target.value) || 0)}
+                        />
+                        {errors[`qty_${i}`] && (
+                          <div className="text-xs text-red-600 mt-1">{errors[`qty_${i}`]}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">{l.rate}</td>
+                      <td className="px-3 py-2">{l.discount}</td>
+                      <td className="px-3 py-2">{l.gst}</td>
+                      <td className="px-3 py-2">{l.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {errors.lines && <div className="text-red-600 text-sm">{errors.lines}</div>}
+          </fieldset>
 
-        {errors.lines && <div className="text-red-600 text-sm mt-2">{errors.lines}</div>}
-
-        {/* Other Charges Section */}
-        <div className="mt-4">
+          {/* Other Charges */}
           <OtherChargesSection
             otherCharges={otherCharges}
             setOtherCharges={setOtherCharges}
           />
-        </div>
 
-        {/* Transport Information */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mt-4">
-          <h3 className="text-sm font-medium mb-3">Transport Information</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField
-              label="Transport Name"
-              name="transportName"
-              type="text"
-              value={transportName}
-              onChange={(e: any) => setTransportName(e.target.value)}
-              placeholder="e.g., ABC Logistics"
-            />
-            <FormField
-              label="Vehicle Number"
-              name="vehicleNumber"
-              type="text"
-              value={vehicleNumber}
-              onChange={(e: any) => setVehicleNumber(e.target.value)}
-              placeholder="e.g., MH-01-AB-1234"
-            />
-            <FormField
-              label="E-Way Bill Number"
-              name="ewayBillNo"
-              type="text"
-              value={ewayBillNo}
-              onChange={(e: any) => setEwayBillNo(e.target.value)}
-              placeholder="e.g., EWB123456789"
-            />
-            <FormField
-              label="Distance (km)"
-              name="distance"
-              type="number"
-              value={distance}
-              onChange={(e: any) => setDistance(e.target.value)}
-              placeholder="0"
-            />
-          </div>
-        </div>
-
-        {/* Delivery & Payment Terms */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 mt-4">
-          <h3 className="text-sm font-medium mb-3">Delivery & Payment Terms</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <FormField
-              label="Delivery Date"
-              name="deliveryDate"
-              type="date"
-              value={deliveryDate}
-              onChange={(e: any) => setDeliveryDate(e.target.value)}
-            />
-            <FormField
-              label="Due Date"
-              name="dueDate"
-              type="date"
-              value={dueDate}
-              onChange={(e: any) => setDueDate(e.target.value)}
-            />
-            <FormField
-              label="Invoice Discount"
-              name="invoiceDiscount"
-              type="number"
-              value={invoiceDiscount}
-              onChange={(e: any) => setInvoiceDiscount(parseFloat(e.target.value) || 0)}
-              placeholder="0"
-            />
-            <FormField
-              label="Discount Type"
-              name="invoiceDiscountType"
-              type="select"
-              value={invoiceDiscountType}
-              onChange={(e: any) => setInvoiceDiscountType(e.target.value)}
-              options={[
-                { value: "amount", label: "Amount (₹)" },
-                { value: "percent", label: "Percentage (%)" },
-              ]}
-            />
-            <FormField
-              label="Round Off"
-              name="roundOff"
-              type="number"
-              value={roundOff}
-              onChange={(e: any) => setRoundOff(parseFloat(e.target.value) || 0)}
-              placeholder="0"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end mt-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 w-full sm:w-80 text-sm">
-            <div className="flex justify-between"><span>Subtotal</span><span>₹ {totals.subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Total Discount</span><span>₹ {totals.totaldiscount.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
-            {totals.otherchargestotal > 0 && (
-              <div className="flex justify-between"><span>Other Charges</span><span>₹ {totals.otherchargestotal.toFixed(2)}</span></div>
-            )}
-            {totals.invoicediscount > 0 && (
-              <div className="flex justify-between"><span>Invoice Discount</span><span>- ₹ {totals.invoicediscount.toFixed(2)}</span></div>
-            )}
-            {totals.roundoff !== 0 && (
-              <div className="flex justify-between"><span>Round Off</span><span>₹ {totals.roundoff.toFixed(2)}</span></div>
-            )}
-            <div className="flex justify-between font-semibold border-t pt-2 mt-2">
-              <span>Refund Amount</span><span>₹ {totals.totalamount.toFixed(2)}</span>
+          {/* Transport & Delivery */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                label="Delivery Date"
+                name="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(e: any) => setDeliveryDate(e.target.value)}
+              />
+              <FormField
+                label="Due Date"
+                name="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e: any) => setDueDate(e.target.value)}
+              />
+              <FormField
+                label="Transport Name"
+                name="transportName"
+                type="text"
+                value={transportName}
+                onChange={(e: any) => setTransportName(e.target.value)}
+                placeholder="e.g., ABC Logistics"
+              />
+              <FormField
+                label="Vehicle Number"
+                name="vehicleNumber"
+                type="text"
+                value={vehicleNumber}
+                onChange={(e: any) => setVehicleNumber(e.target.value)}
+                placeholder="e.g., MH-01-AB-1234"
+              />
+              <FormField
+                label="E-Way Bill No."
+                name="ewayBillNo"
+                type="text"
+                value={ewayBillNo}
+                onChange={(e: any) => setEwayBillNo(e.target.value)}
+                placeholder="e.g., EWB123456789"
+              />
+              <FormField
+                label="Distance (km)"
+                name="distance"
+                type="number"
+                value={distance}
+                onChange={(e: any) => setDistance(e.target.value)}
+                placeholder="0"
+              />
             </div>
-          </div>
-        </div>
+          </fieldset>
 
-        <div className="flex justify-end gap-3 mt-4">
-          <Button variant="outline" onClick={() => navigate("/purchasereturn")}>Cancel</Button>
-          <Button variant="outline" onClick={handleSubmit}>
-            {isEdit ? "Update" : "Save"}
-          </Button>
-        </div>
+          {/* Summary */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Summary</legend>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <FormField label="Subtotal" name="subtotal" onChange={() => ""} type="text" value={totals.subtotal.toFixed(2)} disabled />
+              <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totals.totaldiscount.toFixed(2)} disabled />
+              <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={totals.totalgst.toFixed(2)} disabled />
+              <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <FormField
+                    label="Invoice Discount"
+                    name="invoiceDiscount"
+                    onChange={(e) => setInvoiceDiscount(parseFloat(e.target.value) || 0)}
+                    type="number"
+                    value={invoiceDiscount}
+                  />
+                </div>
+                <select
+                  className="border rounded p-2 text-sm h-10 mb-1"
+                  value={invoiceDiscountType}
+                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
+                >
+                  <option value="amount">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+
+              <FormField
+                label="Round Off"
+                name="roundOff"
+                onChange={(e) => setRoundOff(parseFloat(e.target.value) || 0)}
+                type="number"
+                value={roundOff}
+              />
+
+              <FormField label="Refund Amount" name="totalAmount" onChange={() => ""} type="text" value={totals.totalamount.toFixed(2)} disabled />
+            </div>
+          </fieldset>
+
+          <div className="mt-6 flex gap-4 justify-end">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="outline" disabled={lines.length === 0 || lines.every((l) => Number(l.qty) <= 0)}>
+              {isEdit ? "Update Return" : "Save Return"}
+            </Button>
+          </div>
+        </form>
       </div>
     </HomeLayout>
   );

@@ -52,6 +52,16 @@ export const purchaseReturnTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseReturnProductService!]!
+    othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     autocreate: Boolean!
     createdby_id: ID
@@ -82,6 +92,16 @@ export const purchaseReturnTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseReturnProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     autocreate: Boolean
     createdby_id: ID
