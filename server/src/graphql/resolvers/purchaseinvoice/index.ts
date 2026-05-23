@@ -278,6 +278,7 @@ export const purchaseInvoiceResolvers = {
         const autoCreateData = {
           autocreate: {
             ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
+            payment: settings?.autoCreatePaymentOnPurchaseInvoice ?? true,
             stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
           },
         };
@@ -376,6 +377,7 @@ export const purchaseInvoiceResolvers = {
         const autoCreateData = {
           autocreate: {
             ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
+            payment: settings?.autoCreatePaymentOnPurchaseInvoice ?? true,
             stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
           },
         };

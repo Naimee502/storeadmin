@@ -92,7 +92,8 @@ const expenseNoteSchema = new mongoose.Schema(
     createdby_type: { type: String },
 
     autocreate: {
-      ledger: { type: Boolean, default: true }
+      ledger: { type: Boolean, default: true },
+      payment: { type: Boolean, default: true },
     },
 
     /* ======================
@@ -365,10 +366,10 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, us
   }
 
   /* ======================
-     SAVE / UPDATE PAYMENT (cash / bank only)
+     SAVE / UPDATE PAYMENT (cash / bank only, when autoCreatePaymentOnExpense is on)
      (find existing via transactionid to avoid duplicates on edit)
      ====================== */
-  if (doc.paymenttype !== "credit") {
+  if (doc.paymenttype !== "credit" && doc.autocreate?.payment !== false) {
     const payCreatedById = userContext?.createdby_id || doc.createdby_id;
     const payCreatedByName = userContext?.createdby_name || doc.createdby_name;
     const payCreatedByType = userContext?.createdby_type || doc.createdby_type;

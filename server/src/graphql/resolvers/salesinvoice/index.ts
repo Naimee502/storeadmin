@@ -214,6 +214,7 @@ export const salesInvoiceResolvers = {
       const autoCreateData = {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
+          payment: settings?.autoCreatePaymentOnSalesInvoice ?? true,
           stock: settings?.autoCreateStockOnSalesInvoice ?? true,
         },
       };
@@ -249,6 +250,7 @@ export const salesInvoiceResolvers = {
       const autoCreateData = {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
+          payment: settings?.autoCreatePaymentOnSalesInvoice ?? true,
           stock: settings?.autoCreateStockOnSalesInvoice ?? true,
         },
       };

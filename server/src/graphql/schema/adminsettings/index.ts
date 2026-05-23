@@ -6,10 +6,13 @@ export const adminSettingsTypeDefs = gql`
     adminid: ID!
 
     autoCreateLedgerOnSalesInvoice: Boolean!
+    autoCreatePaymentOnSalesInvoice: Boolean!
     autoCreateStockOnSalesInvoice: Boolean!
     autoCreateLedgerOnPurchaseInvoice: Boolean!
+    autoCreatePaymentOnPurchaseInvoice: Boolean!
     autoCreateStockOnPurchaseInvoice: Boolean!
     autoCreateLedgerOnExpense: Boolean!
+    autoCreatePaymentOnExpense: Boolean!
     autoCreateLedgerOnSalesReturn: Boolean!
     autoCreateLedgerOnPurchaseReturn: Boolean!
 
@@ -44,10 +47,13 @@ export const adminSettingsTypeDefs = gql`
   # existing document so toggling one switch doesn't reset the rest.
   input AdminSettingsInput {
     autoCreateLedgerOnSalesInvoice: Boolean
+    autoCreatePaymentOnSalesInvoice: Boolean
     autoCreateStockOnSalesInvoice: Boolean
     autoCreateLedgerOnPurchaseInvoice: Boolean
+    autoCreatePaymentOnPurchaseInvoice: Boolean
     autoCreateStockOnPurchaseInvoice: Boolean
     autoCreateLedgerOnExpense: Boolean
+    autoCreatePaymentOnExpense: Boolean
     autoCreateLedgerOnSalesReturn: Boolean
     autoCreateLedgerOnPurchaseReturn: Boolean
 

@@ -78,6 +78,7 @@ const salesInvoiceSchema = new mongoose.Schema(
     isservice: { type: Boolean, default: false },
     autocreate: {
       ledger: { type: Boolean, default: true },
+      payment: { type: Boolean, default: true },
       stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true }
@@ -128,6 +129,9 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const wantsLedger =
     newInv.autocreate?.ledger ??
     settings?.autoCreateLedgerOnSalesInvoice ?? true;
+  const wantsPayment =
+    newInv.autocreate?.payment ??
+    settings?.autoCreatePaymentOnSalesInvoice ?? true;
   const wantsStock =
     newInv.autocreate?.stock ??
     settings?.autoCreateStockOnSalesInvoice ?? true;
@@ -555,6 +559,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   }
 
   // ====================== PAYMENT HANDLING ======================
+  // Skip entirely when autoCreatePaymentOnSalesInvoice is disabled.
+  if (!wantsPayment) {
+    console.log("Auto-create payment disabled (AdminSettings). Skipping payment record.");
+    return;
+  }
+
   const payType = String(newInv.paymenttype).toLowerCase();
   const isCredit = payType === "credit";
   const isCash = payType === "cash";

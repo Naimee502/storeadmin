@@ -26,10 +26,13 @@ const adminSettingsSchema = new mongoose.Schema(
        of asking the user "autocreate yes/no?" on every save.
        ============================================================ */
     autoCreateLedgerOnSalesInvoice: { type: Boolean, default: true },
+    autoCreatePaymentOnSalesInvoice: { type: Boolean, default: true },
     autoCreateStockOnSalesInvoice: { type: Boolean, default: true },
     autoCreateLedgerOnPurchaseInvoice: { type: Boolean, default: true },
+    autoCreatePaymentOnPurchaseInvoice: { type: Boolean, default: true },
     autoCreateStockOnPurchaseInvoice: { type: Boolean, default: true },
     autoCreateLedgerOnExpense: { type: Boolean, default: true },
+    autoCreatePaymentOnExpense: { type: Boolean, default: true },
     autoCreateLedgerOnSalesReturn: { type: Boolean, default: true },
     autoCreateLedgerOnPurchaseReturn: { type: Boolean, default: true },
 

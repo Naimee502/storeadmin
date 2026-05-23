@@ -75,6 +75,7 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     isservice: { type: Boolean, default: false },
     autocreate: {
       ledger: { type: Boolean, default: true },
+      payment: { type: Boolean, default: true },
       stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true }
@@ -129,6 +130,9 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   const wantsLedger =
     newInv.autocreate?.ledger ??
     settings?.autoCreateLedgerOnPurchaseInvoice ?? true;
+  const wantsPayment =
+    newInv.autocreate?.payment ??
+    settings?.autoCreatePaymentOnPurchaseInvoice ?? true;
   const wantsStock =
     newInv.autocreate?.stock ??
     settings?.autoCreateStockOnPurchaseInvoice ?? true;
@@ -437,8 +441,14 @@ for (const item of newInv.productservice) {
   }
 
   // ============================
-  // 💰 PAYMENT LOGIC (UPDATED)
+  // 💰 PAYMENT LOGIC
   // ============================
+  // Skip entirely when autoCreatePaymentOnPurchaseInvoice is disabled.
+  if (!wantsPayment) {
+    console.log("Auto-create payment disabled (AdminSettings). Skipping payment record.");
+    return;
+  }
+
   const payType = String(newInv.paymenttype).toLowerCase();
   const isCredit = payType === "credit";
   const isCash = payType === "cash";

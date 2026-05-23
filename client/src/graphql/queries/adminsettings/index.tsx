@@ -4,10 +4,13 @@ const SETTINGS_FIELDS = `
   id
   adminid
   autoCreateLedgerOnSalesInvoice
+  autoCreatePaymentOnSalesInvoice
   autoCreateStockOnSalesInvoice
   autoCreateLedgerOnPurchaseInvoice
+  autoCreatePaymentOnPurchaseInvoice
   autoCreateStockOnPurchaseInvoice
   autoCreateLedgerOnExpense
+  autoCreatePaymentOnExpense
   autoCreateLedgerOnSalesReturn
   autoCreateLedgerOnPurchaseReturn
   allowNegativeStock

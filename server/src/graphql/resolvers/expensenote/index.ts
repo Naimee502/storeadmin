@@ -203,11 +203,12 @@ export const expenseNoteResolvers = {
         createdby_type: user?.type || 'admin',
       };
 
-      // ✅ Set autocreate flag from AdminSettings
+      // ✅ Set autocreate flags from AdminSettings
       const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
       const autoCreateData = {
-        autocreate: input.autocreate ?? {
+        autocreate: {
           ledger: settings?.autoCreateLedgerOnExpense ?? true,
+          payment: settings?.autoCreatePaymentOnExpense ?? true,
         },
       };
 
@@ -238,11 +239,12 @@ export const expenseNoteResolvers = {
         createdby_type: user?.type || 'admin',
       };
 
-      // ✅ Ensure autocreate flag from AdminSettings
+      // ✅ Always use AdminSettings for autocreate flags on edit
       const settings = await AdminSettings.getOrCreateForAdmin(oldExp.adminid);
-      const autoCreateData = input.autocreate ? {} : {
+      const autoCreateData = {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnExpense ?? true,
+          payment: settings?.autoCreatePaymentOnExpense ?? true,
         },
       };
 

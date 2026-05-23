@@ -198,11 +198,21 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   return (
     <div className="space-y-6">
       <Section title="Auto-posting (Tally-style)">
-        <Toggle label="Auto-create journal & ledger entries on Sales Invoice" checked={draft.autoCreateLedgerOnSalesInvoice} onChange={(v) => set("autoCreateLedgerOnSalesInvoice", v)} />
+        <div className="text-xs text-gray-400 mb-1 px-1">Sales Invoice</div>
+        <Toggle label="Auto-create journal entry on Sales Invoice" checked={draft.autoCreateLedgerOnSalesInvoice} onChange={(v) => set("autoCreateLedgerOnSalesInvoice", v)} />
+        <Toggle label="Auto-create payment record on Sales Invoice (cash / bank)" checked={draft.autoCreatePaymentOnSalesInvoice} onChange={(v) => set("autoCreatePaymentOnSalesInvoice", v)} />
         <Toggle label="Auto-deduct stock on Sales Invoice" checked={draft.autoCreateStockOnSalesInvoice} onChange={(v) => set("autoCreateStockOnSalesInvoice", v)} />
-        <Toggle label="Auto-create journal & ledger entries on Purchase Invoice" checked={draft.autoCreateLedgerOnPurchaseInvoice} onChange={(v) => set("autoCreateLedgerOnPurchaseInvoice", v)} />
+
+        <div className="text-xs text-gray-400 mt-3 mb-1 px-1">Purchase Invoice</div>
+        <Toggle label="Auto-create journal entry on Purchase Invoice" checked={draft.autoCreateLedgerOnPurchaseInvoice} onChange={(v) => set("autoCreateLedgerOnPurchaseInvoice", v)} />
+        <Toggle label="Auto-create payment record on Purchase Invoice (cash / bank)" checked={draft.autoCreatePaymentOnPurchaseInvoice} onChange={(v) => set("autoCreatePaymentOnPurchaseInvoice", v)} />
         <Toggle label="Auto-add stock on Purchase Invoice" checked={draft.autoCreateStockOnPurchaseInvoice} onChange={(v) => set("autoCreateStockOnPurchaseInvoice", v)} />
+
+        <div className="text-xs text-gray-400 mt-3 mb-1 px-1">Expense Notes</div>
         <Toggle label="Auto-post journal on Expense Notes" checked={draft.autoCreateLedgerOnExpense} onChange={(v) => set("autoCreateLedgerOnExpense", v)} />
+        <Toggle label="Auto-create payment record on Expense Notes (cash / bank)" checked={draft.autoCreatePaymentOnExpense} onChange={(v) => set("autoCreatePaymentOnExpense", v)} />
+
+        <div className="text-xs text-gray-400 mt-3 mb-1 px-1">Returns</div>
         <Toggle label="Auto-post journal on Sales Returns" checked={draft.autoCreateLedgerOnSalesReturn} onChange={(v) => set("autoCreateLedgerOnSalesReturn", v)} />
         <Toggle label="Auto-post journal on Purchase Returns" checked={draft.autoCreateLedgerOnPurchaseReturn} onChange={(v) => set("autoCreateLedgerOnPurchaseReturn", v)} />
       </Section>
