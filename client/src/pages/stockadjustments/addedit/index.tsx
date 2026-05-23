@@ -267,11 +267,19 @@ const StockAdjustmentAddEdit: React.FC = () => {
       return;
     }
 
+    const creatorName =
+      type === "admin" ? admin?.name :
+      type === "branch" ? branch?.branchname || branch?.name :
+      type === "staff" ? staff?.name : undefined;
+
     const payload = {
       adjustmentdate: adjDate,
       type: adjType,
       reason,
       totalamount: totalAmount,
+      createdby_id: admin?.id || branch?.id || staff?.id,
+      createdby_name: creatorName,
+      createdby_type: type || 'admin',
       items: validItems.map((i) => ({
         productid: i.productid,
         variantid: i.variantid || undefined,

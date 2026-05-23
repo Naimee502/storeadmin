@@ -135,6 +135,11 @@ const TransferStock = () => {
 
     dispatch(showLoading());
 
+    const creatorName =
+      type === "admin" ? admin?.name :
+      type === "branch" ? branch?.branchname || branch?.name :
+      type === "staff" ? staff?.name : undefined;
+
     const payload = {
       frombranchid,
       tobranchid: formValues.tobranchid,
@@ -145,6 +150,9 @@ const TransferStock = () => {
       transferdate: formValues.transferdate,
       status: formValues.status,
       admin: adminId,
+      createdby_id: admin?.id || branch?.id || staff?.id,
+      createdby_name: creatorName,
+      createdby_type: type || 'admin',
     };
 
     console.log("Submitting transfer stock:", JSON.stringify(payload)); 

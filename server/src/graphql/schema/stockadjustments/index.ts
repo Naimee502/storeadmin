@@ -80,6 +80,9 @@ export const stockAdjustmentTypeDefs = gql`
     reason: String
     items: [StockAdjustmentItemInput]!
     totalamount: Float!
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
   }
 
   extend type Mutation {

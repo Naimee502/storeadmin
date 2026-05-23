@@ -26,6 +26,9 @@ export const transferStockTypeDefs = gql`
     status: Boolean!
     admin: Admin
     batchnumber: String
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
   }
 
   input TransferStockInput {
@@ -39,6 +42,9 @@ export const transferStockTypeDefs = gql`
     status: Boolean
     admin: ID
     batchnumber: String
+    createdby_id: ID
+    createdby_name: String
+    createdby_type: String
   }
 
   type Query {

@@ -53,9 +53,14 @@ const AddEditExpenseNote = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const { type, admin, branch } = useAppSelector((state) => state.auth);
+  const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
 
   const adminId = admin?.id;
+
+  const creatorName =
+    type === "admin" ? admin?.name :
+    type === "branch" ? branch?.branchname || branch?.name :
+    type === "staff" ? staff?.name : undefined;
 
   const branchId = useAppSelector(
     (state) => state.selectedBranch.branchId
@@ -361,6 +366,9 @@ const AddEditExpenseNote = () => {
     const input = {
       adminid: formValues.adminid,
       branchid: formValues.branchid,
+      createdby_id: admin?.id || branch?.id || staff?.id,
+      createdby_name: creatorName,
+      createdby_type: type || 'admin',
       expensedate: formValues.expensedate,
       paymenttype: formValues.paymenttype,
       ledgerid: formValues.ledgerid || undefined,

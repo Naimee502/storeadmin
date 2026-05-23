@@ -118,12 +118,11 @@ export const stockAdjustmentResolvers = {
           variantid: normalizeId(item.variantid)
         }));
 
-        // Extract user context from JWT token - match ExpenseNote pattern
         const { user } = context;
         const createdbyData = {
           createdby_id: user?.id,
-          createdby_name: user?.name || user?.email,
-          createdby_type: user?.type || 'admin',
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
         };
 
         console.log("=== Stock Adjustment Create ===");
@@ -195,10 +194,16 @@ export const stockAdjustmentResolvers = {
       }
     },
 
-    updateStockAdjustment: async (_: any, { id, input }: any) => {
+    updateStockAdjustment: async (_: any, { id, input }: any, context: any) => {
       try {
         const adj = await StockAdjustment.findById(id);
         if (!adj) throw new Error("Stock adjustment not found");
+
+        const { user } = context;
+        // Preserve original createdby_name; update only if client sends a new one
+        const createdbyUpdate = {
+          createdby_name: input.createdby_name || adj.createdby_name || user?.name || user?.email,
+        };
 
         const newItems = (input.items || []).map((item: any) => ({
           ...item,
@@ -301,6 +306,7 @@ export const stockAdjustmentResolvers = {
             reason: input.reason ?? adj.reason,
             items: newItems,
             totalamount: input.totalamount,
+            ...createdbyUpdate,
           },
           { new: true }
         );

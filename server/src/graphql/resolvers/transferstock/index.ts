@@ -57,28 +57,32 @@ export const transferStockResolvers = {
 
   Mutation: {
     addTransferStock: async (_: any, { input }: any, context: any) => {
-      // ✅ Extract user info from context and populate createdby fields
       const { user } = context;
       const createdbyData = {
         createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
+        createdby_name: input.createdby_name || user?.name || user?.email,
+        createdby_type: user?.type || input.createdby_type || 'admin',
       };
 
       const newDoc = await TransferStock.create({ ...input, ...createdbyData });
       await TransferStock.adjustStock(null, newDoc);
-      // return IDs only
-      return await TransferStock.findById(newDoc._id)
-        .populate("admin");
+      return await TransferStock.findById(newDoc._id).populate("admin");
     },
 
-    editTransferStock: async (_: any, { id, input }: any) => {
+    editTransferStock: async (_: any, { id, input }: any, context: any) => {
       const oldDoc = await TransferStock.findById(id);
-      const newDoc = await TransferStock.findByIdAndUpdate(id, input, { new: true });
+      if (!oldDoc) throw new Error("Transfer stock not found");
+
+      const { user } = context;
+      // Preserve the original createdby_name; only update with client value if provided
+      const createdbyData = {
+        createdby_name: input.createdby_name || oldDoc.createdby_name || user?.name || user?.email,
+      };
+
+      const newDoc = await TransferStock.findByIdAndUpdate(id, { ...input, ...createdbyData }, { new: true });
       if (oldDoc && newDoc) await TransferStock.adjustStock(oldDoc, newDoc);
 
-      return await TransferStock.findById(newDoc?._id)
-        .populate("admin");
+      return await TransferStock.findById(newDoc?._id).populate("admin");
     },
 
     deleteTransferStock: async (_: any, { id }: { id: string }) => {
