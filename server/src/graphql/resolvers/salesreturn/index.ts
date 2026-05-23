@@ -185,8 +185,8 @@ export const salesReturnResolvers = {
         const { user } = context;
         const createdbyData = {
           createdby_id: user?.id,
-          createdby_name: user?.name || user?.email,
-          createdby_type: user?.type || 'admin', // 'admin', 'branch', 'staff'
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
         };
 
         // ✅ Set autocreate flag from AdminSettings

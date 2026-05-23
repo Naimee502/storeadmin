@@ -240,8 +240,8 @@ export const purchaseInvoiceResolvers = {
 
         const createdbyData = {
           createdby_id: user?.id,
-          createdby_name: user?.name || user?.email,
-          createdby_type: user?.type || 'admin',
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
         };
         console.log("✅ CreatedBy Data:", JSON.stringify(createdbyData, null, 2));
 
