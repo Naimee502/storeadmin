@@ -43,6 +43,12 @@ const SALES_RETURN_FIELDS = `
     totalamount
     remarks
   }
+  deliverydate
+  duedate
+  transportname
+  vehiclenumber
+  ewaybillno
+  distance
   roundoff
   invoicediscount
   invoicediscounttype

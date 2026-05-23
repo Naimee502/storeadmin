@@ -18,6 +18,7 @@ import { showMessage } from "../../../redux/slices/message";
 import {
   useSalesReturnByIDQuery,
   useSalesReturnMutations,
+  useSalesReturnsQuery,
 } from "../../../graphql/hooks/salesreturn";
 import {
   useSalesInvoicesQuery,
@@ -73,9 +74,8 @@ const AddEditSalesReturn: React.FC = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
-  const salesReturns = useAppSelector(
-    (state) => state.salesreturn?.returns || []
-  );
+  const { data: salesReturnsData } = useSalesReturnsQuery();
+  const salesReturns = salesReturnsData?.getSalesReturns || [];
 
   // Source invoice selection
   const [sourceInvoiceId, setSourceInvoiceId] = useState(fromInvoiceParam || "");
@@ -127,7 +127,9 @@ const AddEditSalesReturn: React.FC = () => {
         const itemMap = returnedByInvoiceAndItem.get(invoiceId)!;
 
         (ret.productservice ?? []).forEach((line: any) => {
-          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const pid = line.productserviceid?.id ?? line.productserviceid ?? "";
+          const vid = line.variantid?.id ?? line.variantid ?? "";
+          const key = `${pid}_${vid}`;
           itemMap[key] = (itemMap[key] || 0) + (line.qty || 0);
         });
       });
@@ -142,10 +144,12 @@ const AddEditSalesReturn: React.FC = () => {
 
         // Check if ALL items have been fully returned
         const allItemsFullyReturned = (inv.productservice ?? []).every((line: any) => {
-          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const pid = line.productserviceid?.id ?? line.productserviceid ?? "";
+          const vid = line.variantid?.id ?? line.variantid ?? "";
+          const key = `${pid}_${vid}`;
           const invoicedQty = line.qty || 0;
           const returnedQty = returnedItems[key] || 0;
-          return returnedQty >= invoicedQty;  // All of this item returned
+          return returnedQty >= invoicedQty;
         });
 
         // Include invoice if NOT all items are fully returned (still has returnable items)
@@ -154,7 +158,9 @@ const AddEditSalesReturn: React.FC = () => {
       .map((inv: any) => {
         const returnedItems = returnedByInvoiceAndItem.get(inv.id) || {};
         const remainingQty = (inv.productservice ?? []).reduce((sum: number, line: any) => {
-          const key = `${line.productserviceid}_${line.variantid ?? ""}`;
+          const pid = line.productserviceid?.id ?? line.productserviceid ?? "";
+          const vid = line.variantid?.id ?? line.variantid ?? "";
+          const key = `${pid}_${vid}`;
           const invoicedQty = line.qty || 0;
           const returnedQty = returnedItems[key] || 0;
           return sum + Math.max(0, invoicedQty - returnedQty);
@@ -279,32 +285,51 @@ const AddEditSalesReturn: React.FC = () => {
     setEwayBillNo(inv.ewaybillno || "");
     setDistance(inv.distance || "");
 
-    // Pre-populate full quantity from each line. User then reduces as needed.
-    setLines(
-      (inv.productservice ?? []).map((p: any) => {
-        // Recalculate amount without GST for return form
-        const rate = Number(p.rate) || 0;
-        const discount = Number(p.discount) || 0;
-        const qty = Number(p.qty) || 0;
-        const amount = parseFloat(((rate - discount) * qty).toFixed(2));
+    // Build a map of already-returned qty per item for this invoice
+    const returnedQtyMap: Record<string, number> = {};
+    salesReturns
+      .filter((ret: any) => ret.status === true && ret.sourceInvoiceId === sourceInvoiceId)
+      .forEach((ret: any) => {
+        (ret.productservice ?? []).forEach((line: any) => {
+          const pid = line.productserviceid?.id ?? line.productserviceid ?? "";
+          const vid = line.variantid?.id ?? line.variantid ?? "";
+          const key = `${pid}_${vid}`;
+          returnedQtyMap[key] = (returnedQtyMap[key] || 0) + (line.qty || 0);
+        });
+      });
 
-        return {
-          productserviceid: p.productserviceid?.id ?? p.productserviceid,
-          productName: p.productserviceid?.name ?? "Item",
-          variantid: p.variantid?.id ?? undefined,
-          variantName: p.variantid?.name,
-          salesunitid: p.salesunitid?.id,
-          unitqty: p.unitqty || 1,
-          gst: p.gst || 0,
-          rate: rate,
-          discount: discount,
-          qty: qty,
-          originalQty: qty,
-          amount: amount, // ✅ Recalculated without GST
-        };
-      })
+    // Pre-populate remaining returnable qty per line (invoice qty minus already returned)
+    setLines(
+      (inv.productservice ?? [])
+        .map((p: any) => {
+          const rate = Number(p.rate) || 0;
+          const discount = Number(p.discount) || 0;
+          const invoicedQty = Number(p.qty) || 0;
+          const pid = p.productserviceid?.id ?? p.productserviceid ?? "";
+          const vid = p.variantid?.id ?? p.variantid ?? "";
+          const key = `${pid}_${vid}`;
+          const alreadyReturned = returnedQtyMap[key] || 0;
+          const remainingQty = Math.max(0, invoicedQty - alreadyReturned);
+          const amount = parseFloat(((rate - discount) * remainingQty).toFixed(2));
+
+          return {
+            productserviceid: p.productserviceid?.id ?? p.productserviceid,
+            productName: p.productserviceid?.name ?? "Item",
+            variantid: p.variantid?.id ?? undefined,
+            variantName: p.variantid?.name,
+            salesunitid: p.salesunitid?.id,
+            unitqty: p.unitqty || 1,
+            gst: p.gst || 0,
+            rate: rate,
+            discount: discount,
+            qty: remainingQty,
+            originalQty: remainingQty,
+            amount: amount,
+          };
+        })
+        .filter((l) => l.originalQty > 0) // hide fully-returned items
     );
-  }, [isEdit, sourceInvData]);
+  }, [isEdit, sourceInvData, salesReturns, sourceInvoiceId]);
 
   // Recompute line amount on qty/rate/discount change
   const updateLine = (idx: number, field: keyof Line, value: any) => {
