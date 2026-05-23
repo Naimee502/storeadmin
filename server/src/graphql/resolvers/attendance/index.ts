@@ -416,7 +416,7 @@ export const attendanceResolvers = {
       return formatLeaveRequest(updated);
     },
     approveLeaveRequest: async (_: any, { id, approverid, approverName, approverType }: any) => {
-      const lr: any = await LeaveRequest.findById(id);
+      const lr: any = await LeaveRequest.findById(id).populate("leavetypeid");
       if (!lr) throw new Error("Leave request not found");
       if (lr.status !== "pending") throw new Error("Only pending requests can be approved");
       lr.status = "approved";
@@ -425,12 +425,43 @@ export const attendanceResolvers = {
       lr.approvedByType = approverType;
       lr.approvedAt = new Date();
       await lr.save();
+
       const year = new Date(lr.fromDate).getFullYear();
       await LeaveBalance.findOneAndUpdate(
         { adminid: lr.adminid, staffid: lr.staffid, leavetypeid: lr.leavetypeid, year },
         { $inc: { pending: -lr.totalDays, used: lr.totalDays } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
+
+      // Auto-mark attendance logs for all leave dates so the attendance
+      // register shows "leave" instead of "absent" for those days.
+      const from = new Date(lr.fromDate);
+      const to   = new Date(lr.toDate);
+      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+        const dateStr = toDateStr(d);
+        await Attendance.findOneAndUpdate(
+          { adminid: lr.adminid, staffid: lr.staffid, date: dateStr },
+          {
+            $set: {
+              adminid: lr.adminid,
+              branchid: lr.branchid,
+              staffid: lr.staffid,
+              date: dateStr,
+              status: "leave",
+              status_active: true,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+
+      // Accounting link: for unpaid leave, the payroll module should deduct
+      // (lr.totalDays / workingDaysInMonth) × monthlySalary from the staff's
+      // salary ledger. This is handled by the Payroll module when it processes
+      // the period — the leave request status "approved" + isPaid=false acts
+      // as the trigger. No journal entry is created here directly because the
+      // exact daily rate and period are only known at payroll run time.
+
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
       return formatLeaveRequest(populated);
     },
