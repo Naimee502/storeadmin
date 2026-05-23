@@ -511,6 +511,9 @@ const AddEditSalesReturn: React.FC = () => {
             </div>
             <div className="flex justify-between mt-2"><span>Total Line Discount</span><span>₹ {(totals.totaldiscount - (invoiceDiscountType === "percent" ? (totals.subtotal * (Number(invoiceDiscount)||0))/100 : (Number(invoiceDiscount)||0))).toFixed(2)}</span></div>
             <div className="flex justify-between mt-2"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
+            {otherCharges.length > 0 && (
+              <div className="flex justify-between mt-2"><span>Other Charges</span><span>₹ {otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)}</span></div>
+            )}
             <div className="flex justify-between items-center mt-2">
               <span>Round Off</span>
               <input

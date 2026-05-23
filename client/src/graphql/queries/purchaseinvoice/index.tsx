@@ -5,6 +5,8 @@ export const GET_PURCHASE_INVOICES = gql`
   query GetPurchaseInvoices($filter: PurchaseInvoiceFilterInput) {
     getPurchaseInvoices(filter: $filter) {
       id
+      branchid
+      adminid
       paymenttype
       partyacc {
         id
@@ -21,12 +23,11 @@ export const GET_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      adminid
-      branchid
       productservice {
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
+        unitqty
         gst
         qty
         rate
@@ -36,6 +37,23 @@ export const GET_PURCHASE_INVOICES = gql`
         purchaseaccountid { id ledgername }
         serviceaccountid { id ledgername }
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -51,6 +69,8 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
   query GetDeletedPurchaseInvoices($filter: PurchaseInvoiceFilterInput) {
     getDeletedPurchaseInvoices(filter: $filter) {
       id
+      branchid
+      adminid
       paymenttype
       partyacc {
         id
@@ -67,12 +87,11 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
-      adminid
-      branchid
       productservice {
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
+        unitqty
         gst
         qty
         rate
@@ -82,6 +101,23 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
         purchaseaccountid { id ledgername }
         serviceaccountid { id ledgername }
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -97,6 +133,8 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
   query GetPurchaseInvoiceById($id: ID!, $adminid: ID) {
     getPurchaseInvoiceById(id: $id, adminid: $adminid) {
       id
+      branchid
+      adminid
       paymenttype
       partyacc {
         id
@@ -113,12 +151,11 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       totaldiscount
       totalgst
       totalamount
-      adminid
-      branchid
       productservice {
         productserviceid { id name }
         variantid { id name }
         purchaseunitid { id unitname }
+        unitqty
         gst
         qty
         rate
@@ -128,6 +165,23 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
         purchaseaccountid { id ledgername }
         serviceaccountid { id ledgername }
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name

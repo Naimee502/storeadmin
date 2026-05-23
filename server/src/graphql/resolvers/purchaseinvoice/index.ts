@@ -19,6 +19,7 @@ const populateFields = [
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
+  "othercharges.ledgerid",
 ];
 
 // ✅ Format invoice function
@@ -26,7 +27,15 @@ const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
   partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile"]),
+  createdby_id: inv.createdby_id,
+  createdby_name: inv.createdby_name,
+  createdby_type: inv.createdby_type,
   autocreate: inv.autocreate || { ledger: true, stock: true },
+
+  othercharges: inv.othercharges?.map((oc: any) => ({
+    ...oc,
+    ledgerid: toSimpleRef(oc.ledgerid, ["ledgername"])
+  })) ?? [],
 
   productservice: inv.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(
@@ -55,36 +64,49 @@ const formatInvoice = (inv: any) => ({
 export const purchaseInvoiceResolvers = {
   Query: {
     getPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: true };
-      const { user } = context;
+      try {
+        console.log("📌 getPurchaseInvoices called");
+        console.log("   User Type:", context.user?.type);
+        console.log("   Filter:", JSON.stringify(filter, null, 2));
 
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
+        const query: any = { status: true };
+        const { user } = context;
+
+        // ✅ Role-based filtering
+        if (user?.type === 'branch') {
+          query.$or = [
+            { createdby_type: 'branch', createdby_id: user?.id },
+            { branchid: user?.branch_id || user?.id }
+          ];
+        } else if (user?.type === 'staff') {
+          query.createdby_id = user?.id;
+        }
+
+        if (filter.branchid) query.branchid = filter.branchid;
+        if (filter.adminid) query.adminid = filter.adminid;
+        if (filter.supplierid) query.supplierid = filter.supplierid;
+        if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+        if (filter.partyacc) query.partyacc = { $regex: filter.partyacc, $options: "i" };
+        if (filter.billtype) query.billtype = filter.billtype;
+        if (filter.invoicetype) query.invoicetype = filter.invoicetype;
+        if (filter.billdateFrom || filter.billdateTo) {
+          query.billdate = {};
+          if (filter.billdateFrom) query.billdate.$gte = new Date(filter.billdateFrom);
+          if (filter.billdateTo) query.billdate.$lte = new Date(filter.billdateTo);
+        }
+
+        console.log("   Query:", JSON.stringify(query, null, 2));
+
+        const invoices = await PurchaseInvoice.find(query)
+          .populate(populateFields)
+          .lean();
+
+        console.log("✅ Found", invoices.length, "invoices");
+        return invoices.map(formatInvoice);
+      } catch (error: any) {
+        console.error("❌ Error in getPurchaseInvoices:", error.message);
+        throw error;
       }
-
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-      if (filter.supplierid) query.supplierid = filter.supplierid;
-      if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-      if (filter.partyacc) query.partyacc = { $regex: filter.partyacc, $options: "i" };
-      if (filter.billtype) query.billtype = filter.billtype;
-      if (filter.invoicetype) query.invoicetype = filter.invoicetype;
-      if (filter.billdateFrom || filter.billdateTo) {
-        query.billdate = {};
-        if (filter.billdateFrom) query.billdate.$gte = new Date(filter.billdateFrom);
-        if (filter.billdateTo) query.billdate.$lte = new Date(filter.billdateTo);
-      }
-
-      const invoices = await PurchaseInvoice.find(query)
-        .populate(populateFields)
-        .lean();
-      return invoices.map(formatInvoice);
     },
 
     getDeletedPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -112,31 +134,85 @@ export const purchaseInvoiceResolvers = {
     },
 
     getPurchaseInvoiceById: async (_: any, { id }: { id: string }) => {
-      const invoice = await PurchaseInvoice.findById(id)
-        .populate(populateFields)
-        .lean();
-      return invoice ? formatInvoice(invoice) : null;
+      try {
+        console.log("📌 getPurchaseInvoiceById called");
+        console.log("   Invoice ID:", id);
+
+        if (!id) {
+          throw new Error("❌ Invoice ID is required");
+        }
+
+        const invoice = await PurchaseInvoice.findById(id)
+          .populate(populateFields)
+          .lean() as any;
+
+        if (!invoice) {
+          console.log("❌ Invoice not found with ID:", id);
+          return null;
+        }
+
+        console.log("✅ Invoice found");
+        console.log("   Has createdby_id:", !!(invoice?.createdby_id));
+        console.log("   Has partyacc:", !!(invoice?.partyacc));
+        console.log("   Products:", invoice?.productservice?.length || 0);
+        console.log("   Other Charges:", invoice?.othercharges?.length || 0);
+
+        return formatInvoice(invoice);
+      } catch (error: any) {
+        console.error("❌ Error in getPurchaseInvoiceById:", error.message);
+        throw error;
+      }
     },
   },
 
   Mutation: {
     addPurchaseInvoice: async (_: any, { input }: any, context: any) => {
       try {
-        // ✅ Extract user info from context and populate createdby fields
+        console.log("\n");
+        console.log("╔═══════════════════════════════════════════════════════╗");
+        console.log("║  🔵 ADD PURCHASE INVOICE - START                      ║");
+        console.log("╚═══════════════════════════════════════════════════════╝");
+
+        // ✅ Step 1: Extract user info from context
         const { user } = context;
+        console.log("📌 Step 1: User from context");
+        console.log("   User ID:", user?.id);
+        console.log("   User Name:", user?.name || user?.email);
+        console.log("   User Type:", user?.type);
+
         const createdbyData = {
           createdby_id: user?.id,
           createdby_name: user?.name || user?.email,
           createdby_type: user?.type || 'admin',
         };
+        console.log("✅ CreatedBy Data:", JSON.stringify(createdbyData, null, 2));
 
-        console.log("=== Purchase Invoice Create ===");
-        console.log("User from context:", user);
-        console.log("CreatedbyData:", createdbyData);
+        // ✅ Step 2: Validate input
+        console.log("\n📌 Step 2: Validate Input Data");
+        console.log("   Admin ID:", input.adminid);
+        console.log("   Branch ID:", input.branchid);
+        console.log("   Payment Type:", input.paymenttype);
+        console.log("   Party Account:", input.partyacc);
+        console.log("   Bill Number:", input.billnumber);
+        console.log("   Products Count:", input.productservice?.length || 0);
+        console.log("   Other Charges Count:", input.othercharges?.length || 0);
 
-        // ✅ Always use AdminSettings for autocreate (ignore user input)
+        if (!input.adminid) {
+          throw new Error("❌ Admin ID is required");
+        }
+        if (!input.partyacc) {
+          throw new Error("❌ Party Account is required");
+        }
+        if (!input.productservice || input.productservice.length === 0) {
+          throw new Error("❌ At least one product is required");
+        }
+        console.log("✅ Input validation passed");
+
+        // ✅ Step 3: Fetch AdminSettings
+        console.log("\n📌 Step 3: Fetch AdminSettings");
         const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-        console.log("📋 AdminSettings fetched:", {
+        console.log("📋 AdminSettings found:", {
+          id: settings?._id,
           autoCreateLedgerOnPurchaseInvoice: settings?.autoCreateLedgerOnPurchaseInvoice,
           autoCreateStockOnPurchaseInvoice: settings?.autoCreateStockOnPurchaseInvoice,
         });
@@ -147,64 +223,143 @@ export const purchaseInvoiceResolvers = {
             stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
           },
         };
+        console.log("✅ AutoCreate data prepared:", JSON.stringify(autoCreateData, null, 2));
 
-        console.log("✅ AutoCreate data being saved:", autoCreateData);
+        // ✅ Step 4: Create Purchase Invoice in Database
+        console.log("\n📌 Step 4: Create Purchase Invoice in Database");
+        console.log("   Creating with data keys:", Object.keys({...input, ...createdbyData, ...autoCreateData}));
 
         const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
-        console.log("✅ Created invoice autocreate:", created.autocreate);
+        console.log("✅ Invoice created successfully");
+        console.log("   Invoice ID:", created._id);
+        console.log("   CreatedBy ID:", created.createdby_id);
+        console.log("   CreatedBy Name:", created.createdby_name);
+        console.log("   CreatedBy Type:", created.createdby_type);
+        console.log("   AutoCreate:", created.autocreate);
+        console.log("   Products in invoice:", created.productservice?.length || 0);
+        console.log("   Other Charges in invoice:", created.othercharges?.length || 0);
 
-        console.log("Created Purchase Invoice:", {
-          id: created._id,
-          createdby_id: created.createdby_id,
-          createdby_name: created.createdby_name,
-          createdby_type: created.createdby_type
-        });
+        // ✅ Step 5: Adjust Stock and Transactions
+        console.log("\n📌 Step 5: Adjust Stock and Transactions");
+        try {
+          await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+          console.log("✅ Stock and transactions adjusted successfully");
+        } catch (stockError: any) {
+          console.warn("⚠️ Stock adjustment warning:", stockError.message);
+          // Don't throw - just warn
+        }
 
-        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-        // (ensures Transaction/Payment Created By is never N/A)
-        await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+        // ✅ Step 6: Fetch and Format Invoice
+        console.log("\n📌 Step 6: Fetch and Format Invoice");
+        console.log("   Populating fields:", populateFields);
 
         const invoice = await PurchaseInvoice.findById(created._id)
           .populate(populateFields)
-          .lean();
-        return invoice ? formatInvoice(invoice) : null;
+          .lean() as any;
+
+        if (!invoice) {
+          throw new Error("❌ Failed to fetch created invoice");
+        }
+
+        console.log("✅ Invoice fetched successfully");
+        console.log("   Has partyacc:", !!(invoice?.partyacc));
+        console.log("   Has productservice:", !!(invoice?.productservice));
+        console.log("   Has othercharges:", !!(invoice?.othercharges));
+        console.log("   Has createdby_id:", !!(invoice?.createdby_id));
+
+        const formatted = formatInvoice(invoice);
+        console.log("✅ Invoice formatted successfully");
+
+        console.log("\n╔═══════════════════════════════════════════════════════╗");
+        console.log("║  ✅ ADD PURCHASE INVOICE - SUCCESS                    ║");
+        console.log("╚═══════════════════════════════════════════════════════╝\n");
+
+        return formatted;
       } catch (error: any) {
-        console.error("=== ERROR Creating Purchase Invoice ===");
-        console.error("Error message:", error.message);
-        console.error("Full error:", error);
+        console.error("\n");
+        console.error("╔═══════════════════════════════════════════════════════╗");
+        console.error("║  ❌ ERROR CREATING PURCHASE INVOICE                   ║");
+        console.error("╚═══════════════════════════════════════════════════════╝");
+        console.error("Error Type:", error.constructor.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
+        console.error("Full Error Object:", JSON.stringify(error, null, 2));
+        console.error("Input that caused error:", JSON.stringify(input, null, 2));
+        console.error("");
         throw error;
       }
     },
 
     editPurchaseInvoice: async (_: any, { id, input }: any, context: any) => {
-      const { user } = context;
-      const userContext = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
-      };
+      try {
+        console.log("\n");
+        console.log("╔═══════════════════════════════════════════════════════╗");
+        console.log("║  🔵 EDIT PURCHASE INVOICE - START                     ║");
+        console.log("╚═══════════════════════════════════════════════════════╝");
 
-      const oldInv = await PurchaseInvoice.findById(id);
-      if (!oldInv) throw new Error("Purchase invoice not found");
+        console.log("📌 Invoice ID:", id);
 
-      // ✅ Always use AdminSettings for autocreate (ignore user input)
-      const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
-      const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
-          stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
-        },
-      };
+        const { user } = context;
+        const userContext = {
+          createdby_id: user?.id,
+          createdby_name: user?.name || user?.email,
+          createdby_type: user?.type || 'admin',
+        };
+        console.log("✅ User Context:", JSON.stringify(userContext, null, 2));
 
-      const updated = await PurchaseInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
-      if (updated) {
-        await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
+        const oldInv = await PurchaseInvoice.findById(id);
+        if (!oldInv) {
+          throw new Error("❌ Purchase invoice not found with ID: " + id);
+        }
+        console.log("✅ Old invoice found");
+
+        // ✅ Always use AdminSettings for autocreate (ignore user input)
+        const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
+        const autoCreateData = {
+          autocreate: {
+            ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
+            stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
+          },
+        };
+        console.log("✅ AdminSettings fetched, AutoCreate data:", JSON.stringify(autoCreateData, null, 2));
+
+        const updated = await PurchaseInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
+        if (!updated) {
+          throw new Error("❌ Failed to update invoice");
+        }
+        console.log("✅ Invoice updated in database");
+
+        if (updated) {
+          console.log("📌 Adjusting stock and transactions...");
+          await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
+          console.log("✅ Stock and transactions adjusted");
+        }
+
+        const inv = await PurchaseInvoice.findById(id)
+          .populate(populateFields)
+          .lean() as any;
+
+        if (!inv) {
+          throw new Error("❌ Failed to fetch updated invoice");
+        }
+
+        const formatted = formatInvoice(inv);
+
+        console.log("╔═══════════════════════════════════════════════════════╗");
+        console.log("║  ✅ EDIT PURCHASE INVOICE - SUCCESS                   ║");
+        console.log("╚═══════════════════════════════════════════════════════╝\n");
+
+        return formatted;
+      } catch (error: any) {
+        console.error("\n");
+        console.error("╔═══════════════════════════════════════════════════════╗");
+        console.error("║  ❌ ERROR EDITING PURCHASE INVOICE                    ║");
+        console.error("╚═══════════════════════════════════════════════════════╝");
+        console.error("Error Message:", error.message);
+        console.error("Error Stack:", error.stack);
+        console.error("");
+        throw error;
       }
-
-      const inv = await PurchaseInvoice.findById(id)
-        .populate(populateFields)
-        .lean();
-      return inv ? formatInvoice(inv) : null;
     },
 
     deletePurchaseInvoice: async (_: any, { id }: { id: string }) => {

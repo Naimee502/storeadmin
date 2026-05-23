@@ -16,6 +16,7 @@ import {
   usePurchaseInvoicesQuery,
   usePurchaseInvoiceByIDQuery,
 } from "../../../graphql/hooks/purchaseinvoice";
+import OtherChargesSection from "../../../components/othercharges";
 
 type Line = {
   productserviceid: string;
@@ -78,6 +79,16 @@ const AddEditPurchaseReturn: React.FC = () => {
   const [invoicetype, setInvoiceType] = useState("regular");
   const [isservice, setIsService] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
+  const [otherCharges, setOtherCharges] = useState<any[]>([]);
+  const [transportName, setTransportName] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [ewayBillNo, setEwayBillNo] = useState("");
+  const [distance, setDistance] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [roundOff, setRoundOff] = useState(0.0);
+  const [invoiceDiscount, setInvoiceDiscount] = useState(0.0);
+  const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: existingData } = usePurchaseReturnByIDQuery(id || "");
@@ -111,6 +122,16 @@ const AddEditPurchaseReturn: React.FC = () => {
     setTaxOrSupplyType(ret.taxorsupplytype || "");
     setInvoiceType(ret.invoicetype || "regular");
     setIsService(!!ret.isservice);
+    setOtherCharges(ret.othercharges || []);
+    setTransportName(ret.transportname || "");
+    setVehicleNumber(ret.vehiclenumber || "");
+    setEwayBillNo(ret.ewaybillno || "");
+    setDistance(ret.distance || "");
+    setDeliveryDate(ret.deliverydate || "");
+    setDueDate(ret.duedate || "");
+    setRoundOff(ret.roundoff || 0);
+    setInvoiceDiscount(ret.invoicediscount || 0);
+    setInvoiceDiscountType(ret.invoicediscounttype || "amount");
     setLines(
       (ret.productservice ?? []).map((p: any) => ({
         productserviceid: p.productserviceid?.id ?? p.productserviceid,
@@ -191,14 +212,19 @@ const AddEditPurchaseReturn: React.FC = () => {
       totaldiscount += Number(l.discount) * Number(l.qty);
       totalgst += (taxable * Number(l.gst)) / 100;
     }
-    const totalamount = subtotal + totalgst;
+    const otherChargesTotal = otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0);
+    const computedInvDisc = invoiceDiscountType === "percent" ? (subtotal * invoiceDiscount) / 100 : invoiceDiscount;
+    const totalamount = subtotal + totalgst - computedInvDisc + otherChargesTotal + roundOff;
     return {
       subtotal: parseFloat(subtotal.toFixed(2)),
       totaldiscount: parseFloat(totaldiscount.toFixed(2)),
       totalgst: parseFloat(totalgst.toFixed(2)),
+      otherchargestotal: parseFloat(otherChargesTotal.toFixed(2)),
+      invoicediscount: parseFloat(computedInvDisc.toFixed(2)),
+      roundoff: parseFloat(roundOff.toFixed(2)),
       totalamount: parseFloat(totalamount.toFixed(2)),
     };
-  }, [lines]);
+  }, [lines, otherCharges, invoiceDiscount, invoiceDiscountType, roundOff]);
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
@@ -243,6 +269,16 @@ const AddEditPurchaseReturn: React.FC = () => {
       adminid: adminId,
       branchid: branchId,
       isservice,
+      othercharges: otherCharges,
+      transportname: transportName,
+      vehiclenumber: vehicleNumber,
+      ewaybillno: ewayBillNo,
+      distance: distance ? parseFloat(distance) : 0,
+      deliverydate: deliveryDate,
+      duedate: dueDate,
+      roundoff: roundOff,
+      invoicediscount: invoiceDiscount,
+      invoicediscounttype: invoiceDiscountType,
       createdby_id: creator.id,
       createdby_name: creator.name,
       createdby_type: creator.type,
@@ -395,11 +431,115 @@ const AddEditPurchaseReturn: React.FC = () => {
 
         {errors.lines && <div className="text-red-600 text-sm mt-2">{errors.lines}</div>}
 
+        {/* Other Charges Section */}
+        <div className="mt-4">
+          <OtherChargesSection
+            otherCharges={otherCharges}
+            setOtherCharges={setOtherCharges}
+          />
+        </div>
+
+        {/* Transport Information */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mt-4">
+          <h3 className="text-sm font-medium mb-3">Transport Information</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField
+              label="Transport Name"
+              name="transportName"
+              type="text"
+              value={transportName}
+              onChange={(e: any) => setTransportName(e.target.value)}
+              placeholder="e.g., ABC Logistics"
+            />
+            <FormField
+              label="Vehicle Number"
+              name="vehicleNumber"
+              type="text"
+              value={vehicleNumber}
+              onChange={(e: any) => setVehicleNumber(e.target.value)}
+              placeholder="e.g., MH-01-AB-1234"
+            />
+            <FormField
+              label="E-Way Bill Number"
+              name="ewayBillNo"
+              type="text"
+              value={ewayBillNo}
+              onChange={(e: any) => setEwayBillNo(e.target.value)}
+              placeholder="e.g., EWB123456789"
+            />
+            <FormField
+              label="Distance (km)"
+              name="distance"
+              type="number"
+              value={distance}
+              onChange={(e: any) => setDistance(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        {/* Delivery & Payment Terms */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mt-4">
+          <h3 className="text-sm font-medium mb-3">Delivery & Payment Terms</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <FormField
+              label="Delivery Date"
+              name="deliveryDate"
+              type="date"
+              value={deliveryDate}
+              onChange={(e: any) => setDeliveryDate(e.target.value)}
+            />
+            <FormField
+              label="Due Date"
+              name="dueDate"
+              type="date"
+              value={dueDate}
+              onChange={(e: any) => setDueDate(e.target.value)}
+            />
+            <FormField
+              label="Invoice Discount"
+              name="invoiceDiscount"
+              type="number"
+              value={invoiceDiscount}
+              onChange={(e: any) => setInvoiceDiscount(parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+            <FormField
+              label="Discount Type"
+              name="invoiceDiscountType"
+              type="select"
+              value={invoiceDiscountType}
+              onChange={(e: any) => setInvoiceDiscountType(e.target.value)}
+              options={[
+                { value: "amount", label: "Amount (₹)" },
+                { value: "percent", label: "Percentage (%)" },
+              ]}
+            />
+            <FormField
+              label="Round Off"
+              name="roundOff"
+              type="number"
+              value={roundOff}
+              onChange={(e: any) => setRoundOff(parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
         <div className="flex justify-end mt-4">
           <div className="bg-white border border-gray-200 rounded-lg p-4 w-full sm:w-80 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>₹ {totals.subtotal.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Total Discount</span><span>₹ {totals.totaldiscount.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Total GST</span><span>₹ {totals.totalgst.toFixed(2)}</span></div>
+            {totals.otherchargestotal > 0 && (
+              <div className="flex justify-between"><span>Other Charges</span><span>₹ {totals.otherchargestotal.toFixed(2)}</span></div>
+            )}
+            {totals.invoicediscount > 0 && (
+              <div className="flex justify-between"><span>Invoice Discount</span><span>- ₹ {totals.invoicediscount.toFixed(2)}</span></div>
+            )}
+            {totals.roundoff !== 0 && (
+              <div className="flex justify-between"><span>Round Off</span><span>₹ {totals.roundoff.toFixed(2)}</span></div>
+            )}
             <div className="flex justify-between font-semibold border-t pt-2 mt-2">
               <span>Refund Amount</span><span>₹ {totals.totalamount.toFixed(2)}</span>
             </div>

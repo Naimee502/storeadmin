@@ -10,6 +10,26 @@ export const purchaseInvoiceTypeDefs = gql`
     ledgername: String
   }
 
+  type OtherCharge {
+    ledgerid: SimpleRef
+    ledgername: String
+    amount: Float
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float
+    remarks: String
+  }
+
+  input OtherChargeInput {
+    ledgerid: ID!
+    ledgername: String
+    amount: Float!
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float!
+    remarks: String
+  }
+
   type PurchaseInvoiceProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
@@ -49,7 +69,7 @@ export const purchaseInvoiceTypeDefs = gql`
     billtype: String!
     billnumber: String
     notes: String
-    invoicetype: String!
+    invoicetype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
@@ -57,6 +77,16 @@ export const purchaseInvoiceTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseInvoiceProductService!]!
+    othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     autocreate: Boolean!
     createdby_id: ID
@@ -70,12 +100,12 @@ export const purchaseInvoiceTypeDefs = gql`
   input PurchaseInvoiceInput {
     paymenttype: String!
     partyacc: ID!
-    taxorsupplytype: String!
+    taxorsupplytype: String
     billdate: String!
-    billtype: String!
+    billtype: String
     billnumber: String
     notes: String
-    invoicetype: String!
+    invoicetype: String
     subtotal: Float!
     totaldiscount: Float!
     totalgst: Float!
@@ -83,6 +113,16 @@ export const purchaseInvoiceTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseInvoiceProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     autocreate: Boolean
     createdby_id: ID

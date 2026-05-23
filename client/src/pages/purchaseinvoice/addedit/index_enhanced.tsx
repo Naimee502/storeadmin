@@ -269,11 +269,10 @@ const AddEditPurchaseInvoice = () => {
       const gst = Number(p.gst || 0);
 
       const lineProductTotal = qty * rate;
-      const lineDiscount = discount;
+      const lineDiscount = discount * qty;
       const taxable = (rate - discount) * qty;
       const gstAmount = (taxable * gst) / 100;
       const lineTotal = taxable + gstAmount;
-
       productsTotalCalc += lineProductTotal;
       totalLineDiscount += lineDiscount;
       taxableSubtotal += taxable;
@@ -281,21 +280,20 @@ const AddEditPurchaseInvoice = () => {
       grandTotalCalc += lineTotal;
     });
 
-    const invDisc = Number(invoiceDiscount) || 0;
-    const computedInvDisc = invoiceDiscountType === "percent" ? (taxableSubtotal * invDisc) / 100 : invDisc;
+    // Calculate other charges total
+    const otherChargesTotal = otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0);
 
-    let otherChargesTotal = 0;
-    otherCharges.forEach((c) => {
-      otherChargesTotal += c.totalamount;
-    });
+    // Calculate invoice discount
+    const computedInvDisc = invoiceDiscountType === "percent" ? (productsTotalCalc * invoiceDiscount) / 100 : invoiceDiscount;
 
-    const finalGrandTotal = grandTotalCalc - computedInvDisc + otherChargesTotal + (Number(roundOff) || 0);
+    // Final grand total with other charges, invoice discount, and round off
+    const finalGrandTotal = grandTotalCalc - computedInvDisc + otherChargesTotal + roundOff;
 
     setProductsTotal(productsTotalCalc);
-    setTotalDiscount(totalLineDiscount + computedInvDisc);
+    setTotalDiscount(totalLineDiscount);
     setTaxAmount(totalGSTAmount);
     setGrandTotal(finalGrandTotal);
-  }, [products, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType]);
+  }, [products, otherCharges, invoiceDiscount, invoiceDiscountType, roundOff]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -305,6 +303,7 @@ const AddEditPurchaseInvoice = () => {
     if (!taxOrSupplyType) newErrors.taxOrSupplyType = "Tax/Supply type is required";
     if (!billDate) newErrors.billDate = "Bill date is required";
     if (!billType) newErrors.billType = "Bill type is required";
+    if (!invoiceType) newErrors.invoiceType = "Invoice type is required";
     if (!products || products.length === 0) newErrors.products = "At least one product is required";
 
     return newErrors;
@@ -337,9 +336,6 @@ const AddEditPurchaseInvoice = () => {
     const input = {
       branchid: branchId,
       adminid: adminId,
-      createdby_id: creatorInfo.id,
-      createdby_name: creatorInfo.name,
-      createdby_type: creatorInfo.type,
       paymenttype: paymentType,
       partyacc: partyAccount?.id || partyAccount,
       taxorsupplytype: taxOrSupplyType,
@@ -352,24 +348,17 @@ const AddEditPurchaseInvoice = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
-      othercharges: otherCharges.map(c => ({
-        ledgerid: c.ledgerid,
-        amount: c.amount,
-        gstpercent: c.gstpercent,
-        gstamount: c.gstamount,
-        totalamount: c.totalamount,
-        remarks: c.remarks,
-      })),
-      deliverydate: deliveryDate || null,
-      duedate: dueDate || null,
-      transportname: transportName || null,
-      vehiclenumber: vehicleNumber || null,
-      ewaybillno: ewayBillNo || null,
-      distance: distance ? Number(distance) : null,
-      roundoff: roundOff ? Number(roundOff) : 0,
-      invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
-      invoicediscounttype: invoiceDiscountType,
       isservice: isService,
+      othercharges: otherCharges,
+      transportname: transportName,
+      vehiclenumber: vehicleNumber,
+      ewaybillno: ewayBillNo,
+      distance: distance ? parseFloat(distance.toString()) : 0,
+      deliverydate: deliveryDate,
+      duedate: dueDate,
+      roundoff: roundOff ? parseFloat(roundOff.toString()) : 0,
+      invoicediscount: invoiceDiscount ? parseFloat(invoiceDiscount.toString()) : 0,
+      invoicediscounttype: invoiceDiscountType,
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
         variantid: p.variantid,
@@ -386,8 +375,7 @@ const AddEditPurchaseInvoice = () => {
       })),
       status,
     };
-
-    console.log("Input Data:", JSON.stringify(input, null, 2));
+    console.log("PurchaseInvoiceInput:", JSON.stringify(input));
 
     try {
       if (isEdit && id) {
@@ -410,16 +398,6 @@ const AddEditPurchaseInvoice = () => {
             totaldiscount: totalDiscount,
             totalgst: taxAmount,
             totalamount: grandTotal,
-            othercharges: input.othercharges,
-            deliverydate: input.deliverydate,
-            duedate: input.duedate,
-            transportname: input.transportname,
-            vehiclenumber: input.vehiclenumber,
-            ewaybillno: input.ewaybillno,
-            distance: input.distance,
-            roundoff: input.roundoff,
-            invoicediscount: input.invoicediscount,
-            invoicediscounttype: input.invoicediscounttype,
             adminid: adminId,
             branchid: branchId,
             productservice: input.productservice,
@@ -449,7 +427,7 @@ const AddEditPurchaseInvoice = () => {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ===== SECTION 1: Main Details ===== */}
+          {/* Main Details */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Main Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -462,14 +440,12 @@ const AddEditPurchaseInvoice = () => {
                 options={[
                   { value: "cash", label: "Cash" },
                   { value: "bank", label: "Bank" },
-                  { value: "credit", label: "Credit" },
                   { value: "upi", label: "UPI" },
                   { value: "card", label: "Card" },
                   { value: "cheque", label: "Cheque" },
                   { value: "other", label: "Other" },
                 ]}
                 error={errors.paymentType}
-                searchable
               />
               <div className="flex items-end gap-2">
                 <FormField
@@ -478,18 +454,14 @@ const AddEditPurchaseInvoice = () => {
                   type="select"
                   value={partyAccount?.id || ""}
                   onChange={(e) => {
-                    const selectedId = e.target.value;
-                    const acc = vendorAccounts.find(a => a.id === selectedId);
-
-                    if (acc) {
-                      setPartyAccount({
-                        id: acc.id,
-                        state: acc.state,
-                        accounttype: acc.accounttype,
-                        channel: acc.channel?.id || acc.channel || "",
-                        region: acc.region || "default",
-                      });
-                    }
+                    const selectedAcc = vendorAccounts.find(acc => acc.id === e.target.value);
+                    setPartyAccount({
+                      id: e.target.value,
+                      state: selectedAcc?.state || "",
+                      accounttype: selectedAcc?.accounttype || "",
+                      channel: selectedAcc?.channel?.id || selectedAcc?.channel || "",
+                      region: selectedAcc?.region || "default",
+                    });
                   }}
                   options={accountOptions}
                   searchable
@@ -510,7 +482,6 @@ const AddEditPurchaseInvoice = () => {
                   { value: "other", label: "Other" },
                 ]}
                 error={errors.taxOrSupplyType}
-                searchable
               />
               <FormField
                 label="Bill Date"
@@ -518,14 +489,6 @@ const AddEditPurchaseInvoice = () => {
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
-              />
-              <FormField
-                label="Bill Number"
-                name="billNumber"
-                type="text"
-                value={billNumber}
-                onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="Leave blank for auto-generate"
               />
               <FormField
                 label="Bill Type"
@@ -540,7 +503,32 @@ const AddEditPurchaseInvoice = () => {
                   { value: "debitNote", label: "Debit Note" },
                 ]}
                 error={errors.billType}
-                searchable
+              />
+              <FormField
+                label="Bill Number"
+                name="billNumber"
+                type="text"
+                value={billNumber}
+                onChange={(e) => setBillNumber(e.target.value)}
+                disabled={isEdit}
+                placeholder="Leave blank for auto-generate"
+              />
+              <FormField
+                label="Invoice Type"
+                name="invoiceType"
+                type="select"
+                value={invoiceType}
+                onChange={(e) => setInvoiceType(e.target.value)}
+                options={[
+                  { value: "retail", label: "Retail" },
+                  { value: "wholesale", label: "Wholesale" },
+                  { value: "manufacturer", label: "Manufacturer" },
+                  { value: "trader", label: "Trader" },
+                  { value: "service", label: "Service" },
+                  { value: "export", label: "Export" },
+                  { value: "other", label: "Other" }
+                ]}
+                error={errors.invoiceType}
               />
               <FormField
                 label="Notes"
@@ -558,7 +546,7 @@ const AddEditPurchaseInvoice = () => {
             </div>
           </fieldset>
 
-          {/* ===== SECTION 2: Product Section ===== */}
+          {/* Product Section */}
           <ProductSection
             products={products}
             setProducts={setProducts}
@@ -568,7 +556,6 @@ const AddEditPurchaseInvoice = () => {
             navigate={navigate}
           />
 
-          {/* ===== Add Vendor Modal ===== */}
           <PosAddCustomer
             open={addVendorOpen}
             onClose={() => setAddVendorOpen(false)}
@@ -580,10 +567,55 @@ const AddEditPurchaseInvoice = () => {
             mode="vendor"
           />
 
-          {/* ===== SECTION 3: Transport & Delivery ===== */}
+          {/* Other Charges Section */}
+          <OtherChargesSection
+            otherCharges={otherCharges}
+            setOtherCharges={setOtherCharges}
+          />
+
+          {/* Transport Information */}
           <fieldset className="border rounded-xl p-4 space-y-4">
-            <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <legend className="text-sm font-medium px-2">Transport Information</legend>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                label="Transport Name"
+                name="transportName"
+                type="text"
+                value={transportName}
+                onChange={(e) => setTransportName(e.target.value)}
+                placeholder="e.g., ABC Logistics"
+              />
+              <FormField
+                label="Vehicle Number"
+                name="vehicleNumber"
+                type="text"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+                placeholder="e.g., MH-01-AB-1234"
+              />
+              <FormField
+                label="E-Way Bill Number"
+                name="ewayBillNo"
+                type="text"
+                value={ewayBillNo}
+                onChange={(e) => setEwayBillNo(e.target.value)}
+                placeholder="e.g., EWB123456789"
+              />
+              <FormField
+                label="Distance (km)"
+                name="distance"
+                type="number"
+                value={distance}
+                onChange={(e) => setDistance(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                placeholder="0"
+              />
+            </div>
+          </fieldset>
+
+          {/* Delivery & Payment Terms */}
+          <fieldset className="border rounded-xl p-4 space-y-4">
+            <legend className="text-sm font-medium px-2">Delivery & Payment Terms</legend>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <FormField
                 label="Delivery Date"
                 name="deliveryDate"
@@ -599,43 +631,38 @@ const AddEditPurchaseInvoice = () => {
                 onChange={(e) => setDueDate(e.target.value)}
               />
               <FormField
-                label="Transport Name"
-                name="transportName"
-                type="text"
-                value={transportName}
-                onChange={(e) => setTransportName(e.target.value)}
-              />
-              <FormField
-                label="Vehicle Number"
-                name="vehicleNumber"
-                type="text"
-                value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value)}
-              />
-              <FormField
-                label="E-Way Bill No."
-                name="ewayBillNo"
-                type="text"
-                value={ewayBillNo}
-                onChange={(e) => setEwayBillNo(e.target.value)}
-              />
-              <FormField
-                label="Distance (km)"
-                name="distance"
+                label="Invoice Discount"
+                name="invoiceDiscount"
                 type="number"
-                value={distance}
-                onChange={(e) => setDistance(e.target.value)}
+                value={invoiceDiscount}
+                onChange={(e) => setInvoiceDiscount(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                placeholder="0"
+              />
+              <div className="flex items-end">
+                <FormField
+                  label="Type"
+                  name="invoiceDiscountType"
+                  type="select"
+                  value={invoiceDiscountType}
+                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
+                  options={[
+                    { value: "amount", label: "Amount (₹)" },
+                    { value: "percent", label: "Percentage (%)" },
+                  ]}
+                />
+              </div>
+              <FormField
+                label="Round Off"
+                name="roundOff"
+                type="number"
+                value={roundOff}
+                onChange={(e) => setRoundOff(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                placeholder="0"
               />
             </div>
           </fieldset>
 
-          {/* ===== SECTION 4: Other Charges ===== */}
-          <OtherChargesSection
-            otherCharges={otherCharges}
-            setOtherCharges={setOtherCharges}
-          />
-
-          {/* ===== SECTION 5: Summary (EXACT SAME FORMAT AS SALES INVOICE) ===== */}
+          {/* Summary */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -643,42 +670,20 @@ const AddEditPurchaseInvoice = () => {
               <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />
               <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />
               <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />
-
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <FormField
-                    label="Invoice Discount"
-                    name="invoiceDiscount"
-                    onChange={(e) => setInvoiceDiscount(e.target.value)}
-                    type="number"
-                    value={invoiceDiscount}
-                  />
-                </div>
-                <select
-                  className="border rounded p-2 text-sm h-10 mb-1"
-                  value={invoiceDiscountType}
-                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
-                >
-                  <option value="amount">₹</option>
-                  <option value="percent">%</option>
-                </select>
+            </div>
+            {invoiceDiscount > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <FormField label="Invoice Discount" name="invoiceDiscountDisplay" onChange={() => ""} type="text" value={`${invoiceDiscountType === "percent" ? (productsTotal * invoiceDiscount / 100).toFixed(2) : invoiceDiscount.toFixed(2)} ${invoiceDiscountType === "percent" ? "(" + invoiceDiscount + "%)" : ""}`} disabled />
+                {roundOff !== 0 && <FormField label="Round Off" name="roundOffDisplay" onChange={() => ""} type="text" value={roundOff.toFixed(2)} disabled />}
               </div>
-
-              <FormField
-                label="Round Off"
-                name="roundOff"
-                onChange={(e) => setRoundOff(e.target.value)}
-                type="number"
-                value={roundOff}
-              />
-
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />
             </div>
           </fieldset>
 
-          {/* ===== Action Buttons ===== */}
           <div className="mt-6 flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+            <Button type="button" variant="outline" onClick={() => navigate("/purchaseinvoice")}>
               Cancel
             </Button>
             <Button type="submit" variant="outline" disabled={products.length === 0}>
