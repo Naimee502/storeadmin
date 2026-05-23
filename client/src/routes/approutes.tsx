@@ -24,6 +24,7 @@ import AddEditSalesInvoice from "../pages/salesinvoice/addedit";
 import PurchaseInvoices from "../pages/purchaseinvoice";
 import AddEditPurchaseInvoice from "../pages/purchaseinvoice/addedit";
 import TransferStock from "../pages/transferstock";
+import AddEditTransferStock from "../pages/transferstock/addedit";
 import DeletedAccountGroups from "../pages/accountgroups/deletedentries";
 import DeletedAccounts from "../pages/accounts/deletedentries";
 import DeletedBranches from "../pages/branches/deletedentries";
@@ -577,6 +578,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <TransferStock />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transferstock/add"
+        element={
+          <ProtectedRoutes>
+            <AddEditTransferStock />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/transferstock/edit/:id"
+        element={
+          <ProtectedRoutes>
+            <AddEditTransferStock />
           </ProtectedRoutes>
         }
       />

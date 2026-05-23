@@ -1,24 +1,30 @@
-// mutations/transferStock.ts
 import { gql } from '@apollo/client';
+
+const TRANSFER_STOCK_RETURN_FIELDS = `
+  id
+  vouchernumber
+  frombranchid
+  tobranchid
+  transferdate
+  narration
+  items {
+    productid
+    variantid
+    transferunitid
+    transferqty
+    rate
+    amount
+  }
+  totalamount
+  status
+  createdby_name
+  admin { id name email }
+`;
 
 export const ADD_TRANSFER_STOCK = gql`
   mutation AddTransferStock($input: TransferStockInput!) {
     addTransferStock(input: $input) {
-      id
-      frombranchid
-      tobranchid
-      productid
-      variantid
-      transferunitid
-      transferqty
-      transferdate
-      status
-      batchnumber
-      admin {
-        id
-        name
-        email
-      }
+      ${TRANSFER_STOCK_RETURN_FIELDS}
     }
   }
 `;
@@ -26,21 +32,7 @@ export const ADD_TRANSFER_STOCK = gql`
 export const EDIT_TRANSFER_STOCK = gql`
   mutation EditTransferStock($id: ID!, $input: TransferStockInput!) {
     editTransferStock(id: $id, input: $input) {
-      id
-      frombranchid
-      tobranchid
-      productid
-      variantid
-      transferunitid
-      transferqty
-      transferdate
-      status
-      batchnumber
-      admin {
-        id
-        name
-        email
-      }
+      ${TRANSFER_STOCK_RETURN_FIELDS}
     }
   }
 `;

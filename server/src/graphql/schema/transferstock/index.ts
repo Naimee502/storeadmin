@@ -14,18 +14,37 @@ export const transferStockTypeDefs = gql`
     rejected: Boolean!
   }
 
-  type TransferStock {
-    id: ID!
-    frombranchid: String!
-    tobranchid: String!
+  # One item line in a transfer voucher
+  type TransferStockItem {
     productid: ID!
     variantid: ID
     transferunitid: ID
-    transferqty: Int!
+    transferqty: Float!
+    rate: Float
+    amount: Float
+  }
+
+  input TransferStockItemInput {
+    productid: ID!
+    variantid: ID
+    transferunitid: ID
+    transferqty: Float!
+    rate: Float
+    amount: Float
+  }
+
+  # Transfer Stock Voucher (Tally-style: one voucher, multiple items)
+  type TransferStock {
+    id: ID!
+    vouchernumber: String
+    frombranchid: String!
+    tobranchid: String!
     transferdate: String!
+    narration: String
+    items: [TransferStockItem!]!
+    totalamount: Float
     status: Boolean!
     admin: Admin
-    batchnumber: String
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -34,14 +53,12 @@ export const transferStockTypeDefs = gql`
   input TransferStockInput {
     frombranchid: ID!
     tobranchid: ID!
-    productid: ID!
-    variantid: ID
-    transferunitid: ID
-    transferqty: Int!
     transferdate: String!
+    narration: String
+    items: [TransferStockItemInput!]!
+    totalamount: Float
     status: Boolean
     admin: ID
-    batchnumber: String
     createdby_id: ID
     createdby_name: String
     createdby_type: String
