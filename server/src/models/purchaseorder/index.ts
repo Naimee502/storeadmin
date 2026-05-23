@@ -42,6 +42,28 @@ const purchaseOrderSchema = new mongoose.Schema(
       }
     ],
 
+    othercharges: [
+      {
+        ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
+        ledgername: { type: String },
+        amount: { type: Number, required: true },
+        gstpercent: { type: Number, default: 0 },
+        gstamount: { type: Number, default: 0 },
+        totalamount: { type: Number, required: true },
+        remarks: { type: String },
+      }
+    ],
+
+    deliverydate: { type: String },
+    duedate: { type: String },
+    transportname: { type: String },
+    vehiclenumber: { type: String },
+    ewaybillno: { type: String },
+    distance: { type: Number },
+    roundoff: { type: Number, default: 0 },
+    invoicediscount: { type: Number, default: 0 },
+    invoicediscounttype: { type: String, default: "amount" },
+
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },
     // Order lifecycle: "open" / "cancelled" / "converted".

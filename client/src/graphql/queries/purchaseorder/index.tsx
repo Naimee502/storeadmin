@@ -41,6 +41,23 @@ export const GET_PURCHASE_ORDERS = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -93,6 +110,23 @@ export const GET_DELETED_PURCHASE_ORDERS = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name
@@ -145,6 +179,23 @@ export const GET_PURCHASE_ORDER_BY_ID = gql`
         amount
         discount
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       createdby_id
       createdby_name

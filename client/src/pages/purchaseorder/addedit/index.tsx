@@ -93,6 +93,9 @@ const AddEditPurchaseOrder = () => {
 
   const { data } = usePurchaseOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const purchaseOrders = useAppSelector(
+    (state) => state.purchaseorder.orders
+  );
 
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   // For Purchase Order, the party is a vendor / supplier
@@ -146,8 +149,20 @@ const AddEditPurchaseOrder = () => {
             : null,
       }));
       setProducts(mappedProducts);
+    } else if (!isEdit) {
+      // --- NEW ORDER MODE - Auto-calculate next bill number
+      if (purchaseOrders.length > 0) {
+        const billNumbers = purchaseOrders.map((order) => order.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+          .toString()
+          .padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
     }
-  }, [isEdit, data]);
+  }, [isEdit, data, purchaseOrders]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -324,7 +339,8 @@ const AddEditPurchaseOrder = () => {
                 type="text"
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="Leave blank for auto-generate"
+                placeholder="Auto-generated"
+                disabled={!isEdit && billNumber !== ""}
               />
             </div>
           </fieldset>

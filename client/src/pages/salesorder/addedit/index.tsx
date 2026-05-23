@@ -72,6 +72,9 @@ const AddEditSalesOrder = () => {
 
   const { data } = useSalesOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const salesOrders = useAppSelector(
+    (state) => state.salesorder.orders
+  );
 
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const customerAccounts = accountData?.getAccounts?.filter((acc: any) => acc.type === "customer") || [];
@@ -119,8 +122,20 @@ const AddEditSalesOrder = () => {
         selectedUnitValue: p.salesunitid && p.unitqty ? `${p.salesunitid.id}--${p.unitqty}` : null,
       }));
       setProducts(mappedProducts);
+    } else if (!isEdit) {
+      // --- NEW ORDER MODE - Auto-calculate next bill number
+      if (salesOrders.length > 0) {
+        const billNumbers = salesOrders.map((order) => order.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+          .toString()
+          .padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
     }
-  }, [isEdit, data]);
+  }, [isEdit, data, salesOrders]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -284,7 +299,8 @@ const AddEditSalesOrder = () => {
                 type="text"
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="Leave blank for auto-generate"
+                placeholder="Auto-generated"
+                disabled={!isEdit && billNumber !== ""}
               />
             </div>
           </fieldset>

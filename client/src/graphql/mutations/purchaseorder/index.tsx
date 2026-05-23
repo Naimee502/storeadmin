@@ -58,6 +58,23 @@ export const ADD_PURCHASE_ORDER = gql`
         ledgername
       }
     }
+    othercharges {
+      ledgerid { id ledgername }
+      amount
+      gstpercent
+      gstamount
+      totalamount
+      remarks
+    }
+    deliverydate
+    duedate
+    transportname
+    vehiclenumber
+    ewaybillno
+    distance
+    roundoff
+    invoicediscount
+    invoicediscounttype
     isservice
     createdby_id
     createdby_name
@@ -127,6 +144,23 @@ export const EDIT_PURCHASE_ORDER = gql`
           ledgername
         }
       }
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      distance
+      roundoff
+      invoicediscount
+      invoicediscounttype
       isservice
       status
       createdAt

@@ -19,6 +19,7 @@ const populateFields = [
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
+  "othercharges.ledgerid",
 ];
 
 // ✅ Format order function
@@ -31,6 +32,11 @@ const formatOrder = (order: any) => ({
   createdby_name: order.createdby_name,
   createdby_type: order.createdby_type,
   isConverted: order.isConverted,
+
+  othercharges: order.othercharges?.map((oc: any) => ({
+    ...oc,
+    ledgerid: toSimpleRef(oc.ledgerid, ["ledgername"])
+  })) ?? [],
 
   productservice: order.productservice?.map((ps: any) => {
     const variant = ps.productserviceid?.productvariants?.find(

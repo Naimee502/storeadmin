@@ -73,6 +73,10 @@ const AddEditSalesReturn: React.FC = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
+  const salesReturns = useAppSelector(
+    (state) => state.salesreturn?.returns || []
+  );
+
   // Source invoice selection
   const [sourceInvoiceId, setSourceInvoiceId] = useState(fromInvoiceParam || "");
 
@@ -88,6 +92,7 @@ const AddEditSalesReturn: React.FC = () => {
   const [invoicetype, setInvoiceType] = useState("retail");
   const [isservice, setIsService] = useState(false);
   const [salesmenid, setSalesmenid] = useState<string | undefined>(undefined);
+  const [billnumber, setBillnumber] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -127,6 +132,7 @@ const AddEditSalesReturn: React.FC = () => {
     setPaymentType(ret.paymenttype || "");
     setPartyacc(ret.partyacc);
     setBilltype(ret.billtype || "");
+    setBillnumber(ret.billnumber || "");
     setTaxOrSupplyType(ret.taxorsupplytype || "");
     setInvoiceType(ret.invoicetype || "retail");
     setIsService(!!ret.isservice);
@@ -162,6 +168,24 @@ const AddEditSalesReturn: React.FC = () => {
       }))
     );
   }, [isEdit, existingData]);
+
+  // Auto-calculate bill number for new returns
+  useEffect(() => {
+    if (isEdit) return;
+    if (sourceInvoiceId) return; // Wait for source invoice to be selected
+
+    // When no source invoice is selected in new mode, auto-calculate bill number
+    if (salesReturns.length > 0) {
+      const billNumbers = salesReturns.map((ret) => ret.billnumber).filter(Boolean);
+      const lastBillNumber = [...billNumbers].sort().pop();
+      const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+        .toString()
+        .padStart(6, "0");
+      setBillnumber(nextBillNumber);
+    } else {
+      setBillnumber("000001");
+    }
+  }, [isEdit, salesReturns, sourceInvoiceId]);
 
   // Hydrate from source invoice when adding/converting
   useEffect(() => {
@@ -296,6 +320,7 @@ const AddEditSalesReturn: React.FC = () => {
       taxorsupplytype: taxorsupplytype || "exclusive",
       returndate,
       billtype: billtype || "tax",
+      billnumber,
       notes: notes || undefined,
       reason: reason || undefined,
       refundMode,
@@ -394,6 +419,15 @@ const AddEditSalesReturn: React.FC = () => {
               ]}
               value={refundMode}
               onChange={(e: any) => setRefundMode(e.target.value)}
+            />
+            <FormField
+              label="Return Number"
+              name="billnumber"
+              type="text"
+              value={billnumber}
+              onChange={(e: any) => setBillnumber(e.target.value)}
+              placeholder="Auto-generated"
+              disabled={!isEdit && billnumber !== ""}
             />
           </div>
 

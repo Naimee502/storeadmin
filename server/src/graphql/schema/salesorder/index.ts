@@ -2,6 +2,35 @@ import { gql } from 'apollo-server-express';
 
 export const salesOrderTypeDefs = gql`
 
+  type SimpleRef {
+    id: ID
+    name: String
+    unitname: String
+    accountname: String
+    mobile: String
+    ledgername: String
+  }
+
+  type OtherCharge {
+    ledgerid: SimpleRef
+    ledgername: String
+    amount: Float
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float
+    remarks: String
+  }
+
+  input OtherChargeInput {
+    ledgerid: ID!
+    ledgername: String
+    amount: Float!
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float!
+    remarks: String
+  }
+
   type SalesOrderProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
@@ -50,6 +79,16 @@ export const salesOrderTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesOrderProductService!]!
+    othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     createdby_id: ID
     createdby_name: String
@@ -66,7 +105,7 @@ export const salesOrderTypeDefs = gql`
   input SalesOrderInput {
     salesmenid: ID
     paymenttype: String!
-    partyacc: ID!  
+    partyacc: ID!
     taxorsupplytype: String
     billdate: String!
     billtype: String
@@ -80,6 +119,16 @@ export const salesOrderTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [SalesOrderProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     createdby_id: ID
     createdby_name: String

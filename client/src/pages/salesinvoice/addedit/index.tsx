@@ -65,7 +65,7 @@ const AddEditSalesInvoice = () => {
     return `${yyyy}-${mm}-${dd}`;
   });
   const [billType, setBillType] = useState("");
-  const [billNumber, setBillNumber] = useState("000001");
+  const [billNumber, setBillNumber] = useState("");
   const [isService, setIsService] = useState(false);
   const [invoiceType, setInvoiceType] = useState("retail");
   const [products, setProducts] = useState<InvoiceProduct[]>([]);
@@ -250,8 +250,17 @@ const AddEditSalesInvoice = () => {
       }));
       setProducts(mappedProducts);
     } else if (!isEdit && !orderId) {
-      // --- NEW INVOICE MODE
-      setBillNumber("");
+      // --- NEW INVOICE MODE - Auto-calculate next bill number
+      if (salesInvoices.length > 0) {
+        const billNumbers = salesInvoices.map((inv) => inv.billnumber);
+        const lastBillNumber = [...billNumbers].sort().pop();
+        const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+          .toString()
+          .padStart(6, "0");
+        setBillNumber(nextBillNumber);
+      } else {
+        setBillNumber("000001");
+      }
     }
   }, [isEdit, data, orderId, orderData, salesInvoices]);
 
@@ -522,7 +531,8 @@ const AddEditSalesInvoice = () => {
                 type="text"
                 value={billNumber}
                 onChange={(e) => setBillNumber(e.target.value)}
-                placeholder="Leave blank for auto-generate"
+                placeholder="Auto-generated"
+                disabled={!isEdit && billNumber !== ""}
               />
               <FormField
                 label="Bill Type"

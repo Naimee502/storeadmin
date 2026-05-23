@@ -2,6 +2,35 @@ import { gql } from 'apollo-server-express';
 
 export const purchaseOrderTypeDefs = gql`
 
+  type SimpleRef {
+    id: ID
+    name: String
+    unitname: String
+    accountname: String
+    mobile: String
+    ledgername: String
+  }
+
+  type OtherCharge {
+    ledgerid: SimpleRef
+    ledgername: String
+    amount: Float
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float
+    remarks: String
+  }
+
+  input OtherChargeInput {
+    ledgerid: ID!
+    ledgername: String
+    amount: Float!
+    gstpercent: Float
+    gstamount: Float
+    totalamount: Float!
+    remarks: String
+  }
+
   type PurchaseOrderProductService {
     productserviceid: SimpleRef!
     variantid: SimpleRef
@@ -50,6 +79,16 @@ export const purchaseOrderTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseOrderProductService!]!
+    othercharges: [OtherCharge]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean!
     createdby_id: ID
     createdby_name: String
@@ -80,6 +119,16 @@ export const purchaseOrderTypeDefs = gql`
     adminid: ID!
     branchid: ID!
     productservice: [PurchaseOrderProductServiceInput!]!
+    othercharges: [OtherChargeInput]
+    deliverydate: String
+    duedate: String
+    transportname: String
+    vehiclenumber: String
+    ewaybillno: String
+    distance: Float
+    roundoff: Float
+    invoicediscount: Float
+    invoicediscounttype: String
     isservice: Boolean
     createdby_id: ID
     createdby_name: String

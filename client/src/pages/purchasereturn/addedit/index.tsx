@@ -66,6 +66,10 @@ const AddEditPurchaseReturn: React.FC = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
+  const purchaseReturns = useAppSelector(
+    (state) => state.purchasereturn?.returns || []
+  );
+
   const [sourceInvoiceId, setSourceInvoiceId] = useState(fromInvoiceParam || "");
 
   const [returndate, setReturndate] = useState(todayStr());
@@ -78,6 +82,7 @@ const AddEditPurchaseReturn: React.FC = () => {
   const [taxorsupplytype, setTaxOrSupplyType] = useState("");
   const [invoicetype, setInvoiceType] = useState("regular");
   const [isservice, setIsService] = useState(false);
+  const [billnumber, setBillnumber] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [otherCharges, setOtherCharges] = useState<any[]>([]);
   const [transportName, setTransportName] = useState("");
@@ -119,6 +124,7 @@ const AddEditPurchaseReturn: React.FC = () => {
     setPaymentType(ret.paymenttype || "");
     setPartyacc(ret.partyacc);
     setBilltype(ret.billtype || "");
+    setBillnumber(ret.billnumber || "");
     setTaxOrSupplyType(ret.taxorsupplytype || "");
     setInvoiceType(ret.invoicetype || "regular");
     setIsService(!!ret.isservice);
@@ -149,6 +155,24 @@ const AddEditPurchaseReturn: React.FC = () => {
       }))
     );
   }, [isEdit, existingData]);
+
+  // Auto-calculate bill number for new returns
+  useEffect(() => {
+    if (isEdit) return;
+    if (sourceInvoiceId) return; // Wait for source invoice to be selected
+
+    // When no source invoice is selected in new mode, auto-calculate bill number
+    if (purchaseReturns.length > 0) {
+      const billNumbers = purchaseReturns.map((ret) => ret.billnumber).filter(Boolean);
+      const lastBillNumber = [...billNumbers].sort().pop();
+      const nextBillNumber = (parseInt(lastBillNumber || "0", 10) + 1)
+        .toString()
+        .padStart(6, "0");
+      setBillnumber(nextBillNumber);
+    } else {
+      setBillnumber("000001");
+    }
+  }, [isEdit, purchaseReturns, sourceInvoiceId]);
 
   // Hydrate from source invoice
   useEffect(() => {
@@ -258,6 +282,7 @@ const AddEditPurchaseReturn: React.FC = () => {
       taxorsupplytype: taxorsupplytype || "exclusive",
       returndate,
       billtype: billtype || "tax",
+      billnumber,
       notes: notes || undefined,
       reason: reason || undefined,
       refundMode,
@@ -355,6 +380,15 @@ const AddEditPurchaseReturn: React.FC = () => {
               ]}
               value={refundMode}
               onChange={(e: any) => setRefundMode(e.target.value)}
+            />
+            <FormField
+              label="Return Number"
+              name="billnumber"
+              type="text"
+              value={billnumber}
+              onChange={(e: any) => setBillnumber(e.target.value)}
+              placeholder="Auto-generated"
+              disabled={!isEdit && billnumber !== ""}
             />
           </div>
 
