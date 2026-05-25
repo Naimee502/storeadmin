@@ -93,13 +93,15 @@ export default function StaffDashboard() {
         {/* Quick actions */}
         <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={styles.actionsRow}>
+          <View style={styles.actionsGrid}>
             {[
-              { icon: 'calendar-check-outline', label: 'Attendance', screen: 'StaffAttendance', color: '#22c55e' },
-              { icon: 'account-circle-outline', label: 'Profile',    screen: 'StaffProfile',    color: '#8b5cf6' },
+              { icon: 'clipboard-plus-outline', label: 'New Order',  screen: 'StaffParties',    color: colors.brand   },
+              { icon: 'account-group-outline',  label: 'Parties',    screen: 'StaffParties',    color: '#3b82f6'      },
+              { icon: 'calendar-check-outline', label: 'Attendance', screen: 'StaffAttendance', color: '#22c55e'      },
+              { icon: 'account-circle-outline', label: 'Profile',    screen: 'StaffProfile',    color: '#8b5cf6'      },
             ].map((a) => (
               <TouchableOpacity
-                key={a.screen}
+                key={a.label}
                 style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => navigation.navigate(a.screen)}
                 activeOpacity={0.82}
@@ -145,8 +147,8 @@ const styles = StyleSheet.create({
   orderAmt:    { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 4 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   statusText:  { fontSize: 10, fontFamily: FONTS.semiBold },
-  actionsRow:  { flexDirection: 'row', gap: 12 },
-  actionCard:  { flex: 1, borderRadius: 18, borderWidth: 1, padding: 16, alignItems: 'center', gap: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionCard:  { width: '47%', flexGrow: 1, borderRadius: 18, borderWidth: 1, paddingVertical: 20, paddingHorizontal: 12, alignItems: 'center', gap: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   actionIcon:  { width: 48, height: 48, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   actionLabel: { fontSize: 13, fontFamily: FONTS.semiBold },
 });

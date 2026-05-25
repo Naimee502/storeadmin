@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { formatINR, formatDate } from '../../../../utils';
@@ -35,6 +36,7 @@ function getStatus(o: any): FilterKey {
 }
 
 export default function StaffOrders() {
+  const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -127,6 +129,16 @@ export default function StaffOrders() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* FAB — New Order */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.brand }]}
+        onPress={() => navigation.navigate('StaffParties')}
+        activeOpacity={0.88}
+      >
+        <Icon name="plus" size={20} color="#fff" />
+        <Text style={styles.fabText}>New Order</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -158,4 +170,11 @@ const styles = StyleSheet.create({
   center:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   emptyText:   { fontSize: 14, fontFamily: FONTS.regular },
   clearFilter: { fontSize: 14, fontFamily: FONTS.semiBold, marginTop: 4 },
+  fab: {
+    position: 'absolute', bottom: 100, right: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 18,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 6,
+  },
+  fabText: { fontSize: 14, fontFamily: FONTS.bold, color: '#fff' },
 });

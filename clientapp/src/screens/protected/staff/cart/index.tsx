@@ -1,0 +1,215 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
+import { useMutation } from '@apollo/client/react';
+import { useSelector, useDispatch } from 'react-redux';
+import { COLORS, FONTS, useTheme } from '../../../../config';
+import { BackHeader, DynamicFlashList } from '../../../../components';
+import { ADD_SALES_ORDER } from '../../../../apollo/queries/party';
+import { formatINR } from '../../../../utils';
+import { clearCart, updateQty } from '../../../../store/slices';
+import type { RootState } from '../../../../store/rootreducer';
+import type { CartItem } from '../../../../store/slices/cart';
+
+export default function StaffCart() {
+  const navigation = useNavigation<any>();
+  const { colors, isDark } = useTheme();
+  const dispatch   = useDispatch();
+  const cartItems  = useSelector((s: RootState) => s.cart.items);
+  const partyId    = useSelector((s: RootState) => s.cart.partyId);
+  const partyName  = useSelector((s: RootState) => s.cart.partyName);
+  const tenant     = useSelector((s: RootState) => s.tenant);
+  const user       = useSelector((s: RootState) => s.auth.user);
+  const adminid    = tenant.adminId ?? '';
+
+  const [placing, setPlacing] = useState(false);
+  const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
+
+  const subtotal = cartItems.reduce((s, i) => s + i.amount, 0);
+  const gstTotal = cartItems.reduce((s, i) => s + (i.gst ?? 0), 0);
+  const total    = subtotal + gstTotal;
+
+  const handlePlaceOrder = async () => {
+    if (!partyId || cartItems.length === 0) return;
+
+    if (!adminid) {
+      Alert.alert('Demo Mode', 'Order submitted successfully!\n\nIn production this will create a real sales order.', [
+        { text: 'OK', onPress: () => { dispatch(clearCart()); navigation.navigate('StaffOrders'); } },
+      ]);
+      return;
+    }
+
+    Alert.alert('Confirm Order', `Place order of ${formatINR(total)} for ${partyName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Place Order',
+        onPress: async () => {
+          setPlacing(true);
+          try {
+            await addSalesOrder({
+              variables: {
+                input: {
+                  adminid,
+                  partyaccid: partyId,
+                  staffid: user?.id,
+                  billdate: new Date().toISOString(),
+                  totalamount: total,
+                  subtotal,
+                  totalgst: gstTotal,
+                  totaldiscount: 0,
+                  productservice: cartItems.map(i => ({
+                    productserviceid: i.productId,
+                    variantid: i.variantId,
+                    qty: i.qty,
+                    rate: i.rate,
+                    amount: i.amount,
+                    gst: i.gst ?? 0,
+                  })),
+                },
+              },
+            });
+            dispatch(clearCart());
+            Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [
+              { text: 'OK', onPress: () => navigation.navigate('StaffOrders') },
+            ]);
+          } catch {
+            Alert.alert('Error', 'Failed to place order. Please try again.');
+          } finally {
+            setPlacing(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: CartItem }) => (
+    <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+      <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
+        <Icon name="package-variant-closed" size={20} color={colors.brand} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{item.productName}</Text>
+        <Text style={[styles.itemVariant, { color: colors.subText }]}>{item.variantName}</Text>
+        <Text style={[styles.itemRate, { color: colors.subText }]}>{formatINR(item.rate)} × {item.qty}</Text>
+      </View>
+      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+        <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
+        <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
+          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty - 1 }))}>
+            <Icon name="minus" size={12} color={colors.brand} />
+          </TouchableOpacity>
+          <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
+          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty + 1 }))}>
+            <Icon name="plus" size={12} color={colors.brand} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  const Footer = () => (
+    <View>
+      <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+        <Text style={[styles.summaryTitle, { color: colors.text }]}>Order Summary</Text>
+        {[
+          { label: 'Subtotal', value: formatINR(subtotal) },
+          { label: 'GST',      value: formatINR(gstTotal) },
+        ].map(row => (
+          <View key={row.label} style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>{row.label}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{row.value}</Text>
+          </View>
+        ))}
+        <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
+          <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
+          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(total)}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }]}
+        onPress={handlePlaceOrder}
+        disabled={placing}
+        activeOpacity={0.88}
+      >
+        {placing
+          ? <Text style={styles.placeBtnText}>Placing Order…</Text>
+          : <><Icon name="check-circle-outline" size={18} color="#fff" /><Text style={styles.placeBtnText}>Place Order · {formatINR(total)}</Text></>
+        }
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
+
+      <BackHeader label="Cart" />
+
+      {partyName && (
+        <View style={[styles.partyBanner, { backgroundColor: colors.brandSoft }]}>
+          <Icon name="account-tie-outline" size={14} color={colors.brand} />
+          <Text style={[styles.partyBannerText, { color: colors.brand }]}>
+            Order for <Text style={{ fontFamily: FONTS.bold }}>{partyName}</Text>
+          </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 'auto' }}>
+            <Text style={[styles.addMoreText, { color: colors.brand }]}>+ Add more</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {cartItems.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Icon name="cart-off" size={52} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.subText }]}>Cart is empty</Text>
+          <TouchableOpacity style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]} onPress={() => navigation.goBack()}>
+            <Text style={[styles.browseBtnText, { color: colors.brand }]}>Browse Products</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <DynamicFlashList
+          data={cartItems}
+          renderItem={renderItem}
+          estimatedItemSize={88}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={<Footer />}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:   { flex: 1 },
+  listContent: { paddingHorizontal: 18, paddingBottom: 40, paddingTop: 8 },
+  partyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 18, marginTop: 10, marginBottom: 4, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  partyBannerText: { fontSize: 13, fontFamily: FONTS.semiBold },
+  addMoreText:     { fontSize: 12, fontFamily: FONTS.semiBold },
+  itemCard:  { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  itemIcon:    { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  itemName:    { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
+  itemVariant: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 2 },
+  itemRate:    { fontSize: 11, fontFamily: FONTS.regular },
+  itemAmount:  { fontSize: 14, fontFamily: FONTS.bold },
+  qtyControl:  { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1.5, overflow: 'hidden' },
+  qtyBtn:      { paddingHorizontal: 8, paddingVertical: 5 },
+  qtyText:     { fontSize: 13, fontFamily: FONTS.bold, minWidth: 22, textAlign: 'center' },
+  summaryCard: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 14, marginTop: 4, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  summaryTitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 12 },
+  summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  summaryLabel: { fontSize: 13, fontFamily: FONTS.regular },
+  summaryValue: { fontSize: 13, fontFamily: FONTS.semiBold },
+  totalRow:     { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 12, marginTop: 4 },
+  totalLabel:   { fontSize: 15, fontFamily: FONTS.bold },
+  totalValue:   { fontSize: 17, fontFamily: FONTS.bold },
+  placeBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 18, paddingVertical: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
+  placeBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  emptyWrap:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
+  emptyText:    { fontSize: 16, fontFamily: FONTS.semiBold },
+  browseBtn:    { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
+  browseBtnText:{ fontSize: 14, fontFamily: FONTS.bold },
+});

@@ -62,7 +62,7 @@ export default function Login({ navigation }: any) {
       await new Promise<void>(r => setTimeout(() => r(), 1000));
       // Mock response — role determined server-side by mobile number
       dispatch(setCredentials({
-        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'deliveryboy' },
+        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'staff' },
         token: 'mock-token',
       }));
       await signIn();

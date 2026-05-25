@@ -11,6 +11,7 @@ import {
   DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile, DeliveryCollectPayment,
   // Staff
   StaffDashboard, StaffOrders, StaffAttendance, StaffProfile,
+  StaffParties, StaffCreateParty, StaffCatalog, StaffCart,
 } from '../screens';
 
 export const Screens: any = {
@@ -59,6 +60,10 @@ export const Screens: any = {
   StaffOrders,
   StaffAttendance,
   StaffProfile,
+  StaffParties,
+  StaffCreateParty,
+  StaffCatalog,
+  StaffCart,
 };
 
 export const NavIcons = {
@@ -231,6 +236,10 @@ export const NavConfig: any = {
           ],
         },
       },
+      { name: 'StaffParties',     options: { headerShown: false } },
+      { name: 'StaffCreateParty', options: { headerShown: false } },
+      { name: 'StaffCatalog',     options: { headerShown: false } },
+      { name: 'StaffCart',        options: { headerShown: false } },
     ],
   },
 
