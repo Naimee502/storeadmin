@@ -8,7 +8,7 @@ import {
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
   RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute,
   // Delivery boy
-  DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile,
+  DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile, DeliveryCollectPayment,
   // Staff
   StaffDashboard, StaffOrders, StaffAttendance, StaffProfile,
 } from '../screens';
@@ -53,6 +53,7 @@ export const Screens: any = {
   DeliveryCollections,
   DeliveryAttendance,
   DeliveryProfile,
+  DeliveryCollectPayment,
   // Staff
   StaffDashboard,
   StaffOrders,
@@ -197,6 +198,7 @@ export const NavConfig: any = {
           ],
         },
       },
+      { name: 'DeliveryCollectPayment', options: { headerShown: false } },
     ],
   },
 

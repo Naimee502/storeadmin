@@ -18,12 +18,12 @@ export default function Login({ navigation }: any) {
   const dispatch = useDispatch();
   const { showLoader, showToast } = useUI();
 
-  const [mobile, setMobile]         = useState('');
-  const [password, setPassword]     = useState('');
-  const [showPass, setShowPass]     = useState(false);
+  const [mobile, setMobile] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [isStaffMode, setIsStaffMode] = useState(false);
-  const [errors, setErrors]         = useState<{ mobile?: string; password?: string }>({});
-  const [mobileFocused, setMobileFocused]   = useState(false);
+  const [errors, setErrors] = useState<{ mobile?: string; password?: string }>({});
+  const [mobileFocused, setMobileFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   const passwordRef = useRef<TextInput>(null);
@@ -62,7 +62,7 @@ export default function Login({ navigation }: any) {
       await new Promise<void>(r => setTimeout(() => r(), 1000));
       // Mock response — role determined server-side by mobile number
       dispatch(setCredentials({
-        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'salesman' },
+        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'deliveryboy' },
         token: 'mock-token',
       }));
       await signIn();
@@ -200,14 +200,14 @@ export default function Login({ navigation }: any) {
               <TouchableOpacity style={styles.staffToggle} onPress={toggleStaffMode} activeOpacity={0.7}>
                 {isStaffMode
                   ? <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
-                      <Icon name="arrow-left" size={16} color={colors.brand} />
-                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Back to OTP login</Text>
-                    </Animated.View>
+                    <Icon name="arrow-left" size={16} color={colors.brand} />
+                    <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Back to OTP login</Text>
+                  </Animated.View>
                   : <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
-                      <Icon name="account-tie-outline" size={18} color={colors.brand} />
-                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Login as Staff</Text>
-                      <Icon name="chevron-right" size={16} color={colors.brand} />
-                    </Animated.View>
+                    <Icon name="account-tie-outline" size={18} color={colors.brand} />
+                    <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Login as Staff</Text>
+                    <Icon name="chevron-right" size={16} color={colors.brand} />
+                  </Animated.View>
                 }
               </TouchableOpacity>
             </Animated.View>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -11,6 +11,9 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const TODAY_DAY = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
 type VisitStatus = 'pending' | 'visited' | 'skipped';
+type LatLng = { lat: number; lng: number };
+
+// ── dummy data (with location) ──────────────────────────────────────────────
 
 const DUMMY_ROUTES = [
   {
@@ -18,17 +21,17 @@ const DUMMY_ROUTES = [
     dayWiseAccounts: [
       {
         day: 'Monday', accounts: [
-          { id: 'a1', name: 'Mehta Traders',   mobile: '9876541001', outstanding: 12500, visitStatus: 'visited'  as VisitStatus },
-          { id: 'a2', name: 'Patel General',   mobile: '9876541002', outstanding: 4200,  visitStatus: 'visited'  as VisitStatus },
-          { id: 'a3', name: 'Gupta Kirana',    mobile: '9876541003', outstanding: 0,     visitStatus: 'pending'  as VisitStatus },
-          { id: 'a4', name: 'Sharma Stores',   mobile: '9876541004', outstanding: 7800,  visitStatus: 'pending'  as VisitStatus },
-          { id: 'a5', name: 'Singh Provision', mobile: '9876541005', outstanding: 2100,  visitStatus: 'skipped'  as VisitStatus },
+          { id: 'a1', name: 'Mehta Traders',   mobile: '9876541001', outstanding: 12500, visitStatus: 'visited' as VisitStatus, city: 'Andheri West',  address: 'Shop 12, Andheri Market',    lat: 19.1197, lng: 72.8468 },
+          { id: 'a2', name: 'Patel General',   mobile: '9876541002', outstanding: 4200,  visitStatus: 'visited' as VisitStatus, city: 'Jogeshwari',    address: '5B, Link Road',              lat: 19.1362, lng: 72.8497 },
+          { id: 'a3', name: 'Gupta Kirana',    mobile: '9876541003', outstanding: 0,     visitStatus: 'pending' as VisitStatus, city: 'Goregaon',      address: 'SV Road, Goregaon West',     lat: 19.1530, lng: 72.8464 },
+          { id: 'a4', name: 'Sharma Stores',   mobile: '9876541004', outstanding: 7800,  visitStatus: 'pending' as VisitStatus, city: 'Malad West',    address: 'Near Inorbit Mall',          lat: 19.1875, lng: 72.8488 },
+          { id: 'a5', name: 'Singh Provision', mobile: '9876541005', outstanding: 2100,  visitStatus: 'skipped' as VisitStatus, city: 'Kandivali',     address: 'Thakur Village, Kandivali',  lat: 19.2053, lng: 72.8563 },
         ],
       },
       {
         day: 'Thursday', accounts: [
-          { id: 'a6', name: 'Shah Stores',     mobile: '9876541006', outstanding: 5500,  visitStatus: 'pending'  as VisitStatus },
-          { id: 'a7', name: 'Modi Mart',       mobile: '9876541007', outstanding: 900,   visitStatus: 'pending'  as VisitStatus },
+          { id: 'a6', name: 'Shah Stores',     mobile: '9876541006', outstanding: 5500,  visitStatus: 'pending' as VisitStatus, city: 'Borivali',      address: 'IC Colony, Borivali West',   lat: 19.2290, lng: 72.8567 },
+          { id: 'a7', name: 'Modi Mart',       mobile: '9876541007', outstanding: 900,   visitStatus: 'pending' as VisitStatus, city: 'Dahisar',       address: 'Dahisar East Market',        lat: 19.2521, lng: 72.8583 },
         ],
       },
     ],
@@ -38,15 +41,15 @@ const DUMMY_ROUTES = [
     dayWiseAccounts: [
       {
         day: 'Tuesday', accounts: [
-          { id: 'a8',  name: 'Iyer Provisions', mobile: '9876542001', outstanding: 3300, visitStatus: 'pending' as VisitStatus },
-          { id: 'a9',  name: 'Nair Shop',        mobile: '9876542002', outstanding: 0,    visitStatus: 'pending' as VisitStatus },
+          { id: 'a8',  name: 'Iyer Provisions', mobile: '9876542001', outstanding: 3300,  visitStatus: 'pending' as VisitStatus, city: 'Bandra West',  address: 'Hill Road, Bandra',          lat: 19.0596, lng: 72.8295 },
+          { id: 'a9',  name: 'Nair Shop',        mobile: '9876542002', outstanding: 0,     visitStatus: 'pending' as VisitStatus, city: 'Santacruz',    address: 'SV Road, Santacruz West',    lat: 19.0815, lng: 72.8408 },
         ],
       },
       {
         day: 'Friday', accounts: [
-          { id: 'a10', name: 'Pillai Traders',  mobile: '9876542003', outstanding: 6700, visitStatus: 'pending' as VisitStatus },
-          { id: 'a11', name: 'Raj Bazaar',       mobile: '9876542004', outstanding: 1200, visitStatus: 'pending' as VisitStatus },
-          { id: 'a12', name: 'Kumar Stores',     mobile: '9876542005', outstanding: 0,    visitStatus: 'pending' as VisitStatus },
+          { id: 'a10', name: 'Pillai Traders',  mobile: '9876542003', outstanding: 6700,  visitStatus: 'pending' as VisitStatus, city: 'Dadar',        address: 'Dadar TT Circle',            lat: 19.0178, lng: 72.8478 },
+          { id: 'a11', name: 'Raj Bazaar',       mobile: '9876542004', outstanding: 1200,  visitStatus: 'pending' as VisitStatus, city: 'Sion',         address: 'Sion Circle, East',          lat: 19.0390, lng: 72.8619 },
+          { id: 'a12', name: 'Kumar Stores',     mobile: '9876542005', outstanding: 0,     visitStatus: 'pending' as VisitStatus, city: 'Kurla',        address: 'LBS Marg, Kurla West',       lat: 19.0728, lng: 72.8826 },
         ],
       },
     ],
@@ -54,13 +57,54 @@ const DUMMY_ROUTES = [
 ];
 
 const VISIT_META: Record<VisitStatus, { color: string; icon: string; label: string }> = {
-  visited: { color: '#22c55e', icon: 'check-circle',           label: 'Visited'  },
-  pending: { color: '#f59e0b', icon: 'clock-outline',          label: 'Pending'  },
-  skipped: { color: '#ef4444', icon: 'minus-circle-outline',   label: 'Skipped'  },
+  visited: { color: '#22c55e', icon: 'check-circle',         label: 'Visited' },
+  pending: { color: '#f59e0b', icon: 'clock-outline',        label: 'Pending' },
+  skipped: { color: '#ef4444', icon: 'minus-circle-outline', label: 'Skipped' },
 };
 
-function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, allRoutes }: {
-  route: any; colors: any;
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function fmtDist(km: number): string {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+}
+
+function openInMaps(lat: number, lng: number, label: string, fromLoc: LatLng | null) {
+  const dest   = `${lat},${lng}`;
+  const origin = fromLoc ? `${fromLoc.lat},${fromLoc.lng}` : '';
+
+  const googleUrl = origin
+    ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`
+    : `https://www.google.com/maps/search/?api=1&query=${dest}`;
+
+  const appleUrl = origin
+    ? `maps://?saddr=${origin}&daddr=${dest}`
+    : `maps://?q=${encodeURIComponent(label)}&ll=${dest}`;
+
+  const url = Platform.OS === 'ios' ? appleUrl : googleUrl;
+
+  Linking.canOpenURL(url)
+    .then(supported => {
+      if (supported) return Linking.openURL(url);
+      return Linking.openURL(googleUrl);
+    })
+    .catch(() => Alert.alert('Maps Error', 'Could not open maps app.'));
+}
+
+// ── RouteCard ─────────────────────────────────────────────────────────────────
+
+function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate }: {
+  route: any; colors: any; salesmanLoc: LatLng | null;
+  onNavigate: (lat: number, lng: number, label: string) => void;
   onPartyPress:   (party: any) => void;
   onAddParty:     (routeId: string, routeName: string, day: string, existingIds: string[], allDayWise: any[], salesmanId: string) => void;
   onManageParty:  (party: any, routeId: string, routeName: string, day: string, dayWiseAccounts: any[], salesmanId: string, allRoutes: any[]) => void;
@@ -87,7 +131,6 @@ function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, all
             {route.routecode}  ·  {visitedCount}/{totalAccounts} visited
           </Text>
         </View>
-        {/* Progress bar */}
         <View style={styles.progressWrap}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
             <View style={[styles.progressFill, { backgroundColor: colors.brand, width: `${(visitedCount / totalAccounts) * 100}%` as any }]} />
@@ -113,9 +156,7 @@ function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, all
               <TouchableOpacity
                 style={[styles.addPartyBtn, { backgroundColor: colors.brandSoft }]}
                 onPress={() => onAddParty(
-                  route.id,
-                  route.routename,
-                  day.day,
+                  route.id, route.routename, day.day,
                   day.accounts.map((a: any) => a.id),
                   route.dayWiseAccounts,
                   route.salesmanid?.id ?? '',
@@ -128,6 +169,7 @@ function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, all
 
             {day.accounts.map((party: any, idx: number) => {
               const vm = VISIT_META[party.visitStatus];
+              const distKm = salesmanLoc ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, party.lat, party.lng) : null;
               return (
                 <View
                   key={party.id}
@@ -147,26 +189,45 @@ function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, all
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.partyName, { color: colors.text }]}>{party.name}</Text>
+                      {/* tappable location row → opens maps */}
+                      <TouchableOpacity
+                        style={styles.partyLocRow}
+                        onPress={() => onNavigate(party.lat, party.lng, party.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Icon name="map-marker-outline" size={11} color={colors.brand} />
+                        <Text style={[styles.partyCity, { color: colors.brand }]} numberOfLines={1}>
+                          {party.address}, {party.city}
+                        </Text>
+                        <Icon name="open-in-new" size={10} color={colors.brand} />
+                      </TouchableOpacity>
                       {party.outstanding > 0 && (
                         <Text style={[styles.outstanding, { color: '#ef4444' }]}>
                           Pending: ₹{party.outstanding.toLocaleString('en-IN')}
                         </Text>
                       )}
                     </View>
-                    <View style={[styles.statusPill, { backgroundColor: vm.color + '18' }]}>
-                      <Text style={[styles.statusPillText, { color: vm.color }]}>{vm.label}</Text>
+                    <View style={styles.partyRight}>
+                      {distKm !== null && (
+                        <TouchableOpacity
+                          style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
+                          onPress={() => onNavigate(party.lat, party.lng, party.name)}
+                          activeOpacity={0.75}
+                        >
+                          <Icon name="navigation-variant-outline" size={12} color={colors.brand} />
+                          <Text style={[styles.distText, { color: colors.brand }]}>{fmtDist(distKm)}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <View style={[styles.statusPill, { backgroundColor: vm.color + '18' }]}>
+                        <Text style={[styles.statusPillText, { color: vm.color }]}>{vm.label}</Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.manageBtn, { backgroundColor: colors.raisedSurface }]}
                     onPress={() => onManageParty(
-                      party,
-                      route.id,
-                      route.routename,
-                      day.day,
-                      route.dayWiseAccounts,
-                      route.salesmanid?.id ?? '',
-                      allRoutes,
+                      party, route.id, route.routename, day.day,
+                      route.dayWiseAccounts, route.salesmanid?.id ?? '', allRoutes,
                     )}
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                   >
@@ -182,16 +243,45 @@ function RouteCard({ route, colors, onPartyPress, onAddParty, onManageParty, all
   );
 }
 
+// ── main screen ───────────────────────────────────────────────────────────────
+
 export default function SalesmanRoutes() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
+  const [locLabel,    setLocLabel]    = useState<'fetching' | 'live' | 'off'>('fetching');
+
+  const fetchLocation = useCallback(() => {
+    setLocLabel('fetching');
+    try {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setLocLabel('live');
+        },
+        () => {
+          // fallback: centre of Mumbai for demo
+          setSalesmanLoc({ lat: 19.0760, lng: 72.8777 });
+          setLocLabel('off');
+        },
+        { enableHighAccuracy: false, timeout: 8000 },
+      );
+    } catch {
+      setSalesmanLoc({ lat: 19.0760, lng: 72.8777 });
+      setLocLabel('off');
+    }
+  }, []);
+
+  useEffect(() => { fetchLocation(); }, [fetchLocation]);
+
+  const handleNavigate = useCallback((lat: number, lng: number, label: string) => {
+    openInMaps(lat, lng, label, salesmanLoc);
+  }, [salesmanLoc]);
 
   const handlePartyPress = (party: any) => {
     navigation.navigate('RoutePartyVisit', {
-      partyId:   party.id,
-      partyName: party.name,
-      mobile:    party.mobile,
-      outstanding: party.outstanding,
+      partyId: party.id, partyName: party.name,
+      mobile: party.mobile, outstanding: party.outstanding,
       routeName: party.routeName,
     });
   };
@@ -208,27 +298,24 @@ export default function SalesmanRoutes() {
   };
 
   const handleManageParty = (
-    party: any,
-    routeId: string, routeName: string, day: string,
-    dayWiseAccounts: any[], salesmanId: string,
-    allRoutes: any[],
+    party: any, routeId: string, routeName: string, day: string,
+    dayWiseAccounts: any[], salesmanId: string, allRoutes: any[],
   ) => {
     navigation.navigate('ManagePartyRoute', {
-      partyId:               party.id,
-      partyName:             party.name,
-      currentRouteId:        routeId,
-      currentRouteName:      routeName,
-      currentDay:            day,
-      currentDayWiseAccounts: dayWiseAccounts,
-      currentSalesmanId:     salesmanId,
-      availableRoutes:       allRoutes.map((r: any) => ({
-        id:              r.id,
-        routename:       r.routename,
-        dayWiseAccounts: r.dayWiseAccounts,
-        salesmanid:      r.salesmanid,
+      partyId: party.id, partyName: party.name,
+      currentRouteId: routeId, currentRouteName: routeName,
+      currentDay: day, currentDayWiseAccounts: dayWiseAccounts,
+      currentSalesmanId: salesmanId,
+      availableRoutes: allRoutes.map((r: any) => ({
+        id: r.id, routename: r.routename,
+        dayWiseAccounts: r.dayWiseAccounts, salesmanid: r.salesmanid,
       })),
     });
   };
+
+  const locIcon  = locLabel === 'live' ? 'crosshairs-gps'    : locLabel === 'fetching' ? 'loading' : 'crosshairs';
+  const locColor = locLabel === 'live' ? '#22c55e'           : locLabel === 'fetching' ? colors.brand : colors.subText;
+  const locTip   = locLabel === 'live' ? 'Live location'     : locLabel === 'fetching' ? 'Getting location…' : 'Approx. location';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -237,15 +324,27 @@ export default function SalesmanRoutes() {
 
       <AppHeader label="My Routes" />
 
+      {/* location status bar */}
+      <View style={[styles.locBar, { backgroundColor: colors.cardGlass, borderBottomColor: colors.border }]}>
+        <Icon name={locIcon} size={14} color={locColor} />
+        <Text style={[styles.locBarText, { color: locColor }]}>{locTip}</Text>
+        <Text style={[styles.locBarSub, { color: colors.subText }]}>· Distances shown per party</Text>
+        <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
+          <Icon name="refresh" size={16} color={colors.brand} />
+        </TouchableOpacity>
+      </View>
+
       <DynamicFlashList
         data={DUMMY_ROUTES}
         renderItem={({ item }: any) => (
           <RouteCard
             route={item}
             colors={colors}
+            salesmanLoc={salesmanLoc}
             onPartyPress={handlePartyPress}
             onAddParty={handleAddParty}
             onManageParty={handleManageParty}
+            onNavigate={handleNavigate}
             allRoutes={DUMMY_ROUTES}
           />
         )}
@@ -267,6 +366,14 @@ const styles = StyleSheet.create({
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 14 },
 
+  locBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 18, paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  locBarText: { fontSize: 12, fontFamily: FONTS.semiBold },
+  locBarSub:  { fontSize: 11, fontFamily: FONTS.regular },
+
   routeCard: {
     borderRadius: 18, borderWidth: 1, marginBottom: 14, overflow: 'hidden',
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
@@ -276,32 +383,38 @@ const styles = StyleSheet.create({
   routeName:     { fontSize: 14, fontFamily: FONTS.bold },
   routeMeta:     { fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
 
-  progressWrap:  { alignItems: 'center', gap: 3 },
-  progressBar:   { width: 44, height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: '100%', borderRadius: 2 },
-  progressText:  { fontSize: 10, fontFamily: FONTS.bold },
+  progressWrap: { alignItems: 'center', gap: 3 },
+  progressBar:  { width: 44, height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+  progressText: { fontSize: 10, fontFamily: FONTS.bold },
 
-  daySection:    { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },
-  dayHeaderRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  dayLabel:      { fontSize: 13, fontFamily: FONTS.bold },
-  todayBadge:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  todayText:     { fontSize: 10, fontFamily: FONTS.bold },
-  dayCount:      { fontSize: 11, fontFamily: FONTS.regular, marginLeft: 'auto' },
-  addPartyBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, marginLeft: 8 },
-  addPartyText:  { fontSize: 11, fontFamily: FONTS.bold },
+  daySection:   { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },
+  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  dayLabel:     { fontSize: 13, fontFamily: FONTS.bold },
+  todayBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  todayText:    { fontSize: 10, fontFamily: FONTS.bold },
+  dayCount:     { fontSize: 11, fontFamily: FONTS.regular, marginLeft: 'auto' },
+  addPartyBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, marginLeft: 8 },
+  addPartyText: { fontSize: 11, fontFamily: FONTS.bold },
 
   partyRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  partyRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  partyRowMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   manageBtn:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
-  visitIcon:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  visitIcon:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
   partyName:    { fontSize: 13, fontFamily: FONTS.semiBold },
-  outstanding:  { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2 },
+  partyLocRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  partyCity:    { fontSize: 11, fontFamily: FONTS.regular, flex: 1 },
+  outstanding:  { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2, color: '#ef4444' },
+
+  partyRight:   { alignItems: 'flex-end', gap: 5, marginTop: 2 },
+  distBadge:    { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  distText:     { fontSize: 11, fontFamily: FONTS.bold },
   statusPill:   { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   statusPillText: { fontSize: 10, fontFamily: FONTS.semiBold },
 
-  emptyWrap:  { alignItems: 'center', paddingTop: 80, gap: 12 },
-  emptyText:  { fontSize: 14, fontFamily: FONTS.regular },
+  emptyWrap: { alignItems: 'center', paddingTop: 80, gap: 12 },
+  emptyText: { fontSize: 14, fontFamily: FONTS.regular },
 });

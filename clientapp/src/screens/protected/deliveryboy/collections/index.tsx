@@ -25,12 +25,13 @@ const MODE_META: Record<string, { icon: string; label: string }> = {
 export default function DeliveryCollections() {
   const { colors, isDark } = useTheme();
 
-  const { totalCollected, cashTotal, upiTotal } = useMemo(() => {
+  const { totalCollected, cashTotal, upiTotal, chequeTotal } = useMemo(() => {
     const collected = DUMMY_COLLECTIONS.filter(c => c.status === 'collected');
     return {
       totalCollected: collected.reduce((s, c) => s + c.amount, 0),
       cashTotal:      collected.filter(c => c.mode === 'cash'  ).reduce((s, c) => s + c.amount, 0),
       upiTotal:       collected.filter(c => c.mode === 'upi'   ).reduce((s, c) => s + c.amount, 0),
+      chequeTotal:    collected.filter(c => c.mode === 'cheque').reduce((s, c) => s + c.amount, 0),
     };
   }, []);
 
@@ -67,11 +68,12 @@ export default function DeliveryCollections() {
   };
 
   const ListHeader = () => (
-    <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.summaryRow}>
+    <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.summaryGrid}>
       {[
-        { icon: 'cash-multiple',   value: formatINR(totalCollected), label: 'Total Collected', color: '#22c55e' },
-        { icon: 'cash',            value: formatINR(cashTotal),      label: 'Cash',            color: '#3b82f6' },
-        { icon: 'qrcode-scan',     value: formatINR(upiTotal),       label: 'UPI',             color: '#8b5cf6' },
+        { icon: 'cash-multiple', value: formatINR(totalCollected), label: 'Total',   color: '#22c55e' },
+        { icon: 'cash',          value: formatINR(cashTotal),      label: 'Cash',    color: '#3b82f6' },
+        { icon: 'qrcode-scan',   value: formatINR(upiTotal),       label: 'UPI',     color: '#8b5cf6' },
+        { icon: 'checkbook',     value: formatINR(chequeTotal),    label: 'Cheque',  color: '#f59e0b' },
       ].map((s) => (
         <View key={s.label} style={[styles.sumCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
           <View style={[styles.sumIcon, { backgroundColor: s.color + '18' }]}>
@@ -113,9 +115,9 @@ const styles = StyleSheet.create({
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110 },
 
-  summaryRow: { flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 14 },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14, marginBottom: 14 },
   sumCard: {
-    flex: 1, borderRadius: 16, borderWidth: 1, padding: 12, alignItems: 'flex-start',
+    width: '47%', flexGrow: 1, borderRadius: 16, borderWidth: 1, padding: 12, alignItems: 'flex-start',
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   sumIcon:  { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
