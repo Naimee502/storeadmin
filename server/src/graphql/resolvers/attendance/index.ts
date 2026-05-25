@@ -353,11 +353,17 @@ export const attendanceResolvers = {
       // request context's branchid so the saved log carries a branchid that
       // the dashboard's branch filter will match.
       const branchid = (staff as any).branchid || ctx?.branchid;
+      const punchIn  = input.firstPunchIn  ? new Date(input.firstPunchIn)  : undefined;
+      const punchOut = input.lastPunchOut  ? new Date(input.lastPunchOut)  : undefined;
+      const totalWorkMinutes = punchIn && punchOut
+        ? Math.max(0, Math.round((punchOut.getTime() - punchIn.getTime()) / 60000))
+        : undefined;
       const log = await Attendance.findOneAndUpdate(
         { adminid, staffid: input.staffid, date: input.date },
         { $set: { adminid, branchid, staffid: input.staffid, date: input.date, status: input.status,
-            firstPunchIn: input.firstPunchIn ? new Date(input.firstPunchIn) : undefined,
-            lastPunchOut: input.lastPunchOut ? new Date(input.lastPunchOut) : undefined,
+            firstPunchIn: punchIn,
+            lastPunchOut: punchOut,
+            totalWorkMinutes,
             notes: input.notes,
             // Always restore status_active. Without this, re-adding manual
             // attendance for a previously soft-deleted (staff, date) row
@@ -369,10 +375,16 @@ export const attendanceResolvers = {
       return formatLog(log);
     },
     editAttendanceLog: async (_: any, { id, input }: any) => {
+      const punchIn  = input.firstPunchIn  ? new Date(input.firstPunchIn)  : undefined;
+      const punchOut = input.lastPunchOut  ? new Date(input.lastPunchOut)  : undefined;
+      const totalWorkMinutes = punchIn && punchOut
+        ? Math.max(0, Math.round((punchOut.getTime() - punchIn.getTime()) / 60000))
+        : undefined;
       const log = await Attendance.findByIdAndUpdate(id,
         { $set: { status: input.status,
-            firstPunchIn: input.firstPunchIn ? new Date(input.firstPunchIn) : undefined,
-            lastPunchOut: input.lastPunchOut ? new Date(input.lastPunchOut) : undefined,
+            firstPunchIn: punchIn,
+            lastPunchOut: punchOut,
+            totalWorkMinutes,
             notes: input.notes } },
         { new: true }).populate("staffid").lean();
       return formatLog(log);

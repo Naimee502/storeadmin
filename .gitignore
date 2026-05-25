@@ -10,6 +10,11 @@ lerna-debug.log*
 node_modules/
 client/node_modules/
 server/node_modules/
+clientapp/node_modules/
+clientapp/ios/Pods/
+clientapp/android/app/build/
+clientapp/android/.gradle/
+clientapp/android/app/.cxx/
 
 # Build output
 dist/

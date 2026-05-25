@@ -1,0 +1,67 @@
+# OSX
+.DS_Store
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+ios/.xcode.env.local
+
+# Android
+android/app/build/
+android/.gradle/
+android/app/.cxx/
+android/app/src/main/assets/index.android.bundle
+android/local.properties
+
+# node_modules
+node_modules/
+
+# Buck
+buck-out/
+\.buckd/
+*.keystore
+!debug.keystore
+
+# CocoaPods
+ios/Pods/
+
+# Ruby
+.bundle/
+vendor/
+
+# Flipper
+ios/Flipper/
+ios/flipper-xcode-build-scripts/
+
+# Yarn
+yarn.lock
+
+# BUCK
+.buckconfig
+buck-out/
+
+# Jest
+coverage/
+
+# Build artifacts
+*.tsbuildinfo
+dist/
+
+# Misc
+*.log
+.env
+.env.*
