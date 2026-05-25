@@ -3,8 +3,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { FONTS, getScreenComponent, useTheme } from '../config';
+import { getScreenComponent, useTheme } from '../config';
 import { CustomDrawerContent } from '.';
+import { CustomTabBar } from './customtabbar';
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -39,39 +40,9 @@ export const createNavigator = (config: any) => {
           drawerActiveTintColor: colors.brand,
           drawerInactiveTintColor: colors.subText,
           drawerStyle: { backgroundColor: colors.background },
-          tabBarActiveTintColor: colors.brand,
-          tabBarInactiveTintColor: colors.subText,
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontFamily: FONTS.semiBold,
-            marginTop: 2,
-          },
-          tabBarItemStyle: {
-            borderRadius: 18,
-            marginVertical: 6,
-          },
-          tabBarStyle: {
-            position: 'absolute',
-            left: 18,
-            right: 18,
-            bottom: 14,
-            height: 66,
-            paddingTop: 6,
-            paddingBottom: 8,
-            paddingHorizontal: 8,
-            borderRadius: 24,
-            backgroundColor: colors.cardGlass,
-            borderTopWidth: 0,
-            borderWidth: 1,
-            borderColor: colors.border,
-            elevation: 12,
-            shadowColor: colors.shadow,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.12,
-            shadowRadius: 20,
-          },
         }}
         {...(resolvedType === 'drawer' ? { drawerContent: (props) => <CustomDrawerContent {...props} /> } : {})}
+        {...(resolvedType === 'tabs'   ? { tabBar: (props) => <CustomTabBar {...props} /> } : {})}
       >
 
         {screens.map((route: any) => {

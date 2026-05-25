@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, ViewStyle, Animated, Easing, DimensionValue } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTheme } from '../config';
 
 type SkeletonProps = {
   width?: DimensionValue;
@@ -15,6 +16,9 @@ const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius = 4,
   style,
 }) => {
+  const { colors, isDark } = useTheme();
+  const bgColor = isDark ? '#2A2A2A' : '#E1E9EE';
+  const shimmerColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.5)';
   const animatedValue = new Animated.Value(0);
   const [layoutWidth, setLayoutWidth] = React.useState(0);
 
@@ -43,6 +47,7 @@ const Skeleton: React.FC<SkeletonProps> = ({
           width: width as DimensionValue,
           height: height as DimensionValue,
           borderRadius,
+          backgroundColor: bgColor,
         },
         style,
       ]}
@@ -57,7 +62,7 @@ const Skeleton: React.FC<SkeletonProps> = ({
           ]}
         >
           <LinearGradient
-            colors={['transparent', 'rgba(255, 255, 255, 0.5)', 'transparent']}
+            colors={['transparent', shimmerColor, 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -70,7 +75,6 @@ const Skeleton: React.FC<SkeletonProps> = ({
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: '#E1E9EE',
     overflow: 'hidden',
   },
 });

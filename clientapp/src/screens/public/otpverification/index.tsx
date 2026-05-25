@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  StatusBar,
-  Keyboard,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -15,31 +9,35 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppButton } from '../../../components';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
+import { useDispatch } from 'react-redux';
+import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
 
-export default function OTPVerification({ navigation }: any) {
+export default function OTPVerification({ navigation, route }: any) {
   const { colors, isDark } = useTheme();
   const sText = STRINGS.otp;
   const { signIn } = useAuth();
+  const dispatch = useDispatch();
   const { showLoader, showToast } = useUI();
-  const [code, setCode] = useState(['', '', '', '']);
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const [timer, setTimer] = useState(30);
 
+  const mobile: string = route?.params?.mobile ?? '';
+
+  const [code, setCode]               = useState(['', '', '', '']);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [timer, setTimer]             = useState(30);
   const inputs = useRef<any>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimer(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
   const handleChangeText = (text: string, index: number) => {
     const newCode = [...code];
-    newCode[index] = text.slice(-1); // Only take last character
+    newCode[index] = text.slice(-1);
     setCode(newCode);
-
     if (text && index < 3) {
       inputs.current[index + 1]?.focus();
       setFocusedIndex(index + 1);
@@ -55,15 +53,20 @@ export default function OTPVerification({ navigation }: any) {
 
   const handleVerify = async () => {
     const otp = code.join('');
-    if (otp.length < 4) {
-      showToast(sText.errorEmpty, 'danger');
-      return;
-    }
+    if (otp.length < 4) { showToast(sText.errorEmpty, 'danger'); return; }
 
+    Keyboard.dismiss();
     showLoader(true);
     try {
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1500));
-      await signIn(); // Automatically completes authentication flow
+      // TODO: call verifyOTP mutation via Apollo — returns { user, token }
+      await new Promise<void>(r => setTimeout(() => r(), 1200));
+
+      // Mock party user — role determined server-side by mobile lookup
+      dispatch(setCredentials({
+        user: { id: '1', name: 'Party User', mobile, role: 'party' },
+        token: 'mock-party-token',
+      }));
+      await signIn();
       showToast(sText.success, 'success');
     } catch {
       showToast(sText.failed, 'danger');
@@ -84,19 +87,14 @@ export default function OTPVerification({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.navBar}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()}>
             <Icon name="chevron-left" size={30} color={colors.text} />
           </TouchableOpacity>
         </Animated.View>
@@ -109,7 +107,9 @@ export default function OTPVerification({ navigation }: any) {
             <Text style={styles.eyebrow}>Secure verification</Text>
             <Text style={[styles.title, { color: colors.text }]}>{sText.title}</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>
-              {sText.subtitle}
+              {mobile
+                ? `Enter the 4-digit code sent to +91 ${mobile}.`
+                : sText.subtitle}
             </Text>
           </Animated.View>
 
@@ -118,23 +118,20 @@ export default function OTPVerification({ navigation }: any) {
               {code.map((digit, index) => (
                 <View
                   key={index}
-                  style={[
-                    styles.otpBox,
-                    {
-                      backgroundColor: colors.raisedSurface,
-                      borderColor: focusedIndex === index ? colors.brand : colors.border,
-                      borderWidth: focusedIndex === index ? 2 : 1,
-                    },
-                  ]}
+                  style={[styles.otpBox, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: focusedIndex === index ? colors.brand : colors.border,
+                    borderWidth: focusedIndex === index ? 2 : 1,
+                  }]}
                 >
                   <TextInput
-                    ref={(el) => { inputs.current[index] = el; }}
+                    ref={el => { inputs.current[index] = el; }}
                     style={[styles.otpInput, { color: colors.text }]}
                     keyboardType="number-pad"
                     maxLength={1}
                     value={digit}
-                    onChangeText={(text) => handleChangeText(text, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    onChangeText={text => handleChangeText(text, index)}
+                    onKeyPress={e => handleKeyPress(e, index)}
                     onFocus={() => setFocusedIndex(index)}
                     selectTextOnFocus
                   />
@@ -166,137 +163,32 @@ export default function OTPVerification({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  navBar: {
-    paddingHorizontal: 20,
-    height: 50,
-    justifyContent: 'center',
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  navBar: { paddingHorizontal: 20, height: 50, justifyContent: 'center' },
+  backButton: { width: 44, height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
-  glowOne: {
-    backgroundColor: COLORS.light.brandSoft,
-    top: -72,
-    right: -34,
-    borderBottomLeftRadius: 120,
-    transform: [{ rotate: '-7deg' }],
-  },
-  glowTwo: {
-    backgroundColor: COLORS.light.warmSoft,
-    bottom: 110,
-    left: -48,
-    height: 150,
-    borderTopRightRadius: 110,
-    transform: [{ rotate: '-8deg' }],
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingBottom: 28,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  iconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  eyebrow: {
-    color: COLORS.light.brand,
-    fontSize: 12,
-    fontFamily: FONTS.bold,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontFamily: FONTS.bold,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: FONTS.regular,
-    textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: 8,
-  },
+  glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
+  glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+  content: { flex: 1, paddingHorizontal: 22, paddingBottom: 28 },
+  header: { alignItems: 'center', marginTop: 14 },
+  iconContainer: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  eyebrow: { color: COLORS.light.brand, fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', marginBottom: 8 },
+  title: { fontSize: 24, fontFamily: FONTS.bold, textAlign: 'center', marginBottom: 10 },
+  subtitle: { fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 19, paddingHorizontal: 8 },
   otpSection: {
-    alignItems: 'center',
-    marginTop: 28,
-    marginBottom: 22,
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 16,
-    shadowColor: COLORS.light.shadow,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.1,
-    shadowRadius: 28,
-    elevation: 8,
+    alignItems: 'center', marginTop: 28, marginBottom: 22,
+    borderWidth: 1, borderRadius: 22, padding: 16,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 8,
   },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 18,
-  },
-  otpBox: {
-    width: 52,
-    height: 54,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otpInput: {
-    fontSize: 21,
-    fontFamily: FONTS.bold,
-    textAlign: 'center',
-    width: '100%',
-    height: '100%',
-    padding: 0,
-  },
-  timerContainer: {
-    alignItems: 'center',
-  },
-  timerText: {
-    fontSize: 14,
-    fontFamily: FONTS.regular,
-  },
-  boldText: {
-    fontFamily: FONTS.bold,
-  },
-  resendText: {
-    fontSize: 15,
-    fontFamily: FONTS.bold,
-    color: COLORS.light.brand,
-    marginLeft: 6,
-  },
-  resendButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  buttonSection: {
-    width: '100%',
-    marginTop: 'auto',
-  },
-  verifyButton: {
-    backgroundColor: COLORS.light.brand,
-    borderRadius: 14,
-  },
-  verifyText: {
-    color: COLORS.light.onBrand,
-  },
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 18 },
+  otpBox: { width: 52, height: 54, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  otpInput: { fontSize: 21, fontFamily: FONTS.bold, textAlign: 'center', width: '100%', height: '100%', padding: 0 },
+  timerContainer: { alignItems: 'center' },
+  timerText: { fontSize: 14, fontFamily: FONTS.regular },
+  boldText: { fontFamily: FONTS.bold },
+  resendText: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.light.brand, marginLeft: 6 },
+  resendButton: { flexDirection: 'row', alignItems: 'center' },
+  buttonSection: { width: '100%', marginTop: 'auto' },
+  verifyButton: { backgroundColor: COLORS.light.brand, borderRadius: 14 },
+  verifyText: { color: COLORS.light.onBrand },
 });

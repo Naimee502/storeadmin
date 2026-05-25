@@ -104,10 +104,8 @@ export const DynamicHeader = (props: any) => {
     }
 
     if (type === 'back') {
-      try {
-        navigation?.navigate?.('Home' as never);
-      } catch {
-        navigation?.goBack?.();
+      if (navigation?.canGoBack?.()) {
+        navigation.goBack();
       }
     } else if (type === 'app') {
       const parent: any = navigation?.getParent?.();

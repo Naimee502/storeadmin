@@ -6,3 +6,6 @@ export * from './app';
 
 export { default as tenantReducer } from './tenant';
 export * from './tenant';
+
+export { default as cartReducer } from './cart';
+export * from './cart';

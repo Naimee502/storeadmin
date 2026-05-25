@@ -1,82 +1,194 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, Image } from 'react-native';
-import {
-  DrawerContentComponentProps,
-  DrawerContentScrollView,
-  DrawerItem,
-} from '@react-navigation/drawer';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { DrawerContentComponentProps } from '@react-navigation/drawer';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppModal } from '../components';
 import { useAuth } from './authcontext';
-import { FONTS, IMAGES, useTheme } from '../config';
+import { COLORS, FONTS, STRINGS, useTheme } from '../config';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout } from '../store/slices';
+import type { RootState } from '../store/rootreducer';
+
+interface DrawerMenuItem {
+  label: string;
+  icon: string;
+  screen?: string;
+  tabScreen?: string;
+  section?: boolean;
+}
+
+const PARTY_MENU: DrawerMenuItem[] = [
+  { label: STRINGS.party.home,    icon: 'home-outline',           tabScreen: 'PartyHome' },
+  { label: STRINGS.party.catalog, icon: 'store-outline',          tabScreen: 'Catalog'   },
+  { label: STRINGS.party.orders,  icon: 'clipboard-list-outline', tabScreen: 'MyOrders'  },
+  { label: STRINGS.party.ledger,  icon: 'book-account-outline',   tabScreen: 'Ledger'    },
+  { label: 'separator1', icon: '', section: true },
+  { label: 'Notifications', icon: 'bell-outline',       screen: 'Notifications' },
+  { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support' },
+  { label: 'separator2', icon: '', section: true },
+  { label: 'Privacy Policy',    icon: 'shield-check-outline', screen: 'PrivacyPolicy' },
+  { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
+];
+
+const SALESMAN_MENU: DrawerMenuItem[] = [
+  { label: 'Dashboard',   icon: 'view-dashboard-outline',  tabScreen: 'SalesmanDashboard'  },
+  { label: 'My Routes',   icon: 'map-marker-path',         tabScreen: 'SalesmanRoutes'     },
+  { label: 'Orders',      icon: 'clipboard-plus-outline',  tabScreen: 'SalesmanOrders'     },
+  { label: 'separator1', icon: '', section: true },
+  { label: 'Attendance',  icon: 'calendar-check-outline',  tabScreen: 'SalesmanAttendance' },
+  { label: 'separator2', icon: '', section: true },
+  { label: 'Notifications', icon: 'bell-outline',          screen: 'Notifications'  },
+  { label: 'Help & Support', icon: 'help-circle-outline',  screen: 'Support'        },
+  { label: 'separator3', icon: '', section: true },
+  { label: 'Privacy Policy',     icon: 'shield-check-outline',  screen: 'PrivacyPolicy' },
+  { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
+];
+
+const DELIVERY_MENU: DrawerMenuItem[] = [
+  { label: 'Dashboard',   icon: 'view-dashboard-outline',  tabScreen: 'DeliveryDashboard'   },
+  { label: 'Deliveries',  icon: 'truck-delivery-outline',  tabScreen: 'DeliveryList'        },
+  { label: 'Collections', icon: 'cash-multiple',           tabScreen: 'DeliveryCollections' },
+  { label: 'separator1', icon: '', section: true },
+  { label: 'Attendance',  icon: 'calendar-check-outline',  tabScreen: 'DeliveryAttendance'  },
+  { label: 'separator2', icon: '', section: true },
+  { label: 'Notifications', icon: 'bell-outline',         screen: 'Notifications' },
+  { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support'       },
+  { label: 'separator3', icon: '', section: true },
+  { label: 'Privacy Policy',     icon: 'shield-check-outline',  screen: 'PrivacyPolicy' },
+  { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
+];
+
+const STAFF_MENU: DrawerMenuItem[] = [
+  { label: 'Dashboard',  icon: 'view-dashboard-outline', tabScreen: 'StaffDashboard'  },
+  { label: 'Orders',     icon: 'clipboard-list-outline', tabScreen: 'StaffOrders'     },
+  { label: 'separator1', icon: '', section: true },
+  { label: 'Attendance', icon: 'calendar-check-outline', tabScreen: 'StaffAttendance' },
+  { label: 'separator2', icon: '', section: true },
+  { label: 'Notifications', icon: 'bell-outline',         screen: 'Notifications' },
+  { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support'       },
+  { label: 'separator3', icon: '', section: true },
+  { label: 'Privacy Policy',     icon: 'shield-check-outline',  screen: 'PrivacyPolicy' },
+  { label: 'Terms & Conditions', icon: 'file-document-outline', screen: 'TermsCondition' },
+];
+
+const ROLE_LABELS: Record<string, string> = {
+  party:       STRINGS.party.customer,
+  salesman:    'Salesman',
+  deliveryboy: 'Delivery Boy',
+  staff:       'Staff',
+};
+
+const ROLE_MENUS: Record<string, DrawerMenuItem[]> = {
+  party:       PARTY_MENU,
+  salesman:    SALESMAN_MENU,
+  deliveryboy: DELIVERY_MENU,
+  staff:       STAFF_MENU,
+};
 
 export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { signOut } = useAuth();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.auth.user);
 
-  const handleLogout = () => {
+  const role  = user?.role ?? 'party';
+  const menu  = ROLE_MENUS[role] ?? PARTY_MENU;
+  const label = ROLE_LABELS[role] ?? 'User';
+
+  const tabState     = props.state.routes[0]?.state;
+  const activeTabIdx = tabState?.index ?? 0;
+  const activeTab    = tabState ? (tabState.routes as any[])[activeTabIdx]?.name : undefined;
+
+  const handleLogout = async () => {
     setModalVisible(false);
-    signOut();
+    dispatch(logout());
+    await signOut();
+  };
+
+  const navigateTo = (item: DrawerMenuItem) => {
+    props.navigation.closeDrawer();
+    if (item.tabScreen) {
+      props.navigation.navigate('MainTabs', { screen: item.tabScreen });
+    } else if (item.screen) {
+      props.navigation.navigate(item.screen);
+    }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <DrawerContentScrollView {...props} contentContainerStyle={styles.content}>
-        <View style={[styles.header, { backgroundColor: colors.brandSoft }]}>
-          <View style={[styles.logoWrap, { backgroundColor: colors.raisedSurface }]}>
-            <Image source={IMAGES.logo} style={styles.logo} />
-          </View>
-          <Text style={[styles.userName, { color: colors.text }]}>Grocery Shop</Text>
-          <View style={styles.locationRow}>
-            <Icon name="map-marker" color={colors.brand} size={15} />
-            <Text style={[styles.userEmail, { color: colors.subText }]}>Delivering to Home</Text>
-          </View>
-        </View>
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        
-        {/* Render all screens except Logout */}
-        {props.state.routes.map((route, index) => {
-          if (route.name === 'Logout') return null;
-          
-          const { drawerLabel, drawerIcon } = props.descriptors[route.key].options;
-          const focused = index === props.state.index;
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+        {/* Header */}
+        <LinearGradient
+          colors={isDark ? [colors.brandSoft, colors.brandSoft] : [colors.brandSoft, '#f0fdf4']}
+          style={styles.header}
+        >
+          <View style={[styles.avatarWrap, { backgroundColor: colors.brand }]}>
+            <Text style={styles.avatarText}>
+              {(user?.name ?? 'U').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
+            {user?.name ?? 'User'}
+          </Text>
+          {user?.mobile && (
+            <Text style={[styles.userMobile, { color: colors.subText }]}>
+              +91 {user.mobile}
+            </Text>
+          )}
+          <View style={[styles.roleBadge, { backgroundColor: colors.brandOverlay }]}>
+            <Icon name="shield-account-outline" size={11} color={colors.brand} />
+            <Text style={[styles.roleBadgeText, { color: colors.brand }]}>{label}</Text>
+          </View>
+        </LinearGradient>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Menu items */}
+        {menu.map((item, idx) => {
+          if (item.section) {
+            return <View key={`sep-${idx}`} style={[styles.divider, { backgroundColor: colors.border }]} />;
+          }
+          const isActive = item.tabScreen ? item.tabScreen === activeTab : false;
           return (
-            <DrawerItem
-              key={route.key}
-              label={drawerLabel !== undefined ? (drawerLabel as string) : route.name}
-              icon={drawerIcon}
-              focused={focused}
-              activeTintColor={colors.brand}
-              inactiveTintColor={colors.subText}
-              activeBackgroundColor={colors.brandSoft}
-              onPress={() => props.navigation.navigate(route.name)}
-              labelStyle={[styles.drawerLabel, focused && { color: colors.brand }]}
-              style={styles.drawerItem}
-            />
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.menuItem, isActive && { backgroundColor: colors.brandSoft }]}
+              onPress={() => navigateTo(item)}
+              activeOpacity={0.65}
+            >
+              <View style={[styles.menuIconWrap, { backgroundColor: isActive ? colors.brand + '22' : colors.softSurface }]}>
+                <Icon name={item.icon} size={19} color={isActive ? colors.brand : colors.subText} />
+              </View>
+              <Text style={[styles.menuLabel, { color: isActive ? colors.brand : colors.text }]}>{item.label}</Text>
+              {isActive && <View style={[styles.activeBar, { backgroundColor: colors.brand }]} />}
+            </TouchableOpacity>
           );
         })}
-        
+
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        
-        <DrawerItem
-          label="Logout"
-          icon={({ size }) => (
-            <Icon name="logout" color={colors.error} size={size} />
-          )}
-          inactiveTintColor={colors.error}
+
+        {/* Logout */}
+        <TouchableOpacity
+          style={styles.menuItem}
           onPress={() => setModalVisible(true)}
-          labelStyle={styles.drawerLabel}
-          style={styles.drawerItem}
-        />
-      </DrawerContentScrollView>
+          activeOpacity={0.65}
+        >
+          <View style={[styles.menuIconWrap, { backgroundColor: '#FEF2F2' }]}>
+            <Icon name="logout" size={19} color={colors.error} />
+          </View>
+          <Text style={[styles.menuLabel, { color: colors.error }]}>{STRINGS.party.signOut}</Text>
+        </TouchableOpacity>
+
+      </ScrollView>
 
       <AppModal
         visible={modalVisible}
-        title="Logout"
-        message="Are you sure you want to logout?"
-        confirmLabel="Logout"
+        title={STRINGS.party.signOut}
+        message={STRINGS.party.signOutConfirm}
+        confirmLabel={STRINGS.party.signOut}
         cancelLabel="Cancel"
         confirmColor={colors.error}
         iconName="logout-variant"
@@ -88,53 +200,40 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
 };
 
 const styles = StyleSheet.create({
-  content: {
-    paddingTop: 8,
-  },
+  root:    { flex: 1 },
+  content: { paddingBottom: 24 },
+
   header: {
-    padding: 18,
     margin: 14,
+    padding: 18,
     borderRadius: 24,
   },
-  logoWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+  avatarWrap: {
+    width: 52, height: 52, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+    shadowColor: COLORS.light.shadow,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
-  logo: {
-    width: 44,
-    height: 44,
+  avatarText:  { fontSize: 22, fontFamily: FONTS.bold, color: '#fff' },
+  userName:    { fontSize: 17, fontFamily: FONTS.bold, marginBottom: 2 },
+  userMobile:  { fontSize: 12, fontFamily: FONTS.regular, marginBottom: 8 },
+  roleBadge: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, gap: 4,
+  },
+  roleBadgeText: { fontSize: 11, fontFamily: FONTS.semiBold },
+
+  divider:  { height: 1, marginVertical: 8, marginHorizontal: 14, opacity: 0.6 },
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 14, marginVertical: 1,
+    paddingVertical: 10, paddingHorizontal: 8,
     borderRadius: 14,
   },
-  userName: {
-    fontSize: 20,
-    fontFamily: FONTS.bold,
+  menuIconWrap: {
+    width: 36, height: 36, borderRadius: 11,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  userEmail: {
-    fontSize: 13,
-    fontFamily: FONTS.regular,
-    marginLeft: 4,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 10,
-    marginHorizontal: 15,
-  },
-  drawerLabel: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 14,
-  },
-  drawerItem: {
-    marginHorizontal: 14,
-    borderRadius: 16,
-    marginVertical: 2,
-  },
+  menuLabel: { fontSize: 14, fontFamily: FONTS.semiBold, flex: 1 },
+  activeBar: { width: 4, height: 20, borderRadius: 2 },
 });

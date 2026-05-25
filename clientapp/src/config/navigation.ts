@@ -1,146 +1,243 @@
 import {
   Login, Signup, ForgotPassword, Splash, Introduction,
-  About, Profile, Settings, Logout, Home,
-  PrivacyPolicy, TermsCondition, OTPVerification
+  PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification,
+  // Party
+  PartyHome, Catalog, MyOrders, Ledger, PartyProfile,
+  ProductDetail, OrderDetail, CartScreen,
+  // Salesman
+  SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
+  RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute,
+  // Delivery boy
+  DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile,
+  // Staff
+  StaffDashboard, StaffOrders, StaffAttendance, StaffProfile,
 } from '../screens';
 
 export const Screens: any = {
+  // Public
   Splash,
   Introduction,
   Login,
   Signup,
   ForgotPassword,
   OTPVerification,
-  Profile,
-  About,
-  Settings,
-  Logout,
-  Home,
+  // Shared
   PrivacyPolicy,
   TermsCondition,
+  Notifications,
+  Support,
+  // Party
+  PartyHome,
+  Catalog,
+  MyOrders,
+  Ledger,
+  PartyProfile,
+  ProductDetail,
+  OrderDetail,
+  CartScreen,
+  // Salesman
+  SalesmanDashboard,
+  SalesmanRoutes,
+  SalesmanOrders,
+  SalesmanAttendance,
+  SalesmanProfile,
+  RoutePartyVisit,
+  SalesmanCatalog,
+  SalesmanCart,
+  CollectPayment,
+  AddPartyToRoute,
+  ManagePartyRoute,
+  // Delivery boy
+  DeliveryDashboard,
+  DeliveryList,
+  DeliveryCollections,
+  DeliveryAttendance,
+  DeliveryProfile,
+  // Staff
+  StaffDashboard,
+  StaffOrders,
+  StaffAttendance,
+  StaffProfile,
 };
 
 export const NavIcons = {
-  home: { focused: 'home', unfocused: 'home-outline' },
-  profile: { focused: 'account', unfocused: 'account-outline' },
-  settings: { focused: 'cog', unfocused: 'cog-outline' },
-  about: { focused: 'information', unfocused: 'information-outline' },
-  privacy: { focused: 'shield-check', unfocused: 'shield-check-outline' },
-  terms: { focused: 'file-document', unfocused: 'file-document-outline' },
-  logout: { focused: 'logout', unfocused: 'logout' },
+  // common
+  home:       { focused: 'home',             unfocused: 'home-outline' },
+  profile:    { focused: 'account-circle',   unfocused: 'account-circle-outline' },
+  // party
+  catalog:    { focused: 'store',            unfocused: 'store-outline' },
+  orders:     { focused: 'clipboard-list',   unfocused: 'clipboard-list-outline' },
+  ledger:     { focused: 'book-account',     unfocused: 'book-account-outline' },
+  // salesman / delivery
+  dashboard:  { focused: 'view-dashboard',   unfocused: 'view-dashboard-outline' },
+  routes:     { focused: 'map-marker-path',  unfocused: 'map-marker-path' },
+  salesOrders:{ focused: 'clipboard-plus',   unfocused: 'clipboard-plus-outline' },
+  attendance: { focused: 'calendar-check',   unfocused: 'calendar-check-outline' },
+  deliveries: { focused: 'truck-delivery',   unfocused: 'truck-delivery-outline' },
+  collections:{ focused: 'cash-multiple',    unfocused: 'cash-multiple' },
+  staffOrders:{ focused: 'clipboard-list',   unfocused: 'clipboard-list-outline' },
 };
 
 export const getNavIcon = (name: keyof typeof NavIcons) => NavIcons[name];
 
 export const NavConfig: any = {
+  // ── Public stack ────────────────────────────────────────────────────
   public: {
     type: 'stack',
     screens: [
-      {
-        name: 'Login',
-        options: { headerShown: false },
-      },
-      {
-        name: 'Signup',
-        label: 'Create Account',
-        options: {
-          title: 'Create Account',
-          headerShown: false,
-        },
-      },
-      {
-        name: 'ForgotPassword',
-        label: 'Reset Password',
-        options: {
-          title: 'Recover Password',
-          headerShown: false,
-        },
-      },
-      {
-        name: 'OTPVerification',
-        label: 'OTP Verification',
-        options: {
-          title: 'Verification',
-          headerShown: false,
-        },
-      },
+      { name: 'Login',            options: { headerShown: false } },
+      { name: 'Signup',           label: 'Create Account',  options: { title: 'Create Account',    headerShown: false } },
+      { name: 'ForgotPassword',   label: 'Reset Password',  options: { title: 'Recover Password',  headerShown: false } },
+      { name: 'OTPVerification',  label: 'OTP Verification',options: { title: 'Verification',      headerShown: false } },
     ],
   },
 
-
-  protected: {
-    type: 'drawer',
-    showDrawer: true,
-    showBottomTabs: true,
+  // ── Party: stack → drawer → tabs (detail screens pushed on outer stack) ──
+  party: {
+    type: 'stack',
     screens: [
       {
-        name: 'Home',
-        label: 'Home',
-        icon: getNavIcon('home'),
+        name: 'PartyDrawer',
         options: { headerShown: false },
-
         subNavigator: {
-          type: 'tabs',
+          type: 'drawer',
+          showDrawer: true,
+          showBottomTabs: true,
           screens: [
             {
-              name: 'Home',
-              label: 'Home',
-              icon: getNavIcon('home'),
+              name: 'MainTabs',
+              label: 'Main',
               options: { headerShown: false },
-            },
-            {
-              name: 'Profile',
-              label: 'Profile',
-              icon: getNavIcon('profile'),
-              options: { headerShown: false },
-            },
-            {
-              name: 'About',
-              label: 'About',
-              icon: getNavIcon('about'),
-              options: { headerShown: false },
+              subNavigator: {
+                type: 'tabs',
+                screens: [
+                  { name: 'PartyHome',    label: 'Home',    icon: getNavIcon('home'),    options: { headerShown: false } },
+                  { name: 'Catalog',      label: 'Shop',    icon: getNavIcon('catalog'), options: { headerShown: false } },
+                  { name: 'MyOrders',     label: 'Orders',  icon: getNavIcon('orders'),  options: { headerShown: false } },
+                  { name: 'Ledger',       label: 'Ledger',  icon: getNavIcon('ledger'),  options: { headerShown: false } },
+                  { name: 'PartyProfile', label: 'Profile', icon: getNavIcon('profile'), options: { headerShown: false } },
+                ],
+              },
             },
           ],
         },
       },
+      { name: 'ProductDetail', options: { headerShown: false } },
+      { name: 'OrderDetail',   options: { headerShown: false } },
+      { name: 'CartScreen',    options: { headerShown: false } },
+    ],
+  },
+
+  // ── Salesman: stack → drawer → tabs ─────────────────────────────────
+  salesman: {
+    type: 'stack',
+    screens: [
       {
-        name: 'Settings',
-        label: 'Settings',
-        icon: getNavIcon('settings'),
+        name: 'SalesmanDrawer',
         options: { headerShown: false },
+        subNavigator: {
+          type: 'drawer',
+          showDrawer: true,
+          showBottomTabs: true,
+          screens: [
+            {
+              name: 'MainTabs',
+              label: 'Main',
+              options: { headerShown: false },
+              subNavigator: {
+                type: 'tabs',
+                screens: [
+                  { name: 'SalesmanDashboard',  label: 'Dashboard',  icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'SalesmanRoutes',     label: 'Routes',     icon: getNavIcon('routes'),      options: { headerShown: false } },
+                  { name: 'SalesmanOrders',     label: 'Orders',     icon: getNavIcon('salesOrders'), options: { headerShown: false } },
+                  { name: 'SalesmanAttendance', label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
+                  { name: 'SalesmanProfile',    label: 'Profile',    icon: getNavIcon('profile'),     options: { headerShown: false } },
+                ],
+              },
+            },
+          ],
+        },
       },
+      { name: 'RoutePartyVisit', options: { headerShown: false } },
+      { name: 'SalesmanCatalog', options: { headerShown: false } },
+      { name: 'SalesmanCart',    options: { headerShown: false } },
+      { name: 'CollectPayment',   options: { headerShown: false } },
+      { name: 'AddPartyToRoute',  options: { headerShown: false } },
+      { name: 'ManagePartyRoute', options: { headerShown: false } },
+    ],
+  },
+
+  // ── Delivery boy: stack → drawer → tabs ──────────────────────────────
+  deliveryboy: {
+    type: 'stack',
+    screens: [
       {
-        name: 'PrivacyPolicy_Drawer',
-        componentName: 'PrivacyPolicy',
-        label: 'Privacy Policy',
-        icon: getNavIcon('privacy'),
+        name: 'DeliveryDrawer',
         options: { headerShown: false },
-      },
-      {
-        name: 'TermsCondition_Drawer',
-        componentName: 'TermsCondition',
-        label: 'Terms & Conditions',
-        icon: getNavIcon('terms'),
-        options: { headerShown: false },
+        subNavigator: {
+          type: 'drawer',
+          showDrawer: true,
+          showBottomTabs: true,
+          screens: [
+            {
+              name: 'MainTabs',
+              label: 'Main',
+              options: { headerShown: false },
+              subNavigator: {
+                type: 'tabs',
+                screens: [
+                  { name: 'DeliveryDashboard',   label: 'Dashboard',   icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'DeliveryList',        label: 'Deliveries',  icon: getNavIcon('deliveries'),  options: { headerShown: false } },
+                  { name: 'DeliveryCollections', label: 'Collections', icon: getNavIcon('collections'), options: { headerShown: false } },
+                  { name: 'DeliveryAttendance',  label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
+                  { name: 'DeliveryProfile',     label: 'Profile',     icon: getNavIcon('profile'),     options: { headerShown: false } },
+                ],
+              },
+            },
+          ],
+        },
       },
     ],
   },
 
+  // ── Staff: stack → drawer → tabs ─────────────────────────────────────
+  staff: {
+    type: 'stack',
+    screens: [
+      {
+        name: 'StaffDrawer',
+        options: { headerShown: false },
+        subNavigator: {
+          type: 'drawer',
+          showDrawer: true,
+          showBottomTabs: true,
+          screens: [
+            {
+              name: 'MainTabs',
+              label: 'Main',
+              options: { headerShown: false },
+              subNavigator: {
+                type: 'tabs',
+                screens: [
+                  { name: 'StaffDashboard',  label: 'Dashboard',  icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'StaffOrders',     label: 'Orders',     icon: getNavIcon('staffOrders'), options: { headerShown: false } },
+                  { name: 'StaffAttendance', label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
+                  { name: 'StaffProfile',    label: 'Profile',    icon: getNavIcon('profile'),     options: { headerShown: false } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  },
+
+  // ── Shared modals ────────────────────────────────────────────────────
   shared: [
-    {
-      name: 'PrivacyPolicy',
-      options: {
-        title: 'Privacy Policy',
-        presentation: 'modal',
-      },
-    },
-    {
-      name: 'TermsCondition',
-      options: {
-        title: 'Terms & Conditions',
-        presentation: 'modal',
-      },
-    },
+    { name: 'PrivacyPolicy',  options: { title: 'Privacy Policy',    presentation: 'modal' } },
+    { name: 'TermsCondition', options: { title: 'Terms & Conditions', presentation: 'modal' } },
+    { name: 'Notifications',  options: { headerShown: false } },
+    { name: 'Support',        options: { headerShown: false } },
   ],
 };
 

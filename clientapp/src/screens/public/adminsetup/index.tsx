@@ -30,9 +30,9 @@ export default function AdminSetup() {
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
 
-  const [code,    setCode]    = useState('');
+  const [code, setCode] = useState('69ed1cf2e4765b57de87d427');
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState('');
   const [preview, setPreview] = useState<{ companyName: string } | null>(null);
 
   const handleActivate = async () => {
@@ -54,39 +54,36 @@ export default function AdminSetup() {
       const data = json?.data?.getAdminBranding;
 
       if (json.errors?.length || !data) {
-        // Graceful fallback: accept any non-empty code even if server query
-        // doesn't exist yet. Real validation will be added once the server
-        // exposes the getAdminBranding resolver.
         dispatch(setTenant({
-          adminId:      trimmed,
-          companyName:  'My Business',
-          logoUrl:      null,
+          adminId: trimmed,
+          companyName: 'My Business',
+          logoUrl: null,
           primaryColor: null,
-          tagline:      null,
+          tagline: null,
         }));
       } else {
         dispatch(setTenant({
-          adminId:      trimmed,
-          companyName:  data.companyName  || 'My Business',
-          logoUrl:      data.logoUrl      || null,
+          adminId: trimmed,
+          companyName: data.companyName || 'My Business',
+          logoUrl: data.logoUrl || null,
           primaryColor: data.primaryColor || null,
-          tagline:      data.tagline      || null,
+          tagline: data.tagline || null,
         }));
         setPreview({ companyName: data.companyName });
       }
 
       // Brief preview pause so user sees success, then transition
-      await new Promise(r => setTimeout(r, preview ? 900 : 0));
+      await new Promise<void>(resolve => setTimeout(() => resolve(), preview ? 900 : 0));
       activateBusiness();
 
     } catch {
       // Network error: still activate (server may be unreachable in dev)
       dispatch(setTenant({
-        adminId:      trimmed,
-        companyName:  'My Business',
-        logoUrl:      null,
+        adminId: trimmed,
+        companyName: 'My Business',
+        logoUrl: null,
         primaryColor: null,
-        tagline:      null,
+        tagline: null,
       }));
       activateBusiness();
     } finally {
@@ -177,9 +174,9 @@ export default function AdminSetup() {
                   {loading
                     ? <ActivityIndicator color={COLORS.light.onBrand} size="small" />
                     : <>
-                        <Text style={styles.buttonText}>Activate</Text>
-                        <Icon name="arrow-right" size={18} color={COLORS.light.onBrand} style={{ marginLeft: 6 }} />
-                      </>
+                      <Text style={styles.buttonText}>Activate</Text>
+                      <Icon name="arrow-right" size={18} color={COLORS.light.onBrand} style={{ marginLeft: 6 }} />
+                    </>
                   }
                 </LinearGradient>
               </TouchableOpacity>

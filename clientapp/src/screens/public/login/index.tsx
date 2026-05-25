@@ -1,304 +1,282 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  ScrollView, StatusBar, TextInput, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
-import FastImage from 'react-native-fast-image';
+import Animated, { FadeInUp, FadeInDown, FadeInRight } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AppTextInput, AppButton } from '../../../components';
-import { COLORS, IMAGES, STRINGS, FONTS, useTheme } from '../../../config';
+import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
+import { useDispatch } from 'react-redux';
+import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
 
 export default function Login({ navigation }: any) {
   const { signIn } = useAuth();
-  const { showLoader, showToast } = useUI();
   const { colors, isDark } = useTheme();
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<any>({});
+  const dispatch = useDispatch();
+  const { showLoader, showToast } = useUI();
 
-  const sText = STRINGS.login;
+  const [mobile, setMobile]         = useState('');
+  const [password, setPassword]     = useState('');
+  const [showPass, setShowPass]     = useState(false);
+  const [isStaffMode, setIsStaffMode] = useState(false);
+  const [errors, setErrors]         = useState<{ mobile?: string; password?: string }>({});
+  const [mobileFocused, setMobileFocused]   = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
-  const validate = () => {
-    let valid = true;
-    let newErrors: any = {};
+  const passwordRef = useRef<TextInput>(null);
 
-    if (!name.trim()) {
-      newErrors.name = 'User name is required';
-      valid = false;
+  const validateMobile = () => {
+    if (!mobile.trim() || mobile.replace(/\D/g, '').length < 10) {
+      setErrors(e => ({ ...e, mobile: 'Enter a valid 10-digit mobile number' }));
+      return false;
     }
-    if (!password.trim()) {
-      newErrors.password = 'Password is required';
-      valid = false;
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-      valid = false;
-    }
-
-    setErrors(newErrors);
-    return valid;
+    return true;
   };
 
-  const handleLogin = async () => {
-    if (validate()) {
-      showLoader(true);
-      try {
-        await new Promise((resolve: any) => setTimeout(resolve, 1500));
-        await signIn();
-        showToast('Successfully signed in!', 'success');
-      } catch (error) {
-        showToast('Invalid credentials. Please try again.', 'danger');
-      } finally {
-        showLoader(false);
-      }
+  const handleSendOTP = async () => {
+    if (!validateMobile()) return;
+    showLoader(true);
+    try {
+      // TODO: call sendOTP mutation via Apollo
+      await new Promise<void>(r => setTimeout(() => r(), 800));
+      navigation.navigate('OTPVerification', { mobile: mobile.replace(/\D/g, '') });
+    } catch {
+      showToast('Could not send OTP. Try again.', 'danger');
+    } finally {
+      showLoader(false);
+    }
+  };
+
+  const handleStaffLogin = async () => {
+    if (!validateMobile()) return;
+    if (!password.trim() || password.length < 4) {
+      setErrors(e => ({ ...e, password: 'Enter your password' }));
+      return;
+    }
+    showLoader(true);
+    try {
+      // TODO: call staffLogin mutation via Apollo — returns { user, token }
+      await new Promise<void>(r => setTimeout(() => r(), 1000));
+      // Mock response — role determined server-side by mobile number
+      dispatch(setCredentials({
+        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'salesman' },
+        token: 'mock-token',
+      }));
+      await signIn();
+    } catch {
+      showToast('Invalid credentials. Please try again.', 'danger');
+    } finally {
+      showLoader(false);
+    }
+  };
+
+  const toggleStaffMode = () => {
+    setIsStaffMode(v => !v);
+    setErrors({});
+    if (!isStaffMode) {
+      setTimeout(() => passwordRef.current?.focus(), 350);
     }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-
-          <Animated.View entering={FadeInUp.duration(800).delay(120)} style={styles.hero}>
-            <View style={[styles.logoShell, { backgroundColor: colors.raisedSurface }]}>
-              <FastImage source={IMAGES.logo} style={styles.logo} tintColor={isDark ? colors.onBrand : undefined} resizeMode={FastImage.resizeMode.contain} />
-            </View>
-            <View style={styles.heroCopy}>
-              <Text style={[styles.eyebrow, { color: colors.brand }]}>Fresh market access</Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Hero */}
+            <Animated.View entering={FadeInUp.duration(800).delay(80)} style={styles.hero}>
+              <LinearGradient
+                colors={[colors.raisedSurface, colors.brandSoft]}
+                style={[styles.iconBadge, { borderColor: colors.border, shadowColor: colors.brand }]}
+              >
+                <Icon name="store-outline" size={48} color={colors.brand} />
+              </LinearGradient>
+              <Text style={[styles.eyebrow, { color: colors.brand }]}>Business Suite</Text>
               <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
-              <Text style={[styles.subtitle, { color: colors.subText }]}>Sign in to continue your grocery run, track orders, and reorder your weekly favorites.</Text>
-            </View>
-          </Animated.View>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>
+                {isStaffMode
+                  ? 'Enter your mobile number and password to sign in.'
+                  : 'Enter your mobile number to receive a one-time passcode.'}
+              </Text>
+            </Animated.View>
 
-          <Animated.View entering={FadeInUp.duration(800).delay(260)} style={[styles.formCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-            <AppTextInput
-              label={sText.nameLabel}
-              leftIcon="account-outline"
-              placeholder={sText.namePlaceholder}
-              value={name}
-              onChangeText={(text) => {
-                setName(text);
-                if (errors.name) setErrors({ ...errors, name: undefined });
-              }}
-              error={errors.name}
-            />
-            <AppTextInput
-              label={sText.passwordLabel}
-              leftIcon="lock-outline"
-              placeholder={sText.passwordPlaceholder}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) setErrors({ ...errors, password: undefined });
-              }}
-              secureTextEntry
-              showEyeIcon
-              error={errors.password}
-            />
+            {/* Form card */}
+            <Animated.View entering={FadeInUp.duration(800).delay(240)} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
 
-            <TouchableOpacity
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate('ForgotPassword')}
-            >
-              <Text style={[styles.forgotPasswordText, { color: colors.brand }]}>{sText.forgotPassword}</Text>
-            </TouchableOpacity>
+              {/* Mobile input */}
+              <Text style={[styles.label, { color: colors.subText }]}>Mobile Number</Text>
+              <View style={[styles.inputRow, {
+                backgroundColor: colors.raisedSurface,
+                borderColor: errors.mobile ? '#ef4444' : mobileFocused ? colors.brand : colors.border,
+              }]}>
+                <Icon name="phone-outline" size={20} color={mobileFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                <Text style={[styles.dialCode, { color: colors.subText }]}>+91</Text>
+                <View style={[styles.dividerV, { backgroundColor: colors.border }]} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Enter mobile number"
+                  placeholderTextColor={colors.placeholder}
+                  value={mobile}
+                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); }}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  returnKeyType={isStaffMode ? 'next' : 'done'}
+                  onSubmitEditing={isStaffMode ? () => passwordRef.current?.focus() : handleSendOTP}
+                  onFocus={() => setMobileFocused(true)}
+                  onBlur={() => setMobileFocused(false)}
+                />
+              </View>
+              {!!errors.mobile && (
+                <View style={styles.errorRow}>
+                  <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                  <Text style={styles.errorText}>{errors.mobile}</Text>
+                </View>
+              )}
 
-            <AppButton
-              title={sText.signInButton}
-              onPress={handleLogin}
-              style={[styles.signInButton, { backgroundColor: colors.brand }]}
-              textStyle={styles.primaryButtonText}
-            />
+              {/* Staff password section — animated reveal */}
+              {isStaffMode && (
+                <Animated.View entering={FadeInDown.duration(350)}>
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Password</Text>
+                  <View style={[styles.inputRow, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: errors.password ? '#ef4444' : passwordFocused ? colors.brand : colors.border,
+                  }]}>
+                    <Icon name="lock-outline" size={20} color={passwordFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                    <TextInput
+                      ref={passwordRef}
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="Enter password"
+                      placeholderTextColor={colors.placeholder}
+                      value={password}
+                      onChangeText={t => { setPassword(t); setErrors(e => ({ ...e, password: undefined })); }}
+                      secureTextEntry={!showPass}
+                      returnKeyType="done"
+                      onSubmitEditing={handleStaffLogin}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                    />
+                    <TouchableOpacity onPress={() => setShowPass(v => !v)} style={styles.eyeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Icon name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.subText} />
+                    </TouchableOpacity>
+                  </View>
+                  {!!errors.password && (
+                    <View style={styles.errorRow}>
+                      <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                      <Text style={styles.errorText}>{errors.password}</Text>
+                    </View>
+                  )}
+                </Animated.View>
+              )}
 
-            <View style={styles.dividerRow}>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.subText }]}>or</Text>
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            </View>
+              {/* Primary action button */}
+              <TouchableOpacity
+                style={[styles.primaryBtn, { marginTop: 20 }]}
+                onPress={isStaffMode ? handleStaffLogin : handleSendOTP}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.brandLight, colors.brandDark]}
+                  style={styles.btnGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.btnText}>{isStaffMode ? 'Sign In' : 'Send OTP'}</Text>
+                  <Icon name={isStaffMode ? 'login' : 'message-badge-outline'} size={18} color={COLORS.light.onBrand} style={{ marginLeft: 8 }} />
+                </LinearGradient>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.googleButton, { borderColor: colors.border, backgroundColor: colors.raisedSurface }]}>
-              <Icon name="google" size={20} color={colors.google} style={styles.googleIcon} />
-              <Text style={[styles.googleButtonText, { color: colors.text }]}>{sText.googleLogin}</Text>
-            </TouchableOpacity>
+              {/* Staff mode toggle */}
+              <TouchableOpacity style={styles.staffToggle} onPress={toggleStaffMode} activeOpacity={0.7}>
+                {isStaffMode
+                  ? <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
+                      <Icon name="arrow-left" size={16} color={colors.brand} />
+                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Back to OTP login</Text>
+                    </Animated.View>
+                  : <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
+                      <Icon name="account-tie-outline" size={18} color={colors.brand} />
+                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Login as Staff</Text>
+                      <Icon name="chevron-right" size={16} color={colors.brand} />
+                    </Animated.View>
+                }
+              </TouchableOpacity>
+            </Animated.View>
 
-            <View style={styles.termsContainer}>
+            {/* Terms */}
+            <Animated.View entering={FadeInDown.duration(600).delay(500)} style={styles.terms}>
               <Text style={[styles.termsText, { color: colors.subText }]}>
                 {STRINGS.common.byContinuing}
-                <Text style={[styles.termsLink, { color: colors.brand }]} onPress={() => navigation.navigate('TermsCondition')}>{` ${STRINGS.common.termsCondition}`}</Text>
-                {` ${STRINGS.common.and} `}
+                <Text style={[styles.termsLink, { color: colors.brand }]} onPress={() => navigation.navigate('TermsCondition')}>
+                  {STRINGS.common.termsCondition}
+                </Text>
+                {STRINGS.common.and}
                 <Text style={[styles.termsLink, { color: colors.brand }]} onPress={() => navigation.navigate('PrivacyPolicy')}>
                   {STRINGS.common.privacyPolicy}
                 </Text>
               </Text>
-            </View>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.duration(800).delay(800)} style={styles.footer}>
-            <Text style={[styles.footerText, { color: colors.subText }]}>{sText.noAccount}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={[styles.signUpLinkText, { color: colors.brand }]}>{sText.signUp}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scroll: { paddingHorizontal: 22, paddingBottom: 40, flexGrow: 1 },
+  glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
+  glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
+  glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+
+  hero: { paddingTop: 56, paddingBottom: 22, alignItems: 'flex-start' },
+  iconBadge: {
+    width: 74, height: 74, borderRadius: 22, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, marginBottom: 20,
+    shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6,
   },
-  scrollContent: {
-    paddingHorizontal: 22,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  glow: {
-    position: 'absolute',
-    width: '120%',
-    height: 190,
-    opacity: 1,
-  },
-  glowOne: {
-    backgroundColor: COLORS.light.brandSoft,
-    top: -72,
-    right: -34,
-    borderBottomLeftRadius: 120,
-    transform: [{ rotate: '-7deg' }],
-  },
-  glowTwo: {
-    backgroundColor: COLORS.light.warmSoft,
-    bottom: 86,
-    left: -48,
-    height: 150,
-    borderTopRightRadius: 110,
-    transform: [{ rotate: '-8deg' }],
-  },
-  hero: {
-    paddingTop: 58,
-    paddingBottom: 26,
-  },
-  logoShell: {
-    width: 78,
-    height: 78,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.light.brand,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  logo: {
-    width: 58,
-    height: 58,
-  },
-  heroCopy: {
-    marginTop: 26,
-  },
-  eyebrow: {
-    fontSize: 13,
-    fontFamily: FONTS.bold,
-    textTransform: 'uppercase',
-  },
-  title: {
-    fontSize: 34,
-    fontFamily: FONTS.bold,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontFamily: FONTS.regular,
-    lineHeight: 22,
-    marginTop: 10,
-  },
-  formCard: {
-    borderWidth: 1,
-    borderRadius: 28,
-    padding: 18,
+  eyebrow: { fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 1 },
+  title: { fontSize: 32, fontFamily: FONTS.bold, marginTop: 6, marginBottom: 8 },
+  subtitle: { fontSize: 14, fontFamily: FONTS.regular, lineHeight: 21 },
+
+  card: {
+    borderWidth: 1, borderRadius: 28, padding: 20,
     shadowColor: COLORS.light.shadow,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.1,
-    shadowRadius: 28,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 6,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: -5,
-    marginBottom: 25,
+  label: { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 8, marginLeft: 2 },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 16, borderWidth: 1.5,
+    paddingHorizontal: 14, height: 52,
   },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontFamily: FONTS.medium,
-  },
-  signInButton: {
-    marginTop: 10,
-    borderRadius: 14,
-  },
-  primaryButtonText: {
-    color: COLORS.light.onBrand,
-  },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
-  divider: { flex: 1, height: 1 },
-  dividerText: { paddingHorizontal: 12, fontFamily: FONTS.medium, fontSize: 12 },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  googleIcon: {
-    marginRight: 10,
-  },
-  googleButtonText: {
-    fontSize: 16,
-    fontFamily: FONTS.medium,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingTop: 20,
-  },
-  footerText: {
-    fontSize: 14,
-    fontFamily: FONTS.medium,
-  },
-  signUpLinkText: {
-    fontSize: 14,
-    fontFamily: FONTS.bold,
-    marginLeft: 5,
-  },
-  termsContainer: {
-    marginTop: 15,
-    paddingHorizontal: 20,
-  },
-  termsText: {
-    fontSize: 12,
-    fontFamily: FONTS.regular,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  termsLink: {
-    fontFamily: FONTS.bold,
-  },
+  inputIcon: { marginRight: 8 },
+  dialCode: { fontSize: 15, fontFamily: FONTS.semiBold, marginRight: 4 },
+  dividerV: { width: 1, height: 22, marginHorizontal: 8 },
+  input: { flex: 1, fontSize: 16, fontFamily: FONTS.medium },
+  eyeBtn: { padding: 4 },
+  errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, marginLeft: 2 },
+  errorText: { fontSize: 12, fontFamily: FONTS.medium, color: '#ef4444', marginLeft: 4 },
+
+  primaryBtn: { borderRadius: 16, overflow: 'hidden' },
+  btnGrad: { height: 52, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  btnText: { fontSize: 16, fontFamily: FONTS.bold, color: COLORS.light.onBrand },
+
+  staffToggle: { alignSelf: 'center', marginTop: 18, paddingVertical: 8, paddingHorizontal: 4 },
+  staffToggleInner: { flexDirection: 'row', alignItems: 'center' },
+  staffToggleText: { fontSize: 14, fontFamily: FONTS.semiBold },
+
+  terms: { marginTop: 20, paddingHorizontal: 6 },
+  termsText: { fontSize: 12, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 18 },
+  termsLink: { fontFamily: FONTS.bold },
 });

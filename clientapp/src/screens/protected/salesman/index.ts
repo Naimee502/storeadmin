@@ -1,0 +1,11 @@
+export { default as SalesmanDashboard }  from './dashboard';
+export { default as SalesmanRoutes }     from './routes';
+export { default as SalesmanOrders }     from './orders';
+export { default as SalesmanAttendance } from './attendance';
+export { default as SalesmanProfile }    from './profile';
+export { default as RoutePartyVisit }    from './visit';
+export { default as SalesmanCatalog }    from './catalog';
+export { default as SalesmanCart }       from './cart';
+export { default as CollectPayment }     from './collectpayment';
+export { default as AddPartyToRoute }    from './addparty';
+export { default as ManagePartyRoute }   from './manageparty';
