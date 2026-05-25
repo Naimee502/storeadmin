@@ -1,50 +1,52 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const INTRO_KEY = '@is_intro_done';
+const AUTH_KEY    = '@is_authenticated';
+const SPLASH_KEY  = '@is_splash_done';
+const INTRO_KEY   = '@is_intro_done';
+const ACTIVATE_KEY = '@is_business_activated';
 
 type AuthContextType = {
   isAuthenticated: boolean;
   isSplashDone: boolean;
   isIntroDone: boolean;
+  isActivated: boolean;
   isLoading: boolean;
   signIn: () => void;
   signOut: () => void;
   finishSplash: () => void;
   finishIntro: () => void;
+  activateBusiness: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_KEY = '@is_authenticated';
-const SPLASH_KEY = '@is_splash_done';
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isSplashDone, setIsSplashDone] = useState(false);
-  const [isIntroDone, setIsIntroDone] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSplashDone,    setIsSplashDone]    = useState(false);
+  const [isIntroDone,     setIsIntroDone]     = useState(false);
+  const [isActivated,     setIsActivated]     = useState(false);
+  const [isLoading,       setIsLoading]       = useState(true);
 
   useEffect(() => {
-    const loadStorageData = async () => {
+    const load = async () => {
       try {
-        const [authValue, splashValue, introValue] = await Promise.all([
+        const [auth, splash, intro, activated] = await Promise.all([
           AsyncStorage.getItem(AUTH_KEY),
           AsyncStorage.getItem(SPLASH_KEY),
           AsyncStorage.getItem(INTRO_KEY),
+          AsyncStorage.getItem(ACTIVATE_KEY),
         ]);
 
-        if (authValue === 'true') {
+        if (auth === 'true') {
           setIsAuthenticated(true);
           setIsSplashDone(true);
           setIsIntroDone(true);
+          setIsActivated(true);
         } else {
-          if (splashValue === 'true') {
-            setIsSplashDone(true);
-          }
-          if (introValue === 'true') {
-            setIsIntroDone(true);
-          }
+          if (splash    === 'true') setIsSplashDone(true);
+          if (intro     === 'true') setIsIntroDone(true);
+          if (activated === 'true') setIsActivated(true);
         }
       } catch (e) {
         console.error('Failed to load auth state', e);
@@ -52,18 +54,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       }
     };
-
-    loadStorageData();
+    load();
   }, []);
 
   const signIn = async () => {
     try {
-      await AsyncStorage.setItem(AUTH_KEY, 'true');
-      await AsyncStorage.setItem(SPLASH_KEY, 'true');
-      await AsyncStorage.setItem(INTRO_KEY, 'true');
+      await Promise.all([
+        AsyncStorage.setItem(AUTH_KEY,     'true'),
+        AsyncStorage.setItem(SPLASH_KEY,   'true'),
+        AsyncStorage.setItem(INTRO_KEY,    'true'),
+        AsyncStorage.setItem(ACTIVATE_KEY, 'true'),
+      ]);
       setIsAuthenticated(true);
       setIsSplashDone(true);
       setIsIntroDone(true);
+      setIsActivated(true);
     } catch (e) {
       console.error('Failed to save sign-in state', e);
     }
@@ -96,17 +101,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const activateBusiness = async () => {
+    try {
+      await AsyncStorage.setItem(ACTIVATE_KEY, 'true');
+      setIsActivated(true);
+    } catch (e) {
+      console.error('Failed to save activation state', e);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
         isSplashDone,
         isIntroDone,
+        isActivated,
         isLoading,
         signIn,
         signOut,
         finishSplash,
         finishIntro,
+        activateBusiness,
       }}
     >
       {children}

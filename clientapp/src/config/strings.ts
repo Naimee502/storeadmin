@@ -27,9 +27,9 @@ export const STRINGS = {
     login: 'Sign In',
   },
   splash: {
-    title: 'Grocery Shop',
-    subtitle: 'at your door',
-    description: 'The easiest way to buy your grocery shopping',
+    title: 'Business Suite',
+    subtitle: 'your business, simplified',
+    description: 'Manage parties, sales, staff and inventory all in one place.',
     button: 'Get Started',
   },
   onboarding: {
@@ -39,19 +39,16 @@ export const STRINGS = {
     done: 'Get Started',
     steps: [
       {
-        title: 'Premium Quality\nFresh Grocery',
-        description: 'Discover the finest selection of organic fruits and hand-picked vegetables delivered straight from local farms to your kitchen.',
-        image: 'https://cdn-icons-png.flaticon.com/512/3081/3081840.png',
+        title: 'Manage Parties\n& Accounts',
+        description: 'Add customers and vendors, track outstanding balances, and manage all your account relationships in one place.',
       },
       {
-        title: 'Flash Fast\nDoorstep Delivery',
-        description: 'Your time is precious. Experience lightning-fast delivery within 30 minutes, ensuring your groceries arrive fresh and on time.',
-        image: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png',
+        title: 'Sales Orders\n& Invoices',
+        description: 'Create and track sales orders, manage invoices and run your complete billing workflow with ease.',
       },
       {
-        title: 'Secure & Seamless\nPayments',
-        description: 'Pay with absolute peace of mind. Supporting all major credit cards, digital wallets, and convenient cash on delivery options.',
-        image: 'https://cdn-icons-png.flaticon.com/512/1019/1019607.png',
+        title: 'Staff & Route\nManagement',
+        description: 'Assign routes to your field team, track daily attendance and monitor visits and collections in real time.',
       },
     ],
   },

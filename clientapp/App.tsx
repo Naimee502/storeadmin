@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from './src/navigation';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store/store';
+import AdminSetup from './src/screens/public/adminsetup';
 
 const RootStack = createNativeStackNavigator();
 
@@ -24,7 +25,7 @@ const ProtectedStack = createNavigator({
 });
 
 function RootNavigator() {
-  const { isAuthenticated, isSplashDone, isIntroDone, isLoading } = useAuth();
+  const { isAuthenticated, isSplashDone, isIntroDone, isActivated, isLoading } = useAuth();
 
   if (isLoading) {
     return null;
@@ -37,6 +38,8 @@ function RootNavigator() {
         <RootStack.Screen name="Splash" component={getScreenComponent('Splash')!} />
       ) : !isIntroDone ? (
         <RootStack.Screen name="Introduction" component={getScreenComponent('Introduction')!} />
+      ) : !isActivated ? (
+        <RootStack.Screen name="AdminSetup" component={AdminSetup} />
       ) : isAuthenticated ? (
         <RootStack.Screen name="Protected" component={ProtectedStack} />
       ) : (
@@ -45,9 +48,7 @@ function RootNavigator() {
 
       {NavConfig.shared.map((route: any) => {
         const Component = getScreenComponent(route.name);
-
         if (!Component) return null;
-
         return (
           <RootStack.Screen
             key={route.name}
@@ -76,10 +77,10 @@ export default function App() {
     colors: {
       ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
       background: isDark ? '#000000' : '#FFFFFF',
-      card: isDark ? '#000000' : '#FFFFFF',
-      text: isDark ? '#FFFFFF' : '#000000',
-      border: isDark ? '#2A2A2A' : '#EAEAEA',
-      primary: isDark ? '#FFFFFF' : '#000000',
+      card:       isDark ? '#000000' : '#FFFFFF',
+      text:       isDark ? '#FFFFFF' : '#000000',
+      border:     isDark ? '#2A2A2A' : '#EAEAEA',
+      primary:    isDark ? '#FFFFFF' : '#000000',
     },
   };
 
