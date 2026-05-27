@@ -153,7 +153,7 @@ export const NavConfig: any = {
               subNavigator: {
                 type: 'tabs',
                 screens: [
-                  { name: 'SalesmanDashboard',  label: 'Dashboard',  icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'SalesmanDashboard',  label: 'Home',       icon: getNavIcon('home'),        options: { headerShown: false } },
                   { name: 'SalesmanRoutes',     label: 'Routes',     icon: getNavIcon('routes'),      options: { headerShown: false } },
                   { name: 'SalesmanOrders',     label: 'Orders',     icon: getNavIcon('salesOrders'), options: { headerShown: false } },
                   { name: 'SalesmanAttendance', label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
@@ -192,7 +192,7 @@ export const NavConfig: any = {
               subNavigator: {
                 type: 'tabs',
                 screens: [
-                  { name: 'DeliveryDashboard',   label: 'Dashboard',   icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'DeliveryDashboard',   label: 'Home',        icon: getNavIcon('home'),        options: { headerShown: false } },
                   { name: 'DeliveryList',        label: 'Deliveries',  icon: getNavIcon('deliveries'),  options: { headerShown: false } },
                   { name: 'DeliveryCollections', label: 'Collections', icon: getNavIcon('collections'), options: { headerShown: false } },
                   { name: 'DeliveryAttendance',  label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
@@ -226,7 +226,7 @@ export const NavConfig: any = {
               subNavigator: {
                 type: 'tabs',
                 screens: [
-                  { name: 'StaffDashboard',  label: 'Dashboard',  icon: getNavIcon('dashboard'),   options: { headerShown: false } },
+                  { name: 'StaffDashboard',  label: 'Home',       icon: getNavIcon('home'),        options: { headerShown: false } },
                   { name: 'StaffOrders',     label: 'Orders',     icon: getNavIcon('staffOrders'), options: { headerShown: false } },
                   { name: 'StaffAttendance', label: 'Attendance & Leave', icon: getNavIcon('attendance'),  options: { headerShown: false } },
                   { name: 'StaffProfile',    label: 'Profile',    icon: getNavIcon('profile'),     options: { headerShown: false } },

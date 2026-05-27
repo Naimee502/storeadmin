@@ -1,4 +1,4 @@
-export { default as SalesmanDashboard }  from './dashboard';
+export { default as SalesmanDashboard }  from './home';
 export { default as SalesmanRoutes }     from './routes';
 export { default as SalesmanOrders }     from './orders';
 export { default as SalesmanAttendance } from './attendance';

@@ -40,7 +40,6 @@ export default function Login({ navigation }: any) {
     if (!validateMobile()) return;
     showLoader(true);
     try {
-      // TODO: call sendOTP mutation via Apollo
       await new Promise<void>(r => setTimeout(() => r(), 800));
       navigation.navigate('OTPVerification', { mobile: mobile.replace(/\D/g, '') });
     } catch {
@@ -62,7 +61,7 @@ export default function Login({ navigation }: any) {
       await new Promise<void>(r => setTimeout(() => r(), 1000));
       // Mock response — role determined server-side by mobile number
       dispatch(setCredentials({
-        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'staff' },
+        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'salesman' },
         token: 'mock-token',
       }));
       await signIn();
