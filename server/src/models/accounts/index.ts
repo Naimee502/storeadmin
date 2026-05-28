@@ -108,6 +108,7 @@ const accountSchema = new mongoose.Schema(
     longitude: { type: Number },
 
     otp: { type: String },
+    otpExpiry: { type: Date },
 
     status: { type: Boolean, default: true },
   },

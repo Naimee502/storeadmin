@@ -10,6 +10,9 @@ export const adminResolvers = {
 
       return await Admin.find(query);
     },
+    getAdminById: async (_: any, { id }: { id: string }) => {
+      return await Admin.findById(id);
+    },
     getAdminByEmail: async (_: any, { email }: { email: string }) => {
       return await Admin.findOne({ email });
     },

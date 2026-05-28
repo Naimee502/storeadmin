@@ -9,7 +9,7 @@ import { useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { GET_SALES_ORDERS } from '../../../../apollo/queries/party';
+import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';

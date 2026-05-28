@@ -29,15 +29,6 @@ export const GET_OPEN_PUNCH = gql`
   }
 `;
 
-export const PUNCH = gql`
-  mutation punch($staffid: ID!, $adminid: ID!, $type: String!, $timestamp: String!) {
-    punch(staffid: $staffid, adminid: $adminid, type: $type, timestamp: $timestamp) {
-      id date status
-      punches { type timestamp }
-    }
-  }
-`;
-
 export const GET_LEAVE_REQUESTS = gql`
   query getLeaveRequests($adminid: ID, $staffid: ID) {
     getLeaveRequests(filter: { adminid: $adminid, staffid: $staffid }) {
@@ -52,19 +43,10 @@ export const GET_LEAVE_REQUESTS = gql`
   }
 `;
 
-export const ADD_LEAVE_REQUEST = gql`
-  mutation addLeaveRequest($input: LeaveRequestInput!) {
-    addLeaveRequest(input: $input) {
-      id fromDate toDate totalDays status
-      leavetypeid { id name code color }
-    }
-  }
-`;
-
-export const CANCEL_LEAVE_REQUEST = gql`
-  mutation cancelLeaveRequest($id: ID!) {
-    cancelLeaveRequest(id: $id) {
-      id status
+export const GET_LEAVE_TYPES = gql`
+  query getLeaveTypes($adminid: ID!) {
+    getLeaveTypes(adminid: $adminid) {
+      id name code color isPaid maxDaysPerYear
     }
   }
 `;

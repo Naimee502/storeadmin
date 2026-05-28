@@ -7,7 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, AppTextInput, DynamicFlashList } from '../../../../components';
-import { GET_PRODUCTS } from '../../../../apollo/queries/party';
+import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { formatINR } from '../../../../utils';
 import { addToCart, updateQty } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';

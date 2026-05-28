@@ -23,24 +23,13 @@ export const GET_SALESMAN_ORDERS = gql`
   }
 `;
 
-export const UPDATE_SALES_ROUTE = gql`
-  mutation UpdateSalesRoute($id: ID!, $input: SalesRouteInput!) {
-    updateSalesRoute(id: $id, input: $input) {
-      id routename
-      dayWiseAccounts {
-        day visitorder
-        accounts { id name mobile }
-      }
-    }
-  }
-`;
-
 export const GET_STAFF_ACCOUNT = gql`
-  query getStaffAccountById($id: ID!, $adminid: ID!) {
-    getStaffAccountById(id: $id, adminid: $adminid) {
-      id name mobile email staffcode role
-      branchid { id name }
-      ledgerid { id ledgername }
+  query getStaffAccountById($id: ID!, $adminId: ID) {
+    getStaffAccountById(id: $id, adminId: $adminId) {
+      id name mobile email staffcode role address salary commission
+      branchid        { id branchname }
+      ledgerid        { id ledgername }
+      assignedChannels { id channelName }
     }
   }
 `;

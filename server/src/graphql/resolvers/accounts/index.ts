@@ -1,5 +1,6 @@
 import { Account } from "../../../models/accounts";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const accountResolvers = {
   Query: {
@@ -113,6 +114,45 @@ export const accountResolvers = {
     resetAccount: async (_: any, { id }: any) => {
       const result = await Account.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
+    },
+
+    sendOTP: async (_: any, { adminId, mobile }: any) => {
+      const account = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (!account) throw new Error("Mobile number not registered.");
+
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+      await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+
+      // TODO: replace with SMS provider (Twilio, AWS SNS, etc.) and remove otp from response
+      console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
+
+      return { success: true, message: "OTP sent successfully.", otp };
+    },
+
+    verifyOTP: async (_: any, { adminId, mobile, otp }: any, { res }: any) => {
+      const account = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (!account) throw new Error("Mobile number not registered.");
+
+      if (account.otp !== otp) throw new Error("Invalid OTP. Please try again.");
+
+      if (account.otpExpiry && new Date() > account.otpExpiry) {
+        throw new Error("OTP has expired. Please request a new one.");
+      }
+
+      await Account.findByIdAndUpdate(account._id, { otp: null, otpExpiry: null });
+
+      const { accessToken, refreshToken } = generateTokens({
+        id: account.id,
+        email: account.email || mobile,
+        type: "party",
+      });
+
+      sendRefreshToken(res, refreshToken);
+
+      const populated = await Account.findById(account._id).populate("admin");
+      return { accessToken, account: populated };
     },
   },
 };

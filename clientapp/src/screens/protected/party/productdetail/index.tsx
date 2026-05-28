@@ -10,7 +10,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { GET_PRODUCTS } from '../../../../apollo/queries/party';
+import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { formatINR } from '../../../../utils';
 import { BackHeader, AppButton } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';

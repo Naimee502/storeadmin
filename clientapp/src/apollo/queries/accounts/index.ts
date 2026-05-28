@@ -1,6 +1,4 @@
-import { gql } from '@apollo/client/core';
-
-// ── Products ─────────────────────────────────────────────────────────────────
+import { gql } from '@apollo/client';
 
 export const GET_PRODUCTS = gql`
   query GetProducts($adminid: ID!, $limit: Int, $offset: Int) {
@@ -26,8 +24,6 @@ export const GET_PRODUCTS = gql`
     }
   }
 `;
-
-// ── Sales Orders ──────────────────────────────────────────────────────────────
 
 export const GET_SALES_ORDERS = gql`
   query GetSalesOrders($adminid: ID!, $partyaccid: ID) {
@@ -55,19 +51,6 @@ export const GET_SALES_ORDERS = gql`
     }
   }
 `;
-
-export const ADD_SALES_ORDER = gql`
-  mutation AddSalesOrder($input: SalesOrderInput!) {
-    addSalesOrder(input: $input) {
-      id
-      billnumber
-      totalamount
-      cancelStatus
-    }
-  }
-`;
-
-// ── Account / Party ───────────────────────────────────────────────────────────
 
 export const GET_ACCOUNTS = gql`
   query GetAccounts($admin: ID!) {
@@ -97,15 +80,13 @@ export const GET_ACCOUNT = gql`
       creditlimit
       openingbalance
       openingbalancetype
-      channel  { id name }
+      channel    { id channelName }
       region
       salesmanid { id name }
       ledgerid   { id ledgername }
     }
   }
 `;
-
-// ── Ledger / Transactions ─────────────────────────────────────────────────────
 
 export const GET_TRANSACTIONS = gql`
   query GetTransactions($adminid: ID!, $ledgerid: ID) {

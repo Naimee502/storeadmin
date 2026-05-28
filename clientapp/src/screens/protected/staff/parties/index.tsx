@@ -8,7 +8,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
-import { GET_ACCOUNTS } from '../../../../apollo/queries/party';
+import { GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_ACCOUNTS = [

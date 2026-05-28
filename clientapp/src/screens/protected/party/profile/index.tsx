@@ -7,30 +7,13 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { ProfileSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_ACCOUNT } from '../../../../apollo/queries/party';
+import { GET_ACCOUNT } from '../../../../apollo/queries/accounts';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppModal } from '../../../../components';
 import { logout } from '../../../../store/slices';
 import { useAuth } from '../../../../navigation';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DUMMY_ACCOUNT = {
-  mobile:              '9876543210',
-  email:               'mahesh.traders@example.com',
-  gstnumber:           '27AABCU9603R1ZM',
-  accountcode:         'CUST-001',
-  address:             '15, Market Road',
-  city:                'Nagpur',
-  state:               'Maharashtra',
-  pincode:             '440001',
-  channel:             { name: 'Wholesale' },
-  region:              'Western Maharashtra',
-  salesmanid:          { name: 'Rahul Sharma' },
-  creditlimit:         50000,
-  openingbalance:      12000,
-  openingbalancetype:  'Dr',
-  ledgerid:            { ledgername: 'Mahesh Traders Ledger' },
-};
 
 function InfoRow({ icon, label, value, colors }: { icon: string; label: string; value?: string | null; colors: any }) {
   if (!value) return null;
@@ -61,7 +44,7 @@ export default function PartyProfile() {
     skip: !adminid || !user?.id,
   });
 
-  const account  = data?.getAccountById ?? DUMMY_ACCOUNT;
+  const account  = data?.getAccountById;
   const initials = (user?.name ?? 'P').substring(0, 2).toUpperCase();
   const address  = [account?.address, account?.city, account?.state, account?.pincode]
     .filter(Boolean).join(', ') || null;
@@ -105,7 +88,7 @@ export default function PartyProfile() {
             <InfoRow icon="file-certificate-outline" label="GSTIN"        value={account?.gstnumber}              colors={colors} />
             <InfoRow icon="identifier"               label="Account Code" value={account?.accountcode}            colors={colors} />
             <InfoRow icon="map-marker-outline"       label="Address"      value={address}                         colors={colors} />
-            <InfoRow icon="tag-outline"              label="Channel"      value={account?.channel?.name}          colors={colors} />
+            <InfoRow icon="tag-outline"              label="Channel"      value={account?.channel?.channelName}    colors={colors} />
             <InfoRow icon="map-outline"              label="Region"       value={account?.region}                 colors={colors} />
             <InfoRow icon="account-tie-outline"      label="Salesman"     value={account?.salesmanid?.name}       colors={colors} />
           </Animated.View>

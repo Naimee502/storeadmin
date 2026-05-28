@@ -5,3 +5,4 @@ export { AppModal } from './modal';
 export { default as Skeleton } from './skeleton';
 export { PlaceholderScreen } from './placeholder';
 export { DynamicFlashList } from './flashlist';
+export { AppLoader } from './loader';

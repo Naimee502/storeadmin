@@ -7,7 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { LedgerSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/party';
+import { GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate } from '../../../../utils';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';

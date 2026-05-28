@@ -10,7 +10,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_PRODUCTS } from '../../../../apollo/queries/party';
+import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, DynamicFlashList } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';

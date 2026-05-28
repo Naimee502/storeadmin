@@ -7,7 +7,7 @@ import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
-import { ADD_SALES_ORDER } from '../../../../apollo/queries/party';
+import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { formatINR } from '../../../../utils';
 import { clearCart, updateQty, removeFromCart } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';

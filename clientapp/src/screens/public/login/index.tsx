@@ -8,15 +8,20 @@ import Animated, { FadeInUp, FadeInDown, FadeInRight } from 'react-native-reanim
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
+import { apolloClient } from '../../../apollo/client';
+import { SEND_OTP } from '../../../apollo/mutations/accounts';
+import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
+import type { RootState } from '../../../store/rootreducer';
 
 export default function Login({ navigation }: any) {
   const { signIn } = useAuth();
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
   const { showLoader, showToast } = useUI();
+  const adminId = useSelector((s: RootState) => s.tenant.adminId) ?? '';
 
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -40,10 +45,20 @@ export default function Login({ navigation }: any) {
     if (!validateMobile()) return;
     showLoader(true);
     try {
-      await new Promise<void>(r => setTimeout(() => r(), 800));
-      navigation.navigate('OTPVerification', { mobile: mobile.replace(/\D/g, '') });
-    } catch {
-      showToast('Could not send OTP. Try again.', 'danger');
+      const { data } = await apolloClient.mutate({
+        mutation: SEND_OTP,
+        variables: { adminId, mobile: mobile.trim() },
+      });
+      if (data?.sendOTP?.success) {
+        navigation.navigate('OTPVerification', {
+          mobile: mobile.trim(),
+          adminId,
+          autoOtp: data.sendOTP.otp ?? '',
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Could not send OTP. Try again.';
+      setErrors(e => ({ ...e, mobile: msg }));
     } finally {
       showLoader(false);
     }
@@ -57,16 +72,33 @@ export default function Login({ navigation }: any) {
     }
     showLoader(true);
     try {
-      // TODO: call staffLogin mutation via Apollo — returns { user, token }
-      await new Promise<void>(r => setTimeout(() => r(), 1000));
-      // Mock response — role determined server-side by mobile number
+      const { data } = await apolloClient.mutate({
+        mutation: LOGIN_STAFF,
+        variables: { adminId, mobile: mobile.trim(), password: password.trim() },
+      });
+
+      const { accessToken, staff } = data.loginStaffByMobile;
+      console.log('Staff login:', staff);
+
       dispatch(setCredentials({
-        user: { id: '1', name: 'Staff User', mobile: mobile.trim(), role: 'salesman' },
-        token: 'mock-token',
+        user: {
+          id: staff.id,
+          name: staff.name,
+          mobile: staff.mobile,
+          role: staff.role,
+          adminId: staff.admin?.id ?? adminId,
+          email: staff.email,
+        },
+        token: accessToken,
       }));
       await signIn();
-    } catch {
-      showToast('Invalid credentials. Please try again.', 'danger');
+    } catch (err: any) {
+      const msg = err?.message || 'Login failed. Try again.';
+      if (msg.toLowerCase().includes('password')) {
+        setErrors(e => ({ ...e, password: msg }));
+      } else {
+        setErrors(e => ({ ...e, mobile: msg }));
+      }
     } finally {
       showLoader(false);
     }
@@ -144,7 +176,7 @@ export default function Login({ navigation }: any) {
                 </View>
               )}
 
-              {/* Staff password section — animated reveal */}
+              {/* Staff password section */}
               {isStaffMode && (
                 <Animated.View entering={FadeInDown.duration(350)}>
                   <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Password</Text>

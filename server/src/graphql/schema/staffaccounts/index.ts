@@ -113,6 +113,7 @@ export const staffAccountTypeDefs = gql`
     addStaffAccount(input: StaffAccountInput!): StaffAccount!
     editStaffAccount(id: ID!, input: StaffAccountInput!): StaffAccount!
     loginStaff(email: String!, password: String!): LoginStaffResponse
+    loginStaffByMobile(adminId: ID!, mobile: String!, password: String!): LoginStaffResponse
     deleteStaffAccount(id: ID!): Boolean!
     resetStaffAccount(id: ID!): Boolean!
   }

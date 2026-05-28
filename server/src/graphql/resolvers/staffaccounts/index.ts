@@ -82,9 +82,9 @@ export const staffAccountResolvers = {
     // ==========================================
     // ✅ Get a single staff account
     // ==========================================
-    getStaffAccountById: async (_: any, { id, admin }: { id: string; admin?: string }) => {
+    getStaffAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
       const filter: any = { _id: id };
-      if (admin) filter.admin = admin;
+      if (adminId) filter.admin = adminId;
 
       return await StaffAccount.findOne(filter)
         .populate("admin")
@@ -144,13 +144,8 @@ export const staffAccountResolvers = {
         .populate("assignedChannels");
       if (!staff) throw new Error("Staff account not found");
 
-      if (staff.password !== password) {
-        throw new Error("Invalid credentials");
-      }
-
-      if (!staff.status) {
-        throw new Error("Your account is currently disabled.");
-      }
+      if (staff.password !== password) throw new Error("Invalid credentials");
+      if (!staff.status) throw new Error("Your account is currently disabled.");
 
       const { accessToken, refreshToken } = generateTokens({
         id: staff.id,
@@ -159,11 +154,27 @@ export const staffAccountResolvers = {
       });
 
       sendRefreshToken(res, refreshToken);
+      return { accessToken, staff };
+    },
 
-      return {
-        accessToken,
-        staff,
-      };
+    loginStaffByMobile: async (_: any, { adminId, mobile, password }: any, { res }: any) => {
+      const staff = await StaffAccount.findOne({ admin: adminId, mobile })
+        .populate("admin")
+        .populate("branchid")
+        .populate("assignedChannels");
+      if (!staff) throw new Error("Mobile number not registered.");
+
+      if (staff.password !== password) throw new Error("Invalid password.");
+      if (!staff.status) throw new Error("Your account is currently disabled.");
+
+      const { accessToken, refreshToken } = generateTokens({
+        id: staff.id,
+        email: staff.email,
+        type: "staff",
+      });
+
+      sendRefreshToken(res, refreshToken);
+      return { accessToken, staff };
     },
 
     // ==========================================

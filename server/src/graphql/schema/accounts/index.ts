@@ -133,6 +133,17 @@ export const accountTypeDefs = gql`
     longitude: Float
   }
 
+  type SendOTPResponse {
+    success: Boolean!
+    message: String!
+    otp: String
+  }
+
+  type VerifyOTPResponse {
+    accessToken: String!
+    account: Account!
+  }
+
   type Query {
     getAccounts(filter: AccountFilterInput): [Account!]!
     getAccountById(id: ID!, adminId: ID): Account
@@ -143,5 +154,7 @@ export const accountTypeDefs = gql`
     editAccount(id: ID!, input: AccountInput!): Account!
     deleteAccount(id: ID!): Boolean!
     resetAccount(id: ID!): Boolean!
+    sendOTP(adminId: ID!, mobile: String!): SendOTPResponse!
+    verifyOTP(adminId: ID!, mobile: String!, otp: String!): VerifyOTPResponse!
   }
 `;

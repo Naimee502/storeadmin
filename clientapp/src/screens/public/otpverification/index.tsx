@@ -12,6 +12,8 @@ import { useAuth } from '../../../navigation';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
+import { apolloClient } from '../../../apollo/client';
+import { SEND_OTP, VERIFY_OTP } from '../../../apollo/mutations/accounts';
 
 export default function OTPVerification({ navigation, route }: any) {
   const { colors, isDark } = useTheme();
@@ -21,11 +23,20 @@ export default function OTPVerification({ navigation, route }: any) {
   const { showLoader, showToast } = useUI();
 
   const mobile: string = route?.params?.mobile ?? '';
+  const adminId: string = route?.params?.adminId ?? '';
+  const autoOtp: string = route?.params?.autoOtp ?? '';
 
-  const [code, setCode]               = useState(['', '', '', '']);
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const [timer, setTimer]             = useState(30);
+  const [code, setCode]                = useState(['', '', '', '']);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [timer, setTimer]              = useState(30);
   const inputs = useRef<any>([]);
+
+  // auto-fill boxes when OTP comes from server
+  useEffect(() => {
+    if (autoOtp.length === 4) {
+      setCode(autoOtp.split(''));
+    }
+  }, [autoOtp]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -58,30 +69,55 @@ export default function OTPVerification({ navigation, route }: any) {
     Keyboard.dismiss();
     showLoader(true);
     try {
-      // TODO: call verifyOTP mutation via Apollo — returns { user, token }
-      await new Promise<void>(r => setTimeout(() => r(), 1200));
+      const { data } = await apolloClient.mutate({
+        mutation: VERIFY_OTP,
+        variables: { adminId, mobile, otp },
+      });
 
-      // Mock party user — role determined server-side by mobile lookup
+      const { accessToken, account } = data.verifyOTP;
+      console.log('Party login:', account);
+
       dispatch(setCredentials({
-        user: { id: '1', name: 'Party User', mobile, role: 'party' },
-        token: 'mock-party-token',
+        user: {
+          id: account.id,
+          name: account.name,
+          mobile: account.mobile,
+          role: 'party',
+          adminId: account.admin?.id ?? adminId,
+          email: account.email,
+        },
+        token: accessToken,
       }));
       await signIn();
       showToast(sText.success, 'success');
-    } catch {
-      showToast(sText.failed, 'danger');
+    } catch (err: any) {
+      const msg = err?.message || sText.failed;
+      showToast(msg, 'danger');
     } finally {
       showLoader(false);
     }
   };
 
-  const handleResend = () => {
-    if (timer === 0) {
-      setTimer(30);
-      setCode(['', '', '', '']);
-      inputs.current[0]?.focus();
-      setFocusedIndex(0);
-      showToast(sText.resent, 'success');
+  const handleResend = async () => {
+    if (timer > 0) return;
+    showLoader(true);
+    try {
+      const { data } = await apolloClient.mutate({
+        mutation: SEND_OTP,
+        variables: { adminId, mobile },
+      });
+      if (data?.sendOTP?.success) {
+        setTimer(30);
+        const newOtp = data.sendOTP.otp ?? '';
+        setCode(newOtp.length === 4 ? newOtp.split('') : ['', '', '', '']);
+        setFocusedIndex(-1);
+        showToast(sText.resent, 'success');
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Could not resend OTP.';
+      showToast(msg, 'danger');
+    } finally {
+      showLoader(false);
     }
   };
 
