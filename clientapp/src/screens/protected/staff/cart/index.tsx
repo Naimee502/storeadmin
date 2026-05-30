@@ -27,19 +27,13 @@ export default function StaffCart() {
   const [placing, setPlacing] = useState(false);
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
-  const subtotal = cartItems.reduce((s, i) => s + i.amount, 0);
-  const gstTotal = cartItems.reduce((s, i) => s + (i.gst ?? 0), 0);
-  const total    = subtotal + gstTotal;
+  const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
+  const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
+  const totalgst      = cartItems.reduce((s, i) => s + (i.rate - (i.discount ?? 0)) * i.qty * (i.gst ?? 0) / 100, 0);
+  const total         = subtotal - totaldiscount + totalgst;
 
   const handlePlaceOrder = async () => {
     if (!partyId || cartItems.length === 0) return;
-
-    if (!adminid) {
-      Alert.alert('Demo Mode', 'Order submitted successfully!\n\nIn production this will create a real sales order.', [
-        { text: 'OK', onPress: () => { dispatch(clearCart()); navigation.navigate('StaffOrders'); } },
-      ]);
-      return;
-    }
 
     Alert.alert('Confirm Order', `Place order of ${formatINR(total)} for ${partyName}?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -52,20 +46,31 @@ export default function StaffCart() {
               variables: {
                 input: {
                   adminid,
-                  partyaccid: partyId,
-                  staffid: user?.id,
-                  billdate: new Date().toISOString(),
-                  totalamount: total,
+                  branchid:        tenant.branchId ?? '',
+                  partyacc:        partyId,
+                  salesmenid:      user?.id,
+                  paymenttype:     'cash',
+                  billdate:        new Date().toISOString().slice(0, 10),
+                  billtype:        'order',
+                  taxorsupplytype: 'regular',
+                  isservice:       false,
                   subtotal,
-                  totalgst: gstTotal,
-                  totaldiscount: 0,
+                  totaldiscount,
+                  totalgst,
+                  totalamount:     total,
+                  createdby_id:    user?.id,
+                  createdby_name:  user?.name,
+                  createdby_type:  'staff',
                   productservice: cartItems.map(i => ({
                     productserviceid: i.productId,
-                    variantid: i.variantId,
-                    qty: i.qty,
-                    rate: i.rate,
-                    amount: i.amount,
-                    gst: i.gst ?? 0,
+                    variantid:        i.variantId,
+                    salesunitid:      i.unitId,
+                    qty:              i.qty,
+                    unitqty:          i.unitqty ?? i.qty,
+                    rate:             i.rate,
+                    discount:         i.discount ?? 0,
+                    amount:           i.amount,
+                    gst:              i.gst ?? 0,
                   })),
                 },
               },
@@ -74,8 +79,8 @@ export default function StaffCart() {
             Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [
               { text: 'OK', onPress: () => navigation.navigate('StaffOrders') },
             ]);
-          } catch {
-            Alert.alert('Error', 'Failed to place order. Please try again.');
+          } catch (err: any) {
+            Alert.alert('Error', err?.message || 'Failed to place order. Please try again.');
           } finally {
             setPlacing(false);
           }
@@ -91,17 +96,19 @@ export default function StaffCart() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{item.productName}</Text>
-        <Text style={[styles.itemVariant, { color: colors.subText }]}>{item.variantName}</Text>
+        <Text style={[styles.itemVariant, { color: colors.subText }]}>
+          {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
+        </Text>
         <Text style={[styles.itemRate, { color: colors.subText }]}>{formatINR(item.rate)} × {item.qty}</Text>
       </View>
       <View style={{ alignItems: 'flex-end', gap: 6 }}>
         <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
         <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty - 1 }))}>
+          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}>
             <Icon name="minus" size={12} color={colors.brand} />
           </TouchableOpacity>
           <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
-          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty + 1 }))}>
+          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}>
             <Icon name="plus" size={12} color={colors.brand} />
           </TouchableOpacity>
         </View>
@@ -113,15 +120,22 @@ export default function StaffCart() {
     <View>
       <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <Text style={[styles.summaryTitle, { color: colors.text }]}>Order Summary</Text>
-        {[
-          { label: 'Subtotal', value: formatINR(subtotal) },
-          { label: 'GST',      value: formatINR(gstTotal) },
-        ].map(row => (
-          <View key={row.label} style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.subText }]}>{row.label}</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{row.value}</Text>
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.subText }]}>Subtotal</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(subtotal)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.subText }]}>Total Discount</Text>
+          <Text style={[styles.summaryValue, { color: totaldiscount > 0 ? '#16a34a' : colors.subText }]}>
+            {totaldiscount > 0 ? `-${formatINR(totaldiscount)}` : formatINR(0)}
+          </Text>
+        </View>
+        {totalgst > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
           </View>
-        ))}
+        )}
         <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
           <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
           <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(total)}</Text>
@@ -174,6 +188,7 @@ export default function StaffCart() {
           data={cartItems}
           renderItem={renderItem}
           estimatedItemSize={88}
+          keyExtractor={(item: any) => `${item.productId}-${item.variantId}-${item.unitId ?? ''}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={<Footer />}

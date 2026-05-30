@@ -2,21 +2,36 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
+import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { AppHeader, DynamicFlashList } from '../../../../components';
+import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate } from '../../../../utils';
+import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'confirmed' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all',       label: 'All'       },
-  { key: 'pending',   label: 'Pending'   },
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled: '#ef4444', confirmed: '#3b82f6', pending: '#f59e0b',
+  cancelled:  '#ef4444',
+  confirmed:  '#3b82f6',
+  processing: '#94a3b8',
+};
+
+type OrderStatus = FilterKey | 'processing';
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  all:        'All',
+  confirmed:  'Confirmed',
+  cancelled:  'Cancelled',
+  processing: 'Processing',
 };
 
 const DUMMY_ORDERS = [
@@ -28,27 +43,34 @@ const DUMMY_ORDERS = [
   { id: 'o6', billnumber: 'SO/2024/016', billdate: '2024-11-11T00:00:00.000Z', totalamount: 9200,  partyName: 'Modi Mart',       itemCount: 8, status: true,  cancelStatus: null        },
 ];
 
-function getStatus(o: any): FilterKey {
+function getStatus(o: any): OrderStatus {
   if (o.cancelStatus === 'cancelled') return 'cancelled';
   if (o.status) return 'confirmed';
-  return 'pending';
+  return 'processing';
 }
 
 export default function SalesmanOrders() {
   const { colors, isDark } = useTheme();
+  const user   = useSelector((s: RootState) => s.auth.user);
+  const tenant = useSelector((s: RootState) => s.tenant);
   const [filter, setFilter] = useState<FilterKey>('all');
 
+  const { data, loading } = useQuery(GET_SALES_ORDERS, {
+    variables: { adminid: tenant.adminId, salesmenid: user?.id },
+    skip: !tenant.adminId || !user?.id,
+  });
+  const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+
   const filtered = useMemo(() => {
-    if (filter === 'all') return DUMMY_ORDERS;
-    return DUMMY_ORDERS.filter(o => getStatus(o) === filter);
-  }, [filter]);
+    if (filter === 'all') return allOrders;
+    return allOrders.filter((o: any) => getStatus(o) === filter);
+  }, [allOrders, filter]);
 
   const counts = useMemo(() => ({
-    all:       DUMMY_ORDERS.length,
-    pending:   DUMMY_ORDERS.filter(o => getStatus(o) === 'pending').length,
-    confirmed: DUMMY_ORDERS.filter(o => getStatus(o) === 'confirmed').length,
-    cancelled: DUMMY_ORDERS.filter(o => getStatus(o) === 'cancelled').length,
-  }), []);
+    all:       allOrders.length,
+    confirmed: allOrders.filter((o: any) => getStatus(o) === 'confirmed').length,
+    cancelled: allOrders.filter((o: any) => getStatus(o) === 'cancelled').length,
+  }), [allOrders]);
 
   const renderOrder = ({ item: order }: any) => {
     const status = getStatus(order);
@@ -61,17 +83,19 @@ export default function SalesmanOrders() {
             <Text style={[styles.billNum, { color: colors.text }]}>{order.billnumber}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
-          <Text style={[styles.partyName, { color: colors.subText }]} numberOfLines={1}>{order.partyName}</Text>
+          <Text style={[styles.partyName, { color: colors.subText }]} numberOfLines={1}>
+            {order.partyacc?.accountname ?? order.partyacc?.name ?? '—'}
+          </Text>
           <View style={styles.cardMid}>
             <Icon name="calendar-outline" size={12} color={colors.subText} style={{ marginRight: 4 }} />
             <Text style={[styles.meta, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
             <View style={styles.dot} />
             <Icon name="package-variant-closed" size={12} color={colors.subText} style={{ marginRight: 4 }} />
-            <Text style={[styles.meta, { color: colors.subText }]}>{order.itemCount} items</Text>
+            <Text style={[styles.meta, { color: colors.subText }]}>{order.productservice?.length ?? 0} items</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: colour + '22', alignSelf: 'flex-start' }]}>
             <Text style={[styles.statusText, { color: colour }]}>
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {STATUS_LABEL[status]}
             </Text>
           </View>
         </View>
@@ -110,10 +134,10 @@ export default function SalesmanOrders() {
         })}
       </ScrollView>
 
-      {filtered.length === 0 ? (
+      {loading ? <OrderListSkeleton /> : filtered.length === 0 ? (
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.subText }]}>No {filter} orders</Text>
+          <Text style={[styles.emptyText, { color: colors.subText }]}>No {STATUS_LABEL[filter].toLowerCase()} orders</Text>
           <TouchableOpacity onPress={() => setFilter('all')}>
             <Text style={[styles.clearFilter, { color: colors.brand }]}>Show all orders</Text>
           </TouchableOpacity>

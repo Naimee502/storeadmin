@@ -13,6 +13,7 @@ import { COLORS, FONTS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
 import { setTenant } from '../../../store/slices';
 import { GET_ADMIN_BY_ID } from '../../../apollo/queries/admin';
+import { GET_BRANCHES } from '../../../apollo/queries/branches';
 import { AppLoader } from '../../../components';
 
 export default function AdminSetup() {
@@ -49,19 +50,36 @@ export default function AdminSetup() {
       }
 
       const companyName = admin.companyName || 'My Business';
+
+      let branchId: string | null = null;
+      try {
+        const { data: branchData } = await apolloClient.query({
+          query: GET_BRANCHES,
+          variables: { adminId: admin.id },
+          fetchPolicy: 'network-only',
+        });
+        const branches: any[] = (branchData as any)?.getBranches ?? [];
+        branchId = (branches.find((b: any) => b.status !== false) ?? branches[0])?.id ?? null;
+      } catch { /* branch fetch optional */ }
+
       dispatch(setTenant({
         adminId: admin.id,
         companyName,
         logoUrl: null,
         primaryColor: null,
         tagline: null,
+        branchId,
       }));
 
       setPreview({ companyName });
       await new Promise<void>(resolve => setTimeout(resolve, 800));
       activateBusiness();
     } catch (err: any) {
-      setError('Business code not found. Please check and try again.');
+      const isNetwork = err?.networkError || err?.message?.toLowerCase().includes('network') || err?.message?.toLowerCase().includes('fetch');
+      setError(isNetwork
+        ? 'Cannot connect to server. Make sure the server is running and your device is on the same network.'
+        : 'Business code not found. Please check and try again.'
+      );
       setLoading(false);
     }
   };

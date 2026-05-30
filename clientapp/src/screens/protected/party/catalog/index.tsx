@@ -10,42 +10,39 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
+import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, DynamicFlashList } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DUMMY_PRODUCTS = [
-  { id: 'dp1', name: 'Premium Basmati Rice',   imageurl: null, status: true, categoryid: { id: 'c1', name: 'Grains & Cereals'  }, variants: [{ id: 'dv1', name: '5 kg',  currentstock: 150, unitprices: [{ salesrate: 560,  mrp: 680  }] }] },
-  { id: 'dp2', name: 'Toor Dal',               imageurl: null, status: true, categoryid: { id: 'c2', name: 'Pulses & Lentils'  }, variants: [{ id: 'dv2', name: '2 kg',  currentstock: 85,  unitprices: [{ salesrate: 185,  mrp: 220  }] }] },
-  { id: 'dp3', name: 'Refined Sunflower Oil',  imageurl: null, status: true, categoryid: { id: 'c3', name: 'Oils & Fats'       }, variants: [{ id: 'dv3', name: '1 L',   currentstock: 200, unitprices: [{ salesrate: 170,  mrp: 195  }] }] },
-  { id: 'dp4', name: 'Whole Wheat Atta',       imageurl: null, status: true, categoryid: { id: 'c1', name: 'Grains & Cereals'  }, variants: [{ id: 'dv4', name: '5 kg',  currentstock: 0,   unitprices: [{ salesrate: 275,  mrp: 310  }] }] },
-  { id: 'dp5', name: 'Sona Masoori Rice',      imageurl: null, status: true, categoryid: { id: 'c1', name: 'Grains & Cereals'  }, variants: [{ id: 'dv5', name: '10 kg', currentstock: 45,  unitprices: [{ salesrate: 680,  mrp: 750  }] }] },
-  { id: 'dp6', name: 'Chana Dal',              imageurl: null, status: true, categoryid: { id: 'c2', name: 'Pulses & Lentils'  }, variants: [{ id: 'dv6', name: '1 kg',  currentstock: 120, unitprices: [{ salesrate: 95,   mrp: 110  }] }] },
-  { id: 'dp7', name: 'Mustard Oil',            imageurl: null, status: true, categoryid: { id: 'c3', name: 'Oils & Fats'       }, variants: [{ id: 'dv7', name: '1 L',   currentstock: 80,  unitprices: [{ salesrate: 155,  mrp: 180  }] }] },
-  { id: 'dp8', name: 'Moong Dal (Split)',      imageurl: null, status: true, categoryid: { id: 'c2', name: 'Pulses & Lentils'  }, variants: [{ id: 'dv8', name: '500 g', currentstock: 200, unitprices: [{ salesrate: 65,   mrp: 0    }] }] },
-];
-
 export default function Catalog() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const dispatch  = useDispatch();
+  const user      = useSelector((s: RootState) => s.auth.user);
   const tenant    = useSelector((s: RootState) => s.tenant);
   const cartItems = useSelector((s: RootState) => s.cart.items);
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid   = tenant.adminId ?? '';
 
-  const [search,   setSearch]   = useState('');
-  const [category, setCategory] = useState<string | null>(null);
+  const [search,        setSearch]        = useState('');
+  const [category,     setCategory]     = useState<string | null>(null);
+  const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
 
   const { data, loading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 100 },
     skip: !adminid,
   });
 
-  const rawProducts = (data?.getProductServices ?? []) as any[];
-  const products    = rawProducts.length > 0 ? rawProducts : DUMMY_PRODUCTS;
+  const { data: accountData } = useQuery(GET_ACCOUNT, {
+    variables: { id: user?.id, adminId: adminid },
+    skip: !user?.id || !adminid,
+  });
+  const partyAccount = (accountData as any)?.getAccountById;
+
+  const products = (data as any)?.getProductServices ?? [];
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
@@ -53,7 +50,7 @@ export default function Catalog() {
     products.forEach((p: any) => {
       if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
         seen.add(p.categoryid.id);
-        cats.push({ id: p.categoryid.id, name: p.categoryid.name });
+        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname });
       }
     });
     return cats;
@@ -65,31 +62,66 @@ export default function Catalog() {
     return matchCat && matchSearch && p.status !== false;
   }), [products, category, search]);
 
-  const getCartQty = (productId: string, variantId: string) =>
-    cartItems.find(i => i.productId === productId && i.variantId === variantId)?.qty ?? 0;
+  const getCartQty = (productId: string, variantId: string, unitId?: string) =>
+    cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
 
-  const handleAdd = (p: any) => {
-    const v = p.variants?.[0];
+  const getUnitLabel = (up: any) => {
+    const name = up?.unitid?.unitname ?? 'Unit';
+    const qty  = up?.quantity ?? 1;
+    return qty > 1 ? `${qty} × ${name}` : name;
+  };
+
+  const handleAdd = async (p: any) => {
+    const v = p.productvariants?.[0];
     if (!v) return;
-    const rate = v.unitprices?.[0]?.salesrate ?? 0;
+    const unitIdx = selectedUnits[p.id] ?? 0;
+    const up = v.unitprices?.[unitIdx] ?? v.unitprices?.[0];
+    const defaultRate = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+    let rate = defaultRate, disc = up?.discount ?? 0;
+    if (up?.unitid?.id) {
+      try {
+        const { data: pd } = await apolloClient.query({
+          query: RESOLVE_PRICE,
+          variables: {
+            productid: p.id, variantid: v.id,
+            unitid:    up.unitid.id,
+            accountid: user?.id ?? null,
+            channelid: partyAccount?.channel?.id ?? null,
+            region:    partyAccount?.region ?? null,
+          },
+          fetchPolicy: 'network-only',
+        });
+        const rp = (pd as any)?.resolvePrice;
+        if (rp?.rate != null) { rate = rp.rate; disc = rp.discount ?? 0; }
+      } catch {}
+    }
     dispatch(addToCart({
       productId: p.id, productName: p.name,
       variantId: v.id, variantName: v.name,
+      unitId:   up?.unitid?.id,
+      unitName: up?.unitid?.unitname,
+      unitqty:  up?.quantity ?? 1,
       imageUrl: p.imageurl,
-      qty: 1, rate, gst: 0, amount: rate,
+      qty: 1, rate, discount: disc, gst: v.gst ?? 0,
+      amount: (rate - disc) * 1,
     }));
   };
 
-  const handleQty = (productId: string, variantId: string, qty: number) =>
-    dispatch(updateQty({ productId, variantId, qty }));
+  const handleQty = (productId: string, variantId: string, unitId: string | undefined, qty: number) =>
+    dispatch(updateQty({ productId, variantId, unitId, qty }));
 
   const renderProduct = ({ item: p, index }: any) => {
-    const v           = p.variants?.[0];
-    const price       = v?.unitprices?.[0]?.salesrate ?? 0;
-    const mrp         = v?.unitprices?.[0]?.mrp ?? 0;
-    const cartQty     = v ? getCartQty(p.id, v.id) : 0;
-    const hasDiscount = mrp > 0 && mrp > price;
-    const isLeft      = index % 2 === 0;
+    const v        = p.productvariants?.[0];
+    const unitIdx  = selectedUnits[p.id] ?? 0;
+    const up       = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
+    const unitId   = up?.unitid?.id;
+    const price    = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+    const mrp      = up?.mrp ?? 0;
+    const cartQty  = v ? getCartQty(p.id, v.id, unitId) : 0;
+    const hasMrp   = mrp > 0;
+    const isLeft   = index % 2 === 0;
+    const outOfStock = v?.currentstock === 0;
+    const multiUnit  = (v?.unitprices?.length ?? 0) > 1;
 
     return (
       <TouchableOpacity
@@ -106,7 +138,7 @@ export default function Catalog() {
             ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={30} color={colors.brand} />
           }
-          {v?.currentstock === 0 && (
+          {outOfStock && (
             <View style={styles.oosTag}>
               <Text style={styles.oosText}>{STRINGS.party.outOfStock}</Text>
             </View>
@@ -114,17 +146,41 @@ export default function Catalog() {
         </View>
 
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
-        {p.categoryid?.name && (
-          <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.name}</Text>
+        {p.categoryid?.categoryname && (
+          <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
         )}
+
+        {/* Unit chips */}
+        {multiUnit && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+            {v.unitprices.map((u: any, ui: number) => {
+              const active = (selectedUnits[p.id] ?? 0) === ui;
+              return (
+                <TouchableOpacity
+                  key={`${u.unitid?.id ?? ui}`}
+                  style={[styles.unitChip, active
+                    ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                  ]}
+                  onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
+                >
+                  <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                    {getUnitLabel(u)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-          {hasDiscount && (
+          {hasMrp && (
             <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
           )}
         </View>
 
-        {v && (
+        {v && !outOfStock && (
           cartQty === 0 ? (
             <TouchableOpacity
               style={[styles.addBtn, { backgroundColor: colors.brand }]}
@@ -137,14 +193,14 @@ export default function Catalog() {
             <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
               <TouchableOpacity
                 style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                onPress={() => handleQty(p.id, v.id, cartQty - 1)}
+                onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}
               >
                 <Icon name="minus" size={13} color={colors.brand} />
               </TouchableOpacity>
               <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
               <TouchableOpacity
                 style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                onPress={() => handleQty(p.id, v.id, cartQty + 1)}
+                onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}
               >
                 <Icon name="plus" size={13} color={colors.brand} />
               </TouchableOpacity>
@@ -157,16 +213,14 @@ export default function Catalog() {
 
   const ListHeader = () => (
     <>
-      <View style={styles.searchWrap}>
-        <AppTextInput
-          leftIcon="magnify"
-          placeholder={STRINGS.storefront.searchPlaceholder}
-          value={search}
-          onChangeText={setSearch}
-          autoCapitalize="none"
-          containerStyle={{ marginBottom: 0 }}
-        />
-      </View>
+      <AppTextInput
+        leftIcon="magnify"
+        placeholder={STRINGS.storefront.searchPlaceholder}
+        value={search}
+        onChangeText={setSearch}
+        autoCapitalize="none"
+        containerStyle={{ marginBottom: 8, marginTop: 10 }}
+      />
       {categories.length > 0 && (
         <ScrollView
           horizontal
@@ -239,9 +293,8 @@ export default function Catalog() {
 
 const styles = StyleSheet.create({
   container:   { flex: 1 },
-  searchWrap:  { paddingTop: 10, paddingBottom: 4 },
   chipScroll:  { flexGrow: 0 },
-  chipList:    { paddingBottom: 8, gap: 8 },
+  chipList:    { paddingTop: 0, paddingBottom: 8, gap: 8 },
   chip:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
   chipText:    { fontSize: 13, fontFamily: FONTS.semiBold },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
@@ -262,6 +315,9 @@ const styles = StyleSheet.create({
   oosText:  { fontSize: 10, fontFamily: FONTS.semiBold, color: '#fff' },
   name:     { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 18, marginBottom: 2 },
   catText:  { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 4 },
+  unitScroll:   { flexGrow: 0, marginBottom: 6 },
+  unitChip:     { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, marginRight: 5 },
+  unitChipText: { fontSize: 10, fontFamily: FONTS.semiBold },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   price:    { fontSize: 14, fontFamily: FONTS.bold },
   mrp:      { fontSize: 12, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },

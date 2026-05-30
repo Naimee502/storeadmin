@@ -5,13 +5,15 @@ export const GET_PRODUCTS = gql`
     getProductServices(filter: { adminid: $adminid }, limit: $limit, offset: $offset) {
       id
       name
+      description
       imageurl
       status
-      categoryid { id name }
-      variants {
+      categoryid { id categoryname }
+      productvariants {
         id
         name
         sku
+        gst
         currentstock
         unitprices {
           mrp
@@ -19,6 +21,8 @@ export const GET_PRODUCTS = gql`
           offerprice
           discount
           discounttype
+          quantity
+          unitid { id unitname }
         }
       }
     }
@@ -26,8 +30,8 @@ export const GET_PRODUCTS = gql`
 `;
 
 export const GET_SALES_ORDERS = gql`
-  query GetSalesOrders($adminid: ID!, $partyaccid: ID) {
-    getSalesOrders(filter: { adminid: $adminid, partyaccid: $partyaccid }) {
+  query GetSalesOrders($adminid: ID, $partyacc: ID, $salesmenid: ID) {
+    getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid }) {
       id
       billnumber
       billdate
@@ -44,6 +48,7 @@ export const GET_SALES_ORDERS = gql`
         variantid        { id name }
         qty
         rate
+        discount
         amount
         gst
       }
@@ -84,6 +89,30 @@ export const GET_ACCOUNT = gql`
       region
       salesmanid { id name }
       ledgerid   { id ledgername }
+    }
+  }
+`;
+
+export const RESOLVE_PRICE = gql`
+  query ResolvePrice(
+    $productid: ID!
+    $variantid: ID!
+    $unitid: ID!
+    $accountid: ID
+    $channelid: ID
+    $region: String
+  ) {
+    resolvePrice(
+      productid: $productid
+      variantid: $variantid
+      unitid: $unitid
+      accountid: $accountid
+      channelid: $channelid
+      region: $region
+    ) {
+      rate
+      discount
+      discounttype
     }
   }
 `;

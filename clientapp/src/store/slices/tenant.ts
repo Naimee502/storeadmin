@@ -6,6 +6,7 @@ interface TenantState {
   logoUrl: string | null;
   primaryColor: string | null;
   tagline: string | null;
+  branchId: string | null;
 }
 
 const initialState: TenantState = {
@@ -14,6 +15,7 @@ const initialState: TenantState = {
   logoUrl: null,
   primaryColor: null,
   tagline: null,
+  branchId: null,
 };
 
 const tenantSlice = createSlice({
@@ -26,6 +28,7 @@ const tenantSlice = createSlice({
       state.logoUrl      = action.payload.logoUrl;
       state.primaryColor = action.payload.primaryColor;
       state.tagline      = action.payload.tagline;
+      state.branchId     = action.payload.branchId;
     },
     clearTenant: () => initialState,
   },

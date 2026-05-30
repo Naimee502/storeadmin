@@ -10,9 +10,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
+import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
-import { BackHeader, AppButton } from '../../../../components';
+import { BackHeader } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -22,13 +23,29 @@ const DUMMY_PRODUCT = {
   imageurl: null,
   description: 'Long-grain aromatic basmati rice, aged for 2 years. Perfect for biryani, pulao and everyday cooking. Sourced directly from farms in Dehradun.',
   status: true,
-  categoryid: { id: 'c1', name: 'Grains & Cereals' },
-  variants: [
-    { id: 'dv1', name: '1 kg',  currentstock: 250, unitprices: [{ salesrate: 120, mrp: 145,  offerprice: 0 }] },
-    { id: 'dv2', name: '5 kg',  currentstock: 85,  unitprices: [{ salesrate: 560, mrp: 680,  offerprice: 0 }] },
-    { id: 'dv3', name: '25 kg', currentstock: 12,  unitprices: [{ salesrate: 2600, mrp: 3200, offerprice: 0 }] },
+  categoryid: { id: 'c1', categoryname: 'Grains & Cereals' },
+  productvariants: [
+    { id: 'dv1', name: '1 kg',  gst: 0, currentstock: 250, unitprices: [
+      { mrp: 145, salesrate: 120, offerprice: 0, discount: 0, discounttype: null, quantity: 1, unitid: { id: 'u1', unitname: 'Kg' } },
+    ]},
+    { id: 'dv2', name: '5 kg',  gst: 0, currentstock: 85,  unitprices: [
+      { mrp: 680, salesrate: 560, offerprice: 0, discount: 0, discounttype: null, quantity: 5, unitid: { id: 'u1', unitname: 'Kg' } },
+    ]},
+    { id: 'dv3', name: '25 kg', gst: 0, currentstock: 12,  unitprices: [
+      { mrp: 3200, salesrate: 2600, offerprice: 0, discount: 0, discounttype: null, quantity: 25, unitid: { id: 'u1', unitname: 'Kg' } },
+    ]},
   ],
 };
+
+function getUnitLabel(up: any): string {
+  const name = up?.unitid?.unitname ?? 'Unit';
+  const qty  = up?.quantity ?? 1;
+  return qty > 1 ? `${qty} × ${name}` : name;
+}
+
+function resolveUnitPrice(up: any): number {
+  return (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+}
 
 export default function ProductDetail() {
   const navigation = useNavigation<any>();
@@ -38,45 +55,87 @@ export default function ProductDetail() {
   const { colors, isDark } = useTheme();
   const dispatch   = useDispatch();
   const cartItems  = useSelector((s: RootState) => s.cart.items);
+  const user       = useSelector((s: RootState) => s.auth.user);
   const tenant     = useSelector((s: RootState) => s.tenant);
   const adminid    = tenant.adminId ?? '';
+
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
+  const [selectedUnitIdx,    setSelectedUnitIdx]    = useState(0);
 
   const { data, loading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 200 },
     skip: !adminid,
   });
 
-  const allProducts = (data?.getProductServices ?? []) as any[];
-  const fetchedProduct = allProducts.find((p: any) => p.id === productId);
-  const product = fetchedProduct ?? DUMMY_PRODUCT;
+  const { data: accountData } = useQuery(GET_ACCOUNT, {
+    variables: { id: user?.id, adminId: adminid },
+    skip: !user?.id || !adminid,
+  });
+  const partyAccount = (accountData as any)?.getAccountById;
 
-  const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
-  const variant   = product.variants?.[selectedVariantIdx];
-  const price     = variant?.unitprices?.[0]?.salesrate ?? 0;
-  const mrp       = variant?.unitprices?.[0]?.mrp ?? 0;
-  const hasDiscount = mrp > 0 && mrp > price;
-  const discountPct = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const inStock   = (variant?.currentstock ?? 0) > 0;
+  const allProducts   = (data as any)?.getProductServices ?? [];
+  const fetchedProduct = allProducts.find((p: any) => p.id === productId);
+  const product        = fetchedProduct ?? DUMMY_PRODUCT;
+
+  const variant    = product.productvariants?.[selectedVariantIdx];
+  const unitprice  = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
+  const price      = resolveUnitPrice(unitprice);
+  const mrp        = unitprice?.mrp ?? 0;
+  const hasMrp       = mrp > 0;
+  const hasDiscount  = hasMrp && mrp > price;
+  const discountPct  = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const inStock      = (variant?.currentstock ?? 0) > 0;
+  const multiUnit    = (variant?.unitprices?.length ?? 0) > 1;
 
   const cartQty = cartItems.find(
-    i => i.productId === product.id && i.variantId === variant?.id,
+    i => i.productId === product.id && i.variantId === variant?.id && i.unitId === unitprice?.unitid?.id,
   )?.qty ?? 0;
 
-  const handleAdd = () => {
-    if (!variant) return;
+  const handleAdd = async () => {
+    if (!variant || !unitprice) return;
+    let rate = price;
+    let disc = unitprice.discount ?? 0;
+    if (unitprice.unitid?.id) {
+      try {
+        const { data: pd } = await apolloClient.query({
+          query: RESOLVE_PRICE,
+          variables: {
+            productid: product.id,
+            variantid: variant.id,
+            unitid:    unitprice.unitid.id,
+            accountid: user?.id   ?? null,
+            channelid: partyAccount?.channel?.id ?? null,
+            region:    partyAccount?.region      ?? null,
+          },
+          fetchPolicy: 'network-only',
+        });
+        const rp = (pd as any)?.resolvePrice;
+        if (rp?.rate != null) { rate = rp.rate; disc = rp.discount ?? 0; }
+      } catch {}
+    }
     dispatch(addToCart({
       productId:   product.id,
       productName: product.name,
       variantId:   variant.id,
       variantName: variant.name,
-      imageUrl:    product.imageurl,
-      qty: 1, rate: price, gst: 0, amount: price,
+      unitId:   unitprice.unitid?.id,
+      unitName: unitprice.unitid?.unitname,
+      unitqty:  unitprice.quantity ?? 1,
+      imageUrl: product.imageurl,
+      qty: 1, rate, discount: disc,
+      gst:    variant.gst ?? 0,
+      amount: (rate - disc) * 1,
     }));
   };
 
   const handleQty = (delta: number) => {
     if (!variant) return;
-    dispatch(updateQty({ productId: product.id, variantId: variant.id, qty: cartQty + delta }));
+    dispatch(updateQty({ productId: product.id, variantId: variant.id, unitId: unitprice?.unitid?.id, qty: cartQty + delta }));
+  };
+
+  const selectVariant = (idx: number) => {
+    setSelectedVariantIdx(idx);
+    setSelectedUnitIdx(0);
   };
 
   if (loading) {
@@ -118,20 +177,20 @@ export default function ProductDetail() {
 
         {/* Name + category + price */}
         <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.infoBlock}>
-          {product.categoryid?.name && (
-            <Text style={[styles.category, { color: colors.brand }]}>{product.categoryid.name}</Text>
+          {product.categoryid?.categoryname && (
+            <Text style={[styles.category, { color: colors.brand }]}>{product.categoryid.categoryname}</Text>
           )}
           <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
 
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+            {hasMrp && (
+              <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+            )}
             {hasDiscount && (
-              <>
-                <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
-                <View style={[styles.discountBadge, { backgroundColor: '#22c55e22' }]}>
-                  <Text style={[styles.discountText, { color: '#16a34a' }]}>{discountPct}% OFF</Text>
-                </View>
-              </>
+              <View style={[styles.discountBadge, { backgroundColor: '#22c55e22' }]}>
+                <Text style={[styles.discountText, { color: '#16a34a' }]}>{discountPct}% OFF</Text>
+              </View>
             )}
           </View>
 
@@ -147,15 +206,17 @@ export default function ProductDetail() {
           </View>
         </Animated.View>
 
-        {/* Variants */}
-        {product.variants?.length > 1 && (
+        {/* Variants (Pack Size) */}
+        {(product.productvariants?.length ?? 0) > 1 && (
           <Animated.View entering={FadeInUp.duration(400).delay(120)}
             style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
           >
             <Text style={[styles.cardTitle, { color: colors.text }]}>Pack Size</Text>
-            <View style={styles.variantRow}>
-              {product.variants.map((v: any, i: number) => {
+            <View style={styles.chipRow}>
+              {product.productvariants.map((v: any, i: number) => {
                 const active = i === selectedVariantIdx;
+                const vUp    = v.unitprices?.[0];
+                const vPrice = resolveUnitPrice(vUp);
                 return (
                   <TouchableOpacity
                     key={v.id}
@@ -163,12 +224,51 @@ export default function ProductDetail() {
                       ? { backgroundColor: colors.brand,         borderColor: colors.brand }
                       : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                     ]}
-                    onPress={() => setSelectedVariantIdx(i)}
+                    onPress={() => selectVariant(i)}
                   >
                     <Text style={[styles.variantChipText, { color: active ? '#fff' : colors.text }]}>{v.name}</Text>
                     <Text style={[styles.variantPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.subText }]}>
-                      {formatINR(v.unitprices?.[0]?.salesrate ?? 0)}
+                      {formatINR(vPrice)}
                     </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Unit selection */}
+        {multiUnit && (
+          <Animated.View entering={FadeInUp.duration(400).delay(140)}
+            style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+          >
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Unit</Text>
+            <View style={styles.chipRow}>
+              {variant.unitprices.map((up: any, i: number) => {
+                const active  = i === selectedUnitIdx;
+                const uPrice  = resolveUnitPrice(up);
+                const uMrp    = up?.mrp ?? 0;
+                const uHasDisc = uMrp > 0 && uMrp > uPrice;
+                return (
+                  <TouchableOpacity
+                    key={`${up.unitid?.id ?? i}-${up.quantity ?? i}`}
+                    style={[styles.unitChip, active
+                      ? { backgroundColor: colors.brand,         borderColor: colors.brand }
+                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                    ]}
+                    onPress={() => setSelectedUnitIdx(i)}
+                  >
+                    <Text style={[styles.unitChipLabel, { color: active ? '#fff' : colors.text }]}>
+                      {getUnitLabel(up)}
+                    </Text>
+                    <Text style={[styles.unitChipPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.brand }]}>
+                      {formatINR(uPrice)}
+                    </Text>
+                    {uHasDisc && (
+                      <Text style={[styles.unitChipMrp, { color: active ? 'rgba(255,255,255,0.55)' : colors.subText }]}>
+                        {formatINR(uMrp)}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -189,11 +289,15 @@ export default function ProductDetail() {
         {/* Add to cart */}
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={{ marginTop: 4, marginBottom: 32 }}>
           {cartQty === 0 ? (
-            <AppButton
-              title={inStock ? 'Add to Cart' : 'Out of Stock'}
+            <TouchableOpacity
+              style={[styles.addCartBtn, { backgroundColor: inStock ? colors.brand : colors.border }]}
               onPress={handleAdd}
               disabled={!inStock}
-            />
+              activeOpacity={0.85}
+            >
+              <Icon name="cart-plus" size={18} color="#fff" />
+              <Text style={styles.addCartText}>{inStock ? 'Add to Cart' : 'Out of Stock'}</Text>
+            </TouchableOpacity>
           ) : (
             <View style={styles.cartControlWrap}>
               <TouchableOpacity
@@ -215,12 +319,14 @@ export default function ProductDetail() {
             </View>
           )}
           {cartQty > 0 && (
-            <AppButton
-              title="Go to Cart"
-              variant="outline"
+            <TouchableOpacity
+              style={[styles.goCartBtn, { borderColor: colors.brand }]}
               onPress={() => navigation.navigate('CartScreen')}
-              style={{ marginTop: 10 }}
-            />
+              activeOpacity={0.8}
+            >
+              <Icon name="cart-outline" size={16} color={colors.brand} />
+              <Text style={[styles.goCartText, { color: colors.brand }]}>Go to Cart</Text>
+            </TouchableOpacity>
           )}
         </Animated.View>
 
@@ -248,35 +354,55 @@ const styles = StyleSheet.create({
   },
   oosText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
 
-  infoBlock: { marginBottom: 14 },
-  category:  { fontSize: 12, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  infoBlock:   { marginBottom: 14 },
+  category:    { fontSize: 12, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   productName: { fontSize: 20, fontFamily: FONTS.bold, lineHeight: 28, marginBottom: 10 },
-  priceRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  price:     { fontSize: 22, fontFamily: FONTS.bold },
-  mrp:       { fontSize: 15, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
+  priceRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  price:       { fontSize: 22, fontFamily: FONTS.bold },
+  mrp:         { fontSize: 15, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
   discountBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   discountText:  { fontSize: 12, fontFamily: FONTS.bold },
-  stockRow:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  stockText: { fontSize: 12, fontFamily: FONTS.semiBold },
+  stockRow:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  stockText:   { fontSize: 12, fontFamily: FONTS.semiBold },
 
   card: {
     borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 12,
     shadowColor: COLORS.light.shadow,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
-  cardTitle:   { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 12 },
-  variantRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  cardTitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 12 },
+  chipRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+
   variantChip: {
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1.5,
     alignItems: 'center', minWidth: 80,
   },
   variantChipText: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
   variantPrice:    { fontSize: 11, fontFamily: FONTS.regular },
+
+  unitChip: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1.5,
+    alignItems: 'center', minWidth: 80,
+  },
+  unitChipLabel: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
+  unitChipPrice: { fontSize: 12, fontFamily: FONTS.semiBold },
+  unitChipMrp:   { fontSize: 10, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
+
   description: { fontSize: 13, fontFamily: FONTS.regular, lineHeight: 20 },
 
   cartControlWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
   cartBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  cartQtyBox: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
+  cartQtyBox:   { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
   cartQtyText:  { fontSize: 18, fontFamily: FONTS.bold, color: '#fff' },
   cartQtyLabel: { fontSize: 10, fontFamily: FONTS.semiBold, color: 'rgba(255,255,255,0.8)' },
+  addCartBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 52, borderRadius: 16,
+  },
+  addCartText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  goCartBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 48, borderRadius: 16, borderWidth: 1.5, marginTop: 10,
+  },
+  goCartText: { fontSize: 15, fontFamily: FONTS.bold },
 });

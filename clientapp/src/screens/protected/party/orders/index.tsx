@@ -12,19 +12,18 @@ import { formatINR, formatDate } from '../../../../utils';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'confirmed' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all',       label: 'All' },
-  { key: 'pending',   label: 'Pending' },
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled: '#ef4444',
-  confirmed: '#3b82f6',
-  pending:   '#f59e0b',
+  cancelled:  '#ef4444',
+  confirmed:  '#3b82f6',
+  processing: '#94a3b8',
 };
 
 const DUMMY_ORDERS = [
@@ -35,10 +34,19 @@ const DUMMY_ORDERS = [
   { id: 'd5', billnumber: 'SO/2024/005', billdate: '2024-10-20T00:00:00.000Z', totalamount: 2100, status: false, cancelStatus: null,        salesmenid: null,                 productservice: [{}]        },
 ];
 
-function getOrderStatus(order: any): FilterKey {
+type OrderStatus = FilterKey | 'processing';
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  all:        'All',
+  confirmed:  'Confirmed',
+  cancelled:  'Cancelled',
+  processing: 'Processing',
+};
+
+function getOrderStatus(order: any): OrderStatus {
   if (order.cancelStatus === 'cancelled') return 'cancelled';
   if (order.status) return 'confirmed';
-  return 'pending';
+  return 'processing';
 }
 
 export default function MyOrders() {
@@ -53,14 +61,11 @@ export default function MyOrders() {
   const [filter, setFilter] = useState<FilterKey>('all');
 
   const { data, loading, refetch } = useQuery(GET_SALES_ORDERS, {
-    variables: { adminid, partyaccid: user?.id },
+    variables: { adminid, partyacc: user?.id },
     skip: !adminid || !user?.id,
   });
 
-  const orders = useMemo(() => {
-    const raw = (data?.getSalesOrders ?? []) as any[];
-    return raw.length > 0 ? raw : DUMMY_ORDERS;
-  }, [data]);
+  const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return orders;
@@ -69,7 +74,6 @@ export default function MyOrders() {
 
   const counts = useMemo(() => ({
     all:       orders.length,
-    pending:   orders.filter(o => getOrderStatus(o) === 'pending').length,
     confirmed: orders.filter(o => getOrderStatus(o) === 'confirmed').length,
     cancelled: orders.filter(o => getOrderStatus(o) === 'cancelled').length,
   }), [orders]);
@@ -110,7 +114,7 @@ export default function MyOrders() {
           <View style={styles.cardBottom}>
             <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
               <Text style={[styles.statusText, { color: colour }]}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {STATUS_LABEL[status]}
               </Text>
             </View>
             {order.salesmenid?.name && (
@@ -181,7 +185,7 @@ export default function MyOrders() {
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>
-            {filter === 'all' ? STRINGS.party.noOrdersYet : `No ${filter} orders`}
+            {filter === 'all' ? STRINGS.party.noOrdersYet : `No ${STATUS_LABEL[filter].toLowerCase()} orders`}
           </Text>
           {filter !== 'all' && (
             <TouchableOpacity onPress={() => setFilter('all')}>

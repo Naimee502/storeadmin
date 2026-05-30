@@ -7,48 +7,76 @@ import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppButton, DynamicFlashList } from '../../../../components';
+import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
-
-const DUMMY_ITEMS = [
-  { productId: 'dp1', productName: 'Premium Basmati Rice', variantId: 'dv1', variantName: '5 kg',  imageUrl: null, qty: 3, rate: 560,  gst: 0, amount: 1680 },
-  { productId: 'dp2', productName: 'Toor Dal',             variantId: 'dv2', variantName: '2 kg',  imageUrl: null, qty: 4, rate: 185,  gst: 0, amount: 740  },
-  { productId: 'dp3', productName: 'Refined Sunflower Oil',variantId: 'dv3', variantName: '1 L',   imageUrl: null, qty: 6, rate: 170,  gst: 0, amount: 1020 },
-];
 
 export default function CartScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const dispatch  = useDispatch();
   const cartItems = useSelector((s: RootState) => s.cart.items);
+  const user      = useSelector((s: RootState) => s.auth.user);
   const tenant    = useSelector((s: RootState) => s.tenant);
+  const adminid   = tenant.adminId ?? '';
+  const branchid  = tenant.branchId ?? '';
   const [placing, setPlacing] = useState(false);
 
-  const items = cartItems.length > 0 ? cartItems : DUMMY_ITEMS;
-  const isDummy = cartItems.length === 0;
+  const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
-  const subtotal  = items.reduce((s, i) => s + i.rate * i.qty, 0);
-  const gstAmt    = items.reduce((s, i) => s + ((i.gst ?? 0) / 100) * i.rate * i.qty, 0);
-  const total     = subtotal + gstAmt;
+  const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
+  const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
+  const totalgst      = cartItems.reduce((s, i) => s + (i.rate - (i.discount ?? 0)) * i.qty * (i.gst ?? 0) / 100, 0);
+  const total         = subtotal - totaldiscount + totalgst;
 
   const handlePlaceOrder = async () => {
-    if (isDummy) {
-      Alert.alert('Demo Mode', 'Add products from the catalog to place a real order.');
-      return;
-    }
+    if (cartItems.length === 0) return;
     setPlacing(true);
     try {
-      // TODO: call ADD_SALES_ORDER mutation with cart items
-      await new Promise<void>(r => setTimeout(() => r(), 1200));
+      await addSalesOrder({
+        variables: {
+          input: {
+            adminid,
+            branchid,
+            partyacc:         user?.id,
+            paymenttype:      'cash',
+            billdate:         new Date().toISOString().slice(0, 10),
+            billtype:         'order',
+            taxorsupplytype:  'regular',
+            isservice:        false,
+            subtotal,
+            totaldiscount,
+            totalgst,
+            totalamount:      total,
+            createdby_id:     user?.id,
+            createdby_name:   user?.name,
+            createdby_type:   'party',
+            productservice: cartItems.map(i => ({
+              productserviceid: i.productId,
+              variantid:        i.variantId,
+              salesunitid:      i.unitId,
+              qty:              i.qty,
+              unitqty:          i.unitqty ?? i.qty,
+              rate:             i.rate,
+              discount:         i.discount ?? 0,
+              amount:           i.amount,
+              gst:              i.gst ?? 0,
+            })),
+          },
+        },
+      });
       dispatch(clearCart());
       Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
         { text: 'View Orders', onPress: () => navigation.navigate('MyOrders') },
         { text: 'Continue Shopping', onPress: () => navigation.goBack() },
       ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to place order. Please try again.');
     } finally {
       setPlacing(false);
     }
@@ -65,58 +93,64 @@ export default function CartScreen() {
 
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>{item.productName}</Text>
-        <Text style={[styles.itemVariant, { color: colors.subText }]}>{item.variantName}</Text>
-        <Text style={[styles.itemRate, { color: colors.brand }]}>{formatINR(item.rate)} / unit</Text>
+        <Text style={[styles.itemVariant, { color: colors.subText }]}>
+          {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
+        </Text>
+        <Text style={[styles.itemRate, { color: colors.brand }]}>{formatINR(item.rate)} / {item.unitName ?? 'unit'}</Text>
+        {(item.discount ?? 0) > 0 && (
+          <Text style={[styles.itemDiscount, { color: colors.success ?? '#16a34a' }]}>
+            -{formatINR(item.discount)} discount
+          </Text>
+        )}
       </View>
 
       <View style={styles.itemRight}>
-        <Text style={[styles.itemTotal, { color: colors.text }]}>{formatINR(item.rate * item.qty)}</Text>
-        {!isDummy && (
-          <View style={[styles.qtyRow, { borderColor: colors.brand }]}>
-            <TouchableOpacity
-              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-              onPress={() => item.qty <= 1
-                ? dispatch(removeFromCart({ productId: item.productId, variantId: item.variantId }))
-                : dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty - 1 }))
-              }
-            >
-              <Icon name={item.qty <= 1 ? 'trash-can-outline' : 'minus'} size={13} color={item.qty <= 1 ? colors.error : colors.brand} />
-            </TouchableOpacity>
-            <Text style={[styles.qtyNum, { color: colors.brand }]}>{item.qty}</Text>
-            <TouchableOpacity
-              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-              onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, qty: item.qty + 1 }))}
-            >
-              <Icon name="plus" size={13} color={colors.brand} />
-            </TouchableOpacity>
-          </View>
-        )}
-        {isDummy && (
-          <View style={[styles.qtyBadge, { backgroundColor: colors.brandSoft }]}>
-            <Text style={[styles.qtyBadgeText, { color: colors.brand }]}>× {item.qty}</Text>
-          </View>
-        )}
+        <Text style={[styles.itemTotal, { color: colors.text }]}>{formatINR(item.amount)}</Text>
+        <View style={[styles.qtyRow, { borderColor: colors.brand }]}>
+          <TouchableOpacity
+            style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+            onPress={() => item.qty <= 1
+              ? dispatch(removeFromCart({ productId: item.productId, variantId: item.variantId, unitId: item.unitId }))
+              : dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))
+            }
+          >
+            <Icon name={item.qty <= 1 ? 'trash-can-outline' : 'minus'} size={13} color={item.qty <= 1 ? colors.error : colors.brand} />
+          </TouchableOpacity>
+          <Text style={[styles.qtyNum, { color: colors.brand }]}>{item.qty}</Text>
+          <TouchableOpacity
+            style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+            onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}
+          >
+            <Icon name="plus" size={13} color={colors.brand} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
   const Footer = () => (
     <Animated.View entering={FadeInUp.duration(400).delay(60)}>
-      {/* Price breakdown */}
       <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <Text style={[styles.summaryTitle, { color: colors.text }]}>Price Details</Text>
 
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryLabel, { color: colors.subText }]}>
-            Subtotal ({items.length} item{items.length !== 1 ? 's' : ''})
+            Subtotal ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
           </Text>
           <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(subtotal)}</Text>
         </View>
 
-        {gstAmt > 0 && (
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.subText }]}>Total Discount</Text>
+          <Text style={[styles.summaryValue, { color: totaldiscount > 0 ? '#16a34a' : colors.subText }]}>
+            {totaldiscount > 0 ? `-${formatINR(totaldiscount)}` : formatINR(0)}
+          </Text>
+        </View>
+
+        {totalgst > 0 && (
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(gstAmt)}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
           </View>
         )}
 
@@ -125,15 +159,6 @@ export default function CartScreen() {
           <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(total)}</Text>
         </View>
       </View>
-
-      {isDummy && (
-        <View style={[styles.demoNote, { backgroundColor: colors.brandSoft, borderColor: colors.brand + '44' }]}>
-          <Icon name="information-outline" size={14} color={colors.brand} />
-          <Text style={[styles.demoNoteText, { color: colors.brand }]}>
-            Preview mode — add products from catalog to create a real order
-          </Text>
-        </View>
-      )}
 
       <AppButton
         title="Place Order"
@@ -151,15 +176,28 @@ export default function CartScreen() {
 
       <AppHeader label="My Cart" />
 
-      <DynamicFlashList
-        data={items}
-        renderItem={renderItem}
-        estimatedItemSize={90}
-        keyExtractor={(item: any) => `${item.productId}-${item.variantId}`}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListFooterComponent={<Footer />}
-      />
+      {cartItems.length === 0 ? (
+        <View style={styles.center}>
+          <Icon name="cart-off" size={52} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.subText }]}>Cart is empty</Text>
+          <TouchableOpacity
+            style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={[styles.browseBtnText, { color: colors.brand }]}>Browse Products</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <DynamicFlashList
+          data={cartItems}
+          renderItem={renderItem}
+          estimatedItemSize={90}
+          keyExtractor={(item: any) => `${item.productId}-${item.variantId}-${item.unitId ?? ''}`}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={<Footer />}
+        />
+      )}
     </View>
   );
 }
@@ -178,11 +216,12 @@ const styles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 12,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
   },
-  itemName:    { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 18, marginBottom: 2 },
-  itemVariant: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 4 },
-  itemRate:    { fontSize: 12, fontFamily: FONTS.semiBold },
-  itemRight:   { alignItems: 'flex-end', gap: 8 },
-  itemTotal:   { fontSize: 14, fontFamily: FONTS.bold },
+  itemName:     { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 18, marginBottom: 2 },
+  itemVariant:  { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 2 },
+  itemRate:     { fontSize: 12, fontFamily: FONTS.semiBold },
+  itemDiscount: { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2 },
+  itemRight:    { alignItems: 'flex-end', gap: 8 },
+  itemTotal:    { fontSize: 14, fontFamily: FONTS.bold },
 
   qtyRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -190,8 +229,6 @@ const styles = StyleSheet.create({
   },
   qtyBtn:  { paddingHorizontal: 10, paddingVertical: 6 },
   qtyNum:  { fontSize: 13, fontFamily: FONTS.bold, minWidth: 22, textAlign: 'center' },
-  qtyBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  qtyBadgeText: { fontSize: 12, fontFamily: FONTS.semiBold },
 
   summaryCard: {
     borderRadius: 20, borderWidth: 1, padding: 18, marginTop: 6, marginBottom: 12,
@@ -206,9 +243,8 @@ const styles = StyleSheet.create({
   totalLabel:   { fontSize: 15, fontFamily: FONTS.bold },
   totalValue:   { fontSize: 17, fontFamily: FONTS.bold },
 
-  demoNote: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 12,
-  },
-  demoNoteText: { fontSize: 12, fontFamily: FONTS.regular, flex: 1, lineHeight: 17 },
+  center:        { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
+  emptyText:     { fontSize: 16, fontFamily: FONTS.semiBold },
+  browseBtn:     { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
+  browseBtnText: { fontSize: 14, fontFamily: FONTS.bold },
 });
