@@ -1,79 +1,165 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
-  TextInput, KeyboardAvoidingView, Platform, ScrollView,
+  TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, FONTS, useTheme } from '../../../../config';
+import { useQuery, useMutation } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
+import {
+  COLORS, FONTS, useTheme,
+  partyTypeOptions, regionOptions, TYPE_GROUP_MAP, type Option,
+} from '../../../../config';
 import { BackHeader } from '../../../../components';
+import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
+import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
+import type { RootState } from '../../../../store/rootreducer';
 
-const PARTY_TYPES = ['Retailer', 'Wholesaler', 'Distributor', 'Other'];
+// Hoisted so they aren't re-created every render (which would drop keyboard focus).
+const Field = ({ label, value, onChange, placeholder, keyboard = 'default', maxLength, icon, autoCapitalize, colors }: any) => (
+  <View style={styles.fieldWrap}>
+    <Text style={[styles.fieldLabel, { color: colors.text }]}>{label}</Text>
+    <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+      {icon && <Icon name={icon} size={16} color={colors.subText} style={{ marginRight: 8 }} />}
+      <TextInput
+        style={[styles.input, { color: colors.text }]}
+        placeholder={placeholder}
+        placeholderTextColor={colors.subText}
+        value={value}
+        onChangeText={onChange}
+        keyboardType={keyboard}
+        maxLength={maxLength}
+        autoCapitalize={autoCapitalize ?? (keyboard === 'default' ? 'words' : 'none')}
+        returnKeyType="next"
+      />
+    </View>
+  </View>
+);
+
+const SelectField = ({ label, value, placeholder, icon, onPress, colors }: any) => (
+  <View style={styles.fieldWrap}>
+    <Text style={[styles.fieldLabel, { color: colors.text }]}>{label}</Text>
+    <TouchableOpacity
+      style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {icon && <Icon name={icon} size={16} color={colors.subText} style={{ marginRight: 8 }} />}
+      <Text style={[styles.input, { color: value ? colors.text : colors.subText }]} numberOfLines={1}>
+        {value || placeholder}
+      </Text>
+      <Icon name="chevron-down" size={18} color={colors.subText} />
+    </TouchableOpacity>
+  </View>
+);
 
 export default function StaffCreateParty() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const tenant = useSelector((s: RootState) => s.tenant);
+  const user   = useSelector((s: RootState) => s.auth.user);
+  const adminid = tenant.adminId ?? '';
+  const branchid = tenant.branchId ?? '';
 
-  const [name,        setName]        = useState('');
-  const [mobile,      setMobile]      = useState('');
-  const [email,       setEmail]       = useState('');
-  const [gstin,       setGstin]       = useState('');
-  const [address,     setAddress]     = useState('');
-  const [city,        setCity]        = useState('');
-  const [state,       setState]       = useState('');
-  const [pincode,     setPincode]     = useState('');
-  const [partyType,   setPartyType]   = useState(PARTY_TYPES[0]);
-  const [submitting,  setSubmitting]  = useState(false);
+  const [type,    setType]    = useState('customer');
+  const [name,    setName]    = useState('');
+  const [mobile,  setMobile]  = useState('');
+  const [email,   setEmail]   = useState('');
+  const [gstin,   setGstin]   = useState('');
+  const [pan,     setPan]     = useState('');
+  const [address, setAddress] = useState('');
+  const [city,    setCity]    = useState('');
+  const [stateV,  setStateV]  = useState('');
+  const [pincode, setPincode] = useState('');
+  const [creditlimit, setCreditlimit] = useState('');
+  const [channel, setChannel] = useState<Option | null>(null);
+  const [region,  setRegion]  = useState<Option>(regionOptions[0]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  // Picker modal: which field is open
+  const [picker, setPicker] = useState<null | 'channel' | 'region'>(null);
+
+  const { data: groupData } = useQuery(GET_ACCOUNT_GROUPS, {
+    variables: { adminId: adminid }, skip: !adminid,
+  });
+  const { data: channelData } = useQuery(GET_CHANNELS, {
+    variables: { adminId: adminid }, skip: !adminid,
+  });
+
+  const groups: any[] = (groupData as any)?.getAccountGroups ?? [];
+  const channels: Option[] = useMemo(
+    () => ((channelData as any)?.getChannels ?? []).map((c: any) => ({ value: c.id, label: c.channelName })),
+    [channelData],
+  );
+
+  const [addAccount] = useMutation(ADD_ACCOUNT);
+
+  // Resolve account group from party type (name match → category fallback).
+  const resolveAccountGroup = useCallback((partyType: string): { id: string; name: string } | null => {
+    if (!groups.length) return null;
+    const rule = TYPE_GROUP_MAP[partyType];
+    if (!rule) return null;
+    const byName = groups.find((g: any) => rule.names.some(n => g.accountgroupname.toLowerCase().includes(n)));
+    if (byName) return { id: byName.id, name: byName.accountgroupname };
+    const byCat = groups.find((g: any) => g.category === rule.category);
+    return byCat ? { id: byCat.id, name: byCat.accountgroupname } : null;
+  }, [groups]);
+
+  const resolvedGroup = resolveAccountGroup(type);
+
+  const handleSubmit = async () => {
     if (!name.trim()) { Alert.alert('Required', 'Party name is required.'); return; }
     if (!mobile.trim() || mobile.length < 10) { Alert.alert('Required', 'Enter a valid 10-digit mobile number.'); return; }
+    if (!resolvedGroup) {
+      Alert.alert('Account group missing', 'No matching account group found for this type. Please create a standard account group (e.g. Sundry Debtors) in the admin panel first.');
+      return;
+    }
 
-    Alert.alert(
-      'Create Party',
-      `Create party "${name.trim()}" with mobile ${mobile}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create',
-          onPress: async () => {
-            setSubmitting(true);
-            try {
-              await new Promise(r => setTimeout(r, 800));
-              Alert.alert('Party Created!', `${name.trim()} has been added successfully.`, [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
-            } finally {
-              setSubmitting(false);
-            }
+    setSubmitting(true);
+    try {
+      await addAccount({
+        variables: {
+          input: {
+            name: name.trim(),
+            type,
+            accountgroupid: resolvedGroup.id,
+            mobile: mobile.trim(),
+            email: email.trim() || null,
+            gstnumber: gstin.trim() || null,
+            pan: pan.trim() || null,
+            address: address.trim() || null,
+            city: city.trim() || null,
+            state: stateV.trim() || null,
+            country: 'India',
+            pincode: pincode.trim() || null,
+            creditlimit: creditlimit ? parseFloat(creditlimit) : 0,
+            openingbalance: 0,
+            openingbalancetype: 'debit',
+            channel: channel?.value || null,
+            region: region?.value || 'default',
+            salesmanid: user?.id || null,
+            admin: adminid,
+            branchid: branchid || null,
+            status: true,
           },
         },
-      ],
-    );
+        refetchQueries: [{ query: GET_ACCOUNTS, variables: { admin: adminid } }],
+      });
+      Alert.alert('Party Created!', `${name.trim()} has been added successfully.`, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to create party. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const Field = ({
-    label, value, onChange, placeholder, keyboard = 'default', maxLength, icon,
-  }: any) => (
-    <View style={styles.fieldWrap}>
-      <Text style={[styles.fieldLabel, { color: colors.text }]}>{label}</Text>
-      <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
-        {icon && <Icon name={icon} size={16} color={colors.subText} style={{ marginRight: 8 }} />}
-        <TextInput
-          style={[styles.input, { color: colors.text }]}
-          placeholder={placeholder}
-          placeholderTextColor={colors.subText}
-          value={value}
-          onChangeText={onChange}
-          keyboardType={keyboard}
-          maxLength={maxLength}
-          autoCapitalize={keyboard === 'default' ? 'words' : 'none'}
-          returnKeyType="next"
-        />
-      </View>
-    </View>
-  );
+  const pickerOptions: Option[] = picker === 'channel'
+    ? [{ value: '', label: 'None' }, ...channels]
+    : regionOptions;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -85,41 +171,56 @@ export default function StaffCreateParty() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-          {/* Party type chips */}
+          {/* Party type */}
           <Text style={[styles.fieldLabel, { color: colors.text }]}>Party Type</Text>
           <View style={styles.typeRow}>
-            {PARTY_TYPES.map(t => {
-              const active = partyType === t;
+            {partyTypeOptions.map(t => {
+              const active = type === t.value;
               return (
                 <TouchableOpacity
-                  key={t}
+                  key={t.value}
                   style={[styles.typeChip, active
                     ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                  ]}
-                  onPress={() => setPartyType(t)}
+                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
+                  onPress={() => setType(t.value)}
                 >
-                  <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>{t}</Text>
+                  <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>{t.label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
+          {/* Auto-resolved account group */}
+          <View style={[styles.groupInfo, { backgroundColor: colors.brandSoft }]}>
+            <Icon name="folder-account-outline" size={14} color={colors.brand} />
+            <Text style={[styles.groupInfoText, { color: colors.brand }]} numberOfLines={1}>
+              {resolvedGroup ? `Account Group: ${resolvedGroup.name}` : 'No matching account group found'}
+            </Text>
+          </View>
+
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
 
-          <Field label="Party Name *"  value={name}   onChange={setName}   placeholder="e.g. Mehta Traders"  icon="store-outline"   />
-          <Field label="Mobile *"      value={mobile} onChange={setMobile} placeholder="10-digit mobile"      icon="phone-outline"   keyboard="phone-pad" maxLength={10} />
-          <Field label="Email"         value={email}  onChange={setEmail}  placeholder="email@example.com"    icon="email-outline"   keyboard="email-address" />
-          <Field label="GSTIN"         value={gstin}  onChange={setGstin}  placeholder="22AAAAA0000A1Z5"      icon="card-account-details-outline" maxLength={15} />
+          <Field colors={colors} label="Party Name *" value={name}   onChange={setName}   placeholder="e.g. Mehta Traders" icon="store-outline" />
+          <Field colors={colors} label="Mobile *"     value={mobile} onChange={setMobile} placeholder="10-digit mobile"     icon="phone-outline" keyboard="phone-pad" maxLength={10} />
+          <Field colors={colors} label="Email"        value={email}  onChange={setEmail}  placeholder="email@example.com"   icon="email-outline" keyboard="email-address" />
+          <Field colors={colors} label="GSTIN"        value={gstin}  onChange={setGstin}  placeholder="22AAAAA0000A1Z5"     icon="card-account-details-outline" maxLength={15} autoCapitalize="characters" />
+          <Field colors={colors} label="PAN"          value={pan}    onChange={setPan}    placeholder="AAAAA0000A"          icon="card-text-outline" maxLength={10} autoCapitalize="characters" />
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Address</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Channel & Region</Text>
 
-          <Field label="Address"    value={address} onChange={setAddress} placeholder="Shop / building / street"    icon="home-outline"        />
-          <Field label="City"       value={city}    onChange={setCity}    placeholder="City"                        icon="city-variant-outline" />
-          <Field label="State"      value={state}   onChange={setState}   placeholder="State"                       icon="map-outline"          />
-          <Field label="Pin Code"   value={pincode} onChange={setPincode} placeholder="6-digit pin code"            icon="map-marker-outline"   keyboard="numeric" maxLength={6} />
+          <SelectField colors={colors} label="Channel" value={channel?.label} placeholder="Select channel (optional)" icon="account-network-outline" onPress={() => setPicker('channel')} />
+          <SelectField colors={colors} label="Region"  value={region?.label}  placeholder="Select region" icon="map-marker-radius-outline" onPress={() => setPicker('region')} />
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Address & Credit</Text>
+
+          <Field colors={colors} label="Address"  value={address} onChange={setAddress} placeholder="Shop / building / street" icon="home-outline" />
+          <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
+          <Field colors={colors} label="State"    value={stateV}  onChange={setStateV}  placeholder="State" icon="map-outline" />
+          <Field colors={colors} label="Pin Code" value={pincode} onChange={setPincode} placeholder="6-digit pin code" icon="map-marker-outline" keyboard="numeric" maxLength={6} />
+          <Field colors={colors} label="Credit Limit" value={creditlimit} onChange={setCreditlimit} placeholder="0" icon="credit-card-outline" keyboard="numeric" />
 
           <TouchableOpacity
             style={[styles.submitBtn, { backgroundColor: submitting ? colors.border : colors.brand }]}
@@ -132,6 +233,38 @@ export default function StaffCreateParty() {
           </TouchableOpacity>
 
         </ScrollView>
+
+        {/* Picker modal */}
+        <Modal visible={picker !== null} transparent animationType="fade" onRequestClose={() => setPicker(null)}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {picker === 'channel' ? 'Select Channel' : 'Select Region'}
+              </Text>
+              <FlatList
+                data={pickerOptions}
+                keyExtractor={(item) => item.value || 'none'}
+                style={{ maxHeight: 360 }}
+                renderItem={({ item }) => {
+                  const selected = picker === 'channel' ? channel?.value === item.value : region?.value === item.value;
+                  return (
+                    <TouchableOpacity
+                      style={styles.modalRow}
+                      onPress={() => {
+                        if (picker === 'channel') setChannel(item.value ? item : null);
+                        else setRegion(item);
+                        setPicker(null);
+                      }}
+                    >
+                      <Text style={[styles.modalRowText, { color: selected ? colors.brand : colors.text }]}>{item.label}</Text>
+                      {selected && <Icon name="check" size={18} color={colors.brand} />}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -143,17 +276,20 @@ const styles = StyleSheet.create({
 
   fieldLabel: { fontSize: 12, fontFamily: FONTS.semiBold, marginBottom: 6 },
   fieldWrap:  { marginBottom: 14 },
-  inputRow:   {
+  inputRow: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 13, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
   },
   input: { flex: 1, fontSize: 14, fontFamily: FONTS.regular, paddingVertical: 0 },
 
-  typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+  typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   typeChip:     { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1.5 },
   typeChipText: { fontSize: 12, fontFamily: FONTS.semiBold },
 
-  divider:      { height: StyleSheet.hairlineWidth, marginBottom: 14 },
+  groupInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 },
+  groupInfoText: { fontSize: 12, fontFamily: FONTS.semiBold, flex: 1 },
+
+  divider:      { height: StyleSheet.hairlineWidth, marginVertical: 16 },
   sectionTitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 14 },
 
   submitBtn: {
@@ -162,4 +298,10 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
   submitBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+  modalTitle: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 12 },
+  modalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(150,150,150,0.18)' },
+  modalRowText: { fontSize: 14, fontFamily: FONTS.semiBold },
 });

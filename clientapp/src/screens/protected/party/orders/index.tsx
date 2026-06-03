@@ -8,45 +8,30 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all',       label: 'All' },
+  { key: 'pending',   label: 'Pending' },
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled:  '#ef4444',
-  confirmed:  '#3b82f6',
-  processing: '#94a3b8',
+  cancelled: '#ef4444',
+  confirmed: '#3b82f6',
+  pending:   '#f59e0b',
 };
 
-const DUMMY_ORDERS = [
-  { id: 'd1', billnumber: 'SO/2024/001', billdate: '2024-11-15T00:00:00.000Z', totalamount: 4788, status: true,  cancelStatus: null,        salesmenid: { name: 'Rahul S.' }, productservice: [{}, {}, {}] },
-  { id: 'd2', billnumber: 'SO/2024/002', billdate: '2024-11-10T00:00:00.000Z', totalamount: 1260, status: false, cancelStatus: null,        salesmenid: null,                 productservice: [{}, {}]    },
-  { id: 'd3', billnumber: 'SO/2024/003', billdate: '2024-11-05T00:00:00.000Z', totalamount: 3200, status: false, cancelStatus: 'cancelled', salesmenid: null,                 productservice: [{}]        },
-  { id: 'd4', billnumber: 'SO/2024/004', billdate: '2024-10-28T00:00:00.000Z', totalamount: 7500, status: true,  cancelStatus: null,        salesmenid: { name: 'Rahul S.' }, productservice: [{}, {}, {}, {}] },
-  { id: 'd5', billnumber: 'SO/2024/005', billdate: '2024-10-20T00:00:00.000Z', totalamount: 2100, status: false, cancelStatus: null,        salesmenid: null,                 productservice: [{}]        },
-];
 
-type OrderStatus = FilterKey | 'processing';
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  all:        'All',
-  confirmed:  'Confirmed',
-  cancelled:  'Cancelled',
-  processing: 'Processing',
-};
-
-function getOrderStatus(order: any): OrderStatus {
+function getOrderStatus(order: any): FilterKey {
   if (order.cancelStatus === 'cancelled') return 'cancelled';
-  if (order.status) return 'confirmed';
-  return 'processing';
+  if (order.isConverted) return 'confirmed';
+  return 'pending';
 }
 
 export default function MyOrders() {
@@ -74,6 +59,7 @@ export default function MyOrders() {
 
   const counts = useMemo(() => ({
     all:       orders.length,
+    pending:   orders.filter(o => getOrderStatus(o) === 'pending').length,
     confirmed: orders.filter(o => getOrderStatus(o) === 'confirmed').length,
     cancelled: orders.filter(o => getOrderStatus(o) === 'cancelled').length,
   }), [orders]);
@@ -93,7 +79,7 @@ export default function MyOrders() {
 
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
-            <Text style={[styles.billNum, { color: colors.text }]}>{order.billnumber ?? '–'}</Text>
+            <Text style={[styles.billNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
 
@@ -114,7 +100,7 @@ export default function MyOrders() {
           <View style={styles.cardBottom}>
             <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
               <Text style={[styles.statusText, { color: colour }]}>
-                {STATUS_LABEL[status]}
+                {status.charAt(0).toUpperCase() + status.slice(1)}
               </Text>
             </View>
             {order.salesmenid?.name && (
@@ -185,7 +171,7 @@ export default function MyOrders() {
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>
-            {filter === 'all' ? STRINGS.party.noOrdersYet : `No ${STATUS_LABEL[filter].toLowerCase()} orders`}
+            {filter === 'all' ? STRINGS.party.noOrdersYet : `No ${filter} orders`}
           </Text>
           {filter !== 'all' && (
             <TouchableOpacity onPress={() => setFilter('all')}>

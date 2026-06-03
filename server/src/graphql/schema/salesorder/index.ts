@@ -150,6 +150,7 @@ export const salesOrderTypeDefs = gql`
     billdateTo: String
     isConverted: Boolean
     status: Boolean
+    includeConverted: Boolean
   }
 
   extend type Query {

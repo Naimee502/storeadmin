@@ -220,6 +220,37 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   }
 
   console.log("===== PROCESSING JOURNAL ENTRIES START =====");
+
+  // Default "Sales" income ledger. Used when a product line has no sales
+  // account configured, so its revenue is credited to Sales instead of being
+  // dumped onto the customer ledger by the balance adjustment (which previously
+  // left the party with a phantom credit and a wrong outstanding balance).
+  const getDefaultSalesLedgerId = async () => {
+    let sales = await AccountLedger.findOne({ ledgername: "Sales", admin: newInv.adminid });
+    if (!sales) {
+      const AccountGroup = mongoose.model("AccountGroup");
+      let group = await AccountGroup.findOne({ accountgroupname: "Sales Account", admin: newInv.adminid });
+      if (!group) {
+        group = await AccountGroup.create({
+          admin: newInv.adminid,
+          accountgroupname: "Sales Account",
+          category: "income",
+          status: true,
+        });
+      }
+      sales = await AccountLedger.create({
+        admin: newInv.adminid,
+        accountgroupid: group._id,
+        ledgername: "Sales",
+        openingbalance: 0,
+        openingbalancetype: "credit",
+        status: true,
+      });
+    }
+    return sales._id;
+  };
+  const defaultSalesLedgerId = await getDefaultSalesLedgerId();
+
   const entries: any[] = [];
   let lineIndex = 1;
 
@@ -233,7 +264,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
     // ===================== SALES LEDGER =======================
     const salesLedger =
-      ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid);
+      ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid) || defaultSalesLedgerId;
 
     const product = await ProductService.findById(item.productserviceid);
     const productName = product?.name || "Unknown Product";
@@ -485,12 +516,23 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
   if (tempDebit !== tempCredit) {
     const diff = parseFloat((tempDebit - tempCredit).toFixed(2));
-    // Adjust the last entry's credit to balance
-    const lastEntry = entries[entries.length - 1];
-    if (lastEntry.credit !== undefined) {
-      lastEntry.credit = parseFloat((lastEntry.credit + diff).toFixed(2));
-    } else if (lastEntry.debit !== undefined) {
-      lastEntry.debit = parseFloat((lastEntry.debit - diff).toFixed(2));
+    // Post any residual difference to the Sales ledger as its own balancing
+    // line. NEVER mutate the customer entry (the last pushed entry) — doing so
+    // corrupts the party's outstanding balance.
+    if (diff > 0) {
+      entries.push({
+        ledgerid: defaultSalesLedgerId,
+        debit: 0,
+        credit: diff,
+        remarks: "Sales (auto-balanced)",
+      });
+    } else {
+      entries.push({
+        ledgerid: defaultSalesLedgerId,
+        debit: Math.abs(diff),
+        credit: 0,
+        remarks: "Sales (auto-balanced)",
+      });
     }
   }
 

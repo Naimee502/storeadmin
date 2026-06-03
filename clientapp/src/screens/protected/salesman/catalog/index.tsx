@@ -84,6 +84,7 @@ export default function SalesmanCatalog() {
           variables: {
             productid: p.id, variantid: v.id,
             unitid:    up.unitid.id,
+            adminid:   adminid || null,
             accountid: partyId ?? null,
             channelid: partyAccount?.channel?.id ?? null,
             region:    partyAccount?.region ?? null,
@@ -91,8 +92,13 @@ export default function SalesmanCatalog() {
           fetchPolicy: 'network-only',
         });
         const rp = (pd as any)?.resolvePrice;
-        if (rp?.rate != null) { rate = rp.rate; disc = rp.discount ?? 0; }
-      } catch {}
+        if (rp) {
+          if (rp.rate     != null) rate = rp.rate;
+          if (rp.discount != null) disc = rp.discount;
+        }
+      } catch (e) {
+        console.warn('[resolvePrice]', e);
+      }
     }
     dispatch(addToCart({
       productId: p.id, productName: p.name,

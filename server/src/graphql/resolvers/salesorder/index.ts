@@ -65,7 +65,12 @@ const formatOrder = (order: any) => ({
 export const salesOrderResolvers = {
   Query: {
     getSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: true, isConverted: filter.isConverted !== undefined ? filter.isConverted : false };
+      const query: any = { status: true };
+      // includeConverted: true → show all orders (pending + confirmed) for mobile app order history
+      // otherwise default to showing only non-converted orders (admin sales order list)
+      if (!filter.includeConverted) {
+        query.isConverted = filter.isConverted !== undefined ? filter.isConverted : false;
+      }
       const { user } = context;
 
       // ✅ Role-based filtering

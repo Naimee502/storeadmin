@@ -23,6 +23,8 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: STRINGS.party.catalog, icon: 'store-outline',          tabScreen: 'Catalog'   },
   { label: STRINGS.party.orders,  icon: 'clipboard-list-outline', tabScreen: 'MyOrders'  },
   { label: STRINGS.party.ledger,  icon: 'book-account-outline',   tabScreen: 'Ledger'    },
+  { label: 'Payments',            icon: 'cash-multiple',          tabScreen: 'Payments'  },
+  { label: STRINGS.party.profile, icon: 'account-circle-outline', screen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Notifications', icon: 'bell-outline',       screen: 'Notifications' },
   { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support' },

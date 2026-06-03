@@ -11,19 +11,6 @@ import { BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DUMMY_ACCOUNTS = [
-  { id: 'ac1', accountcode: 'P001', name: 'Mehta Traders',   mobile: '9876541001', city: 'Andheri West' },
-  { id: 'ac2', accountcode: 'P002', name: 'Patel General',   mobile: '9876541002', city: 'Jogeshwari'   },
-  { id: 'ac3', accountcode: 'P003', name: 'Gupta Kirana',    mobile: '9876541003', city: 'Goregaon'     },
-  { id: 'ac4', accountcode: 'P004', name: 'Sharma Stores',   mobile: '9876541004', city: 'Malad West'   },
-  { id: 'ac5', accountcode: 'P005', name: 'Shah Stores',     mobile: '9876541005', city: 'Borivali'     },
-  { id: 'ac6', accountcode: 'P006', name: 'Modi Mart',       mobile: '9876541006', city: 'Dahisar'      },
-  { id: 'ac7', accountcode: 'P007', name: 'Iyer Provisions', mobile: '9876542001', city: 'Bandra West'  },
-  { id: 'ac8', accountcode: 'P008', name: 'Nair Shop',       mobile: '9876542002', city: 'Santacruz'    },
-  { id: 'ac9', accountcode: 'P009', name: 'Pillai Traders',  mobile: '9876542003', city: 'Dadar'        },
-  { id: 'ac10',accountcode: 'P010', name: 'Kumar Stores',    mobile: '9876542005', city: 'Kurla'        },
-];
-
 function avatarLetter(name: string) {
   return name?.trim().charAt(0).toUpperCase() ?? '?';
 }
@@ -48,8 +35,9 @@ export default function StaffParties() {
     skip: !adminid,
   });
 
-  const raw      = (data?.getAccounts ?? []) as any[];
-  const accounts = raw.length > 0 ? raw : DUMMY_ACCOUNTS;
+  // Use ONLY real accounts. Dummy accounts have non-ObjectId ids (e.g. "ac1"),
+  // which break order placement ("Cast to ObjectId failed for value ...").
+  const accounts = (data?.getAccounts ?? []) as any[];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

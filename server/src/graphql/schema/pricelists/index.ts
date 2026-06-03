@@ -69,6 +69,7 @@ export const priceListTypeDefs = gql`
       productid: ID!
       variantid: ID!
       unitid: ID!
+      adminid: ID
       accountid: ID
       channelid: ID
       region: String

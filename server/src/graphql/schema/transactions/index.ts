@@ -76,6 +76,7 @@ export const transactionTypeDefs = gql`
   input TransactionFilterInput {
     adminid: ID
     branchid: ID
+    ledgerid: ID
     entrytype: String
     transactioncode: String
     dateFrom: String

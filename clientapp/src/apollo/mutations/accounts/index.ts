@@ -44,3 +44,19 @@ export const CANCEL_SALES_ORDER = gql`
     }
   }
 `;
+
+export const ADD_ACCOUNT = gql`
+  mutation AddAccount($input: AccountInput!) {
+    addAccount(input: $input) {
+      id
+      accountcode
+      name
+      type
+      mobile
+      accountgroupid { id accountgroupname }
+      channel { id channelName }
+      region
+      status
+    }
+  }
+`;

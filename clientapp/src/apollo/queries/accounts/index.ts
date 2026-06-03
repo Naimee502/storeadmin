@@ -31,7 +31,7 @@ export const GET_PRODUCTS = gql`
 
 export const GET_SALES_ORDERS = gql`
   query GetSalesOrders($adminid: ID, $partyacc: ID, $salesmenid: ID) {
-    getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid }) {
+    getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid, includeConverted: true }) {
       id
       billnumber
       billdate
@@ -40,6 +40,7 @@ export const GET_SALES_ORDERS = gql`
       totaldiscount
       totalgst
       cancelStatus
+      isConverted
       status
       partyacc   { id accountname mobile }
       salesmenid { id name }
@@ -51,6 +52,48 @@ export const GET_SALES_ORDERS = gql`
         discount
         amount
         gst
+      }
+      createdAt
+    }
+  }
+`;
+
+export const GET_SALES_ORDER_BY_ID = gql`
+  query GetSalesOrderById($id: ID!) {
+    getSalesOrderById(id: $id) {
+      id
+      billnumber
+      billdate
+      totalamount
+      subtotal
+      totaldiscount
+      totalgst
+      cancelStatus
+      isConverted
+      status
+      partyacc   { id accountname mobile }
+      salesmenid { id name }
+      productservice {
+        productserviceid { id name }
+        variantid        { id name }
+        qty
+        rate
+        discount
+        amount
+        gst
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
       }
       createdAt
     }
@@ -98,6 +141,7 @@ export const RESOLVE_PRICE = gql`
     $productid: ID!
     $variantid: ID!
     $unitid: ID!
+    $adminid: ID
     $accountid: ID
     $channelid: ID
     $region: String
@@ -106,6 +150,7 @@ export const RESOLVE_PRICE = gql`
       productid: $productid
       variantid: $variantid
       unitid: $unitid
+      adminid: $adminid
       accountid: $accountid
       channelid: $channelid
       region: $region
@@ -113,6 +158,47 @@ export const RESOLVE_PRICE = gql`
       rate
       discount
       discounttype
+    }
+  }
+`;
+
+export const GET_ACCOUNT_GROUPS = gql`
+  query GetAccountGroups($adminId: ID) {
+    getAccountGroups(adminId: $adminId) {
+      id
+      accountgroupname
+      category
+    }
+  }
+`;
+
+export const GET_CHANNELS = gql`
+  query GetChannels($adminId: ID) {
+    getChannels(adminId: $adminId) {
+      id
+      channelName
+      isDefault
+      status
+    }
+  }
+`;
+
+export const GET_PAYMENTS = gql`
+  query GetPayments($adminid: ID, $ledgerid: ID, $partyid: ID) {
+    getPayments(filter: { adminid: $adminid, ledgerid: $ledgerid, partyid: $partyid }) {
+      id
+      paymentcode
+      paymentdate
+      type
+      mode
+      amount
+      reference
+      remarks
+      status
+      ledgerid { id ledgername }
+      invoices { invoiceid invoicemodel settledamount }
+      createdby_name
+      createdAt
     }
   }
 `;

@@ -8,45 +8,37 @@ import { COLORS, FONTS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all',       label: 'All'       },
+  { key: 'pending',   label: 'Pending'   },
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled:  '#ef4444',
-  confirmed:  '#3b82f6',
-  processing: '#94a3b8',
-};
-
-type OrderStatus = FilterKey | 'processing';
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  all:        'All',
-  confirmed:  'Confirmed',
-  cancelled:  'Cancelled',
-  processing: 'Processing',
+  cancelled: '#ef4444',
+  confirmed: '#3b82f6',
+  pending:   '#f59e0b',
 };
 
 const DUMMY_ORDERS = [
-  { id: 'o1', billnumber: 'SO/2024/021', billdate: '2024-11-15T00:00:00.000Z', totalamount: 4200,  partyName: 'Mehta Traders',   itemCount: 5, status: true,  cancelStatus: null        },
-  { id: 'o2', billnumber: 'SO/2024/020', billdate: '2024-11-15T00:00:00.000Z', totalamount: 8750,  partyName: 'Patel General',   itemCount: 3, status: false, cancelStatus: null        },
-  { id: 'o3', billnumber: 'SO/2024/019', billdate: '2024-11-14T00:00:00.000Z', totalamount: 2300,  partyName: 'Sharma Stores',   itemCount: 2, status: false, cancelStatus: 'cancelled' },
-  { id: 'o4', billnumber: 'SO/2024/018', billdate: '2024-11-13T00:00:00.000Z', totalamount: 6400,  partyName: 'Gupta Kirana',    itemCount: 7, status: true,  cancelStatus: null        },
-  { id: 'o5', billnumber: 'SO/2024/017', billdate: '2024-11-12T00:00:00.000Z', totalamount: 1850,  partyName: 'Shah Stores',     itemCount: 2, status: false, cancelStatus: null        },
-  { id: 'o6', billnumber: 'SO/2024/016', billdate: '2024-11-11T00:00:00.000Z', totalamount: 9200,  partyName: 'Modi Mart',       itemCount: 8, status: true,  cancelStatus: null        },
+  { id: 'o1', billnumber: '000006', billdate: '2024-11-15', totalamount: 4200,  partyacc: { accountname: 'Mehta Traders' },   isConverted: true,  cancelStatus: null,        productservice: [{},{},{},{},{}] },
+  { id: 'o2', billnumber: '000005', billdate: '2024-11-15', totalamount: 8750,  partyacc: { accountname: 'Patel General' },   isConverted: false, cancelStatus: null,        productservice: [{},{},{}]       },
+  { id: 'o3', billnumber: '000004', billdate: '2024-11-14', totalamount: 2300,  partyacc: { accountname: 'Sharma Stores' },   isConverted: false, cancelStatus: 'cancelled', productservice: [{},{}]          },
+  { id: 'o4', billnumber: '000003', billdate: '2024-11-13', totalamount: 6400,  partyacc: { accountname: 'Gupta Kirana' },    isConverted: true,  cancelStatus: null,        productservice: [{},{},{},{},{},{},{}] },
+  { id: 'o5', billnumber: '000002', billdate: '2024-11-12', totalamount: 1850,  partyacc: { accountname: 'Shah Stores' },     isConverted: false, cancelStatus: null,        productservice: [{}]             },
+  { id: 'o6', billnumber: '000001', billdate: '2024-11-11', totalamount: 9200,  partyacc: { accountname: 'Modi Mart' },       isConverted: true,  cancelStatus: null,        productservice: [{},{},{},{},{},{},{},{}] },
 ];
 
-function getStatus(o: any): OrderStatus {
+function getStatus(o: any): FilterKey {
   if (o.cancelStatus === 'cancelled') return 'cancelled';
-  if (o.status) return 'confirmed';
-  return 'processing';
+  if (o.isConverted) return 'confirmed';
+  return 'pending';
 }
 
 export default function SalesmanOrders() {
@@ -68,6 +60,7 @@ export default function SalesmanOrders() {
 
   const counts = useMemo(() => ({
     all:       allOrders.length,
+    pending:   allOrders.filter((o: any) => getStatus(o) === 'pending').length,
     confirmed: allOrders.filter((o: any) => getStatus(o) === 'confirmed').length,
     cancelled: allOrders.filter((o: any) => getStatus(o) === 'cancelled').length,
   }), [allOrders]);
@@ -80,7 +73,7 @@ export default function SalesmanOrders() {
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
-            <Text style={[styles.billNum, { color: colors.text }]}>{order.billnumber}</Text>
+            <Text style={[styles.billNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
           <Text style={[styles.partyName, { color: colors.subText }]} numberOfLines={1}>
@@ -95,7 +88,7 @@ export default function SalesmanOrders() {
           </View>
           <View style={[styles.statusBadge, { backgroundColor: colour + '22', alignSelf: 'flex-start' }]}>
             <Text style={[styles.statusText, { color: colour }]}>
-              {STATUS_LABEL[status]}
+              {status.charAt(0).toUpperCase() + status.slice(1)}
             </Text>
           </View>
         </View>
@@ -137,7 +130,7 @@ export default function SalesmanOrders() {
       {loading ? <OrderListSkeleton /> : filtered.length === 0 ? (
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.subText }]}>No {STATUS_LABEL[filter].toLowerCase()} orders</Text>
+          <Text style={[styles.emptyText, { color: colors.subText }]}>No {filter} orders</Text>
           <TouchableOpacity onPress={() => setFilter('all')}>
             <Text style={[styles.clearFilter, { color: colors.brand }]}>Show all orders</Text>
           </TouchableOpacity>

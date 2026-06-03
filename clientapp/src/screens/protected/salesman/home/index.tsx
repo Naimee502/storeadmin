@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
 } from 'react-native';
@@ -6,34 +6,43 @@ import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader } from '../../../../components';
-import { formatINR, formatDate } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
+import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
-
-const DUMMY_STATS = { ordersToday: 3, collectionToday: 12500, routeVisited: 8, routeTotal: 15 };
-
-const DUMMY_ORDERS = [
-  { id: 'o1', billnumber: 'SO/2024/021', billdate: '2024-11-15T00:00:00.000Z', totalamount: 4200,  partyName: 'Mehta Traders',  status: true,  cancelStatus: null },
-  { id: 'o2', billnumber: 'SO/2024/020', billdate: '2024-11-15T00:00:00.000Z', totalamount: 8750,  partyName: 'Patel General',  status: false, cancelStatus: null },
-  { id: 'o3', billnumber: 'SO/2024/019', billdate: '2024-11-14T00:00:00.000Z', totalamount: 2300,  partyName: 'Sharma Stores',  status: false, cancelStatus: 'cancelled' },
-];
 
 const STATUS_COLOR: Record<string, string> = {
   Cancelled: '#ef4444', Confirmed: '#3b82f6', Pending: '#f59e0b',
 };
 
-function orderLabel(o: any) {
+function orderLabel(o: any): string {
   if (o.cancelStatus === 'cancelled') return 'Cancelled';
-  if (o.status) return 'Confirmed';
+  if (o.isConverted) return 'Confirmed';
   return 'Pending';
 }
 
 export default function SalesmanDashboard() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
-  const user = useSelector((s: RootState) => s.auth.user);
+  const user   = useSelector((s: RootState) => s.auth.user);
+  const tenant = useSelector((s: RootState) => s.tenant);
+  const adminid = tenant.adminId ?? '';
+
+  const { data } = useQuery(GET_SALES_ORDERS, {
+    variables: { adminid, salesmenid: user?.id },
+    skip: !adminid || !user?.id,
+  });
+
+  const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+
+  const today       = new Date().toISOString().slice(0, 10);
+  const todayOrders = useMemo(() => orders.filter((o: any) => (o.billdate ?? '').startsWith(today)), [orders, today]);
+  const pending     = useMemo(() => orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length, [orders]);
+  const confirmed   = useMemo(() => orders.filter((o: any) => o.isConverted).length, [orders]);
+  const recent      = useMemo(() => orders.slice(0, 5), [orders]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -47,9 +56,9 @@ export default function SalesmanDashboard() {
         {/* Stats */}
         <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
           {[
-            { icon: 'clipboard-plus-outline',   value: String(DUMMY_STATS.ordersToday),            label: "Today's Orders",   color: '#3b82f6' },
-            { icon: 'cash-multiple',             value: formatINR(DUMMY_STATS.collectionToday),     label: 'Collection',       color: '#22c55e' },
-            { icon: 'map-marker-check-outline',  value: `${DUMMY_STATS.routeVisited}/${DUMMY_STATS.routeTotal}`, label: 'Route Progress', color: colors.brand },
+            { icon: 'clipboard-plus-outline',  value: String(todayOrders.length), label: "Today's Orders", color: '#3b82f6'   },
+            { icon: 'clock-outline',           value: String(pending),            label: 'Pending',        color: '#f59e0b'   },
+            { icon: 'check-circle-outline',    value: String(confirmed),          label: 'Confirmed',      color: '#22c55e'   },
           ].map((s) => (
             <View key={s.label} style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
               <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
@@ -73,14 +82,8 @@ export default function SalesmanDashboard() {
               <Icon name="map-marker-path" size={24} color={colors.brand} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.routeName, { color: colors.text }]}>North Zone</Text>
-              <Text style={[styles.routeCode, { color: colors.subText }]}>RT001</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.routeProgress, { color: colors.brand }]}>
-                {DUMMY_STATS.routeVisited}/{DUMMY_STATS.routeTotal}
-              </Text>
-              <Text style={[styles.routeSub, { color: colors.subText }]}>accounts</Text>
+              <Text style={[styles.routeName, { color: colors.text }]}>View My Route</Text>
+              <Text style={[styles.routeCode, { color: colors.subText }]}>Tap to see today's stops</Text>
             </View>
             <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
           </TouchableOpacity>
@@ -94,26 +97,36 @@ export default function SalesmanDashboard() {
               <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
             </TouchableOpacity>
           </View>
-          {DUMMY_ORDERS.map((order) => {
-            const label  = orderLabel(order);
-            const colour = STATUS_COLOR[label] ?? colors.brand;
-            return (
-              <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-                <View style={[styles.statusDot, { backgroundColor: colour }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.orderNum, { color: colors.text }]}>{order.billnumber}</Text>
-                  <Text style={[styles.orderParty, { color: colors.subText }]}>{order.partyName}</Text>
-                  <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[styles.orderAmt, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
-                    <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
+
+          {recent.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+              <Icon name="clipboard-outline" size={28} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.subText }]}>No orders yet</Text>
+            </View>
+          ) : (
+            recent.map((order: any) => {
+              const label  = orderLabel(order);
+              const colour = STATUS_COLOR[label] ?? colors.brand;
+              return (
+                <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+                  <View style={[styles.statusDot, { backgroundColor: colour }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
+                    <Text style={[styles.orderParty, { color: colors.subText }]} numberOfLines={1}>
+                      {order.partyacc?.accountname ?? '—'}
+                    </Text>
+                    <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.orderAmt, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
+                      <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </Animated.View>
 
       </ScrollView>
@@ -147,8 +160,9 @@ const styles = StyleSheet.create({
   routeIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   routeName:     { fontSize: 14, fontFamily: FONTS.bold },
   routeCode:     { fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
-  routeProgress: { fontSize: 15, fontFamily: FONTS.bold },
-  routeSub:      { fontSize: 10, fontFamily: FONTS.regular },
+
+  emptyCard: { borderRadius: 16, borderWidth: 1, paddingVertical: 22, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyText: { fontSize: 13, fontFamily: FONTS.regular },
 
   orderCard: {
     flexDirection: 'row', alignItems: 'center',

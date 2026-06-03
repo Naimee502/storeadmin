@@ -1140,16 +1140,15 @@ export default function POSDashboard() {
                 <span>₹{total.toFixed(2)}</span>
               </div>
               <button
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !selectedParty?.id}
                 className="w-full mt-3 !bg-slate-900 disabled:!bg-slate-300 hover:!bg-slate-800 !text-white py-3 rounded-lg font-bold shadow-md !border-0 transition-all cursor-pointer text-sm"
                 onClick={() => {
                   if (cart.length === 0) {
-                    dispatch(
-                      showMessage({
-                        message: "Add at least one item",
-                        type: "error",
-                      })
-                    );
+                    dispatch(showMessage({ message: "Add at least one item", type: "error" }));
+                    return;
+                  }
+                  if (!selectedParty?.id) {
+                    dispatch(showMessage({ message: "Please select a customer before placing the order.", type: "error" }));
                     return;
                   }
                   setPaymentOpen(true);

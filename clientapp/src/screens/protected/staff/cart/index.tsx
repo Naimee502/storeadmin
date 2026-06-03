@@ -89,32 +89,42 @@ export default function StaffCart() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: CartItem }) => (
-    <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-      <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
-        <Icon name="package-variant-closed" size={20} color={colors.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{item.productName}</Text>
-        <Text style={[styles.itemVariant, { color: colors.subText }]}>
-          {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
-        </Text>
-        <Text style={[styles.itemRate, { color: colors.subText }]}>{formatINR(item.rate)} × {item.qty}</Text>
-      </View>
-      <View style={{ alignItems: 'flex-end', gap: 6 }}>
-        <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
-        <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}>
-            <Icon name="minus" size={12} color={colors.brand} />
-          </TouchableOpacity>
-          <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
-          <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}>
-            <Icon name="plus" size={12} color={colors.brand} />
-          </TouchableOpacity>
+  const renderItem = ({ item }: { item: CartItem }) => {
+    const disc      = item.discount ?? 0;
+    const gst       = item.gst ?? 0;
+    const priceInfo = [
+      formatINR(item.rate),
+      disc > 0 ? `(-${formatINR(disc)})` : null,
+      `· GST ${gst}%`,
+    ].filter(Boolean).join(' ');
+
+    return (
+      <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+        <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
+          <Icon name="package-variant-closed" size={20} color={colors.brand} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{item.productName}</Text>
+          <Text style={[styles.itemVariant, { color: colors.brand }]}>
+            {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
+          </Text>
+          <Text style={[styles.itemRate, { color: colors.subText }]}>{priceInfo}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
+            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}>
+              <Icon name={item.qty <= 1 ? 'trash-can-outline' : 'minus'} size={12} color={item.qty <= 1 ? '#ef4444' : colors.brand} />
+            </TouchableOpacity>
+            <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
+            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}>
+              <Icon name="plus" size={12} color={colors.brand} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const Footer = () => (
     <View>

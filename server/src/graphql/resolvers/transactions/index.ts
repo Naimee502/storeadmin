@@ -21,6 +21,8 @@ export const transactionResolvers = {
 
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
+      if (filter.ledgerid)
+        query["entries.ledgerid"] = new mongoose.Types.ObjectId(filter.ledgerid);
       if (filter.entrytype) query.entrytype = filter.entrytype;
       if (filter.transactioncode)
         query.transactioncode = { $regex: filter.transactioncode, $options: "i" };

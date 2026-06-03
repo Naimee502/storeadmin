@@ -20,19 +20,21 @@ export const priceListResolvers = {
     getDeletedPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
       return await PriceAssignment.find({ adminid, status: false }).populate("pricelistid");
     },
-    resolvePrice: async (_: any, { productid, variantid, unitid, accountid, channelid, region }: any) => {
+    resolvePrice: async (_: any, { productid, variantid, unitid, adminid, accountid, channelid, region }: any) => {
+      // Scope all lookups to the tenant's adminid when provided
+      const base: any = adminid ? { adminid, status: true } : { status: true };
       let assignments = [];
       if (accountid) {
-        assignments.push(...await PriceAssignment.find({ targettype: "customer", targetid: accountid, status: true }));
+        assignments.push(...await PriceAssignment.find({ ...base, targettype: "customer", targetid: accountid }));
       }
       if (channelid && region) {
-        assignments.push(...await PriceAssignment.find({ targettype: "channel_region", targetid: `${channelid}--${region}`, status: true }));
+        assignments.push(...await PriceAssignment.find({ ...base, targettype: "channel_region", targetid: `${channelid}--${region}` }));
       }
       if (channelid) {
-        assignments.push(...await PriceAssignment.find({ targettype: "channel", targetid: channelid, status: true }));
+        assignments.push(...await PriceAssignment.find({ ...base, targettype: "channel", targetid: channelid }));
       }
       if (region) {
-        assignments.push(...await PriceAssignment.find({ targettype: "region", targetid: region, status: true }));
+        assignments.push(...await PriceAssignment.find({ ...base, targettype: "region", targetid: region }));
       }
       if (assignments.length === 0) return null;
       

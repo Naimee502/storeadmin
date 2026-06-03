@@ -25,21 +25,27 @@ const DUMMY_PRODUCT = {
   status: true,
   categoryid: { id: 'c1', categoryname: 'Grains & Cereals' },
   productvariants: [
-    { id: 'dv1', name: '1 kg',  gst: 0, currentstock: 250, unitprices: [
-      { mrp: 145, salesrate: 120, offerprice: 0, discount: 0, discounttype: null, quantity: 1, unitid: { id: 'u1', unitname: 'Kg' } },
-    ]},
-    { id: 'dv2', name: '5 kg',  gst: 0, currentstock: 85,  unitprices: [
-      { mrp: 680, salesrate: 560, offerprice: 0, discount: 0, discounttype: null, quantity: 5, unitid: { id: 'u1', unitname: 'Kg' } },
-    ]},
-    { id: 'dv3', name: '25 kg', gst: 0, currentstock: 12,  unitprices: [
-      { mrp: 3200, salesrate: 2600, offerprice: 0, discount: 0, discounttype: null, quantity: 25, unitid: { id: 'u1', unitname: 'Kg' } },
-    ]},
+    {
+      id: 'dv1', name: '1 kg', gst: 0, currentstock: 250, unitprices: [
+        { mrp: 145, salesrate: 120, offerprice: 0, discount: 0, discounttype: null, quantity: 1, unitid: { id: 'u1', unitname: 'Kg' } },
+      ]
+    },
+    {
+      id: 'dv2', name: '5 kg', gst: 0, currentstock: 85, unitprices: [
+        { mrp: 680, salesrate: 560, offerprice: 0, discount: 0, discounttype: null, quantity: 5, unitid: { id: 'u1', unitname: 'Kg' } },
+      ]
+    },
+    {
+      id: 'dv3', name: '25 kg', gst: 0, currentstock: 12, unitprices: [
+        { mrp: 3200, salesrate: 2600, offerprice: 0, discount: 0, discounttype: null, quantity: 25, unitid: { id: 'u1', unitname: 'Kg' } },
+      ]
+    },
   ],
 };
 
 function getUnitLabel(up: any): string {
   const name = up?.unitid?.unitname ?? 'Unit';
-  const qty  = up?.quantity ?? 1;
+  const qty = up?.quantity ?? 1;
   return qty > 1 ? `${qty} × ${name}` : name;
 }
 
@@ -49,18 +55,18 @@ function resolveUnitPrice(up: any): number {
 
 export default function ProductDetail() {
   const navigation = useNavigation<any>();
-  const route      = useRoute<any>();
-  const productId  = route.params?.productId;
+  const route = useRoute<any>();
+  const productId = route.params?.productId;
 
   const { colors, isDark } = useTheme();
-  const dispatch   = useDispatch();
-  const cartItems  = useSelector((s: RootState) => s.cart.items);
-  const user       = useSelector((s: RootState) => s.auth.user);
-  const tenant     = useSelector((s: RootState) => s.tenant);
-  const adminid    = tenant.adminId ?? '';
+  const dispatch = useDispatch();
+  const cartItems = useSelector((s: RootState) => s.cart.items);
+  const user = useSelector((s: RootState) => s.auth.user);
+  const tenant = useSelector((s: RootState) => s.tenant);
+  const adminid = tenant.adminId ?? '';
 
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
-  const [selectedUnitIdx,    setSelectedUnitIdx]    = useState(0);
+  const [selectedUnitIdx, setSelectedUnitIdx] = useState(0);
 
   const { data, loading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 200 },
@@ -73,19 +79,19 @@ export default function ProductDetail() {
   });
   const partyAccount = (accountData as any)?.getAccountById;
 
-  const allProducts   = (data as any)?.getProductServices ?? [];
+  const allProducts = (data as any)?.getProductServices ?? [];
   const fetchedProduct = allProducts.find((p: any) => p.id === productId);
-  const product        = fetchedProduct ?? DUMMY_PRODUCT;
+  const product = fetchedProduct ?? DUMMY_PRODUCT;
 
-  const variant    = product.productvariants?.[selectedVariantIdx];
-  const unitprice  = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
-  const price      = resolveUnitPrice(unitprice);
-  const mrp        = unitprice?.mrp ?? 0;
-  const hasMrp       = mrp > 0;
-  const hasDiscount  = hasMrp && mrp > price;
-  const discountPct  = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const inStock      = (variant?.currentstock ?? 0) > 0;
-  const multiUnit    = (variant?.unitprices?.length ?? 0) > 1;
+  const variant = product.productvariants?.[selectedVariantIdx];
+  const unitprice = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
+  const price = resolveUnitPrice(unitprice);
+  const mrp = unitprice?.mrp ?? 0;
+  const hasMrp = mrp > 0;
+  const hasDiscount = hasMrp && mrp > price;
+  const discountPct = hasDiscount ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const inStock = (variant?.currentstock ?? 0) > 0;
+  const multiUnit = (variant?.unitprices?.length ?? 0) > 1;
 
   const cartQty = cartItems.find(
     i => i.productId === product.id && i.variantId === variant?.id && i.unitId === unitprice?.unitid?.id,
@@ -102,28 +108,37 @@ export default function ProductDetail() {
           variables: {
             productid: product.id,
             variantid: variant.id,
-            unitid:    unitprice.unitid.id,
-            accountid: user?.id   ?? null,
+            unitid: unitprice.unitid.id,
+            adminid: adminid || null,
+            accountid: user?.id ?? null,
             channelid: partyAccount?.channel?.id ?? null,
-            region:    partyAccount?.region      ?? null,
+            region: partyAccount?.region ?? null,
           },
           fetchPolicy: 'network-only',
         });
         const rp = (pd as any)?.resolvePrice;
-        if (rp?.rate != null) { rate = rp.rate; disc = rp.discount ?? 0; }
-      } catch {}
+        if (rp) {
+          if (rp.rate != null) rate = rp.rate;
+          // Only override the base unit discount when resolvePrice returns a
+          // real party/channel discount. A null/zero result must NOT wipe the
+          // product's own unit discount.
+          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
+        }
+      } catch (e) {
+        console.warn('[resolvePrice]', e);
+      }
     }
     dispatch(addToCart({
-      productId:   product.id,
+      productId: product.id,
       productName: product.name,
-      variantId:   variant.id,
+      variantId: variant.id,
       variantName: variant.name,
-      unitId:   unitprice.unitid?.id,
+      unitId: unitprice.unitid?.id,
       unitName: unitprice.unitid?.unitname,
-      unitqty:  unitprice.quantity ?? 1,
+      unitqty: unitprice.quantity ?? 1,
       imageUrl: product.imageurl,
       qty: 1, rate, discount: disc,
-      gst:    variant.gst ?? 0,
+      gst: variant.gst ?? 0,
       amount: (rate - disc) * 1,
     }));
   };
@@ -215,13 +230,13 @@ export default function ProductDetail() {
             <View style={styles.chipRow}>
               {product.productvariants.map((v: any, i: number) => {
                 const active = i === selectedVariantIdx;
-                const vUp    = v.unitprices?.[0];
+                const vUp = v.unitprices?.[0];
                 const vPrice = resolveUnitPrice(vUp);
                 return (
                   <TouchableOpacity
                     key={v.id}
                     style={[styles.variantChip, active
-                      ? { backgroundColor: colors.brand,         borderColor: colors.brand }
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
                       : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                     ]}
                     onPress={() => selectVariant(i)}
@@ -245,15 +260,15 @@ export default function ProductDetail() {
             <Text style={[styles.cardTitle, { color: colors.text }]}>Unit</Text>
             <View style={styles.chipRow}>
               {variant.unitprices.map((up: any, i: number) => {
-                const active  = i === selectedUnitIdx;
-                const uPrice  = resolveUnitPrice(up);
-                const uMrp    = up?.mrp ?? 0;
+                const active = i === selectedUnitIdx;
+                const uPrice = resolveUnitPrice(up);
+                const uMrp = up?.mrp ?? 0;
                 const uHasDisc = uMrp > 0 && uMrp > uPrice;
                 return (
                   <TouchableOpacity
                     key={`${up.unitid?.id ?? i}-${up.quantity ?? i}`}
                     style={[styles.unitChip, active
-                      ? { backgroundColor: colors.brand,         borderColor: colors.brand }
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
                       : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                     ]}
                     onPress={() => setSelectedUnitIdx(i)}
@@ -336,8 +351,8 @@ export default function ProductDetail() {
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1 },
-  scroll:      { paddingHorizontal: 18, paddingBottom: 24 },
+  container: { flex: 1 },
+  scroll: { paddingHorizontal: 18, paddingBottom: 24 },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 14, fontFamily: FONTS.regular },
 
@@ -347,23 +362,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
   },
   imgWrap: { height: 200, justifyContent: 'center', alignItems: 'center' },
-  img:     { width: '100%', height: '100%' },
+  img: { width: '100%', height: '100%' },
   oosOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 8, alignItems: 'center',
   },
   oosText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
 
-  infoBlock:   { marginBottom: 14 },
-  category:    { fontSize: 12, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  infoBlock: { marginBottom: 14 },
+  category: { fontSize: 12, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   productName: { fontSize: 20, fontFamily: FONTS.bold, lineHeight: 28, marginBottom: 10 },
-  priceRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  price:       { fontSize: 22, fontFamily: FONTS.bold },
-  mrp:         { fontSize: 15, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  price: { fontSize: 22, fontFamily: FONTS.bold },
+  mrp: { fontSize: 15, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
   discountBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  discountText:  { fontSize: 12, fontFamily: FONTS.bold },
-  stockRow:    { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  stockText:   { fontSize: 12, fontFamily: FONTS.semiBold },
+  discountText: { fontSize: 12, fontFamily: FONTS.bold },
+  stockRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  stockText: { fontSize: 12, fontFamily: FONTS.semiBold },
 
   card: {
     borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 12,
@@ -371,14 +386,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   cardTitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 12 },
-  chipRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 
   variantChip: {
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1.5,
     alignItems: 'center', minWidth: 80,
   },
   variantChipText: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
-  variantPrice:    { fontSize: 11, fontFamily: FONTS.regular },
+  variantPrice: { fontSize: 11, fontFamily: FONTS.regular },
 
   unitChip: {
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1.5,
@@ -386,14 +401,14 @@ const styles = StyleSheet.create({
   },
   unitChipLabel: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
   unitChipPrice: { fontSize: 12, fontFamily: FONTS.semiBold },
-  unitChipMrp:   { fontSize: 10, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
+  unitChipMrp: { fontSize: 10, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
 
   description: { fontSize: 13, fontFamily: FONTS.regular, lineHeight: 20 },
 
   cartControlWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
   cartBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  cartQtyBox:   { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
-  cartQtyText:  { fontSize: 18, fontFamily: FONTS.bold, color: '#fff' },
+  cartQtyBox: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
+  cartQtyText: { fontSize: 18, fontFamily: FONTS.bold, color: '#fff' },
   cartQtyLabel: { fontSize: 10, fontFamily: FONTS.semiBold, color: 'rgba(255,255,255,0.8)' },
   addCartBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

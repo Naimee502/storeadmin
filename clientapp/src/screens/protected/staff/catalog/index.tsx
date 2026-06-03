@@ -95,6 +95,7 @@ export default function StaffCatalog() {
           variables: {
             productid: p.id, variantid: v.id,
             unitid:    up.unitid.id,
+            adminid:   adminid || null,
             accountid: partyId ?? null,
             channelid: partyAccount?.channel?.id ?? null,
             region:    partyAccount?.region ?? null,
@@ -102,8 +103,16 @@ export default function StaffCatalog() {
           fetchPolicy: 'network-only',
         });
         const rp = (pd as any)?.resolvePrice;
-        if (rp?.rate != null) { rate = rp.rate; disc = rp.discount ?? 0; }
-      } catch {}
+        if (rp) {
+          if (rp.rate != null) rate = rp.rate;
+          // Only override the base unit discount when resolvePrice returns a
+          // real party/channel discount — a null/zero result must NOT wipe the
+          // product's own unit discount (keeps item-level discount like party).
+          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
+        }
+      } catch (e) {
+        console.warn('[resolvePrice]', e);
+      }
     }
     dispatch(addToCart({
       productId: p.id, productName: p.name,
