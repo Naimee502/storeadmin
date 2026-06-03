@@ -35,6 +35,17 @@ export default function StaffCart() {
   const handlePlaceOrder = async () => {
     if (!partyId || cartItems.length === 0) return;
 
+    // branchid is required by the server (SalesOrder.branchid is a required
+    // ObjectId). Sending '' triggers a Cast to ObjectId error, which is the
+    // usual reason a staff order silently "fails to add".
+    if (!adminid || !tenant.branchId) {
+      Alert.alert(
+        'Branch not set',
+        'No branch is assigned to your account. Please ask the admin to assign you to a branch before placing orders.',
+      );
+      return;
+    }
+
     Alert.alert('Confirm Order', `Place order of ${formatINR(total)} for ${partyName}?`, [
       { text: 'Cancel', style: 'cancel' },
       {

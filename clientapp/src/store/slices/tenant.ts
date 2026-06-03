@@ -30,9 +30,18 @@ const tenantSlice = createSlice({
       state.tagline      = action.payload.tagline;
       state.branchId     = action.payload.branchId;
     },
+    // Update just the active admin/branch (e.g. when a staff member logs in)
+    // without wiping the rest of the tenant branding configured earlier.
+    setBranch: (
+      state,
+      action: PayloadAction<{ adminId?: string | null; branchId: string | null }>
+    ) => {
+      if (action.payload.adminId) state.adminId = action.payload.adminId;
+      state.branchId = action.payload.branchId;
+    },
     clearTenant: () => initialState,
   },
 });
 
-export const { setTenant, clearTenant } = tenantSlice.actions;
+export const { setTenant, setBranch, clearTenant } = tenantSlice.actions;
 export default tenantSlice.reducer;

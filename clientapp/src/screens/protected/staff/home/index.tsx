@@ -54,17 +54,22 @@ export default function StaffDashboard() {
         {/* Stats */}
         <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
           {[
-            { icon: 'clipboard-list-outline', value: String(todayOrders.length), label: "Today's Orders", color: '#3b82f6' },
-            { icon: 'clock-outline',          value: String(pending),            label: 'Pending',        color: '#f59e0b' },
-            { icon: 'check-circle-outline',   value: String(confirmed),          label: 'Confirmed',      color: '#22c55e' },
+            { icon: 'clipboard-list-outline', value: String(todayOrders.length), label: "Today's Orders", color: '#3b82f6', filter: 'all'       },
+            { icon: 'clock-outline',          value: String(pending),            label: 'Pending',        color: '#f59e0b', filter: 'pending'   },
+            { icon: 'check-circle-outline',   value: String(confirmed),          label: 'Confirmed',      color: '#22c55e', filter: 'confirmed' },
           ].map((s) => (
-            <View key={s.label} style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <TouchableOpacity
+              key={s.label}
+              style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+              onPress={() => navigation.navigate('StaffOrders', { initialFilter: s.filter })}
+              activeOpacity={0.85}
+            >
               <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
                 <Icon name={s.icon} size={17} color={s.color} />
               </View>
               <Text style={[styles.statValue, { color: colors.text }]}>{s.value}</Text>
               <Text style={[styles.statLabel, { color: colors.subText }]}>{s.label}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </Animated.View>
 
@@ -87,7 +92,12 @@ export default function StaffDashboard() {
               const label  = orderLabel(order);
               const colour = STATUS_COLOR[label] ?? colors.brand;
               return (
-                <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={order.id}
+                  style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+                  activeOpacity={0.85}
+                >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
@@ -102,7 +112,8 @@ export default function StaffDashboard() {
                       <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
                     </View>
                   </View>
-                </View>
+                  <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
               );
             })
           )}

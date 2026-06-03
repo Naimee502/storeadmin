@@ -11,6 +11,7 @@ export const LOGIN_STAFF = gql`
         email
         role
         admin { id }
+        branchid { id }
       }
     }
   }

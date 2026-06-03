@@ -247,6 +247,7 @@ export const NavConfig: any = {
       { name: 'StaffCreateParty', options: { headerShown: false } },
       { name: 'StaffCatalog',     options: { headerShown: false } },
       { name: 'StaffCart',        options: { headerShown: false } },
+      { name: 'OrderDetail',      options: { headerShown: false } },
     ],
   },
 

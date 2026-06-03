@@ -10,7 +10,7 @@ import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import {
   COLORS, FONTS, useTheme,
-  partyTypeOptions, regionOptions, TYPE_GROUP_MAP, type Option,
+  partyTypeOptions, regionOptions, stateOptions, TYPE_GROUP_MAP, type Option,
 } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
@@ -71,15 +71,17 @@ export default function StaffCreateParty() {
   const [pan,     setPan]     = useState('');
   const [address, setAddress] = useState('');
   const [city,    setCity]    = useState('');
-  const [stateV,  setStateV]  = useState('');
+  const [stateV,  setStateV]  = useState<Option | null>(null);
   const [pincode, setPincode] = useState('');
   const [creditlimit, setCreditlimit] = useState('');
+  const [openingbalance, setOpeningbalance] = useState('');
+  const [openingbalancetype, setOpeningbalancetype] = useState<'debit' | 'credit'>('debit');
   const [channel, setChannel] = useState<Option | null>(null);
   const [region,  setRegion]  = useState<Option>(regionOptions[0]);
   const [submitting, setSubmitting] = useState(false);
 
   // Picker modal: which field is open
-  const [picker, setPicker] = useState<null | 'channel' | 'region'>(null);
+  const [picker, setPicker] = useState<null | 'channel' | 'region' | 'state'>(null);
 
   const { data: groupData } = useQuery(GET_ACCOUNT_GROUPS, {
     variables: { adminId: adminid }, skip: !adminid,
@@ -131,12 +133,12 @@ export default function StaffCreateParty() {
             pan: pan.trim() || null,
             address: address.trim() || null,
             city: city.trim() || null,
-            state: stateV.trim() || null,
+            state: stateV?.value || null,
             country: 'India',
             pincode: pincode.trim() || null,
             creditlimit: creditlimit ? parseFloat(creditlimit) : 0,
-            openingbalance: 0,
-            openingbalancetype: 'debit',
+            openingbalance: openingbalance ? parseFloat(openingbalance) : 0,
+            openingbalancetype,
             channel: channel?.value || null,
             region: region?.value || 'default',
             salesmanid: user?.id || null,
@@ -157,8 +159,9 @@ export default function StaffCreateParty() {
     }
   };
 
-  const pickerOptions: Option[] = picker === 'channel'
-    ? [{ value: '', label: 'None' }, ...channels]
+  const pickerOptions: Option[] =
+    picker === 'channel' ? [{ value: '', label: 'None' }, ...channels]
+    : picker === 'state' ? stateOptions
     : regionOptions;
 
   return (
@@ -218,9 +221,34 @@ export default function StaffCreateParty() {
 
           <Field colors={colors} label="Address"  value={address} onChange={setAddress} placeholder="Shop / building / street" icon="home-outline" />
           <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
-          <Field colors={colors} label="State"    value={stateV}  onChange={setStateV}  placeholder="State" icon="map-outline" />
+          <SelectField colors={colors} label="State" value={stateV?.label} placeholder="Select state" icon="map-outline" onPress={() => setPicker('state')} />
           <Field colors={colors} label="Pin Code" value={pincode} onChange={setPincode} placeholder="6-digit pin code" icon="map-marker-outline" keyboard="numeric" maxLength={6} />
           <Field colors={colors} label="Credit Limit" value={creditlimit} onChange={setCreditlimit} placeholder="0" icon="credit-card-outline" keyboard="numeric" />
+
+          <Field colors={colors} label="Opening Balance" value={openingbalance} onChange={setOpeningbalance} placeholder="0" icon="cash-multiple" keyboard="numeric" />
+
+          {/* Opening balance type — mirrors the admin panel debit/credit selector */}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Balance Type</Text>
+            <View style={styles.typeRow}>
+              {(['debit', 'credit'] as const).map(bt => {
+                const active = openingbalancetype === bt;
+                return (
+                  <TouchableOpacity
+                    key={bt}
+                    style={[styles.typeChip, active
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
+                    onPress={() => setOpeningbalancetype(bt)}
+                  >
+                    <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>
+                      {bt === 'debit' ? 'Debit (To Receive)' : 'Credit (To Pay)'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           <TouchableOpacity
             style={[styles.submitBtn, { backgroundColor: submitting ? colors.border : colors.brand }]}
@@ -239,19 +267,23 @@ export default function StaffCreateParty() {
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
             <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {picker === 'channel' ? 'Select Channel' : 'Select Region'}
+                {picker === 'channel' ? 'Select Channel' : picker === 'state' ? 'Select State' : 'Select Region'}
               </Text>
               <FlatList
                 data={pickerOptions}
                 keyExtractor={(item) => item.value || 'none'}
                 style={{ maxHeight: 360 }}
                 renderItem={({ item }) => {
-                  const selected = picker === 'channel' ? channel?.value === item.value : region?.value === item.value;
+                  const selected =
+                    picker === 'channel' ? channel?.value === item.value
+                    : picker === 'state' ? stateV?.value === item.value
+                    : region?.value === item.value;
                   return (
                     <TouchableOpacity
                       style={styles.modalRow}
                       onPress={() => {
                         if (picker === 'channel') setChannel(item.value ? item : null);
+                        else if (picker === 'state') setStateV(item);
                         else setRegion(item);
                         setPicker(null);
                       }}

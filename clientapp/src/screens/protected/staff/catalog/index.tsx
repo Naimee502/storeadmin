@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,7 +10,7 @@ import { BackHeader, AppTextInput, DynamicFlashList } from '../../../../componen
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
-import { addToCart, updateQty } from '../../../../store/slices';
+import { addToCart, updateQty, setCartParty } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCTS = [
@@ -31,9 +31,20 @@ export default function StaffCatalog() {
   const dispatch   = useDispatch();
   const tenant     = useSelector((s: RootState) => s.tenant);
   const cartItems  = useSelector((s: RootState) => s.cart.items);
+  const cartPartyId = useSelector((s: RootState) => s.cart.partyId);
   const adminid    = tenant.adminId ?? '';
 
   const { partyId, partyName } = route.params ?? {};
+
+  // Bind the cart to this party. The cart screen reads the party from Redux
+  // (s.cart.partyId), so without this the order's partyacc is empty and the
+  // "Place Order" button silently no-ops. Switching to a new party resets the
+  // cart (handled inside setCartParty); re-entering the same party is a no-op.
+  useEffect(() => {
+    if (partyId && partyId !== cartPartyId) {
+      dispatch(setCartParty({ partyId, partyName }));
+    }
+  }, [partyId, partyName, cartPartyId, dispatch]);
 
   const [search,        setSearch]        = useState('');
   const [category,     setCategory]     = useState<string | null>(null);

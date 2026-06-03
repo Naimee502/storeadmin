@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -44,10 +44,17 @@ function getStatus(o: any): FilterKey {
 
 export default function StaffOrders() {
   const navigation = useNavigation<any>();
+  const route      = useRoute<any>();
   const { colors, isDark } = useTheme();
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filter, setFilter] = useState<FilterKey>(route.params?.initialFilter ?? 'all');
+
+  // Keep the filter in sync when arriving from a home stat card (this is a
+  // bottom-tab screen, so it can already be mounted with a stale filter).
+  useEffect(() => {
+    if (route.params?.initialFilter) setFilter(route.params.initialFilter);
+  }, [route.params?.initialFilter]);
 
   const { data, loading } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid: tenant.adminId },
@@ -71,7 +78,11 @@ export default function StaffOrders() {
     const status = getStatus(order);
     const colour = STATUS_COLOR[status];
     return (
-      <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+        activeOpacity={0.85}
+      >
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
@@ -94,7 +105,8 @@ export default function StaffOrders() {
             </Text>
           </View>
         </View>
-      </View>
+        <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8, alignSelf: 'center' }} />
+      </TouchableOpacity>
     );
   };
 

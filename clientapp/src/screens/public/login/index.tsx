@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { setCredentials } from '../../../store/slices';
+import { setCredentials, setBranch } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
 import { SEND_OTP } from '../../../apollo/mutations/accounts';
@@ -22,6 +22,7 @@ export default function Login({ navigation }: any) {
   const dispatch = useDispatch();
   const { showLoader, showToast } = useUI();
   const adminId = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const branchId = useSelector((s: RootState) => s.tenant.branchId);
 
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -91,6 +92,16 @@ export default function Login({ navigation }: any) {
         },
         token: accessToken,
       }));
+
+      // Pin the active branch to the one assigned to this staff member.
+      // Sales orders require a valid branchid; without this the tenant
+      // branch stays whatever admin-setup picked (often null) and order
+      // placement fails with an ObjectId cast error on the server.
+      dispatch(setBranch({
+        adminId: staff.admin?.id ?? adminId,
+        branchId: staff.branchid?.id ?? branchId ?? null,
+      }));
+
       await signIn();
     } catch (err: any) {
       const msg = err?.message || 'Login failed. Try again.';
