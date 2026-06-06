@@ -1,24 +1,28 @@
 import { gql } from '@apollo/client';
 
 export const GET_SALES_ROUTES = gql`
-  query getSalesRoutes($adminid: ID!, $salesmanid: ID) {
-    getSalesRoutes(adminid: $adminid, salesmanid: $salesmanid) {
+  query getSalesRoutes($filter: SalesRouteFilterInput) {
+    getSalesRoutes(filter: $filter) {
       id routename routecode status
       salesmanid { id name }
       dayWiseAccounts {
         day visitorder
-        accounts { id name mobile }
+        accounts {
+          id name mobile address city
+          latitude longitude
+          openingbalance openingbalancetype
+        }
       }
     }
   }
 `;
 
 export const GET_SALESMAN_ORDERS = gql`
-  query getSalesOrders($adminid: ID!, $salesmenid: ID) {
-    getSalesOrders(adminid: $adminid, salesmenid: $salesmenid) {
-      id billnumber billdate totalamount status cancelStatus
-      partyaccid { id name }
-      productservice { id }
+  query getSalesOrders($adminid: ID, $salesmenid: ID) {
+    getSalesOrders(filter: { adminid: $adminid, salesmenid: $salesmenid, includeConverted: true }) {
+      id billnumber billdate totalamount status cancelStatus isConverted
+      partyacc { id accountname }
+      productservice { productserviceid { id } }
     }
   }
 `;

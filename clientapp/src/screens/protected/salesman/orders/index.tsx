@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -42,15 +43,20 @@ function getStatus(o: any): FilterKey {
 }
 
 export default function SalesmanOrders() {
+  const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  const { data, loading } = useQuery(GET_SALES_ORDERS, {
+  const { data, loading, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid: tenant.adminId, salesmenid: user?.id },
     skip: !tenant.adminId || !user?.id,
+    fetchPolicy: 'cache-and-network',
   });
+
+  // Refresh on focus so a just-placed order appears without a reload.
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
   const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
   const filtered = useMemo(() => {
@@ -69,7 +75,11 @@ export default function SalesmanOrders() {
     const status = getStatus(order);
     const colour = STATUS_COLOR[status];
     return (
-      <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+        activeOpacity={0.85}
+      >
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
           <View style={styles.cardTop}>
@@ -92,7 +102,8 @@ export default function SalesmanOrders() {
             </Text>
           </View>
         </View>
-      </View>
+        <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8, alignSelf: 'center' }} />
+      </TouchableOpacity>
     );
   };
 

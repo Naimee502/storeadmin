@@ -8,7 +8,7 @@ export const useSalesRoutesQuery = () => {
   const adminId   = useSelector((s: RootState) => s.tenant.adminId);
   const salesmanId = useSelector((s: RootState) => s.auth.user?.id);
   return useQuery(GET_SALES_ROUTES, {
-    variables: { adminid: adminId, salesmanid: salesmanId },
+    variables: { filter: { adminId, salesmanId } },
     skip: !adminId || !salesmanId,
     fetchPolicy: 'cache-and-network',
   });

@@ -6,8 +6,13 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
+import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
+import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
+import type { RootState } from '../../../../store/rootreducer';
 
 type PaymentMode = 'cash' | 'upi' | 'cheque';
 
@@ -24,6 +29,20 @@ export default function CollectPayment() {
 
   const { partyId, partyName, outstanding = 0 } = route.params ?? {};
 
+  const tenant  = useSelector((s: RootState) => s.tenant);
+  const user    = useSelector((s: RootState) => s.auth.user);
+  const adminid = tenant.adminId ?? '';
+
+  // The salesman's own ledger is the cash-in-hand (debit) side of the receipt.
+  const { data: staffData } = useQuery(GET_STAFF_ACCOUNT, {
+    variables: { id: user?.id, adminId: adminid },
+    skip: !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const salesmanLedgerId = (staffData as any)?.getStaffAccountById?.ledgerid?.id ?? null;
+
+  const [addPayment] = useMutation(ADD_PAYMENT);
+
   const [mode,      setMode]      = useState<PaymentMode>('cash');
   const [amount,    setAmount]    = useState(outstanding > 0 ? String(outstanding) : '');
   const [reference, setReference] = useState('');
@@ -38,6 +57,14 @@ export default function CollectPayment() {
       Alert.alert('Invalid Amount', 'Please enter a valid payment amount.');
       return;
     }
+    if (!adminid || !tenant.branchId) {
+      Alert.alert('Branch not set', 'No branch is assigned to your account. Please contact the admin.');
+      return;
+    }
+    if (!salesmanLedgerId) {
+      Alert.alert('No collection ledger', 'Your account has no ledger configured to receive collections. Please contact the admin.');
+      return;
+    }
 
     Alert.alert(
       'Confirm Payment',
@@ -49,12 +76,33 @@ export default function CollectPayment() {
           onPress: async () => {
             setSubmitting(true);
             try {
-              await new Promise(resolve => setTimeout(resolve, 800));
+              await addPayment({
+                variables: {
+                  input: {
+                    adminid,
+                    branchid: tenant.branchId,
+                    type: 'receipt',
+                    mode,
+                    partyid: partyId,
+                    ledgerid: salesmanLedgerId,
+                    amount: parsedAmount,
+                    reference: reference.trim() || null,
+                    remarks: notes.trim() || null,
+                    paymentdate: new Date().toISOString().slice(0, 10),
+                    createdby_id: user?.id,
+                    createdby_name: user?.name,
+                    createdby_type: 'staff',
+                    status: true,
+                  },
+                },
+              });
               Alert.alert(
                 'Payment Recorded!',
                 `₹${parsedAmount.toLocaleString('en-IN')} via ${selectedMode.label} collected from ${partyName}.`,
                 [{ text: 'OK', onPress: () => navigation.goBack() }],
               );
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Could not record payment. Please try again.');
             } finally {
               setSubmitting(false);
             }

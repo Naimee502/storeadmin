@@ -1,11 +1,56 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
+import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
+
+const DAY_ORDER: Record<string, number> = {
+  Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7,
+};
+
+// Map a server SalesRoute (dayWiseAccounts.accounts are full Account docs) into the
+// shape the cards render. Keeps the existing UI untouched.
+function mapServerRoutes(serverRoutes: any[]): any[] {
+  return (serverRoutes ?? []).map((r: any) => ({
+    id: r.id,
+    routename: r.routename,
+    routecode: r.routecode ?? '',
+    status: r.status,
+    salesmanid: r.salesmanid,
+    dayWiseAccounts: [...(r.dayWiseAccounts ?? [])]
+      .sort((a: any, b: any) => (DAY_ORDER[a.day] ?? 99) - (DAY_ORDER[b.day] ?? 99))
+      .map((dw: any) => ({
+        day: dw.day,
+        visitorder: dw.visitorder ?? 0,
+        accounts: (dw.accounts ?? []).map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          mobile: a.mobile ?? '',
+          city: a.city ?? '',
+          address: a.address ?? '',
+          lat: a.latitude ?? null,
+          lng: a.longitude ?? null,
+          // Outstanding proxy: a debit opening balance means the party owes us.
+          outstanding: a.openingbalancetype === 'debit' ? (a.openingbalance ?? 0) : 0,
+          visitStatus: 'pending' as VisitStatus,
+        })),
+      })),
+  }));
+}
+
+// Convert mapped dayWiseAccounts (full objects) → the ID-only shape the
+// add/manage mutations expect ({ day, visitorder, accounts: [id] }).
+function toDayWiseIds(dayWise: any[]): any[] {
+  return (dayWise ?? []).map((d: any) => ({
+    day: d.day,
+    visitorder: d.visitorder ?? 0,
+    accounts: (d.accounts ?? []).map((a: any) => a.id ?? a),
+  }));
+}
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const TODAY_DAY = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
@@ -102,20 +147,22 @@ function openInMaps(lat: number, lng: number, label: string, fromLoc: LatLng | n
 
 // ── RouteCard ─────────────────────────────────────────────────────────────────
 
-function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate }: {
+function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate, defaultExpanded }: {
   route: any; colors: any; salesmanLoc: LatLng | null;
   onNavigate: (lat: number, lng: number, label: string) => void;
   onPartyPress:   (party: any) => void;
   onAddParty:     (routeId: string, routeName: string, day: string, existingIds: string[], allDayWise: any[], salesmanId: string) => void;
   onManageParty:  (party: any, routeId: string, routeName: string, day: string, dayWiseAccounts: any[], salesmanId: string, allRoutes: any[]) => void;
   allRoutes:      any[];
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(route.id === 'r1');
+  const [expanded, setExpanded] = useState(!!defaultExpanded);
 
   const totalAccounts = route.dayWiseAccounts.reduce((s: number, d: any) => s + d.accounts.length, 0);
   const visitedCount  = route.dayWiseAccounts.reduce(
     (s: number, d: any) => s + d.accounts.filter((a: any) => a.visitStatus === 'visited').length, 0
   );
+  const pct = totalAccounts > 0 ? Math.round((visitedCount / totalAccounts) * 100) : 0;
 
   return (
     <Animated.View entering={FadeInUp.duration(400)} style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -133,9 +180,9 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
         </View>
         <View style={styles.progressWrap}>
           <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-            <View style={[styles.progressFill, { backgroundColor: colors.brand, width: `${(visitedCount / totalAccounts) * 100}%` as any }]} />
+            <View style={[styles.progressFill, { backgroundColor: colors.brand, width: `${pct}%` as any }]} />
           </View>
-          <Text style={[styles.progressText, { color: colors.brand }]}>{Math.round((visitedCount / totalAccounts) * 100)}%</Text>
+          <Text style={[styles.progressText, { color: colors.brand }]}>{pct}%</Text>
         </View>
         <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.subText} style={{ marginLeft: 8 }} />
       </TouchableOpacity>
@@ -169,7 +216,9 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
 
             {day.accounts.map((party: any, idx: number) => {
               const vm = VISIT_META[party.visitStatus];
-              const distKm = salesmanLoc ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, party.lat, party.lng) : null;
+              const distKm = (salesmanLoc && party.lat != null && party.lng != null)
+                ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, party.lat, party.lng)
+                : null;
               return (
                 <View
                   key={party.id}
@@ -274,7 +323,15 @@ export default function SalesmanRoutes() {
 
   useEffect(() => { fetchLocation(); }, [fetchLocation]);
 
+  // Live sales routes for the logged-in salesman (admin/branch/salesman filtered server-side).
+  const { data, loading, refetch } = useSalesRoutesQuery();
+  const routes = useMemo(() => mapServerRoutes((data as any)?.getSalesRoutes ?? []), [data]);
+
+  // Refresh whenever the screen regains focus (e.g. after add / manage party).
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
+
   const handleNavigate = useCallback((lat: number, lng: number, label: string) => {
+    if (lat == null || lng == null) return;
     openInMaps(lat, lng, label, salesmanLoc);
   }, [salesmanLoc]);
 
@@ -292,7 +349,9 @@ export default function SalesmanRoutes() {
   ) => {
     navigation.navigate('AddPartyToRoute', {
       routeId, routeName, day,
-      existingAccountIds, allDayWiseAccounts,
+      existingAccountIds,
+      // mutation expects account IDs, not full objects
+      allDayWiseAccounts: toDayWiseIds(allDayWiseAccounts),
       routeSalesmanId: salesmanId,
     });
   };
@@ -304,11 +363,11 @@ export default function SalesmanRoutes() {
     navigation.navigate('ManagePartyRoute', {
       partyId: party.id, partyName: party.name,
       currentRouteId: routeId, currentRouteName: routeName,
-      currentDay: day, currentDayWiseAccounts: dayWiseAccounts,
+      currentDay: day, currentDayWiseAccounts: toDayWiseIds(dayWiseAccounts),
       currentSalesmanId: salesmanId,
       availableRoutes: allRoutes.map((r: any) => ({
         id: r.id, routename: r.routename,
-        dayWiseAccounts: r.dayWiseAccounts, salesmanid: r.salesmanid,
+        dayWiseAccounts: toDayWiseIds(r.dayWiseAccounts), salesmanid: r.salesmanid,
       })),
     });
   };
@@ -335,8 +394,8 @@ export default function SalesmanRoutes() {
       </View>
 
       <DynamicFlashList
-        data={DUMMY_ROUTES}
-        renderItem={({ item }: any) => (
+        data={routes}
+        renderItem={({ item, index }: any) => (
           <RouteCard
             route={item}
             colors={colors}
@@ -345,16 +404,21 @@ export default function SalesmanRoutes() {
             onAddParty={handleAddParty}
             onManageParty={handleManageParty}
             onNavigate={handleNavigate}
-            allRoutes={DUMMY_ROUTES}
+            allRoutes={routes}
+            defaultExpanded={index === 0}
           />
         )}
         estimatedItemSize={280}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onRefresh={refetch}
+        refreshing={loading && routes.length > 0}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Icon name="map-marker-off-outline" size={48} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>No routes assigned</Text>
+            <Icon name={loading ? 'map-marker-radius-outline' : 'map-marker-off-outline'} size={48} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.subText }]}>
+              {loading ? 'Loading routes…' : 'No routes assigned'}
+            </Text>
           </View>
         }
       />

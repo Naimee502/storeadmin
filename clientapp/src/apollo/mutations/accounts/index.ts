@@ -60,3 +60,17 @@ export const ADD_ACCOUNT = gql`
     }
   }
 `;
+
+export const ADD_PAYMENT = gql`
+  mutation AddPayment($input: PaymentInput!) {
+    addPayment(input: $input) {
+      id
+      paymentcode
+      amount
+      mode
+      type
+      partyid  { id name }
+      ledgerid { id ledgername }
+    }
+  }
+`;

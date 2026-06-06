@@ -93,8 +93,11 @@ export default function SalesmanCatalog() {
         });
         const rp = (pd as any)?.resolvePrice;
         if (rp) {
-          if (rp.rate     != null) rate = rp.rate;
-          if (rp.discount != null) disc = rp.discount;
+          if (rp.rate != null) rate = rp.rate;
+          // Only override the product's own unit discount when resolvePrice
+          // returns a real party/channel discount. A null/zero result must NOT
+          // wipe the unit discount, otherwise item + total discount show as 0.
+          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
         }
       } catch (e) {
         console.warn('[resolvePrice]', e);

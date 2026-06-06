@@ -66,7 +66,7 @@ export default function ManagePartyRoute() {
               await updateRoute({
                 variables: {
                   id: currentRouteId,
-                  input: { adminid, salesmanid: currentSalesmanId, dayWiseAccounts: updatedCurrent },
+                  input: { adminid, routename: currentRouteName, salesmanid: currentSalesmanId, dayWiseAccounts: updatedCurrent },
                 },
               });
 
@@ -80,6 +80,7 @@ export default function ManagePartyRoute() {
                   id: selectedRoute,
                   input: {
                     adminid,
+                    routename: isMoving ? (targetRoute?.routename ?? currentRouteName) : currentRouteName,
                     salesmanid: isMoving ? (targetRoute?.salesmanid?.id ?? '') : currentSalesmanId,
                     dayWiseAccounts: updatedDest,
                   },
@@ -117,7 +118,7 @@ export default function ManagePartyRoute() {
                 await updateRoute({
                   variables: {
                     id: currentRouteId,
-                    input: { adminid, salesmanid: currentSalesmanId, dayWiseAccounts: updated },
+                    input: { adminid, routename: currentRouteName, salesmanid: currentSalesmanId, dayWiseAccounts: updated },
                   },
                 });
               }

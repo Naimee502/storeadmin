@@ -127,10 +127,11 @@ export const salesRouteResolvers = {
         if (limit  !== undefined) dbQuery = dbQuery.limit(limit)  as any;
         if (offset !== undefined) dbQuery = dbQuery.skip(offset)  as any;
 
-        const routes = await dbQuery.populate("salesmanid").populate("accounts");
+        const routes = await dbQuery;
 
-        // For list view we skip deep population of dayWiseAccounts to keep it fast
-        return routes.map(formatRoute);
+        // Deep-populate dayWiseAccounts so list consumers (admin + salesman app)
+        // receive the real party details (name, mobile, address, geo) in one query.
+        return await Promise.all(routes.map((r: any) => populateAndFormat(r)));
       } catch (err) {
         console.error("getSalesRoutes error:", err);
         throw err;

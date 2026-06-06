@@ -91,6 +91,7 @@ export default function AddPartyToRoute() {
                     id: routeId,
                     input: {
                       adminid,
+                      routename: routeName,
                       salesmanid: routeSalesmanId,
                       dayWiseAccounts: updatedDayWise,
                     },

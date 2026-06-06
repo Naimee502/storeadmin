@@ -1,21 +1,17 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { setCartParty } from '../../../../store/slices';
-import { formatINR, formatDate } from '../../../../utils';
+import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
+import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
-
-const DUMMY_RECENT_ORDERS = [
-  { id: 'o1', billnumber: 'SO/2024/018', billdate: '2024-11-10T00:00:00.000Z', totalamount: 4200, status: true,  cancelStatus: null        },
-  { id: 'o2', billnumber: 'SO/2024/012', billdate: '2024-10-28T00:00:00.000Z', totalamount: 7800, status: true,  cancelStatus: null        },
-  { id: 'o3', billnumber: 'SO/2024/008', billdate: '2024-10-15T00:00:00.000Z', totalamount: 2300, status: false, cancelStatus: 'cancelled' },
-];
 
 const STATUS_COLOR: Record<string, string> = {
   Cancelled: '#ef4444', Confirmed: '#3b82f6', Pending: '#f59e0b',
@@ -23,7 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 function orderLabel(o: any) {
   if (o.cancelStatus === 'cancelled') return 'Cancelled';
-  if (o.status) return 'Confirmed';
+  if (o.isConverted) return 'Confirmed';
   return 'Pending';
 }
 
@@ -34,8 +30,47 @@ export default function RoutePartyVisit() {
   const dispatch   = useDispatch();
   const cartItems  = useSelector((s: RootState) => s.cart.items);
   const cartPartyId = useSelector((s: RootState) => s.cart.partyId);
+  const adminid    = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const salesmanId = useSelector((s: RootState) => s.auth.user?.id);
 
   const { partyId, partyName, mobile, outstanding = 0, routeName } = route.params ?? {};
+
+  // Live recent orders for this party — only the ones THIS salesman has taken.
+  const { data: ordersData, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
+    variables: { adminid, partyacc: partyId, salesmenid: salesmanId },
+    skip: !adminid || !partyId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const recentOrders = ((ordersData as any)?.getSalesOrders ?? []).slice(0, 5);
+
+  // Live outstanding = running balance of the party's ledger (same as party login).
+  const { data: accountData } = useQuery(GET_ACCOUNT, {
+    variables: { id: partyId, adminId: adminid },
+    skip: !adminid || !partyId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const ledgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
+
+  const { data: txData, refetch: refetchTx } = useQuery(GET_TRANSACTIONS, {
+    variables: { adminid, ledgerid: ledgerId },
+    skip: !adminid || !ledgerId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const liveOutstanding = useMemo(() => {
+    const txs = (txData as any)?.getTransactions;
+    if (!ledgerId || !txs) return outstanding; // fall back to the value passed in
+    return txs.reduce((run: number, tx: any) => {
+      const { debit, credit } = ledgerEntryTotals(tx, ledgerId);
+      return run + debit - credit;
+    }, 0);
+  }, [txData, ledgerId, outstanding]);
+  const outstandingAmt = Math.max(0, Math.round(liveOutstanding));
+
+  // Refresh orders + balance when returning to this screen (e.g. after a collection or new order).
+  useFocusEffect(useCallback(() => {
+    refetchOrders?.();
+    refetchTx?.();
+  }, [refetchOrders, refetchTx]));
 
   const cartCount = cartPartyId === partyId
     ? cartItems.reduce((s, i) => s + i.qty, 0)
@@ -47,7 +82,7 @@ export default function RoutePartyVisit() {
   };
 
   const handleCollectPayment = () => {
-    navigation.navigate('CollectPayment', { partyId, partyName, outstanding });
+    navigation.navigate('CollectPayment', { partyId, partyName, outstanding: outstandingAmt });
   };
 
   return (
@@ -90,10 +125,10 @@ export default function RoutePartyVisit() {
               </View>
             )}
           </View>
-          {outstanding > 0 && (
+          {outstandingAmt > 0 && (
             <View style={styles.outstandingBadge}>
               <Text style={styles.outstandingLabel}>Outstanding</Text>
-              <Text style={styles.outstandingAmount}>{formatINR(outstanding)}</Text>
+              <Text style={styles.outstandingAmount}>{formatINR(outstandingAmt)}</Text>
             </View>
           )}
         </Animated.View>
@@ -111,7 +146,7 @@ export default function RoutePartyVisit() {
             {
               icon: 'cash-multiple',
               label: 'Collect Payment',
-              sub: outstanding > 0 ? `${formatINR(outstanding)} pending` : 'Record payment',
+              sub: outstandingAmt > 0 ? `${formatINR(outstandingAmt)} pending` : 'Record payment',
               color: '#22c55e',
               onPress: handleCollectPayment,
             },
@@ -149,14 +184,23 @@ export default function RoutePartyVisit() {
         {/* Recent orders */}
         <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Orders</Text>
-          {DUMMY_RECENT_ORDERS.map((order) => {
+          {recentOrders.length === 0 ? (
+            <View style={[styles.orderRow, { backgroundColor: colors.cardGlass, borderColor: colors.border, justifyContent: 'center' }]}>
+              <Text style={[styles.orderDate, { color: colors.subText }]}>No orders yet for this party</Text>
+            </View>
+          ) : recentOrders.map((order: any) => {
             const label  = orderLabel(order);
             const colour = STATUS_COLOR[label] ?? colors.brand;
             return (
-              <View key={order.id} style={[styles.orderRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+              <TouchableOpacity
+                key={order.id}
+                style={[styles.orderRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+                activeOpacity={0.85}
+              >
                 <View style={[styles.orderDot, { backgroundColor: colour }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.orderNum, { color: colors.text }]}>{order.billnumber}</Text>
+                  <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
                   <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
@@ -165,7 +209,8 @@ export default function RoutePartyVisit() {
                     <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
                   </View>
                 </View>
-              </View>
+                <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 6, alignSelf: 'center' }} />
+              </TouchableOpacity>
             );
           })}
         </Animated.View>

@@ -177,6 +177,7 @@ export const NavConfig: any = {
       { name: 'CollectPayment',   options: { headerShown: false } },
       { name: 'AddPartyToRoute',  options: { headerShown: false } },
       { name: 'ManagePartyRoute', options: { headerShown: false } },
+      { name: 'OrderDetail',      options: { headerShown: false } },
     ],
   },
 

@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -31,10 +31,15 @@ export default function SalesmanDashboard() {
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
 
-  const { data } = useQuery(GET_SALES_ORDERS, {
+  const { data, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, salesmenid: user?.id },
     skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
   });
+
+  // Re-pull orders whenever the dashboard regains focus, so a newly placed
+  // order shows up immediately without a manual reload or tab switch.
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
 
   const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
@@ -108,7 +113,12 @@ export default function SalesmanDashboard() {
               const label  = orderLabel(order);
               const colour = STATUS_COLOR[label] ?? colors.brand;
               return (
-                <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={order.id}
+                  style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                  onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+                  activeOpacity={0.85}
+                >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
@@ -123,7 +133,8 @@ export default function SalesmanDashboard() {
                       <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
                     </View>
                   </View>
-                </View>
+                  <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
               );
             })
           )}
