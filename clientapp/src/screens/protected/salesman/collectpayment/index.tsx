@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
   TextInput, KeyboardAvoidingView, Platform, ScrollView,
@@ -11,7 +11,8 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
-import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
+import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
+import { ledgerEntryTotals } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
 type PaymentMode = 'cash' | 'upi' | 'cheque';
@@ -27,27 +28,73 @@ export default function CollectPayment() {
   const route      = useRoute<any>();
   const { colors, isDark } = useTheme();
 
-  const { partyId, partyName, outstanding = 0 } = route.params ?? {};
+  const { partyId, partyName, outstanding: outstandingParam = 0 } = route.params ?? {};
 
   const tenant  = useSelector((s: RootState) => s.tenant);
   const user    = useSelector((s: RootState) => s.auth.user);
   const adminid = tenant.adminId ?? '';
 
-  // The salesman's own ledger is the cash-in-hand (debit) side of the receipt.
-  const { data: staffData } = useQuery(GET_STAFF_ACCOUNT, {
-    variables: { id: user?.id, adminId: adminid },
-    skip: !user?.id,
+  // Compute the party's live outstanding here too, so it always shows correctly
+  // regardless of what (if anything) was passed in via navigation params.
+  const { data: accountData } = useQuery(GET_ACCOUNT, {
+    variables: { id: partyId, adminId: adminid },
+    skip: !adminid || !partyId,
     fetchPolicy: 'cache-and-network',
   });
-  const salesmanLedgerId = (staffData as any)?.getStaffAccountById?.ledgerid?.id ?? null;
+  const partyLedgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
+
+  const { data: txData } = useQuery(GET_TRANSACTIONS, {
+    variables: { adminid, ledgerid: partyLedgerId },
+    skip: !adminid || !partyLedgerId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const liveOutstanding = useMemo(() => {
+    const txs = (txData as any)?.getTransactions;
+    if (!partyLedgerId || !txs) return outstandingParam;
+    return txs.reduce((run: number, tx: any) => {
+      const { debit, credit } = ledgerEntryTotals(tx, partyLedgerId);
+      return run + debit - credit;
+    }, 0);
+  }, [txData, partyLedgerId, outstandingParam]);
+  const outstanding = Math.max(0, Math.round(liveOutstanding * 100) / 100);
+
+  // Cash / Bank ledger this receipt is deposited to — same as the admin panel's
+  // "Cash / Bank Ledger" selector. Dr this ledger, Cr the party (on-account / Tally style).
+  const { data: ledgerData } = useQuery(GET_ACCOUNT_LEDGERS, {
+    variables: { adminId: adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const cashBankLedgers = useMemo(
+    () => ((ledgerData as any)?.getAccountLedgers ?? [])
+      .filter((l: any) => (l.ledgertype === 'cash' || l.ledgertype === 'bank') && l.status !== false),
+    [ledgerData],
+  );
 
   const [addPayment] = useMutation(ADD_PAYMENT);
 
   const [mode,      setMode]      = useState<PaymentMode>('cash');
-  const [amount,    setAmount]    = useState(outstanding > 0 ? String(outstanding) : '');
+  const [ledgerId,  setLedgerId]  = useState<string>('');
+  const [amount,    setAmount]    = useState('');
+  const [amountTouched, setAmountTouched] = useState(false);
   const [reference, setReference] = useState('');
   const [notes,     setNotes]     = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Prefill the amount with the live outstanding once it's known, unless the
+  // salesman has already typed something.
+  useEffect(() => {
+    if (!amountTouched && outstanding > 0) setAmount(String(outstanding));
+  }, [outstanding, amountTouched]);
+
+  // Default the deposit ledger to one matching the mode (cash→cash, else→bank),
+  // falling back to the first available cash/bank ledger.
+  useEffect(() => {
+    if (ledgerId || cashBankLedgers.length === 0) return;
+    const wantType = mode === 'cash' ? 'cash' : 'bank';
+    const match = cashBankLedgers.find((l: any) => l.ledgertype === wantType) ?? cashBankLedgers[0];
+    if (match) setLedgerId(match.id);
+  }, [cashBankLedgers, mode, ledgerId]);
 
   const selectedMode = MODES.find(m => m.id === mode)!;
   const parsedAmount = parseFloat(amount) || 0;
@@ -61,8 +108,8 @@ export default function CollectPayment() {
       Alert.alert('Branch not set', 'No branch is assigned to your account. Please contact the admin.');
       return;
     }
-    if (!salesmanLedgerId) {
-      Alert.alert('No collection ledger', 'Your account has no ledger configured to receive collections. Please contact the admin.');
+    if (!ledgerId) {
+      Alert.alert('Select deposit account', 'Choose which Cash / Bank ledger this payment is deposited to.');
       return;
     }
 
@@ -84,7 +131,7 @@ export default function CollectPayment() {
                     type: 'receipt',
                     mode,
                     partyid: partyId,
-                    ledgerid: salesmanLedgerId,
+                    ledgerid: ledgerId,
                     amount: parsedAmount,
                     reference: reference.trim() || null,
                     remarks: notes.trim() || null,
@@ -178,6 +225,43 @@ export default function CollectPayment() {
             })}
           </View>
 
+          {/* Deposit To — Cash / Bank ledger (same as admin panel) */}
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>Deposit To (Cash / Bank)</Text>
+          {cashBankLedgers.length === 0 ? (
+            <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+              <Icon name="information-outline" size={16} color={colors.subText} style={{ marginRight: 8 }} />
+              <Text style={[styles.textInput, { color: colors.subText, paddingVertical: 8 }]}>
+                No Cash / Bank ledger found. Ask the admin to create one.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.ledgerWrap}>
+              {cashBankLedgers.map((l: any) => {
+                const active = ledgerId === l.id;
+                return (
+                  <TouchableOpacity
+                    key={l.id}
+                    style={[styles.ledgerChip, active
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                      : { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                    onPress={() => setLedgerId(l.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Icon
+                      name={l.ledgertype === 'bank' ? 'bank-outline' : 'cash'}
+                      size={14}
+                      color={active ? '#fff' : colors.subText}
+                    />
+                    <Text style={[styles.ledgerChipText, { color: active ? '#fff' : colors.text }]} numberOfLines={1}>
+                      {l.ledgername}
+                    </Text>
+                    {active && <Icon name="check" size={13} color="#fff" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Amount input */}
           <Text style={[styles.sectionLabel, { color: colors.text }]}>Amount (₹)</Text>
           <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
@@ -187,7 +271,7 @@ export default function CollectPayment() {
               placeholder="0.00"
               placeholderTextColor={colors.subText}
               value={amount}
-              onChangeText={setAmount}
+              onChangeText={(t) => { setAmount(t); setAmountTouched(true); }}
               keyboardType="numeric"
               returnKeyType="done"
             />
@@ -285,6 +369,10 @@ const styles = StyleSheet.create({
   useOutstandingText:{ fontSize: 12, fontFamily: FONTS.semiBold },
 
   sectionLabel: { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 10 },
+
+  ledgerWrap:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  ledgerChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 9 },
+  ledgerChipText:{ fontSize: 12, fontFamily: FONTS.semiBold, maxWidth: 140 },
 
   modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   modeCard: {

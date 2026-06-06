@@ -88,7 +88,15 @@ export default function StaffCart() {
             });
             dispatch(clearCart());
             Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [
-              { text: 'OK', onPress: () => navigation.navigate('StaffOrders') },
+              {
+                text: 'OK',
+                // Tabs are nested under StaffDrawer → MainTabs; target through
+                // parents so navigation from the outer stack doesn't throw.
+                onPress: () => navigation.navigate('StaffDrawer', {
+                  screen: 'MainTabs',
+                  params: { screen: 'StaffOrders' },
+                }),
+              },
             ]);
           } catch (err: any) {
             Alert.alert('Error', err?.message || 'Failed to place order. Please try again.');

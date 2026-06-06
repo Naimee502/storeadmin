@@ -223,3 +223,14 @@ export const GET_TRANSACTIONS = gql`
     }
   }
 `;
+
+export const GET_ACCOUNT_LEDGERS = gql`
+  query GetAccountLedgers($adminId: ID) {
+    getAccountLedgers(adminId: $adminId) {
+      id
+      ledgername
+      ledgertype
+      status
+    }
+  }
+`;

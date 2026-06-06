@@ -60,6 +60,9 @@ export const accountTypeDefs = gql`
     billingcycle: String
     duedays: Int
     assignaccountid: Account
+    # Live ledger balance (Dr−Cr across posted transactions). Populated only by
+    # resolvers that need it (e.g. sales routes); null elsewhere.
+    outstanding: Float
     salesmanid: Salesman
     latitude: Float
     longitude: Float

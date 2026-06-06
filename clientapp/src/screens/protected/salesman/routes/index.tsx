@@ -34,8 +34,9 @@ function mapServerRoutes(serverRoutes: any[]): any[] {
           address: a.address ?? '',
           lat: a.latitude ?? null,
           lng: a.longitude ?? null,
-          // Outstanding proxy: a debit opening balance means the party owes us.
-          outstanding: a.openingbalancetype === 'debit' ? (a.openingbalance ?? 0) : 0,
+          // Live ledger balance from the server (Dr−Cr of posted transactions),
+          // same basis as the party-login ledger. 0 when the party has no activity.
+          outstanding: a.outstanding ?? 0,
           visitStatus: 'pending' as VisitStatus,
         })),
       })),

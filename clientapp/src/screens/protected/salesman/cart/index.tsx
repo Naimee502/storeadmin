@@ -78,7 +78,16 @@ export default function SalesmanCart() {
             });
             dispatch(clearCart());
             Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [
-              { text: 'OK', onPress: () => navigation.navigate('SalesmanRoutes') },
+              {
+                text: 'OK',
+                // Cart lives in the outer stack; the tabs are nested under
+                // SalesmanDrawer → MainTabs, so target the tab through its parents
+                // (a plain navigate('SalesmanOrders') from here throws).
+                onPress: () => navigation.navigate('SalesmanDrawer', {
+                  screen: 'MainTabs',
+                  params: { screen: 'SalesmanOrders' },
+                }),
+              },
             ]);
           } catch (err: any) {
             Alert.alert('Error', err?.message || 'Failed to place order. Please try again.');

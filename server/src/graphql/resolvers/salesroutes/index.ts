@@ -1,7 +1,56 @@
 import { SalesRoute } from "../../../models/salesroutes";
 import { Account } from "../../../models/accounts";
+import { Transaction } from "../../../models/transactions";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Compute the live ledger balance (Dr − Cr across posted transactions) for the
+ * given account ledger ids, in ONE query. This matches how the party-login
+ * ledger derives outstanding, so route + party views agree. Opening balance is
+ * NOT added here (it isn't a posted transaction), so a party with no activity
+ * correctly shows 0 pending.
+ */
+const computeOutstandingByLedger = async (
+  adminid: any,
+  ledgerIds: string[],
+): Promise<Record<string, number>> => {
+  const balances: Record<string, number> = {};
+  const ids = ledgerIds.filter(Boolean).map(String);
+  if (ids.length === 0) return balances;
+
+  const idSet = new Set(ids);
+  const txs = await Transaction.find({
+    adminid,
+    status: true,
+    "entries.ledgerid": { $in: ids },
+  }).select("entries").lean();
+
+  for (const tx of txs as any[]) {
+    for (const e of tx.entries || []) {
+      const lid = String(e.ledgerid);
+      if (!idSet.has(lid)) continue;
+      balances[lid] = (balances[lid] || 0) + (Number(e.debit) || 0) - (Number(e.credit) || 0);
+    }
+  }
+  return balances;
+};
+
+/** Attach a live `outstanding` to each dayWiseAccounts account of a route. */
+const attachOutstanding = async (route: any, adminid: any): Promise<any> => {
+  if (!route) return route;
+  const ledgerIds: string[] = [];
+  (route.dayWiseAccounts || []).forEach((dw: any) =>
+    (dw.accounts || []).forEach((a: any) => { if (a?.ledgerid) ledgerIds.push(String(a.ledgerid)); }),
+  );
+  const balances = await computeOutstandingByLedger(adminid, ledgerIds);
+  (route.dayWiseAccounts || []).forEach((dw: any) =>
+    (dw.accounts || []).forEach((a: any) => {
+      a.outstanding = a?.ledgerid ? (balances[String(a.ledgerid)] || 0) : 0;
+    }),
+  );
+  return route;
+};
 
 /** Safe format for a single Account document or raw ObjectId */
 const formatAccount = (acc: any) => {
@@ -130,8 +179,12 @@ export const salesRouteResolvers = {
         const routes = await dbQuery;
 
         // Deep-populate dayWiseAccounts so list consumers (admin + salesman app)
-        // receive the real party details (name, mobile, address, geo) in one query.
-        return await Promise.all(routes.map((r: any) => populateAndFormat(r)));
+        // receive the real party details (name, mobile, address, geo) in one query,
+        // and attach each party's live ledger balance as `outstanding`.
+        const formatted = await Promise.all(routes.map((r: any) => populateAndFormat(r)));
+        return await Promise.all(
+          formatted.map((r: any) => attachOutstanding(r, query.adminid ?? filter?.adminId)),
+        );
       } catch (err) {
         console.error("getSalesRoutes error:", err);
         throw err;

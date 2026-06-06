@@ -10,7 +10,7 @@ export const GET_SALES_ROUTES = gql`
         accounts {
           id name mobile address city
           latitude longitude
-          openingbalance openingbalancetype
+          outstanding
         }
       }
     }
