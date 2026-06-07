@@ -22,9 +22,11 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled: '#ef4444',
-  confirmed: '#3b82f6',
-  pending:   '#f59e0b',
+  cancelled:  '#ef4444',
+  confirmed:  '#3b82f6',
+  pending:    '#f59e0b',
+  dispatched: '#0ea5e9',
+  delivered:  '#22c55e',
 };
 
 const DUMMY_ORDERS = [
@@ -36,10 +38,17 @@ const DUMMY_ORDERS = [
   { id: 'o6', billnumber: '000001', billdate: '2024-11-12', totalamount: 7400, partyacc: { accountname: 'Iyer Provisions' }, isConverted: true,  cancelStatus: null,        productservice: [{},{},{},{},{}]       },
 ];
 
-function getStatus(o: any): FilterKey {
+function displayStatus(o: any): string {
   if (o.cancelStatus === 'cancelled') return 'cancelled';
+  if (o.deliveryStatus === 'delivered') return 'delivered';
+  if (o.deliveryStatus === 'dispatched') return 'dispatched';
   if (o.isConverted) return 'confirmed';
   return 'pending';
+}
+function getStatus(o: any): FilterKey {
+  const s = displayStatus(o);
+  if (s === 'delivered' || s === 'dispatched') return 'confirmed';
+  return s as FilterKey;
 }
 
 export default function StaffOrders() {
@@ -75,7 +84,7 @@ export default function StaffOrders() {
   }), [allOrders]);
 
   const renderOrder = ({ item: order }: any) => {
-    const status = getStatus(order);
+    const status = displayStatus(order);
     const colour = STATUS_COLOR[status];
     return (
       <TouchableOpacity

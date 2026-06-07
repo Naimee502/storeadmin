@@ -45,6 +45,54 @@ export const CANCEL_SALES_ORDER = gql`
   }
 `;
 
+export const MARK_SALES_ORDER_DELIVERED = gql`
+  mutation MarkSalesOrderDelivered($id: ID!, $byId: ID, $byName: String, $byType: String) {
+    markSalesOrderDelivered(id: $id, byId: $byId, byName: $byName, byType: $byType) {
+      id deliveryStatus deliveredAt
+    }
+  }
+`;
+
+export const ASSIGN_ORDER_DELIVERY_BOY = gql`
+  mutation AssignOrderDeliveryBoy($id: ID!, $deliveryboyid: ID!) {
+    assignOrderDeliveryBoy(id: $id, deliveryboyid: $deliveryboyid) {
+      id deliveryStatus deliveryboyid
+    }
+  }
+`;
+
+export const MARK_SALES_INVOICE_DELIVERED = gql`
+  mutation MarkSalesInvoiceDelivered($id: ID!, $byId: ID, $byName: String, $byType: String) {
+    markSalesInvoiceDelivered(id: $id, byId: $byId, byName: $byName, byType: $byType) {
+      id deliveryStatus deliveredAt
+    }
+  }
+`;
+
+export const MARK_SALES_ORDER_DISPATCHED = gql`
+  mutation MarkSalesOrderDispatched($id: ID!, $deliveryboyid: ID) {
+    markSalesOrderDispatched(id: $id, deliveryboyid: $deliveryboyid) {
+      id deliveryStatus
+    }
+  }
+`;
+
+export const MARK_SALES_INVOICE_DISPATCHED = gql`
+  mutation MarkSalesInvoiceDispatched($id: ID!, $deliveryboyid: ID) {
+    markSalesInvoiceDispatched(id: $id, deliveryboyid: $deliveryboyid) {
+      id deliveryStatus
+    }
+  }
+`;
+
+export const ASSIGN_INVOICE_DELIVERY_BOY = gql`
+  mutation AssignInvoiceDeliveryBoy($id: ID!, $deliveryboyid: ID!) {
+    assignInvoiceDeliveryBoy(id: $id, deliveryboyid: $deliveryboyid) {
+      id deliveryStatus deliveryboyid
+    }
+  }
+`;
+
 export const ADD_ACCOUNT = gql`
   mutation AddAccount($input: AccountInput!) {
     addAccount(input: $input) {

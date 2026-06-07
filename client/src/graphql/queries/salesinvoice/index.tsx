@@ -62,6 +62,13 @@ export const GET_SALES_INVOICES = gql`
       createdby_id
       createdby_name
       createdby_type
+      orderedby_name
+      orderedby_type
+      sourceorderid
+      deliveryStatus
+      deliveredAt
+      deliveredByName
+      deliveryboyid
       status
       createdAt
       updatedAt
@@ -130,6 +137,13 @@ export const GET_DELETED_SALES_INVOICES = gql`
       createdby_id
       createdby_name
       createdby_type
+      orderedby_name
+      orderedby_type
+      sourceorderid
+      deliveryStatus
+      deliveredAt
+      deliveredByName
+      deliveryboyid
       status
       createdAt
       updatedAt
@@ -198,6 +212,13 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       createdby_id
       createdby_name
       createdby_type
+      orderedby_name
+      orderedby_type
+      sourceorderid
+      deliveryStatus
+      deliveredAt
+      deliveredByName
+      deliveryboyid
       status
       createdAt
       updatedAt

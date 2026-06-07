@@ -1,39 +1,61 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { formatINR, formatDate } from '../../../../utils';
-
-const DUMMY_COLLECTIONS = [
-  { id: 'c1', orderNum: 'SO/2024/020', party: 'Patel General',  date: '2024-11-15T00:00:00.000Z', amount: 8750,  mode: 'cash',   status: 'collected' },
-  { id: 'c2', orderNum: 'SO/2024/016', party: 'Modi Mart',       date: '2024-11-15T00:00:00.000Z', amount: 9200,  mode: 'cash',   status: 'collected' },
-  { id: 'c3', orderNum: 'SO/2024/015', party: 'Iyer Provisions', date: '2024-11-14T00:00:00.000Z', amount: 3400,  mode: 'upi',    status: 'collected' },
-  { id: 'c4', orderNum: 'SO/2024/014', party: 'Nair Shop',       date: '2024-11-14T00:00:00.000Z', amount: 5600,  mode: 'cheque', status: 'collected' },
-  { id: 'c5', orderNum: 'SO/2024/013', party: 'Raj Bazaar',      date: '2024-11-13T00:00:00.000Z', amount: 2100,  mode: 'cash',   status: 'pending'   },
-  { id: 'c6', orderNum: 'SO/2024/012', party: 'Kumar Stores',    date: '2024-11-13T00:00:00.000Z', amount: 7800,  mode: 'cash',   status: 'collected' },
-];
+import { GET_PAYMENTS } from '../../../../apollo/queries/accounts';
+import type { RootState } from '../../../../store/rootreducer';
 
 const MODE_META: Record<string, { icon: string; label: string }> = {
-  cash:   { icon: 'cash',         label: 'Cash'   },
-  upi:    { icon: 'qrcode-scan',  label: 'UPI'    },
-  cheque: { icon: 'checkbook',    label: 'Cheque' },
+  cash:   { icon: 'cash',           label: 'Cash'   },
+  upi:    { icon: 'qrcode-scan',    label: 'UPI'    },
+  cheque: { icon: 'checkbook',      label: 'Cheque' },
+  bank:   { icon: 'bank-outline',   label: 'Bank'   },
+  card:   { icon: 'credit-card-outline', label: 'Card' },
 };
 
 export default function DeliveryCollections() {
   const { colors, isDark } = useTheme();
+  const adminId = useSelector((s: RootState) => s.tenant.adminId);
+
+  // Server restricts staff to their own payments (createdby_id = this delivery boy).
+  const { data, refetch } = useQuery(GET_PAYMENTS, {
+    variables: { adminid: adminId },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+  });
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
+
+  const collections = useMemo(() => {
+    return ((data as any)?.getPayments ?? [])
+      .filter((p: any) => p.type === 'receipt' && p.status !== false)
+      .map((p: any) => ({
+        id: p.id,
+        orderNum: p.remarks || p.paymentcode || '—',
+        party: p.partyid?.name ?? '—',
+        date: p.paymentdate,
+        amount: p.amount ?? 0,
+        mode: p.mode || 'cash',
+        status: 'collected',
+      }));
+  }, [data]);
 
   const { totalCollected, cashTotal, upiTotal, chequeTotal } = useMemo(() => {
-    const collected = DUMMY_COLLECTIONS.filter(c => c.status === 'collected');
+    const sumBy = (m: string) => collections.filter((c: any) => c.mode === m).reduce((s: number, c: any) => s + c.amount, 0);
     return {
-      totalCollected: collected.reduce((s, c) => s + c.amount, 0),
-      cashTotal:      collected.filter(c => c.mode === 'cash'  ).reduce((s, c) => s + c.amount, 0),
-      upiTotal:       collected.filter(c => c.mode === 'upi'   ).reduce((s, c) => s + c.amount, 0),
-      chequeTotal:    collected.filter(c => c.mode === 'cheque').reduce((s, c) => s + c.amount, 0),
+      totalCollected: collections.reduce((s: number, c: any) => s + c.amount, 0),
+      cashTotal:      sumBy('cash'),
+      upiTotal:       sumBy('upi'),
+      // group bank + cheque + card under the "Cheque/Other" tile
+      chequeTotal:    collections.filter((c: any) => ['cheque', 'bank', 'card'].includes(c.mode)).reduce((s: number, c: any) => s + c.amount, 0),
     };
-  }, []);
+  }, [collections]);
 
   const renderItem = ({ item: c }: any) => {
     const mode = MODE_META[c.mode] ?? MODE_META.cash;
@@ -94,16 +116,18 @@ export default function DeliveryCollections() {
       <AppHeader label="Collections" />
 
       <DynamicFlashList
-        data={DUMMY_COLLECTIONS}
+        data={collections}
         renderItem={renderItem}
         estimatedItemSize={88}
         ListHeaderComponent={<ListHeader />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onRefresh={refetch}
+        refreshing={false}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Icon name="cash-remove" size={44} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>No collections today</Text>
+            <Text style={[styles.emptyText, { color: colors.subText }]}>No collections yet</Text>
           </View>
         }
       />

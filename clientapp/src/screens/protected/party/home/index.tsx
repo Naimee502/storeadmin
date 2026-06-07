@@ -82,9 +82,10 @@ export default function PartyHome() {
   const rawProducts = (productsData?.getProductServices ?? []) as any[];
   const rawTx = (txData?.getTransactions ?? []) as any[];
 
-  const orders = rawOrders.length > 0 ? rawOrders : DUMMY_ORDERS;
-  const products = rawProducts.length > 0 ? rawProducts : DUMMY_PRODUCTS;
-  const transactions = rawTx.length > 0 ? rawTx : [];
+  // Use live data only — no dummy fallback (a fresh party has no orders/products).
+  const orders = rawOrders;
+  const products = rawProducts;
+  const transactions = rawTx;
 
   // Calculate outstanding from this party's ledger movements only.
   // (Transaction totals are always balanced, so we must use per-ledger entries.)

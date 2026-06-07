@@ -8,6 +8,10 @@ export const purchaseInvoiceTypeDefs = gql`
     accountname: String
     mobile: String
     ledgername: String
+    address: String
+    city: String
+    latitude: Float
+    longitude: Float
   }
 
   type OtherCharge {

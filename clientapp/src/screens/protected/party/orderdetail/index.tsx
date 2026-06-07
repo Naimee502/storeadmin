@@ -1,29 +1,41 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRoute } from '@react-navigation/native';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { GET_SALES_ORDER_BY_ID } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
+import {
+  MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
+  MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
+} from '../../../../apollo/mutations/accounts';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { BackHeader } from '../../../../components';
+import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
-  Confirmed: '#3b82f6',
-  Pending:   '#f59e0b',
-  Cancelled: '#ef4444',
+  Confirmed:  '#3b82f6',
+  Pending:    '#f59e0b',
+  Dispatched: '#0ea5e9',
+  Delivered:  '#22c55e',
+  Cancelled:  '#ef4444',
 };
 
 const TIMELINE: Record<string, { steps: string[]; current: number }> = {
-  Confirmed: { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 1 },
-  Pending:   { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 0 },
-  Cancelled: { steps: ['Order Placed', 'Cancelled'], current: 1 },
+  Pending:    { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 0 },
+  Confirmed:  { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 1 },
+  Dispatched: { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 2 },
+  Delivered:  { steps: ['Order Placed', 'Confirmed', 'Dispatched', 'Delivered'], current: 3 },
+  Cancelled:  { steps: ['Order Placed', 'Cancelled'], current: 1 },
 };
 
 function getStatus(order: any): string {
   if (order.cancelStatus === 'cancelled') return 'Cancelled';
+  if (order.deliveryStatus === 'delivered') return 'Delivered';
+  if (order.deliveryStatus === 'dispatched') return 'Dispatched';
   if (order.isConverted) return 'Confirmed';
   return 'Pending';
 }
@@ -65,17 +77,95 @@ function OrderTimeline({ status }: { status: string }) {
 
 export default function OrderDetail() {
   const route   = useRoute<any>();
-  const orderId = route.params?.orderId;
+  // Supports both a sales order (orderId) and a sales invoice (invoiceId).
+  const invoiceId = route.params?.invoiceId;
+  const orderId   = route.params?.orderId;
+  const isInvoice = !!invoiceId;
+  const id        = invoiceId || orderId;
   const { colors, isDark } = useTheme();
 
-  const { data, loading } = useQuery(GET_SALES_ORDER_BY_ID, {
-    variables: { id: orderId },
-    skip: !orderId,
-    fetchPolicy: 'network-only',
+  const user = useSelector((s: RootState) => s.auth.user);
+  const { data: orderData, loading: orderLoading, refetch: refetchOrder } = useQuery(GET_SALES_ORDER_BY_ID, {
+    variables: { id }, skip: !id || isInvoice, fetchPolicy: 'network-only',
   });
+  const { data: invData, loading: invLoading, refetch: refetchInv } = useQuery(GET_SALES_INVOICE_BY_ID, {
+    variables: { id }, skip: !id || !isInvoice, fetchPolicy: 'network-only',
+  });
+  const loading = isInvoice ? invLoading : orderLoading;
+  const refetch = isInvoice ? refetchInv : refetchOrder;
 
-  const order    = (data as any)?.getSalesOrderById;
+  const [markOrderDelivered]    = useMutation(MARK_SALES_ORDER_DELIVERED);
+  const [markInvoiceDelivered]  = useMutation(MARK_SALES_INVOICE_DELIVERED);
+  const [markOrderDispatched]   = useMutation(MARK_SALES_ORDER_DISPATCHED);
+  const [markInvoiceDispatched] = useMutation(MARK_SALES_INVOICE_DISPATCHED);
+  const [marking, setMarking]   = React.useState(false);
+
+  // An invoice is always at least "Confirmed"; flag it so the timeline is right.
+  const order = isInvoice
+    ? ((invData as any)?.getSalesInvoiceById ? { ...(invData as any).getSalesInvoiceById, isConverted: true } : null)
+    : (orderData as any)?.getSalesOrderById;
   const status   = order ? getStatus(order) : 'Pending';
+
+  // Business fulfilment mode: 'deliveryboy' → delivery boy delivers; else salesman.
+  const adminId = useSelector((s: RootState) => s.tenant.adminId);
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid: adminId }, skip: !adminId, fetchPolicy: 'cache-and-network',
+  });
+  const deliveryByBoy = (settingsData as any)?.getAdminSettings?.deliveryMode === 'deliveryboy';
+
+  // Who may move fulfilment forward:
+  //  - delivery boy: always (they only ever get invoices when the flag is on)
+  //  - salesman/staff: only when the business is NOT using delivery boys
+  //  - party/customer: never
+  const role = user?.role;
+  const canAct = !!order && (
+    role === 'deliveryboy' ? true : (role !== 'party' && !deliveryByBoy)
+  );
+  const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
+  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
+
+  const handleMarkDispatched = () => {
+    Alert.alert('Mark Dispatched', 'Mark this as dispatched / out for delivery?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark Dispatched',
+        onPress: async () => {
+          setMarking(true);
+          try {
+            if (isInvoice) await markInvoiceDispatched({ variables: { id } });
+            else await markOrderDispatched({ variables: { id } });
+            refetch?.();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Could not update.');
+          } finally {
+            setMarking(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleMarkDelivered = () => {
+    Alert.alert('Mark Delivered', 'Confirm this has been delivered?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark Delivered',
+        onPress: async () => {
+          setMarking(true);
+          try {
+            const vars = { id, byId: user?.id, byName: user?.name, byType: user?.role || 'staff' };
+            if (isInvoice) await markInvoiceDelivered({ variables: vars });
+            else await markOrderDelivered({ variables: vars });
+            refetch?.();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Could not update.');
+          } finally {
+            setMarking(false);
+          }
+        },
+      },
+    ]);
+  };
   const colour   = STATUS_COLOR[status] ?? colors.brand;
   const billLabel = order ? formatBillNumber(order) : '—';
 
@@ -275,6 +365,30 @@ export default function OrderDetail() {
             </Animated.View>
           )}
 
+          {/* Fulfilment actions — field staff only */}
+          {canDispatch && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#0ea5e9', marginBottom: 10 }]}
+              onPress={handleMarkDispatched}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="truck-fast-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark Dispatched'}</Text>
+            </TouchableOpacity>
+          )}
+          {canDeliver && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#22c55e' }]}
+              onPress={handleMarkDelivered}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="truck-check-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark as Delivered'}</Text>
+            </TouchableOpacity>
+          )}
+
         </ScrollView>
       )}
     </View>
@@ -328,4 +442,7 @@ const styles = StyleSheet.create({
   infoRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   infoLabel:{ fontSize: 11, fontFamily: FONTS.regular },
   infoText: { fontSize: 13, fontFamily: FONTS.semiBold, marginTop: 2 },
+
+  deliverBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingVertical: 15, marginTop: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
+  deliverBtnText: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
 });

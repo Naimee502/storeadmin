@@ -65,7 +65,9 @@ const SalesOrders = () => {
       totalqty,
       billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
-      createdby_name: order.createdby_name || "N/A",
+      createdby_name: order.createdby_type
+        ? `${order.createdby_name || "N/A"} (${capitalizeFirst(order.createdby_type)})`
+        : (order.createdby_name || "N/A"),
       status: order.cancelStatus === "cancelled"
         ? "Cancelled"
         : (order.status ? "Active" : "Inactive"),

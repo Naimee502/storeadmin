@@ -9,6 +9,10 @@ export const salesOrderTypeDefs = gql`
     accountname: String
     mobile: String
     ledgername: String
+    address: String
+    city: String
+    latitude: Float
+    longitude: Float
   }
 
   type OtherCharge {
@@ -97,6 +101,11 @@ export const salesOrderTypeDefs = gql`
     cancelStatus: String
     cancelReason: String
     cancelledAt: String
+    deliveryStatus: String
+    deliveredAt: String
+    deliveredByName: String
+    deliveredByType: String
+    deliveryboyid: ID
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -151,6 +160,9 @@ export const salesOrderTypeDefs = gql`
     isConverted: Boolean
     status: Boolean
     includeConverted: Boolean
+    deliveryboyid: ID
+    deliveryStatus: String
+    unassignedDelivery: Boolean
   }
 
   extend type Query {
@@ -166,5 +178,9 @@ export const salesOrderTypeDefs = gql`
     resetSalesOrder(id: ID!): Boolean!
     cancelSalesOrder(id: ID!, reason: String): SalesOrder!
     reopenSalesOrder(id: ID!): SalesOrder!
+    # Fulfilment transitions
+    markSalesOrderDispatched(id: ID!, deliveryboyid: ID): SalesOrder!
+    markSalesOrderDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesOrder!
+    assignOrderDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesOrder!
   }
 `;

@@ -18,6 +18,14 @@ const salesInvoiceSchema = new mongoose.Schema(
     createdby_id: { type: mongoose.Schema.Types.ObjectId },
     createdby_name: { type: String },
     createdby_type: { type: String },
+
+    // Original order creator (when this invoice was converted from a sales order).
+    // createdby_* = who made the invoice (e.g. branch); orderedby_* = who placed the order (e.g. party).
+    sourceorderid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesOrder" },
+    orderedby_id: { type: mongoose.Schema.Types.ObjectId },
+    orderedby_name: { type: String },
+    orderedby_type: { type: String },
+
     paymenttype: { type: String, required: true },
     partyacc: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
 
@@ -81,6 +89,15 @@ const salesInvoiceSchema = new mongoose.Schema(
       payment: { type: Boolean, default: true },
       stock: { type: Boolean, default: true }
     },
+
+    // Fulfilment / delivery lifecycle (invoice = the document that is dispatched).
+    deliveryStatus: { type: String, enum: ["pending", "dispatched", "delivered"], default: "pending" },
+    deliveredAt: { type: Date },
+    deliveredById: { type: mongoose.Schema.Types.ObjectId },
+    deliveredByName: { type: String },
+    deliveredByType: { type: String },
+    deliveryboyid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount" },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

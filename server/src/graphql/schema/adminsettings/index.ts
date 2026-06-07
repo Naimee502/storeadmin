@@ -35,6 +35,7 @@ export const adminSettingsTypeDefs = gql`
     enableGst: Boolean!
     displayProductPriceOnWebsite: Boolean!
     encryptInvoicePrices: Boolean!
+    deliveryMode: String
     allowAdminToManageBusinessSettings: Boolean!
     allowAdminToManageModules: Boolean!
     allowAdminToManagePermissions: Boolean!
@@ -76,6 +77,7 @@ export const adminSettingsTypeDefs = gql`
     enableGst: Boolean
     displayProductPriceOnWebsite: Boolean
     encryptInvoicePrices: Boolean
+    deliveryMode: String
     allowAdminToManageBusinessSettings: Boolean
     allowAdminToManageModules: Boolean
     allowAdminToManagePermissions: Boolean

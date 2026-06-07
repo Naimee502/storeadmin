@@ -16,10 +16,13 @@ import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
   Cancelled: '#ef4444', Confirmed: '#3b82f6', Pending: '#f59e0b',
+  Dispatched: '#0ea5e9', Delivered: '#22c55e',
 };
 
 function orderLabel(o: any): string {
   if (o.cancelStatus === 'cancelled') return 'Cancelled';
+  if (o.deliveryStatus === 'delivered') return 'Delivered';
+  if (o.deliveryStatus === 'dispatched') return 'Dispatched';
   if (o.isConverted) return 'Confirmed';
   return 'Pending';
 }

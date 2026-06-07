@@ -1,10 +1,14 @@
 import { gql } from '@apollo/client';
 
 export const PUNCH = gql`
-  mutation punch($staffid: ID!, $adminid: ID!, $type: String!, $timestamp: String!) {
-    punch(staffid: $staffid, adminid: $adminid, type: $type, timestamp: $timestamp) {
-      id date status
-      punches { type timestamp }
+  mutation punch($input: PunchInput!) {
+    punch(input: $input) {
+      log {
+        id date status totalWorkMinutes
+        firstPunchIn lastPunchOut
+        punches { id type timestamp }
+      }
+      punch { id type timestamp }
     }
   }
 `;

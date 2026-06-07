@@ -1,34 +1,60 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader } from '../../../../components';
-import { formatINR } from '../../../../utils';
+import { formatINR, formatBillNumber } from '../../../../utils';
+import { GET_DELIVERY_POOL, GET_MY_DELIVERIES } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DUMMY_STATS = { pending: 5, delivered: 8, failed: 1, collectedToday: 18400 };
-
-const DUMMY_DELIVERIES = [
-  { id: 'd1', orderNum: 'SO/2024/021', party: 'Mehta Traders',  address: 'Shop 12, North Market', amount: 4200,  status: 'pending'   },
-  { id: 'd2', orderNum: 'SO/2024/020', party: 'Patel General',  address: 'Main Rd, Sector 4',     amount: 8750,  status: 'delivered' },
-  { id: 'd3', orderNum: 'SO/2024/019', party: 'Sharma Stores',  address: 'Opp. Bus Stand',        amount: 2300,  status: 'pending'   },
-  { id: 'd4', orderNum: 'SO/2024/018', party: 'Gupta Kirana',   address: 'Near Post Office',      amount: 6400,  status: 'failed'    },
-];
-
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
-  pending:   { color: '#f59e0b', icon: 'clock-outline',            label: 'Pending'   },
-  delivered: { color: '#22c55e', icon: 'check-circle-outline',     label: 'Delivered' },
-  failed:    { color: '#ef4444', icon: 'close-circle-outline',     label: 'Failed'    },
+  available: { color: '#f59e0b', icon: 'package-variant-closed',  label: 'Available' },
+  out:       { color: '#0ea5e9', icon: 'truck-fast-outline',      label: 'Out'       },
+  delivered: { color: '#22c55e', icon: 'check-circle-outline',    label: 'Delivered' },
 };
 
 export default function DeliveryDashboard() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
-  const user = useSelector((s: RootState) => s.auth.user);
+  const user    = useSelector((s: RootState) => s.auth.user);
+  const adminId = useSelector((s: RootState) => s.tenant.adminId);
+
+  const { data: poolData, refetch: refetchPool } = useQuery(GET_DELIVERY_POOL, {
+    variables: { filter: { adminid: adminId, unassignedDelivery: true } },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const { data: mineData, refetch: refetchMine } = useQuery(GET_MY_DELIVERIES, {
+    variables: { filter: { adminid: adminId, deliveryboyid: user?.id } },
+    skip: !adminId || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  useFocusEffect(useCallback(() => { refetchPool?.(); refetchMine?.(); }, [refetchPool, refetchMine]));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const availableOrders = (poolData as any)?.getSalesInvoices ?? [];
+  const mineOrders      = (mineData as any)?.getSalesInvoices ?? [];
+  const outOrders       = mineOrders.filter((o: any) => o.deliveryStatus === 'dispatched');
+  const deliveredToday  = mineOrders.filter((o: any) => o.deliveryStatus === 'delivered' && (o.deliveredAt ?? '').startsWith(today));
+  const collectedToday  = deliveredToday.reduce((s: number, o: any) => s + (o.totalamount ?? 0), 0);
+
+  const stats = [
+    { icon: 'package-variant-closed', value: String(availableOrders.length + outOrders.length), label: 'Pending',   color: '#f59e0b' },
+    { icon: 'check-circle-outline',   value: String(deliveredToday.length),                     label: 'Delivered', color: '#22c55e' },
+    { icon: 'cash-multiple',          value: formatINR(collectedToday),                         label: 'Collected', color: colors.brand },
+  ];
+
+  const todaysDeliveries = useMemo(() => {
+    const fmt = (o: any) => formatBillNumber({ billnumber: o.billnumber, isConverted: true });
+    const out = outOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'out' }));
+    const avail = availableOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'available' }));
+    return [...out, ...avail].slice(0, 6);
+  }, [mineData, poolData]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -41,11 +67,7 @@ export default function DeliveryDashboard() {
 
         {/* Stats */}
         <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
-          {[
-            { icon: 'clock-outline',         value: String(DUMMY_STATS.pending),          label: 'Pending',     color: '#f59e0b' },
-            { icon: 'check-circle-outline',  value: String(DUMMY_STATS.delivered),        label: 'Delivered',   color: '#22c55e' },
-            { icon: 'cash-multiple',         value: formatINR(DUMMY_STATS.collectedToday), label: 'Collected',  color: colors.brand },
-          ].map((s) => (
+          {stats.map((s) => (
             <View key={s.label} style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
               <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
                 <Icon name={s.icon} size={17} color={s.color} />
@@ -65,8 +87,13 @@ export default function DeliveryDashboard() {
             </TouchableOpacity>
           </View>
 
-          {DUMMY_DELIVERIES.map((d) => {
-            const meta   = STATUS_META[d.status];
+          {todaysDeliveries.length === 0 && (
+            <View style={[styles.deliveryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+              <Text style={[styles.address, { color: colors.subText }]}>No deliveries right now</Text>
+            </View>
+          )}
+          {todaysDeliveries.map((d: any) => {
+            const meta   = STATUS_META[d.status] ?? STATUS_META.available;
             return (
               <View key={d.id} style={[styles.deliveryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
                 <View style={[styles.deliveryIcon, { backgroundColor: meta.color + '18' }]}>

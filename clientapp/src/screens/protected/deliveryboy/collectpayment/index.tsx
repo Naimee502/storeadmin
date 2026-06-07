@@ -6,8 +6,13 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
+import { ADD_PAYMENT, MARK_SALES_INVOICE_DELIVERED } from '../../../../apollo/mutations/accounts';
+import { GET_ACCOUNT_LEDGERS } from '../../../../apollo/queries/accounts';
+import type { RootState } from '../../../../store/rootreducer';
 
 type PaymentMode = 'cash' | 'upi' | 'cheque';
 
@@ -22,7 +27,20 @@ export default function DeliveryCollectPayment() {
   const route      = useRoute<any>();
   const { colors, isDark } = useTheme();
 
-  const { orderId, orderNum, partyName, amount = 0 } = route.params ?? {};
+  const { orderId, orderNum, partyId, partyName, amount = 0 } = route.params ?? {};
+
+  const tenant  = useSelector((s: RootState) => s.tenant);
+  const user    = useSelector((s: RootState) => s.auth.user);
+  const adminid = tenant.adminId ?? '';
+
+  const { data: ledgerData } = useQuery(GET_ACCOUNT_LEDGERS, {
+    variables: { adminId: adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
+  });
+  const cashBankLedgers = ((ledgerData as any)?.getAccountLedgers ?? [])
+    .filter((l: any) => (l.ledgertype === 'cash' || l.ledgertype === 'bank') && l.status !== false);
+
+  const [addPayment]    = useMutation(ADD_PAYMENT);
+  const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
   const [mode,       setMode]       = useState<PaymentMode>('cash');
   const [inputAmt,   setInputAmt]   = useState(amount > 0 ? String(amount) : '');
@@ -42,9 +60,16 @@ export default function DeliveryCollectPayment() {
       Alert.alert('Reference Required', mode === 'upi' ? 'Please enter the UPI transaction ID.' : 'Please enter the cheque number.');
       return;
     }
+    if (!adminid || !tenant.branchId) { Alert.alert('Branch not set', 'No branch assigned. Contact admin.'); return; }
+    if (!partyId) { Alert.alert('Missing party', 'Could not resolve the party for this order.'); return; }
+    // Deposit ledger: cash for cash mode, else a bank ledger.
+    const wantType = mode === 'cash' ? 'cash' : 'bank';
+    const depositLedger = cashBankLedgers.find((l: any) => l.ledgertype === wantType) ?? cashBankLedgers[0];
+    if (!depositLedger) { Alert.alert('No Cash/Bank ledger', 'Ask the admin to create a Cash or Bank ledger.'); return; }
+
     Alert.alert(
       'Confirm Collection',
-      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName} for ${orderNum}?`,
+      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName} for ${orderNum}? This also marks the order delivered.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -52,12 +77,26 @@ export default function DeliveryCollectPayment() {
           onPress: async () => {
             setSubmitting(true);
             try {
-              await new Promise(r => setTimeout(r, 800));
+              await addPayment({
+                variables: { input: {
+                  adminid, branchid: tenant.branchId, type: 'receipt', mode,
+                  partyid: partyId, ledgerid: depositLedger.id, amount: parsedAmount,
+                  reference: reference.trim() || null, remarks: notes.trim() || `COD for ${orderNum}`,
+                  paymentdate: new Date().toISOString().slice(0, 10),
+                  createdby_id: user?.id, createdby_name: user?.name, createdby_type: 'deliveryboy', status: true,
+                } },
+              });
+              // Mark the order delivered on COD collection.
+              if (orderId) {
+                try { await markDelivered({ variables: { id: orderId, byId: user?.id, byName: user?.name, byType: 'deliveryboy' } }); } catch {}
+              }
               Alert.alert(
                 'Payment Recorded!',
                 `₹${parsedAmount.toLocaleString('en-IN')} via ${selectedMode.label} collected from ${partyName}.`,
                 [{ text: 'OK', onPress: () => navigation.goBack() }],
               );
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'Could not record payment.');
             } finally {
               setSubmitting(false);
             }

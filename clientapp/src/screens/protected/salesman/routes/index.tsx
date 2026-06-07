@@ -4,9 +4,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
+import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import type { RootState } from '../../../../store/rootreducer';
 
 const DAY_ORDER: Record<string, number> = {
   Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7,
@@ -14,7 +18,7 @@ const DAY_ORDER: Record<string, number> = {
 
 // Map a server SalesRoute (dayWiseAccounts.accounts are full Account docs) into the
 // shape the cards render. Keeps the existing UI untouched.
-function mapServerRoutes(serverRoutes: any[]): any[] {
+function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>): any[] {
   return (serverRoutes ?? []).map((r: any) => ({
     id: r.id,
     routename: r.routename,
@@ -37,7 +41,8 @@ function mapServerRoutes(serverRoutes: any[]): any[] {
           // Live ledger balance from the server (Dr−Cr of posted transactions),
           // same basis as the party-login ledger. 0 when the party has no activity.
           outstanding: a.outstanding ?? 0,
-          visitStatus: 'pending' as VisitStatus,
+          // "visited" = this party already got an order from the salesman today.
+          visitStatus: (visitedSet.has(String(a.id)) ? 'visited' : 'pending') as VisitStatus,
         })),
       })),
   }));
@@ -326,10 +331,31 @@ export default function SalesmanRoutes() {
 
   // Live sales routes for the logged-in salesman (admin/branch/salesman filtered server-side).
   const { data, loading, refetch } = useSalesRoutesQuery();
-  const routes = useMemo(() => mapServerRoutes((data as any)?.getSalesRoutes ?? []), [data]);
 
-  // Refresh whenever the screen regains focus (e.g. after add / manage party).
-  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
+  // Today's orders by this salesman → used to mark which parties are "visited".
+  const adminId    = useSelector((s: RootState) => s.tenant.adminId);
+  const salesmanId = useSelector((s: RootState) => s.auth.user?.id);
+  const { data: ordersData, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
+    variables: { adminid: adminId, salesmenid: salesmanId },
+    skip: !adminId || !salesmanId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const visitedSet = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const set = new Set<string>();
+    ((ordersData as any)?.getSalesOrders ?? []).forEach((o: any) => {
+      if ((o.billdate ?? '').startsWith(today) && o.partyacc?.id) set.add(String(o.partyacc.id));
+    });
+    return set;
+  }, [ordersData]);
+
+  const routes = useMemo(
+    () => mapServerRoutes((data as any)?.getSalesRoutes ?? [], visitedSet),
+    [data, visitedSet],
+  );
+
+  // Refresh whenever the screen regains focus (e.g. after add / manage party / new order).
+  useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));
 
   const handleNavigate = useCallback((lat: number, lng: number, label: string) => {
     if (lat == null || lng == null) return;

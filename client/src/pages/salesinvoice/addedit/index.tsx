@@ -396,6 +396,16 @@ const AddEditSalesInvoice = () => {
       status,
     };
 
+    // When converting an order → invoice, keep the original order creator
+    // (e.g. the party) separately — createdby_* will be the converter (branch).
+    if (orderId && orderData?.getSalesOrderById) {
+      const o: any = orderData.getSalesOrderById;
+      (input as any).sourceorderid = orderId;
+      (input as any).orderedby_id = o.createdby_id || null;
+      (input as any).orderedby_name = o.createdby_name || null;
+      (input as any).orderedby_type = o.createdby_type || null;
+    }
+
     console.log("Input Data:", JSON.stringify(input, null, 2));
 
     try {

@@ -54,7 +54,7 @@ export default function CartScreen() {
             totalamount: total,
             createdby_id: user?.id,
             createdby_name: user?.name,
-            createdby_type: 'party',
+            createdby_type: user?.role || 'party',
             productservice: cartItems.map(i => ({
               productserviceid: i.productId,
               variantid: i.variantId,

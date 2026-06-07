@@ -72,6 +72,8 @@ const AddEditAccount = () => {
     branchid: null as any,
     channel: "",
     region: "default",
+    latitude: "",
+    longitude: "",
   });
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -137,6 +139,8 @@ const AddEditAccount = () => {
         branchid: null,
         channel: a.channel?.id || "",
         region: a.region || "default",
+        latitude: a.latitude ?? "",
+        longitude: a.longitude ?? "",
       });
     }
   }, [isEdit, existingData]);
@@ -213,6 +217,8 @@ const AddEditAccount = () => {
       branchid: formValues.branchid || null,
       channel: formValues.channel || null,
       region: formValues.region || "default",
+      latitude: formValues.latitude !== "" ? Number(formValues.latitude) : null,
+      longitude: formValues.longitude !== "" ? Number(formValues.longitude) : null,
     };
 
     try {
@@ -403,6 +409,8 @@ const AddEditAccount = () => {
                 />
                 <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />
                 <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />
+                <FormField label="Latitude" name="latitude" value={formValues.latitude} onChange={(e) => handleChange("latitude", e.target.value)} placeholder="e.g. 23.0225" />
+                <FormField label="Longitude" name="longitude" value={formValues.longitude} onChange={(e) => handleChange("longitude", e.target.value)} placeholder="e.g. 72.5714" />
               </div>
             </fieldset>
 

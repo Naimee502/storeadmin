@@ -22,16 +22,26 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  cancelled: '#ef4444',
-  confirmed: '#3b82f6',
-  pending:   '#f59e0b',
+  cancelled:  '#ef4444',
+  confirmed:  '#3b82f6',
+  pending:    '#f59e0b',
+  dispatched: '#0ea5e9',
+  delivered:  '#22c55e',
 };
 
-
-function getOrderStatus(order: any): FilterKey {
+// Real status for the badge (includes delivered/dispatched).
+function displayStatus(order: any): string {
   if (order.cancelStatus === 'cancelled') return 'cancelled';
+  if (order.deliveryStatus === 'delivered') return 'delivered';
+  if (order.deliveryStatus === 'dispatched') return 'dispatched';
   if (order.isConverted) return 'confirmed';
   return 'pending';
+}
+// Filter bucket (delivered/dispatched are confirmed orders in flight).
+function getOrderStatus(order: any): FilterKey {
+  const s = displayStatus(order);
+  if (s === 'delivered' || s === 'dispatched') return 'confirmed';
+  return s as FilterKey;
 }
 
 export default function MyOrders() {
@@ -65,7 +75,7 @@ export default function MyOrders() {
   }), [orders]);
 
   const renderOrder = ({ item: order }: any) => {
-    const status    = getOrderStatus(order);
+    const status    = displayStatus(order);
     const colour    = STATUS_COLOR[status];
     const itemCount = order.productservice?.length ?? 0;
 

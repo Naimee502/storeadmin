@@ -61,7 +61,7 @@ export default function SalesmanCart() {
                   totalamount:     total,
                   createdby_id:    user?.id,
                   createdby_name:  user?.name,
-                  createdby_type:  'staff',
+                  createdby_type:  user?.role || 'salesman',
                   productservice: cartItems.map(i => ({
                     productserviceid: i.productId,
                     variantid:        i.variantId,

@@ -72,6 +72,17 @@ const salesOrderSchema = new mongoose.Schema(
     cancelStatus: { type: String, default: "open" },
     cancelReason: { type: String },
     cancelledAt: { type: Date },
+
+    // Fulfilment lifecycle (additive — does not replace isConverted/cancelStatus).
+    // pending → (confirmed when isConverted) → dispatched → delivered.
+    deliveryStatus: { type: String, enum: ["pending", "dispatched", "delivered"], default: "pending" },
+    deliveredAt: { type: Date },
+    deliveredById: { type: mongoose.Schema.Types.ObjectId },
+    deliveredByName: { type: String },
+    deliveredByType: { type: String },
+    // Optional delivery-boy assignment (used in the delivery module, Phase 3).
+    deliveryboyid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount" },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

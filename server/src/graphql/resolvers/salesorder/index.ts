@@ -1,11 +1,17 @@
 import { SalesOrder } from "../../../models/salesorder";
+import { StaffAccount } from "../../../models/staffaccounts";
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
+// Only name-type fields fall back to doc.name; numeric fields (latitude/longitude)
+// must not, or GraphQL throws "Float cannot represent non numeric value".
+const NAME_KEYS = new Set(["name", "accountname", "ledgername", "unitname"]);
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
   const ref: any = { id: doc._id?.toString() };
   keys.forEach(key => {
-    ref[key] = doc[key] ?? doc.name ?? null;
+    const v = doc[key];
+    if (v !== undefined && v !== null) ref[key] = v;
+    else ref[key] = NAME_KEYS.has(key) ? (doc.name ?? null) : null;
   });
   return ref;
 };
@@ -27,7 +33,7 @@ const formatOrder = (order: any) => ({
   ...order,
   id: order._id.toString(),
   salesmenid: toSimpleRef(order.salesmenid, ["name"]),
-  partyacc: toSimpleRef(order.partyacc, ["accountname", "mobile"]),
+  partyacc: toSimpleRef(order.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]),
   createdby_id: order.createdby_id,
   createdby_name: order.createdby_name,
   createdby_type: order.createdby_type,
@@ -80,7 +86,22 @@ export const salesOrderResolvers = {
           { branchid: user?.branch_id || user?.id }
         ];
       } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
+        // Delivery boys see orders by delivery assignment, not by who created them.
+        const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
+        if (staff?.role !== 'deliveryboy') {
+          query.createdby_id = user?.id;
+        }
+      }
+
+      // ── Delivery filters ──────────────────────────────────────────────
+      if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
+      if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
+      if (filter.unassignedDelivery) {
+        // Available pool: end-user (party/website) orders not yet picked up.
+        query.deliveryboyid = { $in: [null, undefined] };
+        query.createdby_type = 'party';
+        query.cancelStatus = { $ne: 'cancelled' };
+        if (query.deliveryStatus === undefined) query.deliveryStatus = { $ne: 'delivered' };
       }
 
       if (filter.branchid) query.branchid = filter.branchid;
@@ -222,6 +243,47 @@ export const salesOrderResolvers = {
         { new: true }
       ).populate(populateFields).lean();
       return updated ? formatOrder(updated) : null;
+    },
+
+    // ── Fulfilment transitions ──────────────────────────────────────────────
+    markSalesOrderDispatched: async (_: any, { id, deliveryboyid }: any) => {
+      const existing = await SalesOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Sales Order not found");
+      if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      const update: any = { deliveryStatus: "dispatched" };
+      if (deliveryboyid) update.deliveryboyid = deliveryboyid;
+      const updated = await SalesOrder.findByIdAndUpdate(id, update, { new: true })
+        .populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
+
+    markSalesOrderDelivered: async (_: any, { id, byId, byName, byType }: any, context: any) => {
+      const existing = await SalesOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Sales Order not found");
+      if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      const user = context?.user;
+      const updated = await SalesOrder.findByIdAndUpdate(
+        id,
+        {
+          deliveryStatus: "delivered",
+          deliveredAt: new Date(),
+          deliveredById: byId || user?.id || null,
+          deliveredByName: byName || user?.name || user?.email || null,
+          deliveredByType: byType || user?.type || null,
+        },
+        { new: true }
+      ).populate(populateFields).lean();
+      return updated ? formatOrder(updated) : null;
+    },
+
+    assignOrderDeliveryBoy: async (_: any, { id, deliveryboyid }: any) => {
+      const updated = await SalesOrder.findByIdAndUpdate(
+        id,
+        { deliveryboyid, deliveryStatus: "dispatched" },
+        { new: true }
+      ).populate(populateFields).lean();
+      if (!updated) throw new Error("Sales Order not found");
+      return formatOrder(updated);
     },
   },
 };

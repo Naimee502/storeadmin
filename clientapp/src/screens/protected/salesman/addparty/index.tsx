@@ -168,6 +168,20 @@ export default function AddPartyToRoute() {
         <Text style={[styles.contextText, { color: colors.brand }]}>
           Route: <Text style={{ fontFamily: FONTS.bold }}>{routeName}</Text>
         </Text>
+        <TouchableOpacity
+          style={[styles.newPartyBtn, { backgroundColor: colors.brand }]}
+          onPress={() => {
+            if (!selectedDay) { Alert.alert('Select Day', 'Please choose which day to add the new party to.'); return; }
+            navigation.navigate('SalesmanCreateParty', {
+              routeId, routeName, day: selectedDay,
+              routeSalesmanId, allDayWiseAccounts,
+            });
+          }}
+          activeOpacity={0.85}
+        >
+          <Icon name="account-plus" size={13} color="#fff" />
+          <Text style={styles.newPartyText}>New Party</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Day picker */}
@@ -256,7 +270,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 18, marginTop: 10, marginBottom: 4,
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
   },
-  contextText: { fontSize: 13, fontFamily: FONTS.semiBold },
+  contextText: { fontSize: 13, fontFamily: FONTS.semiBold, flex: 1 },
+  newPartyBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginLeft: 'auto' },
+  newPartyText: { fontSize: 11, fontFamily: FONTS.bold, color: '#fff' },
 
   daySection: { paddingHorizontal: 18, marginTop: 12, marginBottom: 8 },
   dayLabel:   { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 8 },

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import {
@@ -15,6 +15,7 @@ import {
 import { BackHeader } from '../../../../components';
 import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
+import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 // Hoisted so they aren't re-created every render (which would drop keyboard focus).
@@ -57,11 +58,20 @@ const SelectField = ({ label, value, placeholder, icon, onPress, colors }: any) 
 
 export default function StaffCreateParty() {
   const navigation = useNavigation<any>();
+  const route      = useRoute<any>();
   const { colors, isDark } = useTheme();
   const tenant = useSelector((s: RootState) => s.tenant);
   const user   = useSelector((s: RootState) => s.auth.user);
   const adminid = tenant.adminId ?? '';
   const branchid = tenant.branchId ?? '';
+
+  // Optional route context — when the salesman opens this from "Add party to
+  // route", the freshly created party is also assigned to that route + day.
+  const {
+    routeId, routeName, day: routeDay,
+    routeSalesmanId = '', allDayWiseAccounts = [] as any[],
+  } = route.params ?? {};
+  const [updateRoute] = useMutation(UPDATE_SALES_ROUTE);
 
   const [type,    setType]    = useState('customer');
   const [name,    setName]    = useState('');
@@ -78,7 +88,24 @@ export default function StaffCreateParty() {
   const [openingbalancetype, setOpeningbalancetype] = useState<'debit' | 'credit'>('debit');
   const [channel, setChannel] = useState<Option | null>(null);
   const [region,  setRegion]  = useState<Option>(regionOptions[0]);
+  const [latitude,  setLatitude]  = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const captureLocation = () => {
+    setLocating(true);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        pos => { setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocating(false); },
+        () => { setLocating(false); Alert.alert('Location', 'Could not get your location. Enable GPS and try again.'); },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    } catch {
+      setLocating(false);
+      Alert.alert('Location', 'Location is not available on this device.');
+    }
+  };
 
   // Picker modal: which field is open
   const [picker, setPicker] = useState<null | 'channel' | 'region' | 'state'>(null);
@@ -121,7 +148,7 @@ export default function StaffCreateParty() {
 
     setSubmitting(true);
     try {
-      await addAccount({
+      const res = await addAccount({
         variables: {
           input: {
             name: name.trim(),
@@ -141,6 +168,8 @@ export default function StaffCreateParty() {
             openingbalancetype,
             channel: channel?.value || null,
             region: region?.value || 'default',
+            latitude,
+            longitude,
             salesmanid: user?.id || null,
             admin: adminid,
             branchid: branchid || null,
@@ -149,9 +178,26 @@ export default function StaffCreateParty() {
         },
         refetchQueries: [{ query: GET_ACCOUNTS, variables: { admin: adminid } }],
       });
-      Alert.alert('Party Created!', `${name.trim()} has been added successfully.`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+
+      // If opened from a route, also assign the new party to that route + day.
+      const newId = (res as any)?.data?.addAccount?.id;
+      if (routeId && routeDay && newId) {
+        const existing = (allDayWiseAccounts ?? []).map((d: any) => ({
+          day: d.day, visitorder: d.visitorder ?? 0, accounts: [...(d.accounts ?? [])],
+        }));
+        const idx = existing.findIndex((d: any) => d.day === routeDay);
+        if (idx >= 0) { if (!existing[idx].accounts.includes(newId)) existing[idx].accounts.push(newId); }
+        else existing.push({ day: routeDay, visitorder: 0, accounts: [newId] });
+        await updateRoute({
+          variables: { id: routeId, input: { adminid, routename: routeName, salesmanid: routeSalesmanId || user?.id, dayWiseAccounts: existing } },
+        });
+      }
+
+      Alert.alert(
+        'Party Created!',
+        routeId ? `${name.trim()} added and assigned to ${routeName} (${routeDay}).` : `${name.trim()} has been added successfully.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to create party. Please try again.');
     } finally {
@@ -223,6 +269,27 @@ export default function StaffCreateParty() {
           <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
           <SelectField colors={colors} label="State" value={stateV?.label} placeholder="Select state" icon="map-outline" onPress={() => setPicker('state')} />
           <Field colors={colors} label="Pin Code" value={pincode} onChange={setPincode} placeholder="6-digit pin code" icon="map-marker-outline" keyboard="numeric" maxLength={6} />
+
+          {/* GPS capture — lets the routes screen show distance & navigation for this party */}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Shop Location (GPS)</Text>
+            <TouchableOpacity
+              style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: latitude != null ? colors.brand : colors.border }]}
+              onPress={captureLocation}
+              activeOpacity={0.7}
+              disabled={locating}
+            >
+              <Icon name={locating ? 'loading' : (latitude != null ? 'map-marker-check' : 'crosshairs-gps')} size={16} color={colors.brand} style={{ marginRight: 8 }} />
+              <Text style={[styles.input, { color: latitude != null ? colors.text : colors.subText }]} numberOfLines={1}>
+                {locating
+                  ? 'Getting location…'
+                  : latitude != null
+                    ? `${latitude.toFixed(5)}, ${longitude?.toFixed(5)}`
+                    : 'Tap to capture current location'}
+              </Text>
+              {latitude != null && !locating && <Icon name="refresh" size={16} color={colors.subText} />}
+            </TouchableOpacity>
+          </View>
           <Field colors={colors} label="Credit Limit" value={creditlimit} onChange={setCreditlimit} placeholder="0" icon="credit-card-outline" keyboard="numeric" />
 
           <Field colors={colors} label="Opening Balance" value={openingbalance} onChange={setOpeningbalance} placeholder="0" icon="cash-multiple" keyboard="numeric" />

@@ -1,12 +1,19 @@
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
+import { StaffAccount } from "../../../models/staffaccounts";
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
+// Only name-type fields fall back to doc.name. Numeric/other fields must NOT,
+// otherwise e.g. a missing latitude (Float) gets the account name (string) and
+// GraphQL throws "Float cannot represent non numeric value".
+const NAME_KEYS = new Set(["name", "accountname", "ledgername", "unitname"]);
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
   const ref: any = { id: doc._id?.toString() };
   keys.forEach(key => {
-    ref[key] = doc[key] ?? doc.name ?? null;
+    const v = doc[key];
+    if (v !== undefined && v !== null) ref[key] = v;
+    else ref[key] = NAME_KEYS.has(key) ? (doc.name ?? null) : null;
   });
   return ref;
 };
@@ -28,7 +35,7 @@ const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
   salesmenid: toSimpleRef(inv.salesmenid, ["name"]),
-  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile"]),
+  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]),
   createdby_id: inv.createdby_id,
   createdby_name: inv.createdby_name,
   createdby_type: inv.createdby_type,
@@ -68,6 +75,7 @@ export const salesInvoiceResolvers = {
     getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: true };
       const { user } = context;
+      console.log("🧾 [getSalesInvoices] filter:", JSON.stringify(filter || {}), "| user:", user?.id, user?.type);
 
       // ✅ Role-based filtering
       if (user?.type === 'branch') {
@@ -76,7 +84,33 @@ export const salesInvoiceResolvers = {
           { branchid: user?.branch_id || user?.id }
         ];
       } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
+        // Delivery views (pool / my deliveries) must NOT be restricted to
+        // invoices the user created — they're filtered by delivery assignment.
+        const isDeliveryView = !!(filter.unassignedDelivery || filter.deliveryboyid);
+        let isDeliveryBoy = false;
+        if (!isDeliveryView) {
+          const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
+          isDeliveryBoy = staff?.role === 'deliveryboy';
+        }
+        if (!isDeliveryView && !isDeliveryBoy) {
+          query.createdby_id = user?.id;
+        }
+      }
+
+      // ── Delivery filters ──────────────────────────────────────────────
+      if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
+      if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
+      if (filter.unassignedDelivery) {
+        // Only expose the delivery pool when the business is set to delivery-boy
+        // fulfilment. If salesman delivers (deliveryMode !== 'deliveryboy'),
+        // there is no pool for the delivery boy.
+        const settings = filter.adminid ? await AdminSettings.getOrCreateForAdmin(filter.adminid) : null;
+        if (settings?.deliveryMode !== 'deliveryboy') {
+          return [];
+        }
+        // Available pool: invoices not yet picked up by a delivery boy.
+        query.deliveryboyid = { $in: [null, undefined] };
+        query.deliveryStatus = { $ne: 'delivered' };
       }
 
       // Add filters if provided
@@ -96,6 +130,18 @@ export const salesInvoiceResolvers = {
         if (filter.billdateFrom) query.billdate.$gte = new Date(filter.billdateFrom);
         if (filter.billdateTo) query.billdate.$lte = new Date(filter.billdateTo);
       }
+
+      // ── TEMP DELIVERY DIAGNOSTIC ──────────────────────────────────────
+      if (filter.unassignedDelivery || filter.deliveryboyid) {
+        const anyUnassigned = await SalesInvoice.countDocuments({ status: true, deliveryboyid: { $in: [null, undefined] } });
+        const matchCount = await SalesInvoice.countDocuments(query);
+        console.log("🚚 [DELIVERY] user:", user?.id, user?.type,
+          "| filter.adminid:", filter.adminid,
+          "| query:", JSON.stringify(query),
+          "| matched:", matchCount,
+          "| total-unassigned(any admin):", anyUnassigned);
+      }
+      // ──────────────────────────────────────────────────────────────────
 
       const invoices = await SalesInvoice.find(query)
         .populate(populateFields)
@@ -273,6 +319,43 @@ export const salesInvoiceResolvers = {
 
     resetSalesInvoice: async (_: any, { id }: { id: string }) => {
       return !!(await SalesInvoice.findByIdAndUpdate(id, { status: true }));
+    },
+
+    // ── Delivery transitions (invoice = dispatch document) ────────────────
+    markSalesInvoiceDispatched: async (_: any, { id, deliveryboyid }: any) => {
+      const update: any = { deliveryStatus: "dispatched" };
+      if (deliveryboyid) update.deliveryboyid = deliveryboyid;
+      const updated = await SalesInvoice.findByIdAndUpdate(id, update, { new: true })
+        .populate(populateFields).lean();
+      if (!updated) throw new Error("Invoice not found");
+      return formatInvoice(updated);
+    },
+
+    markSalesInvoiceDelivered: async (_: any, { id, byId, byName, byType }: any, context: any) => {
+      const user = context?.user;
+      const updated = await SalesInvoice.findByIdAndUpdate(
+        id,
+        {
+          deliveryStatus: "delivered",
+          deliveredAt: new Date(),
+          deliveredById: byId || user?.id || null,
+          deliveredByName: byName || user?.name || user?.email || null,
+          deliveredByType: byType || user?.type || null,
+        },
+        { new: true }
+      ).populate(populateFields).lean();
+      if (!updated) throw new Error("Invoice not found");
+      return formatInvoice(updated);
+    },
+
+    assignInvoiceDeliveryBoy: async (_: any, { id, deliveryboyid }: any) => {
+      const updated = await SalesInvoice.findByIdAndUpdate(
+        id,
+        { deliveryboyid, deliveryStatus: "dispatched" },
+        { new: true }
+      ).populate(populateFields).lean();
+      if (!updated) throw new Error("Invoice not found");
+      return formatInvoice(updated);
     },
   },
 };

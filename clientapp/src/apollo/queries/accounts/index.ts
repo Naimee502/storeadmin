@@ -41,6 +41,8 @@ export const GET_SALES_ORDERS = gql`
       totalgst
       cancelStatus
       isConverted
+      deliveryStatus
+      deliveredAt
       status
       partyacc   { id accountname mobile }
       salesmenid { id name }
@@ -70,6 +72,51 @@ export const GET_SALES_ORDER_BY_ID = gql`
       totalgst
       cancelStatus
       isConverted
+      deliveryStatus
+      deliveredAt
+      status
+      partyacc   { id accountname mobile }
+      salesmenid { id name }
+      productservice {
+        productserviceid { id name }
+        variantid        { id name }
+        qty
+        rate
+        discount
+        amount
+        gst
+      }
+      deliverydate
+      duedate
+      transportname
+      vehiclenumber
+      ewaybillno
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      createdAt
+    }
+  }
+`;
+
+export const GET_SALES_INVOICE_BY_ID = gql`
+  query GetSalesInvoiceById($id: ID!) {
+    getSalesInvoiceById(id: $id) {
+      id
+      billnumber
+      billdate
+      totalamount
+      subtotal
+      totaldiscount
+      totalgst
+      deliveryStatus
+      deliveredAt
+      deliveredByName
       status
       partyacc   { id accountname mobile }
       salesmenid { id name }
@@ -196,6 +243,7 @@ export const GET_PAYMENTS = gql`
       remarks
       status
       ledgerid { id ledgername }
+      partyid  { id name }
       invoices { invoiceid invoicemodel settledamount }
       createdby_name
       createdAt
@@ -220,6 +268,63 @@ export const GET_TRANSACTIONS = gql`
         remarks
       }
       createdAt
+    }
+  }
+`;
+
+const DELIVERY_INVOICE_FIELDS = `
+  id
+  billnumber
+  billdate
+  totalamount
+  paymenttype
+  deliveryStatus
+  deliveredAt
+  partyacc { id accountname mobile address city latitude longitude }
+`;
+
+// Available pool — unassigned, undelivered invoices.
+export const GET_DELIVERY_POOL = gql`
+  query GetDeliveryPool($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) { ${DELIVERY_INVOICE_FIELDS} }
+  }
+`;
+
+// Invoices assigned to the logged-in delivery boy.
+export const GET_MY_DELIVERIES = gql`
+  query GetMyDeliveries($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) { ${DELIVERY_INVOICE_FIELDS} }
+  }
+`;
+
+// Back-compat alias (pool).
+export const GET_DELIVERY_INVOICES = GET_DELIVERY_POOL;
+
+export const GET_DELIVERY_ORDERS = gql`
+  query GetDeliveryOrders($filter: SalesOrderFilterInput) {
+    getSalesOrders(filter: $filter) {
+      id
+      billnumber
+      billdate
+      totalamount
+      paymenttype
+      cancelStatus
+      isConverted
+      deliveryStatus
+      deliveredAt
+      partyacc {
+        id accountname mobile address city latitude longitude
+      }
+      productservice { productserviceid { id } }
+    }
+  }
+`;
+
+export const GET_ADMIN_SETTINGS = gql`
+  query GetAdminSettings($adminid: ID!) {
+    getAdminSettings(adminid: $adminid) {
+      id
+      deliveryMode
     }
   }
 `;

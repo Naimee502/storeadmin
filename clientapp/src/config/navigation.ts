@@ -6,7 +6,7 @@ import {
   ProductDetail, OrderDetail, CartScreen,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
-  RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute,
+  RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty,
   // Delivery boy
   DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile, DeliveryCollectPayment,
   // Staff
@@ -51,6 +51,7 @@ export const Screens: any = {
   CollectPayment,
   AddPartyToRoute,
   ManagePartyRoute,
+  SalesmanCreateParty,
   // Delivery boy
   DeliveryDashboard,
   DeliveryList,
@@ -178,6 +179,7 @@ export const NavConfig: any = {
       { name: 'AddPartyToRoute',  options: { headerShown: false } },
       { name: 'ManagePartyRoute', options: { headerShown: false } },
       { name: 'OrderDetail',      options: { headerShown: false } },
+      { name: 'SalesmanCreateParty', options: { headerShown: false } },
     ],
   },
 
@@ -212,6 +214,7 @@ export const NavConfig: any = {
         },
       },
       { name: 'DeliveryCollectPayment', options: { headerShown: false } },
+      { name: 'OrderDetail', options: { headerShown: false } },
     ],
   },
 

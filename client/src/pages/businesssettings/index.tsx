@@ -246,6 +246,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
         <Toggle label="Encrypt Invoice Prices (Mask actual amounts)" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
+        <Toggle
+          label="Deliver orders via Delivery Boy (off = salesman delivers on route)"
+          checked={draft.deliveryMode === "deliveryboy"}
+          onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")}
+        />
       </Section>
 
       <Section title="SaaS Access (Lock Settings for Admin)">

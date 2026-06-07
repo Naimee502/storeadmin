@@ -29,6 +29,7 @@ const SETTINGS_FIELDS = `
   enableGst
   displayProductPriceOnWebsite
   encryptInvoicePrices
+  deliveryMode
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions

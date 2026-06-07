@@ -9,6 +9,10 @@ export const salesInvoiceTypeDefs = gql`
     accountname: String
     mobile: String
     ledgername: String
+    address: String
+    city: String
+    latitude: Float
+    longitude: Float
   }
 
   type OtherCharge {
@@ -94,6 +98,15 @@ export const salesInvoiceTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    sourceorderid: ID
+    orderedby_id: ID
+    orderedby_name: String
+    orderedby_type: String
+    deliveryStatus: String
+    deliveredAt: String
+    deliveredByName: String
+    deliveredByType: String
+    deliveryboyid: ID
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -131,6 +144,10 @@ export const salesInvoiceTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    sourceorderid: ID
+    orderedby_id: ID
+    orderedby_name: String
+    orderedby_type: String
     status: Boolean
   }
 
@@ -146,6 +163,9 @@ export const salesInvoiceTypeDefs = gql`
     billdateFrom: String
     billdateTo: String
     status: Boolean
+    deliveryboyid: ID
+    deliveryStatus: String
+    unassignedDelivery: Boolean
   }
 
   type Query {
@@ -159,5 +179,8 @@ export const salesInvoiceTypeDefs = gql`
     editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
     deleteSalesInvoice(id: ID!): Boolean!
     resetSalesInvoice(id: ID!): Boolean!
+    markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID): SalesInvoice!
+    markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesInvoice!
+    assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesInvoice!
   }
 `;

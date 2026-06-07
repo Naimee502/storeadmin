@@ -77,6 +77,18 @@ const adminSettingsSchema = new mongoose.Schema(
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 
     /* ============================================================
+       FULFILMENT — who delivers orders for this business.
+       "salesman"   → salesman hands over on the route (no delivery boy)
+       "deliveryboy"→ end-user/party/website orders go to a delivery boy
+       Channel-partner orders taken by a salesman are always salesman-fulfilled.
+       ============================================================ */
+    deliveryMode: {
+      type: String,
+      enum: ["salesman", "deliveryboy"],
+      default: "salesman",
+    },
+
+    /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs
        ============================================================ */
     allowAdminToManageBusinessSettings: { type: Boolean, default: true },
