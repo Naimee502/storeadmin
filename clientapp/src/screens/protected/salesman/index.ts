@@ -10,3 +10,4 @@ export { default as CollectPayment }     from './collectpayment';
 export { default as AddPartyToRoute }    from './addparty';
 export { default as ManagePartyRoute }   from './manageparty';
 export { default as SalesmanCreateParty } from './createparty';
+export { default as SalesmanParties }     from './parties';

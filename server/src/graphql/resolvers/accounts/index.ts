@@ -1,5 +1,4 @@
 import { Account } from "../../../models/accounts";
-import { StaffAccount } from "../../../models/staffaccounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const accountResolvers = {
@@ -13,13 +12,10 @@ export const accountResolvers = {
       if (filter?.channel) query.channel = filter.channel;
       if (filter?.region) query.region = { $regex: filter.region, $options: "i" };
 
-      // Salesman filtering
-      if (context.user && context.user.type === "staff") {
-        const staff = await StaffAccount.findById(context.user.id);
-        if (staff && staff.role === "salesman" && staff.assignedChannels.length > 0) {
-          query.channel = { $in: staff.assignedChannels };
-        }
-      }
+      // NOTE: salesman parties are scoped explicitly via filter.salesmanid
+      // (the My Parties screen). We no longer force a channel restriction here,
+      // because it broke parent-party (upline channel) lookups and hid parties
+      // whose channel differs from the salesman's assigned channels.
 
       // ✅ Changed accountgroupid → ledgerid
       if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
@@ -49,6 +45,20 @@ export const accountResolvers = {
         query.createdAt = {};
         if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
         if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+      }
+
+      // ── TEMP DIAGNOSTIC ──────────────────────────────────────────────
+      if (filter?.salesmanid) {
+        const total = await Account.countDocuments({ admin: filter.admin, status: true });
+        const bySalesman = await Account.find({ salesmanid: filter.salesmanid })
+          .select("name salesmanid").lean();
+        const anySalesmen = await Account.find({ admin: filter.admin, salesmanid: { $ne: null } })
+          .select("name salesmanid").limit(10).lean();
+        console.log("👤 [getAccounts] salesmanid filter:", filter.salesmanid,
+          "| admin:", filter.admin,
+          "| total active accounts:", total,
+          "| matched by salesmanid:", bySalesman.length, JSON.stringify(bySalesman),
+          "| sample accounts having ANY salesmanid:", JSON.stringify(anySalesmen.map((a: any) => ({ name: a.name, salesmanid: String(a.salesmanid) }))));
       }
 
       return await Account.find(query)

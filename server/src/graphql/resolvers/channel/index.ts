@@ -1,5 +1,4 @@
 import { Channel } from "../../../models/channel";
-import { StaffAccount } from "../../../models/staffaccounts";
 
 export const channelResolvers = {
   Query: {
@@ -7,13 +6,8 @@ export const channelResolvers = {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
 
-      // Salesman filtering
-      if (context.user && context.user.type === "staff") {
-        const staff = await StaffAccount.findById(context.user.id);
-        if (staff && staff.role === "salesman" && staff.assignedChannels.length > 0) {
-          filter._id = { $in: staff.assignedChannels };
-        }
-      }
+      // Channels are reference/config data (needed for hierarchy lookups and
+      // party add) — return all for the admin; no salesman channel restriction.
 
       return await Channel.find(filter).populate("admin").populate("handlesChannels");
     },

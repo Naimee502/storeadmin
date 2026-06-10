@@ -156,8 +156,8 @@ export const GET_SALES_INVOICE_BY_ID = gql`
 `;
 
 export const GET_ACCOUNTS = gql`
-  query GetAccounts($admin: ID!) {
-    getAccounts(filter: { admin: $admin }) {
+  query GetAccounts($admin: ID!, $salesmanid: ID) {
+    getAccounts(filter: { admin: $admin, salesmanid: $salesmanid }) {
       id
       accountcode
       name

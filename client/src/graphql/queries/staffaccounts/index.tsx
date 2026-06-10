@@ -18,6 +18,10 @@ export const GET_STAFF = gql`
       role
       status
       allowedmodules
+      assignedChannels {
+        id
+        channelName
+      }
       accountgroupid {
         id
         accountgroupname
@@ -101,10 +105,14 @@ export const GET_STAFF_BY_ID = gql`
       role
       status
       allowedmodules
+      assignedChannels {
+        id
+        channelName
+      }
       accountgroupid {
         id
         accountgroupname
-      } 
+      }
       ledgerid {
         id
         ledgername

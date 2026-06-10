@@ -118,6 +118,8 @@ export const accountTypeDefs = gql`
     region: String
     accountgroupid: ID
     ledgerid: ID
+    salesmanid: ID
+    assignaccountid: ID
     accountcode: String
     mobile: String
     email: String

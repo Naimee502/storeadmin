@@ -14,6 +14,7 @@ import {
 } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
+import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
 import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
@@ -125,11 +126,26 @@ export default function StaffCreateParty() {
   });
   const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
 
-  const groups: any[] = (groupData as any)?.getAccountGroups ?? [];
-  const channels: Option[] = useMemo(
-    () => ((channelData as any)?.getChannels ?? []).map((c: any) => ({ value: c.id, label: c.channelName })),
-    [channelData],
+  // Logged-in salesman's assigned channels — the channel dropdown is limited to
+  // these so a salesman only adds parties in his own channel(s).
+  const { data: staffData } = useQuery(GET_STAFF_ACCOUNT, {
+    variables: { id: user?.id, adminId: adminid }, skip: !user?.id || !adminid,
+  });
+  const myChannelIds: string[] = useMemo(
+    () => ((staffData as any)?.getStaffAccountById?.assignedChannels ?? []).map((c: any) => c.id),
+    [staffData],
   );
+  const isSalesman = (user?.role || '').toLowerCase() === 'salesman';
+
+  const groups: any[] = (groupData as any)?.getAccountGroups ?? [];
+  const allChannels = (channelData as any)?.getChannels ?? [];
+  // Channel dropdown: salesman → only his assigned channels; others → all.
+  const channels: Option[] = useMemo(() => {
+    const list = (isSalesman && myChannelIds.length > 0)
+      ? allChannels.filter((c: any) => myChannelIds.includes(c.id))
+      : allChannels;
+    return list.map((c: any) => ({ value: c.id, label: c.channelName }));
+  }, [allChannels, isSalesman, myChannelIds]);
   // Mirror admin: Channel & Region only when the channel feature is in use
   // (channels configured). No channels → hide the section.
   const channelsConfigured = (((channelData as any)?.getChannels ?? []).length) > 0;

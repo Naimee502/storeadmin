@@ -95,6 +95,22 @@ export default function SalesmanDashboard() {
             </View>
             <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
           </TouchableOpacity>
+
+          {/* Direct (route-less) ordering — pick any party from your channel */}
+          <TouchableOpacity
+            style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border, marginTop: 10 }]}
+            onPress={() => navigation.navigate('SalesmanParties')}
+            activeOpacity={0.82}
+          >
+            <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
+              <Icon name="account-group-outline" size={24} color={colors.brand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.routeName, { color: colors.text }]}>All Parties</Text>
+              <Text style={[styles.routeCode, { color: colors.subText }]}>Take an order without a route</Text>
+            </View>
+            <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Recent Orders */}
