@@ -15,6 +15,9 @@ import {
     FaReply,
     FaBan,
     FaWhatsapp,
+    FaCheckCircle,
+    FaTruck,
+    FaBoxOpen,
 } from "react-icons/fa";
 import { useState } from "react";
 import Loader from "../loader";
@@ -56,6 +59,10 @@ interface DataTableProps {
     showReturn?: boolean | ((row: any) => boolean);
     // Per-row action: cancel an order (Sales Order / Purchase Order).
     showCancel?: boolean | ((row: any) => boolean);
+    // Per-row fulfilment transitions (Sales Order lifecycle).
+    showConfirm?: boolean | ((row: any) => boolean);
+    showDispatch?: boolean | ((row: any) => boolean);
+    showDeliver?: boolean | ((row: any) => boolean);
     showDeleted?: boolean;
     showImport?: boolean;
     showExport?: boolean;
@@ -72,6 +79,9 @@ interface DataTableProps {
     onConvert?: (row: any) => void;
     onReturn?: (row: any) => void;
     onCancel?: (row: any) => void;
+    onConfirm?: (row: any) => void;
+    onDispatch?: (row: any) => void;
+    onDeliver?: (row: any) => void;
     onShowDeleted?: () => void;
     onImport?: () => void;
     onExport?: () => void;
@@ -100,6 +110,9 @@ const DataTable: React.FC<DataTableProps> = ({
     showConvert = false,
     showReturn = false,
     showCancel = false,
+    showConfirm = false,
+    showDispatch = false,
+    showDeliver = false,
     showDeleted = true,
     showImport = true,
     showExport = true,
@@ -116,6 +129,9 @@ const DataTable: React.FC<DataTableProps> = ({
     onConvert,
     onReturn,
     onCancel,
+    onConfirm,
+    onDispatch,
+    onDeliver,
     onShowDeleted,
     onImport,
     onExport,
@@ -367,6 +383,21 @@ const DataTable: React.FC<DataTableProps> = ({
                                             {showConvert && (
                                                 <button onClick={() => onConvert?.(row)} title="Convert to Invoice" className="text-orange-600">
                                                     <FaFileInvoice />
+                                                </button>
+                                            )}
+                                            {(typeof showConfirm === "function" ? showConfirm(row) : showConfirm) && (
+                                                <button onClick={() => onConfirm?.(row)} title="Confirm Order" className="text-blue-600">
+                                                    <FaCheckCircle />
+                                                </button>
+                                            )}
+                                            {(typeof showDispatch === "function" ? showDispatch(row) : showDispatch) && (
+                                                <button onClick={() => onDispatch?.(row)} title="Mark Dispatched" className="text-sky-600">
+                                                    <FaTruck />
+                                                </button>
+                                            )}
+                                            {(typeof showDeliver === "function" ? showDeliver(row) : showDeliver) && (
+                                                <button onClick={() => onDeliver?.(row)} title="Mark Delivered" className="text-green-600">
+                                                    <FaBoxOpen />
                                                 </button>
                                             )}
                                             {(typeof showReturn === "function" ? showReturn(row) : showReturn) && (

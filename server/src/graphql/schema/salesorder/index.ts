@@ -97,7 +97,9 @@ export const salesOrderTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    lockedTotal: Float
     isConverted: Boolean
+    orderStatus: String
     cancelStatus: String
     cancelReason: String
     cancelledAt: String
@@ -142,6 +144,7 @@ export const salesOrderTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    lockedTotal: Float
     isConverted: Boolean
     status: Boolean
   }
@@ -179,6 +182,7 @@ export const salesOrderTypeDefs = gql`
     cancelSalesOrder(id: ID!, reason: String): SalesOrder!
     reopenSalesOrder(id: ID!): SalesOrder!
     # Fulfilment transitions
+    confirmSalesOrder(id: ID!): SalesOrder!
     markSalesOrderDispatched(id: ID!, deliveryboyid: ID): SalesOrder!
     markSalesOrderDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesOrder!
     assignOrderDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesOrder!

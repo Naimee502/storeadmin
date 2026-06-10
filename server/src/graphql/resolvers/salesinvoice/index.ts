@@ -1,6 +1,16 @@
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { SalesOrder } from "../../../models/salesorder";
+
+// Sync the source Sales Order (the canonical lifecycle owner) when delivery is
+// updated on the invoice, so order + invoice always agree.
+const syncOrderFromInvoice = async (invoiceId: any, patch: any) => {
+  try {
+    const inv = await SalesInvoice.findById(invoiceId).select("sourceorderid").lean() as any;
+    if (inv?.sourceorderid) await SalesOrder.findByIdAndUpdate(inv.sourceorderid, { $set: patch });
+  } catch (e) { /* best-effort sync */ }
+};
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 // Only name-type fields fall back to doc.name. Numeric/other fields must NOT,
@@ -270,6 +280,15 @@ export const salesInvoiceResolvers = {
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
       console.log("✅ Created invoice autocreate:", created.autocreate);
 
+      // Converting an order → invoice confirms the source order (canonical status).
+      if (input.sourceorderid) {
+        try {
+          await SalesOrder.findByIdAndUpdate(input.sourceorderid, {
+            $set: { isConverted: true, orderStatus: "confirmed" },
+          });
+        } catch (e) { /* best-effort */ }
+      }
+
       // ✅ Explicitly call adjustStockAndTransactions WITH userContext
       // (ensures Transaction/Payment Created By is never N/A)
       await SalesInvoice.adjustStockAndTransactions(null, created, createdbyData);
@@ -321,30 +340,32 @@ export const salesInvoiceResolvers = {
       return !!(await SalesInvoice.findByIdAndUpdate(id, { status: true }));
     },
 
-    // ── Delivery transitions (invoice = dispatch document) ────────────────
+    // ── Delivery transitions (sync back to the canonical source order) ────
     markSalesInvoiceDispatched: async (_: any, { id, deliveryboyid }: any) => {
       const update: any = { deliveryStatus: "dispatched" };
       if (deliveryboyid) update.deliveryboyid = deliveryboyid;
       const updated = await SalesInvoice.findByIdAndUpdate(id, update, { new: true })
         .populate(populateFields).lean();
       if (!updated) throw new Error("Invoice not found");
+      await syncOrderFromInvoice(id, { orderStatus: "dispatched", deliveryStatus: "dispatched", ...(deliveryboyid ? { deliveryboyid } : {}) });
       return formatInvoice(updated);
     },
 
     markSalesInvoiceDelivered: async (_: any, { id, byId, byName, byType }: any, context: any) => {
       const user = context?.user;
+      const deliveredAt = new Date();
+      const by = {
+        deliveredById: byId || user?.id || null,
+        deliveredByName: byName || user?.name || user?.email || null,
+        deliveredByType: byType || user?.type || null,
+      };
       const updated = await SalesInvoice.findByIdAndUpdate(
         id,
-        {
-          deliveryStatus: "delivered",
-          deliveredAt: new Date(),
-          deliveredById: byId || user?.id || null,
-          deliveredByName: byName || user?.name || user?.email || null,
-          deliveredByType: byType || user?.type || null,
-        },
+        { deliveryStatus: "delivered", deliveredAt, ...by },
         { new: true }
       ).populate(populateFields).lean();
       if (!updated) throw new Error("Invoice not found");
+      await syncOrderFromInvoice(id, { orderStatus: "delivered", deliveryStatus: "delivered", deliveredAt, ...by });
       return formatInvoice(updated);
     },
 
@@ -355,6 +376,7 @@ export const salesInvoiceResolvers = {
         { new: true }
       ).populate(populateFields).lean();
       if (!updated) throw new Error("Invoice not found");
+      await syncOrderFromInvoice(id, { orderStatus: "dispatched", deliveryStatus: "dispatched", deliveryboyid });
       return formatInvoice(updated);
     },
   },

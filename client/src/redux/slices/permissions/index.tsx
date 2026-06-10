@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { findModule, type ModuleAction } from "../../../config/modules";
+import { findModule, DEFAULT_ON_MODULE_IDS, type ModuleAction } from "../../../config/modules";
 
 interface PermissionsState {
   permissions: Record<string, Record<string, boolean>>;
@@ -32,6 +32,12 @@ export const { setPermissions, clearPermissions } = permissionsSlice.actions;
 const isModuleInAllowed = (state: any, moduleId: string): boolean => {
   const role = state.auth.type?.toString().toLowerCase();
   const mid = moduleId.toLowerCase();
+
+  // Default-on modules (newly added) are always allowed at the business level
+  // even for tenants whose allowedmodules array predates the module. Branch/
+  // staff overrides below still apply.
+  if (DEFAULT_ON_MODULE_IDS.includes(mid)) return true;
+
   const includes = (arr: string[] | null | undefined) => {
     if (!arr || !Array.isArray(arr)) return true; // null/undefined = no restriction
     return arr.some((m: string) => m.toLowerCase() === mid);

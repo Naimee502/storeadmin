@@ -30,6 +30,7 @@ import { salesReturnResolvers } from "./salesreturn";
 import { purchaseReturnResolvers } from "./purchasereturn";
 import { adminSettingsResolvers } from "./adminsettings";
 import { permissionsResolvers } from "./permissions";
+import { chargeRuleResolvers } from "./chargerule";
 
 export const resolvers = [
   branchResolvers,
@@ -64,4 +65,5 @@ export const resolvers = [
   purchaseReturnResolvers,
   adminSettingsResolvers,
   permissionsResolvers,
+  chargeRuleResolvers,
 ];

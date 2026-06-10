@@ -19,6 +19,8 @@ import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
+  BILLING_MODULE_IDS,
+  DEFAULT_ON_MODULE_IDS,
   type ModuleAction,
 } from "../../config/modules";
 
@@ -26,6 +28,21 @@ type TabKey = "general" | "modules" | "permissions";
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
   enableGst: ["reports.gst"],
+};
+
+// Compute the set of module ids that must be force-disabled given the current
+// settings. Boolean feature flags use FEATURE_TO_MODULES; businessMode is a
+// special enum: "order_only" switches off all billing/accounting modules.
+const computeDisabledModuleIds = (settings: any): Set<string> => {
+  const out = new Set<string>();
+  if (!settings) return out;
+  Object.entries(FEATURE_TO_MODULES).forEach(([flag, ids]) => {
+    if (settings[flag] === false) ids.forEach((id) => out.add(id));
+  });
+  if (settings.businessMode === "order_only") {
+    BILLING_MODULE_IDS.forEach((id) => out.add(id));
+  }
+  return out;
 };
 
 const BusinessSettings = () => {
@@ -242,6 +259,19 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
+      <Section title="Business Type">
+        <Toggle
+          label="Order-taking only (off = full billing & accounting / ERP)"
+          checked={draft.businessMode === "order_only"}
+          onChange={(v: boolean) => set("businessMode", v ? "order_only" : "full_erp")}
+        />
+        <div className="text-xs text-gray-400 px-1">
+          When ON, invoicing/accounting modules (Sales Invoice, Returns, Payments,
+          Transactions, etc.) are hidden. Orders are confirmed and delivered
+          directly without creating an invoice.
+        </div>
+      </Section>
+
       <Section title="Feature Toggles">
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
@@ -283,7 +313,10 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const eligibleModules = useMemo(() => {
     // If myAllowed is null/undefined, show all. If empty [], show nothing.
     if (myAllowed === undefined || myAllowed === null) return ADMIN_REGISTER_MODULES;
-    return ADMIN_REGISTER_MODULES.filter(m => myAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
+    return ADMIN_REGISTER_MODULES.filter(m =>
+      DEFAULT_ON_MODULE_IDS.includes(m.id.toLowerCase()) ||
+      myAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase())
+    );
   }, [myAllowed]);
 
   const allCatalogIds = useMemo(() => eligibleModules.map((m: any) => m.id), [eligibleModules]);
@@ -298,14 +331,10 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     }
   }, [targetAdmin?.allowedmodules, allCatalogIds]);
 
-  const featureDisabledIds = useMemo(() => {
-    if (!settings) return new Set<string>();
-    const out = new Set<string>();
-    Object.entries(FEATURE_TO_MODULES).forEach(([flag, ids]) => {
-      if (settings[flag] === false) ids.forEach((id) => out.add(id));
-    });
-    return out;
-  }, [settings]);
+  const featureDisabledIds = useMemo(
+    () => computeDisabledModuleIds(settings),
+    [settings]
+  );
 
   const toggleOne = (id: string) => {
     setDirty(true);
@@ -403,7 +432,10 @@ const PermissionsTab: React.FC<{
   const visibleModules = useMemo(() => {
     let list = MODULES.filter((m) => m.section !== "system");
     if (parentAllowed) {
-      list = list.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
+      list = list.filter(m =>
+        DEFAULT_ON_MODULE_IDS.includes(m.id.toLowerCase()) ||
+        parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase())
+      );
     }
     return list;
   }, [parentAllowed]);

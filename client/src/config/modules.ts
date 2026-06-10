@@ -99,6 +99,7 @@ export const MODULES: ModuleDef[] = [
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "chargerules",   label: "Charge Rules",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "attendance",    label: "Attendance & Leave", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Manufacturing (BOM / Production) ─────────────
@@ -134,6 +135,29 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
 };
 
 export const findModule = (id: string) => MODULES.find((m) => m.id === id);
+
+// Newly-added "core" modules that should be visible by default even for
+// tenants whose allowedmodules array was saved before the module existed.
+// They bypass the business-level allowedmodules gate (so they show up in the
+// sidebar, the Business Modules checklist and the Permissions matrix), while
+// still honoring branch/staff-level restrictions and per-action permissions.
+export const DEFAULT_ON_MODULE_IDS = ["chargerules"];
+
+// Billing / accounting modules — switched OFF when a tenant runs in
+// "order_only" business mode (order-taking only, no invoicing/accounting).
+// Sales orders, masters, parties, routes and sales reports stay available.
+export const BILLING_MODULE_IDS = [
+  "salesinvoice",
+  "salesreturn",
+  "purchaseinvoice",
+  "purchasereturn",
+  "transactions",
+  "payments",
+  "expensenote",
+  "posdashboard",
+  "reports.gst",
+  "reports.accounting",
+];
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {

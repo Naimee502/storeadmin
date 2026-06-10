@@ -6,6 +6,9 @@ import {
   RESET_SALES_ORDER,
   CANCEL_SALES_ORDER,
   REOPEN_SALES_ORDER,
+  CONFIRM_SALES_ORDER,
+  MARK_SALES_ORDER_DISPATCHED,
+  MARK_SALES_ORDER_DELIVERED,
 } from '../../mutations/salesorder';
 
 import {
@@ -23,6 +26,9 @@ export const useSalesOrderMutations = () => {
   const [resetSalesOrderMutation] = useMutation(RESET_SALES_ORDER);
   const [cancelSalesOrderMutation] = useMutation(CANCEL_SALES_ORDER);
   const [reopenSalesOrderMutation] = useMutation(REOPEN_SALES_ORDER);
+  const [confirmSalesOrderMutation] = useMutation(CONFIRM_SALES_ORDER);
+  const [dispatchSalesOrderMutation] = useMutation(MARK_SALES_ORDER_DISPATCHED);
+  const [deliverSalesOrderMutation] = useMutation(MARK_SALES_ORDER_DELIVERED);
 
   return {
     addSalesOrderMutation,
@@ -31,6 +37,9 @@ export const useSalesOrderMutations = () => {
     resetSalesOrderMutation,
     cancelSalesOrderMutation,
     reopenSalesOrderMutation,
+    confirmSalesOrderMutation,
+    dispatchSalesOrderMutation,
+    deliverSalesOrderMutation,
   };
 };
 

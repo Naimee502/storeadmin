@@ -89,6 +89,20 @@ const adminSettingsSchema = new mongoose.Schema(
     },
 
     /* ============================================================
+       BUSINESS MODE — what kind of business this tenant runs.
+       "full_erp"   → orders convert to invoices; billing/accounting on.
+       "order_only" → order-taking only; no invoice/billing modules.
+                      Orders move through their own lifecycle
+                      (confirm → dispatch → deliver) without an invoice.
+       Default full_erp so existing tenants are unaffected.
+       ============================================================ */
+    businessMode: {
+      type: String,
+      enum: ["full_erp", "order_only"],
+      default: "full_erp",
+    },
+
+    /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs
        ============================================================ */
     allowAdminToManageBusinessSettings: { type: Boolean, default: true },

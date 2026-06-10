@@ -1,5 +1,86 @@
 import { SalesOrder } from "../../../models/salesorder";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { SalesInvoice } from "../../../models/salesinvoice";
+import { ChargeRule } from "../../../models/chargerule";
+import { AdminSettings } from "../../../models/adminsettings";
+
+// Evaluate the admin's active charge rules (Amazon/Flipkart-style) against an
+// incoming order and return the auto-charge lines + their grand total. Used by
+// addSalesOrder so app AND website orders pick up delivery/handling/COD fees
+// automatically, with no client-side logic.
+const computeAutoCharges = async (input: any, creatorType: string) => {
+  const result = { lines: [] as any[], total: 0 };
+  try {
+    const rules = await ChargeRule.find({ adminid: input.adminid, status: true, active: true })
+      .sort({ priority: 1, createdAt: 1 })
+      .lean();
+    if (!rules.length) return result;
+
+    // Order base used for thresholds = product subtotal (pre-charges).
+    const base = Number(input.subtotal ?? input.totalamount ?? 0);
+    const paymentType = String(input.paymenttype || "").toLowerCase();
+
+    let deliveryMode = "salesman";
+    try {
+      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+      deliveryMode = settings?.deliveryMode || "salesman";
+    } catch (e) { /* default salesman */ }
+
+    for (const rule of rules) {
+      const creators: string[] = rule.applyToCreatorTypes || [];
+      if (creators.length && !creators.includes(creatorType)) continue;
+
+      const pays: string[] = (rule.paymentTypes || []).map((p: string) => p.toLowerCase());
+      if (pays.length && !pays.includes(paymentType)) continue;
+
+      if (rule.onlyWhenDeliveryBoy && deliveryMode !== "deliveryboy") continue;
+
+      if (Number(rule.minOrderValue || 0) > 0 && base < Number(rule.minOrderValue)) continue;
+      if (Number(rule.freeAboveValue || 0) > 0 && base >= Number(rule.freeAboveValue)) continue;
+
+      const amount = rule.chargeType === "percent"
+        ? +(base * Number(rule.value || 0) / 100).toFixed(2)
+        : Number(rule.value || 0);
+      if (amount <= 0) continue;
+
+      const gstpercent = Number(rule.gstpercent || 0);
+      const gstamount = +(amount * gstpercent / 100).toFixed(2);
+      const totalamount = +(amount + gstamount).toFixed(2);
+
+      result.lines.push({
+        ledgerid: rule.ledgerid || undefined,
+        ledgername: rule.name,
+        amount,
+        gstpercent,
+        gstamount,
+        totalamount,
+        remarks: "Auto-applied charge",
+      });
+      result.total += totalamount;
+    }
+  } catch (e) { /* charge engine is best-effort; never block an order */ }
+  result.total = +result.total.toFixed(2);
+  return result;
+};
+
+// Canonical lifecycle status for an order. Falls back to deriving from the
+// legacy fields for older records that have no explicit orderStatus.
+const deriveOrderStatus = (o: any): string => {
+  if (o?.orderStatus) return o.orderStatus;
+  if (o?.cancelStatus === "cancelled") return "cancelled";
+  if (o?.deliveryStatus === "delivered") return "delivered";
+  if (o?.deliveryStatus === "dispatched") return "dispatched";
+  if (o?.isConverted) return "confirmed";
+  return "pending";
+};
+
+// Keep the linked Sales Invoice (if any) in sync with the order's fulfilment,
+// so the order stays the single source of truth and every view agrees.
+const syncInvoiceFromOrder = async (orderId: any, patch: any) => {
+  try {
+    await SalesInvoice.updateMany({ sourceorderid: orderId }, { $set: patch });
+  } catch (e) { /* invoice sync is best-effort */ }
+};
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 // Only name-type fields fall back to doc.name; numeric fields (latitude/longitude)
@@ -38,6 +119,7 @@ const formatOrder = (order: any) => ({
   createdby_name: order.createdby_name,
   createdby_type: order.createdby_type,
   isConverted: order.isConverted,
+  orderStatus: deriveOrderStatus(order),
 
   othercharges: order.othercharges?.map((oc: any) => ({
     ...oc,
@@ -169,11 +251,26 @@ export const salesOrderResolvers = {
           createdby_type: user?.type || input.createdby_type || 'admin',
         };
 
+        // Auto-apply the admin's dynamic charge rules (delivery/handling/COD,
+        // etc.). App and website orders carry no charges of their own, so the
+        // engine adds them here based on the configured rules.
+        const auto = await computeAutoCharges(input, createdbyData.createdby_type);
+        const mergedCharges = [ ...(input.othercharges || []), ...auto.lines ];
+        const finalTotal = +(Number(input.totalamount || 0) + auto.total).toFixed(2);
+
+        // Lock the agreed total at order time. Snapshot of the total the
+        // customer agreed to (incl. auto charges); never recomputed later.
+        const lockedData = {
+          othercharges: mergedCharges,
+          totalamount: finalTotal,
+          lockedTotal: input.lockedTotal ?? finalTotal,
+        };
+
         console.log("=== Sales Order Create ===");
         console.log("User from context:", user);
         console.log("CreatedbyData:", createdbyData);
 
-        const created = await SalesOrder.create({ ...input, ...createdbyData });
+        const created = await SalesOrder.create({ ...input, ...createdbyData, ...lockedData });
 
         console.log("Created Sales Order:", {
           id: created._id,
@@ -224,7 +321,7 @@ export const salesOrderResolvers = {
       }
       const updated = await SalesOrder.findByIdAndUpdate(
         id,
-        { cancelStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
+        { cancelStatus: "cancelled", orderStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
         { new: true }
       ).populate(populateFields).lean();
       return updated ? formatOrder(updated) : null;
@@ -239,21 +336,30 @@ export const salesOrderResolvers = {
       }
       const updated = await SalesOrder.findByIdAndUpdate(
         id,
-        { cancelStatus: "open", cancelReason: null, cancelledAt: null },
+        { cancelStatus: "open", orderStatus: existing.isConverted ? "confirmed" : "pending", cancelReason: null, cancelledAt: null },
         { new: true }
       ).populate(populateFields).lean();
       return updated ? formatOrder(updated) : null;
     },
 
-    // ── Fulfilment transitions ──────────────────────────────────────────────
+    // ── Fulfilment transitions (order = source of truth, syncs the invoice) ──
+    confirmSalesOrder: async (_: any, { id }: any) => {
+      const updated = await SalesOrder.findByIdAndUpdate(
+        id, { orderStatus: "confirmed" }, { new: true }
+      ).populate(populateFields).lean();
+      if (!updated) throw new Error("Sales Order not found");
+      return formatOrder(updated);
+    },
+
     markSalesOrderDispatched: async (_: any, { id, deliveryboyid }: any) => {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
-      const update: any = { deliveryStatus: "dispatched" };
+      const update: any = { deliveryStatus: "dispatched", orderStatus: "dispatched" };
       if (deliveryboyid) update.deliveryboyid = deliveryboyid;
       const updated = await SalesOrder.findByIdAndUpdate(id, update, { new: true })
         .populate(populateFields).lean();
+      await syncInvoiceFromOrder(id, { deliveryStatus: "dispatched", ...(deliveryboyid ? { deliveryboyid } : {}) });
       return updated ? formatOrder(updated) : null;
     },
 
@@ -262,24 +368,26 @@ export const salesOrderResolvers = {
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
       const user = context?.user;
+      const deliveredAt = new Date();
+      const patch = {
+        deliveredById: byId || user?.id || null,
+        deliveredByName: byName || user?.name || user?.email || null,
+        deliveredByType: byType || user?.type || null,
+      };
       const updated = await SalesOrder.findByIdAndUpdate(
         id,
-        {
-          deliveryStatus: "delivered",
-          deliveredAt: new Date(),
-          deliveredById: byId || user?.id || null,
-          deliveredByName: byName || user?.name || user?.email || null,
-          deliveredByType: byType || user?.type || null,
-        },
+        { deliveryStatus: "delivered", orderStatus: "delivered", deliveredAt, ...patch },
         { new: true }
       ).populate(populateFields).lean();
+      await syncInvoiceFromOrder(id, { deliveryStatus: "delivered", deliveredAt, ...patch });
       return updated ? formatOrder(updated) : null;
     },
 
     assignOrderDeliveryBoy: async (_: any, { id, deliveryboyid }: any) => {
+      await syncInvoiceFromOrder(id, { deliveryboyid, deliveryStatus: "dispatched" });
       const updated = await SalesOrder.findByIdAndUpdate(
         id,
-        { deliveryboyid, deliveryStatus: "dispatched" },
+        { deliveryboyid, deliveryStatus: "dispatched", orderStatus: "dispatched" },
         { new: true }
       ).populate(populateFields).lean();
       if (!updated) throw new Error("Sales Order not found");

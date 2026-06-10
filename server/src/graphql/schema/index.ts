@@ -30,6 +30,7 @@ import { salesReturnTypeDefs } from "./salesreturn";
 import { purchaseReturnTypeDefs } from "./purchasereturn";
 import { adminSettingsTypeDefs } from "./adminsettings";
 import { permissionsTypeDefs } from "./permissions";
+import { chargeRuleTypeDefs } from "./chargerule";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -64,4 +65,5 @@ export const typeDefs = [
   purchaseReturnTypeDefs,
   adminSettingsTypeDefs,
   permissionsTypeDefs,
+  chargeRuleTypeDefs,
 ];

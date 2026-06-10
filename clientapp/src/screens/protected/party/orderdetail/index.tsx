@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import {
+  CONFIRM_SALES_ORDER,
   MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
 } from '../../../../apollo/mutations/accounts';
@@ -33,6 +34,12 @@ const TIMELINE: Record<string, { steps: string[]; current: number }> = {
 };
 
 function getStatus(order: any): string {
+  // Prefer the canonical lifecycle field (kept in sync server-side across
+  // order + invoice). Fall back to derivation for older records.
+  if (order.orderStatus) {
+    const s = String(order.orderStatus);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
   if (order.cancelStatus === 'cancelled') return 'Cancelled';
   if (order.deliveryStatus === 'delivered') return 'Delivered';
   if (order.deliveryStatus === 'dispatched') return 'Dispatched';
@@ -94,6 +101,7 @@ export default function OrderDetail() {
   const loading = isInvoice ? invLoading : orderLoading;
   const refetch = isInvoice ? refetchInv : refetchOrder;
 
+  const [confirmOrder]          = useMutation(CONFIRM_SALES_ORDER);
   const [markOrderDelivered]    = useMutation(MARK_SALES_ORDER_DELIVERED);
   const [markInvoiceDelivered]  = useMutation(MARK_SALES_INVOICE_DELIVERED);
   const [markOrderDispatched]   = useMutation(MARK_SALES_ORDER_DISPATCHED);
@@ -112,6 +120,9 @@ export default function OrderDetail() {
     variables: { adminid: adminId }, skip: !adminId, fetchPolicy: 'cache-and-network',
   });
   const deliveryByBoy = (settingsData as any)?.getAdminSettings?.deliveryMode === 'deliveryboy';
+  // Order-taking-only business: no invoice is ever created, so the order is
+  // confirmed directly (Confirm button) before it can be dispatched/delivered.
+  const orderOnly = (settingsData as any)?.getAdminSettings?.businessMode === 'order_only';
 
   // Who may move fulfilment forward:
   //  - delivery boy: always (they only ever get invoices when the flag is on)
@@ -121,8 +132,34 @@ export default function OrderDetail() {
   const canAct = !!order && (
     role === 'deliveryboy' ? true : (role !== 'party' && !deliveryByBoy)
   );
-  const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
-  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
+  // Confirm is only meaningful in order-only mode (full-ERP confirms via
+  // invoice conversion). Staff/salesman can confirm; party/customer cannot.
+  const canConfirm  = !!order && !isInvoice && orderOnly && role !== 'party' &&
+                      role !== 'deliveryboy' && status === 'Pending';
+  // In order-only mode dispatch needs the order confirmed first.
+  const canDispatch = canAct && (orderOnly ? status === 'Confirmed' : (status === 'Pending' || status === 'Confirmed'));
+  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled' &&
+                      (orderOnly ? status !== 'Pending' : true);
+
+  const handleConfirm = () => {
+    Alert.alert('Confirm Order', 'Confirm this order?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          setMarking(true);
+          try {
+            await confirmOrder({ variables: { id } });
+            refetch?.();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Could not confirm.');
+          } finally {
+            setMarking(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleMarkDispatched = () => {
     Alert.alert('Mark Dispatched', 'Mark this as dispatched / out for delivery?', [
@@ -366,6 +403,17 @@ export default function OrderDetail() {
           )}
 
           {/* Fulfilment actions — field staff only */}
+          {canConfirm && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#3b82f6', marginBottom: 10 }]}
+              onPress={handleConfirm}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="check-circle-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Confirm Order'}</Text>
+            </TouchableOpacity>
+          )}
           {canDispatch && (
             <TouchableOpacity
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#0ea5e9', marginBottom: 10 }]}

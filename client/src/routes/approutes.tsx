@@ -41,6 +41,8 @@ import DeletedPurchaseInvoices from "../pages/purchaseinvoice/deletedentries";
 import SalesOrders from "../pages/salesorder";
 import AddEditSalesOrder from "../pages/salesorder/addedit";
 import DeletedSalesOrders from "../pages/salesorder/deletedentries";
+import ChargeRules from "../pages/chargerules";
+import ChargeRuleDeletedEntries from "../pages/chargerules/deletedentries";
 import PurchaseOrders from "../pages/purchaseorder";
 import AddEditPurchaseOrder from "../pages/purchaseorder/addedit";
 import DeletedPurchaseOrders from "../pages/purchaseorder/deletedentries";
@@ -538,6 +540,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <DeletedSalesOrders />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/chargerules"
+        element={
+          <ProtectedRoutes>
+            <ChargeRules />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/chargerules/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <ChargeRuleDeletedEntries />
           </ProtectedRoutes>
         }
       />

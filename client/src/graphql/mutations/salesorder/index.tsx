@@ -200,3 +200,28 @@ export const REOPEN_SALES_ORDER = gql`
     }
   }
 `;
+
+// ── Fulfilment transitions (admin can drive the lifecycle directly) ──
+export const CONFIRM_SALES_ORDER = gql`
+  mutation ConfirmSalesOrder($id: ID!) {
+    confirmSalesOrder(id: $id) {
+      id orderStatus isConverted
+    }
+  }
+`;
+
+export const MARK_SALES_ORDER_DISPATCHED = gql`
+  mutation MarkSalesOrderDispatched($id: ID!, $deliveryboyid: ID) {
+    markSalesOrderDispatched(id: $id, deliveryboyid: $deliveryboyid) {
+      id orderStatus deliveryStatus
+    }
+  }
+`;
+
+export const MARK_SALES_ORDER_DELIVERED = gql`
+  mutation MarkSalesOrderDelivered($id: ID!, $byId: ID, $byName: String, $byType: String) {
+    markSalesOrderDelivered(id: $id, byId: $byId, byName: $byName, byType: $byType) {
+      id orderStatus deliveryStatus deliveredAt
+    }
+  }
+`;

@@ -15,9 +15,19 @@ const SalesOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
   const dispatch = useAppDispatch();
+  const { settings } = useAppSelector((s: any) => s.adminsettings);
+  // Order-taking-only business has no invoice module → no "Convert" action,
+  // and the order's own lifecycle (orderStatus) is the meaningful status.
+  const orderOnly = settings?.businessMode === "order_only";
   
   const { data, refetch } = useSalesOrdersQuery();
-  const { deleteSalesOrderMutation, cancelSalesOrderMutation } = useSalesOrderMutations();
+  const {
+    deleteSalesOrderMutation,
+    cancelSalesOrderMutation,
+    confirmSalesOrderMutation,
+    dispatchSalesOrderMutation,
+    deliverSalesOrderMutation,
+  } = useSalesOrderMutations();
   const orderList = data?.getSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -68,9 +78,11 @@ const SalesOrders = () => {
       createdby_name: order.createdby_type
         ? `${order.createdby_name || "N/A"} (${capitalizeFirst(order.createdby_type)})`
         : (order.createdby_name || "N/A"),
-      status: order.cancelStatus === "cancelled"
-        ? "Cancelled"
-        : (order.status ? "Active" : "Inactive"),
+      status: order.orderStatus
+        ? capitalizeFirst(order.orderStatus)
+        : (order.cancelStatus === "cancelled"
+            ? "Cancelled"
+            : (order.status ? "Active" : "Inactive")),
       cancelStatus: order.cancelStatus,
       isConverted: order.isConverted,
     };
@@ -99,8 +111,48 @@ const SalesOrders = () => {
             }
           }}
           onAdd={() => navigate("/salesorder/addedit")}
-          showConvert={actions.showConvert}
+          showConvert={actions.showConvert && !orderOnly}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
+          showConfirm={(row: any) =>
+            !!actions.showEdit && row.cancelStatus !== "cancelled" && !row.isConverted &&
+            (!row.orderStatus || row.orderStatus === "pending")
+          }
+          onConfirm={async (row: any) => {
+            if (!window.confirm(`Confirm Sales Order SO-${row.billnumber}?`)) return;
+            try {
+              await confirmSalesOrderMutation({ variables: { id: row.id } });
+              await refetch();
+              dispatch(showMessage({ message: "Order confirmed.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to confirm.", type: "error" }));
+            }
+          }}
+          showDispatch={(row: any) =>
+            !!actions.showEdit && row.cancelStatus !== "cancelled" && row.orderStatus === "confirmed"
+          }
+          onDispatch={async (row: any) => {
+            if (!window.confirm(`Mark SO-${row.billnumber} as dispatched?`)) return;
+            try {
+              await dispatchSalesOrderMutation({ variables: { id: row.id } });
+              await refetch();
+              dispatch(showMessage({ message: "Order dispatched.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to dispatch.", type: "error" }));
+            }
+          }}
+          showDeliver={(row: any) =>
+            !!actions.showEdit && row.cancelStatus !== "cancelled" && row.orderStatus === "dispatched"
+          }
+          onDeliver={async (row: any) => {
+            if (!window.confirm(`Mark SO-${row.billnumber} as delivered?`)) return;
+            try {
+              await deliverSalesOrderMutation({ variables: { id: row.id, byType: "admin" } });
+              await refetch();
+              dispatch(showMessage({ message: "Order delivered.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to deliver.", type: "error" }));
+            }
+          }}
           showCancel={(row: any) => actions.showCancel && !row.isConverted && row.cancelStatus !== "cancelled"}
           onCancel={async (row: any) => {
             const reason = window.prompt(`Cancel Sales Order ${row.billnumber}? Enter reason:`);

@@ -66,6 +66,21 @@ const salesOrderSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },
+
+    // Agreed total captured at order time (ecommerce / Amazon-style).
+    // Snapshot of totalamount when the order was first placed — the price the
+    // customer agreed to. Must NOT drift if catalog prices change later.
+    // Set once on create; never recomputed by edits.
+    lockedTotal: { type: Number },
+
+    // Canonical lifecycle status (single source of truth for the whole system).
+    // pending → confirmed → dispatched → delivered, plus cancelled / returned.
+    // Works for order-only businesses (no invoice). Invoice + apps read/sync this.
+    orderStatus: {
+      type: String,
+      enum: ["pending", "confirmed", "dispatched", "delivered", "cancelled", "returned"],
+      default: "pending",
+    },
     // Order lifecycle status. "open" → in flight, "cancelled" → user
     // cancelled before conversion, "converted" → became a Sales Invoice.
     // Kept alongside the existing soft-delete `status` boolean.

@@ -41,6 +41,7 @@ export const GET_SALES_ORDERS = gql`
       totalgst
       cancelStatus
       isConverted
+      orderStatus
       deliveryStatus
       deliveredAt
       status
@@ -72,6 +73,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       totalgst
       cancelStatus
       isConverted
+      orderStatus
       deliveryStatus
       deliveredAt
       status
@@ -310,6 +312,7 @@ export const GET_DELIVERY_ORDERS = gql`
       paymenttype
       cancelStatus
       isConverted
+      orderStatus
       deliveryStatus
       deliveredAt
       partyacc {
@@ -325,6 +328,7 @@ export const GET_ADMIN_SETTINGS = gql`
     getAdminSettings(adminid: $adminid) {
       id
       deliveryMode
+      businessMode
     }
   }
 `;

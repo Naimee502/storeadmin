@@ -45,6 +45,14 @@ export const CANCEL_SALES_ORDER = gql`
   }
 `;
 
+export const CONFIRM_SALES_ORDER = gql`
+  mutation ConfirmSalesOrder($id: ID!) {
+    confirmSalesOrder(id: $id) {
+      id orderStatus isConverted
+    }
+  }
+`;
+
 export const MARK_SALES_ORDER_DELIVERED = gql`
   mutation MarkSalesOrderDelivered($id: ID!, $byId: ID, $byName: String, $byType: String) {
     markSalesOrderDelivered(id: $id, byId: $byId, byName: $byName, byType: $byType) {

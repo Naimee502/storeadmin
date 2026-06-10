@@ -25,6 +25,7 @@ import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
+  DEFAULT_ON_MODULE_IDS,
   type ModuleAction,
 } from "../../config/modules";
 
@@ -86,7 +87,12 @@ const Settings = () => {
   const parentAllowed = useMemo(() => {
     const list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
     if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id);
-    return list;
+    // Always surface default-on modules (newly added) so they can be granted /
+    // permissioned even for tenants whose allowedmodules predate the module.
+    const extra = DEFAULT_ON_MODULE_IDS.filter(
+      (id) => !list.map((x: string) => x.toLowerCase()).includes(id.toLowerCase())
+    );
+    return [...list, ...extra];
   }, [isAdmin, admin, branch]);
 
   // ── Target's effective allowed modules ──

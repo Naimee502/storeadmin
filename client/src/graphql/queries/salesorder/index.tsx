@@ -63,6 +63,8 @@ export const GET_SALES_ORDERS = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt
@@ -132,6 +134,8 @@ export const GET_DELETED_SALES_ORDERS = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt
@@ -201,6 +205,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt
