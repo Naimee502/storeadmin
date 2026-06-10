@@ -87,7 +87,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const grandTotal = (productsTotal - totalDiscount) + totalGST - computedInvDisc + otherChargesTotal + roundOff;
 
-    const encrypt = settings?.encryptInvoicePrices && grandTotal > 100000;
+    const encrypt = !!settings?.encryptInvoicePrices;
     const mask = (val: number) => encrypt ? val / 10 : val;
 
     return (

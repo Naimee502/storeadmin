@@ -30,7 +30,7 @@ const SETTINGS_FIELDS = `
   displayProductPriceOnWebsite
   encryptInvoicePrices
   deliveryMode
-  businessMode
+  partyManagesDownline
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions

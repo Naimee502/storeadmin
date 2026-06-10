@@ -8,4 +8,5 @@ export { default as PaymentDetail } from './paymentdetail';
 export { default as PartyProfile }  from './profile';
 export { default as ProductDetail } from './productdetail';
 export { default as OrderDetail }   from './orderdetail';
+export { default as OrderEdit }      from './orderedit';
 export { default as CartScreen }    from './cart';

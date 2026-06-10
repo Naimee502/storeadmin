@@ -7,6 +7,7 @@ export const GET_CHANNELS = gql`
       channelCode
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }
@@ -19,6 +20,7 @@ export const GET_DELETED_CHANNELS = gql`
       channelCode
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }
@@ -31,6 +33,7 @@ export const GET_CHANNEL_BY_ID = gql`
       channelCode
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }

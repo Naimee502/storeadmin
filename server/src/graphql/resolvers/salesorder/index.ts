@@ -1,6 +1,25 @@
 import { SalesOrder } from "../../../models/salesorder";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { SalesInvoice } from "../../../models/salesinvoice";
+import { Account } from "../../../models/accounts";
+
+// Recursively collect all party ids under a root party (assignaccountid chain).
+// Used for channel downline: a wholesaler can see its retailers' orders, etc.
+const getDownlinePartyIds = async (rootId: any): Promise<string[]> => {
+  const out: string[] = [];
+  let frontier = [String(rootId)];
+  // Guard against cycles / runaway depth.
+  for (let depth = 0; depth < 6 && frontier.length; depth++) {
+    const children = await Account.find({ assignaccountid: { $in: frontier }, status: true })
+      .select("_id")
+      .lean();
+    const ids = children.map((c: any) => c._id.toString()).filter((id) => !out.includes(id));
+    if (!ids.length) break;
+    out.push(...ids);
+    frontier = ids;
+  }
+  return out;
+};
 import { ChargeRule } from "../../../models/chargerule";
 import { AdminSettings } from "../../../models/adminsettings";
 
@@ -193,7 +212,15 @@ export const salesOrderResolvers = {
       if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
       if (filter.billtype) query.billtype = filter.billtype;
       if (filter.ordertype) query.ordertype = filter.ordertype;
-      if (filter.partyacc) query.partyacc = filter.partyacc;
+      if (filter.partyacc) {
+        if (filter.includeDownline) {
+          // Party login with downline management on: show own + sub-party orders.
+          const downline = await getDownlinePartyIds(filter.partyacc);
+          query.partyacc = { $in: [filter.partyacc, ...downline] };
+        } else {
+          query.partyacc = filter.partyacc;
+        }
+      }
 
       if (filter.billdateFrom || filter.billdateTo) {
         query.billdate = {};

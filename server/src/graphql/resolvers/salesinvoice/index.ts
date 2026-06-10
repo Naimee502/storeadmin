@@ -121,6 +121,11 @@ export const salesInvoiceResolvers = {
         // Available pool: invoices not yet picked up by a delivery boy.
         query.deliveryboyid = { $in: [null, undefined] };
         query.deliveryStatus = { $ne: 'delivered' };
+        // Salesman-taken orders are always salesman-fulfilled — the salesman
+        // who booked the order hands it over himself. So even after they become
+        // invoices they must NOT appear in the delivery-boy pool. Only
+        // end-user / party / website / counter orders reach the delivery boy.
+        query.orderedby_type = { $ne: 'salesman' };
       }
 
       // Add filters if provided
@@ -297,6 +302,74 @@ export const salesInvoiceResolvers = {
         .populate(populateFields)
         .lean()
         .then(formatInvoice);
+    },
+
+    // One-tap convert (used by the mobile app, which has no invoice form).
+    // Builds the invoice input from the source order and reuses addSalesInvoice
+    // so all the auto-posting (ledger / stock / payment) runs exactly the same.
+    convertSalesOrderToInvoice: async (_: any, { id }: any, context: any) => {
+      const order: any = await SalesOrder.findById(id).lean();
+      if (!order) throw new Error("Sales Order not found");
+      if (order.isConverted) throw new Error("This order is already converted to an invoice.");
+      if (order.cancelStatus === "cancelled") throw new Error("A cancelled order cannot be converted.");
+
+      const str = (v: any) => (v == null ? null : v.toString());
+      const input: any = {
+        adminid: str(order.adminid),
+        branchid: str(order.branchid),
+        salesmenid: str(order.salesmenid),
+        paymenttype: order.paymenttype,
+        partyacc: str(order.partyacc),
+        taxorsupplytype: order.taxorsupplytype || "regular",
+        billdate: new Date().toISOString().slice(0, 10),
+        billtype: (order.billtype && order.billtype !== "order") ? order.billtype : "taxInvoice",
+        notes: order.notes,
+        ordertype: order.ordertype,
+        isservice: !!order.isservice,
+        subtotal: order.subtotal,
+        totaldiscount: order.totaldiscount,
+        totalgst: order.totalgst,
+        totalamount: order.totalamount,
+        invoicediscount: order.invoicediscount,
+        invoicediscounttype: order.invoicediscounttype,
+        roundoff: order.roundoff,
+        deliverydate: order.deliverydate,
+        duedate: order.duedate,
+        transportname: order.transportname,
+        vehiclenumber: order.vehiclenumber,
+        ewaybillno: order.ewaybillno,
+        distance: order.distance,
+        productservice: (order.productservice || []).map((p: any) => ({
+          productserviceid: str(p.productserviceid),
+          variantid: str(p.variantid),
+          salesunitid: str(p.salesunitid),
+          unitqty: p.unitqty ?? 1,
+          gst: p.gst ?? 0,
+          qty: p.qty ?? 0,
+          rate: p.rate ?? 0,
+          amount: p.amount ?? 0,
+          discount: p.discount ?? 0,
+          salesaccountid: str(p.salesaccountid),
+          purchaseaccountid: str(p.purchaseaccountid),
+          serviceaccountid: str(p.serviceaccountid),
+        })),
+        othercharges: (order.othercharges || []).map((c: any) => ({
+          ledgerid: str(c.ledgerid),
+          ledgername: c.ledgername,
+          amount: c.amount ?? 0,
+          gstpercent: c.gstpercent ?? 0,
+          gstamount: c.gstamount ?? 0,
+          totalamount: c.totalamount ?? 0,
+          remarks: c.remarks,
+        })),
+        // Track origin + who booked the order.
+        sourceorderid: str(order._id),
+        orderedby_id: str(order.createdby_id),
+        orderedby_name: order.createdby_name,
+        orderedby_type: order.createdby_type,
+      };
+
+      return await (salesInvoiceResolvers as any).Mutation.addSalesInvoice(_, { input }, context);
     },
 
     editSalesInvoice: async (_: any, { id, input }: any, context: any) => {

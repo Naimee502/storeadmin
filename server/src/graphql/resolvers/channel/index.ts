@@ -15,24 +15,26 @@ export const channelResolvers = {
         }
       }
 
-      return await Channel.find(filter).populate("admin");
+      return await Channel.find(filter).populate("admin").populate("handlesChannels");
     },
     getDeletedChannels: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await Channel.find(filter).populate("admin");
+      return await Channel.find(filter).populate("admin").populate("handlesChannels");
     },
     getChannelById: async (_: any, { id }: { id: string }) => {
-      return await Channel.findById(id).populate("admin");
+      return await Channel.findById(id).populate("admin").populate("handlesChannels");
     },
   },
 
   Mutation: {
     createChannel: async (_: any, { input }: any) => {
-      return await Channel.create(input);
+      const created = await Channel.create(input);
+      return await Channel.findById(created._id).populate("admin").populate("handlesChannels");
     },
     updateChannel: async (_: any, { id, input }: any) => {
-      return await Channel.findByIdAndUpdate(id, input, { new: true });
+      return await Channel.findByIdAndUpdate(id, input, { new: true })
+        .populate("admin").populate("handlesChannels");
     },
     deleteChannel: async (_: any, { id }: any) => {
       const result = await Channel.findByIdAndUpdate(id, { status: false }, { new: true });

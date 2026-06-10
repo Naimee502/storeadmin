@@ -163,6 +163,7 @@ export const salesOrderTypeDefs = gql`
     isConverted: Boolean
     status: Boolean
     includeConverted: Boolean
+    includeDownline: Boolean
     deliveryboyid: ID
     deliveryStatus: String
     unassignedDelivery: Boolean

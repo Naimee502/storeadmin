@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import FormField from "../../components/formfiled";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
@@ -28,9 +29,9 @@ const Channels = () => {
   const channelList = data?.getChannels || [];
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
-  const [formValues, setFormValues] = useState({ 
-    channelName: "", 
-    status: true 
+  const [formValues, setFormValues] = useState({
+    channelName: "",
+    status: true,
   });
   const [formErrors, setFormErrors] = useState<any>({});
   const [isEditing, setIsEditing] = useState(false);
@@ -50,12 +51,23 @@ const Channels = () => {
   };
 
   const handleEdit = (row: any) => {
-    setFormValues({ 
-      channelName: row.channelName, 
-      status: row.status === "Active" 
+    setFormValues({
+      channelName: row.channelName,
+      status: row.status === "Active",
     });
     setIsEditing(true);
     setEditingId(row.id);
+  };
+
+  // Save handled-channels for a row directly from the listing dropdown.
+  const handleSaveHandles = async (id: string, handlesChannels: string[]) => {
+    try {
+      await updateChannel({ variables: { id, input: { handlesChannels } } });
+      await refetch();
+      dispatch(showMessage({ message: "Channel hierarchy updated.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Failed to update.", type: "error" }));
+    }
   };
 
   useEffect(() => {
@@ -81,9 +93,9 @@ const Channels = () => {
         await updateChannel({
           variables: {
             id: editingId,
-            input: { 
-              channelName: formValues.channelName, 
-              status: formValues.status 
+            input: {
+              channelName: formValues.channelName,
+              status: formValues.status,
             },
           },
         });
@@ -91,10 +103,10 @@ const Channels = () => {
       } else {
         await createChannel({
           variables: {
-            input: { 
-              channelName: formValues.channelName, 
-              status: formValues.status, 
-              admin: adminId 
+            input: {
+              channelName: formValues.channelName,
+              status: formValues.status,
+              admin: adminId,
             },
           },
         });
@@ -115,6 +127,7 @@ const Channels = () => {
     { label: "S.No", key: "seqNo" },
     { label: "Code", key: "channelCode" },
     { label: "Channel Name", key: "channelName" },
+    { label: "Handles", key: "handlesText" },
     { label: "Default", key: "isDefaultText" },
     { label: "Status", key: "status" },
   ];
@@ -123,6 +136,13 @@ const Channels = () => {
     ...channel,
     seqNo: index + 1,
     isDefaultText: channel.isDefault ? "Yes" : "No",
+    handlesText: (
+      <HandlesCell
+        channel={channel}
+        allChannels={channelList}
+        onSave={handleSaveHandles}
+      />
+    ),
     status: channel.status ? "Active" : "Inactive",
   }));
 
@@ -134,12 +154,9 @@ const Channels = () => {
           title="Manage Channels"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
+          showAdd={false}
+          showImport={false}
+          showExport={false}
           onEdit={(row: any) => handleEdit(row)}
           onDelete={async (row: any) => {
             if (row.isDefault) {
@@ -173,3 +190,42 @@ const Channels = () => {
 };
 
 export default Channels;
+
+// Inline per-row multiselect (FormField/react-select) for "which channels
+// this channel handles". Saves immediately on change.
+const HandlesCell: React.FC<{
+  channel: any;
+  allChannels: any[];
+  onSave: (id: string, handles: string[]) => void;
+}> = ({ channel, allChannels, onSave }) => {
+  const [value, setValue] = useState<string[]>(
+    (channel.handlesChannels || []).map((c: any) => c.id)
+  );
+
+  useEffect(() => {
+    setValue((channel.handlesChannels || []).map((c: any) => c.id));
+  }, [channel.handlesChannels]);
+
+  const options = allChannels
+    .filter((c: any) => c.id !== channel.id)
+    .map((c: any) => ({ value: c.id, label: c.channelName }));
+
+  return (
+    <div className="min-w-[200px]">
+      <FormField
+        label=""
+        name={`handles-${channel.id}`}
+        type="multiselect"
+        searchable
+        value={value}
+        options={options}
+        placeholder="Select channels"
+        onChange={(e: any) => {
+          const next = e.target.value as string[];
+          setValue(next);
+          onSave(channel.id, next);
+        }}
+      />
+    </div>
+  );
+};

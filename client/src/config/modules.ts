@@ -143,22 +143,6 @@ export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 // still honoring branch/staff-level restrictions and per-action permissions.
 export const DEFAULT_ON_MODULE_IDS = ["chargerules"];
 
-// Billing / accounting modules — switched OFF when a tenant runs in
-// "order_only" business mode (order-taking only, no invoicing/accounting).
-// Sales orders, masters, parties, routes and sales reports stay available.
-export const BILLING_MODULE_IDS = [
-  "salesinvoice",
-  "salesreturn",
-  "purchaseinvoice",
-  "purchasereturn",
-  "transactions",
-  "payments",
-  "expensenote",
-  "posdashboard",
-  "reports.gst",
-  "reports.accounting",
-];
-
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {

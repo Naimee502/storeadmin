@@ -7,6 +7,7 @@ export const CREATE_CHANNEL = gql`
       channelCode
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }
@@ -19,6 +20,7 @@ export const UPDATE_CHANNEL = gql`
       channelCode
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }

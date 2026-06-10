@@ -89,18 +89,12 @@ const adminSettingsSchema = new mongoose.Schema(
     },
 
     /* ============================================================
-       BUSINESS MODE — what kind of business this tenant runs.
-       "full_erp"   → orders convert to invoices; billing/accounting on.
-       "order_only" → order-taking only; no invoice/billing modules.
-                      Orders move through their own lifecycle
-                      (confirm → dispatch → deliver) without an invoice.
-       Default full_erp so existing tenants are unaffected.
+       CHANNEL DOWNLINE — when true, a channel party (e.g. wholesaler) can
+       see/manage the orders & payments of the sub-parties under it
+       (assignaccountid chain). Also drives the "Assign parent party" field
+       on party add. Default off so existing tenants are unaffected.
        ============================================================ */
-    businessMode: {
-      type: String,
-      enum: ["full_erp", "order_only"],
-      default: "full_erp",
-    },
+    partyManagesDownline: { type: Boolean, default: false },
 
     /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs

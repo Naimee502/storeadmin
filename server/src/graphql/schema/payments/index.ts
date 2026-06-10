@@ -83,6 +83,7 @@ export const paymentTypeDefs = gql`
     dateFrom: String
     dateTo: String
     status: Boolean
+    includeDownline: Boolean
   }
 
   # Queries

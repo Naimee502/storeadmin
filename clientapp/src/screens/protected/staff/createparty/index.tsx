@@ -13,7 +13,7 @@ import {
   partyTypeOptions, regionOptions, stateOptions, TYPE_GROUP_MAP, type Option,
 } from '../../../../config';
 import { BackHeader } from '../../../../components';
-import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
+import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
@@ -88,6 +88,7 @@ export default function StaffCreateParty() {
   const [openingbalancetype, setOpeningbalancetype] = useState<'debit' | 'credit'>('debit');
   const [channel, setChannel] = useState<Option | null>(null);
   const [region,  setRegion]  = useState<Option>(regionOptions[0]);
+  const [parentParty, setParentParty] = useState<Option | null>(null);
   const [latitude,  setLatitude]  = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
@@ -108,7 +109,7 @@ export default function StaffCreateParty() {
   };
 
   // Picker modal: which field is open
-  const [picker, setPicker] = useState<null | 'channel' | 'region' | 'state'>(null);
+  const [picker, setPicker] = useState<null | 'channel' | 'region' | 'state' | 'parent'>(null);
 
   const { data: groupData } = useQuery(GET_ACCOUNT_GROUPS, {
     variables: { adminId: adminid }, skip: !adminid,
@@ -116,12 +117,37 @@ export default function StaffCreateParty() {
   const { data: channelData } = useQuery(GET_CHANNELS, {
     variables: { adminId: adminid }, skip: !adminid,
   });
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid }, skip: !adminid,
+  });
+  const { data: accountsData } = useQuery(GET_ACCOUNTS, {
+    variables: { admin: adminid }, skip: !adminid,
+  });
+  const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
 
   const groups: any[] = (groupData as any)?.getAccountGroups ?? [];
   const channels: Option[] = useMemo(
     () => ((channelData as any)?.getChannels ?? []).map((c: any) => ({ value: c.id, label: c.channelName })),
     [channelData],
   );
+  // Mirror admin: Channel & Region only when the channel feature is in use
+  // (channels configured). No channels → hide the section.
+  const channelsConfigured = (((channelData as any)?.getChannels ?? []).length) > 0;
+
+  // Parent (upline) party options — loaded only AFTER a channel is selected,
+  // and only parties whose channel HANDLES the selected channel.
+  const parentPartyOptions: Option[] = useMemo(() => {
+    const sel = channel?.value;
+    if (!sel) return [];
+    const allChannels = (channelData as any)?.getChannels ?? [];
+    const accounts = (accountsData as any)?.getAccounts ?? [];
+    const parentChannelIds = allChannels
+      .filter((c: any) => (c.handlesChannels || []).some((h: any) => h.id === sel))
+      .map((c: any) => c.id);
+    return accounts
+      .filter((a: any) => a.channel?.id && parentChannelIds.includes(a.channel.id))
+      .map((a: any) => ({ value: a.id, label: a.name }));
+  }, [channel, channelData, accountsData]);
 
   const [addAccount] = useMutation(ADD_ACCOUNT);
 
@@ -168,6 +194,7 @@ export default function StaffCreateParty() {
             openingbalancetype,
             channel: channel?.value || null,
             region: region?.value || 'default',
+            assignaccountid: (manageDownline && parentParty?.value) ? parentParty.value : null,
             latitude,
             longitude,
             salesmanid: user?.id || null,
@@ -208,6 +235,7 @@ export default function StaffCreateParty() {
   const pickerOptions: Option[] =
     picker === 'channel' ? [{ value: '', label: 'None' }, ...channels]
     : picker === 'state' ? stateOptions
+    : picker === 'parent' ? [{ value: '', label: 'None' }, ...parentPartyOptions]
     : regionOptions;
 
   return (
@@ -231,7 +259,13 @@ export default function StaffCreateParty() {
                   style={[styles.typeChip, active
                     ? { backgroundColor: colors.brand, borderColor: colors.brand }
                     : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
-                  onPress={() => setType(t.value)}
+                  onPress={() => {
+                    setType(t.value);
+                    // Accounting convention: customer = receivable (debit),
+                    // vendor = payable (credit). Auto-set, user can override.
+                    if (t.value === 'customer') setOpeningbalancetype('debit');
+                    else if (t.value === 'vendor') setOpeningbalancetype('credit');
+                  }}
                 >
                   <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>{t.label}</Text>
                 </TouchableOpacity>
@@ -256,11 +290,25 @@ export default function StaffCreateParty() {
           <Field colors={colors} label="GSTIN"        value={gstin}  onChange={setGstin}  placeholder="22AAAAA0000A1Z5"     icon="card-account-details-outline" maxLength={15} autoCapitalize="characters" />
           <Field colors={colors} label="PAN"          value={pan}    onChange={setPan}    placeholder="AAAAA0000A"          icon="card-text-outline" maxLength={10} autoCapitalize="characters" />
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Channel & Region</Text>
+          {channelsConfigured && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Channel & Region</Text>
 
-          <SelectField colors={colors} label="Channel" value={channel?.label} placeholder="Select channel (optional)" icon="account-network-outline" onPress={() => setPicker('channel')} />
-          <SelectField colors={colors} label="Region"  value={region?.label}  placeholder="Select region" icon="map-marker-radius-outline" onPress={() => setPicker('region')} />
+              <SelectField colors={colors} label="Channel" value={channel?.label} placeholder="Select channel (optional)" icon="account-network-outline" onPress={() => setPicker('channel')} />
+              <SelectField colors={colors} label="Region"  value={region?.label}  placeholder="Select region" icon="map-marker-radius-outline" onPress={() => setPicker('region')} />
+              {manageDownline && (
+                <SelectField
+                  colors={colors}
+                  label="Assign Parent Party"
+                  value={parentParty?.label}
+                  placeholder={channel?.value ? 'Select parent party (optional)' : 'Select a channel first'}
+                  icon="file-tree-outline"
+                  onPress={() => { if (channel?.value) setPicker('parent'); }}
+                />
+              )}
+            </>
+          )}
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Address & Credit</Text>
@@ -334,7 +382,7 @@ export default function StaffCreateParty() {
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
             <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {picker === 'channel' ? 'Select Channel' : picker === 'state' ? 'Select State' : 'Select Region'}
+                {picker === 'channel' ? 'Select Channel' : picker === 'state' ? 'Select State' : picker === 'parent' ? 'Select Parent Party' : 'Select Region'}
               </Text>
               <FlatList
                 data={pickerOptions}
@@ -344,13 +392,15 @@ export default function StaffCreateParty() {
                   const selected =
                     picker === 'channel' ? channel?.value === item.value
                     : picker === 'state' ? stateV?.value === item.value
+                    : picker === 'parent' ? parentParty?.value === item.value
                     : region?.value === item.value;
                   return (
                     <TouchableOpacity
                       style={styles.modalRow}
                       onPress={() => {
-                        if (picker === 'channel') setChannel(item.value ? item : null);
+                        if (picker === 'channel') { setChannel(item.value ? item : null); setParentParty(null); }
                         else if (picker === 'state') setStateV(item);
+                        else if (picker === 'parent') setParentParty(item.value ? item : null);
                         else setRegion(item);
                         setPicker(null);
                       }}

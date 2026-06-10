@@ -176,6 +176,7 @@ export const salesInvoiceTypeDefs = gql`
 
   type Mutation {
     addSalesInvoice(input: SalesInvoiceInput!): SalesInvoice!
+    convertSalesOrderToInvoice(id: ID!): SalesInvoice!
     editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
     deleteSalesInvoice(id: ID!): Boolean!
     resetSalesInvoice(id: ID!): Boolean!

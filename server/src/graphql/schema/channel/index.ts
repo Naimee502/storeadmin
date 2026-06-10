@@ -7,6 +7,7 @@ export const channelTypeDefs = gql`
     channelName: String!
     admin: Admin
     isDefault: Boolean!
+    handlesChannels: [Channel]
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -16,12 +17,14 @@ export const channelTypeDefs = gql`
     channelName: String!
     admin: ID!
     isDefault: Boolean
+    handlesChannels: [ID]
     status: Boolean
   }
 
   input UpdateChannelInput {
     channelName: String
     isDefault: Boolean
+    handlesChannels: [ID]
     status: Boolean
   }
 

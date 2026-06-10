@@ -7,18 +7,20 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all',       label: 'All' },
-  { key: 'pending',   label: 'Pending' },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'all',        label: 'All' },
+  { key: 'pending',    label: 'Pending' },
+  { key: 'confirmed',  label: 'Confirmed' },
+  { key: 'dispatched', label: 'Dispatched' },
+  { key: 'delivered',  label: 'Delivered' },
+  { key: 'cancelled',  label: 'Cancelled' },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
@@ -37,11 +39,9 @@ function displayStatus(order: any): string {
   if (order.isConverted) return 'confirmed';
   return 'pending';
 }
-// Filter bucket (delivered/dispatched are confirmed orders in flight).
+// Filter bucket = the real status (each stage is its own filter now).
 function getOrderStatus(order: any): FilterKey {
-  const s = displayStatus(order);
-  if (s === 'delivered' || s === 'dispatched') return 'confirmed';
-  return s as FilterKey;
+  return displayStatus(order) as FilterKey;
 }
 
 export default function MyOrders() {
@@ -55,12 +55,29 @@ export default function MyOrders() {
 
   const [filter, setFilter] = useState<FilterKey>('all');
 
+  // Downline: when the business lets a channel party manage its sub-parties,
+  // this party also sees orders of the parties under it.
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
+  });
+  const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
+
   const { data, loading, refetch } = useQuery(GET_SALES_ORDERS, {
-    variables: { adminid, partyacc: user?.id },
+    variables: { adminid, partyacc: user?.id, includeDownline: manageDownline },
     skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
   });
 
-  const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+  const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+
+  // Scope: own orders vs sub-party (downline) orders. Only meaningful when
+  // downline management is on; otherwise everything is "mine".
+  const [scope, setScope] = useState<'mine' | 'downline' | 'all'>('mine');
+  const orders = useMemo(() => {
+    if (!manageDownline || scope === 'all') return allOrders;
+    if (scope === 'mine') return allOrders.filter((o: any) => o.partyacc?.id === user?.id);
+    return allOrders.filter((o: any) => o.partyacc?.id && o.partyacc.id !== user?.id);
+  }, [allOrders, scope, manageDownline, user?.id]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return orders;
@@ -68,10 +85,12 @@ export default function MyOrders() {
   }, [orders, filter]);
 
   const counts = useMemo(() => ({
-    all:       orders.length,
-    pending:   orders.filter(o => getOrderStatus(o) === 'pending').length,
-    confirmed: orders.filter(o => getOrderStatus(o) === 'confirmed').length,
-    cancelled: orders.filter(o => getOrderStatus(o) === 'cancelled').length,
+    all:        orders.length,
+    pending:    orders.filter(o => getOrderStatus(o) === 'pending').length,
+    confirmed:  orders.filter(o => getOrderStatus(o) === 'confirmed').length,
+    dispatched: orders.filter(o => getOrderStatus(o) === 'dispatched').length,
+    delivered:  orders.filter(o => getOrderStatus(o) === 'delivered').length,
+    cancelled:  orders.filter(o => getOrderStatus(o) === 'cancelled').length,
   }), [orders]);
 
   const renderOrder = ({ item: order }: any) => {
@@ -92,6 +111,15 @@ export default function MyOrders() {
             <Text style={[styles.billNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
             <Text style={[styles.amount, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
           </View>
+
+          {order.partyacc?.id && order.partyacc.id !== user?.id && (
+            <View style={styles.cardMid}>
+              <Icon name="store-outline" size={12} color={colors.subText} style={{ marginRight: 4 }} />
+              <Text style={[styles.meta, { color: colors.subText }]} numberOfLines={1}>
+                {order.partyacc.accountname || 'Sub-party'}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.cardMid}>
             <Icon name="calendar-outline" size={12} color={colors.subText} style={{ marginRight: 4 }} />
@@ -138,6 +166,29 @@ export default function MyOrders() {
           onPress: () => navigation.navigate('CartScreen'),
         }]}
       />
+
+      {/* Scope segmented toggle (own vs sub-party) — only when downline is on */}
+      {manageDownline && (
+        <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+          {([
+            { key: 'mine',     label: 'My Orders' },
+            { key: 'downline', label: 'Parties Orders' },
+            { key: 'all',      label: 'All' },
+          ] as const).map((s) => {
+            const active = scope === s.key;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                style={[styles.segmentItem, active && { backgroundColor: colors.brand }]}
+                onPress={() => setScope(s.key)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Filter chips — horizontal ScrollView (NOT FlatList) to avoid full-height expansion */}
       <ScrollView
@@ -206,6 +257,12 @@ export default function MyOrders() {
 
 const styles = StyleSheet.create({
   container:  { flex: 1 },
+  segment: {
+    flexDirection: 'row', marginHorizontal: 18, marginTop: 12,
+    borderRadius: 12, borderWidth: 1, padding: 3,
+  },
+  segmentItem: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  segmentText: { fontSize: 13, fontFamily: FONTS.semiBold },
   chipScroll: { flexGrow: 0 },
   chipList:   { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, gap: 8 },
   chip: {

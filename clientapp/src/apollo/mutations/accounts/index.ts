@@ -36,6 +36,14 @@ export const ADD_SALES_ORDER = gql`
   }
 `;
 
+export const EDIT_SALES_ORDER = gql`
+  mutation EditSalesOrder($id: ID!, $input: SalesOrderInput!) {
+    editSalesOrder(id: $id, input: $input) {
+      id billnumber totalamount orderStatus
+    }
+  }
+`;
+
 export const CANCEL_SALES_ORDER = gql`
   mutation CancelSalesOrder($id: ID!) {
     cancelSalesOrder(id: $id) {
@@ -49,6 +57,14 @@ export const CONFIRM_SALES_ORDER = gql`
   mutation ConfirmSalesOrder($id: ID!) {
     confirmSalesOrder(id: $id) {
       id orderStatus isConverted
+    }
+  }
+`;
+
+export const CONVERT_SALES_ORDER_TO_INVOICE = gql`
+  mutation ConvertSalesOrderToInvoice($id: ID!) {
+    convertSalesOrderToInvoice(id: $id) {
+      id billnumber totalamount
     }
   }
 `;

@@ -177,6 +177,10 @@ const FormField: React.FC<FormFieldProps> = ({
           components={{ MenuList: DropdownFooter }}
           addable={addable}
           onAddNew={onAddNew}
+          menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+          menuPosition="fixed"
+          menuShouldScrollIntoView={false}
+          styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
         />
       );
     }

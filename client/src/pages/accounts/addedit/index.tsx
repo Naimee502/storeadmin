@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import {
@@ -16,7 +16,8 @@ import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
-import { regionOptions } from "../../../utils/constants";
+import { regionOptions, stateOptions } from "../../../utils/constants";
+import { selectIsModuleAllowed } from "../../../redux/slices/permissions";
 
 // Tally-style: auto-map party type to standard account group name patterns + category fallback
 const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
@@ -34,6 +35,12 @@ const AddEditAccount = () => {
   const dispatch = useAppDispatch();
   const { admin } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
+  // Channel & Region (and Assigned Salesman) only when the channels module is
+  // enabled — salesmen are channel-based; sales routes are optional, so the
+  // salesman assignment is gated by channel, not by the routes module.
+  const channelAllowed = useAppSelector((s: any) => selectIsModuleAllowed(s, "channels"));
+  // "Assign parent party" only when downline management is on.
+  const partyManagesDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();
@@ -150,13 +157,37 @@ const AddEditAccount = () => {
     setFormErrors(prev => ({ ...prev, [name]: "" }));
   };
 
+  // Parent (upline) party options for downline hierarchy. When a channel is
+  // selected, only parties whose channel HANDLES the selected channel show
+  // (e.g. selecting "Retailer" → parent options = Wholesaler/Superstockist
+  // parties). If no channel selected, all parties are eligible.
+  const parentPartyOptions = useMemo(() => {
+    const sel = formValues.channel;
+    // Load parent options only AFTER a channel is selected.
+    if (!sel) return [];
+    const accounts = assignAccountData?.getAccounts || [];
+    const channels = channelData?.getChannels || [];
+    const parentChannelIds = channels
+      .filter((c: any) => (c.handlesChannels || []).some((h: any) => h.id === sel))
+      .map((c: any) => c.id);
+    // Only parties whose channel handles the selected channel.
+    return accounts
+      .filter((acc: any) => acc.id !== id)
+      .filter((acc: any) => acc.channel?.id && parentChannelIds.includes(acc.channel.id))
+      .map((acc: any) => ({ label: acc.name, value: acc.id }));
+  }, [assignAccountData, channelData, formValues.channel, id]);
+
   // When type changes: update field and auto-resolve account group
   const handleTypeChange = (value: string) => {
     const resolved = resolveAccountGroup(value);
+    // Accounting convention: customer = receivable (debit), vendor = payable (credit).
+    const autoBalType =
+      value === "customer" ? "debit" : value === "vendor" ? "credit" : undefined;
     setFormValues(prev => ({
       ...prev,
       type: value,
       accountgroupid: resolved || prev.accountgroupid,
+      ...(autoBalType ? { openingbalancetype: autoBalType } : {}),
     }));
     setFormErrors(prev => ({ ...prev, type: "", accountgroupid: "" }));
   };
@@ -316,77 +347,83 @@ const AddEditAccount = () => {
                   )}
                 </div>
 
-                {/* Channel — used by price resolution engine to find channel-specific prices */}
-                <div>
-                  <FormField
-                    label="Sales Channel"
-                    name="channel"
-                    type="select"
-                    value={formValues.channel}
-                    onChange={(e) => handleChange("channel", e.target.value)}
-                    options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
-                    placeholder="Select Channel (optional)"
-                    searchable
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
-                    Used for channel-specific pricing from price assignments
-                  </p>
-                </div>
+                {/* Channel & Region — only when the channels module is enabled */}
+                {channelAllowed && (
+                  <>
+                    <div>
+                      <FormField
+                        label="Sales Channel"
+                        name="channel"
+                        type="select"
+                        value={formValues.channel}
+                        onChange={(e) => handleChange("channel", e.target.value)}
+                        options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
+                        placeholder="Select Channel (optional)"
+                        searchable
+                      />
+                      <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                        Used for channel-specific pricing from price assignments
+                      </p>
+                    </div>
 
-                {/* Region — used by price resolution engine to find region-specific prices */}
-                <div>
-                  <FormField
-                    label="Region / Price Zone"
-                    name="region"
-                    type="select"
-                    value={formValues.region}
-                    onChange={(e) => handleChange("region", e.target.value)}
-                    options={regionOptions}
-                    placeholder="Select Region (optional)"
-                    searchable
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
-                    Used for region-specific pricing from price assignments
-                  </p>
-                </div>
+                    <div>
+                      <FormField
+                        label="Region / Price Zone"
+                        name="region"
+                        type="select"
+                        value={formValues.region}
+                        onChange={(e) => handleChange("region", e.target.value)}
+                        options={regionOptions}
+                        placeholder="Select Region (optional)"
+                        searchable
+                      />
+                      <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                        Used for region-specific pricing from price assignments
+                      </p>
+                    </div>
+                  </>
+                )}
 
-                {/* Salesman — links to sales route for salesman mobile app */}
-                <div>
-                  <FormField
-                    label="Assigned Salesman"
-                    name="salesmanid"
-                    type="select"
-                    value={formValues.salesmanid}
-                    onChange={(e) => handleChange("salesmanid", e.target.value)}
-                    options={
-                      staffData?.getStaffAccounts
-                        ?.filter((staff: any) => staff.role?.toLowerCase() === "salesman")
-                        ?.map((staff: any) => ({ label: staff.name, value: staff.id })) || []
-                    }
-                    placeholder="Select Salesman (optional)"
-                    searchable
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5 pl-1">
-                    Links this party to a salesman's sales route
-                  </p>
-                </div>
+                {/* Salesman — channel-based; shown when channels module is enabled */}
+                {channelAllowed && (
+                  <div>
+                    <FormField
+                      label="Assigned Salesman"
+                      name="salesmanid"
+                      type="select"
+                      value={formValues.salesmanid}
+                      onChange={(e) => handleChange("salesmanid", e.target.value)}
+                      options={
+                        staffData?.getStaffAccounts
+                          ?.filter((staff: any) => staff.role?.toLowerCase() === "salesman")
+                          ?.map((staff: any) => ({ label: staff.name, value: staff.id })) || []
+                      }
+                      placeholder="Select Salesman (optional)"
+                      searchable
+                    />
+                    <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                      Links this party to a salesman's sales route
+                    </p>
+                  </div>
+                )}
 
-                {/* Assign Customer — only for channel-customer admin setups */}
-                {admin?.isChannelCustomers && (
-                  <FormField
-                    label="Assign to Customer Account"
-                    name="assignaccountid"
-                    type="select"
-                    value={formValues.assignaccountid}
-                    onChange={(e) => handleChange("assignaccountid", e.target.value)}
-                    options={
-                      assignAccountData?.getAccounts
-                        ?.filter((acc: any) => acc.id !== id)
-                        ?.map((acc: any) => ({ label: acc.name, value: acc.id })) || []
-                    }
-                    placeholder="Select Customer Account (optional)"
-                    searchable
-                  />
+                {/* Assign Parent Party — only when downline management is on */}
+                {partyManagesDownline && (
+                  <div>
+                    <FormField
+                      label="Assign Parent Party"
+                      name="assignaccountid"
+                      type="select"
+                      value={formValues.assignaccountid}
+                      onChange={(e) => handleChange("assignaccountid", e.target.value)}
+                      options={parentPartyOptions}
+                      placeholder={formValues.channel ? "Select parent party (optional)" : "Select a channel first"}
+                      searchable
+                    />
+                    <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                      Upline party (e.g. wholesaler) that handles this party's orders &amp; payments.
+                    </p>
+                  </div>
                 )}
               </div>
             </fieldset>
@@ -401,7 +438,7 @@ const AddEditAccount = () => {
                   label="State"
                   name="state"
                   type="select"
-                  options={regionOptions}
+                  options={stateOptions}
                   value={formValues.state}
                   onChange={(e) => handleChange("state", e.target.value)}
                   placeholder="Select state"

@@ -4,6 +4,23 @@ import { Account } from "../../../models/accounts";
 import { AccountLedger } from "../../../models/accountledgers";
 import { Transaction } from "../../../models/transactions";
 
+// Recursively collect party ids under a root party (assignaccountid chain),
+// for channel downline payment visibility.
+async function getDownlinePartyIds(rootId: any): Promise<string[]> {
+  const out: string[] = [];
+  let frontier = [String(rootId)];
+  for (let depth = 0; depth < 6 && frontier.length; depth++) {
+    const children = await Account.find({ assignaccountid: { $in: frontier }, status: true })
+      .select("_id")
+      .lean();
+    const ids = children.map((c: any) => c._id.toString()).filter((id) => !out.includes(id));
+    if (!ids.length) break;
+    out.push(...ids);
+    frontier = ids;
+  }
+  return out;
+}
+
 // Build balanced journal entries for a payment/receipt
 async function buildPaymentEntries(input: any, partyAccount: any) {
   const amount = parseFloat(String(input.amount));
@@ -57,7 +74,14 @@ export const paymentResolvers = {
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
       if (filter.type) query.type = filter.type;
-      if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+      if (filter.partyid) {
+        if (filter.includeDownline) {
+          const downline = await getDownlinePartyIds(filter.partyid);
+          query.partyid = { $in: [filter.partyid, ...downline].map((x: any) => new mongoose.Types.ObjectId(x)) };
+        } else {
+          query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+        }
+      }
       if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
       if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
       if (typeof filter.status === "boolean") query.status = filter.status;
@@ -88,7 +112,14 @@ export const paymentResolvers = {
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
       if (filter.type) query.type = filter.type;
-      if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+      if (filter.partyid) {
+        if (filter.includeDownline) {
+          const downline = await getDownlinePartyIds(filter.partyid);
+          query.partyid = { $in: [filter.partyid, ...downline].map((x: any) => new mongoose.Types.ObjectId(x)) };
+        } else {
+          query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+        }
+      }
       if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
       if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
       if (filter.dateFrom || filter.dateTo) {

@@ -18,7 +18,7 @@ import {
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
-import { BILLING_MODULE_IDS, DEFAULT_ON_MODULE_IDS } from '../../config/modules';
+import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -106,12 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       if (settings) {
         const flag = Object.entries(FEATURE_TO_MODULES).find(([_, ids]) => ids.includes(moduleId))?.[0];
         if (flag && settings[flag] === false) return false;
-
-        // Order-taking-only business: hide all billing/accounting modules
-        // regardless of allowedmodules (render-time gate, no re-save needed).
-        if (settings.businessMode === "order_only" && BILLING_MODULE_IDS.includes(moduleId)) {
-          return false;
-        }
       }
 
       if (!isModuleAllowed(moduleId)) return false;

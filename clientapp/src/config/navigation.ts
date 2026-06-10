@@ -3,7 +3,7 @@ import {
   PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
-  ProductDetail, OrderDetail, CartScreen,
+  ProductDetail, OrderDetail, OrderEdit, CartScreen,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
   RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty,
@@ -38,6 +38,7 @@ export const Screens: any = {
   PartyProfile,
   ProductDetail,
   OrderDetail,
+  OrderEdit,
   CartScreen,
   // Salesman
   SalesmanDashboard,
@@ -136,6 +137,7 @@ export const NavConfig: any = {
       },
       { name: 'ProductDetail', options: { headerShown: false } },
       { name: 'OrderDetail',   options: { headerShown: false } },
+      { name: 'OrderEdit',     options: { headerShown: false } },
       { name: 'LedgerDetail',  options: { headerShown: false } },
       { name: 'PaymentDetail', options: { headerShown: false } },
       { name: 'CartScreen',    options: { headerShown: false } },
@@ -179,6 +181,7 @@ export const NavConfig: any = {
       { name: 'AddPartyToRoute',  options: { headerShown: false } },
       { name: 'ManagePartyRoute', options: { headerShown: false } },
       { name: 'OrderDetail',      options: { headerShown: false } },
+      { name: 'OrderEdit',        options: { headerShown: false } },
       { name: 'SalesmanCreateParty', options: { headerShown: false } },
     ],
   },
@@ -215,6 +218,7 @@ export const NavConfig: any = {
       },
       { name: 'DeliveryCollectPayment', options: { headerShown: false } },
       { name: 'OrderDetail', options: { headerShown: false } },
+      { name: 'OrderEdit', options: { headerShown: false } },
     ],
   },
 
@@ -252,6 +256,7 @@ export const NavConfig: any = {
       { name: 'StaffCatalog',     options: { headerShown: false } },
       { name: 'StaffCart',        options: { headerShown: false } },
       { name: 'OrderDetail',      options: { headerShown: false } },
+      { name: 'OrderEdit',        options: { headerShown: false } },
     ],
   },
 

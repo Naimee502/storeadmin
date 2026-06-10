@@ -12,13 +12,15 @@ import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
-type FilterKey = 'all' | 'pending' | 'confirmed' | 'cancelled';
+type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'all',       label: 'All'       },
-  { key: 'pending',   label: 'Pending'   },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'all',        label: 'All'        },
+  { key: 'pending',    label: 'Pending'    },
+  { key: 'confirmed',  label: 'Confirmed'  },
+  { key: 'dispatched', label: 'Dispatched' },
+  { key: 'delivered',  label: 'Delivered'  },
+  { key: 'cancelled',  label: 'Cancelled'  },
 ];
 
 const STATUS_COLOR: Record<string, string> = {
@@ -46,9 +48,7 @@ function displayStatus(o: any): string {
   return 'pending';
 }
 function getStatus(o: any): FilterKey {
-  const s = displayStatus(o);
-  if (s === 'delivered' || s === 'dispatched') return 'confirmed';
-  return s as FilterKey;
+  return displayStatus(o) as FilterKey;
 }
 
 export default function StaffOrders() {
@@ -77,10 +77,12 @@ export default function StaffOrders() {
   }, [allOrders, filter]);
 
   const counts = useMemo(() => ({
-    all:       allOrders.length,
-    pending:   allOrders.filter((o: any) => getStatus(o) === 'pending').length,
-    confirmed: allOrders.filter((o: any) => getStatus(o) === 'confirmed').length,
-    cancelled: allOrders.filter((o: any) => getStatus(o) === 'cancelled').length,
+    all:        allOrders.length,
+    pending:    allOrders.filter((o: any) => getStatus(o) === 'pending').length,
+    confirmed:  allOrders.filter((o: any) => getStatus(o) === 'confirmed').length,
+    dispatched: allOrders.filter((o: any) => getStatus(o) === 'dispatched').length,
+    delivered:  allOrders.filter((o: any) => getStatus(o) === 'delivered').length,
+    cancelled:  allOrders.filter((o: any) => getStatus(o) === 'cancelled').length,
   }), [allOrders]);
 
   const renderOrder = ({ item: order }: any) => {

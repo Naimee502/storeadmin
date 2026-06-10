@@ -30,8 +30,8 @@ export const GET_PRODUCTS = gql`
 `;
 
 export const GET_SALES_ORDERS = gql`
-  query GetSalesOrders($adminid: ID, $partyacc: ID, $salesmenid: ID) {
-    getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid, includeConverted: true }) {
+  query GetSalesOrders($adminid: ID, $partyacc: ID, $salesmenid: ID, $includeDownline: Boolean) {
+    getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid, includeConverted: true, includeDownline: $includeDownline }) {
       id
       billnumber
       billdate
@@ -77,11 +77,17 @@ export const GET_SALES_ORDER_BY_ID = gql`
       deliveryStatus
       deliveredAt
       status
+      paymenttype
+      billtype
+      taxorsupplytype
+      isservice
       partyacc   { id accountname mobile }
       salesmenid { id name }
       productservice {
         productserviceid { id name }
         variantid        { id name }
+        salesunitid      { id unitname }
+        unitqty
         qty
         rate
         discount
@@ -157,6 +163,7 @@ export const GET_ACCOUNTS = gql`
       name
       mobile
       city
+      channel { id channelName }
     }
   }
 `;
@@ -227,14 +234,15 @@ export const GET_CHANNELS = gql`
       id
       channelName
       isDefault
+      handlesChannels { id channelName }
       status
     }
   }
 `;
 
 export const GET_PAYMENTS = gql`
-  query GetPayments($adminid: ID, $ledgerid: ID, $partyid: ID) {
-    getPayments(filter: { adminid: $adminid, ledgerid: $ledgerid, partyid: $partyid }) {
+  query GetPayments($adminid: ID, $ledgerid: ID, $partyid: ID, $includeDownline: Boolean) {
+    getPayments(filter: { adminid: $adminid, ledgerid: $ledgerid, partyid: $partyid, includeDownline: $includeDownline }) {
       id
       paymentcode
       paymentdate
@@ -328,7 +336,7 @@ export const GET_ADMIN_SETTINGS = gql`
     getAdminSettings(adminid: $adminid) {
       id
       deliveryMode
-      businessMode
+      partyManagesDownline
     }
   }
 `;

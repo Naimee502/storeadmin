@@ -75,6 +75,10 @@ const ChannelDeletedEntries = () => {
           showView={false}
           showEdit={false}
           showDelete={false}
+          showAdd={false}
+          showImport={false}
+          showExport={false}
+          showDeleted={false}
           showReset={actions.canReset}
           onReset={(row: any) => handleReset(row)}
           isLoading={isLoading}

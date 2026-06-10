@@ -19,7 +19,6 @@ import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
-  BILLING_MODULE_IDS,
   DEFAULT_ON_MODULE_IDS,
   type ModuleAction,
 } from "../../config/modules";
@@ -28,21 +27,6 @@ type TabKey = "general" | "modules" | "permissions";
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
   enableGst: ["reports.gst"],
-};
-
-// Compute the set of module ids that must be force-disabled given the current
-// settings. Boolean feature flags use FEATURE_TO_MODULES; businessMode is a
-// special enum: "order_only" switches off all billing/accounting modules.
-const computeDisabledModuleIds = (settings: any): Set<string> => {
-  const out = new Set<string>();
-  if (!settings) return out;
-  Object.entries(FEATURE_TO_MODULES).forEach(([flag, ids]) => {
-    if (settings[flag] === false) ids.forEach((id) => out.add(id));
-  });
-  if (settings.businessMode === "order_only") {
-    BILLING_MODULE_IDS.forEach((id) => out.add(id));
-  }
-  return out;
 };
 
 const BusinessSettings = () => {
@@ -259,19 +243,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
-      <Section title="Business Type">
-        <Toggle
-          label="Order-taking only (off = full billing & accounting / ERP)"
-          checked={draft.businessMode === "order_only"}
-          onChange={(v: boolean) => set("businessMode", v ? "order_only" : "full_erp")}
-        />
-        <div className="text-xs text-gray-400 px-1">
-          When ON, invoicing/accounting modules (Sales Invoice, Returns, Payments,
-          Transactions, etc.) are hidden. Orders are confirmed and delivered
-          directly without creating an invoice.
-        </div>
-      </Section>
-
       <Section title="Feature Toggles">
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
@@ -280,6 +251,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           label="Deliver orders via Delivery Boy (off = salesman delivers on route)"
           checked={draft.deliveryMode === "deliveryboy"}
           onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")}
+        />
+        <Toggle
+          label="Party manages downline (channel party handles sub-party orders & payments)"
+          checked={!!draft.partyManagesDownline}
+          onChange={(v: boolean) => set("partyManagesDownline", v)}
         />
       </Section>
 
@@ -331,10 +307,14 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
     }
   }, [targetAdmin?.allowedmodules, allCatalogIds]);
 
-  const featureDisabledIds = useMemo(
-    () => computeDisabledModuleIds(settings),
-    [settings]
-  );
+  const featureDisabledIds = useMemo(() => {
+    if (!settings) return new Set<string>();
+    const out = new Set<string>();
+    Object.entries(FEATURE_TO_MODULES).forEach(([flag, ids]) => {
+      if (settings[flag] === false) ids.forEach((id) => out.add(id));
+    });
+    return out;
+  }, [settings]);
 
   const toggleOne = (id: string) => {
     setDirty(true);

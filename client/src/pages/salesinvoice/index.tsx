@@ -144,8 +144,7 @@ const SalesInvoices = () => {
     { label: "Billing Date", key: "billdate" },
     { label: "Billing No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
-    { label: "Created By", key: "createdByDisplay" },
-    { label: "Ordered By", key: "orderedByDisplay" },
+    { label: "Ordered → Created By", key: "byDisplay" },
     { label: "Delivery", key: "deliveryDisplay" },
     { label: "Status", key: "status" },
   ];
@@ -167,12 +166,18 @@ const SalesInvoices = () => {
       totalqty,
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
-      createdByDisplay: invoice.createdby_type
-        ? `${invoice.createdby_name || "N/A"} (${capitalizeFirst(invoice.createdby_type)})`
-        : (invoice.createdby_name || "N/A"),
-      orderedByDisplay: invoice.orderedby_name
-        ? `${invoice.orderedby_name} (${invoice.orderedby_type ? capitalizeFirst(invoice.orderedby_type) : "Order"})`
-        : "—",
+      byDisplay: (() => {
+        const created = invoice.createdby_type
+          ? `${invoice.createdby_name || "N/A"} (${capitalizeFirst(invoice.createdby_type)})`
+          : (invoice.createdby_name || "N/A");
+        const ordered = invoice.orderedby_name
+          ? `${invoice.orderedby_name} (${invoice.orderedby_type ? capitalizeFirst(invoice.orderedby_type) : "Order"})`
+          : "";
+        // "Ordered → Created": who booked the order, then who raised the invoice.
+        // Collapse to one when there's no separate order or they're the same.
+        if (!ordered || ordered === created) return created;
+        return `${ordered} → ${created}`;
+      })(),
       deliveryDisplay: (() => {
         const ds = invoice.deliveryStatus || "pending";
         const label = capitalizeFirst(ds);

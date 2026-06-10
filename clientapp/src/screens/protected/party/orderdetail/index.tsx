@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Touch
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import {
-  CONFIRM_SALES_ORDER,
+  CONFIRM_SALES_ORDER, CONVERT_SALES_ORDER_TO_INVOICE,
   MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
 } from '../../../../apollo/mutations/accounts';
@@ -84,6 +84,7 @@ function OrderTimeline({ status }: { status: string }) {
 
 export default function OrderDetail() {
   const route   = useRoute<any>();
+  const navigation = useNavigation<any>();
   // Supports both a sales order (orderId) and a sales invoice (invoiceId).
   const invoiceId = route.params?.invoiceId;
   const orderId   = route.params?.orderId;
@@ -101,7 +102,16 @@ export default function OrderDetail() {
   const loading = isInvoice ? invLoading : orderLoading;
   const refetch = isInvoice ? refetchInv : refetchOrder;
 
+  // Re-fetch whenever the screen regains focus (e.g. coming back from Edit Order)
+  // so edits / status changes reflect immediately.
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch?.();
+    }, [refetch])
+  );
+
   const [confirmOrder]          = useMutation(CONFIRM_SALES_ORDER);
+  const [convertOrder]          = useMutation(CONVERT_SALES_ORDER_TO_INVOICE);
   const [markOrderDelivered]    = useMutation(MARK_SALES_ORDER_DELIVERED);
   const [markInvoiceDelivered]  = useMutation(MARK_SALES_INVOICE_DELIVERED);
   const [markOrderDispatched]   = useMutation(MARK_SALES_ORDER_DISPATCHED);
@@ -120,29 +130,72 @@ export default function OrderDetail() {
     variables: { adminid: adminId }, skip: !adminId, fetchPolicy: 'cache-and-network',
   });
   const deliveryByBoy = (settingsData as any)?.getAdminSettings?.deliveryMode === 'deliveryboy';
-  // Order-taking-only business: no invoice is ever created, so the order is
-  // confirmed directly (Confirm button) before it can be dispatched/delivered.
-  const orderOnly = (settingsData as any)?.getAdminSettings?.businessMode === 'order_only';
+  const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
 
   // Who may move fulfilment forward:
-  //  - delivery boy: always (they only ever get invoices when the flag is on)
-  //  - salesman/staff: only when the business is NOT using delivery boys
-  //  - party/customer: never
+  //  - delivery boy : always (they only ever get the orders meant for them)
+  //  - salesman     : always — a salesman ALWAYS fulfils the orders he booked,
+  //                   so even in delivery-boy mode his own orders stay with him
+  //  - staff/admin  : only when the business is NOT using delivery boys
+  //                   (otherwise those orders go to the delivery boy)
+  //  - party        : never
   const role = user?.role;
+  // A channel party can manage the status of its DOWNLINE orders (sub-party
+  // orders) when downline management is on — but never its own orders.
+  const isDownlineOrder = !!order && order?.partyacc?.id && order.partyacc.id !== user?.id;
   const canAct = !!order && (
-    role === 'deliveryboy' ? true : (role !== 'party' && !deliveryByBoy)
+    role === 'deliveryboy' ? true :
+    role === 'salesman'    ? true :
+    role === 'party'       ? (manageDownline && isDownlineOrder) :
+    !deliveryByBoy
   );
-  // Confirm is only meaningful in order-only mode (full-ERP confirms via
-  // invoice conversion). Staff/salesman can confirm; party/customer cannot.
-  const canConfirm  = !!order && !isInvoice && orderOnly && role !== 'party' &&
-                      role !== 'deliveryboy' && status === 'Pending';
-  // In order-only mode dispatch needs the order confirmed first.
-  const canDispatch = canAct && (orderOnly ? status === 'Confirmed' : (status === 'Pending' || status === 'Confirmed'));
-  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled' &&
-                      (orderOnly ? status !== 'Pending' : true);
+  // Confirm (Pending → Confirmed) is for the order manager — the salesman who
+  // booked it, or the parent party managing a downline order. Not the end
+  // party or delivery boy.
+  const canConfirm  = !!order && !isInvoice && status === 'Pending' && (
+    role === 'salesman' ||
+    (role === 'party' && manageDownline && isDownlineOrder)
+  );
+  // Convert order → invoice (one-tap, server builds the invoice). Same managers
+  // as Confirm, on an order that isn't an invoice / already converted / cancelled.
+  const canConvert  = !!order && !isInvoice && !order.isConverted && status !== 'Cancelled' && (
+    role === 'salesman' ||
+    (role === 'party' && manageDownline && isDownlineOrder)
+  );
+  // Edit allowed before invoice conversion.
+  //  - salesman: any order they manage
+  //  - party: their OWN order, plus downline orders when downline is on
+  const isOwnOrder  = !!order && order?.partyacc?.id === user?.id;
+  const canEdit     = !!order && !isInvoice && !order.isConverted && status !== 'Cancelled' && (
+    role === 'salesman' ||
+    (role === 'party' && (isOwnOrder || (manageDownline && isDownlineOrder)))
+  );
+  const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
+  const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
+
+  const handleConvert = () => {
+    Alert.alert('Convert to Invoice', 'Create a Sales Invoice from this order?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Convert',
+        onPress: async () => {
+          setMarking(true);
+          try {
+            await convertOrder({ variables: { id } });
+            refetch?.();
+            Alert.alert('Done', 'Invoice created from this order.');
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Could not convert.');
+          } finally {
+            setMarking(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleConfirm = () => {
-    Alert.alert('Confirm Order', 'Confirm this order?', [
+    Alert.alert('Confirm Order', 'Mark this order as confirmed?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm',
@@ -403,20 +456,42 @@ export default function OrderDetail() {
           )}
 
           {/* Fulfilment actions — field staff only */}
+          {canEdit && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#6366f1' }]}
+              onPress={() => navigation.navigate('OrderEdit', { orderId: id })}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="pencil-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>Edit Order</Text>
+            </TouchableOpacity>
+          )}
           {canConfirm && (
             <TouchableOpacity
-              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#3b82f6', marginBottom: 10 }]}
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#3b82f6' }]}
               onPress={handleConfirm}
               disabled={marking}
               activeOpacity={0.88}
             >
               <Icon name="check-circle-outline" size={18} color="#fff" />
-              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Confirm Order'}</Text>
+              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark Confirmed'}</Text>
+            </TouchableOpacity>
+          )}
+          {canConvert && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#f59e0b' }]}
+              onPress={handleConvert}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="file-document-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Convert to Invoice'}</Text>
             </TouchableOpacity>
           )}
           {canDispatch && (
             <TouchableOpacity
-              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#0ea5e9', marginBottom: 10 }]}
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#0ea5e9' }]}
               onPress={handleMarkDispatched}
               disabled={marking}
               activeOpacity={0.88}

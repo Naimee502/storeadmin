@@ -5,6 +5,10 @@ export interface IChannel extends Document {
   channelName: string;
   admin: mongoose.Types.ObjectId;
   isDefault: boolean;
+  // Channel hierarchy: which channel(s) THIS channel handles (downline tiers).
+  // e.g. a "Superstockist" channel may handle ["Wholesaler", "Retailer"].
+  // Used to filter the parent-party selection and party downline visibility.
+  handlesChannels: mongoose.Types.ObjectId[];
   status: boolean;
 }
 
@@ -14,6 +18,9 @@ const ChannelSchema: Schema<IChannel> = new mongoose.Schema(
     channelName: { type: String, required: true },
     admin: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
     isDefault: { type: Boolean, default: false },
+    handlesChannels: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Channel" },
+    ],
     status: { type: Boolean, default: true },
   },
   { timestamps: true }

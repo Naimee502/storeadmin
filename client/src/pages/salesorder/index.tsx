@@ -15,10 +15,6 @@ const SalesOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
   const dispatch = useAppDispatch();
-  const { settings } = useAppSelector((s: any) => s.adminsettings);
-  // Order-taking-only business has no invoice module → no "Convert" action,
-  // and the order's own lifecycle (orderStatus) is the meaningful status.
-  const orderOnly = settings?.businessMode === "order_only";
   
   const { data, refetch } = useSalesOrdersQuery();
   const {
@@ -111,7 +107,7 @@ const SalesOrders = () => {
             }
           }}
           onAdd={() => navigate("/salesorder/addedit")}
-          showConvert={actions.showConvert && !orderOnly}
+          showConvert={actions.showConvert}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
           showConfirm={(row: any) =>
             !!actions.showEdit && row.cancelStatus !== "cancelled" && !row.isConverted &&
