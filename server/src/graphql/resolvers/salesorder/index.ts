@@ -2,6 +2,24 @@ import { SalesOrder } from "../../../models/salesorder";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { Account } from "../../../models/accounts";
+import { Payment } from "../../../models/payments";
+import { Transaction } from "../../../models/transactions";
+
+// Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
+const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
+  if (!invoiceId) return 0;
+  const idStr = String(invoiceId);
+  let total = 0;
+  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  return parseFloat(total.toFixed(2));
+};
 
 // Resolve who created a doc into a proper { name, type }: staff token →
 // real role (salesman/staff/deliveryboy) + name; party token → account name.
@@ -447,6 +465,16 @@ export const salesOrderResolvers = {
         .select("billnumber")
         .lean() as any;
       return inv?.billnumber ?? null;
+    },
+    // Due on the linked invoice (total − settled). 0 if not yet billed/paid.
+    outstanding: async (parent: any) => {
+      if (!parent?.isConverted) return 0;
+      const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
+        .select("totalamount")
+        .lean() as any;
+      if (!inv) return 0;
+      const settled = await invoiceSettledAmount(inv._id);
+      return parseFloat(((inv.totalamount || 0) - settled).toFixed(2));
     },
   },
 };

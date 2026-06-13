@@ -42,6 +42,7 @@ export const GET_SALES_ORDERS = gql`
       cancelStatus
       isConverted
       invoicenumber
+      outstanding
       orderStatus
       deliveryStatus
       deliveredAt
@@ -75,6 +76,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       cancelStatus
       isConverted
       invoicenumber
+      outstanding
       orderStatus
       deliveryStatus
       deliveredAt
@@ -388,6 +390,7 @@ export const GET_DELIVERY_ORDERS = gql`
       cancelStatus
       isConverted
       invoicenumber
+      outstanding
       orderStatus
       deliveryStatus
       deliveredAt

@@ -302,9 +302,14 @@ export default function OrderDetail() {
                   <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
                 </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
-                <View style={[styles.statusDot, { backgroundColor: colour }]} />
-                <Text style={[styles.statusText, { color: colour }]}>{status}</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
+                  <View style={[styles.statusDot, { backgroundColor: colour }]} />
+                  <Text style={[styles.statusText, { color: colour }]}>{status}</Text>
+                </View>
+                {Math.max(0, order.outstanding || 0) > 0 && (
+                  <Text style={styles.dueText}>Due: {formatINR(Math.max(0, order.outstanding || 0))}</Text>
+                )}
               </View>
             </View>
             {order.salesmenid?.name && (
@@ -544,6 +549,7 @@ const styles = StyleSheet.create({
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   statusDot:   { width: 7, height: 7, borderRadius: 4 },
   statusText:  { fontSize: 12, fontFamily: FONTS.bold },
+  dueText:     { fontSize: 12, fontFamily: FONTS.bold, color: '#ef4444', marginTop: 6 },
   salesmanRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   salesmanText:{ fontSize: 12, fontFamily: FONTS.regular },
 
