@@ -24,8 +24,6 @@ const ExpenseNote = () => {
   const expenseList = data?.getExpenseNotes || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  console.log("Expense Note List:", JSON.stringify(expenseList));
-
   /* =========================
      FETCH
      ========================= */

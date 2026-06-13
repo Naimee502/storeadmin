@@ -146,3 +146,18 @@ export const ADD_PAYMENT = gql`
     }
   }
 `;
+
+// Manual journal / ledger entry (party "New Ledger Entry"). Mirrors the admin
+// Transaction page: balanced entries + optional Tally bill allocation.
+export const ADD_TRANSACTION = gql`
+  mutation AddTransaction($input: TransactionInput!) {
+    addTransaction(input: $input) {
+      id
+      transactioncode
+      totaldebit
+      totalcredit
+      partyid
+      invoices { invoiceid invoicemodel settledamount }
+    }
+  }
+`;

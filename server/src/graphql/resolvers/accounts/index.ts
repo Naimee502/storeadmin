@@ -1,6 +1,39 @@
 import { Account } from "../../../models/accounts";
 import { Transaction } from "../../../models/transactions";
+import { Payment } from "../../../models/payments";
+import { SalesInvoice } from "../../../models/salesinvoice";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+
+// Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
+const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
+  if (!invoiceId) return 0;
+  const idStr = String(invoiceId);
+  let total = 0;
+  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  return parseFloat(total.toFixed(2));
+};
+
+// Party "outstanding" for the collection view = sum of UNSETTLED sales bills
+// (each bill's total − settled, only positive). Ignores advances/on-account so
+// salesmen see exactly what's left to collect, bill-wise.
+const partyBillOutstanding = async (accountId: any): Promise<number> => {
+  if (!accountId) return 0;
+  const invs = await SalesInvoice.find({ partyacc: accountId, status: true }).select("totalamount").lean();
+  let sum = 0;
+  for (const inv of invs as any[]) {
+    const settled = await invoiceSettledAmount(inv._id);
+    const due = (inv.totalamount || 0) - settled;
+    if (due > 0) sum += due;
+  }
+  return parseFloat(sum.toFixed(2));
+};
 
 // Collect downline party ids under a root party (assignaccountid chain).
 const collectDownline = async (rootId: any): Promise<string[]> => {
@@ -125,6 +158,18 @@ export const accountResolvers = {
         .populate("assignaccountid")
         .populate("salesmanid")
         .populate("channel");
+    },
+  },
+
+  // Field resolver: live ledger balance (Dr−Cr of posted transactions). Only
+  // computed when a query actually selects `outstanding` (e.g. the salesman's
+  // All Parties list), so normal account queries pay no cost.
+  Account: {
+    // Collection view: sum of unsettled sales bills (not the net ledger balance),
+    // so advances don't mask which bills are still due.
+    outstanding: async (parent: any) => {
+      const id = parent?._id ?? parent?.id;
+      return await partyBillOutstanding(id);
     },
   },
 

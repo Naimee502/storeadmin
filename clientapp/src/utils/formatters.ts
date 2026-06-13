@@ -49,9 +49,11 @@ export const formatPercent = (n: number): string =>
   `${(n ?? 0).toFixed(1)}%`;
 
 // Returns "SO-000001" for orders, "INV-000001" for converted orders (matching admin panel)
-export const formatBillNumber = (order: { billnumber?: string | null; isConverted?: boolean }): string => {
-  const raw = order.billnumber ?? '';
-  // Ensure 6-digit zero-padded number (handles old records that may not have padding)
+export const formatBillNumber = (order: { billnumber?: string | null; isConverted?: boolean; invoicenumber?: string | null }): string => {
+  // Converted orders show the REAL invoice number (same as the admin panel),
+  // not the order's own sequence. Falls back to the order number if the invoice
+  // link isn't available yet.
+  const raw = (order.isConverted && order.invoicenumber) ? order.invoicenumber : (order.billnumber ?? '');
   const num = raw ? String(parseInt(raw, 10) || raw).padStart(6, '0') : '000000';
   return order.isConverted ? `INV-${num}` : `SO-${num}`;
 };

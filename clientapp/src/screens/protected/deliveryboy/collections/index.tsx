@@ -43,6 +43,7 @@ export default function DeliveryCollections() {
         amount: p.amount ?? 0,
         mode: p.mode || 'cash',
         status: 'collected',
+        settledBills: (p.invoices ?? []).filter((iv: any) => iv?.invoiceid).length,
       }));
   }, [data]);
 
@@ -72,6 +73,11 @@ export default function DeliveryCollections() {
           <View style={styles.bottomRow}>
             <View style={[styles.modeBadge, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
               <Text style={[styles.modeText, { color: colors.subText }]}>{mode.label}</Text>
+            </View>
+            <View style={[styles.modeBadge, { backgroundColor: (c.settledBills > 0 ? '#22c55e' : '#94a3b8') + '1A', borderColor: 'transparent' }]}>
+              <Text style={[styles.modeText, { color: c.settledBills > 0 ? '#16a34a' : colors.subText }]}>
+                {c.settledBills > 0 ? `Settled ${c.settledBills} bill${c.settledBills > 1 ? 's' : ''}` : 'On account'}
+              </Text>
             </View>
             <Icon name="calendar-outline" size={11} color={colors.subText} style={{ marginRight: 3 }} />
             <Text style={[styles.dateText, { color: colors.subText }]}>{formatDate(c.date)}</Text>

@@ -2,6 +2,25 @@ import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
+import { Payment } from "../../../models/payments";
+import { Transaction } from "../../../models/transactions";
+
+// Role-free settled amount against an invoice (Payments + Transactions, Agst
+// Ref). Single source of truth for per-invoice outstanding across app + admin.
+const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
+  if (!invoiceId) return 0;
+  const idStr = String(invoiceId);
+  let total = 0;
+  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  return parseFloat(total.toFixed(2));
+};
 
 // Resolve who created a doc into a proper { name, type } — so the listing shows
 // e.g. "Ravi (Salesman)" / "Pruthvi (Party)" instead of "... (Staff)" or email.
@@ -119,12 +138,16 @@ export const salesInvoiceResolvers = {
         // Delivery views (pool / my deliveries) must NOT be restricted to
         // invoices the user created — they're filtered by delivery assignment.
         const isDeliveryView = !!(filter.unassignedDelivery || filter.deliveryboyid);
+        // Collecting payment / settling a specific party's bills: the staff must
+        // see ALL of that party's invoices (regardless of who created them),
+        // exactly like the admin panel. So a party-scoped query isn't restricted.
+        const isPartyScoped = !!filter.partyacc;
         let isDeliveryBoy = false;
-        if (!isDeliveryView) {
+        if (!isDeliveryView && !isPartyScoped) {
           const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
           isDeliveryBoy = staff?.role === 'deliveryboy';
         }
-        if (!isDeliveryView && !isDeliveryBoy) {
+        if (!isDeliveryView && !isDeliveryBoy && !isPartyScoped) {
           query.createdby_id = user?.id;
         }
       }
@@ -159,7 +182,7 @@ export const salesInvoiceResolvers = {
       if (filter.billtype) query.billtype = filter.billtype;
       if (filter.invoicetype) query.invoicetype = filter.invoicetype;
       if (filter.salesunitid) query.salesunitid = filter.salesunitid;
-      if (filter.partyacc) query.partyacc = { $regex: filter.partyacc, $options: "i" };
+      if (filter.partyacc) query.partyacc = filter.partyacc;
 
       // Bill date range filter
       if (filter.billdateFrom || filter.billdateTo) {
@@ -471,6 +494,16 @@ export const salesInvoiceResolvers = {
       if (!updated) throw new Error("Invoice not found");
       await syncOrderFromInvoice(id, { orderStatus: "dispatched", deliveryStatus: "dispatched", deliveryboyid });
       return formatInvoice(updated);
+    },
+  },
+
+  // Per-invoice outstanding (role-free). Only computed when `outstanding` is
+  // selected (e.g. bill allocation), so listings pay no cost.
+  SalesInvoice: {
+    outstanding: async (parent: any) => {
+      const total = Number(parent?.totalamount || 0);
+      const settled = await invoiceSettledAmount(parent?.id);
+      return parseFloat((total - settled).toFixed(2));
     },
   },
 };

@@ -9,7 +9,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { BackHeader } from '../../../../components';
+import { BackHeader, BillAllocation } from '../../../../components';
+import type { Allocation } from '../../../../components';
 import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
@@ -66,11 +67,15 @@ export default function CollectPayment() {
     skip: !adminid,
     fetchPolicy: 'cache-and-network',
   });
-  const cashBankLedgers = useMemo(
-    () => ((ledgerData as any)?.getAccountLedgers ?? [])
-      .filter((l: any) => (l.ledgertype === 'cash' || l.ledgertype === 'bank') && l.status !== false),
-    [ledgerData],
-  );
+  const cashBankLedgers = useMemo(() => {
+    const all = ((ledgerData as any)?.getAccountLedgers ?? []).filter((l: any) => l.status !== false);
+    const typed = all.filter((l: any) => l.ledgertype === 'cash' || l.ledgertype === 'bank');
+    if (typed.length) return typed;
+    // Auto-created "Cash"/"Bank Account" ledgers may not have ledgertype set —
+    // fall back to name match, then to all ledgers (same as the admin panel).
+    const named = all.filter((l: any) => /cash|bank|upi/i.test(l.ledgername || ''));
+    return named.length ? named : all;
+  }, [ledgerData]);
 
   const [addPayment] = useMutation(ADD_PAYMENT);
   const { blocked: punchBlocked } = usePunchGate();
@@ -78,6 +83,13 @@ export default function CollectPayment() {
   const [mode,      setMode]      = useState<PaymentMode>('cash');
   const [ledgerId,  setLedgerId]  = useState<string>('');
   const [amount,    setAmount]    = useState('');
+  // On-account = plain receipt (Cr party); Settle bills = Tally Agst Ref.
+  const [settleMode, setSettleMode] = useState<'onaccount' | 'bills'>('onaccount');
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const allocatedTotal = useMemo(
+    () => parseFloat(allocations.reduce((s, a) => s + (a.settledamount || 0), 0).toFixed(2)),
+    [allocations],
+  );
   const [amountTouched, setAmountTouched] = useState(false);
   const [reference, setReference] = useState('');
   const [notes,     setNotes]     = useState('');
@@ -99,7 +111,7 @@ export default function CollectPayment() {
   }, [cashBankLedgers, mode, ledgerId]);
 
   const selectedMode = MODES.find(m => m.id === mode)!;
-  const parsedAmount = parseFloat(amount) || 0;
+  const parsedAmount = settleMode === 'bills' ? allocatedTotal : (parseFloat(amount) || 0);
 
   const handleSubmit = () => {
     if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before collecting payment.'); return; }
@@ -136,12 +148,22 @@ export default function CollectPayment() {
                     partyid: partyId,
                     ledgerid: ledgerId,
                     amount: parsedAmount,
+                    invoices:
+                      settleMode === 'bills'
+                        ? allocations
+                            .filter(a => a.invoiceid)
+                            .map(a => ({
+                              invoiceid: a.invoiceid,
+                              invoicemodel: a.invoicemodel,
+                              settledamount: a.settledamount,
+                            }))
+                        : [],
                     reference: reference.trim() || null,
                     remarks: notes.trim() || null,
                     paymentdate: new Date().toISOString().slice(0, 10),
                     createdby_id: user?.id,
                     createdby_name: user?.name,
-                    createdby_type: 'staff',
+                    createdby_type: user?.role || 'staff',
                     status: true,
                   },
                 },
@@ -197,6 +219,43 @@ export default function CollectPayment() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Settle mode segmented control */}
+          <View style={[styles.segment, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            {([
+              { id: 'onaccount', label: 'On Account', icon: 'account-cash' },
+              { id: 'bills', label: 'Settle Bills', icon: 'file-document-multiple' },
+            ] as const).map(s => {
+              const active = settleMode === s.id;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.segmentBtn, active && { backgroundColor: colors.brand }]}
+                  activeOpacity={0.85}
+                  onPress={() => { setSettleMode(s.id); if (s.id === 'onaccount') setAllocations([]); }}
+                >
+                  <Icon name={s.icon} size={15} color={active ? '#fff' : colors.subText} />
+                  <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Bill allocation (Tally Agst Ref) */}
+          {settleMode === 'bills' && (
+            <>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>Outstanding Bills</Text>
+              <View style={{ marginBottom: 20 }}>
+                <BillAllocation
+                  adminid={adminid}
+                  partyId={partyId}
+                  invoicemodel="SalesInvoice"
+                  value={allocations}
+                  onChange={setAllocations}
+                />
+              </View>
+            </>
+          )}
 
           {/* Payment mode selector */}
           <Text style={[styles.sectionLabel, { color: colors.text }]}>Payment Mode</Text>
@@ -265,20 +324,24 @@ export default function CollectPayment() {
             </View>
           )}
 
-          {/* Amount input */}
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>Amount (₹)</Text>
-          <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
-            <Text style={[styles.currencySymbol, { color: colors.brand }]}>₹</Text>
-            <TextInput
-              style={[styles.amountInput, { color: colors.text }]}
-              placeholder="0.00"
-              placeholderTextColor={colors.subText}
-              value={amount}
-              onChangeText={(t) => { setAmount(t); setAmountTouched(true); }}
-              keyboardType="numeric"
-              returnKeyType="done"
-            />
-          </View>
+          {/* Amount input — on-account only; in Settle Bills the total comes from allocations */}
+          {settleMode === 'onaccount' ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>Amount (₹)</Text>
+              <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+                <Text style={[styles.currencySymbol, { color: colors.brand }]}>₹</Text>
+                <TextInput
+                  style={[styles.amountInput, { color: colors.text }]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.subText}
+                  value={amount}
+                  onChangeText={(t) => { setAmount(t); setAmountTouched(true); }}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                />
+              </View>
+            </>
+          ) : null}
 
           {/* Reference (UPI/Cheque) */}
           {(mode === 'upi' || mode === 'cheque') && (
@@ -372,6 +435,10 @@ const styles = StyleSheet.create({
   useOutstandingText:{ fontSize: 12, fontFamily: FONTS.semiBold },
 
   sectionLabel: { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 10 },
+
+  segment: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, padding: 4, marginBottom: 18, gap: 4 },
+  segmentBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  segmentText: { fontSize: 13, fontFamily: FONTS.semiBold },
 
   ledgerWrap:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   ledgerChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 9 },

@@ -21,11 +21,11 @@ import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 // Hoisted so they aren't re-created every render (which would drop keyboard focus).
-const Field = ({ label, value, onChange, placeholder, keyboard = 'default', maxLength, icon, autoCapitalize, colors }: any) => (
+const Field = ({ label, value, onChange, placeholder, keyboard = 'default', maxLength, icon, autoCapitalize, colors, error }: any) => (
   <View style={styles.fieldWrap}>
     <Text style={[styles.fieldLabel, { color: colors.text }]}>{label}</Text>
-    <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
-      {icon && <Icon name={icon} size={16} color={colors.subText} style={{ marginRight: 8 }} />}
+    <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: error ? '#ef4444' : colors.border }]}>
+      {icon && <Icon name={icon} size={16} color={error ? '#ef4444' : colors.subText} style={{ marginRight: 8 }} />}
       <TextInput
         style={[styles.input, { color: colors.text }]}
         placeholder={placeholder}
@@ -38,6 +38,7 @@ const Field = ({ label, value, onChange, placeholder, keyboard = 'default', maxL
         returnKeyType="next"
       />
     </View>
+    {error ? <Text style={styles.fieldError}>{error}</Text> : null}
   </View>
 );
 
@@ -95,6 +96,7 @@ export default function StaffCreateParty() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string }>({});
 
   const captureLocation = () => {
     setLocating(true);
@@ -184,8 +186,12 @@ export default function StaffCreateParty() {
 
   const handleSubmit = async () => {
     if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before adding a party.'); return; }
-    if (!name.trim()) { Alert.alert('Required', 'Party name is required.'); return; }
-    if (!mobile.trim() || mobile.length < 10) { Alert.alert('Required', 'Enter a valid 10-digit mobile number.'); return; }
+    // Inline field validation (shown below each field, not as an alert)
+    const ferr: { name?: string; mobile?: string } = {};
+    if (!name.trim()) ferr.name = 'Party name is required';
+    if (!mobile.trim() || mobile.trim().length < 10) ferr.mobile = 'Enter a valid 10-digit mobile number';
+    setErrors(ferr);
+    if (Object.keys(ferr).length) return;
     if (!resolvedGroup) {
       Alert.alert('Account group missing', 'No matching account group found for this type. Please create a standard account group (e.g. Sundry Debtors) in the admin panel first.');
       return;
@@ -252,10 +258,10 @@ export default function StaffCreateParty() {
   };
 
   const pickerOptions: Option[] =
-    picker === 'channel' ? [{ value: '', label: 'None' }, ...channels]
-    : picker === 'state' ? stateOptions
-    : picker === 'parent' ? [{ value: '', label: 'None' }, ...parentPartyOptions]
-    : regionOptions;
+    picker === 'channel' ? channels
+    : picker === 'state' ? stateOptions.filter((o: Option) => o.value !== '' && o.label !== 'Default')
+    : picker === 'parent' ? parentPartyOptions
+    : regionOptions.filter((o: Option) => o.value !== '' && o.label !== 'Default');
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -303,8 +309,8 @@ export default function StaffCreateParty() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Info</Text>
 
-          <Field colors={colors} label="Party Name *" value={name}   onChange={setName}   placeholder="e.g. Mehta Traders" icon="store-outline" />
-          <Field colors={colors} label="Mobile *"     value={mobile} onChange={setMobile} placeholder="10-digit mobile"     icon="phone-outline" keyboard="phone-pad" maxLength={10} />
+          <Field colors={colors} label="Party Name *" value={name}   onChange={(v: string) => { setName(v); if (errors.name) setErrors(p => ({ ...p, name: undefined })); }}   placeholder="e.g. Mehta Traders" icon="store-outline" error={errors.name} />
+          <Field colors={colors} label="Mobile *"     value={mobile} onChange={(v: string) => { setMobile(v); if (errors.mobile) setErrors(p => ({ ...p, mobile: undefined })); }} placeholder="10-digit mobile"     icon="phone-outline" keyboard="phone-pad" maxLength={10} error={errors.mobile} />
           <Field colors={colors} label="Email"        value={email}  onChange={setEmail}  placeholder="email@example.com"   icon="email-outline" keyboard="email-address" />
           <Field colors={colors} label="GSTIN"        value={gstin}  onChange={setGstin}  placeholder="22AAAAA0000A1Z5"     icon="card-account-details-outline" maxLength={15} autoCapitalize="characters" />
           <Field colors={colors} label="PAN"          value={pan}    onChange={setPan}    placeholder="AAAAA0000A"          icon="card-text-outline" maxLength={10} autoCapitalize="characters" />
@@ -397,7 +403,7 @@ export default function StaffCreateParty() {
         </ScrollView>
 
         {/* Picker modal */}
-        <Modal visible={picker !== null} transparent animationType="fade" onRequestClose={() => setPicker(null)}>
+        <Modal visible={picker !== null} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setPicker(null)}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
             <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
@@ -444,6 +450,7 @@ const styles = StyleSheet.create({
 
   fieldLabel: { fontSize: 12, fontFamily: FONTS.semiBold, marginBottom: 6 },
   fieldWrap:  { marginBottom: 14 },
+  fieldError: { fontSize: 11.5, fontFamily: FONTS.regular, color: '#ef4444', marginTop: 4, marginLeft: 2 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 13, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
@@ -467,8 +474,8 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
   modalTitle: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 12 },
   modalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(150,150,150,0.18)' },
   modalRowText: { fontSize: 14, fontFamily: FONTS.semiBold },

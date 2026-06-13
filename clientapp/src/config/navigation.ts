@@ -145,6 +145,7 @@ export const NavConfig: any = {
       { name: 'PartyPaymentsView', options: { headerShown: false } },
       { name: 'LedgerDetail',  options: { headerShown: false } },
       { name: 'PaymentDetail', options: { headerShown: false } },
+      { name: 'CollectPayment', options: { headerShown: false } },
       { name: 'CartScreen',    options: { headerShown: false } },
     ],
   },

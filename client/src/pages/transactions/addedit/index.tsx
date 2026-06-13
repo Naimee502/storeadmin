@@ -360,8 +360,6 @@ const formatTransactionDate = (date: any) => {
           : [],
     };
 
-    console.log("Submitting Transaction Input:", JSON.stringify(input, null, 2));
-
     try {
       if (isEdit) {
         await editTransactionMutation({ variables: { id, input } });

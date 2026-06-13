@@ -436,4 +436,17 @@ export const salesOrderResolvers = {
       return formatOrder(updated);
     },
   },
+
+  // When an order has been converted, expose the real INVOICE number (same as
+  // the admin panel) so the app can show INV-000004 instead of the order's own
+  // sequence. Looked up via the invoice's sourceorderid back-link.
+  SalesOrder: {
+    invoicenumber: async (parent: any) => {
+      if (!parent?.isConverted) return null;
+      const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
+        .select("billnumber")
+        .lean() as any;
+      return inv?.billnumber ?? null;
+    },
+  },
 };

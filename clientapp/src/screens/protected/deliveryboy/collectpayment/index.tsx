@@ -36,8 +36,13 @@ export default function DeliveryCollectPayment() {
   const { data: ledgerData } = useQuery(GET_ACCOUNT_LEDGERS, {
     variables: { adminId: adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
   });
-  const cashBankLedgers = ((ledgerData as any)?.getAccountLedgers ?? [])
-    .filter((l: any) => (l.ledgertype === 'cash' || l.ledgertype === 'bank') && l.status !== false);
+  const cashBankLedgers = (() => {
+    const all = ((ledgerData as any)?.getAccountLedgers ?? []).filter((l: any) => l.status !== false);
+    const typed = all.filter((l: any) => l.ledgertype === 'cash' || l.ledgertype === 'bank');
+    if (typed.length) return typed;
+    const named = all.filter((l: any) => /cash|bank|upi/i.test(l.ledgername || ''));
+    return named.length ? named : all;
+  })();
 
   const [addPayment]    = useMutation(ADD_PAYMENT);
   const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);
@@ -81,6 +86,11 @@ export default function DeliveryCollectPayment() {
                 variables: { input: {
                   adminid, branchid: tenant.branchId, type: 'receipt', mode,
                   partyid: partyId, ledgerid: depositLedger.id, amount: parsedAmount,
+                  // COD settles the delivered invoice itself (Tally Agst Ref),
+                  // so the invoice's outstanding clears on collection.
+                  invoices: orderId
+                    ? [{ invoiceid: orderId, invoicemodel: 'SalesInvoice', settledamount: parsedAmount }]
+                    : [],
                   reference: reference.trim() || null, remarks: notes.trim() || `COD for ${orderNum}`,
                   paymentdate: new Date().toISOString().slice(0, 10),
                   createdby_id: user?.id, createdby_name: user?.name, createdby_type: 'deliveryboy', status: true,

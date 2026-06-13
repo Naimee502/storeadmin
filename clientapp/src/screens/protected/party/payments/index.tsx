@@ -243,7 +243,19 @@ export default function Payments() {
                   </Text>
                   <Text style={[styles.paySub, { color: colors.subText }]}>Outstanding</Text>
                 </View>
-                <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 2 }} />
+                <TouchableOpacity
+                  style={[styles.collectBtn, { backgroundColor: colors.brand }]}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    navigation.navigate('CollectPayment', {
+                      partyId: item.id,
+                      partyName: item.name,
+                      outstanding: Math.max(0, item.outstanding || 0),
+                    })
+                  }
+                >
+                  <Icon name="cash-plus" size={16} color="#fff" />
+                </TouchableOpacity>
               </TouchableOpacity>
             );
           }}
@@ -307,6 +319,7 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
   payIcon: { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  collectBtn: { width: 34, height: 34, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
   payCode: { fontSize: 13, fontFamily: FONTS.bold },
   paySub: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 1 },
   payDate: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 2, opacity: 0.85 },

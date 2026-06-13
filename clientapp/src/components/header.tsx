@@ -108,8 +108,13 @@ export const DynamicHeader = (props: any) => {
         navigation.goBack();
       }
     } else if (type === 'app') {
-      const parent: any = navigation?.getParent?.();
-      parent?.openDrawer?.();
+      // Walk up the navigator tree to find whichever ancestor owns the drawer —
+      // works whether this screen is a drawer tab or a pushed stack screen.
+      let nav: any = navigation;
+      while (nav) {
+        if (typeof nav.openDrawer === 'function') { nav.openDrawer(); return; }
+        nav = nav.getParent?.();
+      }
     }
   };
 

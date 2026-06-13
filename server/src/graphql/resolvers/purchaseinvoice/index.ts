@@ -1,5 +1,23 @@
 import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
+import { Payment } from "../../../models/payments";
+import { Transaction } from "../../../models/transactions";
+
+// Role-free settled amount against a purchase invoice (Payments + Transactions).
+const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
+  if (!invoiceId) return 0;
+  const idStr = String(invoiceId);
+  let total = 0;
+  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
+  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
+    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
+  }));
+  return parseFloat(total.toFixed(2));
+};
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
@@ -78,7 +96,9 @@ export const purchaseInvoiceResolvers = {
             { createdby_type: 'branch', createdby_id: user?.id },
             { branchid: user?.branch_id || user?.id }
           ];
-        } else if (user?.type === 'staff') {
+        } else if (user?.type === 'staff' && !filter.partyacc) {
+          // Party-scoped (collecting/settling a party's bills) must show ALL of
+          // that party's invoices, like the admin panel — not just own-created.
           query.createdby_id = user?.id;
         }
 
@@ -86,7 +106,7 @@ export const purchaseInvoiceResolvers = {
         if (filter.adminid) query.adminid = filter.adminid;
         if (filter.supplierid) query.supplierid = filter.supplierid;
         if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-        if (filter.partyacc) query.partyacc = { $regex: filter.partyacc, $options: "i" };
+        if (filter.partyacc) query.partyacc = filter.partyacc;
         if (filter.billtype) query.billtype = filter.billtype;
         if (filter.invoicetype) query.invoicetype = filter.invoicetype;
         if (filter.billdateFrom || filter.billdateTo) {
@@ -430,6 +450,14 @@ export const purchaseInvoiceResolvers = {
     resetPurchaseInvoice: async (_: any, { id }: { id: string }) => {
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
+    },
+  },
+
+  PurchaseInvoice: {
+    outstanding: async (parent: any) => {
+      const total = Number(parent?.totalamount || 0);
+      const settled = await invoiceSettledAmount(parent?.id);
+      return parseFloat((total - settled).toFixed(2));
     },
   },
 };

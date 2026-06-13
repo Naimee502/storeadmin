@@ -9,7 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { setCartParty } from '../../../../store/slices';
-import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, GET_PARTY_SALES_INVOICES } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -43,13 +43,26 @@ export default function RoutePartyVisit() {
   });
   const recentOrders = ((ordersData as any)?.getSalesOrders ?? []).slice(0, 5);
 
+  // The party's actual invoices (same numbers + outstanding as the admin panel).
+  const { data: invData, refetch: refetchInvoices } = useQuery(GET_PARTY_SALES_INVOICES, {
+    variables: { adminid, partyacc: partyId },
+    skip: !adminid || !partyId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const bills = ((invData as any)?.getSalesInvoices ?? [])
+    .filter((b: any) => b.status)
+    .slice(0, 8);
+
   // Live outstanding = running balance of the party's ledger (same as party login).
-  const { data: accountData } = useQuery(GET_ACCOUNT, {
+  const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: partyId, adminId: adminid },
     skip: !adminid || !partyId,
     fetchPolicy: 'cache-and-network',
   });
   const ledgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
+  // Authoritative outstanding = server-computed ledger balance (role-free), same
+  // value the admin panel & My Routes use. Falls back to the navigation param.
+  const serverOutstanding = (accountData as any)?.getAccountById?.outstanding;
 
   const { data: txData, refetch: refetchTx } = useQuery(GET_TRANSACTIONS, {
     variables: { adminid, ledgerid: ledgerId },
@@ -57,20 +70,24 @@ export default function RoutePartyVisit() {
     fetchPolicy: 'cache-and-network',
   });
   const liveOutstanding = useMemo(() => {
+    if (typeof serverOutstanding === 'number') return serverOutstanding;
     const txs = (txData as any)?.getTransactions;
     if (!ledgerId || !txs) return outstanding; // fall back to the value passed in
     return txs.reduce((run: number, tx: any) => {
       const { debit, credit } = ledgerEntryTotals(tx, ledgerId);
       return run + debit - credit;
     }, 0);
-  }, [txData, ledgerId, outstanding]);
-  const outstandingAmt = Math.max(0, Math.round(liveOutstanding));
+  }, [serverOutstanding, txData, ledgerId, outstanding]);
+  const balance = Math.round(liveOutstanding); // signed: + = due, − = advance/credit
+  const outstandingAmt = Math.max(0, balance);
 
   // Refresh orders + balance when returning to this screen (e.g. after a collection or new order).
   useFocusEffect(useCallback(() => {
     refetchOrders?.();
     refetchTx?.();
-  }, [refetchOrders, refetchTx]));
+    refetchAccount?.();
+    refetchInvoices?.();
+  }, [refetchOrders, refetchTx, refetchAccount, refetchInvoices]));
 
   const cartCount = cartPartyId === partyId
     ? cartItems.reduce((s, i) => s + i.qty, 0)
@@ -125,12 +142,17 @@ export default function RoutePartyVisit() {
               </View>
             )}
           </View>
-          {outstandingAmt > 0 && (
+          {balance > 0 ? (
             <View style={styles.outstandingBadge}>
               <Text style={styles.outstandingLabel}>Outstanding</Text>
-              <Text style={styles.outstandingAmount}>{formatINR(outstandingAmt)}</Text>
+              <Text style={styles.outstandingAmount}>{formatINR(balance)}</Text>
             </View>
-          )}
+          ) : balance < 0 ? (
+            <View style={[styles.outstandingBadge, { backgroundColor: '#ECFDF5' }]}>
+              <Text style={[styles.outstandingLabel, { color: '#16a34a' }]}>Advance</Text>
+              <Text style={[styles.outstandingAmount, { color: '#16a34a' }]}>{formatINR(Math.abs(balance))}</Text>
+            </View>
+          ) : null}
         </Animated.View>
 
         {/* Action buttons */}
@@ -178,6 +200,45 @@ export default function RoutePartyVisit() {
               <Text style={styles.cartBannerText}>{cartCount} item{cartCount !== 1 ? 's' : ''} in cart — Review Order</Text>
               <Icon name="chevron-right" size={18} color="#fff" />
             </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {/* Bills — actual invoices (same numbers as admin) + per-bill outstanding */}
+        {bills.length > 0 && (
+          <Animated.View entering={FadeInUp.duration(400).delay(150)} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Bills</Text>
+            {bills.map((b: any) => {
+              const due = Math.max(0, Math.round((b.outstanding ?? 0) * 100) / 100);
+              const paid = due <= 0;
+              return (
+                <View
+                  key={b.id}
+                  style={[styles.orderRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                >
+                  <View style={[styles.orderDot, { backgroundColor: paid ? '#22c55e' : '#ef4444' }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.orderNum, { color: colors.text }]}>INV-{b.billnumber}</Text>
+                    <Text style={[styles.orderDate, { color: colors.subText }]}>
+                      {formatDate(b.billdate)} · Total {formatINR(b.totalamount)}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    {paid ? (
+                      <View style={[styles.statusBadge, { backgroundColor: '#22c55e22' }]}>
+                        <Text style={[styles.statusText, { color: '#16a34a' }]}>Paid</Text>
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={[styles.orderAmt, { color: '#ef4444' }]}>{formatINR(due)}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: '#ef444422' }]}>
+                          <Text style={[styles.statusText, { color: '#ef4444' }]}>Due</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
           </Animated.View>
         )}
 

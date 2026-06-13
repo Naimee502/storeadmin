@@ -99,6 +99,7 @@ export const salesOrderTypeDefs = gql`
     createdby_type: String
     lockedTotal: Float
     isConverted: Boolean
+    invoicenumber: String
     orderStatus: String
     cancelStatus: String
     cancelReason: String

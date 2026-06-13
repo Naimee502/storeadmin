@@ -9,7 +9,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
-import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DAY_ORDER: Record<string, number> = {
@@ -18,7 +18,7 @@ const DAY_ORDER: Record<string, number> = {
 
 // Map a server SalesRoute (dayWiseAccounts.accounts are full Account docs) into the
 // shape the cards render. Keeps the existing UI untouched.
-function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>): any[] {
+function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>, allowedIds?: Set<string> | null): any[] {
   return (serverRoutes ?? []).map((r: any) => ({
     id: r.id,
     routename: r.routename,
@@ -30,7 +30,11 @@ function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>): any[] {
       .map((dw: any) => ({
         day: dw.day,
         visitorder: dw.visitorder ?? 0,
-        accounts: (dw.accounts ?? []).map((a: any) => ({
+        accounts: (dw.accounts ?? [])
+          // Only this salesman's own parties (same set as the My Parties list).
+          // When the allow-set is empty/unknown, show all (don't blank the route).
+          .filter((a: any) => !allowedIds || allowedIds.size === 0 || allowedIds.has(String(a.id)))
+          .map((a: any) => ({
           id: a.id,
           name: a.name,
           mobile: a.mobile ?? '',
@@ -244,6 +248,14 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.partyName, { color: colors.text }]}>{party.name}</Text>
+                      {!!party.mobile && (
+                        <View style={styles.partyLocRow}>
+                          <Icon name="phone-outline" size={11} color={colors.subText} />
+                          <Text style={[styles.partyCity, { color: colors.subText }]} numberOfLines={1}>
+                            {party.mobile}
+                          </Text>
+                        </View>
+                      )}
                       {/* tappable location row → opens maps */}
                       <TouchableOpacity
                         style={styles.partyLocRow}
@@ -256,10 +268,16 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                         </Text>
                         <Icon name="open-in-new" size={10} color={colors.brand} />
                       </TouchableOpacity>
-                      {party.outstanding > 0 && (
+                      {party.outstanding > 0 ? (
                         <Text style={[styles.outstanding, { color: '#ef4444' }]}>
-                          Pending: ₹{party.outstanding.toLocaleString('en-IN')}
+                          Pending: ₹{Math.abs(party.outstanding).toLocaleString('en-IN')}
                         </Text>
+                      ) : party.outstanding < 0 ? (
+                        <Text style={[styles.outstanding, { color: '#16a34a' }]}>
+                          Advance: ₹{Math.abs(party.outstanding).toLocaleString('en-IN')}
+                        </Text>
+                      ) : (
+                        <Text style={[styles.outstanding, { color: '#16a34a' }]}>No dues</Text>
                       )}
                     </View>
                     <View style={styles.partyRight}>
@@ -349,10 +367,29 @@ export default function SalesmanRoutes() {
     return set;
   }, [ordersData]);
 
+  // This salesman's own parties (same source as the My Parties screen) — used
+  // to scope the route to only their parties.
+  const { data: myPartiesData } = useQuery(GET_ACCOUNTS, {
+    variables: { admin: adminId, salesmanid: salesmanId },
+    skip: !adminId || !salesmanId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const myPartyIds = useMemo(() => {
+    const list = (myPartiesData as any)?.getAccounts ?? [];
+    return new Set(list.map((a: any) => String(a.id)));
+  }, [myPartiesData]);
+
   const routes = useMemo(
-    () => mapServerRoutes((data as any)?.getSalesRoutes ?? [], visitedSet),
-    [data, visitedSet],
+    () => mapServerRoutes((data as any)?.getSalesRoutes ?? [], visitedSet, myPartyIds),
+    [data, visitedSet, myPartyIds],
   );
+
+  React.useEffect(() => {
+    const total = ((data as any)?.getSalesRoutes ?? [])
+      .reduce((s: number, r: any) => s + (r.dayWiseAccounts ?? []).reduce((d: number, dw: any) => d + (dw.accounts ?? []).length, 0), 0);
+    const shown = routes.reduce((s: number, r: any) => s + r.dayWiseAccounts.reduce((d: number, dw: any) => d + dw.accounts.length, 0), 0);
+    console.log('🗺️ [MyRoutes] myPartyIds:', myPartyIds.size, '| route parties total:', total, '| shown after filter:', shown);
+  }, [data, routes, myPartyIds]);
 
   // Refresh whenever the screen regains focus (e.g. after add / manage party / new order).
   useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));

@@ -20,7 +20,7 @@ export const GET_SALES_ROUTES = gql`
 export const GET_SALESMAN_ORDERS = gql`
   query getSalesOrders($adminid: ID, $salesmenid: ID) {
     getSalesOrders(filter: { adminid: $adminid, salesmenid: $salesmenid, includeConverted: true }) {
-      id billnumber billdate totalamount status cancelStatus isConverted
+      id billnumber billdate totalamount status cancelStatus isConverted invoicenumber
       partyacc { id accountname }
       productservice { productserviceid { id } }
     }

@@ -41,6 +41,7 @@ export const GET_SALES_ORDERS = gql`
       totalgst
       cancelStatus
       isConverted
+      invoicenumber
       orderStatus
       deliveryStatus
       deliveredAt
@@ -73,6 +74,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       totalgst
       cancelStatus
       isConverted
+      invoicenumber
       orderStatus
       deliveryStatus
       deliveredAt
@@ -163,6 +165,11 @@ export const GET_ACCOUNTS = gql`
       name
       mobile
       city
+      address
+      latitude
+      longitude
+      outstanding
+      ledgerid { id ledgername }
       channel { id channelName }
     }
   }
@@ -184,6 +191,7 @@ export const GET_ACCOUNT = gql`
       creditlimit
       openingbalance
       openingbalancetype
+      outstanding
       channel    { id channelName }
       region
       salesmanid { id name }
@@ -270,6 +278,8 @@ export const GET_TRANSACTIONS = gql`
       narration
       totaldebit
       totalcredit
+      partyid
+      invoices { invoiceid invoicemodel settledamount }
       source { docmodel docid }
       entries {
         ledgerid { id ledgername }
@@ -278,6 +288,63 @@ export const GET_TRANSACTIONS = gql`
         remarks
       }
       createdAt
+    }
+  }
+`;
+
+// All transactions for an admin (used to compute outstanding allocations across
+// the whole tenant — payments + transactions both settle invoices).
+export const GET_ALL_TRANSACTIONS = gql`
+  query GetAllTransactions($adminid: ID!) {
+    getTransactions(filter: { adminid: $adminid }) {
+      id
+      partyid
+      invoices { invoiceid invoicemodel settledamount }
+    }
+  }
+`;
+
+// Invoice fields needed for Tally-style bill allocation in the app.
+const BILL_INVOICE_FIELDS = `
+  id
+  billnumber
+  billdate
+  paymenttype
+  subtotal
+  totalgst
+  totalamount
+  outstanding
+  status
+  partyacc { id }
+  othercharges { ledgername totalamount }
+`;
+
+export const GET_PARTY_SALES_INVOICES = gql`
+  query GetPartySalesInvoices($adminid: ID, $partyacc: ID) {
+    getSalesInvoices(filter: { adminid: $adminid, partyacc: $partyacc }) {
+      ${BILL_INVOICE_FIELDS}
+    }
+  }
+`;
+
+export const GET_PARTY_PURCHASE_INVOICES = gql`
+  query GetPartyPurchaseInvoices($adminid: ID, $partyacc: ID) {
+    getPurchaseInvoices(filter: { adminid: $adminid, partyacc: $partyacc }) {
+      ${BILL_INVOICE_FIELDS}
+    }
+  }
+`;
+
+// Compute (without saving) the full accounting journal a document would post —
+// reused for the party "Full Journal" manual entry.
+export const PREVIEW_INVOICE_JOURNAL = gql`
+  query PreviewInvoiceJournal($invoiceid: ID!, $invoicemodel: String!) {
+    previewInvoiceJournal(invoiceid: $invoiceid, invoicemodel: $invoicemodel) {
+      ledgerid
+      ledgername
+      debit
+      credit
+      remarks
     }
   }
 `;
@@ -320,6 +387,7 @@ export const GET_DELIVERY_ORDERS = gql`
       paymenttype
       cancelStatus
       isConverted
+      invoicenumber
       orderStatus
       deliveryStatus
       deliveredAt

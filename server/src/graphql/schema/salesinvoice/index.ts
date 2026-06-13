@@ -80,6 +80,7 @@ export const salesInvoiceTypeDefs = gql`
     totaldiscount: Float!
     totalgst: Float!
     totalamount: Float!
+    outstanding: Float
     adminid: ID!
     branchid: ID!
     productservice: [SalesInvoiceProductService!]!
