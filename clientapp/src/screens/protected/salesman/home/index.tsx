@@ -11,7 +11,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader } from '../../../../components';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
-import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_PAYMENTS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -40,9 +40,20 @@ export default function SalesmanDashboard() {
     fetchPolicy: 'cache-and-network',
   });
 
-  // Re-pull orders whenever the dashboard regains focus, so a newly placed
-  // order shows up immediately without a manual reload or tab switch.
-  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
+  // Today's collections (this salesman's receipts) + my parties (for outstanding).
+  const { data: payData, refetch: refetchPay } = useQuery(GET_PAYMENTS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const { data: partyData, refetch: refetchParties } = useQuery(GET_ACCOUNTS, {
+    variables: { admin: adminid, salesmanid: user?.id },
+    skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  // Re-pull whenever the dashboard regains focus, so new orders/payments show immediately.
+  useFocusEffect(useCallback(() => { refetch?.(); refetchPay?.(); refetchParties?.(); }, [refetch, refetchPay, refetchParties]));
 
   const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
@@ -51,6 +62,25 @@ export default function SalesmanDashboard() {
   const pending     = useMemo(() => orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length, [orders]);
   const confirmed   = useMemo(() => orders.filter((o: any) => o.isConverted).length, [orders]);
   const recent      = useMemo(() => orders.slice(0, 5), [orders]);
+
+  const ymd = (d: any) => {
+    const t = Number(d); const dt = !isNaN(t) ? new Date(t) : new Date(d);
+    return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+  };
+  const todaySales = useMemo(
+    () => todayOrders.reduce((s: number, o: any) => s + (o.totalamount || 0), 0),
+    [todayOrders],
+  );
+  const todayCollection = useMemo(() => {
+    return ((payData as any)?.getPayments ?? [])
+      .filter((p: any) => p.type === 'receipt' && p.status !== false && ymd(p.paymentdate) === today)
+      .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+  }, [payData, today]);
+  const parties = useMemo(() => (partyData as any)?.getAccounts ?? [], [partyData]);
+  const totalOutstanding = useMemo(
+    () => parties.reduce((s: number, p: any) => s + Math.max(0, p.outstanding || 0), 0),
+    [parties],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -61,20 +91,46 @@ export default function SalesmanDashboard() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Stats */}
-        <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
-          {[
-            { icon: 'clipboard-plus-outline',  value: String(todayOrders.length), label: "Today's Orders", color: '#3b82f6'   },
-            { icon: 'clock-outline',           value: String(pending),            label: 'Pending',        color: '#f59e0b'   },
-            { icon: 'check-circle-outline',    value: String(confirmed),          label: 'Confirmed',      color: '#22c55e'   },
-          ].map((s) => (
-            <View key={s.label} style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-              <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
-                <Icon name={s.icon} size={17} color={s.color} />
-              </View>
-              <Text style={[styles.statValue, { color: colors.text }]}>{s.value}</Text>
-              <Text style={[styles.statLabel, { color: colors.subText }]}>{s.label}</Text>
+        {/* Today summary — clean card, brand only as accent */}
+        <Animated.View
+          entering={FadeInUp.duration(400).delay(50)}
+          style={[styles.todayCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        >
+          <View style={styles.todayHalf}>
+            <View style={styles.todayLabelRow}>
+              <Icon name="trending-up" size={13} color={colors.brand} />
+              <Text style={[styles.todayLabel, { color: colors.subText }]}>Sales today</Text>
             </View>
+            <Text style={[styles.todayValue, { color: colors.text }]} numberOfLines={1}>{formatINR(todaySales)}</Text>
+          </View>
+          <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.todayHalf}>
+            <View style={styles.todayLabelRow}>
+              <Icon name="cash-check" size={13} color="#16a34a" />
+              <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
+            </View>
+            <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(todayCollection)}</Text>
+          </View>
+        </Animated.View>
+
+        {/* Compact stat strip */}
+        <Animated.View
+          entering={FadeInUp.duration(400).delay(90)}
+          style={[styles.statStrip, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        >
+          {[
+            { value: String(todayOrders.length),  label: 'Orders',     color: '#3b82f6' },
+            { value: String(pending),             label: 'Pending',    color: '#f59e0b' },
+            { value: formatINR(totalOutstanding), label: 'To Collect', color: '#ef4444' },
+            { value: String(parties.length),      label: 'Parties',    color: '#8b5cf6' },
+          ].map((s, i) => (
+            <React.Fragment key={s.label}>
+              {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
+              <View style={styles.stripItem}>
+                <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1}>{s.value}</Text>
+                <Text style={[styles.stripLabel, { color: colors.subText }]}>{s.label}</Text>
+              </View>
+            </React.Fragment>
           ))}
         </Animated.View>
 
@@ -168,16 +224,29 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll:    { paddingBottom: 110 },
 
-  statsRow: { flexDirection: 'row', paddingHorizontal: 18, gap: 10, marginTop: 14 },
-  statCard: {
-    flex: 1, borderRadius: 18, borderWidth: 1, padding: 12, alignItems: 'flex-start',
-    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  todayCard: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 18, marginTop: 14,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1,
   },
-  statIcon:  { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  statValue: { fontSize: 13, fontFamily: FONTS.bold },
-  statLabel: { fontSize: 9, fontFamily: FONTS.regular, marginTop: 2 },
+  todayHalf:      { flex: 1 },
+  todayLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  todayLabel:     { fontSize: 11.5, fontFamily: FONTS.regular },
+  todayValue:     { fontSize: 20, fontFamily: FONTS.bold, marginTop: 3 },
+  todayVDivider:  { width: 1, height: 38, marginHorizontal: 14 },
 
-  section:       { marginTop: 22, paddingHorizontal: 18 },
+  statStrip: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 18, marginTop: 10,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 12,
+  },
+  stripItem:    { flex: 1, alignItems: 'center' },
+  stripDivider: { width: 1, height: 26 },
+  stripValue:   { fontSize: 14, fontFamily: FONTS.bold },
+  stripLabel:   { fontSize: 10, fontFamily: FONTS.regular, marginTop: 3 },
+
+  section:       { marginTop: 20, paddingHorizontal: 18 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:  { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 12 },
   viewAll:       { fontSize: 13, fontFamily: FONTS.semiBold },
