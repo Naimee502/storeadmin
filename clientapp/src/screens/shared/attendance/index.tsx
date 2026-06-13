@@ -51,6 +51,10 @@ function fmtDate(d: Date) {
   return `${String(d.getDate()).padStart(2,'0')} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 function addDays(d: Date, n: number) { const c = new Date(d); c.setDate(c.getDate() + n); return c; }
+// Local YYYY-MM-DD (NOT toISOString, which shifts to the previous day in +ve timezones like IST).
+function toYMD(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function daysBetween(a: Date, b: Date) { return Math.max(Math.round((b.getTime() - a.getTime()) / 86400000) + 1, 1); }
 // Extract HH:MM (24h) from an ISO/date string timestamp.
 function fmtTime(ts?: string | null): string | null {
@@ -184,8 +188,8 @@ export default function AttendanceScreen() {
                 variables: { input: {
                   adminid, branchid, staffid: user.id,
                   leavetypeid: selectedType.id,
-                  fromDate: fromDate.toISOString().slice(0, 10),
-                  toDate:   (halfDay ? fromDate : toDate).toISOString().slice(0, 10),
+                  fromDate: toYMD(fromDate),
+                  toDate:   toYMD(halfDay ? fromDate : toDate),
                   totalDays,
                   halfDay,
                   halfDaySession: halfDay ? halfSession : null,
