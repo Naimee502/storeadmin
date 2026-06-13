@@ -122,6 +122,227 @@ function ledgerId(x: any) {
   return x._id || x.id || null;
 }
 
+/**
+ * Build the Sales Invoice accounting journal — Dr Debtor / Cr Sales / Cr Output
+ * GST (CGST+SGST or IGST) / Cr Other Charges (+GST) / Dr Invoice Discount /
+ * Round Off / salesman commission — and balance it, WITHOUT saving anything.
+ *
+ * Shared by adjustStockAndTransactions (auto-posting) and the manual
+ * "Full Journal" preview resolver, so a manual journal created when
+ * auto-posting is OFF is byte-for-byte identical to what auto would post.
+ */
+export async function buildSalesInvoiceJournal(newInv: any) {
+  const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+
+  const customer = await Account.findById(newInv.partyacc).select("ledgerid state");
+  if (!customer?.ledgerid) throw new Error("❌ Customer ledger missing!");
+
+  const companyState = settings?.companyState || "gujarat";
+  const partyState = customer?.state || "gujarat";
+  const isIgst = companyState.toLowerCase() !== partyState.toLowerCase() && partyState !== "default";
+
+  const getDefaultSalesLedgerId = async () => {
+    let sales = await AccountLedger.findOne({ ledgername: "Sales", admin: newInv.adminid });
+    if (!sales) {
+      const AccountGroup = mongoose.model("AccountGroup");
+      let group = await AccountGroup.findOne({ accountgroupname: "Sales Account", admin: newInv.adminid });
+      if (!group) {
+        group = await AccountGroup.create({
+          admin: newInv.adminid,
+          accountgroupname: "Sales Account",
+          category: "income",
+          status: true,
+        });
+      }
+      sales = await AccountLedger.create({
+        admin: newInv.adminid,
+        accountgroupid: group._id,
+        ledgername: "Sales",
+        openingbalance: 0,
+        openingbalancetype: "credit",
+        status: true,
+      });
+    }
+    return sales._id;
+  };
+  const defaultSalesLedgerId = await getDefaultSalesLedgerId();
+
+  const entries: any[] = [];
+
+  for (const item of newInv.productservice) {
+    const qty = Number(item.qty);
+    const rate = Number(item.rate);
+    const discount = Number(item.discount);
+    const taxable = parseFloat(((rate - discount) * qty).toFixed(2));
+    const gstRate = Number(item.gst);
+    const gstAmt = parseFloat(((taxable * gstRate) / 100).toFixed(2));
+
+    const salesLedger =
+      ledgerId(item.salesaccountid) || ledgerId(item.serviceaccountid) || defaultSalesLedgerId;
+
+    const product = await ProductService.findById(item.productserviceid);
+    const productName = product?.name || "Unknown Product";
+    let variantName = null;
+    if (item.variantid && product?.productvariants?.length) {
+      const variant = product.productvariants.find(
+        (v: any) => v?._id.toString() === item.variantid.toString()
+      );
+      variantName = variant?.name || null;
+    }
+    const saleRemark = variantName
+      ? `Sale of ${productName} (${variantName})`
+      : `Sale of ${productName}`;
+
+    if (salesLedger && taxable > 0) {
+      entries.push({ ledgerid: salesLedger, debit: 0, credit: taxable, remarks: saleRemark });
+    }
+
+    if (gstAmt > 0) {
+      if (isIgst) {
+        let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newInv.adminid });
+        if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newInv.adminid, newInv.branchid) as any;
+        if (igst) {
+          entries.push({ ledgerid: (igst as any).ledgerid || igst._id, debit: 0, credit: gstAmt, remarks: `IGST on ${productName}` });
+        }
+      } else {
+        const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newInv.adminid });
+        const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newInv.adminid });
+        if (cgst && sgst) {
+          const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+          const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
+          entries.push({ ledgerid: cgst._id, debit: 0, credit: cgstAmt, remarks: `CGST on ${productName}` });
+          entries.push({ ledgerid: sgst._id, debit: 0, credit: sgstAmt, remarks: `SGST on ${productName}` });
+        } else {
+          const gstAcc = await getOrCreateAccount("Output GST", "other", newInv.adminid, newInv.branchid);
+          if (gstAcc?._id || gstAcc?.ledgerid) {
+            entries.push({ ledgerid: gstAcc._id || gstAcc.ledgerid, debit: 0, credit: gstAmt, remarks: `GST on ${productName}` });
+          }
+        }
+      }
+    }
+  }
+
+  if (newInv.othercharges && newInv.othercharges.length > 0) {
+    for (const charge of newInv.othercharges) {
+      if (charge.amount > 0) {
+        entries.push({ ledgerid: charge.ledgerid, debit: 0, credit: charge.amount, remarks: charge.remarks || charge.ledgername || "Other Charge" });
+        if (charge.gstamount > 0) {
+          if (isIgst) {
+            let igst = await AccountLedger.findOne({ ledgername: "Output IGST", admin: newInv.adminid });
+            if (!igst) igst = await getOrCreateAccount("Output IGST", "liabilities", newInv.adminid, newInv.branchid) as any;
+            if (igst) {
+              entries.push({ ledgerid: (igst as any).ledgerid || igst._id, debit: 0, credit: charge.gstamount, remarks: `IGST on ${charge.ledgername || "Other Charge"}` });
+            }
+          } else {
+            const cgst = await AccountLedger.findOne({ ledgername: "Output CGST", admin: newInv.adminid });
+            const sgst = await AccountLedger.findOne({ ledgername: "Output SGST", admin: newInv.adminid });
+            if (cgst && sgst) {
+              const cgstAmt = parseFloat((charge.gstamount / 2).toFixed(2));
+              const sgstAmt = parseFloat((charge.gstamount - cgstAmt).toFixed(2));
+              entries.push({ ledgerid: cgst._id, debit: 0, credit: cgstAmt, remarks: `CGST on ${charge.ledgername || "Other Charge"}` });
+              entries.push({ ledgerid: sgst._id, debit: 0, credit: sgstAmt, remarks: `SGST on ${charge.ledgername || "Other Charge"}` });
+            } else {
+              const gstAcc = await getOrCreateAccount("Output GST", "other", newInv.adminid, newInv.branchid);
+              if (gstAcc?._id || gstAcc?.ledgerid) {
+                entries.push({ ledgerid: gstAcc._id || gstAcc.ledgerid, debit: 0, credit: charge.gstamount, remarks: `GST on ${charge.ledgername || "Other Charge"}` });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (newInv.roundoff && newInv.roundoff !== 0) {
+    let roundOffLedger = await AccountLedger.findOne({ ledgername: "Round Off", admin: newInv.adminid });
+    if (!roundOffLedger) {
+      const created = await getOrCreateAccount("Round Off", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) roundOffLedger = { _id: created.ledgerid } as any;
+    }
+    if (roundOffLedger) {
+      if (newInv.roundoff > 0) {
+        entries.push({ ledgerid: roundOffLedger._id, debit: 0, credit: newInv.roundoff, remarks: "Round Off" });
+      } else {
+        entries.push({ ledgerid: roundOffLedger._id, debit: Math.abs(newInv.roundoff), credit: 0, remarks: "Round Off" });
+      }
+    }
+  }
+
+  if (newInv.invoicediscount && newInv.invoicediscount !== 0) {
+    let discLedger = await AccountLedger.findOne({ ledgername: "Invoice Discount", admin: newInv.adminid });
+    if (!discLedger) {
+      const created = await getOrCreateAccount("Invoice Discount", "indirect_expenses", newInv.adminid, newInv.branchid);
+      if (created) discLedger = { _id: created.ledgerid } as any;
+    }
+    let discountAmount = newInv.invoicediscount;
+    if (newInv.invoicediscounttype === "percent") {
+      const taxableSubtotal = newInv.productservice.reduce((sum: any, item: any) => {
+        return sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty);
+      }, 0);
+      discountAmount = (taxableSubtotal * newInv.invoicediscount) / 100;
+    }
+    if (discountAmount > 0 && discLedger) {
+      entries.push({ ledgerid: discLedger._id, debit: parseFloat(discountAmount.toFixed(2)), credit: 0, remarks: "Invoice Discount" });
+    }
+  }
+
+  entries.push({
+    ledgerid: customer.ledgerid,
+    debit: parseFloat(newInv.totalamount.toFixed(2)),
+    credit: 0,
+    remarks: `Sales Invoice #${newInv.billnumber}`,
+  });
+
+  if (newInv.salesmenid) {
+    const salesman = await StaffAccount.findById(newInv.salesmenid).select("ledgerid commission name");
+    if (!salesman?.ledgerid) throw new Error("❌ Salesman ledger missing");
+    const taxableSubtotal = newInv.productservice.reduce((sum: any, item: any) => {
+      return sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty);
+    }, 0);
+    const commissionAmount = parseFloat(((taxableSubtotal * Number(salesman.commission)) / 100).toFixed(2));
+    if (commissionAmount > 0) {
+      let commissionExpenseLedger = await AccountLedger.findOne({ ledgername: "Salesman Commission Expense", admin: newInv.adminid });
+      if (!commissionExpenseLedger) {
+        const AccountGroup = mongoose.model("AccountGroup");
+        let expenseGroup = await AccountGroup.findOne({ accountgroupname: "Commission Expense", admin: newInv.adminid });
+        if (!expenseGroup) {
+          expenseGroup = await AccountGroup.create({ admin: newInv.adminid, accountgroupname: "Commission Expense", category: "expenses", status: true });
+        }
+        commissionExpenseLedger = await AccountLedger.create({
+          admin: newInv.adminid,
+          accountgroupid: expenseGroup._id,
+          ledgername: "Salesman Commission Expense",
+          openingbalance: 0,
+          openingbalancetype: "debit",
+          status: true,
+        });
+      }
+      entries.push({ ledgerid: commissionExpenseLedger._id, debit: commissionAmount, credit: 0, remarks: `Commission for ${salesman.name}` });
+      entries.push({ ledgerid: salesman.ledgerid, debit: 0, credit: commissionAmount, remarks: `Sales Commission` });
+    }
+  }
+
+  // Balance: post any residual to Sales (never mutate the debtor line).
+  const tempDebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const tempCredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+  if (tempDebit !== tempCredit) {
+    const diff = parseFloat((tempDebit - tempCredit).toFixed(2));
+    if (diff > 0) {
+      entries.push({ ledgerid: defaultSalesLedgerId, debit: 0, credit: diff, remarks: "Sales (auto-balanced)" });
+    } else {
+      entries.push({ ledgerid: defaultSalesLedgerId, debit: Math.abs(diff), credit: 0, remarks: "Sales (auto-balanced)" });
+    }
+  }
+
+  const totalDebitSum = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const totalCreditSum = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+  if (Math.abs(totalDebitSum - totalCreditSum) > 0.01) {
+    throw new Error(`Transaction not balanced (Debit ${totalDebitSum} ≠ Credit ${totalCreditSum})`);
+  }
+
+  return { entries, totalDebitSum, totalCreditSum, customerLedgerId: customer.ledgerid };
+}
+
 salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any, userContext?: any) {
   console.log("🔵 adjustStockAndTransactions called for invoice:", newInv.billnumber);
   console.log("   userContext:", userContext);

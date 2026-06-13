@@ -1,4 +1,5 @@
 import { gql } from "apollo-server-express";
+// (bill allocation + journal preview)
 
 export const transactionTypeDefs = gql`
   type LedgerRef {
@@ -8,7 +9,7 @@ export const transactionTypeDefs = gql`
 
   # Entry Line Item
   type TransactionEntry {
-    ledgerid: LedgerRef      
+    ledgerid: LedgerRef
     debit: Float
     credit: Float
     productserviceid: ID
@@ -17,7 +18,7 @@ export const transactionTypeDefs = gql`
   }
 
   input TransactionEntryInput {
-    ledgerid: ID           
+    ledgerid: ID
     debit: Float
     credit: Float
     productserviceid: ID
@@ -25,7 +26,6 @@ export const transactionTypeDefs = gql`
     remarks: String
   }
 
-  # Source document info
   type TransactionSource {
     docmodel: String
     docid: ID
@@ -36,7 +36,18 @@ export const transactionTypeDefs = gql`
     docid: ID
   }
 
-  # Transaction Main
+  type TxnInvoiceAlloc {
+    invoiceid: ID
+    invoicemodel: String
+    settledamount: Float
+  }
+
+  input TxnInvoiceAllocInput {
+    invoiceid: ID
+    invoicemodel: String
+    settledamount: Float
+  }
+
   type Transaction {
     id: ID!
     adminid: ID!
@@ -49,6 +60,8 @@ export const transactionTypeDefs = gql`
     entries: [TransactionEntry!]!
     totaldebit: Float!
     totalcredit: Float!
+    partyid: ID
+    invoices: [TxnInvoiceAlloc]
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -66,6 +79,8 @@ export const transactionTypeDefs = gql`
     transactiondate: String
     narration: String
     entries: [TransactionEntryInput!]!
+    partyid: ID
+    invoices: [TxnInvoiceAllocInput]
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -77,6 +92,7 @@ export const transactionTypeDefs = gql`
     adminid: ID
     branchid: ID
     ledgerid: ID
+    partyid: ID
     entrytype: String
     transactioncode: String
     dateFrom: String
@@ -84,14 +100,21 @@ export const transactionTypeDefs = gql`
     status: Boolean
   }
 
-  # Queries
+  type JournalPreviewLine {
+    ledgerid: ID
+    ledgername: String
+    debit: Float
+    credit: Float
+    remarks: String
+  }
+
   type Query {
     getTransactions(filter: TransactionFilterInput): [Transaction!]!
     getDeletedTransactions(filter: TransactionFilterInput): [Transaction!]!
     getTransactionById(id: ID!, adminid: ID): Transaction
+    previewInvoiceJournal(invoiceid: ID!, invoicemodel: String!): [JournalPreviewLine!]!
   }
 
-  # Mutations
   type Mutation {
     addTransaction(input: TransactionInput!): Transaction!
     editTransaction(id: ID!, input: TransactionInput!): Transaction!

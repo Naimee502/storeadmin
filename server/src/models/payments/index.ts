@@ -24,7 +24,7 @@ const paymentSchema = new mongoose.Schema(
     invoices: [
       {
         invoiceid: { type: mongoose.Schema.Types.ObjectId, refPath: "invoices.invoicemodel" },
-        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "SalesReturn", "PurchaseReturn"] },
+        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "SalesReturn", "PurchaseReturn", "ExpenseNote"] },
         settledamount: { type: Number, required: true },
       },
     ],

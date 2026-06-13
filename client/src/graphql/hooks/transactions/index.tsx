@@ -1,5 +1,5 @@
 // src/hooks/graphql/transactionHooks.ts
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 import {
   ADD_TRANSACTION,
   EDIT_TRANSACTION,
@@ -11,6 +11,7 @@ import {
   GET_TRANSACTIONS,
   GET_TRANSACTION_BY_ID,
   GET_DELETED_TRANSACTIONS,
+  PREVIEW_INVOICE_JOURNAL,
 } from "../../queries/transactions";
 
 import { useAppSelector } from "../../../redux/hooks";
@@ -28,6 +29,14 @@ export const useTransactionMutations = () => {
     deleteTransactionMutation,
     resetTransactionMutation,
   };
+};
+
+// ----------------- Invoice Journal Preview (lazy) -----------------
+export const usePreviewInvoiceJournalLazy = () => {
+  const [fetchPreview] = useLazyQuery(PREVIEW_INVOICE_JOURNAL, {
+    fetchPolicy: "network-only",
+  });
+  return fetchPreview;
 };
 
 // ----------------- Transactions Query -----------------

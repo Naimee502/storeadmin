@@ -340,7 +340,12 @@ const AccountingFinanceReports: React.FC = () => {
                 narration: e.notes || e.narration || "-",
                 totalGst: Number(e.totalgst || 0).toFixed(2),
                 totalAmount: Number(e.amount || e.totalamount || 0).toFixed(2),
-                status: e.status ? e.status.charAt(0).toUpperCase() + e.status.slice(1) : "-",
+                status:
+                  typeof e.status === "boolean"
+                    ? (e.status ? "Active" : "Inactive")
+                    : (e.status
+                        ? String(e.status).charAt(0).toUpperCase() + String(e.status).slice(1)
+                        : "-"),
             }));
     }, [expenseNotes, appliedFilters]);
 

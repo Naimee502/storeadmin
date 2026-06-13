@@ -52,6 +52,9 @@ const DeletedExpenseNotes = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Expense No", key: "expensenumber" },
     { label: "Date", key: "expensedate" },
+    { label: "Category", key: "categoryLabel" },
+    { label: "Staff", key: "staffLabel" },
+    { label: "Ledger", key: "ledgername" },
     { label: "Payment Type", key: "paymenttype" },
     { label: "Narration", key: "narration" },
     { label: "Total Amount", key: "totalamount" },
@@ -59,6 +62,13 @@ const DeletedExpenseNotes = () => {
     { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
+
+  const CATEGORY_LABEL: Record<string, string> = {
+    general: "General",
+    tada: "TA/DA",
+    salary: "Salary",
+    other: "Other",
+  };
 
   /* =========================
      FORMAT DATA
@@ -83,6 +93,11 @@ const DeletedExpenseNotes = () => {
       ...exp,
       seqNo: index + 1,
       expensedate: formattedDate,
+      categoryLabel: CATEGORY_LABEL[exp.category || "general"] || "General",
+      staffLabel: exp.staffid
+        ? `${exp.staffid.name}${exp.staffid.staffcode ? ` (${exp.staffid.staffcode})` : ""}`
+        : "-",
+      ledgername: exp.ledgerid?.ledgername || "-",
       paymenttype: capitalize(exp.paymenttype),
       totalamount: Number(exp.totalamount || 0).toFixed(2),
       totalgst: Number(exp.totalgst || 0).toFixed(2),

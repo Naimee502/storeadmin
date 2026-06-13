@@ -11,6 +11,12 @@ export const ADD_TRANSACTION = gql`
       narration
       totaldebit
       totalcredit
+      partyid
+      invoices {
+        invoiceid
+        invoicemodel
+        settledamount
+      }
       status
       entries {
         ledgerid {
@@ -38,6 +44,12 @@ export const EDIT_TRANSACTION = gql`
       narration
       totaldebit
       totalcredit
+      partyid
+      invoices {
+        invoiceid
+        invoicemodel
+        settledamount
+      }
       status
       entries {
         ledgerid {

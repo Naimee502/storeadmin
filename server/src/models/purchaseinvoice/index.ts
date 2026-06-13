@@ -107,6 +107,88 @@ function ledgerId(x: any) {
   return x._id || x.id || null;
 }
 
+/**
+ * Build the Purchase Invoice accounting journal — Dr Purchase / Dr Input GST
+ * (CGST+SGST) / Cr Vendor — and balance it, WITHOUT saving anything.
+ * Mirrors adjustStockAndTransactions; used by the manual "Full Journal" preview
+ * so a manual journal matches what auto-posting would create.
+ */
+export async function buildPurchaseInvoiceJournal(newInv: any) {
+  const entries: any[] = [];
+  let totalDebit = 0;
+
+  for (const item of newInv.productservice) {
+    const qty = Number(item.qty);
+    const rate = Number(item.rate);
+    const discount = Number(item.discount);
+    const taxable = parseFloat(((rate - discount) * qty).toFixed(2));
+    const gstRate = Number(item.gst);
+    const gstAmt = parseFloat(((taxable * gstRate) / 100).toFixed(2));
+
+    const product = await ProductService.findById(item.productserviceid);
+    const productName = product?.name || "Unknown Product";
+    let variantName = null;
+    if (item.variantid && product?.productvariants?.length) {
+      const variant = product.productvariants.find(
+        (v: any) => v._id.toString() === item.variantid.toString()
+      );
+      variantName = variant?.name || null;
+    }
+    const purchaseRemark = variantName
+      ? `Purchase of ${productName} (${variantName})`
+      : `Purchase of ${productName}`;
+
+    const purchaseLedgerId = ledgerId(item.purchaseaccountid);
+    if (purchaseLedgerId && taxable > 0) {
+      entries.push({ ledgerid: purchaseLedgerId, debit: taxable, credit: 0, remarks: purchaseRemark });
+      totalDebit += taxable;
+    }
+
+    if (gstAmt > 0) {
+      const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
+      const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
+      if (cgst && sgst) {
+        const cgstAmt = parseFloat((gstAmt / 2).toFixed(2));
+        const sgstAmt = parseFloat((gstAmt - cgstAmt).toFixed(2));
+        entries.push({ ledgerid: cgst._id, debit: cgstAmt, credit: 0, remarks: `CGST on ${productName}` });
+        entries.push({ ledgerid: sgst._id, debit: sgstAmt, credit: 0, remarks: `SGST on ${productName}` });
+        totalDebit += gstAmt;
+      } else {
+        const gstAcc = await getOrCreateAccount("Input GST", "other", newInv.adminid, newInv.branchid);
+        entries.push({ ledgerid: gstAcc._id, debit: gstAmt, credit: 0, remarks: `GST on ${productName}` });
+        totalDebit += gstAmt;
+      }
+    }
+  }
+
+  const vendor = await Account.findById(newInv.partyacc).select("ledgerid");
+  if (!vendor?.ledgerid) throw new Error("Vendor ledger missing");
+
+  entries.push({
+    ledgerid: vendor.ledgerid,
+    debit: 0,
+    credit: 0, // set by balance adjustment below
+    remarks: `Purchase Invoice #${newInv.billnumber}`,
+  });
+
+  const tempDebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const tempCredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+  if (tempDebit !== tempCredit) {
+    const diff = parseFloat((tempDebit - tempCredit).toFixed(2));
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry.credit !== undefined) {
+      lastEntry.credit = parseFloat((lastEntry.credit + diff).toFixed(2));
+    } else if (lastEntry.debit !== undefined) {
+      lastEntry.debit = parseFloat((lastEntry.debit - diff).toFixed(2));
+    }
+  }
+
+  const totalDebitSum = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const totalCreditSum = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+
+  return { entries, totalDebitSum, totalCreditSum, vendorLedgerId: vendor.ledgerid };
+}
+
 purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: any, newInv: any, userContext?: any) {
   console.log("🔵 adjustStockAndTransactions called for invoice:", newInv.billnumber);
   console.log("   userContext:", userContext);

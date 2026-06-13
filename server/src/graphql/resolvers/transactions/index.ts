@@ -1,9 +1,48 @@
 import mongoose from "mongoose";
 import { Transaction } from "../../../models/transactions";
 import { AccountLedger } from "../../../models/accountledgers";
+import { SalesInvoice, buildSalesInvoiceJournal } from "../../../models/salesinvoice";
+import { PurchaseInvoice, buildPurchaseInvoiceJournal } from "../../../models/purchaseinvoice";
+import { ExpenseNote, buildExpenseNoteJournal } from "../../../models/expensenote";
 
 export const transactionResolvers = {
   Query: {
+    // Compute (without saving) the full accounting journal an invoice would
+    // post — Dr Debtor / Cr Sales / Cr GST … (sales) or Dr Purchase / Dr GST /
+    // Cr Vendor (purchase). Uses the SAME builders as auto-posting, so a manual
+    // journal created when auto-post is OFF is identical to the auto one.
+    previewInvoiceJournal: async (_: any, { invoiceid, invoicemodel }: any) => {
+      const isExpense = invoicemodel === "ExpenseNote";
+      const isPurchase = invoicemodel === "PurchaseInvoice";
+      const Model: any = isExpense ? ExpenseNote : isPurchase ? PurchaseInvoice : SalesInvoice;
+      const inv = await Model.findById(invoiceid).lean();
+      if (!inv) throw new Error("Document not found");
+
+      const { entries } = isExpense
+        ? await buildExpenseNoteJournal(inv)
+        : isPurchase
+        ? await buildPurchaseInvoiceJournal(inv)
+        : await buildSalesInvoiceJournal(inv);
+
+      // Attach ledger names for display
+      const ids = entries
+        .map((e: any) => e.ledgerid)
+        .filter(Boolean)
+        .map((x: any) => x.toString());
+      const ledgers = await AccountLedger.find({ _id: { $in: ids } })
+        .select("ledgername")
+        .lean();
+      const nameById: Record<string, string> = {};
+      ledgers.forEach((l: any) => (nameById[l._id.toString()] = l.ledgername));
+
+      return entries.map((e: any) => ({
+        ledgerid: e.ledgerid ? e.ledgerid.toString() : null,
+        ledgername: e.ledgerid ? nameById[e.ledgerid.toString()] || "" : "",
+        debit: e.debit || 0,
+        credit: e.credit || 0,
+        remarks: e.remarks || "",
+      }));
+    },
     getTransactions: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
       const query: any = { status: true };
@@ -23,6 +62,7 @@ export const transactionResolvers = {
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
       if (filter.ledgerid)
         query["entries.ledgerid"] = new mongoose.Types.ObjectId(filter.ledgerid);
+      if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
       if (filter.entrytype) query.entrytype = filter.entrytype;
       if (filter.transactioncode)
         query.transactioncode = { $regex: filter.transactioncode, $options: "i" };
@@ -143,9 +183,9 @@ export const transactionResolvers = {
       // ✅ Extract user info from context and populate createdby fields
       const { user } = context;
       const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: user?.name || user?.email,
-        createdby_type: user?.type || 'admin',
+        createdby_id: input.createdby_id || user?.id,
+        createdby_name: input.createdby_name || user?.name || user?.email,
+        createdby_type: input.createdby_type || user?.type || 'admin',
       };
 
       const created = await Transaction.create({ ...input, ...createdbyData });

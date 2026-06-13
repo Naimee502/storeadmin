@@ -29,6 +29,12 @@ export const GET_TRANSACTIONS = gql`
       }
       totaldebit
       totalcredit
+      partyid
+      invoices {
+        invoiceid
+        invoicemodel
+        settledamount
+      }
       createdby_id
       createdby_name
       createdby_type
@@ -67,6 +73,12 @@ export const GET_DELETED_TRANSACTIONS = gql`
       }
       totaldebit
       totalcredit
+      partyid
+      invoices {
+        invoiceid
+        invoicemodel
+        settledamount
+      }
       createdby_id
       createdby_name
       createdby_type
@@ -74,6 +86,18 @@ export const GET_DELETED_TRANSACTIONS = gql`
       status
       createdAt
       updatedAt
+    }
+  }
+`;
+
+export const PREVIEW_INVOICE_JOURNAL = gql`
+  query PreviewInvoiceJournal($invoiceid: ID!, $invoicemodel: String!) {
+    previewInvoiceJournal(invoiceid: $invoiceid, invoicemodel: $invoicemodel) {
+      ledgerid
+      ledgername
+      debit
+      credit
+      remarks
     }
   }
 `;
@@ -105,6 +129,12 @@ export const GET_TRANSACTION_BY_ID = gql`
       }
       totaldebit
       totalcredit
+      partyid
+      invoices {
+        invoiceid
+        invoicemodel
+        settledamount
+      }
       createdby_id
       createdby_name
       createdby_type

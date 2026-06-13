@@ -50,21 +50,24 @@ const ProfitLossChart: React.FC<ProfitLossChartProps> = ({ transactions = [] }) 
 
       if (!monthlyData[monthYear]) monthlyData[monthYear] = { revenue: 0, expense: 0 };
 
-      trx.entries.forEach((entry) => {
-        if (trx.source.docmodel === "SalesInvoice") {
+      (trx.entries || []).forEach((entry) => {
+        const docmodel = trx.source?.docmodel;
+        const ledgername = entry.ledgerid?.ledgername || "";
+
+        if (docmodel === "SalesInvoice") {
           if (entry.credit > 0) monthlyData[monthYear].revenue += entry.credit;
-          if (entry.debit > 0 && entry.ledgerid.ledgername.includes("Commission")) {
+          if (entry.debit > 0 && ledgername.includes("Commission")) {
             monthlyData[monthYear].revenue -= entry.debit;
           }
         }
 
-        if (trx.source.docmodel === "PurchaseInvoice") {
+        if (docmodel === "PurchaseInvoice") {
           if (entry.debit > 0) monthlyData[monthYear].expense += entry.debit;
         }
         if (
-          entry.ledgerid.ledgername.includes("Commission") ||
-          entry.ledgerid.ledgername.includes("Tax") ||
-          entry.ledgerid.ledgername.includes("Expense")
+          ledgername.includes("Commission") ||
+          ledgername.includes("Tax") ||
+          ledgername.includes("Expense")
         ) {
           monthlyData[monthYear].expense += entry.debit;
         }

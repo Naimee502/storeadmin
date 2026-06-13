@@ -14,10 +14,12 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
+import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
+import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 
 type SettledInvoice = {
   invoiceid: string;
-  invoicemodel: "SalesInvoice" | "PurchaseInvoice";
+  invoicemodel: "SalesInvoice" | "PurchaseInvoice" | "ExpenseNote";
   settledamount: number;
   billnumber: string;
   totalamount: number;
@@ -62,11 +64,13 @@ const AddEditPayment = () => {
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
   const { data: paymentsData } = usePaymentsQuery();
+  const { data: transactionsData } = useTransactionsQuery();
+  const { data: expenseNotesData } = useExpenseNotesQuery();
   const { addPaymentMutation, editPaymentMutation } = usePaymentMutations();
 
   // ── Form state ─────────────────────────────────────────────────────────
   const [paymentdate, setPaymentdate] = useState(new Date().toISOString().slice(0, 10));
-  const [payType, setPayType] = useState<"receipt" | "payment">("receipt");
+  const [payType, setPayType] = useState<"receipt" | "payment" | "expense">("receipt");
   const [mode, setMode] = useState("cash");
   const [ledgerid, setLedgerid] = useState("");
   const [partyid, setPartyid] = useState("");
@@ -84,6 +88,7 @@ const AddEditPayment = () => {
   // ── Already-paid amounts per invoice (exclude current edit) ────────────
   const paidByInvoice = useMemo(() => {
     const map: Record<string, number> = {};
+    // Payments
     (paymentsData?.getPayments || []).forEach((pay: any) => {
       if (isEdit && pay.id === id) return;
       (pay.invoices || []).forEach((inv: any) => {
@@ -92,8 +97,18 @@ const AddEditPayment = () => {
         }
       });
     });
+    // Manual transactions that settled invoices (Tally "Agst Ref") — counted so
+    // a journal settlement reduces outstanding here too, consistent with the
+    // Transaction page's BillAllocation.
+    (transactionsData?.getTransactions || []).forEach((txn: any) => {
+      (txn.invoices || []).forEach((inv: any) => {
+        if (inv.invoiceid) {
+          map[inv.invoiceid] = (map[inv.invoiceid] || 0) + (inv.settledamount || 0);
+        }
+      });
+    });
     return map;
-  }, [paymentsData, id, isEdit]);
+  }, [paymentsData, transactionsData, id, isEdit]);
 
   // ── Outstanding invoices for the selected party ────────────────────────
   // Show ALL invoices for this party (any payment type) that still have
@@ -101,14 +116,37 @@ const AddEditPayment = () => {
   // how it was originally recorded (cash, credit, bank).
   const outstandingInvoices = useMemo(() => {
     if (!partyid) return [];
-    const source =
-      payType === "receipt"
-        ? (salesInvData?.getSalesInvoices || []).filter(
-            (inv: any) => inv.partyacc?.id === partyid && inv.status
-          ).map((inv: any) => ({ ...inv, invoicemodel: "SalesInvoice" }))
-        : (purchaseInvData?.getPurchaseInvoices || []).filter(
-            (inv: any) => inv.partyacc?.id === partyid && inv.status
-          ).map((inv: any) => ({ ...inv, invoicemodel: "PurchaseInvoice" }));
+
+    let source: any[];
+    if (payType === "expense") {
+      // The selected party's outstanding CREDIT expense notes.
+      const partyLedgerId = (accountsData?.getAccounts || []).find(
+        (a: any) => a.id === partyid
+      )?.ledgerid?.id;
+      source = (expenseNotesData?.getExpenseNotes || [])
+        .filter(
+          (e: any) =>
+            e.status && e.paymenttype === "credit" && e.ledgerid?.id === partyLedgerId
+        )
+        .map((e: any) => ({
+          id: e.id,
+          invoicemodel: "ExpenseNote",
+          billnumber: e.expensenumber,
+          totalamount: e.totalamount,
+          subtotal: parseFloat((Number(e.totalamount || 0) - Number(e.totalgst || 0)).toFixed(2)),
+          totalgst: e.totalgst || 0,
+          othercharges: [],
+          status: e.status,
+        }));
+    } else if (payType === "receipt") {
+      source = (salesInvData?.getSalesInvoices || [])
+        .filter((inv: any) => inv.partyacc?.id === partyid && inv.status)
+        .map((inv: any) => ({ ...inv, invoicemodel: "SalesInvoice" }));
+    } else {
+      source = (purchaseInvData?.getPurchaseInvoices || [])
+        .filter((inv: any) => inv.partyacc?.id === partyid && inv.status)
+        .map((inv: any) => ({ ...inv, invoicemodel: "PurchaseInvoice" }));
+    }
 
     return source
       .map((inv: any) => {
@@ -117,7 +155,7 @@ const AddEditPayment = () => {
         return { ...inv, outstanding };
       })
       .filter((inv: any) => inv.outstanding > 0);
-  }, [partyid, payType, salesInvData, purchaseInvData, paidByInvoice]);
+  }, [partyid, payType, salesInvData, purchaseInvData, expenseNotesData, accountsData, paidByInvoice]);
 
   // ── Load existing payment for edit ─────────────────────────────────────
   useEffect(() => {
@@ -178,7 +216,25 @@ const AddEditPayment = () => {
 
   // ── Dropdown options ───────────────────────────────────────────────────
   const partyOptions = useMemo(() => {
-    return (accountsData?.getAccounts || [])
+    const accounts = accountsData?.getAccounts || [];
+
+    if (payType === "expense") {
+      // Show only parties (any type) whose ledger has an outstanding CREDIT
+      // expense note — matches expense.ledgerid === account.ledgerid.
+      const expenseLedgerIds = new Set(
+        (expenseNotesData?.getExpenseNotes || [])
+          .filter((e: any) => e.status && e.paymenttype === "credit" && e.ledgerid?.id)
+          .map((e: any) => e.ledgerid.id)
+      );
+      return accounts
+        .filter((a: any) => a.ledgerid?.id && expenseLedgerIds.has(a.ledgerid.id))
+        .map((a: any) => ({
+          value: a.id,
+          label: `${a.name}${a.mobile ? ` - ${a.mobile}` : ""}`,
+        }));
+    }
+
+    return accounts
       .filter((a: any) =>
         payType === "receipt"
           ? a.type === "customer"
@@ -188,7 +244,7 @@ const AddEditPayment = () => {
         value: a.id,
         label: `${a.name}${a.mobile ? ` - ${a.mobile}` : ""}`,
       }));
-  }, [accountsData, payType]);
+  }, [accountsData, payType, expenseNotesData]);
 
   const ledgerOptions = useMemo(() => {
     return (ledgerData?.getAccountLedgers || []).map((l: any) => ({
@@ -199,6 +255,22 @@ const AddEditPayment = () => {
 
   const selectedLedgerName =
     ledgerData?.getAccountLedgers?.find((l: any) => l.id === ledgerid)?.ledgername || "Cash / Bank Ledger";
+
+  // Auto-default the Cash/Bank ledger once a party is chosen (matches the
+  // Transaction page's counter-ledger auto-pick), so the Dr (Cash/Bank) and Cr
+  // (Party) sides are both set automatically when you start settling invoices.
+  useEffect(() => {
+    if (ledgerid || !partyid) return;
+    const ledgers = ledgerData?.getAccountLedgers || [];
+    if (!ledgers.length) return;
+    const byName = (re: RegExp) => ledgers.find((l: any) => re.test(l.ledgername || ""));
+    const pick =
+      mode === "bank" ? (byName(/bank/i) || byName(/cash/i))
+      : mode === "cash" ? (byName(/cash/i) || byName(/bank/i))
+      : (byName(/cash/i) || byName(/bank/i) || ledgers[0]);
+    if (pick) setLedgerid(pick.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyid, mode, ledgerData]);
 
   // ── Invoice settlement helpers ─────────────────────────────────────────
   const isSelected = (invId: string) => settledInvoices.some(s => s.invoiceid === invId);
@@ -245,7 +317,9 @@ const AddEditPayment = () => {
       adminid: adminId,
       branchid: branchId,
       paymentdate,
-      type: payType,
+      // "expense" is a UI-only mode (settle a credit expense note); on the
+      // server it's a money-out payment (Dr party-payable / Cr cash).
+      type: payType === "expense" ? "payment" : payType,
       mode,
       ledgerid,
       partyid: partyid || null,
@@ -305,7 +379,7 @@ const AddEditPayment = () => {
                 type="select"
                 value={payType}
                 onChange={e => {
-                  setPayType(e.target.value as "receipt" | "payment");
+                  setPayType(e.target.value as "receipt" | "payment" | "expense");
                   setPartyid("");
                   setSettledInvoices([]);
                   editLoaded.current = false;
@@ -313,6 +387,7 @@ const AddEditPayment = () => {
                 options={[
                   { label: "Receipt  (Money In — from Customer)", value: "receipt" },
                   { label: "Payment  (Money Out — to Vendor)", value: "payment" },
+                  { label: "Expense  (Settle Expense Note)", value: "expense" },
                 ]}
               />
               <FormField
@@ -331,7 +406,13 @@ const AddEditPayment = () => {
                 ]}
               />
               <FormField
-                label={payType === "receipt" ? "Customer (Party)" : "Vendor (Party)"}
+                label={
+                  payType === "receipt"
+                    ? "Customer (Party)"
+                    : payType === "expense"
+                    ? "Party (Expense Payable)"
+                    : "Vendor (Party)"
+                }
                 name="partyid"
                 type="select"
                 value={partyid}
@@ -375,7 +456,7 @@ const AddEditPayment = () => {
           {partyid && (
             <fieldset className="border rounded-xl p-4 space-y-4">
               <legend className="text-sm font-medium px-2">
-                {payType === "receipt" ? "Outstanding Sales Invoices" : "Outstanding Purchase Invoices"}
+                Bill Settlement (Against Invoices) — optional
               </legend>
 
               {outstandingInvoices.length === 0 ? (

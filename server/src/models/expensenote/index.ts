@@ -214,6 +214,60 @@ expenseNoteSchema.pre("validate", async function (next) {
 });
 
 /* ===========================================================
+   BUILD EXPENSE JOURNAL (no save) — shared with the manual
+   "Full Journal" preview so a manual Transaction recorded when
+   auto-posting is OFF matches what auto would create:
+   Dr Expense (+ Input GST) / Cr Cash-Bank-or-Payable ledger.
+   =========================================================== */
+export async function buildExpenseNoteJournal(doc: any) {
+  const entries: any[] = [];
+  let totalDebit = 0;
+
+  for (const row of doc.expenses) {
+    const baseAmt = Number(row.amount);
+    const gstAmt = parseFloat(((baseAmt * Number(row.gstpercent || 0)) / 100).toFixed(2));
+
+    const expenseLedger = await AccountLedger.findById(row.expenseledgerid);
+    const expenseName = expenseLedger?.ledgername || "Expense";
+
+    entries.push({
+      ledgerid: row.expenseledgerid,
+      debit: baseAmt,
+      credit: 0,
+      remarks: row.remarks || `Expense - ${expenseName}`,
+    });
+    totalDebit += baseAmt;
+
+    if (gstAmt > 0) {
+      const cgst = await AccountLedger.findOne({ admin: doc.adminid, ledgername: "Input CGST" });
+      const sgst = await AccountLedger.findOne({ admin: doc.adminid, ledgername: "Input SGST" });
+      if (cgst && sgst) {
+        const split = parseFloat((gstAmt / 2).toFixed(2));
+        entries.push({ ledgerid: cgst._id, debit: split, credit: 0, remarks: `Input CGST on ${expenseName}` });
+        entries.push({ ledgerid: sgst._id, debit: split, credit: 0, remarks: `Input SGST on ${expenseName}` });
+      } else {
+        const gstLedger = await getOrCreateAccount("Input GST", "gst", doc.adminid, doc.branchid);
+        entries.push({ ledgerid: gstLedger._id, debit: gstAmt, credit: 0, remarks: `Input GST on ${expenseName}` });
+      }
+      totalDebit += gstAmt;
+    }
+  }
+
+  if (!doc.ledgerid) throw new Error("❌ Payment account / party ledger is required");
+  entries.push({
+    ledgerid: doc.ledgerid,
+    debit: 0,
+    credit: parseFloat(totalDebit.toFixed(2)),
+    remarks: doc.paymenttype === "credit"
+      ? `Expense Credit ${doc.expensenumber}`
+      : `Expense paid via ${doc.paymenttype}`,
+  });
+
+  const totalDebitSum = parseFloat(totalDebit.toFixed(2));
+  return { entries, totalDebitSum, totalCreditSum: totalDebitSum };
+}
+
+/* ===========================================================
    CREATE JOURNAL + PAYMENT
    =========================================================== */
 expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, userContext?: any) {

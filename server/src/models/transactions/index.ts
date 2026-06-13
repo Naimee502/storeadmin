@@ -34,6 +34,18 @@ const transactionSchema = new mongoose.Schema(
     totaldebit: { type: Number, default: 0 },
     totalcredit: { type: Number, default: 0 },
 
+    // Tally-style bill allocation (Agst Ref): when this journal settles a
+    // party's outstanding invoices, record the party + per-invoice allocation.
+    // Same shape as Payment.invoices so outstanding is computed consistently.
+    partyid: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
+    invoices: [
+      {
+        invoiceid: { type: mongoose.Schema.Types.ObjectId },
+        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice"] },
+        settledamount: { type: Number, default: 0 },
+      },
+    ],
+
     createdby_id: { type: mongoose.Schema.Types.ObjectId },
     createdby_name: { type: String },
     createdby_type: { type: String },
