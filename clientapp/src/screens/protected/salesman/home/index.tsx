@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -12,6 +12,7 @@ import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader } from '../../../../components';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { GET_SALES_ORDERS, GET_PAYMENTS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -33,6 +34,23 @@ export default function SalesmanDashboard() {
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
+  const { blocked: punchBlocked } = usePunchGate();
+
+  // Require punch-in before going to Route / Parties (i.e. before any visit/order).
+  const goWithPunch = (screen: string) => {
+    if (punchBlocked) {
+      Alert.alert(
+        'Punch in required',
+        'Please punch in from the Attendance tab before starting your visits.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Attendance', onPress: () => navigation.navigate('SalesmanAttendance') },
+        ],
+      );
+      return;
+    }
+    navigation.navigate(screen);
+  };
 
   const { data, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, salesmenid: user?.id },
@@ -139,7 +157,7 @@ export default function SalesmanDashboard() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Route</Text>
           <TouchableOpacity
             style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-            onPress={() => navigation.navigate('SalesmanRoutes')}
+            onPress={() => goWithPunch('SalesmanRoutes')}
             activeOpacity={0.82}
           >
             <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
@@ -155,7 +173,7 @@ export default function SalesmanDashboard() {
           {/* Direct (route-less) ordering — pick any party from your channel */}
           <TouchableOpacity
             style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border, marginTop: 10 }]}
-            onPress={() => navigation.navigate('SalesmanParties')}
+            onPress={() => goWithPunch('SalesmanParties')}
             activeOpacity={0.82}
           >
             <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
