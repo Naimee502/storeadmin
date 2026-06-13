@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
+import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
@@ -23,7 +24,34 @@ const SalesOrders = () => {
     confirmSalesOrderMutation,
     dispatchSalesOrderMutation,
     deliverSalesOrderMutation,
+    reopenSalesOrderMutation,
   } = useSalesOrderMutations();
+
+  // Drive the order through its lifecycle from the listing dropdown.
+  const STATUS_OPTIONS = [
+    { label: "Pending",    value: "pending" },
+    { label: "Confirmed",  value: "confirmed" },
+    { label: "Dispatched", value: "dispatched" },
+    { label: "Delivered",  value: "delivered" },
+    { label: "Cancelled",  value: "cancelled" },
+  ];
+  const handleStatusChange = async (row: any, status: string) => {
+    try {
+      if (status === "confirmed")       await confirmSalesOrderMutation({ variables: { id: row.id } });
+      else if (status === "dispatched") await dispatchSalesOrderMutation({ variables: { id: row.id } });
+      else if (status === "delivered")  await deliverSalesOrderMutation({ variables: { id: row.id, byType: "admin" } });
+      else if (status === "cancelled") {
+        const reason = window.prompt(`Cancel SO-${row.billnumber}? Reason:`);
+        if (reason === null) return;
+        await cancelSalesOrderMutation({ variables: { id: row.id, reason } });
+      }
+      else if (status === "pending")    await reopenSalesOrderMutation({ variables: { id: row.id } });
+      await refetch();
+      dispatch(showMessage({ message: "Order status updated.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Failed to update status.", type: "error" }));
+    }
+  };
   const orderList = data?.getSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -50,12 +78,20 @@ const SalesOrders = () => {
     { label: "Order Date", key: "billdate" },
     { label: "Order No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
-    { label: "Created By", key: "createdby_name" },
-    { label: "Status", key: "status" },
+    { label: "Ordered By", key: "orderedByDisplay" },
+    { label: "Order Status", key: "orderStatusCell" },
+    { label: "Status", key: "activeStatus" },
   ];
 
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
+
+  // Show NAME (with role); if only an email is stored, fall back to the role.
+  const personLabel = (name?: string, type?: string) => {
+    const role = type ? capitalizeFirst(type) : "";
+    if (name && !name.includes("@")) return role ? `${name} (${role})` : name;
+    return role || "—";
+  };
 
   const tableData = orderList.map((order: any, index: number) => {
     const totalqty = order.productservice.reduce(
@@ -71,14 +107,15 @@ const SalesOrders = () => {
       totalqty,
       billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
-      createdby_name: order.createdby_type
-        ? `${order.createdby_name || "N/A"} (${capitalizeFirst(order.createdby_type)})`
-        : (order.createdby_name || "N/A"),
-      status: order.orderStatus
-        ? capitalizeFirst(order.orderStatus)
-        : (order.cancelStatus === "cancelled"
-            ? "Cancelled"
-            : (order.status ? "Active" : "Inactive")),
+      orderedByDisplay: personLabel(order.createdby_name, order.createdby_type),
+      orderStatusCell: (
+        <StatusDropdown
+          current={order.orderStatus || (order.cancelStatus === "cancelled" ? "cancelled" : "pending")}
+          options={STATUS_OPTIONS}
+          onSelect={(v) => handleStatusChange(order, v)}
+        />
+      ),
+      activeStatus: order.status ? "Active" : "Inactive",
       cancelStatus: order.cancelStatus,
       isConverted: order.isConverted,
     };
@@ -109,58 +146,7 @@ const SalesOrders = () => {
           onAdd={() => navigate("/salesorder/addedit")}
           showConvert={actions.showConvert}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
-          showConfirm={(row: any) =>
-            !!actions.showEdit && row.cancelStatus !== "cancelled" && !row.isConverted &&
-            (!row.orderStatus || row.orderStatus === "pending")
-          }
-          onConfirm={async (row: any) => {
-            if (!window.confirm(`Confirm Sales Order SO-${row.billnumber}?`)) return;
-            try {
-              await confirmSalesOrderMutation({ variables: { id: row.id } });
-              await refetch();
-              dispatch(showMessage({ message: "Order confirmed.", type: "success" }));
-            } catch (e: any) {
-              dispatch(showMessage({ message: e?.message || "Failed to confirm.", type: "error" }));
-            }
-          }}
-          showDispatch={(row: any) =>
-            !!actions.showEdit && row.cancelStatus !== "cancelled" && row.orderStatus === "confirmed"
-          }
-          onDispatch={async (row: any) => {
-            if (!window.confirm(`Mark SO-${row.billnumber} as dispatched?`)) return;
-            try {
-              await dispatchSalesOrderMutation({ variables: { id: row.id } });
-              await refetch();
-              dispatch(showMessage({ message: "Order dispatched.", type: "success" }));
-            } catch (e: any) {
-              dispatch(showMessage({ message: e?.message || "Failed to dispatch.", type: "error" }));
-            }
-          }}
-          showDeliver={(row: any) =>
-            !!actions.showEdit && row.cancelStatus !== "cancelled" && row.orderStatus === "dispatched"
-          }
-          onDeliver={async (row: any) => {
-            if (!window.confirm(`Mark SO-${row.billnumber} as delivered?`)) return;
-            try {
-              await deliverSalesOrderMutation({ variables: { id: row.id, byType: "admin" } });
-              await refetch();
-              dispatch(showMessage({ message: "Order delivered.", type: "success" }));
-            } catch (e: any) {
-              dispatch(showMessage({ message: e?.message || "Failed to deliver.", type: "error" }));
-            }
-          }}
-          showCancel={(row: any) => actions.showCancel && !row.isConverted && row.cancelStatus !== "cancelled"}
-          onCancel={async (row: any) => {
-            const reason = window.prompt(`Cancel Sales Order ${row.billnumber}? Enter reason:`);
-            if (reason === null) return;
-            try {
-              await cancelSalesOrderMutation({ variables: { id: row.id, reason } });
-              await refetch();
-              dispatch(showMessage({ message: "Order cancelled.", type: "success" }));
-            } catch (e: any) {
-              dispatch(showMessage({ message: e?.message || "Failed to cancel.", type: "error" }));
-            }
-          }}
+          showCancel={false}
           onShowDeleted={() => navigate("/salesorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}

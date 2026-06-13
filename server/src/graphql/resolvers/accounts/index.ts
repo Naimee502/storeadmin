@@ -1,8 +1,50 @@
 import { Account } from "../../../models/accounts";
+import { Transaction } from "../../../models/transactions";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+
+// Collect downline party ids under a root party (assignaccountid chain).
+const collectDownline = async (rootId: any): Promise<string[]> => {
+  const out: string[] = [];
+  let frontier = [String(rootId)];
+  for (let depth = 0; depth < 6 && frontier.length; depth++) {
+    const kids = await Account.find({ assignaccountid: { $in: frontier }, status: true }).select("_id").lean();
+    const ids = kids.map((k: any) => k._id.toString()).filter((id) => !out.includes(id));
+    if (!ids.length) break;
+    out.push(...ids);
+    frontier = ids;
+  }
+  return out;
+};
+
+// Running balance (Dr − Cr) of a single ledger across all its transactions.
+const ledgerBalance = async (ledgerId: any): Promise<number> => {
+  if (!ledgerId) return 0;
+  const txns = await Transaction.find({ "entries.ledgerid": ledgerId, status: true }).select("entries").lean();
+  let bal = 0;
+  for (const t of txns as any[]) for (const e of t.entries || []) {
+    if (String(e.ledgerid) === String(ledgerId)) bal += (e.debit || 0) - (e.credit || 0);
+  }
+  return bal;
+};
 
 export const accountResolvers = {
   Query: {
+    // Downline (sub-party) outstanding summary for a parent party's Ledger tab.
+    getDownlinePartyBalances: async (_: any, { partyid }: { partyid: string }) => {
+      const ids = await collectDownline(partyid);
+      if (!ids.length) return [];
+      const parties = await Account.find({ _id: { $in: ids } }).select("name mobile ledgerid").lean();
+      const result: any[] = [];
+      for (const p of parties as any[]) {
+        result.push({
+          id: p._id.toString(),
+          name: p.name,
+          mobile: p.mobile || null,
+          outstanding: await ledgerBalance(p.ledgerid),
+        });
+      }
+      return result;
+    },
     getAccounts: async (_: any, { filter }: { filter: any }, context: any) => {
       const query: any = {};
 

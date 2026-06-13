@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
@@ -25,6 +26,7 @@ export default function StaffCart() {
   const adminid    = tenant.adminId ?? '';
 
   const [placing, setPlacing] = useState(false);
+  const { blocked: punchBlocked } = usePunchGate();
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
   const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
@@ -34,6 +36,7 @@ export default function StaffCart() {
 
   const handlePlaceOrder = async () => {
     if (!partyId || cartItems.length === 0) return;
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before taking orders.'); return; }
 
     // branchid is required by the server (SalesOrder.branchid is a required
     // ObjectId). Sending '' triggers a Cast to ObjectId error, which is the

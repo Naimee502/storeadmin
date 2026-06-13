@@ -180,3 +180,19 @@ export const RESET_SALES_INVOICE = gql`
     resetSalesInvoice(id: $id)
   }
 `;
+
+export const MARK_SALES_INVOICE_DISPATCHED = gql`
+  mutation MarkSalesInvoiceDispatched($id: ID!, $deliveryboyid: ID) {
+    markSalesInvoiceDispatched(id: $id, deliveryboyid: $deliveryboyid) {
+      id deliveryStatus
+    }
+  }
+`;
+
+export const MARK_SALES_INVOICE_DELIVERED = gql`
+  mutation MarkSalesInvoiceDelivered($id: ID!, $byId: ID, $byName: String, $byType: String) {
+    markSalesInvoiceDelivered(id: $id, byId: $byId, byName: $byName, byType: $byType) {
+      id deliveryStatus deliveredAt
+    }
+  }
+`;

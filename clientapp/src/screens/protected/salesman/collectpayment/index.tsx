@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
 import { ledgerEntryTotals } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
@@ -72,6 +73,7 @@ export default function CollectPayment() {
   );
 
   const [addPayment] = useMutation(ADD_PAYMENT);
+  const { blocked: punchBlocked } = usePunchGate();
 
   const [mode,      setMode]      = useState<PaymentMode>('cash');
   const [ledgerId,  setLedgerId]  = useState<string>('');
@@ -100,6 +102,7 @@ export default function CollectPayment() {
   const parsedAmount = parseFloat(amount) || 0;
 
   const handleSubmit = () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before collecting payment.'); return; }
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid payment amount.');
       return;

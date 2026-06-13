@@ -13,6 +13,7 @@ import {
   MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
 } from '../../../../apollo/mutations/accounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
@@ -110,6 +111,7 @@ export default function OrderDetail() {
     }, [refetch])
   );
 
+  const { blocked: punchBlocked } = usePunchGate();
   const [confirmOrder]          = useMutation(CONFIRM_SALES_ORDER);
   const [convertOrder]          = useMutation(CONVERT_SALES_ORDER_TO_INVOICE);
   const [markOrderDelivered]    = useMutation(MARK_SALES_ORDER_DELIVERED);
@@ -174,6 +176,7 @@ export default function OrderDetail() {
   const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
 
   const handleConvert = () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab first.'); return; }
     Alert.alert('Convert to Invoice', 'Create a Sales Invoice from this order?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -195,6 +198,7 @@ export default function OrderDetail() {
   };
 
   const handleConfirm = () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab first.'); return; }
     Alert.alert('Confirm Order', 'Mark this order as confirmed?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -215,6 +219,7 @@ export default function OrderDetail() {
   };
 
   const handleMarkDispatched = () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab first.'); return; }
     Alert.alert('Mark Dispatched', 'Mark this as dispatched / out for delivery?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -236,6 +241,7 @@ export default function OrderDetail() {
   };
 
   const handleMarkDelivered = () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab first.'); return; }
     Alert.alert('Mark Delivered', 'Confirm this has been delivered?', [
       { text: 'Cancel', style: 'cancel' },
       {

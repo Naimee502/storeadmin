@@ -31,6 +31,7 @@ export const GET_STAFF_ACCOUNT = gql`
   query getStaffAccountById($id: ID!, $adminId: ID) {
     getStaffAccountById(id: $id, adminId: $adminId) {
       id name mobile email staffcode role address salary commission
+      allowedmodules
       branchid        { id branchname }
       ledgerid        { id ledgername }
       assignedChannels { id channelName }

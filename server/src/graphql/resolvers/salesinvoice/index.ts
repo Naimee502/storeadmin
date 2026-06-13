@@ -1,6 +1,28 @@
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { Account } from "../../../models/accounts";
+
+// Resolve who created a doc into a proper { name, type } — so the listing shows
+// e.g. "Ravi (Salesman)" / "Pruthvi (Party)" instead of "... (Staff)" or email.
+// staff.type='staff' in the token, but the real role (salesman/staff/deliveryboy)
+// lives on the StaffAccount; party tokens resolve to the Account name.
+const resolveCreatedBy = async (user: any, input: any) => {
+  console.log("🧾 [resolveCreatedBy] context.user:", JSON.stringify(user), "| input.createdby_name:", input?.createdby_name, "| input.createdby_type:", input?.createdby_type);
+  let name = input?.createdby_name || user?.name || user?.email || "N/A";
+  let type = user?.type || input?.createdby_type || "admin";
+  try {
+    if (user?.type === "staff") {
+      const staff = await StaffAccount.findById(user.id).select("role name").lean() as any;
+      if (staff) { type = staff.role || "staff"; name = staff.name || name; }
+    } else if (user?.type === "account" || user?.type === "party") {
+      type = "party";
+      const acc = await Account.findById(user.id).select("name").lean() as any;
+      if (acc) name = acc.name || name;
+    }
+  } catch (e) { /* best-effort */ }
+  return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
+};
 import { SalesOrder } from "../../../models/salesorder";
 
 // Sync the source Sales Order (the canonical lifecycle owner) when delivery is
@@ -258,12 +280,9 @@ export const salesInvoiceResolvers = {
   Mutation: {
     addSalesInvoice: async (_: any, { input }: any, context: any) => {
       // ✅ Extract user info from context and populate createdby fields
+      // (resolves staff → real role + name, party → account name).
       const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: input.createdby_name || user?.name || user?.email,
-        createdby_type: user?.type || input.createdby_type || 'admin',
-      };
+      const createdbyData = await resolveCreatedBy(user, input);
 
       // ✅ Always use AdminSettings for autocreate (ignore user input)
       const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
@@ -308,6 +327,7 @@ export const salesInvoiceResolvers = {
     // Builds the invoice input from the source order and reuses addSalesInvoice
     // so all the auto-posting (ledger / stock / payment) runs exactly the same.
     convertSalesOrderToInvoice: async (_: any, { id }: any, context: any) => {
+      console.log("🔄 [convertSalesOrderToInvoice] id:", id, "| context.user:", JSON.stringify(context?.user));
       const order: any = await SalesOrder.findById(id).lean();
       if (!order) throw new Error("Sales Order not found");
       if (order.isConverted) throw new Error("This order is already converted to an invoice.");

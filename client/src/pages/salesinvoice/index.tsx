@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addSalesInvoices } from "../../redux/slices/salesinvoice";
 import DataTable from "../../components/datatable";
+import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
@@ -23,7 +24,26 @@ const SalesInvoices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, M));
   
   const { data, refetch } = useSalesInvoicesQuery();
-  const { deleteSalesInvoiceMutation } = useSalesInvoiceMutations();
+  const {
+    deleteSalesInvoiceMutation,
+    dispatchSalesInvoiceMutation,
+    deliverSalesInvoiceMutation,
+  } = useSalesInvoiceMutations();
+
+  const DELIVERY_OPTIONS = [
+    { label: "Dispatched", value: "dispatched" },
+    { label: "Delivered",  value: "delivered" },
+  ];
+  const handleDeliveryChange = async (row: any, status: string) => {
+    try {
+      if (status === "dispatched") await dispatchSalesInvoiceMutation({ variables: { id: row.id } });
+      else if (status === "delivered") await deliverSalesInvoiceMutation({ variables: { id: row.id, byType: "admin" } });
+      await refetch();
+      dispatch(showMessage({ message: "Delivery status updated.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Failed to update.", type: "error" }));
+    }
+  };
   const invoiceList = data?.getSalesInvoices || [];
   console.log("Fetched Sales Invoices:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -144,10 +164,18 @@ const SalesInvoices = () => {
     { label: "Billing Date", key: "billdate" },
     { label: "Billing No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
-    { label: "Ordered → Created By", key: "byDisplay" },
-    { label: "Delivery", key: "deliveryDisplay" },
+    { label: "Ordered By", key: "orderedByDisplay" },
+    { label: "Order Status", key: "deliveryDisplay" },
     { label: "Status", key: "status" },
   ];
+
+  // Show the person's NAME (with role); if only an email is stored, fall back
+  // to the role label instead of an ugly email.
+  const personLabel = (name?: string, type?: string) => {
+    const role = type ? capitalizeFirst(type) : "";
+    if (name && !name.includes("@")) return role ? `${name} (${role})` : name;
+    return role || "—";
+  };
 
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
@@ -166,25 +194,23 @@ const SalesInvoices = () => {
       totalqty,
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
-      byDisplay: (() => {
-        const created = invoice.createdby_type
-          ? `${invoice.createdby_name || "N/A"} (${capitalizeFirst(invoice.createdby_type)})`
-          : (invoice.createdby_name || "N/A");
-        const ordered = invoice.orderedby_name
-          ? `${invoice.orderedby_name} (${invoice.orderedby_type ? capitalizeFirst(invoice.orderedby_type) : "Order"})`
-          : "";
-        // "Ordered → Created": who booked the order, then who raised the invoice.
-        // Collapse to one when there's no separate order or they're the same.
-        if (!ordered || ordered === created) return created;
-        return `${ordered} → ${created}`;
-      })(),
-      deliveryDisplay: (() => {
-        const ds = invoice.deliveryStatus || "pending";
-        const label = capitalizeFirst(ds);
-        return ds === "delivered" && invoice.deliveredByName
-          ? `${label} · ${invoice.deliveredByName}`
-          : label;
-      })(),
+      orderedByDisplay: invoice.orderedby_name
+        ? personLabel(invoice.orderedby_name, invoice.orderedby_type)
+        : "—",
+      createdByDisplay: personLabel(invoice.createdby_name, invoice.createdby_type),
+      deliveryDisplay: (
+        <StatusDropdown
+          // An invoice is already a CONFIRMED sale; its delivery lifecycle is
+          // confirmed → dispatched → delivered. So show "Confirmed" until it's
+          // actually dispatched/delivered (instead of a bare "Pending").
+          current={(invoice.deliveryStatus === "dispatched" || invoice.deliveryStatus === "delivered")
+            ? invoice.deliveryStatus
+            : "confirmed"}
+          options={DELIVERY_OPTIONS}
+          onSelect={(v) => handleDeliveryChange(invoice, v)}
+          disabled={invoice.deliveryStatus === "delivered"}
+        />
+      ),
       status: invoice.status ? "Active" : "Inactive",
     };
   });

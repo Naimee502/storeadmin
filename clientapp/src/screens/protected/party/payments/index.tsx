@@ -1,15 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { formatINR, formatDate, formatBillNumber, formatPaymentCode, titleCase, ledgerEntryTotals } from '../../../../utils';
-import { AppHeader, DynamicFlashList } from '../../../../components';
-import { GET_SALES_ORDERS, GET_ACCOUNT, GET_PAYMENTS, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
+import { AppHeader, BackHeader, DynamicFlashList } from '../../../../components';
+import { GET_SALES_ORDERS, GET_ACCOUNT, GET_PAYMENTS, GET_TRANSACTIONS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 const MODE_ICON: Record<string, string> = {
@@ -19,30 +19,49 @@ const MODE_ICON: Record<string, string> = {
 
 export default function Payments() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { colors, isDark } = useTheme();
   const user = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
 
+  // Drill-down: opened with a partyId param → that sub-party's payments (same UI).
+  const isDrill    = !!route.params?.partyId;
+  const targetId   = route.params?.partyId ?? user?.id;
+  const targetName = route.params?.partyName;
+
   const { data: accountData } = useQuery(GET_ACCOUNT, {
-    variables: { id: user?.id, adminId: adminid },
-    skip: !user?.id || !adminid,
+    variables: { id: targetId, adminId: adminid },
+    skip: !targetId || !adminid,
     refetchPolicy: 'network-only',
   });
 
   const { data: ordersData, loading: ordersLoading } = useQuery(GET_SALES_ORDERS, {
-    variables: { adminid, partyacc: user?.id },
-    skip: !adminid || !user?.id,
+    variables: { adminid, partyacc: targetId },
+    skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
   });
 
-  // Payments are keyed by the party account (partyid); a Payment's own
-  // ledgerid is the cash/bank ledger, so do NOT filter by the party ledger.
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
+  });
+  const showScope = ((settingsData as any)?.getAdminSettings?.partyManagesDownline === true) && !isDrill;
+  const [scope, setScope] = useState<'mine' | 'parties'>('mine');
+
+  // Payments for the target party (self on main screen, sub-party on drill).
   const { data: paymentsData, loading: paymentsLoading } = useQuery(GET_PAYMENTS, {
-    variables: { adminid, partyid: user?.id },
-    skip: !adminid || !user?.id,
+    variables: { adminid, partyid: targetId },
+    skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
   });
+
+  // Sub-party outstanding summary for the "Parties" tab.
+  const { data: downlineData, loading: downlineLoading } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+    variables: { partyid: user?.id },
+    skip: !user?.id || !showScope,
+    fetchPolicy: 'cache-and-network',
+  });
+  const downlineParties = (downlineData?.getDownlinePartyBalances ?? []) as any[];
 
   const account = accountData?.getAccountById;
   const ledgerId = account?.ledgerid?.id;
@@ -83,6 +102,11 @@ export default function Payments() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.payCode, { color: colors.text }]}>{formatPaymentCode(p.paymentcode)}</Text>
+          {p.partyid?.id && p.partyid.id !== user?.id && (
+            <Text style={[styles.paySub, { color: colors.brand }]} numberOfLines={1}>
+              {p.partyid?.name || 'Sub-party'}
+            </Text>
+          )}
           <Text style={[styles.paySub, { color: colors.subText }]} numberOfLines={1}>
             {titleCase(p.type) || 'Receipt'} · {titleCase(p.mode) || 'Cash'}
           </Text>
@@ -169,10 +193,67 @@ export default function Payments() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
-      <AppHeader label="Payments" />
+      {isDrill
+        ? <BackHeader label={`${targetName || 'Party'} — Payments`} />
+        : <AppHeader label="Payments" />}
 
-      {loading ? (
+      {showScope && (
+        <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+          {([
+            { key: 'mine', label: 'My Payments' },
+            { key: 'parties', label: 'Parties' },
+          ] as const).map((s) => {
+            const active = scope === s.key;
+            return (
+              <TouchableOpacity key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)} activeOpacity={0.85}>
+                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {loading || (scope === 'parties' && downlineLoading) ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.brand} /></View>
+      ) : scope === 'parties' ? (
+        <DynamicFlashList
+          data={downlineParties}
+          estimatedItemSize={72}
+          keyExtractor={(item: any) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }: any) => {
+            const dr = (item.outstanding || 0) >= 0;
+            return (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('PartyPaymentsView', { partyId: item.id, partyName: item.name })}
+                style={[styles.payRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+              >
+                <View style={[styles.payIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Text style={{ color: colors.brand, fontFamily: FONTS.bold }}>{(item.name || 'P').charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.payCode, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[styles.paySub, { color: colors.subText }]} numberOfLines={1}>{item.mobile || '—'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.payAmt, { color: dr ? '#ef4444' : '#22c55e' }]}>
+                    {formatINR(Math.abs(item.outstanding || 0))} {dr ? 'Dr' : 'Cr'}
+                  </Text>
+                  <Text style={[styles.paySub, { color: colors.subText }]}>Outstanding</Text>
+                </View>
+                <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Icon name="account-off-outline" size={42} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.subText }]}>No sub-parties found</Text>
+            </View>
+          }
+        />
       ) : (
         <DynamicFlashList
           data={payments}
@@ -204,6 +285,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 18, paddingBottom: 110 },
 
+  segment: { flexDirection: 'row', marginHorizontal: 18, marginTop: 14, marginBottom: 12, borderRadius: 12, borderWidth: 1, padding: 3 },
+  segmentItem: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  segmentText: { fontSize: 13, fontFamily: FONTS.semiBold },
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 16 },
   statCard: {
     flex: 1, borderRadius: 18, borderWidth: 1, padding: 14, alignItems: 'flex-start',

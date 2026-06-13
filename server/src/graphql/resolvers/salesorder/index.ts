@@ -3,6 +3,24 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { Account } from "../../../models/accounts";
 
+// Resolve who created a doc into a proper { name, type }: staff token →
+// real role (salesman/staff/deliveryboy) + name; party token → account name.
+const resolveCreatedBy = async (user: any, input: any) => {
+  let name = input?.createdby_name || user?.name || user?.email || "N/A";
+  let type = user?.type || input?.createdby_type || "admin";
+  try {
+    if (user?.type === "staff") {
+      const staff = await StaffAccount.findById(user.id).select("role name").lean() as any;
+      if (staff) { type = staff.role || "staff"; name = staff.name || name; }
+    } else if (user?.type === "account" || user?.type === "party") {
+      type = "party";
+      const acc = await Account.findById(user.id).select("name").lean() as any;
+      if (acc) name = acc.name || name;
+    }
+  } catch (e) { /* best-effort */ }
+  return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
+};
+
 // Recursively collect all party ids under a root party (assignaccountid chain).
 // Used for channel downline: a wholesaler can see its retailers' orders, etc.
 const getDownlinePartyIds = async (rootId: any): Promise<string[]> => {
@@ -271,12 +289,9 @@ export const salesOrderResolvers = {
     addSalesOrder: async (_: any, { input }: any, context: any) => {
       try {
         // ✅ Extract user info from context and populate createdby fields
+        // (staff → real role salesman/staff/deliveryboy + name; party → account name)
         const { user } = context;
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
-        };
+        const createdbyData = await resolveCreatedBy(user, input);
 
         // Auto-apply the admin's dynamic charge rules (delivery/handling/COD,
         // etc.). App and website orders carry no charges of their own, so the

@@ -3,7 +3,9 @@ import {
   ADD_SALES_INVOICE,
   EDIT_SALES_INVOICE,
   DELETE_SALES_INVOICE,
-  RESET_SALES_INVOICE
+  RESET_SALES_INVOICE,
+  MARK_SALES_INVOICE_DISPATCHED,
+  MARK_SALES_INVOICE_DELIVERED,
 } from '../../mutations/salesinvoice';
 
 import {
@@ -19,12 +21,16 @@ export const useSalesInvoiceMutations = () => {
   const [editSalesInvoiceMutation] = useMutation(EDIT_SALES_INVOICE);
   const [deleteSalesInvoiceMutation] = useMutation(DELETE_SALES_INVOICE);
   const [resetSalesInvoiceMutation] = useMutation(RESET_SALES_INVOICE);
+  const [dispatchSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DISPATCHED);
+  const [deliverSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
   return {
     addSalesInvoiceMutation,
     editSalesInvoiceMutation,
     deleteSalesInvoiceMutation,
-    resetSalesInvoiceMutation
+    resetSalesInvoiceMutation,
+    dispatchSalesInvoiceMutation,
+    deliverSalesInvoiceMutation,
   };
 };
 

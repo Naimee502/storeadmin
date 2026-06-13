@@ -15,6 +15,7 @@ import {
 import { BackHeader } from '../../../../components';
 import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
@@ -125,6 +126,7 @@ export default function StaffCreateParty() {
     variables: { admin: adminid }, skip: !adminid,
   });
   const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
+  const { blocked: punchBlocked } = usePunchGate();
 
   // Logged-in salesman's assigned channels — the channel dropdown is limited to
   // these so a salesman only adds parties in his own channel(s).
@@ -181,6 +183,7 @@ export default function StaffCreateParty() {
   const resolvedGroup = resolveAccountGroup(type);
 
   const handleSubmit = async () => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before adding a party.'); return; }
     if (!name.trim()) { Alert.alert('Required', 'Party name is required.'); return; }
     if (!mobile.trim() || mobile.length < 10) { Alert.alert('Required', 'Enter a valid 10-digit mobile number.'); return; }
     if (!resolvedGroup) {

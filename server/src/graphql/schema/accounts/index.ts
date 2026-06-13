@@ -149,9 +149,17 @@ export const accountTypeDefs = gql`
     account: Account!
   }
 
+  type PartyBalance {
+    id: ID!
+    name: String
+    mobile: String
+    outstanding: Float
+  }
+
   type Query {
     getAccounts(filter: AccountFilterInput): [Account!]!
     getAccountById(id: ID!, adminId: ID): Account
+    getDownlinePartyBalances(partyid: ID!): [PartyBalance!]!
   }
 
   type Mutation {

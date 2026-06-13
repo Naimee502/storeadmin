@@ -1,39 +1,61 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { LedgerSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_ACCOUNT, GET_TRANSACTIONS } from '../../../../apollo/queries/accounts';
+import { GET_ACCOUNT, GET_TRANSACTIONS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, ledgerEntryTotals, formatTxnCode } from '../../../../utils';
-import { AppHeader, DynamicFlashList } from '../../../../components';
+import { AppHeader, BackHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Ledger() {
   const navigation = useNavigation<any>();
+  const route   = useRoute<any>();
   const { colors, isDark } = useTheme();
   const user    = useSelector((s: RootState) => s.auth.user);
   const tenant  = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
 
+  // Drill-down: when opened with a partyId param, show THAT sub-party's ledger
+  // (same UI), with a back header and no scope tabs.
+  const isDrill   = !!route.params?.partyId;
+  const targetId  = route.params?.partyId ?? user?.id;
+  const targetName = route.params?.partyName;
+
   const { data: accountData, loading: accountLoading } = useQuery(GET_ACCOUNT, {
-    variables: { id: user?.id, adminId: adminid },
-    skip: !adminid || !user?.id,
+    variables: { id: targetId, adminId: adminid },
+    skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
   });
 
   const account  = accountData?.getAccountById;
   const ledgerId = account?.ledgerid?.id;
 
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
+  });
+  // Scope tabs only on the main (non-drill) ledger.
+  const showScope = ((settingsData as any)?.getAdminSettings?.partyManagesDownline === true) && !isDrill;
+  const [scope, setScope] = useState<'mine' | 'downline'>('mine');
+
   const { data: txData, loading: txLoading } = useQuery(GET_TRANSACTIONS, {
     variables: { adminid, ledgerid: ledgerId },
     skip: !adminid || !ledgerId,
     refetchPolicy: 'network-only',
   });
+
+  // Downline (sub-party) outstanding summary.
+  const { data: downlineData, loading: downlineLoading } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+    variables: { partyid: user?.id },
+    skip: !user?.id || !showScope,
+    fetchPolicy: 'cache-and-network',
+  });
+  const downlineParties = (downlineData?.getDownlinePartyBalances ?? []) as any[];
 
   const rawTx = (txData?.getTransactions ?? []) as any[];
 
@@ -135,9 +157,70 @@ export default function Ledger() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
-      <AppHeader label={STRINGS.party.ledger} />
+      {isDrill
+        ? <BackHeader label={`${targetName || 'Party'} — Ledger`} />
+        : <AppHeader label={STRINGS.party.ledger} />}
 
-      {accountLoading || txLoading ? (
+      {showScope && (
+        <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+          {([
+            { key: 'mine', label: 'My Ledger' },
+            { key: 'downline', label: 'Parties' },
+          ] as const).map((s) => {
+            const active = scope === s.key;
+            return (
+              <TouchableOpacity key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)} activeOpacity={0.85}>
+                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {scope === 'downline' ? (
+        downlineLoading ? (
+          <LedgerSkeleton />
+        ) : (
+          <DynamicFlashList
+            data={downlineParties}
+            estimatedItemSize={72}
+            keyExtractor={(item: any) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }: any) => {
+              const dr = (item.outstanding || 0) >= 0;
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('PartyLedgerView', { partyId: item.id, partyName: item.name })}
+                  style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                >
+                  <View style={[styles.rowIcon, { backgroundColor: colors.brandSoft }]}>
+                    <Text style={{ color: colors.brand, fontFamily: FONTS.bold }}>{(item.name || 'P').charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowCode, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.rowNarr, { color: colors.subText }]} numberOfLines={1}>{item.mobile || '—'}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.rowAmt, { color: dr ? '#ef4444' : '#22c55e' }]}>
+                      {formatINR(Math.abs(item.outstanding || 0))} {dr ? 'Dr' : 'Cr'}
+                    </Text>
+                    <Text style={[styles.rowBal, { color: colors.subText }]}>Outstanding</Text>
+                  </View>
+                  <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.txEmpty}>
+                <Icon name="account-off-outline" size={36} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.subText }]}>No sub-parties found</Text>
+              </View>
+            }
+          />
+        )
+      ) : accountLoading || txLoading ? (
         <LedgerSkeleton />
       ) : (
         <DynamicFlashList
@@ -162,6 +245,9 @@ export default function Ledger() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  segment: { flexDirection: 'row', marginHorizontal: 18, marginTop: 12, marginBottom: 12, borderRadius: 12, borderWidth: 1, padding: 3 },
+  segmentItem: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  segmentText: { fontSize: 13, fontFamily: FONTS.semiBold },
   listContent: { paddingHorizontal: 18, paddingBottom: 110 },
 
   summaryRow: { flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 16 },

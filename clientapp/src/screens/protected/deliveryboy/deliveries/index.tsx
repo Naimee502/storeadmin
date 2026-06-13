@@ -10,6 +10,7 @@ import { AppHeader, DynamicFlashList } from '../../../../components';
 import { formatINR, formatBillNumber } from '../../../../utils';
 import { GET_DELIVERY_POOL, GET_MY_DELIVERIES } from '../../../../apollo/queries/accounts';
 import { ASSIGN_INVOICE_DELIVERY_BOY, MARK_SALES_INVOICE_DELIVERED } from '../../../../apollo/mutations/accounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import type { RootState } from '../../../../store/rootreducer';
 
 type FilterKey = 'available' | 'out' | 'delivered';
@@ -110,6 +111,7 @@ export default function DeliveryList() {
     '| mineError=', mineError?.message);
 
   const [assignToMe]   = useMutation(ASSIGN_INVOICE_DELIVERY_BOY);
+  const { blocked: punchBlocked } = usePunchGate();
   const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
   useFocusEffect(useCallback(() => { refetchPool?.(); refetchMine?.(); }, [refetchPool, refetchMine]));
@@ -155,7 +157,8 @@ export default function DeliveryList() {
     delivered: delivered.length,
   }), [available, out, delivered]);
 
-  const handleAccept = (item: any) =>
+  const handleAccept = (item: any) => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before accepting deliveries.'); return; }
     Alert.alert('Accept Delivery', `Take ${item.orderNum} for delivery?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -166,8 +169,10 @@ export default function DeliveryList() {
         },
       },
     ]);
+  };
 
-  const handleMarkDelivered = (item: any) =>
+  const handleMarkDelivered = (item: any) => {
+    if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before updating deliveries.'); return; }
     Alert.alert('Mark Delivered', `Mark ${item.orderNum} as delivered?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -178,6 +183,7 @@ export default function DeliveryList() {
         },
       },
     ]);
+  };
 
   const handleCollectPayment = (item: any) =>
     navigation.navigate('DeliveryCollectPayment', {

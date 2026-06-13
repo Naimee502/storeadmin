@@ -331,6 +331,17 @@ export const GET_DELIVERY_ORDERS = gql`
   }
 `;
 
+export const GET_DOWNLINE_PARTY_BALANCES = gql`
+  query GetDownlinePartyBalances($partyid: ID!) {
+    getDownlinePartyBalances(partyid: $partyid) {
+      id
+      name
+      mobile
+      outstanding
+    }
+  }
+`;
+
 export const GET_ADMIN_SETTINGS = gql`
   query GetAdminSettings($adminid: ID!) {
     getAdminSettings(adminid: $adminid) {
