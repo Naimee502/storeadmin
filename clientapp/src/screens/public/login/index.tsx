@@ -32,6 +32,7 @@ export default function Login({ navigation }: any) {
   const [mobileFocused, setMobileFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
+  const mobileRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
   const validateMobile = () => {
@@ -119,7 +120,8 @@ export default function Login({ navigation }: any) {
     setIsStaffMode(v => !v);
     setErrors({});
     if (!isStaffMode) {
-      setTimeout(() => passwordRef.current?.focus(), 350);
+      // Entering staff mode → focus the MOBILE field first (you fill mobile, then password).
+      setTimeout(() => mobileRef.current?.focus(), 350);
     }
   };
 
@@ -167,6 +169,7 @@ export default function Login({ navigation }: any) {
                 <Text style={[styles.dialCode, { color: colors.subText }]}>+91</Text>
                 <View style={[styles.dividerV, { backgroundColor: colors.border }]} />
                 <TextInput
+                  ref={mobileRef}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="Enter mobile number"
                   placeholderTextColor={colors.placeholder}

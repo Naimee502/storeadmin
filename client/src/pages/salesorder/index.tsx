@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleAllowed } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
@@ -15,6 +15,10 @@ import {
 const SalesOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
+  // When invoicing is enabled, an order is "confirmed" by converting it to an
+  // invoice — so the status dropdown offers "Convert to Invoice" instead of a
+  // separate "Confirmed". Order-only businesses keep plain "Confirmed".
+  const salesInvoiceEnabled = useAppSelector(state => selectIsModuleAllowed(state, "salesinvoice"));
   const dispatch = useAppDispatch();
   
   const { data, refetch } = useSalesOrdersQuery();
@@ -28,15 +32,29 @@ const SalesOrders = () => {
   } = useSalesOrderMutations();
 
   // Drive the order through its lifecycle from the listing dropdown.
-  const STATUS_OPTIONS = [
-    { label: "Pending",    value: "pending" },
-    { label: "Confirmed",  value: "confirmed" },
-    { label: "Dispatched", value: "dispatched" },
-    { label: "Delivered",  value: "delivered" },
-    { label: "Cancelled",  value: "cancelled" },
-  ];
+  // Options depend on whether invoicing is enabled, and whether THIS order is
+  // already converted (a converted order is never re-offered "convert").
+  const optionsFor = (order: any) => {
+    const opts: { label: string; value: string }[] = [{ label: "Pending", value: "pending" }];
+    if (salesInvoiceEnabled) {
+      if (!order.isConverted) opts.push({ label: "Convert to Invoice", value: "convert" });
+    } else {
+      opts.push({ label: "Confirmed", value: "confirmed" });
+    }
+    opts.push(
+      { label: "Dispatched", value: "dispatched" },
+      { label: "Delivered",  value: "delivered" },
+      { label: "Cancelled",  value: "cancelled" },
+    );
+    return opts;
+  };
   const handleStatusChange = async (row: any, status: string) => {
     try {
+      if (status === "convert") {
+        if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "info" })); return; }
+        navigate(`/salesinvoice/addedit?orderId=${row.id}`);
+        return;
+      }
       if (status === "confirmed")       await confirmSalesOrderMutation({ variables: { id: row.id } });
       else if (status === "dispatched") await dispatchSalesOrderMutation({ variables: { id: row.id } });
       else if (status === "delivered")  await deliverSalesOrderMutation({ variables: { id: row.id, byType: "admin" } });
@@ -111,7 +129,7 @@ const SalesOrders = () => {
       orderStatusCell: (
         <StatusDropdown
           current={order.orderStatus || (order.cancelStatus === "cancelled" ? "cancelled" : "pending")}
-          options={STATUS_OPTIONS}
+          options={optionsFor(order)}
           onSelect={(v) => handleStatusChange(order, v)}
         />
       ),
@@ -144,7 +162,7 @@ const SalesOrders = () => {
             }
           }}
           onAdd={() => navigate("/salesorder/addedit")}
-          showConvert={actions.showConvert}
+          showConvert={false}
           onConvert={(row) => navigate(`/salesinvoice/addedit?orderId=${row.id}`)}
           showCancel={false}
           onShowDeleted={() => navigate("/salesorder/deletedentries")}

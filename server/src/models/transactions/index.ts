@@ -41,7 +41,7 @@ const transactionSchema = new mongoose.Schema(
     invoices: [
       {
         invoiceid: { type: mongoose.Schema.Types.ObjectId },
-        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice"] },
+        invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "ExpenseNote"] },
         settledamount: { type: Number, default: 0 },
       },
     ],

@@ -31,6 +31,7 @@ const SETTINGS_FIELDS = `
   encryptInvoicePrices
   deliveryMode
   partyManagesDownline
+  enablePaymentDiscountCommission
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions

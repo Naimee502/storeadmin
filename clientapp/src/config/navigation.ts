@@ -3,7 +3,7 @@ import {
   PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
-  ProductDetail, OrderDetail, OrderEdit, CartScreen,
+  ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
   RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty, SalesmanParties,
@@ -42,6 +42,7 @@ export const Screens: any = {
   OrderDetail,
   OrderEdit,
   CartScreen,
+  AddLedgerEntry,
   // Salesman
   SalesmanDashboard,
   SalesmanRoutes,
@@ -146,6 +147,7 @@ export const NavConfig: any = {
       { name: 'LedgerDetail',  options: { headerShown: false } },
       { name: 'PaymentDetail', options: { headerShown: false } },
       { name: 'CollectPayment', options: { headerShown: false } },
+      { name: 'AddLedgerEntry', options: { headerShown: false } },
       { name: 'CartScreen',    options: { headerShown: false } },
     ],
   },

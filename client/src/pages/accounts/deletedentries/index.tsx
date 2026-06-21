@@ -38,6 +38,7 @@ const DeletedAccounts = () => {
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
     { label: "Type", key: "type" }, // ✅ Added type column
+    { label: "Channel", key: "channelname" }, // ✅ Channel (End User / Retailer / Wholesaler)
     { label: "Status", key: "status" },
   ];
 
@@ -52,8 +53,12 @@ const DeletedAccounts = () => {
       seqNo: index + 1,
       ledgername: ledgerName,
       type: account.type
-        ? account.type.charAt(0).toUpperCase() + account.type.slice(1) 
-        : "-", 
+        ? account.type.charAt(0).toUpperCase() + account.type.slice(1)
+        : "-",
+      channelname:
+        typeof account.channel === "object" && account.channel
+          ? account.channel.channelName || "-"
+          : "-",
       status: account.status ? "Active" : "Inactive",
     };
   });

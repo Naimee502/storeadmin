@@ -257,6 +257,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.partyManagesDownline}
           onChange={(v: boolean) => set("partyManagesDownline", v)}
         />
+        <Toggle
+          label="Discount & Commission on Payment settlement (per invoice while collecting)"
+          checked={!!draft.enablePaymentDiscountCommission}
+          onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}
+        />
       </Section>
 
       <Section title="SaaS Access (Lock Settings for Admin)">

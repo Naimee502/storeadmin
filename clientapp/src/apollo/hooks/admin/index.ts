@@ -11,3 +11,12 @@ export const useAdminQuery = () => {
     fetchPolicy: 'cache-and-network',
   });
 };
+
+// Is a business module enabled (admin-level allowedmodules)?
+// null/empty allowedmodules = "all modules allowed" (legacy tenants).
+export const useModuleEnabled = (moduleId: string): boolean => {
+  const { data } = useAdminQuery();
+  const allowed: string[] | null = (data as any)?.getAdminById?.allowedmodules ?? null;
+  if (allowed === null || allowed.length === 0) return true;
+  return allowed.some((m) => (m || '').toLowerCase() === moduleId.toLowerCase());
+};

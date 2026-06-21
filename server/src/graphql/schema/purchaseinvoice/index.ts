@@ -12,6 +12,7 @@ export const purchaseInvoiceTypeDefs = gql`
     city: String
     latitude: Float
     longitude: Float
+    channelName: String
   }
 
   type OtherCharge {

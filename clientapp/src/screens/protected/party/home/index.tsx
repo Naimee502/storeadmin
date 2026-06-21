@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
@@ -54,45 +54,35 @@ export default function PartyHome() {
 
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
 
-  const { data: ordersData, loading: ordersLoading } = useQuery(GET_SALES_ORDERS, {
+  const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id },
     skip: !adminid || !user?.id,
-    refetchPolicy: 'cache-first',
+    refetchPolicy: 'cache-and-network',
   });
   const { data: productsData, loading: productsLoading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 6 },
     skip: !adminid,
     refetchPolicy: 'cache-first',
   });
-  const { data: accountData } = useQuery(GET_ACCOUNT, {
+  const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: user?.id, adminId: adminid },
     skip: !user?.id || !adminid,
     refetchPolicy: 'network-only', // Always fetch fresh data
   });
   const partyAccount = (accountData as any)?.getAccountById;
-  const ledgerId = partyAccount?.ledgerid?.id;
 
-  const { data: txData } = useQuery(GET_TRANSACTIONS, {
-    variables: { adminid, ledgerid: ledgerId },
-    skip: !adminid || !ledgerId,
-    refetchPolicy: 'network-only', // Always fetch fresh transaction data
-  });
+  // Refetch on focus so a payment/order made elsewhere reflects immediately.
+  useFocusEffect(useCallback(() => { refetchOrders?.(); refetchAccount?.(); }, [refetchOrders, refetchAccount]));
 
   const rawOrders = (ordersData?.getSalesOrders ?? []) as any[];
   const rawProducts = (productsData?.getProductServices ?? []) as any[];
-  const rawTx = (txData?.getTransactions ?? []) as any[];
 
   // Use live data only — no dummy fallback (a fresh party has no orders/products).
   const orders = rawOrders;
   const products = rawProducts;
-  const transactions = rawTx;
 
-  // Calculate outstanding from this party's ledger movements only.
-  // (Transaction totals are always balanced, so we must use per-ledger entries.)
-  const outstanding = transactions.reduce((sum, t) => {
-    const { debit, credit } = ledgerEntryTotals(t, ledgerId);
-    return sum + debit - credit;
-  }, 0);
+  // Outstanding = bill-wise due from the server (same basis as the salesman app).
+  const outstanding = Math.max(0, partyAccount?.outstanding || 0);
 
   const recent = orders.slice(0, 5);
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;

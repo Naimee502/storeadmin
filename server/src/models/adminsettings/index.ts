@@ -97,6 +97,15 @@ const adminSettingsSchema = new mongoose.Schema(
     partyManagesDownline: { type: Boolean, default: false },
 
     /* ============================================================
+       PAYMENT DISCOUNT / COMMISSION — when true, the Add Payment screen
+       lets the user enter a per-invoice Discount and Commission while
+       settling a bill. The bill is fully cleared while cash received is
+       lower; the difference posts to "Discount Allowed" / "Commission".
+       Off by default so existing tenants are unaffected (feature is opt-in).
+       ============================================================ */
+    enablePaymentDiscountCommission: { type: Boolean, default: false },
+
+    /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs
        ============================================================ */
     allowAdminToManageBusinessSettings: { type: Boolean, default: true },

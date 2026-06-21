@@ -47,7 +47,7 @@ export const GET_SALES_ORDERS = gql`
       deliveryStatus
       deliveredAt
       status
-      partyacc   { id accountname mobile }
+      partyacc   { id accountname mobile channelName }
       salesmenid { id name }
       productservice {
         productserviceid { id name }
@@ -85,7 +85,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       billtype
       taxorsupplytype
       isservice
-      partyacc   { id accountname mobile }
+      partyacc   { id accountname mobile channelName }
       salesmenid { id name }
       productservice {
         productserviceid { id name }
@@ -356,6 +356,7 @@ const DELIVERY_INVOICE_FIELDS = `
   billnumber
   billdate
   totalamount
+  outstanding
   paymenttype
   deliveryStatus
   deliveredAt
@@ -419,6 +420,7 @@ export const GET_ADMIN_SETTINGS = gql`
       id
       deliveryMode
       partyManagesDownline
+      enablePaymentDiscountCommission
     }
   }
 `;

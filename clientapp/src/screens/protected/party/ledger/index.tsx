@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
@@ -27,7 +27,7 @@ export default function Ledger() {
   const targetId  = route.params?.partyId ?? user?.id;
   const targetName = route.params?.partyName;
 
-  const { data: accountData, loading: accountLoading } = useQuery(GET_ACCOUNT, {
+  const { data: accountData, loading: accountLoading, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: targetId, adminId: adminid },
     skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
@@ -43,18 +43,23 @@ export default function Ledger() {
   const showScope = ((settingsData as any)?.getAdminSettings?.partyManagesDownline === true) && !isDrill;
   const [scope, setScope] = useState<'mine' | 'downline'>('mine');
 
-  const { data: txData, loading: txLoading } = useQuery(GET_TRANSACTIONS, {
+  const { data: txData, loading: txLoading, refetch: refetchTx } = useQuery(GET_TRANSACTIONS, {
     variables: { adminid, ledgerid: ledgerId },
     skip: !adminid || !ledgerId,
     refetchPolicy: 'network-only',
   });
 
   // Downline (sub-party) outstanding summary.
-  const { data: downlineData, loading: downlineLoading } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+  const { data: downlineData, loading: downlineLoading, refetch: refetchDownline } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
     variables: { partyid: user?.id },
     skip: !user?.id || !showScope,
     fetchPolicy: 'cache-and-network',
   });
+
+  // Refetch on focus (e.g. after collecting a payment and returning).
+  useFocusEffect(useCallback(() => {
+    refetchAccount?.(); refetchTx?.(); refetchDownline?.();
+  }, [refetchAccount, refetchTx, refetchDownline]));
   const downlineParties = (downlineData?.getDownlinePartyBalances ?? []) as any[];
 
   const rawTx = (txData?.getTransactions ?? []) as any[];
@@ -188,7 +193,7 @@ export default function Ledger() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }: any) => {
-              const dr = (item.outstanding || 0) >= 0;
+              const due = Math.max(0, item.outstanding || 0);
               return (
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -203,12 +208,22 @@ export default function Ledger() {
                     <Text style={[styles.rowNarr, { color: colors.subText }]} numberOfLines={1}>{item.mobile || '—'}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.rowAmt, { color: dr ? '#ef4444' : '#22c55e' }]}>
-                      {formatINR(Math.abs(item.outstanding || 0))} {dr ? 'Dr' : 'Cr'}
-                    </Text>
-                    <Text style={[styles.rowBal, { color: colors.subText }]}>Outstanding</Text>
+                    {due > 0 ? (
+                      <>
+                        <Text style={[styles.rowAmt, { color: '#ef4444' }]}>{formatINR(due)}</Text>
+                        <Text style={[styles.rowBal, { color: colors.subText }]}>Due</Text>
+                      </>
+                    ) : (
+                      <Text style={[styles.rowBal, { color: '#22c55e' }]}>No dues</Text>
+                    )}
                   </View>
-                  <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 4 }} />
+                  <TouchableOpacity
+                    style={[styles.collectBtn, { backgroundColor: colors.brand }]}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('AddLedgerEntry', { partyId: item.id, partyName: item.name })}
+                  >
+                    <Icon name="book-plus-outline" size={15} color="#fff" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             }}
@@ -271,6 +286,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
   rowIcon: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  collectBtn: { width: 34, height: 34, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   rowCode: { fontSize: 13, fontFamily: FONTS.bold },
   rowNarr: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 1 },
   rowDate: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 2, opacity: 0.85 },

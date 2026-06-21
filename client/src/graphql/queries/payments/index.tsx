@@ -23,6 +23,8 @@ export const GET_PAYMENTS = gql`
         invoiceid
         invoicemodel
         settledamount
+        discount
+        commission
       }
       amount
       reference
@@ -61,6 +63,8 @@ export const GET_DELETED_PAYMENTS = gql`
         invoiceid
         invoicemodel
         settledamount
+        discount
+        commission
       }
       amount
       reference
@@ -99,6 +103,8 @@ export const GET_PAYMENT_BY_ID = gql`
         invoiceid
         invoicemodel
         settledamount
+        discount
+        commission
       }
       amount
       reference

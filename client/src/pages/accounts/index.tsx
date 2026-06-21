@@ -53,6 +53,7 @@ const Accounts = () => {
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
     { label: "Type", key: "type" }, // ✅ Added type column
+    { label: "Channel", key: "channelname" }, // ✅ Channel (End User / Retailer / Wholesaler)
     { label: "Status", key: "status" },
   ];
 
@@ -67,6 +68,10 @@ const Accounts = () => {
       seqNo: index + 1,
       ledgername: ledgerName,
       type: acc.type ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1) : "-", // ✅ Format nicely
+      channelname:
+        typeof acc.channel === "object" && acc.channel
+          ? acc.channel.channelName || "-"
+          : "-",
       status: acc.status ? "Active" : "Inactive",
     };
   });

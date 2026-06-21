@@ -8,7 +8,7 @@ import Button from "../../../components/button";
 import BillAllocation, { type Allocation } from "../../../components/billallocation";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { useTransactionMutations, useTransactionByIDQuery, usePreviewInvoiceJournalLazy } from "../../../graphql/hooks/transactions";
+import { useTransactionMutations, useTransactionByIDQuery, usePreviewInvoiceJournalLazy, useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
@@ -36,28 +36,40 @@ const AddEditTransaction = () => {
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: accountsData } = useAccountsQuery();
   const { data: expenseNotesData } = useExpenseNotesQuery();
+  const { data: transactionsData } = useTransactionsQuery();
   const ledgerList = ledgerData?.getAccountLedgers || [];
+
+  // Expense notes already journal-recorded (linked to a transaction) — hidden so
+  // the same note can't be recorded twice. Exclude the current txn in edit mode.
+  const recordedExpenseNoteIds = useMemo(() => {
+    const s = new Set<string>();
+    (transactionsData?.getTransactions || []).forEach((txn: any) => {
+      if (id && txn.id === id) return;
+      (txn.invoices || []).forEach((inv: any) => {
+        if (inv.invoicemodel === "ExpenseNote" && inv.invoiceid) s.add(inv.invoiceid);
+      });
+    });
+    return s;
+  }, [transactionsData, id]);
 
   const expenseNoteOptions = useMemo(
     () =>
-      (expenseNotesData?.getExpenseNotes || []).map((e: any) => ({
-        value: e.id,
-        label: `${e.expensenumber || e.id} · ₹${Number(e.totalamount || 0).toFixed(2)}${
-          e.narration ? ` · ${e.narration}` : ""
-        }`,
-      })),
-    [expenseNotesData]
+      (expenseNotesData?.getExpenseNotes || [])
+        .filter((e: any) => !recordedExpenseNoteIds.has(e.id))
+        .map((e: any) => ({
+          value: e.id,
+          label: `${e.expensenumber || e.id} · ₹${Number(e.totalamount || 0).toFixed(2)}${
+            e.narration ? ` · ${e.narration}` : ""
+          }`,
+        })),
+    [expenseNotesData, recordedExpenseNoteIds]
   );
 
   // ── Tally-style bill allocation (Agst Ref) ─────────────────────────────
   const [partyid, setPartyid] = useState("");
   const [settleSide, setSettleSide] = useState<"SalesInvoice" | "PurchaseInvoice" | "ExpenseNote">("SalesInvoice");
   const [allocations, setAllocations] = useState<Allocation[]>([]);
-  const [counterLedgerId, setCounterLedgerId] = useState("");
   const [expenseNoteId, setExpenseNoteId] = useState("");
-  // "full" = rebuild the invoice's full accounting journal (Dr Debtor / Cr Sales
-  // / Cr GST …) like auto-posting; "receipt" = Dr Cash / Cr Party settlement.
-  const [fillMode, setFillMode] = useState<"full" | "receipt">("full");
   const fetchPreview = usePreviewInvoiceJournalLazy();
 
   const partyOptions = useMemo(() => {
@@ -73,101 +85,12 @@ const AddEditTransaction = () => {
       }));
   }, [accountsData, settleSide]);
 
-  const allocatedTotal = useMemo(
-    () => parseFloat(allocations.reduce((s, a) => s + (a.settledamount || 0), 0).toFixed(2)),
-    [allocations]
-  );
-
-  // Resolve the selected party's own ledger (same one auto-posting uses: Account.ledgerid)
-  const partyLedgerId = useMemo(() => {
-    const acc = (accountsData?.getAccounts || []).find((a: any) => a.id === partyid);
-    return acc?.ledgerid?.id || "";
-  }, [accountsData, partyid]);
-
-  /**
-   * Build the SAME balanced journal auto-posting would create for a settlement,
-   * straight from the bill allocation. Receipt (customer): Dr Cash/Bank, Cr Party.
-   * Payment (vendor): Dr Party, Cr Cash/Bank. The party ledger is the account's
-   * own ledger — identical to what adjustStockAndTransactions uses.
-   */
-  const generateEntriesFromSettlement = () => {
-    if (!partyLedgerId) {
-      setFormErrors(prev => ({ ...prev, settlement: "Selected party has no linked ledger." }));
-      return;
-    }
-    if (!counterLedgerId) {
-      setFormErrors(prev => ({ ...prev, settlement: "Select a Cash / Bank / Adjustment ledger." }));
-      return;
-    }
-    if (allocatedTotal <= 0) {
-      setFormErrors(prev => ({ ...prev, settlement: "Allocate an amount against at least one invoice." }));
-      return;
-    }
-
-    const ref = allocations
-      .map(a => (a.invoicemodel === "PurchaseInvoice" ? "PUR" : "INV"))
-      .length
-      ? `Agst Ref: ${allocations.length} invoice(s)`
-      : "Settlement";
-
-    const partyLine = { ledgerid: partyLedgerId, remarks: ref };
-    const counterLine = { ledgerid: counterLedgerId, remarks: "Settlement" };
-
-    const entries =
-      settleSide === "SalesInvoice"
-        ? [
-            { ...counterLine, debit: String(allocatedTotal), credit: "" }, // Dr Cash/Bank
-            { ...partyLine, debit: "", credit: String(allocatedTotal) },   // Cr Customer
-          ]
-        : [
-            { ...partyLine, debit: String(allocatedTotal), credit: "" },   // Dr Vendor
-            { ...counterLine, debit: "", credit: String(allocatedTotal) }, // Cr Cash/Bank
-          ];
-
-    setFormValues(prev => ({ ...prev, entries }));
-    setFormErrors(prev => ({ ...prev, settlement: "", entries: "" }));
-  };
-
-  // Auto-pick a sensible counter ledger (Cash, else Bank, else first) once the
-  // user starts allocating, so entries appear immediately on invoice tick.
-  useEffect(() => {
-    if (fillMode !== "receipt") return;
-    if (counterLedgerId || allocations.length === 0 || ledgerList.length === 0) return;
-    const byName = (re: RegExp) => ledgerList.find((l: any) => re.test(l.ledgername || ""));
-    const pick = byName(/cash/i) || byName(/bank/i) || ledgerList[0];
-    if (pick) setCounterLedgerId(pick.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fillMode, allocations.length, ledgerList]);
-
-  // Receipt mode: as soon as a party + counter ledger + allocation exist, build
-  // the matching receipt/payment journal automatically (no button needed).
-  useEffect(() => {
-    if (fillMode !== "receipt") return;
-    if (!partyLedgerId || !counterLedgerId || allocatedTotal <= 0) return;
-    const ref = `Agst Ref: ${allocations.length} invoice(s)`;
-    const partyLine = { ledgerid: partyLedgerId, remarks: ref };
-    const counterLine = { ledgerid: counterLedgerId, remarks: "Settlement" };
-    const entries =
-      settleSide === "SalesInvoice"
-        ? [
-            { ...counterLine, debit: String(allocatedTotal), credit: "" },
-            { ...partyLine, debit: "", credit: String(allocatedTotal) },
-          ]
-        : [
-            { ...partyLine, debit: String(allocatedTotal), credit: "" },
-            { ...counterLine, debit: "", credit: String(allocatedTotal) },
-          ];
-    setFormValues(prev => ({ ...prev, entries }));
-    setFormErrors(prev => ({ ...prev, entries: "" }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fillMode, partyLedgerId, counterLedgerId, allocatedTotal, settleSide]);
-
-  // Full Journal mode: rebuild the invoice's complete accounting journal
+  // Full Journal: rebuild the invoice's complete accounting journal
   // (Dr Debtor / Cr Sales / Cr GST … or Dr Purchase / Dr GST / Cr Vendor) from
   // the server — identical to what auto-posting creates. Used when the
   // auto-create-journal flag is OFF and the user records the sale manually.
   useEffect(() => {
-    if (fillMode !== "full" || allocations.length === 0) return;
+    if (allocations.length === 0) return;
     let cancelled = false;
     (async () => {
       try {
@@ -195,7 +118,7 @@ const AddEditTransaction = () => {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fillMode, JSON.stringify(allocations.map(a => a.invoiceid)), settleSide]);
+  }, [JSON.stringify(allocations.map(a => a.invoiceid)), settleSide]);
 
   // Expense Note: pull its full journal (Dr Expense / Cr Cash-or-Payable) from
   // the server, so when auto-posting is OFF you record it manually here.
@@ -344,20 +267,23 @@ const formatTransactionDate = (date: any) => {
       createdby_name: creator.name,
       createdby_type: creator.type,
       partyid: partyid || null,
-      // Settlement allocations reduce a party's outstanding — only store them in
-      // RECEIPT mode (Dr Cash / Cr Party). In FULL JOURNAL mode the transaction
-      // RECORDS the sale/purchase (the invoice stays outstanding), so it must NOT
-      // be treated as a settlement, otherwise the invoice wrongly disappears.
+      // This page only RECORDS the full journal of a sale/purchase/expense note
+      // (Dr Debtor / Cr Sales / Cr GST …). It never settles a bill — settledamount
+      // is 0 so the invoice/note's outstanding is untouched. The link is stored only
+      // so the same invoice/expense note can't be journal-recorded twice (it's hidden
+      // next time).
       invoices:
-        fillMode === "receipt"
-          ? allocations
+        settleSide === "ExpenseNote"
+          ? (expenseNoteId
+              ? [{ invoiceid: expenseNoteId, invoicemodel: "ExpenseNote", settledamount: 0 }]
+              : [])
+          : allocations
               .filter(a => a.invoiceid)
               .map(a => ({
                 invoiceid: a.invoiceid,
                 invoicemodel: a.invoicemodel,
-                settledamount: a.settledamount,
-              }))
-          : [],
+                settledamount: 0,
+              })),
     };
 
     try {
@@ -429,27 +355,17 @@ const formatTransactionDate = (date: any) => {
           {/* Bill Allocation (Tally "Agst Ref") — optional */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm sm:text-base font-medium px-2">
-              Bill Settlement (Against Invoices) — optional
+              Record Full Journal (Sale / Purchase / Expense Note) — optional
             </legend>
             <p className="text-xs text-gray-500">
-              Select a party + invoices, and the Entries below are built automatically.
-              Choose how to fill them below.
+              Select a party + invoice (or an expense note) and the Entries below are
+              filled with its complete accounting journal — identical to auto-posting.
+              The bill stays outstanding; this only records the journal.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
-                label="Fill Mode"
-                name="fillMode"
-                type="select"
-                value={fillMode}
-                onChange={(e) => setFillMode(e.target.value as "full" | "receipt")}
-                options={[
-                  { label: "Full Journal (record sale/purchase)", value: "full" },
-                  { label: "Receipt / Payment (settle bill)", value: "receipt" },
-                ]}
-              />
-              <FormField
-                label="Settle Against"
+                label="Record From"
                 name="settleSide"
                 type="select"
                 value={settleSide}
@@ -500,6 +416,7 @@ const formatTransactionDate = (date: any) => {
                 value={allocations}
                 onChange={setAllocations}
                 excludeTransactionId={id}
+                mode="record"
               />
             )}
 
@@ -513,51 +430,13 @@ const formatTransactionDate = (date: any) => {
               </div>
             )}
 
-            {/* FULL JOURNAL mode — entries are fetched from the server */}
-            {fillMode === "full" && partyid && allocations.length > 0 && (
+            {/* Full Journal — entries are fetched from the server */}
+            {partyid && allocations.length > 0 && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-900">
                 The Entries below have been filled with the invoice's complete accounting
                 journal — <b>identical to what auto-posting creates</b> (Dr Debtor / Cr Sales /
                 Cr Output GST / charges …). Use this when "Auto-create journal on invoice" is OFF
                 and you're recording the sale manually. You can still tweak any line above.
-              </div>
-            )}
-
-            {/* RECEIPT / PAYMENT mode — Dr Cash / Cr Party settlement */}
-            {fillMode === "receipt" && partyid && allocations.length > 0 && (
-              <div className="border-t pt-4 space-y-3">
-                <FormField
-                  label={
-                    settleSide === "SalesInvoice"
-                      ? "Received Into (Cash / Bank Ledger)"
-                      : "Paid From (Cash / Bank Ledger)"
-                  }
-                  name="counterLedgerId"
-                  type="select"
-                  value={counterLedgerId}
-                  onChange={(e) => setCounterLedgerId(e.target.value)}
-                  options={ledgerList.map(l => ({ label: l.ledgername, value: l.id }))}
-                  placeholder="Select ledger"
-                  searchable
-                />
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
-                  Entries built automatically:&nbsp;
-                  {settleSide === "SalesInvoice" ? (
-                    <span>
-                      <b>Dr</b> Cash/Bank ₹{allocatedTotal.toFixed(2)} &nbsp;·&nbsp;
-                      <b>Cr</b> {partyOptions.find(p => p.value === partyid)?.label || "Customer"} ₹
-                      {allocatedTotal.toFixed(2)}
-                    </span>
-                  ) : (
-                    <span>
-                      <b>Dr</b> {partyOptions.find(p => p.value === partyid)?.label || "Vendor"} ₹
-                      {allocatedTotal.toFixed(2)} &nbsp;·&nbsp; <b>Cr</b> Cash/Bank ₹
-                      {allocatedTotal.toFixed(2)}
-                    </span>
-                  )}
-                  . The party ledger is the account's own ledger — same as auto.
-                </div>
               </div>
             )}
           </fieldset>

@@ -73,7 +73,9 @@ export const accountResolvers = {
           id: p._id.toString(),
           name: p.name,
           mobile: p.mobile || null,
-          outstanding: await ledgerBalance(p.ledgerid),
+          // Bill-wise due (sum of unsettled sales bills) — same basis as the
+          // salesman app & Account.outstanding, so "due" is consistent.
+          outstanding: await partyBillOutstanding(p._id),
         });
       }
       return result;

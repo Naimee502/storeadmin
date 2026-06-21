@@ -25,7 +25,13 @@ const paymentSchema = new mongoose.Schema(
       {
         invoiceid: { type: mongoose.Schema.Types.ObjectId, refPath: "invoices.invoicemodel" },
         invoicemodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "SalesReturn", "PurchaseReturn", "ExpenseNote"] },
+        // Amount knocked off the bill's outstanding (the receivable/payable cleared).
         settledamount: { type: Number, required: true },
+        // Optional concessions given while settling (feature-flagged in the UI):
+        // the bill is fully cleared but cash received is lower by these amounts,
+        // which post to "Discount Allowed" / "Commission" ledgers.
+        discount: { type: Number, default: 0 },
+        commission: { type: Number, default: 0 },
       },
     ],
 

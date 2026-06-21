@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
@@ -36,6 +36,10 @@ function displayStatus(order: any): string {
   if (order.cancelStatus === 'cancelled') return 'cancelled';
   if (order.deliveryStatus === 'delivered') return 'delivered';
   if (order.deliveryStatus === 'dispatched') return 'dispatched';
+  // Use the server-derived orderStatus (confirmed even without invoice conversion,
+  // e.g. when the sales-invoice module is off and the order is just confirmed).
+  const os = String(order.orderStatus || '').toLowerCase();
+  if (os) return os;
   if (order.isConverted) return 'confirmed';
   return 'pending';
 }
@@ -68,6 +72,10 @@ export default function MyOrders() {
     fetchPolicy: 'cache-and-network',
   });
 
+  // Refetch on focus so a status change (confirm/dispatch/etc.) made on the
+  // order detail reflects here when you come back.
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
+
   const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
   // Scope: own orders vs sub-party (downline) orders. Only meaningful when
@@ -97,6 +105,7 @@ export default function MyOrders() {
     const status    = displayStatus(order);
     const colour    = STATUS_COLOR[status];
     const itemCount = order.productservice?.length ?? 0;
+    const channel   = order.partyacc?.channelName;
 
     return (
       <TouchableOpacity
@@ -141,6 +150,14 @@ export default function MyOrders() {
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </Text>
             </View>
+            {!!channel && (
+              <View style={[styles.channelBadge, { backgroundColor: colors.brandSoft }]}>
+                <Icon name="tag-outline" size={11} color={colors.brand} style={{ marginRight: 3 }} />
+                <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+                  {channel}
+                </Text>
+              </View>
+            )}
             {order.salesmenid?.name && (
               <Text style={[styles.salesmanText, { color: colors.subText }]} numberOfLines={1}>
                 via {order.salesmenid.name}
@@ -291,6 +308,8 @@ const styles = StyleSheet.create({
   cardBottom:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
   statusBadge:  { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
   statusText:   { fontSize: 11, fontFamily: FONTS.semiBold },
+  channelBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, maxWidth: 130 },
+  channelText:  { fontSize: 11, fontFamily: FONTS.semiBold },
   salesmanText: { fontSize: 11, fontFamily: FONTS.regular, flex: 1 },
 
   center:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },

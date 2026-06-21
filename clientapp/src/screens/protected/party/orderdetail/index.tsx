@@ -14,6 +14,7 @@ import {
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
 } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
+import { useModuleEnabled } from '../../../../apollo/hooks/admin';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
@@ -112,6 +113,7 @@ export default function OrderDetail() {
   );
 
   const { blocked: punchBlocked } = usePunchGate();
+  const salesInvoiceEnabled = useModuleEnabled('salesinvoice');
   const [confirmOrder]          = useMutation(CONFIRM_SALES_ORDER);
   const [convertOrder]          = useMutation(CONVERT_SALES_ORDER_TO_INVOICE);
   const [markOrderDelivered]    = useMutation(MARK_SALES_ORDER_DELIVERED);
@@ -154,13 +156,15 @@ export default function OrderDetail() {
   // Confirm (Pending → Confirmed) is for the order manager — the salesman who
   // booked it, or the parent party managing a downline order. Not the end
   // party or delivery boy.
-  const canConfirm  = !!order && !isInvoice && status === 'Pending' && (
+  // When invoicing is enabled, "Confirm" is replaced by "Convert to Invoice"
+  // (converting auto-confirms). Order-only businesses keep plain "Confirm".
+  const canConfirm  = !salesInvoiceEnabled && !!order && !isInvoice && status === 'Pending' && (
     role === 'salesman' ||
     (role === 'party' && manageDownline && isDownlineOrder)
   );
   // Convert order → invoice (one-tap, server builds the invoice). Same managers
   // as Confirm, on an order that isn't an invoice / already converted / cancelled.
-  const canConvert  = !!order && !isInvoice && !order.isConverted && status !== 'Cancelled' && (
+  const canConvert  = salesInvoiceEnabled && !!order && !isInvoice && !order.isConverted && status !== 'Cancelled' && (
     role === 'salesman' ||
     (role === 'party' && manageDownline && isDownlineOrder)
   );
@@ -457,6 +461,12 @@ export default function OrderDetail() {
                 <Icon name="store-outline" size={14} color={colors.subText} />
                 <Text style={[styles.infoText, { color: colors.text }]}>{order.partyacc.accountname}</Text>
               </View>
+              {!!order.partyacc.channelName && (
+                <View style={styles.infoRow}>
+                  <Icon name="tag-outline" size={14} color={colors.subText} />
+                  <Text style={[styles.infoText, { color: colors.text }]}>{order.partyacc.channelName}</Text>
+                </View>
+              )}
               {order.partyacc.mobile && (
                 <View style={styles.infoRow}>
                   <Icon name="phone-outline" size={14} color={colors.subText} />

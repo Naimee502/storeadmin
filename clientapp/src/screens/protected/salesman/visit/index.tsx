@@ -165,13 +165,15 @@ export default function RoutePartyVisit() {
               color: colors.brand,
               onPress: handleTakeOrder,
             },
-            {
+            // Only when there's an actual due — avoids collecting twice on a
+            // fully-paid party (no-due → button hidden).
+            ...(outstandingAmt > 0 ? [{
               icon: 'cash-multiple',
               label: 'Collect Payment',
-              sub: outstandingAmt > 0 ? `${formatINR(outstandingAmt)} pending` : 'Record payment',
+              sub: `${formatINR(outstandingAmt)} pending`,
               color: '#22c55e',
               onPress: handleCollectPayment,
-            },
+            }] : []),
           ].map((a) => (
             <TouchableOpacity
               key={a.label}

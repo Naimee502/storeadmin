@@ -1,7 +1,6 @@
 // models/expensenote.ts
 import mongoose from "mongoose";
 import { Transaction } from "../transactions";
-import { Payment } from "../payments";
 import { AccountLedger } from "../accountledgers";
 import { getOrCreateAccount } from "../../utils/helper";
 
@@ -405,44 +404,12 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, us
   }
 
   /* ======================
-     SAVE / UPDATE PAYMENT (cash / bank only, when autoCreatePaymentOnExpense is on)
-     (find existing via transactionid to avoid duplicates on edit)
+     NOTES ONLY — an expense note never auto-creates a payment. It only records
+     the expense as a payable on its chosen ledger/party (Dr Expense / Cr Payable
+     in the journal above). ALL money movement (paying the expense) happens via
+     the Payment module (Payment → Expense), which lists every unpaid note. The
+     "Payment Type" on the note is just a label.
      ====================== */
-  if (doc.paymenttype !== "credit" && doc.autocreate?.payment !== false) {
-    const payCreatedById = userContext?.createdby_id || doc.createdby_id;
-    const payCreatedByName = userContext?.createdby_name || doc.createdby_name;
-    const payCreatedByType = userContext?.createdby_type || doc.createdby_type;
-    const payLedgerId = entries[entries.length - 1].ledgerid;
-
-    const existingPayment = await Payment.findOne({ transactionid: trx._id });
-
-    if (existingPayment) {
-      existingPayment.amount = totalDebit;
-      existingPayment.mode = doc.paymenttype;
-      existingPayment.ledgerid = payLedgerId;
-      existingPayment.remarks = `Expense Payment ${doc.expensenumber}`;
-      if (userContext) {
-        existingPayment.createdby_id = payCreatedById;
-        existingPayment.createdby_name = payCreatedByName;
-        existingPayment.createdby_type = payCreatedByType;
-      }
-      await existingPayment.save();
-    } else {
-      await Payment.create({
-        adminid: doc.adminid,
-        branchid: doc.branchid,
-        type: "payment",
-        mode: doc.paymenttype,
-        amount: totalDebit,
-        transactionid: trx._id,
-        ledgerid: payLedgerId,
-        remarks: `Expense Payment ${doc.expensenumber}`,
-        createdby_id: payCreatedById,
-        createdby_name: payCreatedByName,
-        createdby_type: payCreatedByType,
-      });
-    }
-  }
 };
 
 /* ===========================================================

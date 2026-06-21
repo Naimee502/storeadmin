@@ -3,6 +3,35 @@ import { Payment } from "../../../models/payments";
 import { Account } from "../../../models/accounts";
 import { AccountLedger } from "../../../models/accountledgers";
 import { Transaction } from "../../../models/transactions";
+import { AccountGroup } from "../../../models/accountgroups";
+
+// Find (or auto-create) a posting LEDGER by name under a given account group.
+// Used for the optional Discount / Commission concessions on a payment. Creates
+// the AccountLedger (and its group) directly — never an Account — so we don't hit
+// the Account.type enum.
+async function getOrCreateLedgerId(
+  name: string,
+  groupName: string,
+  category: "expenses" | "income",
+  adminid: any
+): Promise<any> {
+  const existing = await AccountLedger.findOne({ ledgername: name, admin: adminid });
+  if (existing) return existing._id;
+
+  let group: any = await AccountGroup.findOne({ accountgroupname: groupName, admin: adminid });
+  if (!group) {
+    group = await AccountGroup.create({ admin: adminid, accountgroupname: groupName, category, status: true });
+  }
+  const led: any = await AccountLedger.create({
+    admin: adminid,
+    accountgroupid: group._id,
+    ledgername: name,
+    openingbalance: 0,
+    openingbalancetype: category === "income" ? "credit" : "debit",
+    status: true,
+  });
+  return led._id;
+}
 
 // Recursively collect party ids under a root party (assignaccountid chain),
 // for channel downline payment visibility.
@@ -21,29 +50,68 @@ async function getDownlinePartyIds(rootId: any): Promise<string[]> {
   return out;
 }
 
-// Build balanced journal entries for a payment/receipt
+// Build balanced journal entries for a payment/receipt.
+//
+// Plain payment (no concessions): Dr Cash · Cr Party (receipt) or reverse.
+//
+// With per-invoice Discount / Commission (feature-flagged in the UI): the bill
+// is fully cleared while cash received is lower. The receivable/payable cleared
+// (party leg) = sum of settledamount; cash = that minus discount + commission;
+// the difference posts to "Discount Allowed" / "Commission" so the journal still
+// balances. Returns { entries, totaldebit, totalcredit } (totals computed from
+// the entries themselves, so callers never have to recompute).
 async function buildPaymentEntries(input: any, partyAccount: any) {
-  const amount = parseFloat(String(input.amount));
   const partyLedgerId = partyAccount?.ledgerid;
   const cashBankLedgerId = input.ledgerid;
-
   if (!partyLedgerId || !cashBankLedgerId) return null;
 
   const partyName = partyAccount?.name || "Party";
+  const invs = Array.isArray(input.invoices) ? input.invoices : [];
+
+  const totalDiscount = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0).toFixed(2));
+  const totalCommission = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0).toFixed(2));
+
+  // Party leg = receivable/payable cleared. When bills are selected that's the
+  // sum of settledamount; otherwise it's the manual amount (plain payment).
+  const settledTotal = invs.length
+    ? parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.settledamount) || 0), 0).toFixed(2))
+    : parseFloat(String(input.amount)) || 0;
+
+  // Cash actually moved = cleared total LESS discount (concession given) PLUS
+  // commission (extra charged on top of the bill).
+  const cashLeg = parseFloat((settledTotal - totalDiscount + totalCommission).toFixed(2));
+
+  const entries: any[] = [];
 
   if (input.type === "receipt") {
-    // Money coming in from customer: Dr Cash/Bank, Cr Customer
-    return [
-      { ledgerid: cashBankLedgerId, debit: amount, credit: 0, remarks: `Receipt from ${partyName}` },
-      { ledgerid: partyLedgerId, debit: 0, credit: amount, remarks: `Settlement by ${partyName}` },
-    ];
+    // Money in: Dr Cash + Dr Discount Allowed · Cr Customer + Cr Commission Received
+    entries.push({ ledgerid: cashBankLedgerId, debit: cashLeg, credit: 0, remarks: `Receipt from ${partyName}` });
+    if (totalDiscount > 0) {
+      const lid = await getOrCreateLedgerId("Discount Allowed", "Indirect Expenses", "expenses", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: totalDiscount, credit: 0, remarks: `Discount allowed to ${partyName}` });
+    }
+    entries.push({ ledgerid: partyLedgerId, debit: 0, credit: settledTotal, remarks: `Settlement by ${partyName}` });
+    if (totalCommission > 0) {
+      const lid = await getOrCreateLedgerId("Commission Received", "Indirect Income", "income", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: totalCommission, remarks: `Commission charged to ${partyName}` });
+    }
   } else {
-    // Money going out to vendor: Dr Vendor, Cr Cash/Bank
-    return [
-      { ledgerid: partyLedgerId, debit: amount, credit: 0, remarks: `Payment to ${partyName}` },
-      { ledgerid: cashBankLedgerId, debit: 0, credit: amount, remarks: `Payment to ${partyName}` },
-    ];
+    // Money out: Dr Vendor + Dr Commission · Cr Cash + Cr Discount Received
+    entries.push({ ledgerid: partyLedgerId, debit: settledTotal, credit: 0, remarks: `Payment to ${partyName}` });
+    if (totalCommission > 0) {
+      const lid = await getOrCreateLedgerId("Commission", "Commission Expense", "expenses", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: totalCommission, credit: 0, remarks: `Commission on payment to ${partyName}` });
+    }
+    entries.push({ ledgerid: cashBankLedgerId, debit: 0, credit: cashLeg, remarks: `Payment to ${partyName}` });
+    if (totalDiscount > 0) {
+      const lid = await getOrCreateLedgerId("Discount Received", "Indirect Income", "income", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: totalDiscount, remarks: `Discount received from ${partyName}` });
+    }
   }
+
+  const totaldebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const totalcredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+  return { entries, totaldebit, totalcredit };
 }
 
 function formatPayment(r: any) {
@@ -157,9 +225,8 @@ export const paymentResolvers = {
       if (input.partyid && input.ledgerid) {
         const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
         if (partyAccount?.ledgerid) {
-          const entries = await buildPaymentEntries(input, partyAccount);
-          if (entries) {
-            const amount = parseFloat(String(input.amount));
+          const built = await buildPaymentEntries(input, partyAccount);
+          if (built) {
             const trx = await Transaction.create({
               adminid: input.adminid,
               branchid: input.branchid,
@@ -167,9 +234,9 @@ export const paymentResolvers = {
               source: { docmodel: "Payment", docid: created._id },
               transactiondate: input.paymentdate || new Date(),
               narration: `Payment ${created.paymentcode || ""}`,
-              entries,
-              totaldebit: amount,
-              totalcredit: amount,
+              entries: built.entries,
+              totaldebit: built.totaldebit,
+              totalcredit: built.totalcredit,
               ...createdbyData,
             });
             await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
@@ -197,15 +264,14 @@ export const paymentResolvers = {
       if (input.partyid && input.ledgerid) {
         const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
         if (partyAccount?.ledgerid) {
-          const entries = await buildPaymentEntries(input, partyAccount);
-          if (entries) {
-            const amount = parseFloat(String(input.amount));
+          const built = await buildPaymentEntries(input, partyAccount);
+          if (built) {
             if (existing.transactionid) {
               // Update existing transaction
               await Transaction.findByIdAndUpdate(existing.transactionid, {
-                entries,
-                totaldebit: amount,
-                totalcredit: amount,
+                entries: built.entries,
+                totaldebit: built.totaldebit,
+                totalcredit: built.totalcredit,
                 transactiondate: input.paymentdate || new Date(),
                 narration: `Payment ${existing.paymentcode || ""}`,
               });
@@ -218,9 +284,9 @@ export const paymentResolvers = {
                 source: { docmodel: "Payment", docid: existing._id },
                 transactiondate: input.paymentdate || new Date(),
                 narration: `Payment ${existing.paymentcode || ""}`,
-                entries,
-                totaldebit: amount,
-                totalcredit: amount,
+                entries: built.entries,
+                totaldebit: built.totaldebit,
+                totalcredit: built.totalcredit,
                 createdby_id: existing.createdby_id,
                 createdby_name: updatedbyData.createdby_name,
                 createdby_type: existing.createdby_type,

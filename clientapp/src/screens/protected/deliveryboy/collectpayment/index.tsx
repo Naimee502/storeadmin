@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
-  TextInput, KeyboardAvoidingView, Platform, ScrollView,
+  TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -14,12 +14,15 @@ import { ADD_PAYMENT, MARK_SALES_INVOICE_DELIVERED } from '../../../../apollo/mu
 import { GET_ACCOUNT_LEDGERS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
-type PaymentMode = 'cash' | 'upi' | 'cheque';
+type PaymentMode = 'cash' | 'bank' | 'upi' | 'card' | 'cheque' | 'other';
 
 const MODES: { id: PaymentMode; label: string; icon: string; color: string }[] = [
-  { id: 'cash',   label: 'Cash',   icon: 'cash',        color: '#22c55e' },
-  { id: 'upi',    label: 'UPI',    icon: 'qrcode-scan', color: '#6366f1' },
-  { id: 'cheque', label: 'Cheque', icon: 'checkbook',   color: '#f59e0b' },
+  { id: 'cash',   label: 'Cash',   icon: 'cash',                color: '#22c55e' },
+  { id: 'bank',   label: 'Bank',   icon: 'bank',                color: '#0ea5e9' },
+  { id: 'upi',    label: 'UPI',    icon: 'qrcode-scan',         color: '#6366f1' },
+  { id: 'card',   label: 'Card',   icon: 'credit-card-outline', color: '#a855f7' },
+  { id: 'cheque', label: 'Cheque', icon: 'checkbook',           color: '#f59e0b' },
+  { id: 'other',  label: 'Other',  icon: 'dots-horizontal',     color: '#64748b' },
 ];
 
 export default function DeliveryCollectPayment() {
@@ -36,22 +39,38 @@ export default function DeliveryCollectPayment() {
   const { data: ledgerData } = useQuery(GET_ACCOUNT_LEDGERS, {
     variables: { adminId: adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
   });
-  const cashBankLedgers = (() => {
-    const all = ((ledgerData as any)?.getAccountLedgers ?? []).filter((l: any) => l.status !== false);
-    const typed = all.filter((l: any) => l.ledgertype === 'cash' || l.ledgertype === 'bank');
-    if (typed.length) return typed;
-    const named = all.filter((l: any) => /cash|bank|upi/i.test(l.ledgername || ''));
-    return named.length ? named : all;
-  })();
+  // ALL active ledgers — same as the admin panel's "Cash / Bank Ledger" dropdown.
+  const cashBankLedgers = useMemo(
+    () => ((ledgerData as any)?.getAccountLedgers ?? []).filter((l: any) => l.status !== false),
+    [ledgerData],
+  );
 
   const [addPayment]    = useMutation(ADD_PAYMENT);
   const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
   const [mode,       setMode]       = useState<PaymentMode>('cash');
+  const [ledgerId,   setLedgerId]   = useState<string>('');
+  const [ledgerPickerOpen, setLedgerPickerOpen] = useState(false);
   const [inputAmt,   setInputAmt]   = useState(amount > 0 ? String(amount) : '');
   const [reference,  setReference]  = useState('');
   const [notes,      setNotes]      = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedLedgerName = useMemo(
+    () => cashBankLedgers.find((l: any) => l.id === ledgerId)?.ledgername ?? '',
+    [cashBankLedgers, ledgerId],
+  );
+
+  // Auto-pick a sensible deposit ledger by mode (cash→Cash, bank→Bank, else first).
+  useEffect(() => {
+    if (ledgerId || cashBankLedgers.length === 0) return;
+    const byName = (re: RegExp) => cashBankLedgers.find((l: any) => re.test(l.ledgername || ''));
+    const match =
+      mode === 'cash' ? (byName(/cash/i) || cashBankLedgers[0])
+      : mode === 'bank' ? (byName(/bank/i) || byName(/cash/i) || cashBankLedgers[0])
+      : (byName(/cash/i) || byName(/bank/i) || cashBankLedgers[0]);
+    if (match) setLedgerId(match.id);
+  }, [cashBankLedgers, mode, ledgerId]);
 
   const selectedMode = MODES.find(m => m.id === mode)!;
   const parsedAmount = parseFloat(inputAmt) || 0;
@@ -67,10 +86,9 @@ export default function DeliveryCollectPayment() {
     }
     if (!adminid || !tenant.branchId) { Alert.alert('Branch not set', 'No branch assigned. Contact admin.'); return; }
     if (!partyId) { Alert.alert('Missing party', 'Could not resolve the party for this order.'); return; }
-    // Deposit ledger: cash for cash mode, else a bank ledger.
-    const wantType = mode === 'cash' ? 'cash' : 'bank';
-    const depositLedger = cashBankLedgers.find((l: any) => l.ledgertype === wantType) ?? cashBankLedgers[0];
-    if (!depositLedger) { Alert.alert('No Cash/Bank ledger', 'Ask the admin to create a Cash or Bank ledger.'); return; }
+    // Deposit ledger: whichever the user picked from the dropdown.
+    const depositLedger = cashBankLedgers.find((l: any) => l.id === ledgerId) ?? cashBankLedgers[0];
+    if (!depositLedger) { Alert.alert('No ledger', 'Ask the admin to create a Cash / Bank ledger.'); return; }
 
     Alert.alert(
       'Confirm Collection',
@@ -196,17 +214,43 @@ export default function DeliveryCollectPayment() {
             />
           </View>
 
-          {/* Reference for UPI / Cheque */}
-          {(mode === 'upi' || mode === 'cheque') && (
+          {/* Cash / Bank Ledger — dropdown with ALL ledgers (same as admin panel) */}
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>Cash / Bank Ledger</Text>
+          {cashBankLedgers.length === 0 ? (
+            <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+              <Icon name="information-outline" size={16} color={colors.subText} style={{ marginRight: 8 }} />
+              <Text style={[styles.textInput, { color: colors.subText, paddingVertical: 8 }]}>
+                No ledger found. Ask the admin to create one.
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
+              onPress={() => setLedgerPickerOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Icon name="bank-outline" size={16} color={colors.subText} style={{ marginRight: 8 }} />
+              <Text style={[styles.textInput, { color: selectedLedgerName ? colors.text : colors.subText, paddingVertical: 10 }]} numberOfLines={1}>
+                {selectedLedgerName || 'Select ledger'}
+              </Text>
+              <Icon name="chevron-down" size={18} color={colors.subText} />
+            </TouchableOpacity>
+          )}
+
+          {/* Reference — any non-cash mode (UTR / cheque no. / card / etc.) */}
+          {mode !== 'cash' && (
             <>
               <Text style={[styles.sectionLabel, { color: colors.text }]}>
-                {mode === 'upi' ? 'UPI Transaction ID' : 'Cheque Number'}
+                {mode === 'upi' ? 'UPI Transaction ID'
+                  : mode === 'cheque' ? 'Cheque Number'
+                  : mode === 'card' ? 'Card / Approval Ref'
+                  : 'Reference'}
               </Text>
               <View style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
-                <Icon name={mode === 'upi' ? 'identifier' : 'numeric'} size={18} color={colors.subText} style={{ marginRight: 8 }} />
+                <Icon name={mode === 'cheque' ? 'numeric' : 'identifier'} size={18} color={colors.subText} style={{ marginRight: 8 }} />
                 <TextInput
                   style={[styles.textInput, { color: colors.text }]}
-                  placeholder={mode === 'upi' ? 'e.g. TXN123456789' : 'e.g. 000123'}
+                  placeholder="Cheque no., UTR, etc."
                   placeholderTextColor={colors.subText}
                   value={reference}
                   onChangeText={setReference}
@@ -263,6 +307,33 @@ export default function DeliveryCollectPayment() {
           </TouchableOpacity>
 
         </ScrollView>
+
+        {/* Cash / Bank ledger picker */}
+        <Modal visible={ledgerPickerOpen} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setLedgerPickerOpen(false)}>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setLedgerPickerOpen(false)}>
+            <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>Select Cash / Bank Ledger</Text>
+              <FlatList
+                data={cashBankLedgers}
+                keyExtractor={(l: any) => l.id}
+                style={{ maxHeight: 400 }}
+                renderItem={({ item }: any) => {
+                  const active = ledgerId === item.id;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.sheetRow, { borderBottomColor: colors.border }]}
+                      onPress={() => { setLedgerId(item.id); setLedgerPickerOpen(false); }}
+                    >
+                      <Icon name={item.ledgertype === 'bank' ? 'bank-outline' : 'cash'} size={16} color={active ? colors.brand : colors.subText} style={{ marginRight: 10 }} />
+                      <Text style={[styles.sheetRowText, { color: active ? colors.brand : colors.text }]} numberOfLines={1}>{item.ledgername}</Text>
+                      {active && <Icon name="check" size={16} color={colors.brand} style={{ marginLeft: 'auto' }} />}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -291,9 +362,9 @@ const styles = StyleSheet.create({
 
   sectionLabel: { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 10 },
 
-  modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   modeCard: {
-    flex: 1, alignItems: 'center', gap: 6,
+    flexBasis: '30%', flexGrow: 1, alignItems: 'center', gap: 6,
     borderRadius: 16, borderWidth: 1.5, paddingVertical: 14,
     position: 'relative',
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3, elevation: 1,
@@ -326,4 +397,10 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
   submitBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
+  sheetTitle: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 10 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  sheetRowText: { fontSize: 14, fontFamily: FONTS.regular },
 });

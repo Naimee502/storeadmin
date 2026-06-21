@@ -6,12 +6,16 @@ export const paymentTypeDefs = gql`
     invoiceid: ID!
     invoicemodel: String!
     settledamount: Float!
+    discount: Float
+    commission: Float
   }
 
   input PaymentInvoiceInput {
     invoiceid: ID!
     invoicemodel: String!
     settledamount: Float!
+    discount: Float
+    commission: Float
   }
 
   # Account Type

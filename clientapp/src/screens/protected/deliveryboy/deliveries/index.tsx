@@ -42,6 +42,7 @@ function toDelivery(o: any, bucket: FilterKey) {
     lat: o.partyacc?.latitude ?? null,
     lng: o.partyacc?.longitude ?? null,
     amount: o.totalamount ?? 0,
+    outstanding: Math.max(0, o.outstanding ?? 0),
     paymenttype: o.paymenttype,
     status: bucket,
   };
@@ -191,7 +192,8 @@ export default function DeliveryList() {
       orderNum:  item.orderNum,
       partyId:   item.partyId,
       partyName: item.party,
-      amount:    item.amount,
+      // Prefill with the DUE (outstanding), not the full order value.
+      amount:    item.outstanding > 0 ? item.outstanding : item.amount,
     });
 
   const locIcon  = locLabel === 'live' ? 'crosshairs-gps' : locLabel === 'fetching' ? 'loading' : 'crosshairs';
@@ -271,13 +273,15 @@ export default function DeliveryList() {
                   <Icon name="check" size={12} color="#fff" />
                   <Text style={styles.actionBtnText}>Delivered</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: '#22c55e' }]}
-                  onPress={() => handleCollectPayment(item)}
-                >
-                  <Icon name="cash" size={12} color="#fff" />
-                  <Text style={styles.actionBtnText}>Collect ₹</Text>
-                </TouchableOpacity>
+                {item.outstanding > 0 && (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: '#22c55e' }]}
+                    onPress={() => handleCollectPayment(item)}
+                  >
+                    <Icon name="cash" size={12} color="#fff" />
+                    <Text style={styles.actionBtnText}>Collect ₹</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>

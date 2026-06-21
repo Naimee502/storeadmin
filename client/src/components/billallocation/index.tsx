@@ -33,6 +33,13 @@ type Props = {
   /** Exclude the current doc (edit mode) so its own allocation isn't double-counted. */
   excludePaymentId?: string;
   excludeTransactionId?: string;
+  /**
+   * "settlement" (default) → Payment-style: allocate a settle amount, reduces outstanding.
+   * "record" → record the full journal once per invoice. An invoice that already has a
+   *            journal recorded against it (any transaction link) is hidden so it can't be
+   *            recorded twice. No settle amount is taken (outstanding is untouched).
+   */
+  mode?: "settlement" | "record";
 };
 
 const fmt = (n: number) => (Number(n) || 0).toFixed(2);
@@ -44,6 +51,7 @@ const BillAllocation: React.FC<Props> = ({
   onChange,
   excludePaymentId,
   excludeTransactionId,
+  mode = "settlement",
 }) => {
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
@@ -73,6 +81,20 @@ const BillAllocation: React.FC<Props> = ({
     return map;
   }, [paymentsData, transactionsData, excludePaymentId, excludeTransactionId]);
 
+  // ── Invoices that already have a journal recorded against them ─────────
+  // In "record" mode an invoice's full journal is recorded exactly once, so any
+  // invoice already linked to a transaction is hidden from the picker.
+  const recordedInvoiceIds = useMemo(() => {
+    const s = new Set<string>();
+    (transactionsData?.getTransactions || []).forEach((txn: any) => {
+      if (excludeTransactionId && txn.id === excludeTransactionId) return;
+      (txn.invoices || []).forEach((inv: any) => {
+        if (inv.invoiceid) s.add(inv.invoiceid);
+      });
+    });
+    return s;
+  }, [transactionsData, excludeTransactionId]);
+
   // ── All invoices for the chosen side ───────────────────────────────────
   const allInvoices = useMemo(() => {
     const src =
@@ -86,14 +108,18 @@ const BillAllocation: React.FC<Props> = ({
   const outstandingInvoices = useMemo(() => {
     if (!partyid) return [];
     return allInvoices
-      .filter((inv: any) => inv.partyacc?.id === partyid && inv.status)
+      .filter((inv: any) =>
+        inv.partyacc?.id === partyid &&
+        inv.status &&
+        (mode !== "record" || !recordedInvoiceIds.has(inv.id))
+      )
       .map((inv: any) => {
         const paid = paidByInvoice[inv.id] || 0;
         const outstanding = parseFloat(((inv.totalamount || 0) - paid).toFixed(2));
         return { ...inv, outstanding };
       })
       .filter((inv: any) => inv.outstanding > 0);
-  }, [partyid, allInvoices, paidByInvoice]);
+  }, [partyid, allInvoices, paidByInvoice, mode, recordedInvoiceIds]);
 
   // Rows to render = outstanding invoices + any already-selected invoice that
   // is now fully settled (so edit mode still shows the allocation row).
@@ -163,7 +189,7 @@ const BillAllocation: React.FC<Props> = ({
               <th className="px-3 py-2 text-right">GST</th>
               <th className="px-3 py-2 text-right">Invoice Total</th>
               <th className="px-3 py-2 text-right text-orange-600">Outstanding</th>
-              <th className="px-3 py-2 text-right">Settle Now</th>
+              <th className="px-3 py-2 text-right">{mode === "record" ? "Record" : "Settle Now"}</th>
             </tr>
           </thead>
           <tbody>
@@ -211,7 +237,13 @@ const BillAllocation: React.FC<Props> = ({
                     ₹{fmt(inv.outstanding)}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {selected ? (
+                    {mode === "record" ? (
+                      selected ? (
+                        <span className="text-green-600 text-xs font-semibold">Selected</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )
+                    ) : selected ? (
                       <input
                         type="number"
                         className="w-28 border rounded px-2 py-1 border-gray-300 text-right"
@@ -236,7 +268,9 @@ const BillAllocation: React.FC<Props> = ({
       {value.length > 0 && (
         <div className="flex justify-end">
           <div className="bg-gray-50 border rounded-lg px-4 py-2 text-sm font-semibold">
-            Allocated: ₹{fmt(total)} &nbsp;·&nbsp; {value.length} invoice(s)
+            {mode === "record"
+              ? `${value.length} invoice(s) selected to record`
+              : `Allocated: ₹${fmt(total)} · ${value.length} invoice(s)`}
           </div>
         </div>
       )}

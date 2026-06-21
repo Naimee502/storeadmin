@@ -37,6 +37,7 @@ export const adminSettingsTypeDefs = gql`
     encryptInvoicePrices: Boolean!
     deliveryMode: String
     partyManagesDownline: Boolean
+    enablePaymentDiscountCommission: Boolean
     allowAdminToManageBusinessSettings: Boolean!
     allowAdminToManageModules: Boolean!
     allowAdminToManagePermissions: Boolean!
@@ -80,6 +81,7 @@ export const adminSettingsTypeDefs = gql`
     encryptInvoicePrices: Boolean
     deliveryMode: String
     partyManagesDownline: Boolean
+    enablePaymentDiscountCommission: Boolean
     allowAdminToManageBusinessSettings: Boolean
     allowAdminToManageModules: Boolean
     allowAdminToManagePermissions: Boolean

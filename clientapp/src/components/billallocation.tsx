@@ -23,6 +23,10 @@ export type Allocation = {
   invoiceid: string;
   invoicemodel: 'SalesInvoice' | 'PurchaseInvoice';
   settledamount: number;
+  /** Optional concessions (only when showDiscountCommission). Discount lowers cash,
+   *  commission raises cash; the bill is still cleared by settledamount. */
+  discount?: number;
+  commission?: number;
 };
 
 type Props = {
@@ -33,6 +37,17 @@ type Props = {
   onChange: (next: Allocation[]) => void;
   /** Exclude the current payment (edit mode) so its own allocation isn't double-counted. */
   excludePaymentId?: string;
+  /**
+   * 'settlement' (default) → Payment style: allocate a settle amount, reduces the due.
+   * 'record' → record the invoice's full journal once. No settle amount is taken (the
+   *            due is untouched) and an invoice whose journal is already recorded
+   *            (see `excludeInvoiceIds`) is hidden so it can't be recorded twice.
+   */
+  mode?: 'settlement' | 'record';
+  /** Invoice ids to hide (used in 'record' mode — invoices already journal-recorded). */
+  excludeInvoiceIds?: string[];
+  /** Show per-invoice Discount & Commission inputs (settlement mode only). */
+  showDiscountCommission?: boolean;
 };
 
 const money = (n: number) => `₹${(Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -44,9 +59,13 @@ const BillAllocation: React.FC<Props> = ({
   value,
   onChange,
   excludePaymentId,
+  mode = 'settlement',
+  excludeInvoiceIds,
+  showDiscountCommission = false,
 }) => {
   const { colors } = useTheme();
   const isSales = invoicemodel === 'SalesInvoice';
+  const excludeSet = useMemo(() => new Set(excludeInvoiceIds ?? []), [excludeInvoiceIds]);
 
   const { data: invData, loading: invLoading } = useQuery(
     isSales ? GET_PARTY_SALES_INVOICES : GET_PARTY_PURCHASE_INVOICES,
@@ -67,10 +86,10 @@ const BillAllocation: React.FC<Props> = ({
   // admin panel uses) — no client-side recompute, so it never under/over-counts.
   const outstandingInvoices = useMemo(() => {
     return allInvoices
-      .filter((inv: any) => inv.status)
+      .filter((inv: any) => inv.status && (mode !== 'record' || !excludeSet.has(inv.id)))
       .map((inv: any) => ({ ...inv, outstanding: parseFloat((inv.outstanding ?? 0).toFixed(2)) }))
       .filter((inv: any) => inv.outstanding > 0);
-  }, [allInvoices]);
+  }, [allInvoices, mode, excludeSet]);
 
   // Keep already-selected rows visible even if fully settled (edit mode).
   const rows = useMemo(() => {
@@ -92,7 +111,7 @@ const BillAllocation: React.FC<Props> = ({
     } else {
       onChange([
         ...value,
-        { invoiceid: inv.id, invoicemodel: inv.invoicemodel, settledamount: inv.outstanding },
+        { invoiceid: inv.id, invoicemodel: inv.invoicemodel, settledamount: inv.outstanding, discount: 0, commission: 0 },
       ]);
     }
   };
@@ -100,7 +119,14 @@ const BillAllocation: React.FC<Props> = ({
   const setAmount = (invId: string, amount: number) =>
     onChange(value.map((s) => (s.invoiceid === invId ? { ...s, settledamount: amount } : s)));
 
+  const setConcession = (invId: string, field: 'discount' | 'commission', amount: number) =>
+    onChange(value.map((s) => (s.invoiceid === invId ? { ...s, [field]: amount } : s)));
+
   const total = parseFloat(value.reduce((s, i) => s + (i.settledamount || 0), 0).toFixed(2));
+  // Cash actually collected = bills cleared − discount + commission.
+  const cashTotal = parseFloat(
+    value.reduce((s, i) => s + (i.settledamount || 0) - (i.discount || 0) + (i.commission || 0), 0).toFixed(2),
+  );
 
   if (!partyId) {
     return <Text style={[styles.hint, { color: colors.subText }]}>Select a party to load outstanding bills.</Text>;
@@ -155,7 +181,14 @@ const BillAllocation: React.FC<Props> = ({
               </View>
             </TouchableOpacity>
 
-            {sel ? (
+            {sel && mode === 'record' ? (
+              <View style={[styles.amountRow, { borderTopColor: colors.border }]}>
+                <Icon name="check-decagram" size={15} color={colors.brand} />
+                <Text style={[styles.settleLabel, { color: colors.brand }]}>
+                  Selected — full journal will be recorded (due unchanged)
+                </Text>
+              </View>
+            ) : sel ? (
               <View style={[styles.amountRow, { borderTopColor: colors.border }]}>
                 <Text style={[styles.settleLabel, { color: colors.subText }]}>Settle now</Text>
                 <View style={[styles.amountWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
@@ -178,14 +211,59 @@ const BillAllocation: React.FC<Props> = ({
                 ) : null}
               </View>
             ) : null}
+
+            {sel && mode !== 'record' && showDiscountCommission ? (
+              <View style={[styles.dcRow, { borderTopColor: colors.border }]}>
+                <View style={styles.dcCol}>
+                  <Text style={[styles.dcLabel, { color: colors.subText }]}>Discount −</Text>
+                  <View style={[styles.dcWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+                    <Text style={[styles.rupee, { color: colors.brand }]}>₹</Text>
+                    <TextInput
+                      style={[styles.dcInput, { color: colors.text }]}
+                      value={sel.discount ? String(sel.discount) : ''}
+                      placeholder="0"
+                      placeholderTextColor={colors.subText}
+                      keyboardType="numeric"
+                      onChangeText={(t) => setConcession(inv.id, 'discount', parseFloat(t) || 0)}
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+                <View style={styles.dcCol}>
+                  <Text style={[styles.dcLabel, { color: colors.subText }]}>Commission +</Text>
+                  <View style={[styles.dcWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
+                    <Text style={[styles.rupee, { color: colors.brand }]}>₹</Text>
+                    <TextInput
+                      style={[styles.dcInput, { color: colors.text }]}
+                      value={sel.commission ? String(sel.commission) : ''}
+                      placeholder="0"
+                      placeholderTextColor={colors.subText}
+                      keyboardType="numeric"
+                      onChangeText={(t) => setConcession(inv.id, 'commission', parseFloat(t) || 0)}
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+                <View style={styles.dcCol}>
+                  <Text style={[styles.dcLabel, { color: colors.subText }]}>Cash In</Text>
+                  <Text style={[styles.dcCash, { color: '#16a34a' }]}>
+                    {money(Math.max(0, (sel.settledamount || 0) - (sel.discount || 0) + (sel.commission || 0)))}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         );
       })}
 
       {value.length > 0 ? (
         <View style={[styles.totalBar, { backgroundColor: colors.brand }]}>
-          <Text style={styles.totalText}>{value.length} bill(s) selected</Text>
-          <Text style={styles.totalAmount}>{money(total)}</Text>
+          <Text style={styles.totalText}>
+            {value.length} bill(s){mode !== 'record' && showDiscountCommission ? ' · Cash in' : ' selected'}
+          </Text>
+          {mode !== 'record'
+            ? <Text style={styles.totalAmount}>{money(showDiscountCommission ? cashTotal : total)}</Text>
+            : null}
         </View>
       ) : null}
     </View>
@@ -212,6 +290,13 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 15, fontFamily: FONTS.semiBold, paddingVertical: 7, textAlign: 'right' },
   fullChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   fullChipText: { fontSize: 12, fontFamily: FONTS.semiBold },
+
+  dcRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 13, paddingBottom: 11, paddingTop: 2, borderTopWidth: 1 },
+  dcCol: { flex: 1 },
+  dcLabel: { fontSize: 11, fontFamily: FONTS.semiBold, marginBottom: 4 },
+  dcWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 9, borderWidth: 1, paddingHorizontal: 8 },
+  dcInput: { flex: 1, fontSize: 14, fontFamily: FONTS.semiBold, paddingVertical: 6, textAlign: 'right' },
+  dcCash: { fontSize: 14, fontFamily: FONTS.bold, paddingVertical: 6 },
 
   totalBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, marginTop: 2 },
   totalText: { fontSize: 13, fontFamily: FONTS.semiBold, color: '#fff' },

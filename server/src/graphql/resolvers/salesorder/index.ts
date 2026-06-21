@@ -153,9 +153,11 @@ const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
 };
 
 // ✅ Fields to populate
-const populateFields = [
+const populateFields: any[] = [
   "salesmenid",
-  "partyacc",
+  // Populate the party AND its channel so the app can show the party's
+  // channel type (End User / Retailer / Wholesaler) on orders.
+  { path: "partyacc", populate: { path: "channel", select: "channelName" } },
   "productservice.productserviceid",
   "productservice.salesunitid",
   "productservice.salesaccountid",
@@ -169,7 +171,14 @@ const formatOrder = (order: any) => ({
   ...order,
   id: order._id.toString(),
   salesmenid: toSimpleRef(order.salesmenid, ["name"]),
-  partyacc: toSimpleRef(order.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]),
+  partyacc: (() => {
+    const ref = toSimpleRef(order.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]);
+    const ch = order.partyacc?.channel;
+    if (ref && ch && typeof ch === "object") {
+      ref.channelName = ch.channelName ?? null;
+    }
+    return ref;
+  })(),
   createdby_id: order.createdby_id,
   createdby_name: order.createdby_name,
   createdby_type: order.createdby_type,

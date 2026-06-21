@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -30,13 +30,13 @@ export default function Payments() {
   const targetId   = route.params?.partyId ?? user?.id;
   const targetName = route.params?.partyName;
 
-  const { data: accountData } = useQuery(GET_ACCOUNT, {
+  const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: targetId, adminId: adminid },
     skip: !targetId || !adminid,
     refetchPolicy: 'network-only',
   });
 
-  const { data: ordersData, loading: ordersLoading } = useQuery(GET_SALES_ORDERS, {
+  const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: targetId },
     skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
@@ -49,19 +49,24 @@ export default function Payments() {
   const [scope, setScope] = useState<'mine' | 'parties'>('mine');
 
   // Payments for the target party (self on main screen, sub-party on drill).
-  const { data: paymentsData, loading: paymentsLoading } = useQuery(GET_PAYMENTS, {
+  const { data: paymentsData, loading: paymentsLoading, refetch: refetchPayments } = useQuery(GET_PAYMENTS, {
     variables: { adminid, partyid: targetId },
     skip: !adminid || !targetId,
     refetchPolicy: 'network-only',
   });
 
   // Sub-party outstanding summary for the "Parties" tab.
-  const { data: downlineData, loading: downlineLoading } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+  const { data: downlineData, loading: downlineLoading, refetch: refetchDownline } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
     variables: { partyid: user?.id },
     skip: !user?.id || !showScope,
     fetchPolicy: 'cache-and-network',
   });
   const downlineParties = (downlineData?.getDownlinePartyBalances ?? []) as any[];
+
+  // Refetch on focus (after collecting a payment and returning to the list).
+  useFocusEffect(useCallback(() => {
+    refetchAccount?.(); refetchOrders?.(); refetchPayments?.(); refetchDownline?.();
+  }, [refetchAccount, refetchOrders, refetchPayments, refetchDownline]));
 
   const account = accountData?.getAccountById;
   const ledgerId = account?.ledgerid?.id;
@@ -80,14 +85,10 @@ export default function Payments() {
   const convertedOrders = orders.filter(o => o.isConverted && o.cancelStatus !== 'cancelled');
 
   const { totalOutstanding, totalPaid } = useMemo(() => {
-    // Ledger balance: sum of this ledger's debits − credits across all entries.
-    const balance = transactions.reduce((sum: number, t: any) => {
-      const { debit, credit } = ledgerEntryTotals(t, ledgerId);
-      return sum + debit - credit;
-    }, 0);
+    // Bill-wise due from the server (same basis as Home, Ledger & salesman app).
     const paid = payments.reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
-    return { totalOutstanding: Math.max(balance, 0), totalPaid: paid };
-  }, [transactions, ledgerId, payments]);
+    return { totalOutstanding: Math.max(0, account?.outstanding || 0), totalPaid: paid };
+  }, [account, payments]);
 
   const renderPayment = ({ item: p }: any) => {
     const mode = (p.mode ?? '').toLowerCase();
@@ -238,24 +239,30 @@ export default function Payments() {
                   <Text style={[styles.paySub, { color: colors.subText }]} numberOfLines={1}>{item.mobile || '—'}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[styles.payAmt, { color: dr ? '#ef4444' : '#22c55e' }]}>
-                    {formatINR(Math.abs(item.outstanding || 0))} {dr ? 'Dr' : 'Cr'}
-                  </Text>
-                  <Text style={[styles.paySub, { color: colors.subText }]}>Outstanding</Text>
+                  {Math.max(0, item.outstanding || 0) > 0 ? (
+                    <>
+                      <Text style={[styles.payAmt, { color: '#ef4444' }]}>{formatINR(Math.max(0, item.outstanding || 0))}</Text>
+                      <Text style={[styles.paySub, { color: colors.subText }]}>Due</Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.paySub, { color: '#22c55e' }]}>No dues</Text>
+                  )}
                 </View>
-                <TouchableOpacity
-                  style={[styles.collectBtn, { backgroundColor: colors.brand }]}
-                  activeOpacity={0.85}
-                  onPress={() =>
-                    navigation.navigate('CollectPayment', {
-                      partyId: item.id,
-                      partyName: item.name,
-                      outstanding: Math.max(0, item.outstanding || 0),
-                    })
-                  }
-                >
-                  <Icon name="cash-plus" size={16} color="#fff" />
-                </TouchableOpacity>
+                {Math.max(0, item.outstanding || 0) > 0 && (
+                  <TouchableOpacity
+                    style={[styles.collectBtn, { backgroundColor: colors.brand }]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      navigation.navigate('CollectPayment', {
+                        partyId: item.id,
+                        partyName: item.name,
+                        outstanding: Math.max(0, item.outstanding || 0),
+                      })
+                    }
+                  >
+                    <Icon name="cash-plus" size={16} color="#fff" />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             );
           }}

@@ -16,11 +16,14 @@ import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
+import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 
 type SettledInvoice = {
   invoiceid: string;
   invoicemodel: "SalesInvoice" | "PurchaseInvoice" | "ExpenseNote";
   settledamount: number;
+  discount: number;
+  commission: number;
   billnumber: string;
   totalamount: number;
   othercharges: any[];
@@ -66,7 +69,11 @@ const AddEditPayment = () => {
   const { data: paymentsData } = usePaymentsQuery();
   const { data: transactionsData } = useTransactionsQuery();
   const { data: expenseNotesData } = useExpenseNotesQuery();
+  const { data: adminSettingsData } = useAdminSettingsQuery(adminId);
   const { addPaymentMutation, editPaymentMutation } = usePaymentMutations();
+
+  // Feature flag (per business): allow Discount & Commission while settling a bill.
+  const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
 
   // ── Form state ─────────────────────────────────────────────────────────
   const [paymentdate, setPaymentdate] = useState(new Date().toISOString().slice(0, 10));
@@ -80,9 +87,23 @@ const AddEditPayment = () => {
   const [settledInvoices, setSettledInvoices] = useState<SettledInvoice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Total = sum of settlements, or manual amount if no invoices selected
+  // Bill clears = sum of settledamount (reduces outstanding).
+  const totalSettled = parseFloat(
+    settledInvoices.reduce((s, i) => s + (i.settledamount || 0), 0).toFixed(2)
+  );
+  // Concessions (only when the feature flag is on).
+  const totalDiscount = dcEnabled
+    ? parseFloat(settledInvoices.reduce((s, i) => s + (i.discount || 0), 0).toFixed(2))
+    : 0;
+  const totalCommission = dcEnabled
+    ? parseFloat(settledInvoices.reduce((s, i) => s + (i.commission || 0), 0).toFixed(2))
+    : 0;
+
+  // Cash actually moved = bills cleared, LESS discount (concession given), PLUS
+  // commission (extra charged on top). This is the payment "amount". When no
+  // invoices are linked, the manual amount is the cash.
   const totalAmount = settledInvoices.length > 0
-    ? parseFloat(settledInvoices.reduce((s, i) => s + (i.settledamount || 0), 0).toFixed(2))
+    ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
     : parseFloat(manualAmount) || 0;
 
   // ── Already-paid amounts per invoice (exclude current edit) ────────────
@@ -115,29 +136,34 @@ const AddEditPayment = () => {
   // outstanding balance — Tally allows settling any invoice regardless of
   // how it was originally recorded (cash, credit, bank).
   const outstandingInvoices = useMemo(() => {
-    if (!partyid) return [];
+    // Expense settles a credit expense note directly — no party needs to be picked
+    // first; we derive the payable party from the note's ledger when it's selected.
+    if (!partyid && payType !== "expense") return [];
 
     let source: any[];
     if (payType === "expense") {
-      // The selected party's outstanding CREDIT expense notes.
-      const partyLedgerId = (accountsData?.getAccounts || []).find(
-        (a: any) => a.id === partyid
-      )?.ledgerid?.id;
+      // ALL outstanding CREDIT expense notes (across parties). Selecting one sets
+      // the payable party automatically from its ledger.
+      const accounts = accountsData?.getAccounts || [];
       source = (expenseNotesData?.getExpenseNotes || [])
-        .filter(
-          (e: any) =>
-            e.status && e.paymenttype === "credit" && e.ledgerid?.id === partyLedgerId
-        )
-        .map((e: any) => ({
-          id: e.id,
-          invoicemodel: "ExpenseNote",
-          billnumber: e.expensenumber,
-          totalamount: e.totalamount,
-          subtotal: parseFloat((Number(e.totalamount || 0) - Number(e.totalgst || 0)).toFixed(2)),
-          totalgst: e.totalgst || 0,
-          othercharges: [],
-          status: e.status,
-        }));
+        // Expense notes are notes-only: every unpaid note is a payable settled here.
+        .filter((e: any) => e.status && e.ledgerid?.id)
+        .map((e: any) => {
+          const payableAcc = accounts.find((a: any) => a.ledgerid?.id === e.ledgerid?.id);
+          return {
+            id: e.id,
+            invoicemodel: "ExpenseNote",
+            billnumber: e.expensenumber,
+            totalamount: e.totalamount,
+            subtotal: parseFloat((Number(e.totalamount || 0) - Number(e.totalgst || 0)).toFixed(2)),
+            totalgst: e.totalgst || 0,
+            othercharges: [],
+            status: e.status,
+            ledgerid: e.ledgerid,
+            payablePartyId: payableAcc?.id || "",
+            payablePartyName: payableAcc?.name || e.ledgerid?.ledgername || "",
+          };
+        });
     } else if (payType === "receipt") {
       source = (salesInvData?.getSalesInvoices || [])
         .filter((inv: any) => inv.partyacc?.id === partyid && inv.status)
@@ -195,6 +221,8 @@ const AddEditPayment = () => {
         invoiceid: ei.invoiceid,
         invoicemodel: ei.invoicemodel,
         settledamount: ei.settledamount,
+        discount: ei.discount || 0,
+        commission: ei.commission || 0,
         billnumber: match?.billnumber || ei.invoiceid,
         totalamount: match?.totalamount || 0,
         othercharges: match?.othercharges || [],
@@ -279,12 +307,19 @@ const AddEditPayment = () => {
     if (isSelected(inv.id)) {
       setSettledInvoices(prev => prev.filter(s => s.invoiceid !== inv.id));
     } else {
+      // Expense note: derive the payable party from its ledger so the journal
+      // posts Dr <party-payable> / Cr Cash.
+      if (payType === "expense" && inv.payablePartyId && !partyid) {
+        setPartyid(inv.payablePartyId);
+      }
       setSettledInvoices(prev => [
         ...prev,
         {
           invoiceid: inv.id,
           invoicemodel: inv.invoicemodel,
           settledamount: inv.outstanding,
+          discount: 0,
+          commission: 0,
           billnumber: inv.billnumber,
           totalamount: inv.totalamount,
           othercharges: inv.othercharges || [],
@@ -301,11 +336,24 @@ const AddEditPayment = () => {
     );
   };
 
+  const updateConcession = (invoiceid: string, field: "discount" | "commission", amount: number) => {
+    setSettledInvoices(prev =>
+      prev.map(s => (s.invoiceid === invoiceid ? { ...s, [field]: amount } : s))
+    );
+  };
+
   // ── Validation & Submit ────────────────────────────────────────────────
   const validate = () => {
     const e: Record<string, string> = {};
     if (!ledgerid) e.ledgerid = "Select a cash / bank ledger";
     if (totalAmount <= 0) e.amount = "Amount must be greater than zero";
+    // Discount (concession given) can't exceed the bill being cleared.
+    if (dcEnabled) {
+      const bad = settledInvoices.find(
+        s => (s.discount || 0) > (s.settledamount || 0) + 0.001
+      );
+      if (bad) e.amount = `Discount can't exceed the settle amount for INV-${bad.billnumber}`;
+    }
     return e;
   };
 
@@ -329,6 +377,8 @@ const AddEditPayment = () => {
           invoiceid: s.invoiceid,
           invoicemodel: s.invoicemodel,
           settledamount: s.settledamount,
+          discount: dcEnabled ? (s.discount || 0) : 0,
+          commission: dcEnabled ? (s.commission || 0) : 0,
         })),
       amount: totalAmount,
       reference: reference || undefined,
@@ -405,25 +455,26 @@ const AddEditPayment = () => {
                   { label: "Other", value: "other" },
                 ]}
               />
-              <FormField
-                label={
-                  payType === "receipt"
-                    ? "Customer (Party)"
-                    : payType === "expense"
-                    ? "Party (Expense Payable)"
-                    : "Vendor (Party)"
-                }
-                name="partyid"
-                type="select"
-                value={partyid}
-                onChange={e => {
-                  setPartyid(e.target.value);
-                  setSettledInvoices([]);
-                }}
-                options={partyOptions}
-                placeholder="Select party (optional)"
-                searchable
-              />
+              {payType !== "expense" ? (
+                <FormField
+                  label={payType === "receipt" ? "Customer (Party)" : "Vendor (Party)"}
+                  name="partyid"
+                  type="select"
+                  value={partyid}
+                  onChange={e => {
+                    setPartyid(e.target.value);
+                    setSettledInvoices([]);
+                  }}
+                  options={partyOptions}
+                  placeholder="Select party (optional)"
+                  searchable
+                />
+              ) : (
+                <div className="flex flex-col justify-end text-sm text-gray-500">
+                  <span className="font-medium text-gray-700 mb-1">Expense Note</span>
+                  <span>Pick an expense note to settle from the list below.</span>
+                </div>
+              )}
               <FormField
                 label="Cash / Bank Ledger"
                 name="ledgerid"
@@ -453,15 +504,19 @@ const AddEditPayment = () => {
           </fieldset>
 
           {/* ── Section 2: Outstanding Invoice Settlement ─────────────── */}
-          {partyid && (
+          {(partyid || payType === "expense") && (
             <fieldset className="border rounded-xl p-4 space-y-4">
               <legend className="text-sm font-medium px-2">
-                Bill Settlement (Against Invoices) — optional
+                {payType === "expense"
+                  ? "Settle Expense Note — pick one or more"
+                  : "Bill Settlement (Against Invoices) — optional"}
               </legend>
 
               {outstandingInvoices.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  No outstanding credit invoices found for this party. Enter the amount manually below.
+                  {payType === "expense"
+                    ? "No outstanding credit expense notes to settle."
+                    : "No outstanding credit invoices found for this party. Enter the amount manually below."}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -477,6 +532,9 @@ const AddEditPayment = () => {
                         <th className="px-3 py-2 text-right">Invoice Total</th>
                         <th className="px-3 py-2 text-right text-orange-600">Outstanding</th>
                         <th className="px-3 py-2 text-right">Settle Now</th>
+                        {dcEnabled && <th className="px-3 py-2 text-right">Discount</th>}
+                        {dcEnabled && <th className="px-3 py-2 text-right">Commission</th>}
+                        {dcEnabled && <th className="px-3 py-2 text-right text-green-700">Cash In</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -499,7 +557,12 @@ const AddEditPayment = () => {
                                 className="w-4 h-4"
                               />
                             </td>
-                            <td className="px-3 py-2 font-medium">INV-{inv.billnumber}</td>
+                            <td className="px-3 py-2 font-medium">
+                              {inv.invoicemodel === "ExpenseNote" ? inv.billnumber : `INV-${inv.billnumber}`}
+                              {inv.invoicemodel === "ExpenseNote" && inv.payablePartyName && (
+                                <div className="text-xs text-gray-500 font-normal">{inv.payablePartyName}</div>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-gray-500">{inv.billdate || "-"}</td>
                             <td className="px-3 py-2 text-right">₹{fmt(inv.subtotal || 0)}</td>
                             <td className="px-3 py-2 text-right">
@@ -536,6 +599,51 @@ const AddEditPayment = () => {
                                 <span className="text-gray-400 text-xs">—</span>
                               )}
                             </td>
+                            {dcEnabled && (
+                              <td className="px-3 py-2 text-right">
+                                {selected ? (
+                                  <input
+                                    type="number"
+                                    className="w-24 border rounded px-2 py-1 border-gray-300 text-right"
+                                    value={selected.discount || ""}
+                                    placeholder="0"
+                                    min={0}
+                                    step={0.01}
+                                    onChange={e =>
+                                      updateConcession(inv.id, "discount", parseFloat(e.target.value) || 0)
+                                    }
+                                  />
+                                ) : (
+                                  <span className="text-gray-400 text-xs">—</span>
+                                )}
+                              </td>
+                            )}
+                            {dcEnabled && (
+                              <td className="px-3 py-2 text-right">
+                                {selected ? (
+                                  <input
+                                    type="number"
+                                    className="w-24 border rounded px-2 py-1 border-gray-300 text-right"
+                                    value={selected.commission || ""}
+                                    placeholder="0"
+                                    min={0}
+                                    step={0.01}
+                                    onChange={e =>
+                                      updateConcession(inv.id, "commission", parseFloat(e.target.value) || 0)
+                                    }
+                                  />
+                                ) : (
+                                  <span className="text-gray-400 text-xs">—</span>
+                                )}
+                              </td>
+                            )}
+                            {dcEnabled && (
+                              <td className="px-3 py-2 text-right font-semibold text-green-700">
+                                {selected
+                                  ? `₹${fmt(Math.max(0, (selected.settledamount || 0) - (selected.discount || 0) + (selected.commission || 0)))}`
+                                  : <span className="text-gray-400 text-xs">—</span>}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
@@ -574,12 +682,32 @@ const AddEditPayment = () => {
                 </div>
                 {settledInvoices.map(s => (
                   <div key={s.invoiceid} className="flex justify-between text-gray-500 text-xs">
-                    <span>INV-{s.billnumber}</span>
+                    <span>{s.invoicemodel === "ExpenseNote" ? s.billnumber : `INV-${s.billnumber}`}</span>
                     <span>₹{fmt(s.settledamount)}</span>
                   </div>
                 ))}
+                {dcEnabled && (totalDiscount > 0 || totalCommission > 0) && (
+                  <div className="border-t pt-2 mt-2 space-y-1">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Bills Cleared:</span>
+                      <span>₹{fmt(totalSettled)}</span>
+                    </div>
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-gray-500">
+                        <span>Less Discount:</span>
+                        <span>− ₹{fmt(totalDiscount)}</span>
+                      </div>
+                    )}
+                    {totalCommission > 0 && (
+                      <div className="flex justify-between text-gray-500">
+                        <span>Add Commission:</span>
+                        <span>+ ₹{fmt(totalCommission)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold text-base border-t pt-2 mt-2">
-                  <span>Total:</span>
+                  <span>{dcEnabled && (totalDiscount > 0 || totalCommission > 0) ? "Cash Received:" : "Total:"}</span>
                   <span>₹{fmt(totalAmount)}</span>
                 </div>
                 {errors.amount && (
@@ -602,33 +730,67 @@ const AddEditPayment = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {payType === "receipt" ? (
-                    <>
-                      <tr>
-                        <td className="py-1">{selectedLedgerName}</td>
-                        <td className="text-right">{fmt(totalAmount)}</td>
-                        <td className="text-right">—</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1">Party Account (Debtor)</td>
-                        <td className="text-right">—</td>
-                        <td className="text-right">{fmt(totalAmount)}</td>
-                      </tr>
-                    </>
-                  ) : (
-                    <>
-                      <tr>
-                        <td className="py-1">Party Account (Creditor)</td>
-                        <td className="text-right">{fmt(totalAmount)}</td>
-                        <td className="text-right">—</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1">{selectedLedgerName}</td>
-                        <td className="text-right">—</td>
-                        <td className="text-right">{fmt(totalAmount)}</td>
-                      </tr>
-                    </>
-                  )}
+                  {(() => {
+                    const partyLeg = settledInvoices.length > 0 ? totalSettled : totalAmount;
+                    if (payType === "receipt") {
+                      return (
+                        <>
+                          <tr>
+                            <td className="py-1">{selectedLedgerName}</td>
+                            <td className="text-right">{fmt(totalAmount)}</td>
+                            <td className="text-right">—</td>
+                          </tr>
+                          {dcEnabled && totalDiscount > 0 && (
+                            <tr>
+                              <td className="py-1">Discount Allowed</td>
+                              <td className="text-right">{fmt(totalDiscount)}</td>
+                              <td className="text-right">—</td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td className="py-1">Party Account (Debtor)</td>
+                            <td className="text-right">—</td>
+                            <td className="text-right">{fmt(partyLeg)}</td>
+                          </tr>
+                          {dcEnabled && totalCommission > 0 && (
+                            <tr>
+                              <td className="py-1">Commission Received</td>
+                              <td className="text-right">—</td>
+                              <td className="text-right">{fmt(totalCommission)}</td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <tr>
+                          <td className="py-1">Party Account (Creditor)</td>
+                          <td className="text-right">{fmt(partyLeg)}</td>
+                          <td className="text-right">—</td>
+                        </tr>
+                        {dcEnabled && totalCommission > 0 && (
+                          <tr>
+                            <td className="py-1">Commission</td>
+                            <td className="text-right">{fmt(totalCommission)}</td>
+                            <td className="text-right">—</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td className="py-1">{selectedLedgerName}</td>
+                          <td className="text-right">—</td>
+                          <td className="text-right">{fmt(totalAmount)}</td>
+                        </tr>
+                        {dcEnabled && totalDiscount > 0 && (
+                          <tr>
+                            <td className="py-1">Discount Received</td>
+                            <td className="text-right">—</td>
+                            <td className="text-right">{fmt(totalDiscount)}</td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })()}
                 </tbody>
               </table>
               {settledInvoices.length > 0 && (
