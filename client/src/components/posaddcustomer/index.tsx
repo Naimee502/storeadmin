@@ -136,13 +136,12 @@ export default function PosAddCustomer({
                 name,
                 mobile,
                 state: stateName,
-                accountgroupid: accountGroupId, 
+                region: stateName,
+                accountgroupid: accountGroupId,
                 type: mode === "customer" ? "customer" : "vendor",
-                accounttype: mode === "customer" ? 'retail' : accountType,
-                isposcustomer: true,
                 status: true,
                 admin: adminId,
-                branchid: branchId,
+                branchid: branchId || null,
                 openingbalance: 0,
                 openingbalancetype: mode === "customer" ? "debit" : "credit",
             };
@@ -157,8 +156,14 @@ export default function PosAddCustomer({
 
             onCreated(newCustomerId);
             onClose();
-        } catch (err) {
-            alert("Failed to create account");
+        } catch (err: any) {
+            console.error("AddCustomer error:", err);
+            const msg =
+                err?.graphQLErrors?.[0]?.message ||
+                err?.networkError?.message ||
+                err?.message ||
+                "Failed to create account";
+            alert(msg);
         }
 
         setLoading(false);
@@ -241,7 +246,7 @@ export default function PosAddCustomer({
                 )}
                 
                 <button
-                    className="mt-4 w-full bg-blue-600 text-blue-600 py-2 rounded-lg border"
+                    className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg border disabled:opacity-60"
                     onClick={handleCreate}
                     disabled={loading}
                 >

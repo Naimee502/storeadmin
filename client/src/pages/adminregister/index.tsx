@@ -295,7 +295,7 @@ const AdminRegister = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="outline" className="w-full mt-6 bg-black text-black hover:bg-gray-800 p-3">
+            <Button type="submit" variant="outline" className="w-full mt-6 bg-white text-black p-3">
               Register Admin
             </Button>
 

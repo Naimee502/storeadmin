@@ -52,6 +52,7 @@ export type ModuleSection =
   | "sales"
   | "purchase"
   | "inventory"
+  | "distribution"
   | "pricing"
   | "accounting"
   | "manufacturing"
@@ -73,8 +74,6 @@ export const MODULES: ModuleDef[] = [
   { id: "accountgroups",  label: "Account Groups",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountledgers", label: "Account Ledgers", section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "staffaccounts",  label: "Staff Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "channels",       label: "Channels",        section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "salesroutes",    label: "Sales Routes",    section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Sales pipeline ─────────────
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
@@ -91,15 +90,19 @@ export const MODULES: ModuleDef[] = [
   { id: "transferstock",     label: "Transfer Stock",     section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "stockadjustments",  label: "Stock Adjustments",  section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },
 
+  // ───────────── Distribution ─────────────
+  { id: "channels",       label: "Channels",        section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "salesroutes",    label: "Sales Routes",    section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
+
   // ───────────── Pricing ─────────────
   { id: "pricelists",       label: "Price Lists",        section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "priceassignments", label: "Price Assignments",  section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "chargerules",      label: "Charge Rules",       section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Accounting / cross-cutting ─────────────
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "chargerules",   label: "Charge Rules",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "attendance",    label: "Attendance & Leave", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Manufacturing (BOM / Production) ─────────────
@@ -127,6 +130,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
   sales: "Sales",
   purchase: "Purchase",
   inventory: "Inventory",
+  distribution: "Distribution",
   pricing: "Pricing",
   accounting: "Accounting",
   manufacturing: "Manufacturing",
@@ -141,12 +145,12 @@ export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 // They bypass the business-level allowedmodules gate (so they show up in the
 // sidebar, the Business Modules checklist and the Permissions matrix), while
 // still honoring branch/staff-level restrictions and per-action permissions.
-export const DEFAULT_ON_MODULE_IDS = ["chargerules"];
+export const DEFAULT_ON_MODULE_IDS: string[] = [];
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {
-    master: [], sales: [], purchase: [], inventory: [], pricing: [],
+    master: [], sales: [], purchase: [], inventory: [], distribution: [], pricing: [],
     accounting: [], manufacturing: [], reports: [], system: [],
   };
   MODULES.forEach((m) => map[m.section].push(m));

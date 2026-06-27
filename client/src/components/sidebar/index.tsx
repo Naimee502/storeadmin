@@ -18,7 +18,6 @@ import {
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
-import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -75,9 +74,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     const includes = (arr: string[]) => arr.map((m: any) => m.toString().toLowerCase()).includes(mid);
 
     // 1. Business Level (SaaS) — Mandatory check for all roles.
-    // Default-on modules (newly added) skip this gate so they appear even for
-    // tenants whose allowedmodules predate the module.
-    if (!DEFAULT_ON_MODULE_IDS.includes(mid) && businessAllowed && Array.isArray(businessAllowed)) {
+    // The Business Settings "Allowed Modules" checklist is authoritative: a
+    // module only appears in the sidebar if it is present in allowedmodules.
+    if (businessAllowed && Array.isArray(businessAllowed)) {
       if (!includes(businessAllowed)) return false;
     }
 
@@ -158,13 +157,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "expensenote", roles: ["admin", "branch", "staff"] },
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-emerald-500 text-xl flex-shrink-0" />, moduleId: "transactions", roles: ["admin", "branch", "staff"] },
     { to: '/payments', label: 'Payments', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "payments", roles: ["admin", "branch", "staff"] },
-    { to: '/chargerules', label: 'Charge Rules', icon: <FaMoneyBillWave className="text-lime-500 text-xl flex-shrink-0" />, moduleId: "chargerules", roles: ["admin", "branch", "staff"] },
     { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-500 text-xl flex-shrink-0" />, moduleId: "attendance", roles: ["admin", "branch", "staff"] },
 
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-amber-400 text-xl flex-shrink-0" />, moduleId: "priceassignments", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/chargerules', label: 'Charge Rules', icon: <FaMoneyBillWave className="text-lime-500 text-xl flex-shrink-0" />, moduleId: "chargerules", roles: ["admin", "branch", "staff"], section: "Distribution" },
 
     { to: '/reports/sales', label: 'Sales Reports', icon: <FaChartBar className="text-blue-400 text-xl flex-shrink-0" />, moduleId: "reports.sales", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/purchase', label: 'Purchase Reports', icon: <FaFileAlt className="text-violet-400 text-xl flex-shrink-0" />, moduleId: "reports.purchase", roles: ["admin", "branch", "staff"], section: "Reports" },

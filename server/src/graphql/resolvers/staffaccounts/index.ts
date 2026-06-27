@@ -9,7 +9,7 @@ export const staffAccountResolvers = {
     getStaffAccounts: async (_: any, { filter }: { filter?: any }) => {
       const query: any = {};
 
-      if (filter?.admin) query.admin = filter.admin;
+      if (filter?.adminId) query.admin = filter.adminId;
       if (filter?.branchid) query.branchid = filter.branchid;
 
       // Role filter (staff / salesman / deliveryboy)
@@ -51,7 +51,7 @@ export const staffAccountResolvers = {
     getDeletedStaffAccounts: async (_: any, { filter }: { filter?: any }) => {
       const query: any = { status: false };
 
-      if (filter?.admin) query.admin = filter.admin;
+      if (filter?.adminId) query.admin = filter.adminId;
       if (filter?.branchid) query.branchid = filter.branchid;
 
       if (filter?.role) query.role = filter.role; // staff / salesman / deliveryboy

@@ -29,17 +29,7 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 
-// Business-level tab components (reused from /businesssettings)
-import {
-  BusinessGeneralTab,
-  BusinessModulesTab,
-  BusinessPermissionsTab,
-} from "../businesssettings";
-
 type TabKey =
-  | "general"              // Business General (flag-gated)
-  | "business_modules"     // Business Modules (flag-gated)
-  | "business_permissions" // Business Permissions (flag-gated)
   | "branch_modules"
   | "staff_modules"
   | "access";
@@ -47,7 +37,6 @@ type TabKey =
 const Settings = () => {
   const dispatch = useAppDispatch();
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
-  const { settings: adminSettings } = useAppSelector((st: any) => st.adminsettings);
   const adminId =
     type === "admin"
       ? admin?.id
@@ -120,16 +109,6 @@ const Settings = () => {
     const tabs: Array<[TabKey, string]> = [];
 
     if (isAdmin) {
-      // Business-level tabs (flag-gated)
-      if (!adminSettings || adminSettings.allowAdminToManageBusinessSettings !== false) {
-        tabs.push(["general", "General"]);
-      }
-      if (!adminSettings || adminSettings.allowAdminToManageModules !== false) {
-        tabs.push(["business_modules", "Business Modules"]);
-      }
-      if (!adminSettings || adminSettings.allowAdminToManagePermissions !== false) {
-        tabs.push(["business_permissions", "Business Permissions"]);
-      }
       // Child-management tabs
       tabs.push(["branch_modules", "Branch Modules"]);
       tabs.push(["access", "Branch Access"]);
@@ -138,7 +117,7 @@ const Settings = () => {
       tabs.push(["access", "Staff Access"]);
     }
     return tabs;
-  }, [isAdmin, isBranch, adminSettings]);
+  }, [isAdmin, isBranch]);
 
   const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.[0] ?? "access");
 
@@ -148,9 +127,6 @@ const Settings = () => {
       setTab(visibleTabs[0][0]);
     }
   }, [visibleTabs, tab]);
-
-  // Business tabs don't need a target selection — they work on the logged-in admin
-  const isBusinessTab = tab === "general" || tab === "business_modules" || tab === "business_permissions";
 
   if (type === "staff") {
     return (
@@ -169,20 +145,18 @@ const Settings = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <h1 className="text-2xl font-semibold mb-4">Settings</h1>
 
-        {/* ── GLOBAL Selection Dropdown (only for child-management tabs) ── */}
-        {!isBusinessTab && (
-          <div className="bg-white border rounded-lg p-3 mb-4">
-            <FormField
-              label={isAdmin ? "Select Branch" : "Select Staff Member"}
-              type="select"
-              name="selectedTargetId"
-              value={selectedTargetId}
-              onChange={(e: any) => setSelectedTargetId(e.target.value)}
-              options={targetOptions}
-              searchable
-            />
-          </div>
-        )}
+        {/* ── GLOBAL Selection Dropdown ── */}
+        <div className="bg-white border rounded-lg p-3 mb-4">
+          <FormField
+            label={isAdmin ? "Select Branch" : "Select Staff Member"}
+            type="select"
+            name="selectedTargetId"
+            value={selectedTargetId}
+            onChange={(e: any) => setSelectedTargetId(e.target.value)}
+            options={targetOptions}
+            searchable
+          />
+        </div>
 
         <div className="flex border-b mb-4 overflow-x-auto">
           {visibleTabs.map(([key, label]) => (
@@ -200,25 +174,8 @@ const Settings = () => {
           ))}
         </div>
 
-        {/* ── Business-level tabs (no target needed, works on logged-in admin) ── */}
-        {tab === "general" && isAdmin && (
-          <BusinessGeneralTab adminId={admin?.id} dispatch={dispatch} />
-        )}
-        {tab === "business_modules" && isAdmin && (
-          <BusinessModulesTab adminId={admin?.id} dispatch={dispatch} />
-        )}
-        {tab === "business_permissions" && isAdmin && (
-          <BusinessPermissionsTab
-            scope="admin"
-            scopeid={admin?.id}
-            title="Admin defaults — apply to all branches/staff unless overridden"
-            dispatch={dispatch}
-            parentAllowed={admin?.allowedmodules}
-          />
-        )}
-
         {/* ── Child-management tabs (need target selection) ── */}
-        {!isBusinessTab && !selectedTargetId ? (
+        {!selectedTargetId ? (
           <div className="text-center py-10 bg-white border rounded-lg text-gray-500 text-sm">
             Please select {isAdmin ? "a Branch" : "a Staff member"} above to manage settings.
           </div>

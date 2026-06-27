@@ -5,17 +5,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   icon?: ReactNode;
   iconPosition?: 'left' | 'right';
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'outline' | 'ghost';
   isLoading?: boolean;
   fullWidth?: boolean;
 }
 
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-blue-600 hover:bg-blue-700 text-white border border-black',
-  secondary: 'bg-gray-600 hover:bg-gray-700 text-white border border-black',
-  danger: 'bg-red-600 hover:bg-red-700 text-red border border-black',
-  outline: 'border border-black text-gray-700 hover:bg-gray-100',
-  ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 border border-black',
+  primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+  secondary: 'bg-gray-600 hover:bg-gray-700 text-white shadow-sm',
+  success: 'bg-green-600 hover:bg-green-700 text-white shadow-sm',
+  danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm',
+  outline: 'border border-gray-300 text-gray-700 hover:bg-gray-100',
+  ghost: 'bg-transparent text-gray-700 hover:bg-gray-100',
 };
 
 const Button: React.FC<ButtonProps> = ({

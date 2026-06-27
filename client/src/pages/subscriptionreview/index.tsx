@@ -70,7 +70,7 @@ const SubscriptionReview = () => {
             {/* Actions */}
             <div className="flex space-x-4 justify-center">
               <Button
-                variant="outline"
+                variant="success"
                 disabled={!selectedEmail}
                 onClick={() => handleAction("approve")}
               >

@@ -35,7 +35,6 @@ const BusinessSettings = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [tab, setTab] = useState<TabKey>("general");
 
-  const { settings: s } = useAppSelector((st: any) => st.adminsettings);
   const { data: adminsData } = useAdminsQuery();
   const adminOptions = useMemo(() => 
     (adminsData?.getAdmins ?? []).map((a: any) => ({ value: a.id, label: a.companyName || a.name })), 
@@ -48,30 +47,11 @@ const BusinessSettings = () => {
     }
   }, [type, admin, selectedAdminId]);
 
-  // ── Flag-based tab gating ──
-  // When the logged-in admin is viewing their OWN settings, the SaaS flags
-  // control which tabs they can see. When viewing another admin, show all.
-  //
-  // Logic: hide tab ONLY when flag is EXPLICITLY false AND viewing self.
-  //   - s not loaded (null/undefined) → show all (don't block during load)
-  //   - flag undefined (never set)    → show (default = allowed)
-  //   - flag === true                 → show
-  //   - flag === false                → HIDE (SaaS owner disabled it)
-  const visibleTabs = useMemo(() => {
-    const tabs: Array<[TabKey, string]> = [];
-    const isSelf = selectedAdminId === admin?.id;
-
-    if (!isSelf || !s || s.allowAdminToManageBusinessSettings !== false) {
-      tabs.push(["general", "General"]);
-    }
-    if (!isSelf || !s || s.allowAdminToManageModules !== false) {
-      tabs.push(["modules", "Business Modules"]);
-    }
-    if (!isSelf || !s || s.allowAdminToManagePermissions !== false) {
-      tabs.push(["permissions", "Business Permissions"]);
-    }
-    return tabs;
-  }, [selectedAdminId, admin?.id, s]);
+  const visibleTabs = useMemo<Array<[TabKey, string]>>(() => [
+    ["general", "General"],
+    ["modules", "Business Modules"],
+    ["permissions", "Business Permissions"],
+  ], []);
 
   // Auto-fix current tab if it becomes hidden
   useEffect(() => {
@@ -218,31 +198,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <Toggle label="Auto-post journal on Purchase Returns" checked={draft.autoCreateLedgerOnPurchaseReturn} onChange={(v) => set("autoCreateLedgerOnPurchaseReturn", v)} />
       </Section>
 
-      <Section title="Inventory & Numbering Policies">
-        <Toggle label="Allow negative stock" checked={draft.allowNegativeStock} onChange={(v) => set("allowNegativeStock", v)} />
-        <Toggle label="Prevent duplicate invoice numbers" checked={draft.preventDuplicateInvoiceNumbers} onChange={(v) => set("preventDuplicateInvoiceNumbers", v)} />
-      </Section>
-
-      <Section title="Defaults">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <FormField label="Default GST %" type="number" name="defaultGstPercent" value={draft.defaultGstPercent} onChange={(e: any) => set("defaultGstPercent", Number(e.target.value))} />
-          <FormField label="Default Payment Type" type="select" name="defaultPaymentType" value={draft.defaultPaymentType} onChange={(e: any) => set("defaultPaymentType", e.target.value)} options={[{ value: "cash", label: "Cash" }, { value: "bank", label: "Bank" }, { value: "credit", label: "Credit" }, { value: "upi", label: "UPI" }, { value: "card", label: "Card" }, { value: "cheque", label: "Cheque" }]} />
-          <FormField label="Default Tax Type" type="select" name="defaultTaxOrSupplyType" value={draft.defaultTaxOrSupplyType} onChange={(e: any) => set("defaultTaxOrSupplyType", e.target.value)} options={[{ value: "exclusive", label: "Tax Exclusive" }, { value: "inclusive", label: "Tax Inclusive" }]} />
-        </div>
-      </Section>
-
-      <Section title="Invoice Number Prefixes">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <FormField label="Sales Invoice" value={draft.salesInvoicePrefix} onChange={(e: any) => set("salesInvoicePrefix", e.target.value)} />
-          <FormField label="Purchase Invoice" value={draft.purchaseInvoicePrefix} onChange={(e: any) => set("purchaseInvoicePrefix", e.target.value)} />
-          <FormField label="Sales Return" value={draft.salesReturnPrefix} onChange={(e: any) => set("salesReturnPrefix", e.target.value)} />
-          <FormField label="Purchase Return" value={draft.purchaseReturnPrefix} onChange={(e: any) => set("purchaseReturnPrefix", e.target.value)} />
-          <FormField label="Sales Order" value={draft.salesOrderPrefix} onChange={(e: any) => set("salesOrderPrefix", e.target.value)} />
-          <FormField label="Purchase Order" value={draft.purchaseOrderPrefix} onChange={(e: any) => set("purchaseOrderPrefix", e.target.value)} />
-          <FormField label="Expense Note" value={draft.expenseNotePrefix} onChange={(e: any) => set("expenseNotePrefix", e.target.value)} />
-        </div>
-      </Section>
-
       <Section title="Feature Toggles">
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
@@ -262,12 +217,6 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.enablePaymentDiscountCommission}
           onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}
         />
-      </Section>
-
-      <Section title="SaaS Access (Lock Settings for Admin)">
-        <Toggle label="Allow Admin to see General Settings" checked={draft.allowAdminToManageBusinessSettings} onChange={(v) => set("allowAdminToManageBusinessSettings", v)} />
-        <Toggle label="Allow Admin to see Business Modules" checked={draft.allowAdminToManageModules} onChange={(v) => set("allowAdminToManageModules", v)} />
-        <Toggle label="Allow Admin to see Business Permissions" checked={draft.allowAdminToManagePermissions} onChange={(v) => set("allowAdminToManagePermissions", v)} />
       </Section>
 
       <div className="flex justify-end">
