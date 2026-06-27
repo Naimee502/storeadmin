@@ -70,10 +70,10 @@ export const MODULES: ModuleDef[] = [
   { id: "sizes",          label: "Sizes",           section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "units",          label: "Units",           section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "products",       label: "Products",        section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "accounts",       label: "Party Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountgroups",  label: "Account Groups",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountledgers", label: "Account Ledgers", section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "staffaccounts",  label: "Staff Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "accounts",       label: "Party Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Sales pipeline ─────────────
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },

@@ -247,6 +247,7 @@ const PriceAssignments = () => {
 
         <DataTable
           {...actions}
+          showAdd={false}
           title="Price Assignments"
           columns={columns}
           data={tableData}
