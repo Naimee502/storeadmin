@@ -188,7 +188,11 @@ const AddEditPayment = () => {
     if (!isEdit || !existingData?.getPaymentById) return;
     const p = existingData.getPaymentById;
     setPaymentdate(formatDate(p.paymentdate));
-    setPayType(p.type === "payment" ? "payment" : "receipt");
+    // "expense" is a UI-only mode stored on the server as type "payment", so we
+    // can't tell it apart by type alone. Detect it from the settled lines: an
+    // expense settlement references an ExpenseNote.
+    const isExpense = (p.invoices || []).some((ei: any) => ei.invoicemodel === "ExpenseNote");
+    setPayType(isExpense ? "expense" : p.type === "payment" ? "payment" : "receipt");
     setMode(p.mode || "cash");
     setLedgerid(typeof p.ledgerid === "string" ? p.ledgerid : p.ledgerid?.id || "");
     setPartyid(typeof p.partyid === "string" ? p.partyid : p.partyid?.id || "");
@@ -204,15 +208,36 @@ const AddEditPayment = () => {
     if (!isEdit || editLoaded.current || !existingData?.getPaymentById) return;
     const p = existingData.getPaymentById;
     if (!(p.invoices?.length)) { editLoaded.current = true; return; }
-    // Wait until invoice data is fetched
-    if (!salesInvData && !purchaseInvData) return;
+    const isExpense = (p.invoices || []).some((ei: any) => ei.invoicemodel === "ExpenseNote");
+    // Wait until the relevant source data is fetched
+    if (isExpense) {
+      if (!expenseNotesData) return;
+    } else if (!salesInvData && !purchaseInvData) return;
 
     // Look up full invoice data from all invoices (not just outstanding),
     // so we get billnumber and othercharges even for fully-settled invoices.
     const allSales = salesInvData?.getSalesInvoices || [];
     const allPurchase = purchaseInvData?.getPurchaseInvoices || [];
+    const allExpense = expenseNotesData?.getExpenseNotes || [];
 
     const settled: SettledInvoice[] = (p.invoices || []).map((ei: any) => {
+      if (ei.invoicemodel === "ExpenseNote") {
+        const match =
+          outstandingInvoices.find((oi: any) => oi.id === ei.invoiceid) ||
+          allExpense.find((e: any) => e.id === ei.invoiceid);
+        return {
+          invoiceid: ei.invoiceid,
+          invoicemodel: ei.invoicemodel,
+          settledamount: ei.settledamount,
+          discount: ei.discount || 0,
+          commission: ei.commission || 0,
+          billnumber: match?.billnumber || match?.expensenumber || ei.invoiceid,
+          totalamount: match?.totalamount || 0,
+          othercharges: [],
+          subtotal: match?.subtotal ?? (Number(match?.totalamount || 0) - Number(match?.totalgst || 0)),
+          totalgst: match?.totalgst || 0,
+        };
+      }
       const all = ei.invoicemodel === "PurchaseInvoice" ? allPurchase : allSales;
       const match =
         outstandingInvoices.find((oi: any) => oi.id === ei.invoiceid) ||
@@ -233,7 +258,7 @@ const AddEditPayment = () => {
 
     setSettledInvoices(settled);
     editLoaded.current = true;
-  }, [isEdit, existingData, outstandingInvoices, salesInvData, purchaseInvData]);
+  }, [isEdit, existingData, outstandingInvoices, salesInvData, purchaseInvData, expenseNotesData]);
 
   const formatDate = (date: any) => {
     if (!date) return new Date().toISOString().slice(0, 10);

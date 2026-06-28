@@ -4,6 +4,7 @@ import { Account } from "../../../models/accounts";
 import { AccountLedger } from "../../../models/accountledgers";
 import { Transaction } from "../../../models/transactions";
 import { AccountGroup } from "../../../models/accountgroups";
+import { ExpenseNote } from "../../../models/expensenote";
 
 // Find (or auto-create) a posting LEDGER by name under a given account group.
 // Used for the optional Discount / Commission concessions on a payment. Creates
@@ -114,6 +115,42 @@ async function buildPaymentEntries(input: any, partyAccount: any) {
   return { entries, totaldebit, totalcredit };
 }
 
+// Build journal entries for an EXPENSE settlement that has no linked party
+// account. A credit expense note posts "Cr <payable ledger>"; settling it must
+// reverse that leg: Dr <expense note's payable ledger> · Cr Cash/Bank. We read
+// the ledger straight off each settled ExpenseNote so it works even when the
+// payable ledger isn't attached to a party Account (e.g. Staff Salary).
+async function buildExpenseSettlementEntries(input: any) {
+  const cashBankLedgerId = input.ledgerid;
+  if (!cashBankLedgerId) return null;
+
+  const invs = (Array.isArray(input.invoices) ? input.invoices : [])
+    .filter((i: any) => i.invoicemodel === "ExpenseNote");
+  if (!invs.length) return null;
+
+  const entries: any[] = [];
+  let total = 0;
+
+  for (const i of invs) {
+    const note: any = await ExpenseNote.findById(i.invoiceid).select("ledgerid expensenumber").lean();
+    const payableLedgerId = note?.ledgerid;
+    const amt = Number(i.settledamount) || 0;
+    if (!payableLedgerId || amt <= 0) continue;
+    entries.push({
+      ledgerid: payableLedgerId,
+      debit: amt,
+      credit: 0,
+      remarks: `Settle expense ${note?.expensenumber || ""}`.trim(),
+    });
+    total += amt;
+  }
+
+  if (!entries.length) return null;
+  total = parseFloat(total.toFixed(2));
+  entries.push({ ledgerid: cashBankLedgerId, debit: 0, credit: total, remarks: "Expense payment" });
+  return { entries, totaldebit: total, totalcredit: total };
+}
+
 function formatPayment(r: any) {
   return {
     ...r,
@@ -221,27 +258,33 @@ export const paymentResolvers = {
 
       const created = await Payment.create({ ...input, ...createdbyData });
 
-      // ✅ Create journal entry if party + ledger are provided
+      // ✅ Create journal entry. Party-based payment/receipt when a party + its
+      // ledger exist; otherwise fall back to an expense-note settlement journal
+      // (no party account required).
+      let built: { entries: any[]; totaldebit: number; totalcredit: number } | null = null;
       if (input.partyid && input.ledgerid) {
         const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
         if (partyAccount?.ledgerid) {
-          const built = await buildPaymentEntries(input, partyAccount);
-          if (built) {
-            const trx = await Transaction.create({
-              adminid: input.adminid,
-              branchid: input.branchid,
-              entrytype: "manual",
-              source: { docmodel: "Payment", docid: created._id },
-              transactiondate: input.paymentdate || new Date(),
-              narration: `Payment ${created.paymentcode || ""}`,
-              entries: built.entries,
-              totaldebit: built.totaldebit,
-              totalcredit: built.totalcredit,
-              ...createdbyData,
-            });
-            await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
-          }
+          built = await buildPaymentEntries(input, partyAccount);
         }
+      }
+      if (!built && input.ledgerid) {
+        built = await buildExpenseSettlementEntries(input);
+      }
+      if (built) {
+        const trx = await Transaction.create({
+          adminid: input.adminid,
+          branchid: input.branchid,
+          entrytype: "manual",
+          source: { docmodel: "Payment", docid: created._id },
+          transactiondate: input.paymentdate || new Date(),
+          narration: `Payment ${created.paymentcode || ""}`,
+          entries: built.entries,
+          totaldebit: built.totaldebit,
+          totalcredit: built.totalcredit,
+          ...createdbyData,
+        });
+        await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
       }
 
       const populated = await Payment.findById(created._id).populate("ledgerid").populate("partyid").lean();
@@ -260,40 +303,45 @@ export const paymentResolvers = {
 
       await Payment.findByIdAndUpdate(id, { ...input, ...updatedbyData }, { new: true });
 
-      // ✅ Update journal entry if party + ledger provided
+      // ✅ Update journal entry. Party-based when a party + ledger exist;
+      // otherwise fall back to an expense-note settlement journal.
+      let built: { entries: any[]; totaldebit: number; totalcredit: number } | null = null;
       if (input.partyid && input.ledgerid) {
         const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
         if (partyAccount?.ledgerid) {
-          const built = await buildPaymentEntries(input, partyAccount);
-          if (built) {
-            if (existing.transactionid) {
-              // Update existing transaction
-              await Transaction.findByIdAndUpdate(existing.transactionid, {
-                entries: built.entries,
-                totaldebit: built.totaldebit,
-                totalcredit: built.totalcredit,
-                transactiondate: input.paymentdate || new Date(),
-                narration: `Payment ${existing.paymentcode || ""}`,
-              });
-            } else {
-              // Create new transaction if one didn't exist before
-              const trx = await Transaction.create({
-                adminid: input.adminid,
-                branchid: input.branchid,
-                entrytype: "manual",
-                source: { docmodel: "Payment", docid: existing._id },
-                transactiondate: input.paymentdate || new Date(),
-                narration: `Payment ${existing.paymentcode || ""}`,
-                entries: built.entries,
-                totaldebit: built.totaldebit,
-                totalcredit: built.totalcredit,
-                createdby_id: existing.createdby_id,
-                createdby_name: updatedbyData.createdby_name,
-                createdby_type: existing.createdby_type,
-              });
-              await Payment.findByIdAndUpdate(id, { transactionid: trx._id });
-            }
-          }
+          built = await buildPaymentEntries(input, partyAccount);
+        }
+      }
+      if (!built && input.ledgerid) {
+        built = await buildExpenseSettlementEntries(input);
+      }
+      if (built) {
+        if (existing.transactionid) {
+          // Update existing transaction
+          await Transaction.findByIdAndUpdate(existing.transactionid, {
+            entries: built.entries,
+            totaldebit: built.totaldebit,
+            totalcredit: built.totalcredit,
+            transactiondate: input.paymentdate || new Date(),
+            narration: `Payment ${existing.paymentcode || ""}`,
+          });
+        } else {
+          // Create new transaction if one didn't exist before
+          const trx = await Transaction.create({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            entrytype: "manual",
+            source: { docmodel: "Payment", docid: existing._id },
+            transactiondate: input.paymentdate || new Date(),
+            narration: `Payment ${existing.paymentcode || ""}`,
+            entries: built.entries,
+            totaldebit: built.totaldebit,
+            totalcredit: built.totalcredit,
+            createdby_id: existing.createdby_id,
+            createdby_name: updatedbyData.createdby_name,
+            createdby_type: existing.createdby_type,
+          });
+          await Payment.findByIdAndUpdate(id, { transactionid: trx._id });
         }
       }
 

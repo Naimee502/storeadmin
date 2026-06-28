@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { ProductService } from "../../../models/products";
 import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
+import { ProductBranchStock } from "../../../models/productbranchstock";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -89,8 +90,12 @@ export const productServiceResolvers = {
         const query: any = {};
         query.status = typeof filter.status === "boolean" ? filter.status : true;
 
+        // NOTE: "branchid" intentionally excluded here — a product's own branchid
+        // only records the branch it was created in. We resolve branch visibility
+        // separately below so transferred-in stock (which lives in
+        // productbranchstocks, not on the product) also surfaces in that branch.
         const directKeys = [
-          "adminid", "branchid", "vendorid", "productcode", "productbarcode",
+          "adminid", "vendorid", "productcode", "productbarcode",
           "servicecode", "servicebarcode", "isservice", "isfeatured", "isshowinpos",
           "categoryid", "subcategoryid", "groupid", "modelid", "brandid", "sizeid"
         ];
@@ -107,6 +112,19 @@ export const productServiceResolvers = {
           query.createdAt = {};
           if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
           if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+        }
+
+        // Branch-aware visibility: a product shows in a branch if it was created
+        // there (product.branchid) OR it has any stock record in that branch
+        // (e.g. received via a stock transfer).
+        if (filter.branchid && filter.branchid !== "") {
+          const branchFilterId = new Types.ObjectId(filter.branchid);
+          const stockProductIds = await ProductBranchStock.find({ branchid: branchFilterId })
+            .distinct("productid");
+          query.$or = [
+            { branchid: branchFilterId },
+            { _id: { $in: stockProductIds } },
+          ];
         }
 
         const totalCount = await ProductService.countDocuments(query);
