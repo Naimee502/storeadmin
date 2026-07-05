@@ -72,8 +72,9 @@ const SalesmanFieldReport: React.FC = () => {
   const { data: trailData } = useLocationPingsQuery(locFilter);
 
   const staffList = staffData?.getStaffAccounts || [];
+  // Salesman field report → only salesman-role staff (not "staff" or "deliveryboy").
   const salesmen = staffList.filter(
-    (s: any) => s.role?.toLowerCase() === "salesman" || s.role?.toLowerCase() === "staff"
+    (s: any) => s.role?.toLowerCase() === "salesman"
   );
   const orders = ordersData?.getSalesOrders || [];
   const payments = paymentsData?.getPayments || [];
@@ -262,7 +263,7 @@ const SalesmanFieldReport: React.FC = () => {
   const isSummary = activeTab === "Summary";
   const tableTitle = isSummary
     ? "Salesman Field Report — Summary"
-    : "Day-wise Detail — Order-wise Breakdown (Bill, Party, Payment, Items)";
+    : "Day-wise Detail";
   const tableColumns = isSummary ? summaryColumns : detailColumns;
   const tableData = isSummary ? summaryData : detailData;
   const exportFileName = isSummary ? "SalesmanFieldReport" : "SalesmanRouteDayDetail";

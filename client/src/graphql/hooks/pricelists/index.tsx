@@ -77,10 +77,17 @@ export const useDeletedPriceAssignmentQuery = () => {
 };
 
 export const usePriceResolvers = () => {
+  const { admin } = useAppSelector((state) => state.auth);
+  const adminid = admin?.id;
   const [resolvePriceQuery] = useLazyQuery(RESOLVE_PRICE);
 
   const resolvePrice = async (variables: any) => {
-    const { data } = await resolvePriceQuery({ variables });
+    // Scope to the tenant (matches the salesman app) and always hit the network
+    // so a customer change re-evaluates the assigned price list.
+    const { data } = await resolvePriceQuery({
+      variables: { adminid, ...variables },
+      fetchPolicy: "network-only",
+    });
     return data?.resolvePrice;
   };
 

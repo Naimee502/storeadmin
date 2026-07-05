@@ -85,6 +85,7 @@ export const RESOLVE_PRICE = gql`
     $productid: ID!
     $variantid: ID!
     $unitid: ID!
+    $adminid: ID
     $accountid: ID
     $channelid: ID
     $region: String
@@ -93,6 +94,7 @@ export const RESOLVE_PRICE = gql`
       productid: $productid
       variantid: $variantid
       unitid: $unitid
+      adminid: $adminid
       accountid: $accountid
       channelid: $channelid
       region: $region

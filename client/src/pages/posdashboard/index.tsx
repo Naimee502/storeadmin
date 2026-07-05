@@ -300,13 +300,17 @@ export default function POSDashboard() {
     const cartId = `${product.id}_${chosenVariant.variantId}_${chosenUnit.id}`;
 
     const resolveAndAdd = async () => {
-      let sellPrice =
+      // Product's own price (used when no price list applies, and to revert to
+      // when the customer is cleared/changed).
+      const basePrice =
         chosenUnit.offerprice ??
         chosenUnit.salesrate ??
         chosenUnit.price ??
         chosenUnit.mrp ??
         0;
-      let discount = chosenUnit.discount ?? 0;
+      const baseDiscount = chosenUnit.discount ?? 0;
+      let sellPrice = basePrice;
+      let discount = baseDiscount;
 
       if (selectedParty) {
         try {
@@ -315,12 +319,14 @@ export default function POSDashboard() {
             variantid: chosenVariant.variantId,
             unitid: chosenUnit.id,
             accountid: selectedParty.id,
-            channelid: selectedParty.channel,
-            region: selectedParty.region,
+            // channel comes back as an object ({ id, channelName }); the resolver
+            // expects the id.
+            channelid: selectedParty.channel?.id ?? selectedParty.channel ?? null,
+            region: selectedParty.region ?? null,
           });
-          if (resolved) {
+          if (resolved && resolved.rate != null) {
             sellPrice = resolved.rate;
-            discount = resolved.discount;
+            if (resolved.discount != null && resolved.discount > 0) discount = resolved.discount;
           }
         } catch (e) {
           console.error("POS Price resolution error:", e);
@@ -373,6 +379,8 @@ export default function POSDashboard() {
             unitName: chosenUnit.name,
             unitqty: chosenUnit.quantity ?? 1,
             price: sellPrice,
+            basePrice,
+            baseDiscount,
             mrp: chosenUnit.mrp,
             gst: chosenVariant.gst ?? 0,
             qty: 1,
@@ -389,6 +397,55 @@ export default function POSDashboard() {
 
     resolveAndAdd();
   };
+
+  /* ---------- Re-price cart when the customer changes ----------
+     Choosing / changing a customer re-evaluates every cart line against that
+     party's assigned price list (channel / region / customer). With no customer
+     (walk-in), lines revert to the product's own base price. */
+  useEffect(() => {
+    if (cart.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      const channelid = selectedParty?.channel?.id ?? selectedParty?.channel ?? null;
+      const region = selectedParty?.region ?? null;
+
+      const updated = await Promise.all(
+        cart.map(async (c) => {
+          const base = c.basePrice ?? c.price;
+          const baseDisc = c.baseDiscount ?? 0;
+          if (!selectedParty?.id) {
+            return { ...c, price: base, discount: baseDisc };
+          }
+          try {
+            const resolved = await resolvePrice({
+              productid: c.productId,
+              variantid: c.variantId,
+              unitid: c.unitId,
+              accountid: selectedParty.id,
+              channelid,
+              region,
+            });
+            if (resolved && resolved.rate != null) {
+              return {
+                ...c,
+                price: resolved.rate,
+                discount: resolved.discount != null && resolved.discount > 0 ? resolved.discount : baseDisc,
+              };
+            }
+          } catch (e) {
+            console.error("POS re-price error:", e);
+          }
+          return { ...c, price: base, discount: baseDisc }; // no assignment → base
+        })
+      );
+
+      if (!cancelled) setCart(updated);
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedParty?.id]);
 
   /* ---------- Barcode submit ---------- */
   const handleBarcodeSubmit = (e: React.FormEvent) => {
