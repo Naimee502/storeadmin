@@ -232,7 +232,17 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
               </TouchableOpacity>
             </View>
 
-            {day.accounts.map((party: any, idx: number) => {
+            {[...day.accounts]
+              .sort((a: any, b: any) => {
+                // Nearest party first so the closest stop is on top (no scrolling).
+                // No GPS fix → keep the route's planned order (both Infinity).
+                const da = (salesmanLoc && a.lat != null && a.lng != null)
+                  ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, a.lat, a.lng) : Infinity;
+                const db = (salesmanLoc && b.lat != null && b.lng != null)
+                  ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, b.lat, b.lng) : Infinity;
+                return da - db;
+              })
+              .map((party: any, idx: number) => {
               const vm = VISIT_META[party.visitStatus];
               const distKm = (salesmanLoc && party.lat != null && party.lng != null)
                 ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, party.lat, party.lng)

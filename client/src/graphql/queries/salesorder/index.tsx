@@ -23,6 +23,7 @@ export const GET_SALES_ORDERS = gql`
       billdate
       billtype
       billnumber
+      invoicenumber
       notes
       ordertype
       subtotal
@@ -94,6 +95,7 @@ export const GET_DELETED_SALES_ORDERS = gql`
       billdate
       billtype
       billnumber
+      invoicenumber
       notes
       ordertype
       subtotal
@@ -165,6 +167,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       billdate
       billtype
       billnumber
+      invoicenumber
       notes
       ordertype
       subtotal

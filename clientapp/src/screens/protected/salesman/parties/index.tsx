@@ -118,15 +118,27 @@ export default function SalesmanParties() {
 
   useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));
 
+  // Distance from the salesman to a party (Infinity when either lacks GPS, so
+  // located parties always sort above ones with no location).
+  const distOf = (p: any) =>
+    salesmanLoc && p.latitude != null && p.longitude != null
+      ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, p.latitude, p.longitude)
+      : Infinity;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = q
       ? parties.filter((p: any) =>
           (p.name || '').toLowerCase().includes(q) || (p.mobile || '').includes(q))
       : parties;
-    // Pending (with outstanding) first, then visited.
-    return [...list].sort((a: any, b: any) => (b.outstanding || 0) - (a.outstanding || 0));
-  }, [parties, search]);
+    // Nearest party first (so the closest stop is on top, no scrolling). When we
+    // have no GPS fix yet, fall back to pending-amount order.
+    if (!salesmanLoc) {
+      return [...list].sort((a: any, b: any) => (b.outstanding || 0) - (a.outstanding || 0));
+    }
+    return [...list].sort((a: any, b: any) => distOf(a) - distOf(b));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parties, search, salesmanLoc]);
 
   const openParty = (item: any) =>
     navigation.navigate('RoutePartyVisit', {

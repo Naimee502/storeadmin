@@ -45,6 +45,13 @@ const paymentSchema = new mongoose.Schema(
     createdby_name: { type: String },
     createdby_type: { type: String },
 
+    // The salesman who booked the source order in the field (when this receipt
+    // was auto-created from an order→invoice). Lets salesman reports credit the
+    // collection to them even when an admin formalised the invoice.
+    orderedby_id: { type: mongoose.Schema.Types.ObjectId },
+    orderedby_name: { type: String },
+    orderedby_type: { type: String },
+
     updatedby: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     status: { type: Boolean, default: true },

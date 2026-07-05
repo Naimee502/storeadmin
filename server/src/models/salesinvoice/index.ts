@@ -990,6 +990,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   console.log("   Created Payment Transaction ID:", payTrx._id);
 
   // ------------------------- CREATE PAYMENT RECORD -------------------------
+  // createdby_* = who actually created the record (kept accurate for audit).
   const payRecCreatedById = userContext?.createdby_id || newInv.createdby_id;
   const payRecCreatedByName = userContext?.createdby_name || newInv.createdby_name;
   const payRecCreatedByType = userContext?.createdby_type || newInv.createdby_type;
@@ -1019,6 +1020,12 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     createdby_id: payRecCreatedById,
     createdby_name: payRecCreatedByName,
     createdby_type: payRecCreatedByType,
+    // orderedby_* = the salesman who booked the source order in the field. Used
+    // by the salesman field report to credit the collection to them, regardless
+    // of who formalised the invoice.
+    orderedby_id: newInv.orderedby_id || null,
+    orderedby_name: newInv.orderedby_name || null,
+    orderedby_type: newInv.orderedby_type || null,
   });
 
   console.log("   Created Payment Record ID:", paymentRecord._id);

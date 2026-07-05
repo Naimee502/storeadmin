@@ -44,7 +44,7 @@ export const useSalesOrderMutations = () => {
 };
 
 // ----------------- Sales Orders Query -----------------
-export const useSalesOrdersQuery = () => {
+export const useSalesOrdersQuery = (extraFilter: Record<string, any> = {}) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -52,7 +52,7 @@ export const useSalesOrdersQuery = () => {
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_ORDERS, {
-    variables: { filter: { adminid, branchid } },
+    variables: { filter: { adminid, branchid, ...extraFilter } },
   });
 
   return { data, loading, error, refetch };

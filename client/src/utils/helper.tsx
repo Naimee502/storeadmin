@@ -1,9 +1,19 @@
 import type { InvoiceProduct } from "../components/productsection";
 
+// Parse a value that may be a Date, an ISO string, OR an epoch-millisecond
+// string (GraphQL serializes Mongo Date fields like `paymentdate` as epoch ms).
+// `new Date("1751713200000")` is Invalid, so numeric strings must go through Number().
+const toDate = (date: Date | string | number | null | undefined): Date => {
+  if (date instanceof Date) return date;
+  const s = String(date).trim();
+  if (/^\d+$/.test(s)) return new Date(Number(s)); // epoch millis
+  return new Date(s);
+};
+
 // ✅ converts Date or string to DD/MM/YYYY
 export const normalizeToDMY = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
-  const d = new Date(date);
+  const d = toDate(date);
   if (isNaN(d.getTime())) return null;
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 };
@@ -11,7 +21,7 @@ export const normalizeToDMY = (date: Date | string | null | undefined): string |
 // ✅ converts Date or string to YYYY-MM-DD
 export const normalizeToYMD = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
-  const d = new Date(date);
+  const d = toDate(date);
   if (isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };

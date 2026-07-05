@@ -49,6 +49,9 @@ export const paymentTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    orderedby_id: ID
+    orderedby_name: String
+    orderedby_type: String
     updatedby: ID
     status: Boolean!
     createdAt: String

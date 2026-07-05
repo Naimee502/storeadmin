@@ -36,8 +36,8 @@ export default function SalesmanDashboard() {
   const adminid = tenant.adminId ?? '';
   const { blocked: punchBlocked } = usePunchGate();
 
-  // Require punch-in before going to Route / Parties (i.e. before any visit/order).
-  const goWithPunch = (screen: string) => {
+  // Require punch-in before going to Route / Parties / an order (any visit/order work).
+  const goWithPunch = (screen: string, params?: any) => {
     if (punchBlocked) {
       Alert.alert(
         'Punch in required',
@@ -49,7 +49,7 @@ export default function SalesmanDashboard() {
       );
       return;
     }
-    navigation.navigate(screen);
+    navigation.navigate(screen, params);
   };
 
   const { data, refetch } = useQuery(GET_SALES_ORDERS, {
@@ -191,7 +191,7 @@ export default function SalesmanDashboard() {
         <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Orders</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SalesmanOrders')}>
+            <TouchableOpacity onPress={() => goWithPunch('SalesmanOrders')}>
               <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
             </TouchableOpacity>
           </View>
@@ -209,7 +209,7 @@ export default function SalesmanDashboard() {
                 <TouchableOpacity
                   key={order.id}
                   style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+                  onPress={() => goWithPunch('OrderDetail', { orderId: order.id })}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />

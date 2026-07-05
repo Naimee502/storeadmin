@@ -6,7 +6,8 @@ import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useVisitsQuery } from "../../../graphql/hooks/visit";
 import { useSalesRoutesQuery } from "../../../graphql/hooks/salesroutes";
-import { useLatestLocationsQuery } from "../../../graphql/hooks/locationping";
+import { useLatestLocationsQuery, useLocationPingsQuery } from "../../../graphql/hooks/locationping";
+import LiveTrackingMap from "../../../components/livetrackingmap";
 import { useAppSelector } from "../../../redux/hooks";
 import { normalizeToYMD } from "../../../utils/helper";
 import { FaChartBar, FaRoute, FaMapMarkedAlt } from "react-icons/fa";
@@ -23,6 +24,16 @@ const weekdayOf = (ymd: string) => {
   const d = new Date(ymd);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { weekday: "long" });
 };
+
+// Route days are stored inconsistently ("sun" from the admin panel, "Sunday"
+// from the app). Normalise to a full weekday name so every row reads the same
+// (e.g. both "Without Route" and route rows show "Sunday", never "sun").
+const DAY_FULL: Record<string, string> = {
+  sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday",
+  thu: "Thursday", fri: "Friday", sat: "Saturday",
+};
+const fullDay = (day: string | undefined, ymd: string) =>
+  DAY_FULL[String(day ?? "").trim().slice(0, 3).toLowerCase()] || weekdayOf(ymd);
 
 /**
  * Salesman Field Report — SaaS-style overview of field activity per salesman:
@@ -42,11 +53,23 @@ const SalesmanFieldReport: React.FC = () => {
   const branchId = type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data: staffData } = useStaffQuery();
-  const { data: ordersData } = useSalesOrdersQuery();
+  // includeConverted: an order that became an invoice is still an order the
+  // salesman booked in the field — it must count in totals / route split.
+  const { data: ordersData } = useSalesOrdersQuery({ includeConverted: true });
   const { data: paymentsData } = usePaymentsQuery();
   const { data: visitsData } = useVisitsQuery();
   const { data: routesData } = useSalesRoutesQuery({ adminId, branchId });
-  const { data: locationsData } = useLatestLocationsQuery({ role: "salesman" });
+
+  // Live-tracking data honours the report filters: date range narrows the pings,
+  // and picking a salesman fetches their ordered trail (punch-in → punch-out).
+  const locFilter = useMemo(() => ({
+    role: "salesman",
+    staffid: appliedFilters.salesmanid || undefined,
+    dateFrom: appliedFilters.fromDate || undefined,
+    dateTo: appliedFilters.toDate || undefined,
+  }), [appliedFilters]);
+  const { data: locationsData } = useLatestLocationsQuery(locFilter);
+  const { data: trailData } = useLocationPingsQuery(locFilter);
 
   const staffList = staffData?.getStaffAccounts || [];
   const salesmen = staffList.filter(
@@ -57,6 +80,8 @@ const SalesmanFieldReport: React.FC = () => {
   const visits = visitsData?.getVisits || [];
   const routes = routesData?.getSalesRoutes || [];
   const locations = locationsData?.getLatestLocations || [];
+  // Full ordered trail (punch-in → punch-out) only when a single salesman is picked.
+  const trail = appliedFilters.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];
 
   // Default last 30 days
   useEffect(() => {
@@ -87,8 +112,25 @@ const SalesmanFieldReport: React.FC = () => {
     () => visits.filter((v: any) => inRange(normalizeToYMD(v.visitdate)) && matchSalesman(v.salesmanid?.id) && matchRoute(v.routeid?.id)),
     [visits, appliedFilters]
   );
+  // Map each party → the salesman who booked its orders, so a receipt with no
+  // stored collector id can still be credited to the right salesman via its party.
+  const partyToSalesman = useMemo(() => {
+    const m: Record<string, string> = {};
+    orders.forEach((o: any) => {
+      const pid = o.partyacc?.id; const sid = o.salesmenid?.id;
+      if (pid && sid && !m[pid]) m[pid] = sid;
+    });
+    return m;
+  }, [orders]);
+
+  // A receipt is credited to the salesman who booked the order in the field
+  // (orderedby_id), then whoever created it (a salesman's own manual collection),
+  // and finally the salesman who owns the receipt's party (covers auto-created
+  // receipts that saved no collector id). Keeps admin-formalised cash invoices
+  // counting for the salesman who actually collected.
+  const collectorOf = (p: any) => p.orderedby_id || p.createdby_id || partyToSalesman[p.partyid?.id];
   const fPayments = useMemo(
-    () => payments.filter((p: any) => p.type === "receipt" && inRange(normalizeToYMD(p.paymentdate)) && matchSalesman(p.createdby_id)),
+    () => payments.filter((p: any) => p.type === "receipt" && inRange(normalizeToYMD(p.paymentdate)) && matchSalesman(collectorOf(p))),
     [payments, appliedFilters]
   );
 
@@ -102,7 +144,7 @@ const SalesmanFieldReport: React.FC = () => {
       const onRoute = so.filter((o: any) => !!o.routeid).length;
       const offRoute = totalOrders - onRoute;
       const totalSales = so.reduce((sum: number, o: any) => sum + Number(o.totalamount || 0), 0);
-      const collections = fPayments.filter((p: any) => p.createdby_id === s.id).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+      const collections = fPayments.filter((p: any) => collectorOf(p) === s.id).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
       const sv = fVisits.filter((v: any) => v.salesmanid?.id === s.id);
       const visited = sv.filter((v: any) => v.visited).length;
       const notVisited = sv.filter((v: any) => !v.visited).length;
@@ -124,50 +166,39 @@ const SalesmanFieldReport: React.FC = () => {
     });
   }, [fOrders, fVisits, fPayments, salesmen, appliedFilters]);
 
-  // ── Detail: one row per salesman + route(or "Without Route") + day ───
-  // Built from BOTH visits and orders so off-route orders (salesman took an
-  // order outside any route) always appear, grouped under "Without Route".
+  // ── Detail: one row PER ORDER, so the admin can see exactly what each order
+  // contained (bill/invoice no, party, payment type, items & qty). A pending
+  // order shows its SO number; once converted it shows the linked INV number.
   const detailData = useMemo(() => {
     const routeNameById: Record<string, string> = {};
     routes.forEach((r: any) => { routeNameById[r.id] = r.routename; });
 
-    const groups: Record<string, any> = {};
-    const ensure = (sid: string, sname: string, rid: string | undefined, rname: string, ymd: string, day: string) => {
-      const key = `${sid}|${rid || "none"}|${ymd}`;
-      if (!groups[key]) {
-        groups[key] = { staffName: sname, routeName: rname, day: day || weekdayOf(ymd), date: ymd, visited: 0, notVisited: 0, orders: 0, sales: 0 };
-      }
-      return groups[key];
-    };
+    const orderNo = (o: any) =>
+      o.isConverted && o.invoicenumber
+        ? `INV-${String(o.invoicenumber).padStart(6, "0")}`
+        : `SO-${String(o.billnumber ?? "").padStart(6, "0")}`;
 
-    fVisits.forEach((v: any) => {
-      const ymd = normalizeToYMD(v.visitdate) || "-";
-      const g = ensure(v.salesmanid?.id, v.salesmanid?.name || "-", v.routeid?.id, v.routeid?.routename || "Without Route", ymd, v.day || "");
-      if (v.visited) g.visited += 1; else g.notVisited += 1;
-    });
-
-    fOrders.forEach((o: any) => {
-      const ymd = normalizeToYMD(o.billdate) || "-";
-      const rname = o.routeid ? (routeNameById[o.routeid] || "Route") : "Without Route";
-      const g = ensure(o.salesmenid?.id, o.salesmenid?.name || "-", o.routeid, rname, ymd, "");
-      g.orders += 1;
-      g.sales += Number(o.totalamount || 0);
-    });
-
-    return Object.values(groups)
-      .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
-      .map((g: any, idx: number) => ({
-        seqNo: idx + 1,
-        staffName: g.staffName,
-        routeName: g.routeName,
-        day: g.day,
-        date: g.date,
-        visited: g.visited,
-        notVisited: g.notVisited,
-        orders: g.orders,
-        sales: Number(g.sales).toFixed(2),
-      }));
-  }, [fVisits, fOrders, routes]);
+    return fOrders
+      .slice()
+      .sort((a: any, b: any) => ((normalizeToYMD(a.billdate) || "") < (normalizeToYMD(b.billdate) || "") ? 1 : -1))
+      .map((o: any, idx: number) => {
+        const ymd = normalizeToYMD(o.billdate) || "-";
+        const items = o.productservice || [];
+        return {
+          seqNo: idx + 1,
+          staffName: o.salesmenid?.name || "-",
+          billNo: orderNo(o),
+          party: o.partyacc?.accountname || "-",
+          paymentType: String(o.paymenttype || "-").replace(/^\w/, (c: string) => c.toUpperCase()),
+          routeName: o.routeid ? (routeNameById[o.routeid] || "Route") : "Without Route",
+          day: fullDay("", ymd),
+          date: ymd,
+          totalItems: items.length,
+          totalQty: items.reduce((s: number, p: any) => s + Number(p.qty || 0), 0),
+          sales: Number(o.totalamount || 0).toFixed(2),
+        };
+      });
+  }, [fOrders, routes]);
 
   const summaryColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
@@ -186,12 +217,14 @@ const SalesmanFieldReport: React.FC = () => {
   const detailColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
     { label: "Salesman", key: "staffName" },
+    { label: "Bill No", key: "billNo" },
+    { label: "Party A/c", key: "party" },
+    { label: "Payment Type", key: "paymentType" },
     { label: "Route", key: "routeName" },
     { label: "Day", key: "day" },
     { label: "Date", key: "date" },
-    { label: "Visited (+)", key: "visited", numeric: true },
-    { label: "Not Visited (−)", key: "notVisited", numeric: true },
-    { label: "Orders", key: "orders", numeric: true },
+    { label: "Total Items", key: "totalItems", numeric: true },
+    { label: "Total Qty", key: "totalQty", numeric: true },
     { label: "Sales (₹)", key: "sales", numeric: true },
   ];
 
@@ -229,7 +262,7 @@ const SalesmanFieldReport: React.FC = () => {
   const isSummary = activeTab === "Summary";
   const tableTitle = isSummary
     ? "Salesman Field Report — Summary"
-    : "Day-wise Detail — Route & Without-Route Orders (Visited vs Not Visited)";
+    : "Day-wise Detail — Order-wise Breakdown (Bill, Party, Payment, Items)";
   const tableColumns = isSummary ? summaryColumns : detailColumns;
   const tableData = isSummary ? summaryData : detailData;
   const exportFileName = isSummary ? "SalesmanFieldReport" : "SalesmanRouteDayDetail";
@@ -262,9 +295,16 @@ const SalesmanFieldReport: React.FC = () => {
           <>
             <div className="bg-white border rounded-lg p-4 text-sm text-gray-600 mb-4">
               <div className="font-semibold text-gray-700 mb-1">Live Location & Route Tracking</div>
-              Latest known location per salesman. This stays empty until the app starts
-              posting GPS pings — the backend and data feed are already in place.
+              {appliedFilters.salesmanid
+                ? "Showing the selected salesman's movement trail (green = punch-in / start, red = latest). Adjust the date range to change the window."
+                : "Latest known location per salesman shown as pins. Pick a salesman to see their full route (punch-in → punch-out)."}
             </div>
+
+            {/* Live map */}
+            <div className="mb-4">
+              <LiveTrackingMap latest={locations} trail={trail} height={440} />
+            </div>
+
             <ReportTable
               title="Live Location (Latest per Salesman)"
               columns={trackingColumns}

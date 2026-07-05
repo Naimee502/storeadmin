@@ -33,6 +33,7 @@ export const GET_PAYMENTS = gql`
       createdby_id
       createdby_name
       createdby_type
+      orderedby_id
       updatedby
       status
       createdAt

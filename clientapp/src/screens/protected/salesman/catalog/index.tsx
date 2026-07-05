@@ -171,7 +171,7 @@ export default function SalesmanCatalog() {
   const handleQty = (productId: string, variantId: string, unitId: string | undefined, qty: number) =>
     dispatch(updateQty({ productId, variantId, unitId, qty }));
 
-  const renderProduct = ({ item: p, index }: any) => {
+  const renderProduct = ({ item: p }: any) => {
     const v        = p.productvariants?.[0];
     const unitIdx  = selectedUnits[p.id] ?? 0;
     const up       = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
@@ -182,79 +182,81 @@ export default function SalesmanCatalog() {
     const price    = resolved?.rate != null ? resolved.rate : basePrice;
     const mrp      = up?.mrp ?? 0;
     const cartQty  = v ? getCartQty(p.id, v.id, unitId) : 0;
-    const hasMrp   = mrp > 0;
-    const isLeft   = index % 2 === 0;
+    const hasMrp   = mrp > 0 && mrp > price;
     const outOfStock = v?.currentstock === 0;
     const multiUnit  = (v?.unitprices?.length ?? 0) > 1;
 
     return (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.cardGlass, borderColor: colors.border },
-          isLeft ? { marginRight: 6 } : { marginLeft: 6 },
-        ]}
-      >
-        <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
+      <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+        {/* Thumbnail */}
+        <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
           {p.imageurl
             ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
-            : <Icon name="package-variant-closed" size={30} color={colors.brand} />
+            : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
           {outOfStock && (
-            <View style={styles.oosTag}>
-              <Text style={styles.oosText}>Out of Stock</Text>
-            </View>
+            <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
           )}
         </View>
-        <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
-        {p.categoryid?.categoryname && <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>}
-        {v?.name && <Text style={[styles.variantText, { color: colors.subText }]}>{v.name}</Text>}
 
-        {/* Unit chips */}
-        {multiUnit && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-            {v.unitprices.map((u: any, ui: number) => {
-              const active = (selectedUnits[p.id] ?? 0) === ui;
-              return (
-                <TouchableOpacity
-                  key={`${u.unitid?.id ?? ui}`}
-                  style={[styles.unitChip, active
-                    ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                  ]}
-                  onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
-                >
-                  <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
-                    {getUnitLabel(u)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
+        {/* Middle: name, category · variant, units, price */}
+        <View style={styles.rowMid}>
+          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{p.name}</Text>
+          {(p.categoryid?.categoryname || v?.name) ? (
+            <Text style={[styles.catText, { color: colors.subText }]} numberOfLines={1}>
+              {[p.categoryid?.categoryname, v?.name].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
 
-        <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-          {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+          {multiUnit && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+              {v.unitprices.map((u: any, ui: number) => {
+                const active = (selectedUnits[p.id] ?? 0) === ui;
+                return (
+                  <TouchableOpacity
+                    key={`${u.unitid?.id ?? ui}`}
+                    style={[styles.unitChip, active
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                    ]}
+                    onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
+                  >
+                    <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                      {getUnitLabel(u)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          <View style={styles.priceRow}>
+            <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+          </View>
         </View>
-        {v && !outOfStock && (
-          cartQty === 0 ? (
-            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => handleAdd(p)}>
-              <Icon name="plus" size={14} color="#fff" />
-              <Text style={styles.addBtnText}>Add</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-              <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}>
-                <Icon name="minus" size={13} color={colors.brand} />
+
+        {/* Right: Add / qty stepper */}
+        <View style={styles.rowRight}>
+          {v && !outOfStock && (
+            cartQty === 0 ? (
+              <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => handleAdd(p)}>
+                <Icon name="plus" size={14} color="#fff" />
+                <Text style={styles.addBtnText}>Add</Text>
               </TouchableOpacity>
-              <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
-              <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}>
-                <Icon name="plus" size={13} color={colors.brand} />
-              </TouchableOpacity>
-            </View>
-          )
-        )}
+            ) : (
+              <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
+                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}>
+                  <Icon name="minus" size={13} color={colors.brand} />
+                </TouchableOpacity>
+                <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
+                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}>
+                  <Icon name="plus" size={13} color={colors.brand} />
+                </TouchableOpacity>
+              </View>
+            )
+          )}
+        </View>
       </View>
     );
   };
@@ -324,8 +326,8 @@ export default function SalesmanCatalog() {
         <DynamicFlashList
           data={filtered}
           renderItem={renderProduct}
-          numColumns={2}
-          estimatedItemSize={230}
+          numColumns={1}
+          estimatedItemSize={96}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={<ListHeader />}
@@ -364,28 +366,31 @@ const styles = StyleSheet.create({
   chip:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
   chipText:    { fontSize: 13, fontFamily: FONTS.semiBold },
 
-  card: {
-    flex: 1, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
-    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  // Compact list row — image left, details middle, Add/qty right.
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, padding: 10, marginBottom: 10,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  imgWrap: { height: 90, borderRadius: 12, marginBottom: 10, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  thumb:   { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   img:     { width: '100%', height: '100%' },
-  oosTag:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 3, alignItems: 'center' },
-  oosText: { fontSize: 10, fontFamily: FONTS.semiBold, color: '#fff' },
-  productName: { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 18, marginBottom: 2 },
-  catText:     { fontSize: 10, fontFamily: FONTS.regular, marginBottom: 1 },
-  variantText: { fontSize: 11, fontFamily: FONTS.semiBold, marginBottom: 4 },
-  priceRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  oosTag:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, alignItems: 'center' },
+  oosText: { fontSize: 8, fontFamily: FONTS.semiBold, color: '#fff' },
+  rowMid:  { flex: 1, justifyContent: 'center' },
+  rowRight:{ justifyContent: 'center', alignItems: 'flex-end' },
+  productName: { fontSize: 13.5, fontFamily: FONTS.semiBold, marginBottom: 2 },
+  catText:     { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 3 },
+  priceRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   price:       { fontSize: 14, fontFamily: FONTS.bold },
-  mrp:         { fontSize: 12, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
-  unitScroll:   { flexGrow: 0, marginBottom: 6 },
-  unitChip:     { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, marginRight: 5 },
+  mrp:         { fontSize: 11.5, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
+  unitScroll:   { flexGrow: 0, marginBottom: 3 },
+  unitChip:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, marginRight: 5 },
   unitChipText: { fontSize: 10, fontFamily: FONTS.semiBold },
-  addBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingVertical: 8, gap: 4 },
+  addBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 11, paddingVertical: 8, paddingHorizontal: 16, gap: 4 },
   addBtnText:  { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
-  qtyControl:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 1.5, overflow: 'hidden' },
-  qtyBtn:      { paddingHorizontal: 12, paddingVertical: 8 },
-  qtyText:     { fontSize: 14, fontFamily: FONTS.bold, minWidth: 24, textAlign: 'center' },
+  qtyControl:  { flexDirection: 'row', alignItems: 'center', borderRadius: 11, borderWidth: 1.5, overflow: 'hidden' },
+  qtyBtn:      { paddingHorizontal: 11, paddingVertical: 7 },
+  qtyText:     { fontSize: 14, fontFamily: FONTS.bold, minWidth: 26, textAlign: 'center' },
 
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   emptyText: { fontSize: 14, fontFamily: FONTS.regular },
