@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -12,8 +13,12 @@ import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
 import { GET_SALES_ORDERS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
+// Days come in mixed formats: admin panel saves "sun"/"mon", the app used
+// "Sunday"/"Monday". Normalise to a lowercase 3-letter key everywhere.
+const dayKey = (d?: string) => String(d ?? '').trim().slice(0, 3).toLowerCase();
+
 const DAY_ORDER: Record<string, number> = {
-  Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7,
+  mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7,
 };
 
 // Map a server SalesRoute (dayWiseAccounts.accounts are full Account docs) into the
@@ -26,7 +31,7 @@ function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>, allowedId
     status: r.status,
     salesmanid: r.salesmanid,
     dayWiseAccounts: [...(r.dayWiseAccounts ?? [])]
-      .sort((a: any, b: any) => (DAY_ORDER[a.day] ?? 99) - (DAY_ORDER[b.day] ?? 99))
+      .sort((a: any, b: any) => (DAY_ORDER[dayKey(a.day)] ?? 99) - (DAY_ORDER[dayKey(b.day)] ?? 99))
       .map((dw: any) => ({
         day: dw.day,
         visitorder: dw.visitorder ?? 0,
@@ -40,6 +45,7 @@ function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>, allowedId
           mobile: a.mobile ?? '',
           city: a.city ?? '',
           address: a.address ?? '',
+          channelName: a.channel?.channelName ?? '',
           lat: a.latitude ?? null,
           lng: a.longitude ?? null,
           // Live ledger balance from the server (Dr−Cr of posted transactions),
@@ -62,8 +68,10 @@ function toDayWiseIds(dayWise: any[]): any[] {
   }));
 }
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const TODAY_DAY = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// getDay(): 0=Sunday … 6=Saturday. DAYS is Mon-first, so Sunday → last index (6).
+// TODAY_DAY is a normalised key ("mon"…"sun") for format-agnostic comparison.
+const TODAY_DAY = dayKey(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
 
 type VisitStatus = 'pending' | 'visited' | 'skipped';
 type LatLng = { lat: number; lng: number };
@@ -199,7 +207,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
 
       {/* Day sections */}
       {expanded && route.dayWiseAccounts.map((day: any) => {
-        const isToday = day.day === TODAY_DAY;
+        const isToday = dayKey(day.day) === TODAY_DAY;
         return (
           <View key={day.day} style={[styles.daySection, { borderTopColor: colors.border }]}>
             <View style={styles.dayHeaderRow}>
@@ -248,6 +256,14 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.partyName, { color: colors.text }]}>{party.name}</Text>
+                      {!!party.channelName && (
+                        <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
+                          <Icon name="account-network-outline" size={10} color={colors.brand} />
+                          <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+                            {party.channelName}
+                          </Text>
+                        </View>
+                      )}
                       {!!party.mobile && (
                         <View style={styles.partyLocRow}>
                           <Icon name="phone-outline" size={11} color={colors.subText} />
@@ -324,23 +340,47 @@ export default function SalesmanRoutes() {
   const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
   const [locLabel,    setLocLabel]    = useState<'fetching' | 'live' | 'off'>('fetching');
 
-  const fetchLocation = useCallback(() => {
+  const fetchLocation = useCallback(async () => {
     setLocLabel('fetching');
+
+    // Android needs an explicit runtime permission before the first fix.
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location permission',
+            message: 'Your location is used to show distance to each party.',
+            buttonPositive: 'Allow',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          setSalesmanLoc(null);
+          setLocLabel('off');
+          return;
+        }
+      } catch {
+        setSalesmanLoc(null);
+        setLocLabel('off');
+        return;
+      }
+    }
+
     try {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
+      Geolocation.getCurrentPosition(
+        (pos: any) => {
           setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setLocLabel('live');
         },
         () => {
-          // fallback: centre of Mumbai for demo
-          setSalesmanLoc({ lat: 19.0760, lng: 72.8777 });
+          // No fix available — hide distances rather than show a fake one.
+          setSalesmanLoc(null);
           setLocLabel('off');
         },
-        { enableHighAccuracy: false, timeout: 8000 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     } catch {
-      setSalesmanLoc({ lat: 19.0760, lng: 72.8777 });
+      setSalesmanLoc(null);
       setLocLabel('off');
     }
   }, []);
@@ -533,6 +573,8 @@ const styles = StyleSheet.create({
   manageBtn:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
   visitIcon:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
   partyName:    { fontSize: 13, fontFamily: FONTS.semiBold },
+  channelPill:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginTop: 3 },
+  channelText:  { fontSize: 10, fontFamily: FONTS.semiBold, flexShrink: 1 },
   partyLocRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   partyCity:    { fontSize: 11, fontFamily: FONTS.regular, flex: 1 },
   outstanding:  { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2, color: '#ef4444' },

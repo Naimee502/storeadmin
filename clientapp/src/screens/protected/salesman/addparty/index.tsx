@@ -11,20 +11,12 @@ import { GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const DUMMY_ACCOUNTS = [
-  { id: 'acc1',  name: 'Ramesh Traders',    mobile: '9876500001', accountcode: 'AC001', city: 'Mumbai'    },
-  { id: 'acc2',  name: 'Suresh General',    mobile: '9876500002', accountcode: 'AC002', city: 'Mumbai'    },
-  { id: 'acc3',  name: 'Kamal Provisions',  mobile: '9876500003', accountcode: 'AC003', city: 'Thane'     },
-  { id: 'acc4',  name: 'Vikram Wholesale',  mobile: '9876500004', accountcode: 'AC004', city: 'Thane'     },
-  { id: 'acc5',  name: 'Santosh Kirana',    mobile: '9876500005', accountcode: 'AC005', city: 'Navi Mumbai'},
-  { id: 'acc6',  name: 'Dinesh Stores',     mobile: '9876500006', accountcode: 'AC006', city: 'Pune'      },
-  { id: 'acc7',  name: 'Pradeep Mart',      mobile: '9876500007', accountcode: 'AC007', city: 'Pune'      },
-  { id: 'acc8',  name: 'Rajesh Bazaar',     mobile: '9876500008', accountcode: 'AC008', city: 'Nashik'    },
-  { id: 'acc9',  name: 'Mahesh Retailers',  mobile: '9876500009', accountcode: 'AC009', city: 'Nashik'    },
-  { id: 'acc10', name: 'Sunil Emporium',    mobile: '9876500010', accountcode: 'AC010', city: 'Aurangabad' },
-];
+// Days are stored inconsistently across the system: the admin web panel saves
+// lowercase 3-letter keys ("sun", "mon"), while the mobile app historically used
+// full names ("Sunday"). Normalise to a lowercase 3-letter key so both match.
+const dayKey = (d?: string) => String(d ?? '').trim().slice(0, 3).toLowerCase();
 
 export default function AddPartyToRoute() {
   const navigation = useNavigation<any>();
@@ -44,7 +36,9 @@ export default function AddPartyToRoute() {
   } = route.params ?? {};
 
   const [search,       setSearch]       = useState('');
-  const [selectedDay,  setSelectedDay]  = useState<string>(preselectedDay ?? '');
+  // Keep the selected day as a normalised key so it matches whatever format the
+  // route was stored in (admin "sun" or app "Sunday").
+  const [selectedDay,  setSelectedDay]  = useState<string>(dayKey(preselectedDay));
   const [adding,       setAdding]       = useState<string | null>(null);
 
   const { data } = useQuery(GET_ACCOUNTS, {
@@ -54,8 +48,7 @@ export default function AddPartyToRoute() {
 
   const [updateRoute] = useMutation(UPDATE_SALES_ROUTE);
 
-  const rawAccounts = (data?.getAccounts ?? []) as any[];
-  const accounts    = rawAccounts.length > 0 ? rawAccounts : DUMMY_ACCOUNTS;
+  const accounts = (data?.getAccounts ?? []) as any[];
 
   const alreadyOnDay = new Set<string>(existingAccountIds);
 
@@ -84,7 +77,7 @@ export default function AddPartyToRoute() {
           onPress: async () => {
             setAdding(party.id);
             try {
-              if (adminid && routeId && rawAccounts.length > 0) {
+              if (adminid && routeId) {
                 const updatedDayWise = buildUpdatedDayWise(allDayWiseAccounts, selectedDay, party.id);
                 await updateRoute({
                   variables: {
@@ -189,7 +182,7 @@ export default function AddPartyToRoute() {
         <Text style={[styles.dayLabel, { color: colors.text }]}>Select Day</Text>
         <View style={styles.dayChips}>
           {DAYS.map(d => {
-            const active = selectedDay === d;
+            const active = selectedDay === dayKey(d);
             return (
               <TouchableOpacity
                 key={d}
@@ -199,7 +192,7 @@ export default function AddPartyToRoute() {
                     ? { backgroundColor: colors.brand,         borderColor: colors.brand }
                     : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                 ]}
-                onPress={() => setSelectedDay(d)}
+                onPress={() => setSelectedDay(dayKey(d))}
               >
                 <Text style={[styles.dayChipText, { color: active ? '#fff' : colors.subText }]}>
                   {d.slice(0, 3)}
@@ -250,7 +243,9 @@ export default function AddPartyToRoute() {
 
 function buildUpdatedDayWise(existing: any[], day: string, newAccountId: string): any[] {
   const copy = existing.map((d: any) => ({ ...d, accounts: [...(d.accounts ?? [])] }));
-  const idx  = copy.findIndex((d: any) => d.day === day);
+  // Match by normalised key so "sun" and "Sunday" resolve to the same entry
+  // instead of creating a duplicate day.
+  const idx  = copy.findIndex((d: any) => dayKey(d.day) === dayKey(day));
   if (idx >= 0) {
     if (!copy[idx].accounts.includes(newAccountId)) {
       copy[idx].accounts.push(newAccountId);

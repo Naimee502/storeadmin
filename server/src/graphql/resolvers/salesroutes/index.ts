@@ -125,7 +125,9 @@ const populateAndFormat = async (doc: any): Promise<any> => {
 
   let accountMap: Record<string, any> = {};
   if (allDayAccountIds.length > 0) {
-    const accounts = await Account.find({ _id: { $in: allDayAccountIds } }).lean();
+    const accounts = await Account.find({ _id: { $in: allDayAccountIds } })
+      .populate("channel")
+      .lean();
     accounts.forEach((a: any) => {
       accountMap[a._id.toString()] = { ...a, id: a._id.toString() };
     });

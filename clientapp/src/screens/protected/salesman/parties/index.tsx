@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Linking, Platform, Alert,
+  PermissionsAndroid,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -61,13 +63,28 @@ export default function SalesmanParties() {
   const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
 
   useEffect(() => {
-    try {
-      (navigator as any)?.geolocation?.getCurrentPosition(
-        (pos: any) => setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setSalesmanLoc(null),
-        { enableHighAccuracy: false, timeout: 8000 },
-      );
-    } catch { setSalesmanLoc(null); }
+    (async () => {
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'Location permission',
+              message: 'Your location is used to show distance to each party.',
+              buttonPositive: 'Allow',
+            },
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) { setSalesmanLoc(null); return; }
+        } catch { setSalesmanLoc(null); return; }
+      }
+      try {
+        Geolocation.getCurrentPosition(
+          (pos: any) => setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => setSalesmanLoc(null),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+        );
+      } catch { setSalesmanLoc(null); }
+    })();
   }, []);
 
   const { data, loading, refetch } = useQuery(GET_ACCOUNTS, {
@@ -140,6 +157,15 @@ export default function SalesmanParties() {
 
         <View style={{ flex: 1 }}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+
+          {item.channel?.channelName ? (
+            <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
+              <Icon name="account-network-outline" size={10} color={colors.brand} />
+              <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+                {item.channel.channelName}
+              </Text>
+            </View>
+          ) : null}
 
           {item.mobile ? (
             <View style={styles.metaRow}>
@@ -251,6 +277,8 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 16, borderWidth: 1, padding: 13, marginBottom: 10 },
   visitIcon: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginTop: 1 },
   name: { fontSize: 14, fontFamily: FONTS.bold },
+  channelPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginTop: 4 },
+  channelText: { fontSize: 10.5, fontFamily: FONTS.semiBold, flexShrink: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
   locText: { fontSize: 11.5, fontFamily: FONTS.regular, flexShrink: 1 },

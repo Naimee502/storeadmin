@@ -60,6 +60,7 @@ export default function RoutePartyVisit() {
     fetchPolicy: 'cache-and-network',
   });
   const ledgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
+  const partyChannel = (accountData as any)?.getAccountById?.channel?.channelName ?? '';
   // Authoritative outstanding = server-computed ledger balance (role-free), same
   // value the admin panel & My Routes use. Falls back to the navigation param.
   const serverOutstanding = (accountData as any)?.getAccountById?.outstanding;
@@ -139,6 +140,14 @@ export default function RoutePartyVisit() {
               <View style={styles.infoRow}>
                 <Icon name="map-marker-path" size={12} color={colors.subText} style={{ marginRight: 4 }} />
                 <Text style={[styles.infoText, { color: colors.subText }]}>{routeName}</Text>
+              </View>
+            )}
+            {!!partyChannel && (
+              <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
+                <Icon name="account-network-outline" size={11} color={colors.brand} />
+                <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+                  {partyChannel}
+                </Text>
               </View>
             )}
           </View>
@@ -297,6 +306,8 @@ const styles = StyleSheet.create({
   partyTitle:      { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 6 },
   infoRow:         { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   infoText:        { fontSize: 12, fontFamily: FONTS.regular },
+  channelPill:     { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, marginTop: 4 },
+  channelText:     { fontSize: 11, fontFamily: FONTS.semiBold },
   outstandingBadge:  { alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 12, padding: 8 },
   outstandingLabel:  { fontSize: 9, fontFamily: FONTS.semiBold, color: '#ef4444' },
   outstandingAmount: { fontSize: 13, fontFamily: FONTS.bold, color: '#ef4444' },

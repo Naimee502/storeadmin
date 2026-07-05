@@ -2,7 +2,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList,
+  PermissionsAndroid,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -98,13 +100,34 @@ export default function StaffCreateParty() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; mobile?: string }>({});
 
-  const captureLocation = () => {
+  const captureLocation = async () => {
+    // Android needs an explicit runtime permission before the first fix.
+    if (Platform.OS === 'android') {
+      try {
+        const res = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location permission',
+            message: "Your location is used to save this party's shop location.",
+            buttonPositive: 'Allow',
+          },
+        );
+        if (res !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Location', 'Location permission is required to capture the shop location.');
+          return;
+        }
+      } catch {
+        Alert.alert('Location', 'Could not request location permission.');
+        return;
+      }
+    }
+
     setLocating(true);
     try {
-      navigator.geolocation.getCurrentPosition(
+      Geolocation.getCurrentPosition(
         pos => { setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocating(false); },
         () => { setLocating(false); Alert.alert('Location', 'Could not get your location. Enable GPS and try again.'); },
-        { enableHighAccuracy: true, timeout: 10000 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     } catch {
       setLocating(false);
@@ -237,7 +260,10 @@ export default function StaffCreateParty() {
         const existing = (allDayWiseAccounts ?? []).map((d: any) => ({
           day: d.day, visitorder: d.visitorder ?? 0, accounts: [...(d.accounts ?? [])],
         }));
-        const idx = existing.findIndex((d: any) => d.day === routeDay);
+        // Days may be stored as "sun" (admin) or "Sunday" (app) — match by a
+        // normalised lowercase 3-letter key so we don't create a duplicate day.
+        const dk = (x?: string) => String(x ?? '').trim().slice(0, 3).toLowerCase();
+        const idx = existing.findIndex((d: any) => dk(d.day) === dk(routeDay));
         if (idx >= 0) { if (!existing[idx].accounts.includes(newId)) existing[idx].accounts.push(newId); }
         else existing.push({ day: routeDay, visitorder: 0, accounts: [newId] });
         await updateRoute({

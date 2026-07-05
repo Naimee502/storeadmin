@@ -12,7 +12,11 @@ import { BackHeader } from '../../../../components';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Admin panel saves "sun"/"mon"; the app used "Sunday"/"Monday". Normalise to a
+// lowercase 3-letter key so both formats compare/match correctly.
+const dayKey = (d?: string) => String(d ?? '').trim().slice(0, 3).toLowerCase();
 
 export default function ManagePartyRoute() {
   const navigation = useNavigation<any>();
@@ -33,7 +37,7 @@ export default function ManagePartyRoute() {
     availableRoutes        = [] as any[],
   } = route.params ?? {};
 
-  const [selectedDay,   setSelectedDay]   = useState<string>(currentDay);
+  const [selectedDay,   setSelectedDay]   = useState<string>(dayKey(currentDay));
   const [selectedRoute, setSelectedRoute] = useState<string>(currentRouteId);
   const [saving,        setSaving]        = useState(false);
   const [removing,      setRemoving]      = useState(false);
@@ -41,7 +45,7 @@ export default function ManagePartyRoute() {
   const [updateRoute] = useMutation(UPDATE_SALES_ROUTE);
 
   const isMoving     = selectedRoute !== currentRouteId;
-  const isDayChanged = selectedDay   !== currentDay && !isMoving;
+  const isDayChanged = selectedDay   !== dayKey(currentDay) && !isMoving;
   const hasChange    = isMoving || isDayChanged;
 
   const targetRoute  = availableRoutes.find((r: any) => r.id === selectedRoute);
@@ -205,7 +209,7 @@ export default function ManagePartyRoute() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Day</Text>
         <View style={styles.dayChips}>
           {DAYS.map(d => {
-            const active = selectedDay === d;
+            const active = selectedDay === dayKey(d);
             return (
               <TouchableOpacity
                 key={d}
@@ -215,7 +219,7 @@ export default function ManagePartyRoute() {
                     ? { backgroundColor: colors.brand,         borderColor: colors.brand }
                     : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                 ]}
-                onPress={() => setSelectedDay(d)}
+                onPress={() => setSelectedDay(dayKey(d))}
               >
                 <Text style={[styles.dayChipText, { color: active ? '#fff' : colors.subText }]}>
                   {d.slice(0, 3)}
@@ -273,7 +277,7 @@ export default function ManagePartyRoute() {
 
 function removeFromDayWise(dayWiseAccounts: any[], day: string, partyId: string): any[] {
   return dayWiseAccounts.map((d: any) => {
-    if (d.day !== day) return { day: d.day, visitorder: d.visitorder ?? 0, accounts: d.accounts };
+    if (dayKey(d.day) !== dayKey(day)) return { day: d.day, visitorder: d.visitorder ?? 0, accounts: d.accounts };
     return {
       day:        d.day,
       visitorder: d.visitorder ?? 0,
@@ -287,7 +291,7 @@ function addToDayWise(dayWiseAccounts: any[], day: string, partyId: string): any
     day: d.day, visitorder: d.visitorder ?? 0,
     accounts: [...(d.accounts ?? [])],
   }));
-  const idx = copy.findIndex((d: any) => d.day === day);
+  const idx = copy.findIndex((d: any) => dayKey(d.day) === dayKey(day));
   if (idx >= 0) {
     if (!copy[idx].accounts.includes(partyId)) copy[idx].accounts.push(partyId);
   } else {

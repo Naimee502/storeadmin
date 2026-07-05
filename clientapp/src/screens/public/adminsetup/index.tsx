@@ -21,7 +21,7 @@ export default function AdminSetup() {
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
 
-  const [code, setCode] = useState('6a3fa906d4993aba915d76f9');
+  const [code, setCode] = useState('6a4a3f04d8a3852f67c81c49');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<{ companyName: string } | null>(null);
   const [loading, setLoading] = useState(false);
