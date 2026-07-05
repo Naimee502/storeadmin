@@ -64,11 +64,24 @@ const AddEditPayment = () => {
   const { data: existingData } = usePaymentByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: accountsData } = useAccountsQuery();
-  const { data: salesInvData } = useSalesInvoicesQuery();
-  const { data: purchaseInvData } = usePurchaseInvoicesQuery();
+  // These sources can be created right before opening this page (e.g. "Convert
+  // to Invoice"). Use cache-and-network so the settle-able lists always
+  // revalidate from the server on mount instead of showing stale cache.
+  const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesQuery("cache-and-network");
+  const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesQuery("cache-and-network");
   const { data: paymentsData } = usePaymentsQuery();
   const { data: transactionsData } = useTransactionsQuery();
-  const { data: expenseNotesData } = useExpenseNotesQuery();
+  const { data: expenseNotesData, refetch: refetchExpenseNotes } = useExpenseNotesQuery("cache-and-network");
+
+  // Invoices/expense notes can be created right before opening this page (e.g.
+  // "Convert to Invoice"). The default cache-first policy would show a stale
+  // list, so refetch the settle-able sources once when the page mounts.
+  useEffect(() => {
+    refetchSalesInv?.();
+    refetchPurchaseInv?.();
+    refetchExpenseNotes?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data: adminSettingsData } = useAdminSettingsQuery(adminId);
   const { addPaymentMutation, editPaymentMutation } = usePaymentMutations();
 

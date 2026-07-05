@@ -1,4 +1,4 @@
-package com.rnupgrade
+package com.app.rudraerp
 
 import android.app.Application
 import com.facebook.react.PackageList

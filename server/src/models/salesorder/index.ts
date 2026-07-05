@@ -20,7 +20,18 @@ const salesOrderSchema = new mongoose.Schema(
     branchid: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
 
     salesmenid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount" },
-    
+
+    // Route this order was booked against (when taken on a route run) + how the
+    // order originated. app = salesman app on a route, manual = back-office
+    // entry, pos = POS dashboard. Powers the field reports route-vs-no-route /
+    // via-app split.
+    routeid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesRoute", default: null },
+    ordersource: {
+      type: String,
+      enum: ["app", "manual", "pos"],
+      default: "manual",
+    },
+
     createdby_id: { type: mongoose.Schema.Types.ObjectId },
     createdby_name: { type: String },
     createdby_type: { type: String },

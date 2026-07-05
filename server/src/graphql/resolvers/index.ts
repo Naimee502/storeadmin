@@ -31,6 +31,8 @@ import { purchaseReturnResolvers } from "./purchasereturn";
 import { adminSettingsResolvers } from "./adminsettings";
 import { permissionsResolvers } from "./permissions";
 import { chargeRuleResolvers } from "./chargerule";
+import { visitResolvers } from "./visit";
+import { locationPingResolvers } from "./locationping";
 
 export const resolvers = [
   branchResolvers,
@@ -66,4 +68,6 @@ export const resolvers = [
   adminSettingsResolvers,
   permissionsResolvers,
   chargeRuleResolvers,
+  visitResolvers,
+  locationPingResolvers,
 ];

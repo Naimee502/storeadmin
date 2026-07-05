@@ -1,6 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 /**
@@ -78,9 +79,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.rnupgrade"
+    namespace "com.app.rudraerp"
     defaultConfig {
-        applicationId "com.rnupgrade"
+        applicationId "com.app.rudraerp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -93,15 +94,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (project.hasProperty('RUDRAERP_UPLOAD_STORE_FILE')) {
+                storeFile file(RUDRAERP_UPLOAD_STORE_FILE)
+                storePassword RUDRAERP_UPLOAD_STORE_PASSWORD
+                keyAlias RUDRAERP_UPLOAD_KEY_ALIAS
+                keyPassword RUDRAERP_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Signed with the Rudra ERP release keystore when the RUDRAERP_UPLOAD_*
+            // properties are present (see gradle.properties); falls back to debug
+            // signing otherwise so local dev builds still work.
+            signingConfig project.hasProperty('RUDRAERP_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

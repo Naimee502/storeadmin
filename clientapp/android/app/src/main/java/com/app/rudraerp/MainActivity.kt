@@ -1,4 +1,4 @@
-package com.rnupgrade
+package com.app.rudraerp
 
 import android.app.Activity
 import android.content.Intent

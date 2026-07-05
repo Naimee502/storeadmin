@@ -56,10 +56,11 @@ export const staffAccountTypeDefs = gql`
     commission: Float
     salary: Float
     target: Float
-    role: String           
+    role: String
     status: Boolean!
     allowedmodules: [String]
     assignedChannels: [Channel]
+    fcmtoken: String
     createdAt: String
     updatedAt: String
   }
@@ -116,5 +117,6 @@ export const staffAccountTypeDefs = gql`
     loginStaffByMobile(adminId: ID!, mobile: String!, password: String!): LoginStaffResponse
     deleteStaffAccount(id: ID!): Boolean!
     resetStaffAccount(id: ID!): Boolean!
+    saveDeviceToken(id: ID!, token: String!): Boolean!
   }
 `;

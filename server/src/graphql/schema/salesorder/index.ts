@@ -68,6 +68,8 @@ export const salesOrderTypeDefs = gql`
   type SalesOrder {
     id: ID!
     salesmenid: SimpleRef
+    routeid: ID
+    ordersource: String
     paymenttype: String!
     partyacc: SimpleRef!
     taxorsupplytype: String!
@@ -117,6 +119,8 @@ export const salesOrderTypeDefs = gql`
 
   input SalesOrderInput {
     salesmenid: ID
+    routeid: ID
+    ordersource: String
     paymenttype: String!
     partyacc: ID!
     taxorsupplytype: String
@@ -155,6 +159,8 @@ export const salesOrderTypeDefs = gql`
     adminid: ID
     branchid: ID
     salesmenid: ID
+    routeid: ID
+    ordersource: String
     paymenttype: String
     partyacc: ID
     taxorsupplytype: String

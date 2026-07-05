@@ -48,6 +48,9 @@ const staffAccountSchema = new mongoose.Schema(
       default: null,
     },
 
+    // FCM device token for push notifications (set by the mobile app on login).
+    fcmtoken: { type: String, default: null },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }

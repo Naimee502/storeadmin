@@ -172,6 +172,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/reports/accounting', label: 'Accounting / Finance', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.accounting", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/party', label: 'Party / Vendor', icon: <FaUsers className="text-teal-400 text-xl flex-shrink-0" />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/salesmen', label: 'Staff Reports', icon: <FaUserTie className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/salesmanfield', label: 'Salesman Field Report', icon: <FaRoute className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "reports.salesmanfield", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/deliveryboy', label: 'Delivery Boy Report', icon: <FaExchangeAlt className="text-lime-400 text-xl flex-shrink-0" />, moduleId: "reports.delivery", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.analytical", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-xl flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];

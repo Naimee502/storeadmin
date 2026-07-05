@@ -14,6 +14,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store/store';
 import { apolloClient, setTokenGetter } from './src/apollo/client';
 import AdminSetup from './src/screens/public/adminsetup';
+import FieldServices from './src/hooks/fieldservices';
 import type { RootState } from './src/store/rootreducer';
 
 const RootStack      = createNativeStackNavigator();
@@ -36,6 +37,8 @@ function ProtectedNavigator() {
   const user = useSelector((state: RootState) => state.auth.user);
 
   return (
+    <>
+    <FieldServices />
     <ProtectedStack.Navigator screenOptions={{ headerShown: false }}>
       {user?.role === 'party' && (
         <ProtectedStack.Screen name="PartyApp" component={PartyNav} />
@@ -54,6 +57,7 @@ function ProtectedNavigator() {
         <ProtectedStack.Screen name="Public" component={PublicStack} />
       )}
     </ProtectedStack.Navigator>
+    </>
   );
 }
 

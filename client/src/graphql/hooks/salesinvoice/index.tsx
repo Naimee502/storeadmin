@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, type WatchQueryFetchPolicy } from '@apollo/client';
 import {
   ADD_SALES_INVOICE,
   EDIT_SALES_INVOICE,
@@ -35,7 +35,7 @@ export const useSalesInvoiceMutations = () => {
 };
 
 // ----------------- Sales Invoices Query -----------------
-export const useSalesInvoicesQuery = () => {
+export const useSalesInvoicesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -44,6 +44,7 @@ export const useSalesInvoicesQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrap inside filter
+    fetchPolicy,
   });
 
   return { data, loading, error, refetch };

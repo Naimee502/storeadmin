@@ -9,6 +9,10 @@ export const GET_SALES_ORDERS = gql`
         id
         name
       }
+      routeid
+      ordersource
+      deliveryboyid
+      deliveryStatus
       paymenttype
       partyacc {
         id

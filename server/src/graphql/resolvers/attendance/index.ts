@@ -2,6 +2,7 @@ import {
   Attendance, Holiday, LeaveType, LeaveRequest, LeaveBalance,
 } from "../../../models/attendance";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { Branch } from "../../../models/branches";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -301,17 +302,32 @@ export const attendanceResolvers = {
   },
   Mutation: {
     punch: async (_: any, { input }: any, ctx: any) => {
-      const staff = await StaffAccount.findById(input.staffid).lean();
-      if (!staff) throw new Error("Staff not found");
-      const ts = input.timestamp ? new Date(input.timestamp) : new Date();
-      const dateStr = toDateStr(ts);
-      const branchid = (staff as any).branchid || ctx?.branchid;
-      const adminid = (staff as any).admin;
-      if (!adminid || !branchid) throw new Error("Cannot resolve admin/branch for staff");
-      let log: any = await Attendance.findOne({ adminid, staffid: input.staffid, date: dateStr });
-      if (!log) {
-        log = await Attendance.create({ adminid, branchid, staffid: input.staffid, date: dateStr, status: "present" });
-      }
+      try {
+        console.log("🕒 [punch] input:", JSON.stringify(input));
+        const staff = await StaffAccount.findById(input.staffid).lean();
+        if (!staff) {
+          console.warn("🕒 [punch] staff not found:", input.staffid);
+          throw new Error("Staff not found");
+        }
+        const ts = input.timestamp ? new Date(input.timestamp) : new Date();
+        const dateStr = toDateStr(ts);
+        const adminid = (staff as any).admin;
+        // Prefer the staff's assigned branch; fall back to request context, then
+        // to the admin's first active branch (staff created without a branch
+        // could otherwise never punch in — attendance requires a branch).
+        let branchid = (staff as any).branchid || ctx?.branchid;
+        if (!branchid && adminid) {
+          const fb: any = await Branch.findOne({ admin: adminid, status: true }).select("_id").lean();
+          branchid = fb?._id;
+          if (branchid) console.log("🕒 [punch] fell back to admin's branch:", String(branchid));
+        }
+        console.log("🕒 [punch] resolved adminid:", String(adminid), "branchid:", String(branchid));
+        if (!adminid) throw new Error("Cannot resolve admin for staff (staff has no admin).");
+        if (!branchid) throw new Error("No branch found for this staff. Assign a branch to the staff (or create a branch for the admin) before punching in.");
+        let log: any = await Attendance.findOne({ adminid, staffid: input.staffid, date: dateStr });
+        if (!log) {
+          log = await Attendance.create({ adminid, branchid, staffid: input.staffid, date: dateStr, status: "present" });
+        }
       const punch: any = {
         type: input.type, timestamp: ts,
         latitude: input.latitude, longitude: input.longitude, accuracy: input.accuracy,
@@ -344,6 +360,10 @@ export const attendanceResolvers = {
       const formatted = formatLog(populated);
       const created = formatted!.punches[formatted!.punches.length - 1];
       return { log: formatted, punch: created };
+      } catch (err: any) {
+        console.error("🕒 [punch] ERROR:", err?.message, err);
+        throw err;
+      }
     },
     addManualAttendance: async (_: any, { input }: any, ctx: any) => {
       const staff = await StaffAccount.findById(input.staffid).lean();

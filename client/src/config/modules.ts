@@ -117,6 +117,8 @@ export const MODULES: ModuleDef[] = [
   { id: "reports.accounting", label: "Accounting / Finance", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.party",      label: "Party / Vendor Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.salesmen",   label: "Salesmen Reports",    section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.salesmanfield", label: "Salesman Field Report", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.delivery",   label: "Delivery Boy Report",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.analytical", label: "Analytical Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.attendance", label: "Attendance & Leave Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 

@@ -67,6 +67,8 @@ import GSTReports from "../pages/reports/gst";
 import AccountingFinanceReports from "../pages/reports/accounting";
 import PartyReports from "../pages/reports/party/inde";
 import SalesmanReports from "../pages/reports/salesman";
+import SalesmanFieldReport from "../pages/reports/salesmanfield";
+import DeliveryBoyReport from "../pages/reports/deliveryboy";
 import AttendanceReports from "../pages/reports/attendance";
 import AccountLedgers from "../pages/accountledgers";
 import DeletedAccountLedgers from "../pages/accountledgers/deletedentries";
@@ -773,6 +775,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <SalesmanReports />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/salesmanfield"
+        element={
+          <ProtectedRoutes>
+            <SalesmanFieldReport />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/reports/deliveryboy"
+        element={
+          <ProtectedRoutes>
+            <DeliveryBoyReport />
           </ProtectedRoutes>
         }
       />

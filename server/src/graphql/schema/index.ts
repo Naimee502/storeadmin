@@ -31,6 +31,8 @@ import { purchaseReturnTypeDefs } from "./purchasereturn";
 import { adminSettingsTypeDefs } from "./adminsettings";
 import { permissionsTypeDefs } from "./permissions";
 import { chargeRuleTypeDefs } from "./chargerule";
+import { visitTypeDefs } from "./visit";
+import { locationPingTypeDefs } from "./locationping";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -66,4 +68,6 @@ export const typeDefs = [
   adminSettingsTypeDefs,
   permissionsTypeDefs,
   chargeRuleTypeDefs,
+  visitTypeDefs,
+  locationPingTypeDefs,
 ];

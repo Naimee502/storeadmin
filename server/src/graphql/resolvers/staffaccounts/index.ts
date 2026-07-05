@@ -200,5 +200,17 @@ export const staffAccountResolvers = {
       );
       return !!result;
     },
+
+    // ==========================================
+    // 🔔 Save FCM device token (from the mobile app after login)
+    // ==========================================
+    saveDeviceToken: async (_: any, { id, token }: any) => {
+      const result = await StaffAccount.findByIdAndUpdate(
+        id,
+        { fcmtoken: token },
+        { new: true }
+      );
+      return !!result;
+    },
   },
 };

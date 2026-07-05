@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery, type WatchQueryFetchPolicy } from "@apollo/client";
 
 import {
   ADD_EXPENSE_NOTE,
@@ -38,7 +38,7 @@ export const useExpenseNoteMutations = () => {
    EXPENSE NOTES QUERY
    ========================= */
 
-export const useExpenseNotesQuery = () => {
+export const useExpenseNotesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -47,6 +47,7 @@ export const useExpenseNotesQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_EXPENSE_NOTES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+    fetchPolicy,
   });
 
   return { data, loading, error, refetch };
