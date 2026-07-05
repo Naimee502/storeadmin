@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -41,6 +41,52 @@ export default function SalesmanCatalog() {
 
   const products = (data as any)?.getProductServices ?? [];
 
+  // Party-specific price list resolution. The base unit price on each product is
+  // overridden by the price list assigned to this party's channel / region /
+  // customer (via `resolvePrice`). We pre-resolve every product+unit for the
+  // current party so the CARD shows the correct price, not just the cart.
+  const [priceMap, setPriceMap] = useState<Record<string, { rate: number; discount: number; discounttype?: string } | null>>({});
+  const priceKey = (pid: string, vid: string, uid: string) => `${pid}:${vid}:${uid}`;
+
+  useEffect(() => {
+    if (!partyAccount || products.length === 0) return;
+    const channelid = partyAccount?.channel?.id ?? null;
+    const region    = partyAccount?.region ?? null;
+    // Nothing to resolve against → keep base prices.
+    if (!channelid && !region && !partyId) return;
+
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, { rate: number; discount: number; discounttype?: string } | null> = {};
+      await Promise.all(products.map(async (p: any) => {
+        const v = p.productvariants?.[0];
+        if (!v) return;
+        await Promise.all((v.unitprices ?? []).map(async (up: any) => {
+          const uid = up?.unitid?.id;
+          if (!uid) return;
+          const key = priceKey(p.id, v.id, uid);
+          if (priceMap[key] !== undefined) return; // already resolved
+          try {
+            const { data: pd } = await apolloClient.query({
+              query: RESOLVE_PRICE,
+              variables: { productid: p.id, variantid: v.id, unitid: uid, adminid: adminid || null, accountid: partyId ?? null, channelid, region },
+              fetchPolicy: 'network-only',
+            });
+            const rp = (pd as any)?.resolvePrice;
+            updates[key] = rp ? { rate: rp.rate, discount: rp.discount ?? 0, discounttype: rp.discounttype } : null;
+          } catch {
+            updates[key] = null;
+          }
+        }));
+      }));
+      if (!cancelled && Object.keys(updates).length) {
+        setPriceMap(prev => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, partyAccount]);
+
   const categories = useMemo(() => {
     const seen = new Set<string>();
     const cats: { id: string; name: string }[] = [];
@@ -77,7 +123,14 @@ export default function SalesmanCatalog() {
     const up = v.unitprices?.[unitIdx] ?? v.unitprices?.[0];
     const defaultRate = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
     let rate = defaultRate, disc = up?.discount ?? 0;
-    if (up?.unitid?.id) {
+    // Reuse the already-resolved price-list rate if we have it (same value the
+    // card shows), so display and cart never diverge.
+    const mappedKey = up?.unitid?.id ? priceKey(p.id, v.id, up.unitid.id) : null;
+    const mapped = mappedKey ? priceMap[mappedKey] : undefined;
+    if (mapped) {
+      rate = mapped.rate;
+      if (mapped.discount != null && mapped.discount > 0) disc = mapped.discount;
+    } else if (up?.unitid?.id) {
       try {
         const { data: pd } = await apolloClient.query({
           query: RESOLVE_PRICE,
@@ -123,7 +176,10 @@ export default function SalesmanCatalog() {
     const unitIdx  = selectedUnits[p.id] ?? 0;
     const up       = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
     const unitId   = up?.unitid?.id;
-    const price    = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+    const basePrice = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+    // Prefer the party's price-list rate when one is assigned for this unit.
+    const resolved = (v && unitId) ? priceMap[priceKey(p.id, v.id, unitId)] : undefined;
+    const price    = resolved?.rate != null ? resolved.rate : basePrice;
     const mrp      = up?.mrp ?? 0;
     const cartQty  = v ? getCartQty(p.id, v.id, unitId) : 0;
     const hasMrp   = mrp > 0;
