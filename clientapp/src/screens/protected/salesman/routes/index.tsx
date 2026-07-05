@@ -240,7 +240,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                 >
                   <TouchableOpacity
                     style={styles.partyRowMain}
-                    onPress={() => onPartyPress({ ...party, routeName: route.routename })}
+                    onPress={() => onPartyPress({ ...party, routeName: route.routename, routeId: route.id, routeDay: day.day })}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.visitIcon, { backgroundColor: vm.color + '18' }]}>
@@ -403,7 +403,7 @@ export default function SalesmanRoutes() {
     navigation.navigate('RoutePartyVisit', {
       partyId: party.id, partyName: party.name,
       mobile: party.mobile, outstanding: party.outstanding,
-      routeName: party.routeName,
+      routeName: party.routeName, routeId: party.routeId, routeDay: party.routeDay,
     });
   };
 

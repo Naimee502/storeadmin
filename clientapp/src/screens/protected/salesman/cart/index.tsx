@@ -9,6 +9,7 @@ import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
+import { ADD_VISIT } from '../../../../apollo/mutations/tracking';
 import { formatINR } from '../../../../utils';
 import { clearCart, updateQty, removeFromCart } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
@@ -21,6 +22,8 @@ export default function SalesmanCart() {
   const cartItems  = useSelector((s: RootState) => s.cart.items);
   const partyId    = useSelector((s: RootState) => s.cart.partyId);
   const partyName  = useSelector((s: RootState) => s.cart.partyName);
+  const routeId    = useSelector((s: RootState) => s.cart.routeId);
+  const routeDay   = useSelector((s: RootState) => s.cart.routeDay);
   const tenant     = useSelector((s: RootState) => s.tenant);
   const user       = useSelector((s: RootState) => s.auth.user);
   const adminid    = tenant.adminId ?? '';
@@ -29,6 +32,7 @@ export default function SalesmanCart() {
   const { blocked: punchBlocked } = usePunchGate();
 
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
+  const [addVisit] = useMutation(ADD_VISIT);
 
   const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
   const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
@@ -53,6 +57,8 @@ export default function SalesmanCart() {
                   branchid:        tenant.branchId ?? '',
                   partyacc:        partyId,
                   salesmenid:      user?.id,
+                  routeid:         routeId || undefined,
+                  ordersource:     'app',
                   paymenttype:     'cash',
                   billdate:        new Date().toISOString().slice(0, 10),
                   billtype:        'order',
@@ -79,6 +85,29 @@ export default function SalesmanCart() {
                 },
               },
             });
+
+            // Record the visit (positive call) — an order means the party was
+            // visited. Best-effort; never block the order flow.
+            try {
+              await addVisit({
+                variables: {
+                  input: {
+                    adminid,
+                    branchid: tenant.branchId || undefined,
+                    salesmanid: user?.id,
+                    partyacc: partyId,
+                    routeid: routeId || undefined,
+                    visitdate: new Date().toISOString().slice(0, 10),
+                    day: routeDay || undefined,
+                    visited: true,
+                    ordercreated: true,
+                  },
+                },
+              });
+            } catch (e: any) {
+              console.warn('[visit] record failed:', e?.message);
+            }
+
             dispatch(clearCart());
             Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [
               {

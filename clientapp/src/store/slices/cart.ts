@@ -20,6 +20,10 @@ interface CartState {
   items: CartItem[];
   partyId?: string;
   partyName?: string;
+  // Route context when the order is taken while working a route (drives the
+  // "On Route" split + visit records in the admin field report).
+  routeId?: string;
+  routeDay?: string;
 }
 
 const initialState: CartState = { items: [] };
@@ -65,10 +69,14 @@ const cartSlice = createSlice({
       state.items = [];
       state.partyId   = undefined;
       state.partyName = undefined;
+      state.routeId   = undefined;
+      state.routeDay  = undefined;
     },
-    setCartParty: (state, action: PayloadAction<{ partyId: string; partyName: string }>) => {
+    setCartParty: (state, action: PayloadAction<{ partyId: string; partyName: string; routeId?: string; routeDay?: string }>) => {
       state.partyId   = action.payload.partyId;
       state.partyName = action.payload.partyName;
+      state.routeId   = action.payload.routeId;
+      state.routeDay  = action.payload.routeDay;
       state.items     = [];
     },
   },

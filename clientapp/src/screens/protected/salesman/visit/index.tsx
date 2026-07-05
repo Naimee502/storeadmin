@@ -33,7 +33,7 @@ export default function RoutePartyVisit() {
   const adminid    = useSelector((s: RootState) => s.tenant.adminId) ?? '';
   const salesmanId = useSelector((s: RootState) => s.auth.user?.id);
 
-  const { partyId, partyName, mobile, outstanding = 0, routeName } = route.params ?? {};
+  const { partyId, partyName, mobile, outstanding = 0, routeName, routeId, routeDay } = route.params ?? {};
 
   // Live recent orders for this party — only the ones THIS salesman has taken.
   const { data: ordersData, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
@@ -94,7 +94,7 @@ export default function RoutePartyVisit() {
     : 0;
 
   const handleTakeOrder = () => {
-    dispatch(setCartParty({ partyId, partyName }));
+    dispatch(setCartParty({ partyId, partyName, routeId, routeDay }));
     navigation.navigate('SalesmanCatalog', { partyId, partyName });
   };
 

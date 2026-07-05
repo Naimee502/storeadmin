@@ -14,3 +14,13 @@ export const SAVE_DEVICE_TOKEN = gql`
     saveDeviceToken(id: $id, token: $token)
   }
 `;
+
+// Record a visit / call to a party (positive = visited). Created by the salesman
+// app when a party is visited or an order is taken.
+export const ADD_VISIT = gql`
+  mutation AddVisit($input: VisitInput!) {
+    addVisit(input: $input) {
+      id
+    }
+  }
+`;
