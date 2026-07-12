@@ -11,6 +11,7 @@ import {
   useSalesOrdersQuery,
   useSalesOrderMutations,
 } from "../../graphql/hooks/salesorder";
+import { formatDateDMY } from "../../utils/helper";
 
 const SalesOrders = () => {
   const navigate = useNavigate();
@@ -123,6 +124,8 @@ const SalesOrders = () => {
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
+      billdate: formatDateDMY(order.billdate),
+      billdateRaw: order.billdate,
       billtype_billnumber: `SO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       orderedByDisplay: personLabel(order.createdby_name, order.createdby_type),

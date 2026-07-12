@@ -16,7 +16,7 @@ import {
   GET_LEAVE_REQUESTS,
 } from "../../../graphql/queries/attendance";
 import { useAppSelector } from "../../../redux/hooks";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
 import { FaCalendarDay, FaUserClock, FaCalendarCheck, FaUserTimes } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -31,7 +31,7 @@ const fmtDateTime = (iso?: string | null) => {
   if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("en-IN");
+  return formatDateTimeDMY(d); // DD-MM-YYYY hh:mm AM/PM
 };
 
 const minutesToHm = (m?: number | null) => {
@@ -131,7 +131,7 @@ const AttendanceReports: React.FC = () => {
       })
       .map((l: any, i: number) => ({
         seq: i + 1,
-        date: l.date,
+        date: formatDateDMY(l.date),
         staff: l.staffid?.name ?? "-",
         code: l.staffid?.staffcode ?? "-",
         status: cap(l.status),
@@ -190,8 +190,8 @@ const AttendanceReports: React.FC = () => {
         staff: r.staffid?.name ?? "-",
         code: r.staffid?.staffcode ?? "-",
         leaveType: r.leavetypeid?.name ?? "-",
-        fromDate: r.fromDate ? normalizeToYMD(r.fromDate) : "-",
-        toDate: r.toDate ? normalizeToYMD(r.toDate) : "-",
+        fromDate: r.fromDate ? formatDateDMY(r.fromDate) : "-",
+        toDate: r.toDate ? formatDateDMY(r.toDate) : "-",
         totalDays: r.totalDays,
         halfDay: r.halfDay ? "Yes" : "No",
         reason: r.reason ?? "-",

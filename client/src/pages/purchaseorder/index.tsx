@@ -10,6 +10,7 @@ import {
   usePurchaseOrdersQuery,
   usePurchaseOrderMutations,
 } from "../../graphql/hooks/purchaseorder";
+import { formatDateDMY } from "../../utils/helper";
 
 const PurchaseOrders = () => {
   const navigate = useNavigate();
@@ -63,6 +64,8 @@ const PurchaseOrders = () => {
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
+      billdate: formatDateDMY(order.billdate),
+      billdateRaw: order.billdate,
       billtype_billnumber: `PO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",

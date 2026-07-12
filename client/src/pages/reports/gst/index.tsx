@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
+import { formatDateDMY } from "../../../utils/helper";
 import { FaCalculator, FaMoneyCheckAlt, FaFileInvoiceDollar, FaBoxes, FaFileAlt, FaFileContract } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
@@ -145,7 +146,7 @@ const GSTReports: React.FC = () => {
 
         return {
           invoiceNo: inv.billnumber,
-          invoiceDate: inv.billdate,
+          invoiceDate: formatDateDMY(inv.billdate),
           partyName: inv.partyacc?.accountname || "",
           gstin: inv.partyacc?.gstnumber || "",
           taxable,
@@ -198,7 +199,7 @@ const GSTReports: React.FC = () => {
 
         return {
           invoiceNo: inv.billnumber,
-          invoiceDate: inv.billdate,
+          invoiceDate: formatDateDMY(inv.billdate),
           partyName: inv.partyacc?.accountname || "",
           gstin: inv.partyacc?.gstnumber || "",
           taxable,

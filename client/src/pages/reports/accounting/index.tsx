@@ -10,7 +10,7 @@ import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
 
 const reportTabsObj = [
     { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-blue-600" /> },
@@ -100,7 +100,7 @@ const AccountingFinanceReports: React.FC = () => {
 
                     return {
                         transactionCode: t.transactioncode,
-                        transactionDate: new Date(Number(t.transactiondate)).toISOString().slice(0, 10),
+                        transactionDate: formatDateDMY(t.transactiondate),
                         accountName: e.ledgerid?.ledgername || "-",
                         debit: e.debit?.toFixed(2) || "0.00",
                         credit: e.credit?.toFixed(2) || "0.00",
@@ -287,7 +287,7 @@ const AccountingFinanceReports: React.FC = () => {
             })
             .map(p => ({
                 paymentCode: p.paymentcode,
-                paymentDate: new Date(Number(p.paymentdate)).toISOString().slice(0, 10),
+                paymentDate: formatDateDMY(p.paymentdate),
 
                 partyName: p.partyid?.name || "-",
 
@@ -332,7 +332,7 @@ const AccountingFinanceReports: React.FC = () => {
             .map((e: any, idx: number) => ({
                 seqNo: idx + 1,
                 expenseNo: e.expensenumber || "-",
-                expenseDate: normalizeToYMD(e.date || e.expensedate) || "-",
+                expenseDate: formatDateDMY(e.date || e.expensedate),
                 category: e.category === "tada" ? "TA/DA" : e.category ? e.category.charAt(0).toUpperCase() + e.category.slice(1) : "-",
                 staffName: `${e.staffaccountid?.firstname || ""} ${e.staffaccountid?.lastname || ""}`.trim() || e.staffaccountid?.username || e.staffid?.name || "-",
                 ledger: e.ledgerid?.ledgername || "-",

@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { useTransferStockMutations, useTransferStocksQuery } from "../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
+import { formatDateDMY } from "../../utils/helper";
 
 const TransferStock = () => {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ const TransferStock = () => {
 
     return {
       ...ts,
+      transferdate:       formatDateDMY(ts.transferdate),
       fromBranchName:     fromBranch?.branchname || ts.frombranchid,
       toBranchName:       toBranch?.branchname   || ts.tobranchid,
       itemCount:          `${(ts.items || []).length} item(s)`,

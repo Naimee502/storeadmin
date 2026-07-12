@@ -10,6 +10,7 @@ import {
   useDeletedSalesReturnsQuery,
   useSalesReturnMutations,
 } from "../../../graphql/hooks/salesreturn";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedSalesReturns = () => {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ const DeletedSalesReturns = () => {
   const rows = list.map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
+    returndate: formatDateDMY(r.returndate),
     partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
     createdByDisplay: r.createdby_name || "N/A",
   }));

@@ -15,6 +15,8 @@ import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import { formatDateDMY } from "../../utils/helper";
+import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
 
 
 const SalesInvoices = () => {
@@ -73,38 +75,62 @@ const SalesInvoices = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
-  // Open WhatsApp web/app with a pre-filled invoice summary. If the
-  // customer has a stored mobile we open the chat directly with them;
-  // otherwise we fall back to the share-text sheet.
+  // Share the invoice on WhatsApp as a PDF (generated from the same
+  // printable layout used by Print). The hidden PrintableInvoice is
+  // mounted first; the effect below converts it to PDF and shares it.
+  const waRef = useRef<HTMLDivElement>(null);
+  const [waInvoice, setWaInvoice] = useState<any>(null);
+  const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
+
   const handleWhatsAppShare = (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
     const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
-    const items = (orig.productservice || [])
-      .map(
-        (p: any, i: number) =>
-          `${i + 1}. ${p.productserviceid?.name ?? "Item"} x ${p.qty} @ ${Number(p.rate).toFixed(2)}`
-      )
-      .join("\n");
-
-    const text =
+    const message =
       `*Invoice INV-${orig.billnumber}*\n` +
-      `Date: ${orig.billdate}\n` +
-      `Customer: ${orig.partyacc?.accountname ?? "-"}\n\n` +
-      `${items}\n\n` +
+      `Date: ${formatDateDMY(orig.billdate)}\n` +
       `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
       `Thank you for your business!\n` +
       `${companyName ? `— ${companyName}` : ""}`;
 
-    // wa.me requires a phone number with country code; if missing we
-    // fall back to the bare share link which prompts the user to pick
-    // a chat manually.
-    const url = mobile
-      ? `https://wa.me/${mobile}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    waMeta.current = {
+      phone: mobile,
+      message,
+      fileName: `Invoice-INV-${orig.billnumber}.pdf`,
+    };
+    setWaInvoice(row);
   };
+
+  useEffect(() => {
+    if (!waInvoice || !waRef.current || !waMeta.current) return;
+    const run = async () => {
+      dispatch(showLoading());
+      try {
+        const result = await shareElementAsPdfOnWhatsApp({
+          element: waRef.current!,
+          ...waMeta.current!,
+        });
+        if (result === "downloaded") {
+          dispatch(
+            showMessage({
+              message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
+              type: "info",
+            })
+          );
+        }
+      } catch (e) {
+        console.error("WhatsApp PDF share error:", e);
+        dispatch(showMessage({ message: "Failed to share invoice PDF.", type: "error" }));
+      } finally {
+        dispatch(hideLoading());
+        setWaInvoice(null);
+        waMeta.current = null;
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waInvoice]);
 
   // Use ref for the printable component
   const componentRef = useRef<HTMLDivElement>(null);
@@ -192,6 +218,8 @@ const SalesInvoices = () => {
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,
+      billdate: formatDateDMY(invoice.billdate),
+      billdateRaw: invoice.billdate,
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       orderedByDisplay: invoice.orderedby_name
@@ -275,6 +303,13 @@ const SalesInvoices = () => {
         {printInvoice && (
           <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
             <PrintableInvoice ref={componentRef} invoice={printInvoice} />
+          </div>
+        )}
+
+        {/* Hidden copy rendered only while generating the WhatsApp PDF */}
+        {waInvoice && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
+            <PrintableInvoice ref={waRef} invoice={waInvoice} />
           </div>
         )}
 

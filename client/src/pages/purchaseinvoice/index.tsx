@@ -14,6 +14,8 @@ import {
 import { usePurchaseReturnsQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
+import { formatDateDMY } from "../../utils/helper";
+import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
 
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
@@ -46,31 +48,60 @@ const PurchaseInvoices = () => {
           ? auth.staff?.admin?.companyName
           : "";
 
+  // Share the purchase invoice on WhatsApp as a PDF (same printable
+  // layout as Print). Hidden mount below; effect converts + shares.
+  const waRef = useRef<HTMLDivElement>(null);
+  const [waInvoice, setWaInvoice] = useState<any>(null);
+  const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
+
   const handleWhatsAppShare = (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
     const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
-    const items = (orig.productservice || [])
-      .map(
-        (p: any, i: number) =>
-          `${i + 1}. ${p.productserviceid?.name ?? "Item"} x ${p.qty} @ ${Number(p.rate).toFixed(2)}`
-      )
-      .join("\n");
-
-    const text =
+    const message =
       `*Purchase Invoice INV-${orig.billnumber}*\n` +
-      `Date: ${orig.billdate}\n` +
-      `Vendor: ${orig.partyacc?.accountname ?? "-"}\n\n` +
-      `${items}\n\n` +
+      `Date: ${formatDateDMY(orig.billdate)}\n` +
       `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
       `${companyName ? `— ${companyName}` : ""}`;
 
-    const url = mobile
-      ? `https://wa.me/${mobile}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    waMeta.current = {
+      phone: mobile,
+      message,
+      fileName: `Purchase-Invoice-INV-${orig.billnumber}.pdf`,
+    };
+    setWaInvoice(row);
   };
+
+  useEffect(() => {
+    if (!waInvoice || !waRef.current || !waMeta.current) return;
+    const run = async () => {
+      dispatch(showLoading());
+      try {
+        const result = await shareElementAsPdfOnWhatsApp({
+          element: waRef.current!,
+          ...waMeta.current!,
+        });
+        if (result === "downloaded") {
+          dispatch(
+            showMessage({
+              message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
+              type: "info",
+            })
+          );
+        }
+      } catch (e) {
+        console.error("WhatsApp PDF share error:", e);
+        dispatch(showMessage({ message: "Failed to share invoice PDF.", type: "error" }));
+      } finally {
+        dispatch(hideLoading());
+        setWaInvoice(null);
+        waMeta.current = null;
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waInvoice]);
 
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
@@ -145,6 +176,8 @@ const PurchaseInvoices = () => {
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice?.length || 0,
       totalqty,
+      billdate: formatDateDMY(invoice.billdate),
+      billdateRaw: invoice.billdate,
       billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",
@@ -206,6 +239,13 @@ const PurchaseInvoices = () => {
         {printInvoice && (
           <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
             <PrintableInvoice ref={componentRef} invoice={printInvoice} />
+          </div>
+        )}
+
+        {/* Hidden copy rendered only while generating the WhatsApp PDF */}
+        {waInvoice && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
+            <PrintableInvoice ref={waRef} invoice={waInvoice} />
           </div>
         )}
       </div>

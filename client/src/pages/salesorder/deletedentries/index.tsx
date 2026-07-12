@@ -10,6 +10,7 @@ import {
   useDeletedSalesOrdersQuery,
   useSalesOrderMutations,
 } from "../../../graphql/hooks/salesorder";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedSalesOrders = () => {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ const DeletedSalesOrders = () => {
     return {
       ...order,
       seqNo: index + 1,
+      billdate: formatDateDMY(order.billdate),
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,

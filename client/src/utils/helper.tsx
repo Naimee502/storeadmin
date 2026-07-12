@@ -26,6 +26,34 @@ export const normalizeToYMD = (date: Date | string | null | undefined): string |
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+// ✅ converts Date or string to DD-MM-YYYY (display format used in listings & prints)
+// Also safely accepts an already-formatted "DD-MM-YYYY" string (returned as-is).
+export const formatDateDMY = (date: Date | string | number | null | undefined): string => {
+  if (!date) return "-";
+  const s = typeof date === "string" ? date.trim() : "";
+  const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+  const d = toDate(date);
+  if (isNaN(d.getTime())) return String(date);
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+};
+
+// ✅ DD-MM-YYYY hh:mm AM/PM — date comes from `date`; the time-of-day comes from
+// `timeSource` (e.g. createdAt) because bill dates are stored without a time.
+export const formatDateTimeDMY = (
+  date: Date | string | number | null | undefined,
+  timeSource?: Date | string | number | null
+): string => {
+  const datePart = formatDateDMY(date);
+  const t = toDate(timeSource ?? date);
+  if (isNaN(t.getTime())) return datePart;
+  let h = t.getHours();
+  const m = String(t.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${datePart} ${String(h).padStart(2, "0")}:${m} ${ampm}`;
+};
+
 // ✅ converts Date or string to MM/DD/YYYY
 export const normalizeToMDY = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;

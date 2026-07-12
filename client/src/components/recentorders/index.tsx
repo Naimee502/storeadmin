@@ -10,6 +10,7 @@ import {
 import DataTable from "../datatable";
 import { useAppSelector } from "../../redux/hooks";
 import { selectIsModuleAllowed } from "../../redux/slices/permissions";
+import { formatDateDMY } from "../../utils/helper";
 
 interface RecentOrdersProps {
   salesInvoiceData?: any;
@@ -103,7 +104,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
             totalitem: (item.productservice || []).length,
             totalqty,
-            billdate: item.billdate || "-",
+            billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
             billtype_billnumber: `INV-${item.billnumber}`,
             paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
             totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
@@ -155,7 +156,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
             totalitem: (item.productservice || []).length,
             totalqty,
-            billdate: item.billdate || "-",
+            billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
             billtype_billnumber: `SO-${item.billnumber}`,
             paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
             totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
@@ -207,7 +208,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
             totalitem: (item.productservice || []).length,
             totalqty,
-            billdate: item.billdate || "-",
+            billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
             billtype_billnumber: `PO-${item.billnumber}`,
             paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
             totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
@@ -254,7 +255,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           seqNo: idx + 1,
           cnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
-          returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
+          returndate: formatDateDMY(r.returndate || r.createdAt) || "-",
           partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
@@ -302,7 +303,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           seqNo: idx + 1,
           dnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
-          returndate: r.returndate || r.createdAt?.substring(0, 10) || "-",
+          returndate: formatDateDMY(r.returndate || r.createdAt) || "-",
           partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
@@ -353,7 +354,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           transferqty: stock.transferqty ?? 0,
           transferunitname: stock.transferunitname || "Unit",
           purchaserateFormatted: `₹${Number(stock.purchaserate ?? 0).toFixed(2)}`,
-          transferdate: stock.transferdate || stock.createdAt?.substring(0, 10) || "-",
+          transferdate: formatDateDMY(stock.transferdate || stock.createdAt),
           createdby_name: stock.createdby_name || "N/A",
           statusLabel: stock.status ? "Active" : "Inactive",
         }));
@@ -397,7 +398,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             const timestamp = Number(exp.expensedate);
             const dt = new Date(timestamp);
             if (!isNaN(dt.getTime())) {
-              formattedDate = dt.toLocaleDateString("en-IN");
+              formattedDate = formatDateDMY(dt);
             }
           }
           const staffLabel = exp.staffid
@@ -457,7 +458,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           if (pay.paymentdate) {
             const ts = Number(pay.paymentdate);
             const dt = new Date(ts);
-            if (!isNaN(dt.getTime())) formattedDate = dt.toLocaleDateString("en-IN");
+            if (!isNaN(dt.getTime())) formattedDate = formatDateDMY(dt);
           }
           return {
             ...pay,
@@ -507,7 +508,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           seqNo: idx + 1,
           staffName: capitalizeFirst(r.staffid?.name),
           typeName: capitalizeFirst(r.leavetypeid?.name),
-          range: `${r.fromDate || r.fromdate || "-"} → ${r.toDate || r.todate || "-"}`,
+          range: `${formatDateDMY(r.fromDate || r.fromdate)} → ${formatDateDMY(r.toDate || r.todate)}`,
           totalDays: `${r.totalDays ?? r.totaldays ?? 1} Days`,
           status: capitalizeFirst(r.status),
           reason: capitalizeFirst(r.reason),

@@ -4,7 +4,7 @@ import ReportTable, { type ReportFilterField } from "../../../components/reportt
 import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
 import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -83,7 +83,8 @@ const StockReports: React.FC = () => {
       fromBranch: fromBranch?.branchname || t.frombranchid,
       toBranch: toBranch?.branchname || t.tobranchid,
       qty: t.transferqty,
-      transferDate: normalizeToYMD(t.transferdate),
+      transferDate: formatDateDMY(t.transferdate),
+      transferDateYMD: normalizeToYMD(t.transferdate),
       status: deletedTransfers.some((dt) => dt.id === t.id) ? "Inactive" : "Active",
     };
   });
@@ -167,8 +168,8 @@ const StockReports: React.FC = () => {
       tableData = stockTransfers.filter((t) => {
         const from = appliedFilters.fromDate;
         const to = appliedFilters.toDate;
-        if (from && t.transferDate && t.transferDate < from) return false;
-        if (to && t.transferDate && t.transferDate > to) return false;
+        if (from && t.transferDateYMD && t.transferDateYMD < from) return false;
+        if (to && t.transferDateYMD && t.transferDateYMD > to) return false;
         if (appliedFilters.productId && appliedFilters.productId !== t.productId) return false;
         if (appliedFilters.status && appliedFilters.status !== t.status) return false;
         return true;

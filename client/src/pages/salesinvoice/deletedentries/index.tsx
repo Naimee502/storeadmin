@@ -9,6 +9,7 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedSalesInvoices = () => {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ const DeletedSalesInvoices = () => {
     return {
       ...invoice,
       seqNo: index + 1,
+      billdate: formatDateDMY(invoice.billdate),
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,

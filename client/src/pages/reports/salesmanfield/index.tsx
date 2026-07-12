@@ -9,7 +9,7 @@ import { useSalesRoutesQuery } from "../../../graphql/hooks/salesroutes";
 import { useLatestLocationsQuery, useLocationPingsQuery } from "../../../graphql/hooks/locationping";
 import LiveTrackingMap from "../../../components/livetrackingmap";
 import { useAppSelector } from "../../../redux/hooks";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
 import { FaChartBar, FaRoute, FaMapMarkedAlt } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -193,7 +193,7 @@ const SalesmanFieldReport: React.FC = () => {
           paymentType: String(o.paymenttype || "-").replace(/^\w/, (c: string) => c.toUpperCase()),
           routeName: o.routeid ? (routeNameById[o.routeid] || "Route") : "Without Route",
           day: fullDay("", ymd),
-          date: ymd,
+          date: formatDateDMY(o.billdate),
           totalItems: items.length,
           totalQty: items.reduce((s: number, p: any) => s + Number(p.qty || 0), 0),
           sales: Number(o.totalamount || 0).toFixed(2),
@@ -236,7 +236,7 @@ const SalesmanFieldReport: React.FC = () => {
       .map((p: any, idx: number) => ({
         seqNo: idx + 1,
         staffName: p.staffid?.name || "-",
-        lastSeen: p.pingedAt ? new Date(Number(p.pingedAt) || p.pingedAt).toLocaleString("en-IN") : "-",
+        lastSeen: p.pingedAt ? formatDateTimeDMY(p.pingedAt) : "-",
         latitude: p.latitude ?? "-",
         longitude: p.longitude ?? "-",
         accuracy: p.accuracy ?? "-",

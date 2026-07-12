@@ -10,6 +10,7 @@ import {
 } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { showMessage } from "../../../redux/slices/message";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ const DeletedTransferStocks = () => {
 
     return {
       ...ts,
+      transferdate:       formatDateDMY(ts.transferdate),
       fromBranchName:     fromBranch?.branchname || ts.frombranchid,
       toBranchName:       toBranch?.branchname   || ts.tobranchid,
       itemCount:          `${(ts.items || []).length} item(s)`,

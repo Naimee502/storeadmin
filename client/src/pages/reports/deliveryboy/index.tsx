@@ -5,7 +5,7 @@ import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useLatestLocationsQuery } from "../../../graphql/hooks/locationping";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
 import { FaChartBar, FaTruck, FaMapMarkedAlt } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -106,7 +106,7 @@ const DeliveryBoyReport: React.FC = () => {
       .map((g: any, idx: number) => ({
         seqNo: idx + 1,
         staffName: g.staffName,
-        date: g.date,
+        date: formatDateDMY(g.date),
         assigned: g.assigned,
         delivered: g.delivered,
         pending: g.pending,
@@ -143,7 +143,7 @@ const DeliveryBoyReport: React.FC = () => {
       .map((p: any, idx: number) => ({
         seqNo: idx + 1,
         staffName: p.staffid?.name || "-",
-        lastSeen: p.pingedAt ? new Date(Number(p.pingedAt) || p.pingedAt).toLocaleString("en-IN") : "-",
+        lastSeen: p.pingedAt ? formatDateTimeDMY(p.pingedAt) : "-",
         latitude: p.latitude ?? "-",
         longitude: p.longitude ?? "-",
         accuracy: p.accuracy ?? "-",

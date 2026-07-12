@@ -10,6 +10,7 @@ import {
   useDeletedPurchaseOrdersQuery,
   usePurchaseOrderMutations,
 } from "../../../graphql/hooks/purchaseorder";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedPurchaseOrders = () => {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ const DeletedPurchaseOrders = () => {
     return {
       ...order,
       seqNo: index + 1,
+      billdate: formatDateDMY(order.billdate),
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,

@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { format } from "date-fns";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
@@ -11,6 +10,7 @@ import {
   useActiveStockAdjustments,
   useDeleteStockAdjustment,
 } from "../../graphql/hooks/stockadjustments";
+import { formatDateDMY } from "../../utils/helper";
 
 const StockAdjustmentsList: React.FC = () => {
   const navigate = useNavigate();
@@ -73,7 +73,7 @@ const StockAdjustmentsList: React.FC = () => {
     ...item,
     seqNo: index + 1,
     adjustmentdate: item.adjustmentdate
-      ? format(new Date(item.adjustmentdate), "dd MMM yyyy")
+      ? formatDateDMY(item.adjustmentdate)
       : "-",
     totalamount: `₹${(item.totalamount ?? 0).toFixed(2)}`,
     createdByDisplay: item.createdby_name || "N/A",

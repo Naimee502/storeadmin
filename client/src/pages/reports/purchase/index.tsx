@@ -11,7 +11,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import PrintableInvoice from "../../../components/printinvoice";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 
 const reportTabs = [
@@ -120,7 +120,8 @@ const PurchaseReports: React.FC = () => {
         return {
           seqNo: idx + 1,
           billNo: `${cap(inv.billtype)}-${inv.billnumber}`,
-          billdate: normalizeToYMD(inv.billdate) || "",
+          billdate: formatDateDMY(inv.billdate),
+          billdateYMD: normalizeToYMD(inv.billdate) || "",
           partyacc: partyaccStr,
           partyaccId: partyAccObj?.id || inv.partyacc?.id || "Unknown",
           paymenttype: cap(inv.paymenttype),
@@ -148,8 +149,8 @@ const PurchaseReports: React.FC = () => {
         }
         if (appliedFilters.status) ok = ok && row.status === appliedFilters.status;
         if (appliedFilters.paymenttype) ok = ok && row.paymenttype === appliedFilters.paymenttype;
-        if (appliedFilters.fromDate) ok = ok && row.billdate >= appliedFilters.fromDate;
-        if (appliedFilters.toDate) ok = ok && row.billdate <= appliedFilters.toDate;
+        if (appliedFilters.fromDate) ok = ok && row.billdateYMD >= appliedFilters.fromDate;
+        if (appliedFilters.toDate) ok = ok && row.billdateYMD <= appliedFilters.toDate;
         return ok;
       });
   }, [invoiceList, appliedFilters, accountsList, productList]);
@@ -171,7 +172,7 @@ const PurchaseReports: React.FC = () => {
         return {
           seqNo: idx + 1,
           orderNo: `PO-${o.billnumber}`,
-          orderDate: normalizeToYMD(o.billdate) || "",
+          orderDate: formatDateDMY(o.billdate),
           partyName: o.partyacc?.accountname || "-",
           paymentType: cap(o.paymenttype),
           totalItems: (o.productservice || []).length,
@@ -198,7 +199,7 @@ const PurchaseReports: React.FC = () => {
         return {
           seqNo: idx + 1,
           dnNo: `DN-${r.billnumber}`,
-          returnDate: normalizeToYMD(r.returndate) || "",
+          returnDate: formatDateDMY(r.returndate),
           sourceInvoice: r.sourceBillNumber || "-",
           partyName: r.partyacc?.accountname || "-",
           totalItems: (r.productservice || []).length,

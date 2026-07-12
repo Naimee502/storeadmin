@@ -12,6 +12,7 @@ import {
 
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
+import { formatDateDMY } from "../../utils/helper";
 
 const ExpenseNote = () => {
   const navigate = useNavigate();
@@ -82,7 +83,7 @@ const ExpenseNote = () => {
       const dt = new Date(timestamp);
 
       if (!isNaN(dt.getTime())) {
-        formattedDate = dt.toLocaleDateString("en-IN"); // 🇮🇳 Optional
+        formattedDate = formatDateDMY(dt);
       }
     }
 

@@ -10,6 +10,7 @@ import {
 } from "../../../graphql/hooks/transactions";
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedTransactions = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const DeletedTransactions = () => {
       const ts = Number(txn.transactiondate);
       const dt = new Date(ts);
       if (!isNaN(dt.getTime())) {
-        formattedDate = dt.toLocaleDateString();
+        formattedDate = formatDateDMY(dt);
       } else {
         console.warn("Invalid date:", txn.transactiondate);
       }

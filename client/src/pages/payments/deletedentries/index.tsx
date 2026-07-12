@@ -9,6 +9,7 @@ import { useDeletedPaymentsQuery, usePaymentMutations } from "../../../graphql/h
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { formatDateDMY } from "../../../utils/helper";
 
 const DeletedPayments = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const DeletedPayments = () => {
     if (pay.paymentdate) {
       const ts = Number(pay.paymentdate);
       const dt = new Date(ts);
-      if (!isNaN(dt.getTime())) formattedDate = dt.toLocaleDateString();
+      if (!isNaN(dt.getTime())) formattedDate = formatDateDMY(dt);
     }
 
     const capitalizeFirstLetter = (str?: string) =>

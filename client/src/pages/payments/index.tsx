@@ -12,6 +12,7 @@ import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import { formatDateDMY } from "../../utils/helper";
 
 const Payment = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "payments"));
@@ -58,7 +59,7 @@ const Payment = () => {
     if (pay.paymentdate) {
       const ts = Number(pay.paymentdate);
       const dt = new Date(ts);
-      if (!isNaN(dt.getTime())) formattedDate = dt.toLocaleDateString();
+      if (!isNaN(dt.getTime())) formattedDate = formatDateDMY(dt);
     }
 
     // Capitalize first letter

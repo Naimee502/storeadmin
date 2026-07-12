@@ -31,13 +31,14 @@ import {
   UPSERT_LEAVE_BALANCE, DELETE_LEAVE_BALANCE,
 } from "../../graphql/mutations/attendance";
 import { GET_STAFF } from "../../graphql/queries/staffaccounts";
+import { formatDateDMY } from "../../utils/helper";
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 
 const pad  = (n: number) => String(n).padStart(2, "0");
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const monthStart = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-01`; };
-const fmtDate    = (iso?: string | null) => { if (!iso) return "-"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString(); };
+const fmtDate    = (iso?: string | null) => { if (!iso) return "-"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : formatDateDMY(d); };
 const fmtTime    = (iso?: string | null) => { if (!iso) return "-"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
 const toHm       = (m?: number | null)   => { if (!m) return "0h 0m"; return `${Math.floor(m/60)}h ${m%60}m`; };
 const cap        = (s?: string | null)   => { if (!s) return "-"; return String(s).charAt(0).toUpperCase() + String(s).slice(1); };
@@ -475,7 +476,7 @@ const Attendance: React.FC = () => {
                       {r.leavetypeid?.name}
                     </span>
                     <span>·</span>
-                    <span>{r.fromDate}{r.fromDate !== r.toDate ? ` → ${r.toDate}` : ""}</span>
+                    <span>{formatDateDMY(r.fromDate)}{r.fromDate !== r.toDate ? ` → ${formatDateDMY(r.toDate)}` : ""}</span>
                     <span>·</span>
                     <span className="font-medium">{r.totalDays} day{r.totalDays !== 1 ? "s" : ""}</span>
                   </div>
@@ -538,6 +539,7 @@ const Attendance: React.FC = () => {
   const logRows = (logsQ.data?.getAttendanceLogs ?? []).map((l: any, i: number) => ({
     ...l,
     seqNo:     i + 1,
+    dateLabel: formatDateDMY(l.date),
     staffName: l.staffid?.name ?? "-",
     staffCode: l.staffid?.staffcode ?? "-",
     firstIn:   fmtTime(l.firstPunchIn),
@@ -595,7 +597,7 @@ const Attendance: React.FC = () => {
         title="Attendance Logs"
         columns={[
           { label: "#",        key: "seqNo" },
-          { label: "Date",     key: "date" },
+          { label: "Date",     key: "dateLabel" },
           { label: "Staff",    key: "staffName" },
           { label: "Code",     key: "staffCode" },
           {
@@ -625,7 +627,7 @@ const Attendance: React.FC = () => {
           notes: row.notes ?? "",
         }, row)}
         onDelete={async (row) => {
-          if (!window.confirm(`Delete log for ${row.staffName} on ${row.date}?`)) return;
+          if (!window.confirm(`Delete log for ${row.staffName} on ${formatDateDMY(row.date)}?`)) return;
           try { await deleteLogMut({ variables: { id: row.id } }); await logsQ.refetch(); notify("Log deleted."); }
           catch { notify("Failed to delete.", "error"); }
         }}
@@ -659,7 +661,7 @@ const Attendance: React.FC = () => {
     staffName:  r.staffid?.name ?? "-",
     typeName:   r.leavetypeid?.name ?? "-",
     typeColor:  r.leavetypeid?.color,
-    dateRange:  r.fromDate === r.toDate ? r.fromDate : `${r.fromDate} → ${r.toDate}`,
+    dateRange:  r.fromDate === r.toDate ? formatDateDMY(r.fromDate) : `${formatDateDMY(r.fromDate)} → ${formatDateDMY(r.toDate)}`,
     isPending:  r.status === "pending",
   }));
 
@@ -866,7 +868,7 @@ const Attendance: React.FC = () => {
   /* TAB: Holidays                                                  */
   /* ═══════════════════════════════════════════════════════════════ */
   const holidayRows = (holidaysQ.data?.getHolidays ?? []).map((h: any, i: number) => ({
-    ...h, seqNo: i+1, nameLabel: h.name, typeLabel: cap(h.type), descriptionLabel: h.description ?? "-",
+    ...h, seqNo: i+1, dateLabel: formatDateDMY(h.date), nameLabel: h.name, typeLabel: cap(h.type), descriptionLabel: h.description ?? "-",
   }));
 
   const renderHolidaysTab = () => (
@@ -874,7 +876,7 @@ const Attendance: React.FC = () => {
       title="Holidays"
       columns={[
         { label: "#",           key: "seqNo" },
-        { label: "Date",        key: "date" },
+        { label: "Date",        key: "dateLabel" },
         { label: "Name",        key: "nameLabel" },
         {
           label: "Type",        key: "type",
