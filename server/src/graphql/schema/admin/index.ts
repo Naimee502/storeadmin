@@ -59,6 +59,7 @@ export const adminTypeDefs = gql`
     getAdmins: [Admin]
     getAdminById(id: ID!): Admin
     getAdminByEmail(email: String!): Admin
+    getAdminByCode(admincode: String!): Admin
     getPendingSubscriptions: [Admin!]!
     getDeletedAdmins(adminId: ID): [Admin!]!
   }

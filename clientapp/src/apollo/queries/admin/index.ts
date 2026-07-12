@@ -13,3 +13,18 @@ export const GET_ADMIN_BY_ID = gql`
     }
   }
 `;
+
+export const GET_ADMIN_BY_CODE = gql`
+  query GetAdminByCode($admincode: String!) {
+    getAdminByCode(admincode: $admincode) {
+      id
+      admincode
+      name
+      companyName
+      businesstype
+      mobile
+      email
+      allowedmodules
+    }
+  }
+`;

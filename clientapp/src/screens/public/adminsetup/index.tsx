@@ -12,7 +12,7 @@ import { apolloClient } from '../../../apollo/client';
 import { COLORS, FONTS, useTheme } from '../../../config';
 import { useAuth } from '../../../navigation';
 import { setTenant } from '../../../store/slices';
-import { GET_ADMIN_BY_ID } from '../../../apollo/queries/admin';
+import { GET_ADMIN_BY_CODE } from '../../../apollo/queries/admin';
 import { GET_BRANCHES } from '../../../apollo/queries/branches';
 import { AppLoader } from '../../../components';
 
@@ -21,26 +21,28 @@ export default function AdminSetup() {
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
 
-  const [code, setCode] = useState('6a4a3f04d8a3852f67c81c49');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<{ companyName: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleActivate = async () => {
-    const trimmed = code.trim();
-    if (!trimmed) { setError('Please enter your business code.'); return; }
+    // Admin code like "#ADM0001" — accept with/without "#", any case
+    const raw = code.trim().toUpperCase();
+    if (!raw) { setError('Please enter your business code.'); return; }
+    const normalized = raw.startsWith('#') ? raw : `#${raw}`;
     setError('');
     setPreview(null);
     setLoading(true);
 
     try {
       const { data } = await apolloClient.query({
-        query: GET_ADMIN_BY_ID,
-        variables: { adminid: trimmed },
+        query: GET_ADMIN_BY_CODE,
+        variables: { admincode: normalized },
         fetchPolicy: 'network-only',
       });
 
-      const admin = (data as any)?.getAdminById;
+      const admin = (data as any)?.getAdminByCode;
       console.log('Business Detail:', JSON.stringify(admin));
 
       if (!admin) {
@@ -117,7 +119,7 @@ export default function AdminSetup() {
             <Animated.View entering={FadeInDown.duration(700).delay(220)} style={styles.headingWrap}>
               <Text style={[styles.title, { color: colors.text }]}>Activate Business</Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>
-                Enter the unique code provided by your administrator to link this app to your business account.
+                Enter the business code (e.g. #ADM0001) provided by your administrator to link this app to your business account.
               </Text>
             </Animated.View>
 
@@ -128,11 +130,11 @@ export default function AdminSetup() {
                 <Icon name="briefcase-outline" size={20} color={colors.brand} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
-                  placeholder="Enter your business code"
+                  placeholder="#ADM0001"
                   placeholderTextColor={colors.placeholder}
                   value={code}
                   onChangeText={t => { setCode(t); setError(''); }}
-                  autoCapitalize="none"
+                  autoCapitalize="characters"
                   autoCorrect={false}
                   returnKeyType="done"
                   onSubmitEditing={handleActivate}

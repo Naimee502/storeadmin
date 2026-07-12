@@ -16,6 +16,14 @@ export const adminResolvers = {
     getAdminByEmail: async (_: any, { email }: { email: string }) => {
       return await Admin.findOne({ email });
     },
+    // Lookup by the auto-generated admin code (#ADM0001). Accepts the code
+    // with or without the "#" prefix, case-insensitive — used by the mobile
+    // app's Activate Business screen.
+    getAdminByCode: async (_: any, { admincode }: { admincode: string }) => {
+      const raw = String(admincode || "").trim().toUpperCase();
+      const normalized = raw.startsWith("#") ? raw : `#${raw}`;
+      return await Admin.findOne({ admincode: normalized, status: true });
+    },
     getPendingSubscriptions: async () => {
       return await Admin.find({ needsReview: true, subscribed: false, rejected: false });
     },
