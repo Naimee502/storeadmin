@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FaCalendarAlt,
   FaClock,
@@ -12,6 +12,7 @@ import {
   FaImage,
   FaCaretDown,
   FaPlus,
+  FaHistory,
 } from 'react-icons/fa';
 import Select, { components, type MultiValue, type SingleValue } from 'react-select';
 
@@ -55,6 +56,12 @@ interface FormFieldProps {
   addable?: boolean;
   onAddNew?: () => void;
   required?: boolean;
+  /** Optional in-dropdown history (e.g. party's last bills / product's last sale rates).
+      Shows a toggle button at the bottom of the dropdown menu. */
+  historyTitle?: string;
+  historyHeaders?: string[];
+  historyRows?: string[][];
+  historyEmptyText?: string;
 }
 
 const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
@@ -73,12 +80,68 @@ const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
   multiselect: <FaCaretDown />,
 };
 
+// Shared mini history table (used inside dropdown menu + standalone panel)
+const HistoryTable = ({ headers, rows, emptyText }: { headers?: string[]; rows?: string[][]; emptyText?: string }) => (
+  rows && rows.length > 0 ? (
+    <table className="min-w-full text-xs">
+      <thead className="bg-indigo-50 text-gray-600 sticky top-0">
+        <tr>
+          {(headers || []).map((h, i) => (
+            <th key={i} className={`px-2.5 py-1.5 font-semibold whitespace-nowrap ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, ri) => (
+          <tr key={ri} className="border-t border-gray-100">
+            {row.map((cell, ci) => (
+              <td key={ci} className={`px-2.5 py-1.5 whitespace-nowrap ${ci === 0 ? 'text-left font-medium' : 'text-right'}`}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <div className="px-3 py-2.5 text-xs text-gray-400">{emptyText || 'No history found.'}</div>
+  )
+);
+
+// History icon shown in the select control (next to clear ✕ and dropdown arrow)
+const IndicatorsWithHistory = (props: any) => {
+  const { historyTitle, onHistoryToggle, menuIsOpen } = props.selectProps as {
+    historyTitle?: string;
+    onHistoryToggle?: () => void;
+    menuIsOpen?: boolean;
+  };
+  return (
+    <components.IndicatorsContainer {...props}>
+      {historyTitle && onHistoryToggle && !menuIsOpen && (
+        <div
+          title={historyTitle}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onHistoryToggle(); }}
+          className="px-2 flex items-center cursor-pointer text-indigo-400 hover:text-indigo-600"
+        >
+          <FaHistory size={14} />
+        </div>
+      )}
+      {props.children}
+    </components.IndicatorsContainer>
+  );
+};
+
 // Custom Dropdown Footer
 const DropdownFooter = (props: any) => {
-  const { addable, onAddNew } = props.selectProps as {
-    addable?: boolean;
-    onAddNew?: () => void;
-  };
+  const { addable, onAddNew, historyTitle, historyHeaders, historyRows, historyEmptyText } =
+    props.selectProps as {
+      addable?: boolean;
+      onAddNew?: () => void;
+      historyTitle?: string;
+      historyHeaders?: string[];
+      historyRows?: string[][];
+      historyEmptyText?: string;
+    };
+
+  const [showHistory, setShowHistory] = useState(false);
 
   return (
     <>
@@ -90,6 +153,25 @@ const DropdownFooter = (props: any) => {
         >
           <FaPlus size={12} /> <span className="text-sm font-medium">Add New</span>
         </div>
+      )}
+      {historyTitle && (
+        <>
+          <div
+            onClick={(e) => { e.stopPropagation(); setShowHistory((s) => !s); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="px-3 py-2 flex items-center justify-between gap-2 text-indigo-600 cursor-pointer hover:bg-indigo-50 border-t"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <FaHistory size={12} /> {historyTitle}
+            </span>
+            <span className="text-xs">{showHistory ? '▲' : '▼'}</span>
+          </div>
+          {showHistory && (
+            <div className="border-t max-h-44 overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
+              <HistoryTable headers={historyHeaders} rows={historyRows} emptyText={historyEmptyText} />
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -114,7 +196,15 @@ const FormField: React.FC<FormFieldProps> = ({
   addable = false,
   onAddNew,
   required,
+  historyTitle,
+  historyHeaders,
+  historyRows,
+  historyEmptyText,
 }) => {
+  // Standalone history panel (opened via the clock icon in the select control)
+  const [historyOpen, setHistoryOpen] = useState(false);
+  React.useEffect(() => { setHistoryOpen(false); }, [value]);
+
   const isCheckbox = type === 'checkbox';
   const isRadio = type === 'radio';
   const isFile = type === 'file';
@@ -141,6 +231,7 @@ const FormField: React.FC<FormFieldProps> = ({
     if ((isSelect || isMultiSelect) && searchable) {
       const SelectWithCustom = Select as any;
       return (
+        <div className="relative">
         <SelectWithCustom
           inputId={name}
           name={name}
@@ -174,14 +265,39 @@ const FormField: React.FC<FormFieldProps> = ({
           isSearchable
           isMulti={isMultiSelect}
           placeholder={placeholder || `Select ${label}`}
-          components={{ MenuList: DropdownFooter }}
+          components={{ MenuList: DropdownFooter, IndicatorsContainer: IndicatorsWithHistory }}
           addable={addable}
           onAddNew={onAddNew}
+          historyTitle={historyTitle}
+          historyHeaders={historyHeaders}
+          historyRows={historyRows}
+          historyEmptyText={historyEmptyText}
+          onHistoryToggle={() => setHistoryOpen((s) => !s)}
+          onMenuOpen={() => setHistoryOpen(false)}
           menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           menuPosition="fixed"
           menuShouldScrollIntoView={false}
           styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
         />
+        {historyOpen && historyTitle && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-[9998] bg-white border border-indigo-200 rounded-lg shadow-lg overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+              <span className="flex items-center gap-2 text-xs font-bold text-indigo-700">
+                <FaHistory size={12} /> {historyTitle}
+              </span>
+              <span
+                onClick={() => setHistoryOpen(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer text-sm leading-none px-1"
+              >
+                ✕
+              </span>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <HistoryTable headers={historyHeaders} rows={historyRows} emptyText={historyEmptyText} />
+            </div>
+          </div>
+        )}
+        </div>
       );
     }
 

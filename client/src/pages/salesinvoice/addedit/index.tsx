@@ -8,7 +8,8 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations } from "../../../graphql/hooks/salesinvoice";
+import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
+import { formatDateDMY } from "../../../utils/helper";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -106,6 +107,41 @@ const AddEditSalesInvoice = () => {
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
   }));
+
+  // All invoices — for the selected party's last 5 bills (Vyapar-style helper)
+  const { data: allInvoicesData } = useSalesInvoicesQuery();
+
+  const lastPartyBills = useMemo(() => {
+    const partyId = partyAccount?.id;
+    if (!partyId) return [];
+    const list = allInvoicesData?.getSalesInvoices || [];
+    return list
+      .filter((inv: any) => inv.partyacc?.id === partyId && inv.id !== id)
+      .slice()
+      .sort((a: any, b: any) => {
+        const ta = new Date(a.billdate).getTime() || Number(a.createdAt) || 0;
+        const tb = new Date(b.billdate).getTime() || Number(b.createdAt) || 0;
+        return tb - ta;
+      })
+      .slice(0, 5)
+      .map((inv: any) => {
+        const items = inv.productservice || [];
+        const qty = items.reduce((s: number, p: any) => s + (p.qty || 0), 0);
+        const names = items
+          .map((p: any) => `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""}`)
+          .filter(Boolean)
+          .join(", ");
+        return {
+          id: inv.id,
+          billNo: `INV-${inv.billnumber}`,
+          date: formatDateDMY(inv.billdate),
+          products: names || "-",
+          qty,
+          discount: Number(inv.totaldiscount || 0) + Number(inv.invoicediscount || 0),
+          total: Number(inv.totalamount || 0),
+        };
+      });
+  }, [allInvoicesData, partyAccount, id]);
 
   // Product List
   const { data: producData, refetch } = useProductServicesQuery();
@@ -495,6 +531,10 @@ const AddEditSalesInvoice = () => {
                   value={partyAccount?.id || ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
+                    if (!selectedId) {
+                      setPartyAccount(null); // ✕ clear → unselect party
+                      return;
+                    }
                     const acc = customerAccounts.find(a => a.id === selectedId);
 
                     if (acc) {
@@ -512,6 +552,24 @@ const AddEditSalesInvoice = () => {
                   error={errors.partyAccount}
                   addable
                   onAddNew={() => setAddCustomerOpen(true)}
+                  historyTitle={
+                    partyAccount?.id
+                      ? `Last ${lastPartyBills.length || 5} Bills of this Party`
+                      : "Party Bill History"
+                  }
+                  historyHeaders={["Bill No", "Date", "Qty", "Disc (₹)", "Total (₹)"]}
+                  historyRows={lastPartyBills.map((b) => [
+                    b.billNo,
+                    b.date,
+                    String(b.qty),
+                    b.discount.toFixed(2),
+                    b.total.toFixed(2),
+                  ])}
+                  historyEmptyText={
+                    partyAccount?.id
+                      ? "No previous bills — this is their first invoice."
+                      : "Select a party first to see their bill history."
+                  }
                 />
               </div>
               <FormField
@@ -586,6 +644,7 @@ const AddEditSalesInvoice = () => {
             products={products}
             setProducts={setProducts}
             productData={salesProductData}
+            invoiceHistory={allInvoicesData?.getSalesInvoices || []}
             partyAccount={partyAccount}
             type="sales"
             navigate={navigate}

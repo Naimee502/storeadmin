@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import FormField from "../formfiled";
 import Button from "../button";
-import { getBaseQuantity, getInvoiceLineBaseQty } from "../../utils/helper";
+import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 
 /** ✅ Invoice line type */
@@ -32,6 +32,8 @@ type ProductSectionProps = {
   onProductsChange?: (products: InvoiceProduct[]) => void;
   navigate: (path: string) => void;
   iservice?: boolean;
+  /** Past invoices — powers "last 5 sale rates" history inside the product dropdown */
+  invoiceHistory?: any[];
 };
 
 /** ✅ Safely convert unit value (string | object | null) → string | null */
@@ -73,10 +75,41 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   partyAccount,
   navigate,
   iservice = false,
+  invoiceHistory = [],
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
+
+  /** Last 5 times the selected product was sold — date, party, qty, rate, disc */
+  const productSaleHistory = useMemo(() => {
+    const pid = selectedProduct.productserviceid;
+    if (!pid || !invoiceHistory.length) return [];
+    const vid = selectedProduct.variantid;
+    const rows: { time: number; cells: string[] }[] = [];
+    invoiceHistory.forEach((inv: any) => {
+      (inv.productservice || []).forEach((line: any) => {
+        const linePid = line.productserviceid?.id || line.productserviceid;
+        const lineVid = line.variantid?.id || line.variantid;
+        if (linePid !== pid) return;
+        if (vid && lineVid && lineVid !== vid) return;
+        rows.push({
+          time: new Date(inv.billdate).getTime() || Number(inv.createdAt) || 0,
+          cells: [
+            formatDateDMY(inv.billdate),
+            inv.partyacc?.accountname || "-",
+            String(line.qty ?? 0),
+            Number(line.rate || 0).toFixed(2),
+            Number(line.discount || 0).toFixed(2),
+          ],
+        });
+      });
+    });
+    return rows
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 5)
+      .map((r) => r.cells);
+  }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [qtyError, setQtyError] = useState<string | null>(null);
   const { resolvePrice } = usePriceResolvers();
@@ -216,6 +249,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               : `${selectedProduct.productserviceid ?? ""}--${selectedProduct.variantid ?? ""}`
           }
           onChange={(e) => {
+            if (!e.target.value) {
+              setSelectedProduct({}); // ✕ clear → unselect product
+              return;
+            }
             const [pid, vid] = e.target.value.split("--");
             const product = normalizedProducts.find((p) => p.id === pid);
             const variant = product?.productvariants.find((v: any) => v.id === vid);
@@ -248,6 +285,20 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           searchable
           addable
           onAddNew={() => navigate("/products")}
+          historyTitle={
+            invoiceHistory.length
+              ? selectedProduct.productserviceid
+                ? "Last 5 Sale Rates of this Product"
+                : "Product Sale History"
+              : undefined
+          }
+          historyHeaders={["Date", "Party", "Qty", "Rate (₹)", "Disc (₹)"]}
+          historyRows={productSaleHistory}
+          historyEmptyText={
+            selectedProduct.productserviceid
+              ? "This product has not been sold yet."
+              : "Select a product first to see its sale history."
+          }
         />
 
         {/* ✅ Sales Unit Select — FIXED */}
