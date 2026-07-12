@@ -5,6 +5,7 @@ import { gql } from "@apollo/client";
 // table and the edit modal would receive `undefined` for those fields.
 const ADMIN_FIELDS = `
   id
+  admincode
   name
   email
   companyName

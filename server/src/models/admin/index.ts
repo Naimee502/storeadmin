@@ -5,6 +5,7 @@ import { AccountLedger } from "../accountledgers";
 
 // Extend the Admin interface
 interface IAdmin extends Document {
+  admincode: string;
   name: string;
   email: string;
   password: string;
@@ -33,6 +34,9 @@ interface IAdmin extends Document {
 // Define the schema
 const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
   {
+    // Auto-generated unique code (#ADM0001, #ADM0002, ...) — same pattern as
+    // staffcode/#SAC, payment/#PAY etc. used across the other modules.
+    admincode: { type: String, unique: true, sparse: true },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
@@ -80,6 +84,24 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
   { timestamps: true }
 );
 
+
+// ✅ Auto-generate admincode (#ADM0001) BEFORE save — mirrors staffcode logic
+AdminSchema.pre("save", async function (next) {
+  try {
+    if (!this.admincode) {
+      const prefix = "#ADM";
+      const last = await Admin.findOne({
+        admincode: { $regex: new RegExp(`^${prefix}\\d{4}$`) },
+      }).sort({ admincode: -1 });
+      const lastNum = last?.admincode ? parseInt(last.admincode.replace(prefix, "")) : 0;
+      this.admincode = `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
+    }
+    next();
+  } catch (error: any) {
+    console.error("Admin pre-save (admincode) error:", error);
+    next(error);
+  }
+});
 
 // ✅ Auto-create Account Groups & Ledgers AFTER Admin created
 AdminSchema.post("save", async function (doc, next) {

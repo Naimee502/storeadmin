@@ -1,7 +1,7 @@
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
-import HomeLayout from "../../../layouts/home";
+import LoginLayout from "../../../layouts/login";
 import {
   useResetAdminMutation,
   useGetDeletedAdminsQuery
@@ -25,26 +25,38 @@ const DeletedAdmins = () => {
     }
   }, [data, refetch]);
 
+  // Same columns as the Manage Admins list so both screens look identical
   const columns = [
     { label: "Seq No", key: "seqNo" },
+    { label: "Admin Code", key: "admincode" },
+    { label: "Company", key: "companyName" },
     { label: "Name", key: "name" },
     { label: "Email", key: "email" },
+    { label: "Mobile", key: "mobile" },
+    { label: "Branches", key: "noOfBranches" },
+    { label: "Subscription", key: "subscriptionType" },
     { label: "Business Type", key: "businesstype" },
-    { label: "Multibranch", key: "isMultibranch" },
-    { label: "Channel Customers", key: "isChannelCustomers" },
   ];
+
+  const cap = (v: any) => {
+    if (v == null) return "";
+    const s = String(v);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
 
   const tableData = adminList.map((admin: any, index: number) => ({
     ...admin,
     seqNo: index + 1,
-    isMultibranch: admin.isMultibranch ? "Yes" : "No",
-    isChannelCustomers: admin.isChannelCustomers ? "Yes" : "No",
-    status: admin.status ? "Active" : "Inactive",
+    admincode: admin.admincode || "-",
+    companyName: cap(admin.companyName),
+    name: cap(admin.name),
+    subscriptionType: cap(admin.subscriptionType),
+    businesstype: cap(admin.businesstype),
   }));
 
   return (
-    <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+    <LoginLayout>
+      <div className="w-[95vw] max-w-7xl px-2 sm:px-4 py-2">
         <DataTable
           {...actions}
           title="Manage Deleted Admins"
@@ -57,7 +69,7 @@ const DeletedAdmins = () => {
           showImport={false}
           showExport={false}
           showAdd={false}
-          showReset={actions.canReset}
+          showReset={true}
           onReset={async (row) => {
             if (window.confirm(`Are you sure you want to restore admin "${row.name}"?`)) {
               try {
@@ -85,7 +97,7 @@ const DeletedAdmins = () => {
           defaultEntriesPerPage={10}
         />
       </div>
-    </HomeLayout>
+    </LoginLayout>
   );
 };
 

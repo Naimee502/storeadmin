@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import HomeLayout from "../../../layouts/home";
+import LoginLayout from "../../../layouts/login";
 import DataTable from "../../../components/datatable";
 import Modal from "../../../components/modal";
 import FormField from "../../../components/formfiled";
@@ -10,7 +10,6 @@ import Button from "../../../components/button";
 import { useAdminsQuery, useDeleteAdminMutation, useUpdateAdminMutation } from "../../../graphql/hooks/admin";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
-import { ADMIN_REGISTER_MODULES, SECTION_LABELS, findModule } from "../../../config/modules";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 
 const AdminList = () => {
@@ -27,6 +26,8 @@ const AdminList = () => {
   // Edit-form shape mirrors the Admin Register form exactly. Note that
   // legacy `isMultibranch` / `isChannelCustomers` flags were intentionally
   // dropped — they aren't on the register page so they don't belong here.
+  // Allowed Modules is intentionally NOT part of this form — module
+  // allowance is managed from Business Settings, not the admin edit modal.
   const [formValues, setFormValues] = useState<{
     name: string;
     email: string;
@@ -35,7 +36,6 @@ const AdminList = () => {
     noOfBranches: number;
     subscriptionType: string;
     businesstype: string;
-    allowedmodules: string[];
     status: boolean;
   }>({
     name: "",
@@ -45,26 +45,12 @@ const AdminList = () => {
     noOfBranches: 1,
     subscriptionType: "monthly",
     businesstype: "retail",
-    allowedmodules: [],
     status: true,
   });
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
-  // All catalog module ids — used for "Select all" + as the source for
-  // the grouped checklist, identical to the Admin Register page.
-  const allModules = ADMIN_REGISTER_MODULES.map((m) => m.id);
-
-  const handleModuleToggle = (module: string) => {
-    setFormValues((prev) => ({
-      ...prev,
-      allowedmodules: prev.allowedmodules.includes(module)
-        ? prev.allowedmodules.filter((m) => m !== module)
-        : [...prev.allowedmodules, module],
-    }));
-  };
 
   useEffect(() => {
       const fetchAndDispatch = async () => {
@@ -99,7 +85,6 @@ const AdminList = () => {
       noOfBranches: Number(raw.noOfBranches) || 1,
       subscriptionType: raw.subscriptionType || "monthly",
       businesstype: raw.businesstype || "retail",
-      allowedmodules: Array.isArray(raw.allowedmodules) ? raw.allowedmodules : [],
       status: typeof raw.status === "boolean" ? raw.status : true,
     });
     setEditingId(raw.id);
@@ -142,7 +127,6 @@ const AdminList = () => {
         noOfBranches: 1,
         subscriptionType: "monthly",
         businesstype: "retail",
-        allowedmodules: [],
         status: true,
       });
       await refetch();
@@ -157,6 +141,7 @@ const AdminList = () => {
   // is consistent with what was captured at sign-up.
   const columns = [
     { label: "Seq No", key: "seqNo" },
+    { label: "Admin Code", key: "admincode" },
     { label: "Company", key: "companyName" },
     { label: "Name", key: "name" },
     { label: "Email", key: "email" },
@@ -178,6 +163,7 @@ const AdminList = () => {
   const tableData = adminList.map((admin: any, index: number) => ({
     ...admin,
     seqNo: index + 1,
+    admincode: admin.admincode || "-",
     companyName: cap(admin.companyName),
     name: cap(admin.name),
     subscriptionType: cap(admin.subscriptionType),
@@ -185,13 +171,18 @@ const AdminList = () => {
   }));
 
   return (
-    <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+    <LoginLayout>
+      <div className="w-[95vw] max-w-7xl px-2 sm:px-4 py-2">
         <DataTable
           title="Manage Admins"
           columns={columns}
           data={tableData}
           {...actions}
+          /* Super-admin page: not governed by Business Settings / Allowed
+             Modules, so edit & delete are always available here. */
+          showEdit={true}
+          showDelete={true}
+          showDeleted={true}
           showView={false}
           showImport={false}
           showExport={false}
@@ -320,70 +311,6 @@ const AdminList = () => {
               />
             </div>
 
-            {/* Allowed Modules — grouped by section, identical to register page */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700">
-                  Allowed Modules
-                </label>
-                <div className="flex gap-3 text-[11px]">
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:underline"
-                    onClick={() =>
-                      handleFormChange("allowedmodules", allModules)
-                    }
-                  >
-                    Select all
-                  </button>
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:underline"
-                    onClick={() => handleFormChange("allowedmodules", [])}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-              <div className="border p-3 rounded bg-gray-50 max-h-72 overflow-y-auto shadow-inner space-y-3">
-                {Object.entries(
-                  ADMIN_REGISTER_MODULES.reduce<
-                    Record<string, typeof ADMIN_REGISTER_MODULES>
-                  >((acc, m) => {
-                    (acc[m.section] ||= [] as any).push(m);
-                    return acc;
-                  }, {})
-                ).map(([section, items]) => (
-                  <div key={section}>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
-                      {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {items.map((m) => (
-                        <label
-                          key={m.id}
-                          className="flex items-center space-x-2 text-xs cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formValues.allowedmodules.includes(m.id)}
-                            onChange={() => handleModuleToggle(m.id)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                          />
-                          <span
-                            className="truncate select-none"
-                            title={`${m.label} (${m.id})`}
-                          >
-                            {findModule(m.id)?.label || m.id}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={closeEdit}>
                 Cancel
@@ -395,7 +322,7 @@ const AdminList = () => {
           </div>
         </Modal>
       </div>
-    </HomeLayout>
+    </LoginLayout>
   );
 };
 
