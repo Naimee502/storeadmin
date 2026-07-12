@@ -1,4 +1,4 @@
-import React, { useEffect, type JSX } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, type JSX } from 'react';
 import {
   FaBalanceScale, FaBoxOpen, FaCodeBranch, FaHome,
   FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags,
@@ -39,12 +39,23 @@ type SidebarSection = {
 
 type SidebarItem = SidebarLink | SidebarSection;
 
+// Sidebar remounts on every route change (each page wraps HomeLayout), which
+// resets the menu scroll to top. Keep the last scroll position at module level
+// so the menu stays where the user left it after clicking a link.
+let savedSidebarScroll = 0;
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange }) => {
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
   const { permissions, isLoaded } = useAppSelector((state: any) => state.permissions);
   const { settings } = useAppSelector((state: any) => state.adminsettings);
   const location = useLocation();
   const [isHovered, setIsHovered] = React.useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Restore menu scroll position after remount/navigation
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = savedSidebarScroll;
+  }, [location.pathname]);
 
   const role = type?.toString().toLowerCase();
   const isAdmin = role === "admin";
@@ -216,7 +227,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
             isExpanded ? 'w-64' : 'w-16'
           } ${isOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}
       >
-        <div className="p-2.5 flex flex-col space-y-1 overflow-x-hidden overflow-y-auto" key={`${businessAllowed?.join(',') || 'all'}_${branchAllowed?.join(',') || 'x'}_${staffAllowed?.join(',') || 'x'}`}>
+        <div
+          ref={scrollRef}
+          onScroll={(e) => { savedSidebarScroll = e.currentTarget.scrollTop; }}
+          className="p-2.5 flex flex-col space-y-1 overflow-x-hidden overflow-y-auto"
+          key={`${businessAllowed?.join(',') || 'all'}_${branchAllowed?.join(',') || 'x'}_${staffAllowed?.join(',') || 'x'}`}
+        >
           {sidebarItems.map((item: any, index: any) =>
             'isSection' in item && item.isSection ? (
               <div key={`section-${index}-${item.label}`} className="mt-4 border-t border-slate-800/80 pt-2.5 px-2">
