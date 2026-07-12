@@ -85,6 +85,14 @@ export const applyDateShortcut = (
   return { from, to };
 };
 
+// ✅ Indian financial year (1 Apr – 31 Mar) for a given date
+export const getFinancialYear = (d: Date = new Date()) => {
+  const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+  const start = new Date(startYear, 3, 1);
+  const end = new Date(startYear + 1, 2, 31);
+  return { start, end, label: `FY ${startYear}-${String(startYear + 1).slice(2)}` };
+};
+
 export const getNextBillNumber = (invoices) => {
   if (!invoices || invoices.length === 0) return "000001";
 

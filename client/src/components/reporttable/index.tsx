@@ -12,6 +12,13 @@ import Loader from "../loader";
 import FormField from "../formfiled";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { getFinancialYear, formatDateDMY } from "../../utils/helper";
+
+/* Current financial year label, e.g. "FY 2026-27 (01-04-2026 → 31-03-2027)" */
+const fyInfo = () => {
+  const fy = getFinancialYear();
+  return `${fy.label} (${formatDateDMY(fy.start)} → ${formatDateDMY(fy.end)})`;
+};
 
 /* ──────────────────────────────────────────────────────────────────
    Types
@@ -70,9 +77,7 @@ const buildExportRow = (row: any, columns: ReportColumn[]) => {
    PDF via print window  (Tally-style)
 ────────────────────────────────────────────────────────────────── */
 const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) => {
-  const today = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  const today = formatDateDMY(new Date());
 
   const thRow = columns.map((c) => `<th>${c.label}</th>`).join("");
   const bodyRows = data
@@ -111,7 +116,7 @@ const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) =
   @media print{body{margin:10px;}}
 </style></head><body>
 <h2>${title}</h2>
-<div class="meta">Generated on: ${today} &nbsp;|&nbsp; Total records: ${data.length}</div>
+<div class="meta">${fyInfo()} &nbsp;|&nbsp; Generated on: ${today} &nbsp;|&nbsp; Total records: ${data.length}</div>
 <table><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table>
 <script>window.onload=()=>{window.print();window.close();}<\/script>
 </body></html>`);
@@ -226,7 +231,13 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleExcelExport = () => {
     if (onExport) { onExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, columns));
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.aoa_to_sheet([
+      [title],
+      [`Financial Year: ${fyInfo()}`],
+      [`Generated on: ${formatDateDMY(new Date())}`],
+      [],
+    ]);
+    XLSX.utils.sheet_add_json(ws, rows, { origin: "A5" });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
     XLSX.writeFile(wb, `${exportFileName}.xlsx`);
@@ -235,7 +246,11 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleCsvExport = () => {
     if (onCsvExport) { onCsvExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, columns));
-    const csv = Papa.unparse(rows);
+    const header =
+      `${title}\r\n` +
+      `Financial Year: ${fyInfo()}\r\n` +
+      `Generated on: ${formatDateDMY(new Date())}\r\n\r\n`;
+    const csv = header + Papa.unparse(rows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -257,8 +272,13 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
       <div className="space-y-4 text-xs sm:text-sm">
 
-        {/* Title */}
-        <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
+        {/* Title + Financial Year */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200">
+            {fyInfo()}
+          </span>
+        </div>
 
         {/* ── Filter panel ── */}
         {filterFields.length > 0 && (

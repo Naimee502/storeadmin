@@ -7,7 +7,7 @@ import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { formatDateDMY, normalizeToYMD } from "../../../utils/helper";
+import { formatDateDMY, normalizeToYMD, getFinancialYear } from "../../../utils/helper";
 
 import { FaUserClock, FaStoreSlash, FaHistory } from "react-icons/fa";
 
@@ -17,16 +17,12 @@ const reportTabsObj = [
   { id: "Receivable / Payable Aging", label: "Receivable / Payable Aging", icon: <FaHistory className="text-emerald-600" /> },
 ];
 
-/* ── Indian financial year (1 Apr – 31 Mar) ── */
-const getFinancialYear = (d = new Date()) => {
-  const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
-  const start = new Date(startYear, 3, 1);
-  const end = new Date(startYear + 1, 2, 31);
-  return { start, end, label: `FY ${startYear}-${String(startYear + 1).slice(2)}` };
-};
-
 const fmtAmt = (n: number) =>
   n >= 0 ? n.toFixed(2) : `(${Math.abs(n).toFixed(2)})`;
+
+// "Party Name - Mobile"
+const partyLabelOf = (a: any) =>
+  `${a.name || "-"}${a.mobile ? ` - ${a.mobile}` : ""}`;
 
 const PartyReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
@@ -214,7 +210,7 @@ const PartyReports: React.FC = () => {
     const creditAvailable = creditLimit > 0 ? creditLimit - used : null;
 
     return {
-      party: a.name,
+      party: partyLabelOf(a),
       ledger: a.ledgerid?.ledgername || "-",
       openingBalance: fmtAmt(opening),
       billed: billedInPeriod.toFixed(2),
@@ -275,7 +271,7 @@ const PartyReports: React.FC = () => {
               : creditLimit > 0 && used > creditLimit
                 ? "Limit Crossed"
                 : "OK",
-          account: a.name,
+          account: partyLabelOf(a),
           ledger: a.ledgerid?.ledgername || "-",
           type: a.type.charAt(0).toUpperCase() + a.type.slice(1),
           outstanding: fmtAmt(outstanding),
@@ -345,9 +341,8 @@ const PartyReports: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <div className="flex flex-wrap gap-2">
-            {reportTabsObj.map((tab) => {
+        <div className="flex flex-wrap gap-2 mb-4">
+          {reportTabsObj.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
@@ -365,10 +360,6 @@ const PartyReports: React.FC = () => {
                 </button>
               );
             })}
-          </div>
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200">
-            {fy.label} ({formatDateDMY(fy.start)} → {formatDateDMY(fy.end)})
-          </span>
         </div>
         <ReportTable
           title="Party Reports"
