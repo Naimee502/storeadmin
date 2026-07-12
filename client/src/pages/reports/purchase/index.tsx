@@ -20,6 +20,16 @@ const reportTabs = [
   { id: "Purchase Return (DN)", label: "Purchase Return (DN)", icon: <FaUndoAlt className="text-indigo-600" /> },
 ];
 
+// "Product - Variant, Product2 - Variant2" from a productservice array
+const productNamesOf = (items: any[]) =>
+  (items || [])
+    .map((p: any) => {
+      const n = p.productserviceid?.name || "Unknown";
+      const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+      return `${n}${v}`;
+    })
+    .join(", ") || "-";
+
 // Safely capitalize a value that may be string | boolean | null | undefined
 const cap = (val: any): string => {
   if (!val && val !== false) return "-";
@@ -119,7 +129,7 @@ const PurchaseReports: React.FC = () => {
 
         return {
           seqNo: idx + 1,
-          billNo: `${cap(inv.billtype)}-${inv.billnumber}`,
+          billNo: `INV-${inv.billnumber}`,
           billdate: formatDateDMY(inv.billdate),
           billdateYMD: normalizeToYMD(inv.billdate) || "",
           partyacc: partyaccStr,
@@ -129,6 +139,8 @@ const PurchaseReports: React.FC = () => {
           productIds,
           totalitem: inv.productservice?.length ?? 0,
           totalqty,
+          totaldiscount: Number(inv.totaldiscount || 0).toFixed(2),
+          totalgst: Number(inv.totalgst || 0).toFixed(2),
           totalamount: inv.totalamount,
           status: inv.status ? "Active" : "Inactive",
         };
@@ -173,12 +185,16 @@ const PurchaseReports: React.FC = () => {
           seqNo: idx + 1,
           orderNo: `PO-${o.billnumber}`,
           orderDate: formatDateDMY(o.billdate),
-          partyName: o.partyacc?.accountname || "-",
+          partyName: o.partyacc
+            ? `${o.partyacc.accountname || "-"}${o.partyacc.mobile ? ` - ${o.partyacc.mobile}` : ""}`
+            : "-",
+          products: productNamesOf(o.productservice),
           paymentType: cap(o.paymenttype),
           totalItems: (o.productservice || []).length,
           totalQty,
+          discount: Number(o.totaldiscount || 0).toFixed(2),
+          gst: Number(o.totalgst || 0).toFixed(2),
           totalAmount: Number(o.totalamount || 0).toFixed(2),
-          isConverted: o.isConverted ? "Yes" : "No",
           status: cap(o.status),
         };
       });
@@ -198,10 +214,14 @@ const PurchaseReports: React.FC = () => {
         const totalQty = (r.productservice || []).reduce((s: number, p: any) => s + (p.qty || 0), 0);
         return {
           seqNo: idx + 1,
-          dnNo: `DN-${r.billnumber}`,
+          dnNo: String(r.billnumber || "").startsWith("DN-") ? r.billnumber : `DN-${r.billnumber}`,
           returnDate: formatDateDMY(r.returndate),
           sourceInvoice: r.sourceBillNumber || "-",
-          partyName: r.partyacc?.accountname || "-",
+          partyName: r.partyacc
+            ? `${r.partyacc.accountname || "-"}${r.partyacc.mobile ? ` - ${r.partyacc.mobile}` : ""}`
+            : "-",
+          paymentType: cap(r.paymenttype),
+          products: productNamesOf(r.productservice),
           totalItems: (r.productservice || []).length,
           totalQty,
           discount: Number(r.totaldiscount || 0).toFixed(2),
@@ -238,6 +258,8 @@ const PurchaseReports: React.FC = () => {
         { label: "Product(s)", key: "productname" },
         { label: "Total Items", key: "totalitem", numeric: true },
         { label: "Total Qty", key: "totalqty", numeric: true },
+        { label: "Discount (₹)", key: "totaldiscount", numeric: true },
+        { label: "GST (₹)", key: "totalgst", numeric: true },
         { label: "Total Amount (₹)", key: "totalamount", numeric: true },
         { label: "Status", key: "status" },
       ];
@@ -268,10 +290,12 @@ const PurchaseReports: React.FC = () => {
         { label: "Date", key: "orderDate" },
         { label: "Party (Vendor)", key: "partyName" },
         { label: "Payment Type", key: "paymentType" },
+        { label: "Product(s)", key: "products" },
         { label: "Items", key: "totalItems", numeric: true },
         { label: "Qty", key: "totalQty", numeric: true },
+        { label: "Discount (₹)", key: "discount", numeric: true },
+        { label: "GST (₹)", key: "gst", numeric: true },
         { label: "Amount (₹)", key: "totalAmount", numeric: true },
-        { label: "Converted", key: "isConverted" },
         { label: "Status", key: "status" },
       ];
       filterFields = [
@@ -301,12 +325,13 @@ const PurchaseReports: React.FC = () => {
         { label: "Return Date", key: "returnDate" },
         { label: "Source Invoice", key: "sourceInvoice" },
         { label: "Party (Vendor)", key: "partyName" },
+        { label: "Payment Mode", key: "paymentType" },
+        { label: "Product(s)", key: "products" },
         { label: "Items", key: "totalItems", numeric: true },
         { label: "Qty", key: "totalQty", numeric: true },
         { label: "Discount (₹)", key: "discount", numeric: true },
         { label: "GST (₹)", key: "gst", numeric: true },
         { label: "Amount (₹)", key: "totalAmount", numeric: true },
-        { label: "Refund Mode", key: "refundMode" },
         { label: "Reason", key: "reason" },
         { label: "Status", key: "status" },
       ];
