@@ -138,7 +138,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     // Inventory & Stock (4 cards)
     { moduleId: "products", category: "inventory", label: "Total Products", value: totalProducts, sub: "Catalog Items", icon: <FaArchive />, path: "/products", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
     { moduleId: "products", category: "inventory", label: "Stock Units", value: totalCurrentStock, sub: "Total Stock Qty", icon: <FaBoxes />, path: "/products", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
-    { moduleId: "products", category: "inventory", label: "Low Stock Alert", value: lowStockCount, sub: "Below Minimum", icon: <FaExclamationTriangle />, path: "/products", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
+    { moduleId: "products", category: "inventory", label: "Low Stock Alert", value: lowStockCount, sub: "Below Minimum", icon: <FaExclamationTriangle />, path: "/products?filter=lowstock", color: "text-rose-600", bgIcon: "bg-rose-50", borderHover: "hover:border-rose-400" },
     { moduleId: "transferstock", category: "inventory", label: "Stock Transfers", value: totalOutgoingTransfer, sub: `${transfers.length} Shipments`, icon: <FaExchangeAlt />, path: "/transferstock", color: "text-orange-600", bgIcon: "bg-orange-50", borderHover: "hover:border-orange-400" },
 
     // HR & Operations (4 cards)

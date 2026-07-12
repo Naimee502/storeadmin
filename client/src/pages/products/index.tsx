@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
@@ -21,7 +21,23 @@ const ProductServices = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch, loading } = useProductServicesQuery();
-  const productServiceList = data?.getProductServices ?? [];
+
+  // ?filter=lowstock (from the dashboard "Low Stock Alert" card) —
+  // show only products having a variant below its minimum stock
+  const location = useLocation();
+  const isLowStockFilter =
+    new URLSearchParams(location.search).get("filter") === "lowstock";
+
+  const allProducts = data?.getProductServices ?? [];
+  const productServiceList = isLowStockFilter
+    ? allProducts.filter(
+        (p: any) =>
+          !p.isservice &&
+          (p.productvariants ?? []).some(
+            (v: any) => (v.currentstock ?? 0) < (v.minimumstock ?? 0)
+          )
+      )
+    : allProducts;
   console.log("ProductServiceList:", JSON.stringify(productServiceList));
   const { deleteProductServiceMutation } = useProductServiceMutations();
 
@@ -177,8 +193,24 @@ const ProductServices = () => {
           style={{ display: "none" }}
         />
 
+        {/* Low-stock filter chip (from dashboard card) */}
+        {isLowStockFilter && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+              ⚠ Showing Low Stock Products Only ({productServiceList.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/products")}
+              className="text-xs text-blue-600 hover:underline font-medium cursor-pointer"
+            >
+              Show All Products
+            </button>
+          </div>
+        )}
+
         <DataTable
-          title="Manage Product Services"
+          title={isLowStockFilter ? "Low Stock Products" : "Manage Product Services"}
           columns={columns}
           data={tableData}
           {...actions}

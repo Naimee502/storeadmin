@@ -10,6 +10,7 @@ import {
 import { Menu } from '@headlessui/react';
 import { useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
+import NotificationBell from '../notificationbell';
 
 interface Branch {
   id: string;
@@ -88,6 +89,9 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Right-side controls */}
       <div className="ml-auto flex items-center gap-3 sm:gap-5">
+        {/* System notifications */}
+        <NotificationBell />
+
         {isPosAllowed && (
           <button
             onClick={() => navigate('/posdashboard')}
