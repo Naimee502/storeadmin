@@ -131,47 +131,25 @@ const IndicatorsWithHistory = (props: any) => {
 
 // Custom Dropdown Footer
 const DropdownFooter = (props: any) => {
-  const { addable, onAddNew, historyTitle, historyHeaders, historyRows, historyEmptyText } =
-    props.selectProps as {
-      addable?: boolean;
-      onAddNew?: () => void;
-      historyTitle?: string;
-      historyHeaders?: string[];
-      historyRows?: string[][];
-      historyEmptyText?: string;
-    };
-
-  const [showHistory, setShowHistory] = useState(false);
+  const { addable, onAddNew } = props.selectProps as {
+    addable?: boolean;
+    onAddNew?: () => void;
+  };
 
   return (
     <>
       <components.MenuList {...props}>{props.children}</components.MenuList>
       {addable && onAddNew && (
         <div
-          onClick={onAddNew}
+          onClick={() => {
+            // Close the dropdown before opening the Add-New modal
+            (document.activeElement as HTMLElement)?.blur();
+            onAddNew();
+          }}
           className="px-3 py-2 flex items-center gap-2 text-blue-600 cursor-pointer hover:bg-blue-50 border-t"
         >
           <FaPlus size={12} /> <span className="text-sm font-medium">Add New</span>
         </div>
-      )}
-      {historyTitle && (
-        <>
-          <div
-            onClick={(e) => { e.stopPropagation(); setShowHistory((s) => !s); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="px-3 py-2 flex items-center justify-between gap-2 text-indigo-600 cursor-pointer hover:bg-indigo-50 border-t"
-          >
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <FaHistory size={12} /> {historyTitle}
-            </span>
-            <span className="text-xs">{showHistory ? '▲' : '▼'}</span>
-          </div>
-          {showHistory && (
-            <div className="border-t max-h-44 overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
-              <HistoryTable headers={historyHeaders} rows={historyRows} emptyText={historyEmptyText} />
-            </div>
-          )}
-        </>
       )}
     </>
   );

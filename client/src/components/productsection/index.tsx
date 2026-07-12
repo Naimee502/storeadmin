@@ -288,16 +288,16 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           historyTitle={
             invoiceHistory.length
               ? selectedProduct.productserviceid
-                ? "Last 5 Sale Rates of this Product"
-                : "Product Sale History"
+                ? `Last 5 ${type === "purchase" ? "Purchase" : "Sale"} Rates of this Product`
+                : `Product ${type === "purchase" ? "Purchase" : "Sale"} History`
               : undefined
           }
           historyHeaders={["Date", "Party", "Qty", "Rate (₹)", "Disc (₹)"]}
           historyRows={productSaleHistory}
           historyEmptyText={
             selectedProduct.productserviceid
-              ? "This product has not been sold yet."
-              : "Select a product first to see its sale history."
+              ? `This product has no ${type === "purchase" ? "purchase" : "sale"} history yet.`
+              : "Select a product first to see its history."
           }
         />
 

@@ -8,7 +8,8 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations } from "../../../graphql/hooks/purchaseinvoice";
+import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
+import { getLastPartyDocRows } from "../../../utils/helper";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -108,6 +109,13 @@ const AddEditPurchaseInvoice = () => {
     value: acc.id,
     label: `${acc.name} - ${acc.mobile}`,
   }));
+
+  // Vendor's last 5 purchase invoices — powers dropdown history
+  const { data: allInvoicesData } = usePurchaseInvoicesQuery();
+  const partyBillHistory = useMemo(
+    () => getLastPartyDocRows(allInvoicesData?.getPurchaseInvoices || [], partyAccount?.id, id, "INV"),
+    [allInvoicesData, partyAccount?.id, id]
+  );
 
   // Product List
   const { data: productData, refetch } = useProductServicesQuery();
@@ -496,6 +504,14 @@ const AddEditPurchaseInvoice = () => {
                   error={errors.partyAccount}
                   addable
                   onAddNew={() => setAddVendorOpen(true)}
+                  historyTitle={partyAccount?.id ? "Last 5 Bills of this Vendor" : "Vendor Bill History"}
+                  historyHeaders={["Bill No", "Date", "Qty", "Disc (₹)", "Total (₹)"]}
+                  historyRows={partyBillHistory}
+                  historyEmptyText={
+                    partyAccount?.id
+                      ? "No previous bills — this is their first invoice."
+                      : "Select a vendor first to see their bill history."
+                  }
                 />
               </div>
               <FormField
@@ -564,6 +580,7 @@ const AddEditPurchaseInvoice = () => {
             products={products}
             setProducts={setProducts}
             productData={purchaseProductData}
+            invoiceHistory={allInvoicesData?.getPurchaseInvoices || []}
             partyAccount={partyAccount?.id || partyAccount}
             type="purchase"
             navigate={navigate}

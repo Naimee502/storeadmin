@@ -85,6 +85,39 @@ export const applyDateShortcut = (
   return { from, to };
 };
 
+// ✅ Last 5 documents (orders/invoices) of a party as history rows:
+// [DocNo, Date, Qty, Disc, Total] — used by the dropdown history feature
+export const getLastPartyDocRows = (
+  docs: any[],
+  partyId?: string,
+  excludeId?: string,
+  prefix: string = "INV"
+): string[][] => {
+  if (!partyId || !docs?.length) return [];
+  return docs
+    .filter((d: any) => d.partyacc?.id === partyId && d.id !== excludeId)
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        (new Date(b.billdate).getTime() || Number(b.createdAt) || 0) -
+        (new Date(a.billdate).getTime() || Number(a.createdAt) || 0)
+    )
+    .slice(0, 5)
+    .map((d: any) => {
+      const items = d.productservice || [];
+      const qty = items.reduce((s: number, p: any) => s + (p.qty || 0), 0);
+      const disc = Number(d.totaldiscount || 0) + Number(d.invoicediscount || 0);
+      const num = String(d.billnumber || "");
+      return [
+        num.startsWith(`${prefix}-`) ? num : `${prefix}-${num}`,
+        formatDateDMY(d.billdate),
+        String(qty),
+        disc.toFixed(2),
+        Number(d.totalamount || 0).toFixed(2),
+      ];
+    });
+};
+
 // ✅ Indian financial year (1 Apr – 31 Mar) for a given date
 export const getFinancialYear = (d: Date = new Date()) => {
   const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;

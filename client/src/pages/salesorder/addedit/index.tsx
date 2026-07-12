@@ -7,7 +7,8 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
+import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
+import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -85,6 +86,13 @@ const AddEditSalesOrder = () => {
 
   const { data: producData } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
+
+  // Party's last 5 orders — powers dropdown history
+  const { data: allOrdersData } = useSalesOrdersQuery();
+  const partyOrderHistory = useMemo(
+    () => getLastPartyDocRows(allOrdersData?.getSalesOrders || [], partyAccount?.id, id, "SO"),
+    [allOrdersData, partyAccount?.id, id]
+  );
 
   useEffect(() => {
     if (isEdit && data?.getSalesOrderById) {
@@ -270,6 +278,7 @@ const AddEditSalesOrder = () => {
                   { value: "other", label: "Other" },
                 ]}
                 error={errors.paymentType}
+                searchable
               />
               <FormField
                 label="Party Account"
@@ -282,8 +291,17 @@ const AddEditSalesOrder = () => {
                 }}
                 options={accountOptions}
                 error={errors.partyAccount}
+                searchable
                 addable
                 onAddNew={() => setAddCustomerOpen(true)}
+                historyTitle={partyAccount?.id ? "Last 5 Orders of this Party" : "Party Order History"}
+                historyHeaders={["Order No", "Date", "Qty", "Disc (₹)", "Total (₹)"]}
+                historyRows={partyOrderHistory}
+                historyEmptyText={
+                  partyAccount?.id
+                    ? "No previous orders — this is their first order."
+                    : "Select a party first to see their order history."
+                }
               />
               <FormField
                 label="Order Date"
@@ -309,6 +327,7 @@ const AddEditSalesOrder = () => {
             products={products}
             setProducts={setProducts}
             productData={salesProductData}
+            invoiceHistory={allOrdersData?.getSalesOrders || []}
             partyAccount={partyAccount}
             type="sales"
             navigate={navigate}

@@ -180,7 +180,7 @@ export default function PosAddCustomer({
                     <h2 className="text-lg font-semibold">
                      {mode === "customer" ? "Add Customer" : "Add Vendor"}
                     </h2>
-                    <button onClick={onClose}><X /></button>
+                    <button type="button" onClick={onClose}><X /></button>
                 </div>
 
                 <FormField
@@ -246,6 +246,7 @@ export default function PosAddCustomer({
                 )}
                 
                 <button
+                    type="button"
                     className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg border disabled:opacity-60"
                     onClick={handleCreate}
                     disabled={loading}

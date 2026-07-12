@@ -10,7 +10,9 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import {
   usePurchaseOrderByIDQuery,
   usePurchaseOrderMutations,
+  usePurchaseOrdersQuery,
 } from "../../../graphql/hooks/purchaseorder";
+import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -108,6 +110,13 @@ const AddEditPurchaseOrder = () => {
 
   const { data: producData } = useProductServicesQuery();
   const purchaseProductData = producData?.getProductServices ?? [];
+
+  // Vendor's last 5 orders — powers dropdown history
+  const { data: allOrdersData } = usePurchaseOrdersQuery();
+  const partyOrderHistory = useMemo(
+    () => getLastPartyDocRows(allOrdersData?.getPurchaseOrders || [], partyAccount?.id, id, "PO"),
+    [allOrdersData, partyAccount?.id, id]
+  );
 
   useEffect(() => {
     if (isEdit && data?.getPurchaseOrderById) {
@@ -312,6 +321,7 @@ const AddEditPurchaseOrder = () => {
                   { value: "other", label: "Other" },
                 ]}
                 error={errors.paymentType}
+                searchable
               />
               <FormField
                 label="Party Account"
@@ -326,8 +336,17 @@ const AddEditPurchaseOrder = () => {
                 }}
                 options={accountOptions}
                 error={errors.partyAccount}
+                searchable
                 addable
                 onAddNew={() => setAddVendorOpen(true)}
+                historyTitle={partyAccount?.id ? "Last 5 Orders of this Vendor" : "Vendor Order History"}
+                historyHeaders={["Order No", "Date", "Qty", "Disc (₹)", "Total (₹)"]}
+                historyRows={partyOrderHistory}
+                historyEmptyText={
+                  partyAccount?.id
+                    ? "No previous orders — this is their first order."
+                    : "Select a vendor first to see their order history."
+                }
               />
               <FormField
                 label="Order Date"
@@ -353,6 +372,7 @@ const AddEditPurchaseOrder = () => {
             products={products}
             setProducts={setProducts}
             productData={purchaseProductData}
+            invoiceHistory={allOrdersData?.getPurchaseOrders || []}
             partyAccount={partyAccount}
             type="purchase"
             navigate={navigate}

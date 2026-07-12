@@ -25,6 +25,7 @@ import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
+import { getLastPartyDocRows } from "../../utils/helper";
 import { useSalesOrderMutations, useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
@@ -214,6 +215,18 @@ export default function POSDashboard() {
   const { data: ordersData, refetch: refetchOrders } = useSalesOrdersQuery();
   const serverInvoices = invoicesData?.getSalesInvoices ?? [];
   const serverOrders = ordersData?.getSalesOrders ?? [];
+
+  // Selected customer's last 5 bills/orders — dropdown history (mode-aware)
+  const partyDocHistory = useMemo(
+    () =>
+      getLastPartyDocRows(
+        isOrderMode ? serverOrders : serverInvoices,
+        selectedParty?.id,
+        undefined,
+        isOrderMode ? "SO" : "INV"
+      ),
+    [isOrderMode, serverOrders, serverInvoices, selectedParty?.id]
+  );
 
   // Staff is mainly an order-taker, not a billing person — default to ORDER mode
   useEffect(() => {
@@ -1082,6 +1095,24 @@ export default function POSDashboard() {
                 addable
                 onAddNew={() => setAddCustomerOpen(true)}
                 placeholder="Walk-in customer"
+                historyTitle={
+                  selectedParty?.id
+                    ? `Last 5 ${isOrderMode ? "Orders" : "Bills"} of this Customer`
+                    : `Customer ${isOrderMode ? "Order" : "Bill"} History`
+                }
+                historyHeaders={[
+                  isOrderMode ? "Order No" : "Bill No",
+                  "Date",
+                  "Qty",
+                  "Disc (₹)",
+                  "Total (₹)",
+                ]}
+                historyRows={partyDocHistory}
+                historyEmptyText={
+                  selectedParty?.id
+                    ? `No previous ${isOrderMode ? "orders" : "bills"} for this customer.`
+                    : "Select a customer first to see their history."
+                }
               />
             </div>
 
