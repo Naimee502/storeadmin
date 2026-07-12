@@ -400,15 +400,15 @@ export const productServiceResolvers = {
         // -----------------------------------------
         const oldVariantSkus = existing?.productvariants?.map((v: any) => v.sku);
 
+        // Return null for missing refs — the parent fields (subcategoryid,
+        // groupid, etc.) are nullable in the schema, but their object types
+        // have non-nullable name fields (e.g. SubCategory.subcategoryname!).
+        // Returning a stub object here forces GraphQL to resolve those
+        // non-nullable fields as null → "Cannot return null" errors.
         const convertRefSafe = (obj: any) => {
-          if (!obj) return { id: "", ledgername: "", modelname: "" };
-          const { _id, ledgername, modelname, ...rest } = obj;
-          return {
-            id: _id?.toString() ?? "",
-            ledgername: ledgername ?? "",
-            modelname: modelname ?? "", // <-- ensure nullable
-            ...rest,
-          };
+          if (!obj) return null;
+          const { _id, ...rest } = obj;
+          return { id: _id?.toString() ?? "", ...rest };
         };
 
         // Normalize object id fields
