@@ -35,11 +35,23 @@ interface Invoice {
   roundoff?: number;
   invoicediscount?: number;
   invoicediscounttype?: string;
+  // Party's running-account balance, fetched lazily on Print click — see
+  // Business Settings → Invoice Print → "Show party's Previous/Current Balance".
+  partyPreviousBalance?: number;
+  partyCurrentBalance?: number;
 }
 
 interface PrintableInvoiceProps {
   invoice: Invoice;
 }
+
+// Fallback shown if the admin hasn't customised Terms & Conditions yet
+// (mirrors AdminSettings.printTermsAndConditions default on the server).
+const DEFAULT_TERMS =
+  '1. Goods once sold will not be taken back.\n' +
+  '2. Interest @18% p.a. will be charged if payment is not made within due date.\n' +
+  '3. Our risk and responsibility ceases as soon as the goods leave our premises.\n' +
+  '4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"';
 
 /* ================= COMPONENT ================= */
 const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
@@ -96,6 +108,22 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const encrypt = !!settings?.encryptInvoicePrices;
     const mask = (val: number) => encrypt ? val / 10 : val;
+
+    // Print layout customisation (Business Settings → Invoice Print)
+    const showTerms = settings?.printShowTermsAndConditions !== false;
+    const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
+    const termsLines = (settings?.printTermsAndConditions || DEFAULT_TERMS)
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter(Boolean);
+
+    // Party's running balance — only shown when the admin has opted in AND
+    // the caller actually fetched it (Print click), so other invoice/print
+    // flows (e.g. WhatsApp share, Purchase Invoice) are unaffected.
+    const showPartyBalance =
+      settings?.printShowPartyBalance === true &&
+      invoice.partyPreviousBalance !== undefined &&
+      invoice.partyCurrentBalance !== undefined;
 
     return (
       <div ref={localRef} className="inv-root">
@@ -227,6 +255,10 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             display: flex;
             justify-content: flex-end;
             border-top: 1px solid #111111;
+            /* Guarantee a full-width divider below Grand Total — this sits
+               on the full-width flex container itself (not the 46%-wide
+               floated totals box), so it always spans edge to edge. */
+            border-bottom: 1px solid #111111;
           }
           .inv-totals-box {
             width: 46%;
@@ -248,6 +280,16 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             background: #f3f4f6;
             padding: 8px 12px;
             font-size: 14px;
+            font-weight: 700;
+          }
+          .inv-totals-row.inv-balance-row {
+            border-bottom: 1px solid #eeeeee;
+          }
+          .inv-totals-row.inv-balance-row:first-of-type {
+            border-top: 1px solid #dddddd;
+          }
+          .inv-totals-row.inv-balance-row:last-of-type {
+            border-bottom: 1px solid #111111;
             font-weight: 700;
           }
 
@@ -272,22 +314,35 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             padding: 10px 12px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            /* Content anchors to the bottom, leaving blank space above for a
+               physical signature — looks intentional whether 1 or 2 lines
+               (company name row optional) are actually rendered. */
+            justify-content: flex-end;
             text-align: right;
             min-height: 90px;
+          }
+          .inv-sign.standalone {
+            /* When the Terms & Conditions column is hidden, don't stretch
+               this block across the full row — keep it a normal-sized,
+               right-aligned signature box instead of a big empty strip. */
+            flex: 0 0 auto;
+            width: 260px;
+            margin-left: auto;
           }
         `}</style>
 
         <div className="inv-box">
           {/* ---- Company header ---- */}
-          <div className="inv-company">
-            <p className="inv-company-name">{companyName || "---"}</p>
-            <div className="inv-company-addr">
-              {companyAddress || "---"}
-              <br />
-              {[branch?.city, companyMobile].filter(Boolean).join(" - ")}
+          {settings?.printShowCompanyHeader !== false && (
+            <div className="inv-company">
+              <p className="inv-company-name">{companyName || "---"}</p>
+              <div className="inv-company-addr">
+                {companyAddress || "---"}
+                <br />
+                {[branch?.city, companyMobile].filter(Boolean).join(" - ")}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="inv-titlebar">
             <span>Online Memo</span>
@@ -430,6 +485,18 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <span>Grand Total</span>
                 <span>{mask(grandTotal).toFixed(2)}</span>
               </div>
+              {showPartyBalance && (
+                <>
+                  <div className="inv-totals-row inv-balance-row">
+                    <span className="lbl">Previous Balance</span>
+                    <span>{mask(invoice.partyPreviousBalance || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="inv-totals-row inv-balance-row">
+                    <span className="lbl">Current Balance</span>
+                    <span>{mask(invoice.partyCurrentBalance || 0).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -442,23 +509,24 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
           {/* ---- Terms & signature ---- */}
           <div className="inv-footer">
-            <div className="inv-terms">
-              <strong>Terms &amp; Condition :</strong>
-              <br />
-              1. Goods once sold will not be taken back.
-              <br />
-              2. Interest @18% p.a. will be charged if payment is not made
-              within due date.
-              <br />
-              3. Our risk and responsibility ceases as soon as the goods leave
-              our premises.
-              <br />
-              4. "Subject to RAJKOT Jurisdiction only. E.&amp;.O.E"
-            </div>
-            <div className="inv-sign">
-              <div>
-                <strong>For, {companyName || "---"}</strong>
+            {showTerms && (
+              <div className="inv-terms">
+                <strong>Terms &amp; Condition :</strong>
+                <br />
+                {termsLines.map((line, idx) => (
+                  <React.Fragment key={idx}>
+                    {line}
+                    {idx < termsLines.length - 1 && <br />}
+                  </React.Fragment>
+                ))}
               </div>
+            )}
+            <div className={`inv-sign${showTerms ? "" : " standalone"}`}>
+              {showSignatureCompanyName && (
+                <div>
+                  <strong>For, {companyName || "---"}</strong>
+                </div>
+              )}
               <div>Authorised Signatory</div>
             </div>
           </div>

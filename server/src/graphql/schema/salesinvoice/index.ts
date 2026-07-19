@@ -83,6 +83,11 @@ export const salesInvoiceTypeDefs = gql`
     totalgst: Float!
     totalamount: Float!
     outstanding: Float
+    # Party's running-account balance for the printed invoice's "Previous
+    # Balance" / "Current Balance" rows. Only computed when explicitly
+    # selected (expensive — sums all of the party's unsettled bills).
+    partyPreviousBalance: Float
+    partyCurrentBalance: Float
     adminid: ID!
     branchid: ID!
     productservice: [SalesInvoiceProductService!]!

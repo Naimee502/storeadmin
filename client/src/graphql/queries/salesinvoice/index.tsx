@@ -159,6 +159,19 @@ export const GET_DELETED_SALES_INVOICES = gql`
   }
 `;
 
+// Lightweight, print-only lookup — party's running balance is expensive to
+// compute (sums every unsettled bill for the party), so it's fetched only
+// when the user actually clicks Print, not as part of the list/table query.
+export const GET_SALES_INVOICE_BALANCE = gql`
+  query GetSalesInvoiceBalance($id: ID!, $adminid: ID) {
+    getSalesInvoiceById(id: $id, adminid: $adminid) {
+      id
+      partyPreviousBalance
+      partyCurrentBalance
+    }
+  }
+`;
+
 export const GET_SALES_INVOICE_BY_ID = gql`
   query getSalesInvoiceById($id: ID!, $adminid: ID) {
     getSalesInvoiceById(id: $id, adminid: $adminid) {

@@ -219,6 +219,39 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         />
       </Section>
 
+      <Section title="Invoice Print">
+        <Toggle
+          label="Show company header (name, address, city, mobile) on print"
+          checked={draft.printShowCompanyHeader !== false}
+          onChange={(v: boolean) => set("printShowCompanyHeader", v)}
+        />
+        <Toggle
+          label={'Show company name in signature ("For, <Company>")'}
+          checked={draft.printShowCompanyNameInSignature !== false}
+          onChange={(v: boolean) => set("printShowCompanyNameInSignature", v)}
+        />
+        <Toggle
+          label="Show Terms & Conditions section on print"
+          checked={draft.printShowTermsAndConditions !== false}
+          onChange={(v: boolean) => set("printShowTermsAndConditions", v)}
+        />
+        <Toggle
+          label="Show party's Previous Balance / Current Balance on Sales Invoice print"
+          checked={!!draft.printShowPartyBalance}
+          onChange={(v: boolean) => set("printShowPartyBalance", v)}
+        />
+        <div className="pt-1">
+          <FormField
+            label="Terms & Conditions text (one line per point)"
+            name="printTermsAndConditions"
+            value={draft.printTermsAndConditions ?? ""}
+            onChange={(e: any) => set("printTermsAndConditions", e.target.value)}
+            multiline
+            disabled={draft.printShowTermsAndConditions === false}
+          />
+        </div>
+      </Section>
+
       <div className="flex justify-end">
         <Button variant="outline" onClick={handleSave}>Save Business Settings</Button>
       </div>

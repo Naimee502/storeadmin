@@ -35,6 +35,11 @@ const SETTINGS_FIELDS = `
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions
+  printShowCompanyHeader
+  printShowCompanyNameInSignature
+  printShowTermsAndConditions
+  printTermsAndConditions
+  printShowPartyBalance
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

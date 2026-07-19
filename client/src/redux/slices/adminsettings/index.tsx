@@ -27,6 +27,11 @@ interface AdminSettings {
   allowAdminToManageBusinessSettings: boolean;
   allowAdminToManageModules: boolean;
   allowAdminToManagePermissions: boolean;
+  printShowCompanyHeader?: boolean;
+  printShowCompanyNameInSignature?: boolean;
+  printShowTermsAndConditions?: boolean;
+  printTermsAndConditions?: string;
+  printShowPartyBalance?: boolean;
 }
 
 interface AdminSettingsState {

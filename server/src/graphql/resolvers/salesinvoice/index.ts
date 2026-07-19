@@ -23,6 +23,26 @@ const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
   return parseFloat(total.toFixed(2));
 };
 
+// Party "outstanding" = sum of UNSETTLED sales bills (each bill's total −
+// settled, only positive) — same basis as Account.outstanding on the
+// salesman app. `excludeInvoiceId`, when given, leaves that one invoice out
+// of the sum entirely (used for the printed "Previous Balance", which must
+// reflect what the party owed BEFORE this bill — regardless of whether this
+// particular bill has since been paid).
+const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
+  if (!accountId) return 0;
+  const query: any = { partyacc: accountId, status: true };
+  if (excludeInvoiceId) query._id = { $ne: excludeInvoiceId };
+  const invs = await SalesInvoice.find(query).select("totalamount").lean();
+  let sum = 0;
+  for (const inv of invs as any[]) {
+    const settled = await invoiceSettledAmount(inv._id);
+    const due = (inv.totalamount || 0) - settled;
+    if (due > 0) sum += due;
+  }
+  return parseFloat(sum.toFixed(2));
+};
+
 // Resolve who created a doc into a proper { name, type } — so the listing shows
 // e.g. "Ravi (Salesman)" / "Pruthvi (Party)" instead of "... (Staff)" or email.
 // staff.type='staff' in the token, but the real role (salesman/staff/deliveryboy)
@@ -833,6 +853,22 @@ export const salesInvoiceResolvers = {
       const total = Number(parent?.totalamount || 0);
       const settled = await invoiceSettledAmount(parent?.id);
       return parseFloat((total - settled).toFixed(2));
+    },
+    // "Previous Balance" = what the party owed on their OTHER unsettled
+    // bills, before this one — this invoice is excluded from the sum
+    // entirely, regardless of whether it's since been paid.
+    partyPreviousBalance: async (parent: any) => {
+      const partyId = parent?.partyacc?.id || parent?.partyacc;
+      return await partyBillOutstanding(partyId, parent?.id);
+    },
+    // "Current Balance" = Previous Balance + this bill's own Grand Total —
+    // a running statement figure (like a physical bill), not net of whether
+    // this particular bill has already been settled.
+    partyCurrentBalance: async (parent: any) => {
+      const partyId = parent?.partyacc?.id || parent?.partyacc;
+      const previous = await partyBillOutstanding(partyId, parent?.id);
+      const total = Number(parent?.totalamount || 0);
+      return parseFloat((previous + total).toFixed(2));
     },
   },
 };

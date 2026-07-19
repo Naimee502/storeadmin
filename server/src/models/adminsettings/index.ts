@@ -77,6 +77,27 @@ const adminSettingsSchema = new mongoose.Schema(
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 
     /* ============================================================
+       INVOICE PRINT LAYOUT — lets an admin switch off parts of the
+       printed Sales/Purchase Invoice header & footer, and customise the
+       Terms & Conditions text shown on it.
+       ============================================================ */
+    printShowCompanyHeader: { type: Boolean, default: true }, // Company name/address/city/mobile block
+    printShowCompanyNameInSignature: { type: Boolean, default: true }, // "For, <Company>" in the signature block
+    printShowTermsAndConditions: { type: Boolean, default: true }, // Whether the T&C block prints at all
+    printTermsAndConditions: {
+      type: String,
+      default:
+        '1. Goods once sold will not be taken back.\n' +
+        '2. Interest @18% p.a. will be charged if payment is not made within due date.\n' +
+        '3. Our risk and responsibility ceases as soon as the goods leave our premises.\n' +
+        '4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"',
+    },
+    // Party's Previous Balance / Current Balance rows below Grand Total on
+    // the printed Sales Invoice (like a running-account statement). New,
+    // opt-in feature — off by default so existing invoices don't change.
+    printShowPartyBalance: { type: Boolean, default: false },
+
+    /* ============================================================
        FULFILMENT — who delivers orders for this business.
        "salesman"   → salesman hands over on the route (no delivery boy)
        "deliveryboy"→ end-user/party/website orders go to a delivery boy

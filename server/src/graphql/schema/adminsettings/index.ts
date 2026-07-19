@@ -42,6 +42,12 @@ export const adminSettingsTypeDefs = gql`
     allowAdminToManageModules: Boolean!
     allowAdminToManagePermissions: Boolean!
 
+    printShowCompanyHeader: Boolean
+    printShowCompanyNameInSignature: Boolean
+    printShowTermsAndConditions: Boolean
+    printTermsAndConditions: String
+    printShowPartyBalance: Boolean
+
     createdAt: String
     updatedAt: String
   }
@@ -85,6 +91,12 @@ export const adminSettingsTypeDefs = gql`
     allowAdminToManageBusinessSettings: Boolean
     allowAdminToManageModules: Boolean
     allowAdminToManagePermissions: Boolean
+
+    printShowCompanyHeader: Boolean
+    printShowCompanyNameInSignature: Boolean
+    printShowTermsAndConditions: Boolean
+    printTermsAndConditions: String
+    printShowPartyBalance: Boolean
   }
 
   extend type Query {

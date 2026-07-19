@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useApolloClient } from "@apollo/client";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addSalesInvoices } from "../../redux/slices/salesinvoice";
 import DataTable from "../../components/datatable";
@@ -11,6 +12,7 @@ import {
   useSalesInvoicesQuery,
   useSalesInvoiceMutations,
 } from "../../graphql/hooks/salesinvoice";
+import { GET_SALES_INVOICE_BALANCE } from "../../graphql/queries/salesinvoice";
 import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
@@ -72,6 +74,16 @@ const SalesInvoices = () => {
   // Resolve the company name across role types so the WhatsApp share
   // signs the message off as the company, not the branch.
   const auth = useAppSelector((state) => state.auth);
+  const apolloClient = useApolloClient();
+  const { settings } = useAppSelector((state: any) => state.adminsettings);
+  const adminid =
+    auth.type === "admin"
+      ? auth.admin?.id
+      : auth.type === "branch"
+        ? auth.branch?.admin?.id
+        : auth.type === "staff"
+          ? auth.staff?.admin?.id
+          : undefined;
   const companyName =
     auth.type === "admin"
       ? auth.admin?.companyName
@@ -304,8 +316,33 @@ const SalesInvoices = () => {
           }}
           onAdd={() => navigate("/salesinvoice/addedit")}
           onShowDeleted={() => navigate("/salesinvoice/deletedentries")}
-          onPrint={(row) => {
-            setPrintInvoice(row);
+          onPrint={async (row) => {
+            // Party's Previous/Current Balance (Business Settings → Invoice
+            // Print) is expensive to compute, so it's fetched only on Print
+            // click, not baked into the list query.
+            if (!settings?.printShowPartyBalance) {
+              setPrintInvoice(row);
+              return;
+            }
+            dispatch(showLoading());
+            try {
+              const { data } = await apolloClient.query({
+                query: GET_SALES_INVOICE_BALANCE,
+                variables: { id: row.id, adminid },
+                fetchPolicy: "network-only",
+              });
+              const bal = data?.getSalesInvoiceById;
+              setPrintInvoice({
+                ...row,
+                partyPreviousBalance: bal?.partyPreviousBalance,
+                partyCurrentBalance: bal?.partyCurrentBalance,
+              });
+            } catch (e) {
+              console.error("Failed to fetch party balance for print:", e);
+              setPrintInvoice(row);
+            } finally {
+              dispatch(hideLoading());
+            }
           }}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
