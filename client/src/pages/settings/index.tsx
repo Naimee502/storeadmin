@@ -62,10 +62,13 @@ const Settings = () => {
       }));
     }
     if (isBranch) {
-      return (staffData?.getStaffAccounts ?? []).map((s: any) => ({
-        value: s.id,
-        label: s.name,
-      }));
+      // Only "staff" role — salesmen and delivery boys don't get module settings.
+      return (staffData?.getStaffAccounts ?? [])
+        .filter((s: any) => (s.role ?? '').toString().toLowerCase() === 'staff')
+        .map((s: any) => ({
+          value: s.id,
+          label: s.name,
+        }));
     }
     return [];
   }, [isAdmin, isBranch, branchesData, staffData]);

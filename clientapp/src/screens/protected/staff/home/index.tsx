@@ -1,15 +1,16 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { AppHeader } from '../../../../components';
+import { AppHeader, useNotificationCenter } from '../../../../components';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -31,56 +32,140 @@ export default function StaffDashboard() {
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
+  const { bellIcon, NotificationsModal } = useNotificationCenter();
+  const { blocked: punchBlocked } = usePunchGate();
 
-  const { data } = useQuery(GET_SALES_ORDERS, {
+  // Require punch-in before any work (orders / parties). Attendance & Profile
+  // stay accessible so the user can actually punch in / sign out.
+  const goWithPunch = (screen: string, params?: any) => {
+    if (punchBlocked && !/attendance|profile/i.test(screen)) {
+      Alert.alert(
+        'Punch in required',
+        'Please punch in from the Attendance tab before starting your work.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Attendance', onPress: () => navigation.navigate('StaffAttendance') },
+        ],
+      );
+      return;
+    }
+    navigation.navigate(screen, params);
+  };
+
+  const { data, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid },
     skip: !adminid,
+    fetchPolicy: 'cache-and-network',
   });
+  useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
 
   const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
 
   const today       = new Date().toISOString().slice(0, 10);
+  const thisMonth   = today.slice(0, 7);
   const todayOrders = useMemo(() => orders.filter((o: any) => (o.billdate ?? '').startsWith(today)), [orders, today]);
   const pending     = useMemo(() => orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length, [orders]);
   const confirmed   = useMemo(() => orders.filter((o: any) => o.isConverted).length, [orders]);
   const recent      = useMemo(() => orders.slice(0, 5), [orders]);
+
+  const todaySales = useMemo(
+    () => todayOrders.reduce((s: number, o: any) => s + (o.totalamount || 0), 0),
+    [todayOrders],
+  );
+  const monthSales = useMemo(
+    () => orders
+      .filter((o: any) => (o.billdate ?? '').startsWith(thisMonth) && o.cancelStatus !== 'cancelled')
+      .reduce((s: number, o: any) => s + (o.totalamount || 0), 0),
+    [orders, thisMonth],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
-      <AppHeader label={`Hello, ${user?.name?.split(' ')[0] ?? 'Staff'}`} />
+      <AppHeader label={`Hello, ${user?.name?.split(' ')[0] ?? 'Staff'}`} rightIcons={[bellIcon]} />
+      {NotificationsModal}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Stats */}
-        <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
+        {/* Today summary — sales today + this month */}
+        <Animated.View
+          entering={FadeInUp.duration(400).delay(50)}
+          style={[styles.todayCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        >
+          <View style={styles.todayHalf}>
+            <View style={styles.todayLabelRow}>
+              <Icon name="trending-up" size={13} color={colors.brand} />
+              <Text style={[styles.todayLabel, { color: colors.subText }]}>Sales today</Text>
+            </View>
+            <Text style={[styles.todayValue, { color: colors.text }]} numberOfLines={1}>{formatINR(todaySales)}</Text>
+          </View>
+          <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.todayHalf}>
+            <View style={styles.todayLabelRow}>
+              <Icon name="calendar-month-outline" size={13} color="#16a34a" />
+              <Text style={[styles.todayLabel, { color: colors.subText }]}>This month</Text>
+            </View>
+            <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(monthSales)}</Text>
+          </View>
+        </Animated.View>
+
+        {/* Compact stat strip */}
+        <Animated.View
+          entering={FadeInUp.duration(400).delay(90)}
+          style={[styles.statStrip, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        >
           {[
-            { icon: 'clipboard-list-outline', value: String(todayOrders.length), label: "Today's Orders", color: '#3b82f6', filter: 'all'       },
-            { icon: 'clock-outline',          value: String(pending),            label: 'Pending',        color: '#f59e0b', filter: 'pending'   },
-            { icon: 'check-circle-outline',   value: String(confirmed),          label: 'Confirmed',      color: '#22c55e', filter: 'confirmed' },
-          ].map((s) => (
-            <TouchableOpacity
-              key={s.label}
-              style={[styles.statCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('StaffOrders', { initialFilter: s.filter })}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.statIcon, { backgroundColor: s.color + '18' }]}>
-                <Icon name={s.icon} size={17} color={s.color} />
-              </View>
-              <Text style={[styles.statValue, { color: colors.text }]}>{s.value}</Text>
-              <Text style={[styles.statLabel, { color: colors.subText }]}>{s.label}</Text>
-            </TouchableOpacity>
+            { value: String(todayOrders.length), label: 'Today',     color: '#3b82f6', filter: 'all' },
+            { value: String(pending),            label: 'Pending',   color: '#f59e0b', filter: 'pending' },
+            { value: String(confirmed),          label: 'Confirmed', color: '#22c55e', filter: 'confirmed' },
+            { value: String(orders.length),      label: 'Total',     color: '#8b5cf6', filter: 'all' },
+          ].map((s, i) => (
+            <React.Fragment key={s.label}>
+              {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
+              <TouchableOpacity
+                style={styles.stripItem}
+                onPress={() => goWithPunch('StaffOrders', { initialFilter: s.filter })}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1}>{s.value}</Text>
+                <Text style={[styles.stripLabel, { color: colors.subText }]}>{s.label}</Text>
+              </TouchableOpacity>
+            </React.Fragment>
           ))}
         </Animated.View>
 
-        {/* Recent Orders */}
+        {/* Quick Actions */}
         <Animated.View entering={FadeInUp.duration(400).delay(120)} style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            {[
+              { icon: 'clipboard-plus-outline', label: 'New Order',  screen: 'StaffParties',    color: colors.brand },
+              { icon: 'account-group-outline',  label: 'Parties',    screen: 'StaffParties',    color: '#3b82f6'    },
+              { icon: 'calendar-check-outline', label: 'Attendance', screen: 'StaffAttendance', color: '#22c55e'    },
+              { icon: 'account-circle-outline', label: 'Profile',    screen: 'StaffProfile',    color: '#8b5cf6'    },
+            ].map((a) => (
+              <TouchableOpacity
+                key={a.label}
+                style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+                onPress={() => goWithPunch(a.screen)}
+                activeOpacity={0.82}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: a.color + '18' }]}>
+                  <Icon name={a.icon} size={22} color={a.color} />
+                </View>
+                <Text style={[styles.actionLabel, { color: colors.text }]}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Recent Orders */}
+        <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Orders</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('StaffOrders')}>
+            <TouchableOpacity onPress={() => goWithPunch('StaffOrders')}>
               <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
             </TouchableOpacity>
           </View>
@@ -98,7 +183,7 @@ export default function StaffDashboard() {
                 <TouchableOpacity
                   key={order.id}
                   style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-                  onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+                  onPress={() => goWithPunch('OrderDetail', { orderId: order.id })}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />
@@ -122,31 +207,6 @@ export default function StaffDashboard() {
           )}
         </Animated.View>
 
-        {/* Quick Actions */}
-        <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {[
-              { icon: 'clipboard-plus-outline', label: 'New Order',  screen: 'StaffParties',    color: colors.brand },
-              { icon: 'account-group-outline',  label: 'Parties',    screen: 'StaffParties',    color: '#3b82f6'    },
-              { icon: 'calendar-check-outline', label: 'Attendance', screen: 'StaffAttendance', color: '#22c55e'    },
-              { icon: 'account-circle-outline', label: 'Profile',    screen: 'StaffProfile',    color: '#8b5cf6'    },
-            ].map((a) => (
-              <TouchableOpacity
-                key={a.label}
-                style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-                onPress={() => navigation.navigate(a.screen)}
-                activeOpacity={0.82}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: a.color + '18' }]}>
-                  <Icon name={a.icon} size={22} color={a.color} />
-                </View>
-                <Text style={[styles.actionLabel, { color: colors.text }]}>{a.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-
       </ScrollView>
     </View>
   );
@@ -155,14 +215,27 @@ export default function StaffDashboard() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll:    { paddingBottom: 110 },
-  statsRow:  { flexDirection: 'row', paddingHorizontal: 18, gap: 10, marginTop: 14 },
-  statCard: {
-    flex: 1, borderRadius: 18, borderWidth: 1, padding: 12, alignItems: 'flex-start',
-    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  todayCard: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 18, marginTop: 14,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1,
   },
-  statIcon:  { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  statValue: { fontSize: 13, fontFamily: FONTS.bold },
-  statLabel: { fontSize: 9, fontFamily: FONTS.regular, marginTop: 2 },
+  todayHalf:      { flex: 1 },
+  todayLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  todayLabel:     { fontSize: 11.5, fontFamily: FONTS.regular },
+  todayValue:     { fontSize: 20, fontFamily: FONTS.bold, marginTop: 3 },
+  todayVDivider:  { width: 1, height: 38, marginHorizontal: 14 },
+
+  statStrip: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 18, marginTop: 10,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 12,
+  },
+  stripItem:    { flex: 1, alignItems: 'center' },
+  stripDivider: { width: 1, height: 26 },
+  stripValue:   { fontSize: 14, fontFamily: FONTS.bold },
+  stripLabel:   { fontSize: 10, fontFamily: FONTS.regular, marginTop: 3 },
   section:       { marginTop: 22, paddingHorizontal: 18 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:  { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 12 },

@@ -116,7 +116,14 @@ const salesOrderSchema = new mongoose.Schema(
 
 salesOrderSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const lastOrder = await mongoose.model("SalesOrder").findOne({ adminid: this.adminid }).sort({ createdAt: -1 });
+    // Use the HIGHEST existing billnumber (not the latest createdAt) so numbers
+    // never repeat even if docs were inserted out of order. Zero-padded strings
+    // sort correctly as strings.
+    const lastOrder = await mongoose.model("SalesOrder")
+      .findOne({ adminid: this.adminid, billnumber: { $ne: null } })
+      .sort({ billnumber: -1 })
+      .select("billnumber")
+      .lean() as any;
     let nextNum = 1;
     if (lastOrder && lastOrder.billnumber) {
       const lastNum = parseInt(lastOrder.billnumber, 10);

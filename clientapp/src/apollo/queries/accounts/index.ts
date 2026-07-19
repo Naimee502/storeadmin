@@ -171,6 +171,7 @@ export const GET_ACCOUNTS = gql`
       latitude
       longitude
       outstanding
+      salesmanid { id name }
       ledgerid { id ledgername }
       channel { id channelName }
     }
@@ -265,6 +266,7 @@ export const GET_PAYMENTS = gql`
       ledgerid { id ledgername }
       partyid  { id name }
       invoices { invoiceid invoicemodel settledamount }
+      createdby_id
       createdby_name
       createdAt
     }

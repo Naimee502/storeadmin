@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -25,6 +25,7 @@ export default function AddPartyToRoute() {
 
   const tenant  = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
+  const user    = useSelector((s: RootState) => s.auth.user);
 
   const {
     routeId,
@@ -41,9 +42,10 @@ export default function AddPartyToRoute() {
   const [selectedDay,  setSelectedDay]  = useState<string>(dayKey(preselectedDay));
   const [adding,       setAdding]       = useState<string | null>(null);
 
-  const { data } = useQuery(GET_ACCOUNTS, {
-    variables: { admin: adminid },
-    skip: !adminid,
+  const { data, loading, error } = useQuery(GET_ACCOUNTS, {
+    variables: { admin: adminid, salesmanid: user?.id },
+    skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
   });
 
   const [updateRoute] = useMutation(UPDATE_SALES_ROUTE);
@@ -56,10 +58,28 @@ export default function AddPartyToRoute() {
     accounts.filter((a: any) => {
       const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.mobile?.includes(search);
       const notAdded    = !alreadyOnDay.has(a.id);
-      return matchSearch && notAdded;
+      // Only parties this salesman created (salesmanid linked to them).
+      // Admin-created parties (no/other salesmanid) must not be addable here,
+      // even if the server returned them via route-based scoping.
+      const ownParty    = String(a.salesmanid?.id ?? a.salesmanid ?? '') === String(user?.id ?? '');
+      return matchSearch && notAdded && ownParty;
     }),
-    [accounts, search, existingAccountIds]
+    [accounts, search, existingAccountIds, user?.id]
   );
+
+  // ── TEMP DIAGNOSTIC ────────────────────────────────────────────────
+  useEffect(() => {
+    console.log('🛣️ [AddPartyToRoute] user.id:', user?.id,
+      '| loading:', loading,
+      '| error:', error?.message ?? null,
+      '| accounts from server:', accounts.length,
+      JSON.stringify(accounts.map((a: any) => ({
+        name: a.name,
+        salesmanid: a.salesmanid?.id ?? a.salesmanid ?? null,
+      }))),
+      '| existingAccountIds:', JSON.stringify(existingAccountIds),
+      '| after filter:', filtered.length);
+  }, [accounts, filtered, loading, error, user?.id]);
 
   const handleAdd = (party: any) => {
     if (!selectedDay) {
@@ -116,6 +136,14 @@ export default function AddPartyToRoute() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.partyName, { color: colors.text }]} numberOfLines={1}>{a.name}</Text>
+        {!!a.channel?.channelName && (
+          <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
+            <Icon name="account-network-outline" size={10} color={colors.brand} />
+            <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+              {a.channel.channelName}
+            </Text>
+          </View>
+        )}
         <View style={styles.metaRow}>
           {a.mobile && (
             <View style={styles.metaChip}>
@@ -232,7 +260,11 @@ export default function AddPartyToRoute() {
           <View style={styles.emptyWrap}>
             <Icon name="account-search-outline" size={44} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.subText }]}>
-              {search ? 'No parties match your search' : 'All parties already on this day'}
+              {search
+                ? 'No parties match your search'
+                : accounts.length === 0
+                  ? 'No parties found for you'
+                  : 'All your parties are already on this day'}
             </Text>
           </View>
         }
@@ -291,6 +323,8 @@ const styles = StyleSheet.create({
   avatarText:  { fontSize: 17, fontFamily: FONTS.bold },
   partyName:   { fontSize: 14, fontFamily: FONTS.semiBold, marginBottom: 4 },
   metaRow:     { flexDirection: 'row', gap: 10, marginBottom: 2 },
+  channelPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginTop: 3, marginBottom: 3 },
+  channelText: { fontSize: 10, fontFamily: FONTS.semiBold, flexShrink: 1 },
   metaChip:    { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaText:    { fontSize: 11, fontFamily: FONTS.regular },
   accountCode: { fontSize: 11, fontFamily: FONTS.regular },

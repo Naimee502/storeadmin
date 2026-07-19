@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, InteractionManager } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -53,10 +53,16 @@ export default function SalesmanProfile() {
 
   const account = data?.getStaffAccountById;
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setLogoutModal(false);
-    dispatch(logout());
-    await signOut();
+    // Defer the auth reset so the modal close transaction finishes before the
+    // navigator tree unmounts (avoids Android FragmentManager crashes).
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(async () => {
+        dispatch(logout());
+        await signOut();
+      }, 100);
+    });
   };
 
   return (

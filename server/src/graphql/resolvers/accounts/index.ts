@@ -2,7 +2,35 @@ import { Account } from "../../../models/accounts";
 import { Transaction } from "../../../models/transactions";
 import { Payment } from "../../../models/payments";
 import { SalesInvoice } from "../../../models/salesinvoice";
+import { SalesRoute } from "../../../models/salesroutes";
+import { StaffAccount } from "../../../models/staffaccounts";
+import { Branch } from "../../../models/branches";
+import { Admin } from "../../../models/admin";
+import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+
+// Resolve the acting user into a display label. Staff tokens are resolved to
+// their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
+// only carry an email, so the display name is looked up from the DB. Unknown →
+// "unknown" (never "admin", so the admin notification is never wrongly skipped).
+const resolveActor = async (user: any) => {
+  let name = user?.name || "";
+  let type = user?.type || "unknown";
+  try {
+    if (user?.type === "staff") {
+      const s: any = await StaffAccount.findById(user.id).select("role name").lean();
+      if (s) { type = s.role || "staff"; name = s.name || name; }
+    } else if (user?.type === "branch") {
+      const b: any = await Branch.findById(user.id).select("branchname").lean();
+      if (b?.branchname) name = b.branchname;
+    } else if (user?.type === "admin") {
+      const a: any = await Admin.findById(user.id).select("name").lean();
+      if (a?.name) name = a.name;
+    }
+  } catch (e) { /* best-effort */ }
+  if (!name) name = user?.email || "Unknown user";
+  return { id: user?.id, name, type, label: `${name} (${type})` };
+};
 
 // Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
 const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
@@ -109,7 +137,25 @@ export const accountResolvers = {
       if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
       if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
       if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
-      if (filter?.salesmanid) query.salesmanid = filter.salesmanid;
+      // Salesman scoping: parties the salesman created (salesmanid on the
+      // account) + parties assigned to them via Sales Routes. Admin-created
+      // parties stay hidden until they're assigned to one of their routes.
+      if (filter?.salesmanid) {
+        const routes = await SalesRoute.find({ salesmanid: filter.salesmanid, status: true })
+          .select("accounts dayWiseAccounts")
+          .lean();
+        const routePartyIds = new Set<string>();
+        routes.forEach((r: any) => {
+          (r.accounts || []).forEach((id: any) => routePartyIds.add(String(id)));
+          (r.dayWiseAccounts || []).forEach((d: any) =>
+            (d.accounts || []).forEach((id: any) => routePartyIds.add(String(id)))
+          );
+        });
+        query.$or = [
+          { salesmanid: filter.salesmanid },
+          ...(routePartyIds.size ? [{ _id: { $in: [...routePartyIds] } }] : []),
+        ];
+      }
       if (typeof filter?.duedays === "number") query.duedays = filter.duedays;
       if (filter?.latitude) query.latitude = filter.latitude;
       if (filter?.longitude) query.longitude = filter.longitude;
@@ -176,10 +222,46 @@ export const accountResolvers = {
   },
 
   Mutation: {
-    addAccount: async (_: any, { input }: any) => {
+    addAccount: async (_: any, { input }: any, context: any) => {
       try {
         const account = new Account(input);
         await account.save();
+
+        // ── Notifications ──────────────────────────────────────────
+        // Actor ≠ admin (e.g. salesman created a party from the app) → tell
+        // admin. Party created with a salesman linked → tell that salesman
+        // (unless he created it himself).
+        try {
+          const actor = await resolveActor(context?.user);
+          const adminid = input.admin;
+          const branchid = input.branchid;
+          if (actor.type !== "admin") {
+            await pushNotification({
+              adminid, branchid,
+              targettype: "admin",
+              ntype: "party",
+              title: `New party "${input.name}" added`,
+              message: `${input.mobile || ""}${input.city ? ` • ${input.city}` : ""} • by ${actor.label}`,
+              webpath: "/accounts",
+              docmodel: "Account",
+              docid: account._id,
+            });
+          }
+          if (input.salesmanid && String(input.salesmanid) !== String(actor.id || "")) {
+            await pushNotification({
+              adminid, branchid,
+              targettype: "staff",
+              targetid: input.salesmanid,
+              ntype: "party",
+              title: `New party "${input.name}" assigned to you`,
+              message: `${input.mobile || ""}${input.city ? ` • ${input.city}` : ""} • by ${actor.label}`,
+              appscreen: "Parties",
+              docmodel: "Account",
+              docid: account._id,
+            });
+          }
+        } catch (e) { /* notifications are best-effort */ }
+
         return await Account.findById(account._id)
           .populate("admin")
           .populate("accountgroupid")
@@ -194,15 +276,43 @@ export const accountResolvers = {
       }
     },
 
-    editAccount: async (_: any, { id, input }: any) => {
-      return await Account.findByIdAndUpdate(id, input, { new: true })
+    editAccount: async (_: any, { id, input }: any, context: any) => {
+      const before: any = await Account.findById(id).select("salesmanid name admin branchid").lean();
+      const updated = await Account.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
-        .populate("accountgroupid") 
+        .populate("accountgroupid")
         .populate("ledgerid")
         .populate("branchid")
         .populate("assignaccountid")
         .populate("salesmanid")
         .populate("channel");
+
+      // ── Notification: party newly assigned to a salesman → tell him ──
+      try {
+        const newSalesman = input.salesmanid;
+        if (
+          updated && newSalesman &&
+          String(newSalesman) !== String(before?.salesmanid || "")
+        ) {
+          const actor = await resolveActor(context?.user);
+          if (String(newSalesman) !== String(actor.id || "")) {
+            await pushNotification({
+              adminid: input.admin || before?.admin,
+              branchid: input.branchid || before?.branchid,
+              targettype: "staff",
+              targetid: newSalesman,
+              ntype: "party",
+              title: `Party "${input.name || before?.name}" assigned to you`,
+              message: `by ${actor.label}`,
+              appscreen: "Parties",
+              docmodel: "Account",
+              docid: id,
+            });
+          }
+        }
+      } catch (e) { /* notifications are best-effort */ }
+
+      return updated;
     },
 
     deleteAccount: async (_: any, { id }: any) => {

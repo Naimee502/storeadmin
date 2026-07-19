@@ -9,7 +9,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { AppHeader } from '../../../../components';
+import { AppHeader, useNotificationCenter } from '../../../../components';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { GET_SALES_ORDERS, GET_PAYMENTS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
@@ -35,6 +35,7 @@ export default function SalesmanDashboard() {
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
   const { blocked: punchBlocked } = usePunchGate();
+  const { bellIcon, NotificationsModal } = useNotificationCenter();
 
   // Require punch-in before going to Route / Parties / an order (any visit/order work).
   const goWithPunch = (screen: string, params?: any) => {
@@ -105,7 +106,8 @@ export default function SalesmanDashboard() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
-      <AppHeader label={`Hello, ${user?.name?.split(' ')[0] ?? 'Salesman'}`} />
+      <AppHeader label={`Hello, ${user?.name?.split(' ')[0] ?? 'Salesman'}`} rightIcons={[bellIcon]} />
+      {NotificationsModal}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 

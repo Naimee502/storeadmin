@@ -8,3 +8,5 @@ export { DynamicFlashList } from './flashlist';
 export { AppLoader } from './loader';
 export { default as BillAllocation } from './billallocation';
 export type { Allocation } from './billallocation';
+
+export { useNotificationCenter } from './notificationcenter';

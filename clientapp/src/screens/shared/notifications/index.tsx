@@ -1,52 +1,84 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useQuery, useMutation } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../config';
 import { BackHeader, DynamicFlashList } from '../../../components';
+import {
+  GET_NOTIFICATIONS,
+  MARK_NOTIFICATION_READ,
+  MARK_ALL_NOTIFICATIONS_READ,
+} from '../../../apollo/queries/notifications';
+import type { RootState } from '../../../store/rootreducer';
 
-type NotifType = 'order' | 'payment' | 'offer' | 'system';
+const TYPE_META: Record<string, { icon: string; color: string }> = {
+  order:      { icon: 'clipboard-check-outline', color: '#3b82f6' },
+  invoice:    { icon: 'file-document-outline',   color: '#3b82f6' },
+  payment:    { icon: 'cash-check',              color: '#22c55e' },
+  offer:      { icon: 'tag-outline',             color: '#f59e0b' },
+  attendance: { icon: 'calendar-check-outline',  color: '#14b8a6' },
+  party:      { icon: 'account-plus-outline',    color: '#8b5cf6' },
+  route:      { icon: 'map-marker-path',         color: '#f97316' },
+  system:     { icon: 'information-outline',     color: '#8b5cf6' },
+};
 
-interface Notif {
-  id: string;
-  type: NotifType;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-}
-
-const DUMMY_NOTIFS: Notif[] = [
-  { id: 'n1', type: 'order',   title: 'Order Confirmed',       body: 'Your order SO/2024/005 has been confirmed by the seller.',              time: '2 min ago',   read: false },
-  { id: 'n2', type: 'payment', title: 'Payment Received',      body: 'Payment of ₹5,000 received against your ledger account.',               time: '1 hr ago',    read: false },
-  { id: 'n3', type: 'offer',   title: 'Special Offer',         body: 'Get 10% off on all Pulses & Lentils this week. Limited time deal!',     time: '3 hrs ago',   read: true  },
-  { id: 'n4', type: 'order',   title: 'Order Dispatched',      body: 'Your order SO/2024/004 has been dispatched and is on the way.',          time: 'Yesterday',   read: true  },
-  { id: 'n5', type: 'system',  title: 'App Updated',           body: 'Business Suite has been updated with new features and improvements.',   time: '2 days ago',  read: true  },
-  { id: 'n6', type: 'payment', title: 'Credit Limit Updated',  body: 'Your credit limit has been updated to ₹75,000.',                        time: '3 days ago',  read: true  },
-  { id: 'n7', type: 'offer',   title: 'New Products Added',    body: '12 new products have been added to the catalog. Check them out!',       time: '5 days ago',  read: true  },
-  { id: 'n8', type: 'order',   title: 'Order Delivered',       body: 'Your order SO/2024/003 has been successfully delivered.',               time: '1 week ago',  read: true  },
-];
-
-const TYPE_META: Record<NotifType, { icon: string; color: string }> = {
-  order:   { icon: 'clipboard-check-outline', color: '#3b82f6' },
-  payment: { icon: 'cash-check',              color: '#22c55e' },
-  offer:   { icon: 'tag-outline',             color: '#f59e0b' },
-  system:  { icon: 'information-outline',     color: '#8b5cf6' },
+const timeAgo = (iso?: string) => {
+  if (!iso) return '';
+  const t = isNaN(Number(iso)) ? new Date(iso).getTime() : Number(iso);
+  const diff = Date.now() - t;
+  if (isNaN(diff)) return '';
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr${h > 1 ? 's' : ''} ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Yesterday';
+  if (d < 7) return `${d} days ago`;
+  return `${Math.floor(d / 7)} week${d >= 14 ? 's' : ''} ago`;
 };
 
 export default function Notifications() {
   const { colors, isDark } = useTheme();
-  const [notifs, setNotifs] = useState<Notif[]>(DUMMY_NOTIFS);
 
+  const user   = useSelector((s: RootState) => s.auth.user);
+  const tenant = useSelector((s: RootState) => s.tenant);
+
+  const filter = {
+    adminid: tenant?.adminId,
+    targettype: user?.role === 'party' ? 'party' : 'staff',
+    targetid: user?.id,
+    limit: 100,
+  };
+
+  const { data, refetch } = useQuery(GET_NOTIFICATIONS, {
+    variables: { filter },
+    skip: !tenant?.adminId || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const [markRead]    = useMutation(MARK_NOTIFICATION_READ);
+  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
+
+  const notifs: any[] = useMemo(() => (data as any)?.getNotifications ?? [], [data]);
   const unreadCount = notifs.filter(n => !n.read).length;
 
-  const markAllRead = () => setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  const handleMarkAll = async () => {
+    try { await markAllRead({ variables: { filter } }); } catch { /* best-effort */ }
+    refetch();
+  };
 
-  const markRead = (id: string) =>
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  // Tap only marks the notification read — no navigation for now.
+  const handleTap = async (n: any) => {
+    if (!n.read) {
+      try { await markRead({ variables: { id: n.id } }); } catch { /* best-effort */ }
+      refetch();
+    }
+  };
 
-  const renderNotif = ({ item: n }: { item: Notif }) => {
-    const meta = TYPE_META[n.type];
+  const renderNotif = ({ item: n }: { item: any }) => {
+    const meta = TYPE_META[n.ntype] ?? TYPE_META.system;
     return (
       <TouchableOpacity
         style={[
@@ -54,21 +86,21 @@ export default function Notifications() {
           { backgroundColor: colors.cardGlass, borderColor: colors.border },
           !n.read && { borderLeftColor: colors.brand, borderLeftWidth: 3 },
         ]}
-        onPress={() => markRead(n.id)}
+        onPress={() => handleTap(n)}
         activeOpacity={0.82}
       >
-        <View style={[styles.iconWrap, { backgroundColor: meta.color + '18' }]}>
-          <Icon name={meta.icon} size={20} color={meta.color} />
+        <View style={[styles.iconWrap, { backgroundColor: meta.color }]}>
+          <Icon name={meta.icon} size={20} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{n.title}</Text>
             {!n.read && <View style={[styles.unreadDot, { backgroundColor: colors.brand }]} />}
           </View>
-          <Text style={[styles.body, { color: colors.subText }]} numberOfLines={2}>{n.body}</Text>
+          <Text style={[styles.body, { color: colors.subText }]} numberOfLines={2}>{n.message}</Text>
           <View style={styles.timeRow}>
             <Icon name="clock-outline" size={11} color={colors.subText} style={{ marginRight: 3 }} />
-            <Text style={[styles.time, { color: colors.subText }]}>{n.time}</Text>
+            <Text style={[styles.time, { color: colors.subText }]}>{timeAgo(n.createdAt)}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -85,7 +117,7 @@ export default function Notifications() {
         <View />
       )}
       {unreadCount > 0 && (
-        <TouchableOpacity onPress={markAllRead}>
+        <TouchableOpacity onPress={handleMarkAll}>
           <Text style={[styles.markAll, { color: colors.brand }]}>Mark all read</Text>
         </TouchableOpacity>
       )}

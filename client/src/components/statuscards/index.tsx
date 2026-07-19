@@ -85,9 +85,11 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 
   const totalSales = invoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
   const totalPurchases = purchaseinvoices.reduce((acc, inv) => acc + (inv.totalamount ?? 0), 0);
-  const totalExpenses =
-    expenseNotes.reduce((acc, exp) => acc + (exp.amount ?? 0), 0) +
-    payments.reduce((acc, pay) => acc + (pay.amount ?? 0), 0);
+  // Expenses = expense notes only. Payments were wrongly added here before —
+  // they're mostly customer RECEIPTS (money in) and vendor settlements, not
+  // expenses, which inflated this card even when no expense notes existed.
+  const activeExpenseNotes = expenseNotes.filter((e) => e.status !== false);
+  const totalExpenses = activeExpenseNotes.reduce((acc, exp) => acc + (exp.amount ?? 0), 0);
   const netBalance = totalSales - totalPurchases - totalExpenses;
 
   // Orders
@@ -126,7 +128,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
     // Financial & Invoicing (4 cards)
     { moduleId: "salesinvoice", category: "financial", label: "Invoiced Sales", value: `₹${totalSales.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${totalInvoices} Invoices`, icon: <FaFileInvoiceDollar />, path: "/salesinvoice", color: "text-emerald-600", bgIcon: "bg-emerald-50", borderHover: "hover:border-emerald-400" },
     { moduleId: "purchaseinvoice", category: "financial", label: "Purchase Bills", value: `₹${totalPurchases.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${purchaseinvoices.length} Bills`, icon: <FaReceipt />, path: "/purchaseinvoice", color: "text-blue-600", bgIcon: "bg-blue-50", borderHover: "hover:border-blue-400" },
-    { moduleId: "expensenote", category: "financial", label: "Expenses Total", value: `₹${totalExpenses.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${expenseNotes.length + payments.length} Entries`, icon: <FaMoneyCheckAlt />, path: "/expensenote", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
+    { moduleId: "expensenote", category: "financial", label: "Expenses Total", value: `₹${totalExpenses.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: `${activeExpenseNotes.length} Entries`, icon: <FaMoneyCheckAlt />, path: "/expensenote", color: "text-amber-600", bgIcon: "bg-amber-50", borderHover: "hover:border-amber-400" },
     { moduleId: "transactions", category: "financial", label: "Net Cashflow", value: `₹${netBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, sub: netBalance >= 0 ? "Surplus" : "Deficit", icon: <FaDollarSign />, path: "/transactions", color: netBalance >= 0 ? "text-emerald-600" : "text-rose-600", bgIcon: netBalance >= 0 ? "bg-emerald-50" : "bg-rose-50", borderHover: netBalance >= 0 ? "hover:border-emerald-400" : "hover:border-rose-400" },
 
     // Orders & Returns (4 cards)

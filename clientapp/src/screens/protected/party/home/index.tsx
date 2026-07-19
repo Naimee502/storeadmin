@@ -13,7 +13,7 @@ import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
-import { AppHeader } from '../../../../components';
+import { AppHeader, useNotificationCenter } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -46,6 +46,7 @@ export default function PartyHome() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
+  const { bellIcon, NotificationsModal } = useNotificationCenter();
   const user = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const cartItems = useSelector((s: RootState) => s.cart.items);
@@ -152,11 +153,15 @@ export default function PartyHome() {
 
       <AppHeader
         label={STRINGS.party.home}
-        rightIcons={[{
-          id: 'cart', name: 'cart-outline', color: colors.brand, badge: cartCount,
-          onPress: () => navigation.navigate('CartScreen'),
-        }]}
+        rightIcons={[
+          bellIcon,
+          {
+            id: 'cart', name: 'cart-outline', color: colors.brand, badge: cartCount,
+            onPress: () => navigation.navigate('CartScreen'),
+          },
+        ]}
       />
+      {NotificationsModal}
 
       {isLoading ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>

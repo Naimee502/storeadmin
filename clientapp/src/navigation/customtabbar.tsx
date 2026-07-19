@@ -1,13 +1,23 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Platform,
+  View, Text, TouchableOpacity, StyleSheet, Platform, Alert,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme } from '../config';
+import { usePunchGate } from '../apollo/hooks/attendance';
+
+// Tabs reachable WITHOUT punching in: the dashboard (landing tab), the
+// attendance tab itself (needed to punch in) and profile (so sign-out is
+// never trapped behind the gate). Everything else requires an open punch.
+const isGateExempt = (name: string) =>
+  /home|dashboard|attendance|profile/i.test(name);
 
 export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   const { colors } = useTheme();
+  const { blocked: punchBlocked } = usePunchGate();
+
+  const attendanceRoute = state.routes.find((r) => /attendance/i.test(r.name));
 
   return (
     <View style={[
@@ -28,6 +38,20 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
           route.name;
 
         const onPress = () => {
+          // Punch-in gate: field roles must punch in before working.
+          if (punchBlocked && !isGateExempt(route.name)) {
+            Alert.alert(
+              'Punch in required',
+              'Please punch in from the Attendance tab before starting your work.',
+              attendanceRoute
+                ? [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Go to Attendance', onPress: () => navigation.navigate(attendanceRoute.name) },
+                  ]
+                : undefined,
+            );
+            return;
+          }
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,

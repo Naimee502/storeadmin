@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, Linking, Platform, PermissionsAndroid } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -134,16 +135,31 @@ export default function DeliveryList() {
     [mineData],
   );
 
-  const fetchLocation = useCallback(() => {
+  // Real device location via @react-native-community/geolocation (the old
+  // navigator.geolocation API doesn't exist in RN, so it always fell back to a
+  // hardcoded Mumbai point → wildly wrong distances). No location → no
+  // distance badge, never a fake one.
+  const fetchLocation = useCallback(async () => {
     setLocLabel('fetching');
     try {
-      navigator.geolocation.getCurrentPosition(
-        pos => { setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocLabel('live'); },
-        ()  => { setMyLoc({ lat: 19.0760, lng: 72.8777 }); setLocLabel('off'); },
-        { enableHighAccuracy: false, timeout: 8000 },
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location permission',
+            message: 'Your location is used to show distance to each delivery.',
+            buttonPositive: 'Allow',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) { setMyLoc(null); setLocLabel('off'); return; }
+      }
+      Geolocation.getCurrentPosition(
+        (pos: any) => { setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocLabel('live'); },
+        () => { setMyLoc(null); setLocLabel('off'); },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     } catch {
-      setMyLoc({ lat: 19.0760, lng: 72.8777 });
+      setMyLoc(null);
       setLocLabel('off');
     }
   }, []);

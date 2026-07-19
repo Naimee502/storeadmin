@@ -10,7 +10,7 @@ import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { LedgerSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_ACCOUNT, GET_TRANSACTIONS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, ledgerEntryTotals, formatTxnCode } from '../../../../utils';
-import { AppHeader, BackHeader, DynamicFlashList } from '../../../../components';
+import { BackHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Ledger() {
@@ -162,9 +162,10 @@ export default function Ledger() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
-      {isDrill
-        ? <BackHeader label={`${targetName || 'Party'} — Ledger`} />
-        : <AppHeader label={STRINGS.party.ledger} />}
+      {/* Ledger is no longer a bottom tab — it's pushed from the drawer, so a
+          back header is always correct (the hamburger AppHeader would have no
+          drawer in this stack context). */}
+      <BackHeader label={isDrill ? `${targetName || 'Party'} — Ledger` : STRINGS.party.ledger} />
 
       {showScope && (
         <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>

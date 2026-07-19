@@ -1,6 +1,73 @@
 import { SalesRoute } from "../../../models/salesroutes";
 import { Account } from "../../../models/accounts";
 import { Transaction } from "../../../models/transactions";
+import { StaffAccount } from "../../../models/staffaccounts";
+import { Branch } from "../../../models/branches";
+import { Admin } from "../../../models/admin";
+import { pushNotification } from "../../../models/notifications";
+
+// Resolve the acting user into a display label. Staff tokens are resolved to
+// their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
+// only carry an email, so the display name is looked up from the DB. Unknown →
+// "unknown" (never "admin", so the admin notification is never wrongly skipped).
+const resolveActor = async (user: any) => {
+  let name = user?.name || "";
+  let type = user?.type || "unknown";
+  try {
+    if (user?.type === "staff") {
+      const s: any = await StaffAccount.findById(user.id).select("role name").lean();
+      if (s) { type = s.role || "staff"; name = s.name || name; }
+    } else if (user?.type === "branch") {
+      const b: any = await Branch.findById(user.id).select("branchname").lean();
+      if (b?.branchname) name = b.branchname;
+    } else if (user?.type === "admin") {
+      const a: any = await Admin.findById(user.id).select("name").lean();
+      if (a?.name) name = a.name;
+    }
+  } catch (e) { /* best-effort */ }
+  if (!name) name = user?.email || "Unknown user";
+  return { id: user?.id, name, type, label: `${name} (${type})` };
+};
+
+// Notify about a route event: actor ≠ admin → tell admin; route has an
+// assigned salesman → tell him (unless he did it himself). Best-effort.
+const notifyRouteEvent = async (route: any, context: any, event: string) => {
+  try {
+    if (!route) return;
+    const actor = await resolveActor(context?.user);
+    const routeName = route.routename || "Route";
+    if (actor.type !== "admin") {
+      await pushNotification({
+        adminid: route.adminid,
+        branchid: route.branchid,
+        targettype: "admin",
+        ntype: "route",
+        title: `Route "${routeName}" ${event}`,
+        message: `by ${actor.label}`,
+        webpath: "/salesroutes",
+        docmodel: "SalesRoute",
+        docid: route._id,
+      });
+    }
+    const salesmanId = route.salesmanid?._id || route.salesmanid;
+    if (salesmanId && String(salesmanId) !== String(actor.id || "")) {
+      await pushNotification({
+        adminid: route.adminid,
+        branchid: route.branchid,
+        targettype: "staff",
+        targetid: salesmanId,
+        ntype: "route",
+        title: event === "created"
+          ? `Route "${routeName}" assigned to you`
+          : `Route "${routeName}" ${event}`,
+        message: `by ${actor.label}`,
+        appscreen: "Routes",
+        docmodel: "SalesRoute",
+        docid: route._id,
+      });
+    }
+  } catch (e) { /* notifications are best-effort */ }
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -211,7 +278,7 @@ export const salesRouteResolvers = {
   },
 
   Mutation: {
-    createSalesRoute: async (_: any, { input }: any) => {
+    createSalesRoute: async (_: any, { input }: any, context: any) => {
       try {
         const allAccountIds = buildAllAccounts(input);
         const routecode = await generateRouteCode(input.adminid, input.branchid);
@@ -221,6 +288,7 @@ export const salesRouteResolvers = {
           accounts: allAccountIds,
         });
         const doc = await SalesRoute.findById(newRoute._id);
+        await notifyRouteEvent(newRoute, context, "created");
         return await populateAndFormat(doc!);
       } catch (err) {
         console.error("createSalesRoute error:", err);
@@ -228,7 +296,7 @@ export const salesRouteResolvers = {
       }
     },
 
-    updateSalesRoute: async (_: any, { id, input }: any) => {
+    updateSalesRoute: async (_: any, { id, input }: any, context: any) => {
       try {
         const allAccountIds = buildAllAccounts(input);
         const updated = await SalesRoute.findByIdAndUpdate(
@@ -237,6 +305,7 @@ export const salesRouteResolvers = {
           { new: true }
         );
         if (!updated) throw new Error("Sales route not found");
+        await notifyRouteEvent(updated, context, "updated");
         return await populateAndFormat(updated);
       } catch (err) {
         console.error("updateSalesRoute error:", err);

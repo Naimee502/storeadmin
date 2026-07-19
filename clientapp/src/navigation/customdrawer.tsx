@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView, InteractionManager } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,9 +22,8 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: STRINGS.party.home,    icon: 'home-outline',           tabScreen: 'PartyHome' },
   { label: STRINGS.party.catalog, icon: 'store-outline',          tabScreen: 'Catalog'   },
   { label: STRINGS.party.orders,  icon: 'clipboard-list-outline', tabScreen: 'MyOrders'  },
-  { label: STRINGS.party.ledger,  icon: 'book-account-outline',   tabScreen: 'Ledger'    },
   { label: 'Payments',            icon: 'cash-multiple',          tabScreen: 'Payments'  },
-  { label: STRINGS.party.profile, icon: 'account-circle-outline', screen: 'PartyProfile' },
+  { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Notifications', icon: 'bell-outline',       screen: 'Notifications' },
   { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support' },
@@ -103,10 +102,19 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const activeTabIdx = tabState?.index ?? 0;
   const activeTab    = tabState ? (tabState.routes as any[])[activeTabIdx]?.name : undefined;
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setModalVisible(false);
-    dispatch(logout());
-    await signOut();
+    props.navigation.closeDrawer();
+    // Defer the auth reset until the drawer/modal close transactions finish.
+    // Resetting auth synchronously unmounts the whole navigator tree mid-
+    // fragment-transaction, crashing with "FragmentManager is already
+    // executing transactions" / removeViewAt errors on Android.
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(async () => {
+        dispatch(logout());
+        await signOut();
+      }, 100);
+    });
   };
 
   const navigateTo = (item: DrawerMenuItem) => {

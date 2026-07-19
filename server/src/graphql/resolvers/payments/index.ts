@@ -5,6 +5,8 @@ import { AccountLedger } from "../../../models/accountledgers";
 import { Transaction } from "../../../models/transactions";
 import { AccountGroup } from "../../../models/accountgroups";
 import { ExpenseNote } from "../../../models/expensenote";
+import { StaffAccount } from "../../../models/staffaccounts";
+import { pushNotification } from "../../../models/notifications";
 
 // Find (or auto-create) a posting LEDGER by name under a given account group.
 // Used for the optional Discount / Commission concessions on a payment. Creates
@@ -255,6 +257,22 @@ export const paymentResolvers = {
         createdby_name: input.createdby_name || user?.name || user?.email,
         createdby_type: user?.type || input.createdby_type || "admin",
       };
+      // Staff token → resolve the real role (salesman/staff/deliveryboy) + name.
+      if (user?.type === "staff") {
+        try {
+          const staff: any = await StaffAccount.findById(user.id).select("role name").lean();
+          if (staff) {
+            createdbyData.createdby_type = staff.role || "staff";
+            createdbyData.createdby_name = createdbyData.createdby_name || staff.name;
+          }
+        } catch (e) { /* best-effort */ }
+      }
+      // Unidentifiable actor (expired/missing token, no input fallback): don't
+      // assume "admin" — that would wrongly skip the admin notification.
+      if (!user && !input.createdby_type && !input.createdby_name) {
+        createdbyData.createdby_type = "unknown";
+        createdbyData.createdby_name = "Unknown user";
+      }
 
       const created = await Payment.create({ ...input, ...createdbyData });
 
@@ -289,6 +307,87 @@ export const paymentResolvers = {
 
       const populated = await Payment.findById(created._id).populate("ledgerid").populate("partyid").lean();
       if (!populated) throw new Error("Payment not found after creation");
+
+      // ── Notifications ──────────────────────────────────────────
+      // Actor ≠ admin → tell admin. Always tell the party's linked salesman and
+      // the party — skipping whoever recorded the payment themselves.
+      try {
+        const p: any = populated;
+        const partyName = p?.partyid?.name || "Party";
+        const amount = Number(p?.amount || 0).toFixed(2);
+        const isReceipt = String(p?.type || "").toLowerCase() === "receipt";
+        const verb = isReceipt ? "collected from" : "paid to";
+        const actorLabel = `${createdbyData.createdby_name || "Unknown user"} (${createdbyData.createdby_type})`;
+        const detail = `${p?.paymentcode || ""} • ${p?.mode || ""} • by ${actorLabel}`;
+
+        if (createdbyData.createdby_type !== "admin") {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "admin",
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            webpath: "/payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // Party's linked salesman (skip if the salesman recorded it himself).
+        const salesmanId = p?.partyid?.salesmanid || null;
+        if (salesmanId && String(salesmanId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "staff",
+            targetid: salesmanId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // The party (skip if the party recorded it themselves).
+        const partyId = p?.partyid?._id;
+        if (partyId && String(partyId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "party",
+            targetid: partyId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${isReceipt ? "received" : "made"}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // Channel downline: the parent (upline) party also hears about its
+        // child party's payments (partyid is populated, so assignaccountid is
+        // available directly).
+        const parentId = p?.partyid?.assignaccountid;
+        if (parentId && String(parentId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "party",
+            targetid: parentId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+      } catch (e) { /* notifications are best-effort */ }
+
       return formatPayment(populated);
     },
 

@@ -1,19 +1,30 @@
 import React, { useMemo } from "react";
 import { Menu } from "@headlessui/react";
 import { useNavigate } from "react-router";
-import { useQuery } from "@apollo/client";
+import { useQuery, useMutation } from "@apollo/client";
 import {
   FaBell,
   FaExclamationTriangle,
   FaClipboardList,
   FaCalendarCheck,
   FaBoxOpen,
+  FaFileInvoiceDollar,
+  FaMoneyBillWave,
+  FaReceipt,
+  FaUserPlus,
+  FaRoute,
 } from "react-icons/fa";
 import { useAppSelector } from "../../redux/hooks";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
 import { usePurchaseOrdersQuery } from "../../graphql/hooks/purchaseorder";
 import { GET_LEAVE_REQUESTS } from "../../graphql/queries/attendance";
+import {
+  GET_NOTIFICATIONS,
+  MARK_NOTIFICATION_READ,
+  MARK_ALL_NOTIFICATIONS_READ,
+} from "../../graphql/queries/notifications";
+import { formatDateTimeDMY } from "../../utils/helper";
 
 type SystemNotification = {
   id: string;
@@ -47,6 +58,41 @@ const NotificationBell: React.FC = () => {
     variables: { filter: { adminid: adminId } },
     skip: !adminId,
   });
+
+  // ── Server event notifications (orders punched, conversions, payments) ──
+  const eventFilter = { adminid: adminId, targettype: "admin", unreadOnly: true, limit: 30 };
+  const eventsQ = useQuery(GET_NOTIFICATIONS, {
+    variables: { filter: eventFilter },
+    skip: !adminId,
+    pollInterval: 30000, // refresh every 30s
+    fetchPolicy: "network-only",
+  });
+  const [markRead] = useMutation(MARK_NOTIFICATION_READ);
+  const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
+  const eventNotifications = eventsQ.data?.getNotifications ?? [];
+
+  const eventIconOf = (ntype: string) => {
+    switch (ntype) {
+      case "order": return { icon: <FaClipboardList className="text-emerald-600" />, accent: "bg-emerald-50" };
+      case "invoice": return { icon: <FaFileInvoiceDollar className="text-blue-600" />, accent: "bg-blue-50" };
+      case "payment": return { icon: <FaMoneyBillWave className="text-green-600" />, accent: "bg-green-50" };
+      case "attendance": return { icon: <FaCalendarCheck className="text-teal-600" />, accent: "bg-teal-50" };
+      case "party": return { icon: <FaUserPlus className="text-purple-600" />, accent: "bg-purple-50" };
+      case "route": return { icon: <FaRoute className="text-orange-600" />, accent: "bg-orange-50" };
+      default: return { icon: <FaReceipt className="text-gray-500" />, accent: "bg-gray-50" };
+    }
+  };
+
+  const handleEventClick = async (n: any) => {
+    try { await markRead({ variables: { id: n.id } }); } catch { /* best-effort */ }
+    eventsQ.refetch();
+    if (n.webpath) navigate(n.webpath);
+  };
+
+  const handleMarkAll = async () => {
+    try { await markAllRead({ variables: { filter: eventFilter } }); } catch { /* best-effort */ }
+    eventsQ.refetch();
+  };
 
   const notifications: SystemNotification[] = useMemo(() => {
     const list: SystemNotification[] = [];
@@ -139,7 +185,7 @@ const NotificationBell: React.FC = () => {
     return list;
   }, [productsData, soData, poData, leaveReqQ.data]);
 
-  const count = notifications.length;
+  const count = notifications.length + eventNotifications.length;
 
   return (
     <Menu as="div" className="relative inline-block text-left">
@@ -158,16 +204,55 @@ const NotificationBell: React.FC = () => {
       <Menu.Items className="absolute right-0 mt-2 w-80 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black/5 focus:outline-none z-50 overflow-hidden">
         <div className="px-3 py-2.5 bg-gray-50 border-b flex items-center justify-between">
           <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-            System Notifications
+            Notifications
           </span>
-          {count > 0 && (
-            <span className="text-[10px] font-bold text-white bg-rose-600 rounded-full px-2 py-0.5">
-              {count}
-            </span>
-          )}
+          <span className="flex items-center gap-2">
+            {eventNotifications.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleMarkAll(); }}
+                className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+              >
+                Mark all read
+              </button>
+            )}
+            {count > 0 && (
+              <span className="text-[10px] font-bold text-white bg-rose-600 rounded-full px-2 py-0.5">
+                {count}
+              </span>
+            )}
+          </span>
         </div>
 
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto">
+          {/* Business events (orders / invoices / payments) */}
+          {eventNotifications.map((n: any) => {
+            const { icon, accent } = eventIconOf(n.ntype);
+            return (
+              <Menu.Item key={n.id}>
+                {({ active }) => (
+                  <button
+                    onClick={() => handleEventClick(n)}
+                    className={`${active ? "bg-gray-50" : ""} w-full text-left px-3 py-2.5 flex items-start gap-3 border-b border-gray-50 transition-colors cursor-pointer`}
+                  >
+                    <span className={`mt-0.5 w-8 h-8 rounded-full ${accent} flex items-center justify-center flex-shrink-0 text-sm`}>
+                      {icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-gray-800">{n.title}</span>
+                      {!!n.message && <span className="block text-[11px] text-gray-500">{n.message}</span>}
+                      {!!n.createdAt && (
+                        <span className="block text-[10px] text-gray-400 mt-0.5">
+                          {formatDateTimeDMY(n.createdAt)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                  </button>
+                )}
+              </Menu.Item>
+            );
+          })}
+
           {count === 0 ? (
             <div className="px-4 py-8 text-center text-gray-400 text-xs">
               <FaBell className="mx-auto mb-2 text-lg text-gray-300" />

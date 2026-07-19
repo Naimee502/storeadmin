@@ -33,6 +33,7 @@ import { permissionsTypeDefs } from "./permissions";
 import { chargeRuleTypeDefs } from "./chargerule";
 import { visitTypeDefs } from "./visit";
 import { locationPingTypeDefs } from "./locationping";
+import { notificationTypeDefs } from "./notifications";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -70,4 +71,5 @@ export const typeDefs = [
   chargeRuleTypeDefs,
   visitTypeDefs,
   locationPingTypeDefs,
+  notificationTypeDefs,
 ];

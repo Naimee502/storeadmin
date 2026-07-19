@@ -33,6 +33,7 @@ import { permissionsResolvers } from "./permissions";
 import { chargeRuleResolvers } from "./chargerule";
 import { visitResolvers } from "./visit";
 import { locationPingResolvers } from "./locationping";
+import { notificationResolvers } from "./notifications";
 
 export const resolvers = [
   branchResolvers,
@@ -70,4 +71,5 @@ export const resolvers = [
   chargeRuleResolvers,
   visitResolvers,
   locationPingResolvers,
+  notificationResolvers,
 ];

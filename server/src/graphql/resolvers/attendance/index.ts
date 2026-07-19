@@ -3,6 +3,27 @@ import {
 } from "../../../models/attendance";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { Branch } from "../../../models/branches";
+import { pushNotification } from "../../../models/notifications";
+import { Admin } from "../../../models/admin";
+
+// Display name for the acting user. Branch/admin tokens only carry an email,
+// so look the proper name up from the DB; staff tokens get their staff name.
+const actorName = async (user: any): Promise<string> => {
+  if (!user) return "admin";
+  try {
+    if (user.type === "branch") {
+      const b: any = await Branch.findById(user.id).select("branchname").lean();
+      if (b?.branchname) return b.branchname;
+    } else if (user.type === "admin") {
+      const a: any = await Admin.findById(user.id).select("name").lean();
+      if (a?.name) return a.name;
+    } else if (user.type === "staff") {
+      const s: any = await StaffAccount.findById(user.id).select("name").lean();
+      if (s?.name) return s.name;
+    }
+  } catch (e) { /* best-effort */ }
+  return user.name || user.email || "admin";
+};
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -356,6 +377,44 @@ export const attendanceResolvers = {
       log.totalBreakMinutes = Math.round(breakMs / 60000);
       if (log.status === "absent") log.status = "present";
       await log.save();
+
+      // ── Notifications ──────────────────────────────────────────
+      // Staff self-punch → tell admin. Back-office recorded punch → tell staff.
+      try {
+        const verb = input.type === "in" ? "punched in"
+          : input.type === "out" ? "punched out" : null;
+        if (verb) {
+          const staffName = (staff as any).name || "Staff";
+          const timeStr = ts.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+          const actorId = ctx?.user?.id;
+          const isSelf = !actorId || String(actorId) === String(input.staffid);
+          if (isSelf) {
+            await pushNotification({
+              adminid, branchid,
+              targettype: "admin",
+              ntype: "attendance",
+              title: `${staffName} ${verb}`,
+              message: `${dateStr} • ${timeStr}${input.address ? ` • ${input.address}` : ""}`,
+              webpath: "/attendance",
+              docmodel: "Attendance",
+              docid: log._id,
+            });
+          } else {
+            await pushNotification({
+              adminid, branchid,
+              targettype: "staff",
+              targetid: input.staffid,
+              ntype: "attendance",
+              title: `You were ${verb}`,
+              message: `${dateStr} • ${timeStr} • recorded by ${await actorName(ctx?.user)}`,
+              appscreen: "Attendance",
+              docmodel: "Attendance",
+              docid: log._id,
+            });
+          }
+        }
+      } catch (e) { /* notifications are best-effort */ }
+
       const populated = await Attendance.findById(log._id).populate("staffid").lean();
       const formatted = formatLog(populated);
       const created = formatted!.punches[formatted!.punches.length - 1];
@@ -392,6 +451,22 @@ export const attendanceResolvers = {
             status_active: true } },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       ).populate("staffid").lean();
+
+      // ── Notification: back-office marked attendance → tell the staff ──
+      try {
+        await pushNotification({
+          adminid, branchid,
+          targettype: "staff",
+          targetid: input.staffid,
+          ntype: "attendance",
+          title: `Attendance marked "${input.status}"`,
+          message: `${input.date} • recorded by ${await actorName(ctx?.user)}`,
+          appscreen: "Attendance",
+          docmodel: "Attendance",
+          docid: (log as any)?._id,
+        });
+      } catch (e) { /* notifications are best-effort */ }
+
       return formatLog(log);
     },
     editAttendanceLog: async (_: any, { id, input }: any) => {
@@ -433,14 +508,77 @@ export const attendanceResolvers = {
     },
     deleteLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: false })),
     addLeaveRequest: async (_: any, { input }: any, ctx: any) => {
-      const created = await LeaveRequest.create({ ...input, appliedFromIp: ctx?.req?.ip });
       const year = new Date(input.fromDate).getFullYear();
+
+      // ── Allowance validation ────────────────────────────────────
+      // used + pending (already requested) + this request must not exceed the
+      // allocation. Allocation = staff's LeaveBalance (if admin allocated one),
+      // else the leave type's totalDaysPerYear. A limit of 0 = no limit set.
+      const lt: any = await LeaveType.findById(input.leavetypeid)
+        .select("name totalDaysPerYear").lean();
+      const bal: any = await LeaveBalance.findOne({
+        adminid: input.adminid, staffid: input.staffid,
+        leavetypeid: input.leavetypeid, year,
+      }).lean();
+      const allocated = (bal && ((bal.allocated || 0) > 0 || (bal.carriedForward || 0) > 0))
+        ? (bal.allocated || 0) + (bal.carriedForward || 0)
+        : (lt?.totalDaysPerYear || 0);
+      if (allocated > 0) {
+        const used = bal?.used || 0;
+        const pending = bal?.pending || 0;
+        const remaining = Math.max(0, allocated - used - pending);
+        if ((input.totalDays || 0) > remaining) {
+          throw new Error(
+            `Insufficient ${lt?.name || "leave"} balance: ${remaining} of ${allocated} day(s) remaining for ${year}` +
+            (pending > 0 ? ` (${pending} day(s) already pending approval)` : "") + "."
+          );
+        }
+      }
+
+      const created = await LeaveRequest.create({ ...input, appliedFromIp: ctx?.req?.ip });
       await LeaveBalance.findOneAndUpdate(
         { adminid: input.adminid, staffid: input.staffid, leavetypeid: input.leavetypeid, year },
         { $inc: { pending: input.totalDays } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
       const populated = await LeaveRequest.findById(created._id).populate("staffid").populate("leavetypeid").lean();
+
+      // ── Notification: staff applied → tell admin; applied on behalf → tell staff ──
+      try {
+        const p: any = populated;
+        const staffName = p?.staffid?.name || "Staff";
+        const leaveType = p?.leavetypeid?.name || "Leave";
+        const range = `${input.fromDate} → ${input.toDate} • ${input.totalDays} day(s)`;
+        const actorId = ctx?.user?.id;
+        const isSelf = !actorId || String(actorId) === String(input.staffid);
+        if (isSelf) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "admin",
+            ntype: "attendance",
+            title: `Leave request from ${staffName}`,
+            message: `${leaveType} • ${range}`,
+            webpath: "/attendance",
+            docmodel: "LeaveRequest",
+            docid: created._id,
+          });
+        } else {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "staff",
+            targetid: input.staffid,
+            ntype: "attendance",
+            title: `Leave request submitted for you`,
+            message: `${leaveType} • ${range} • by ${await actorName(ctx?.user)}`,
+            appscreen: "Attendance",
+            docmodel: "LeaveRequest",
+            docid: created._id,
+          });
+        }
+      } catch (e) { /* notifications are best-effort */ }
+
       return formatLeaveRequest(populated);
     },
     editLeaveRequest: async (_: any, { id, input }: any) => {
@@ -495,6 +633,24 @@ export const attendanceResolvers = {
       // exact daily rate and period are only known at payroll run time.
 
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
+
+      // ── Notification: tell the staff their leave was approved ──
+      try {
+        const p: any = populated;
+        await pushNotification({
+          adminid: lr.adminid,
+          branchid: lr.branchid,
+          targettype: "staff",
+          targetid: lr.staffid,
+          ntype: "attendance",
+          title: "Leave request approved",
+          message: `${p?.leavetypeid?.name || "Leave"} • ${lr.fromDate} → ${lr.toDate} • by ${approverName || approverType || "admin"}`,
+          appscreen: "Attendance",
+          docmodel: "LeaveRequest",
+          docid: lr._id,
+        });
+      } catch (e) { /* notifications are best-effort */ }
+
       return formatLeaveRequest(populated);
     },
     rejectLeaveRequest: async (_: any, { id, rejectionReason, approverid, approverName, approverType }: any) => {
@@ -514,6 +670,24 @@ export const attendanceResolvers = {
         { $inc: { pending: -lr.totalDays } }, { new: true }
       );
       const populated = await LeaveRequest.findById(lr._id).populate("staffid").populate("leavetypeid").lean();
+
+      // ── Notification: tell the staff their leave was rejected ──
+      try {
+        const p: any = populated;
+        await pushNotification({
+          adminid: lr.adminid,
+          branchid: lr.branchid,
+          targettype: "staff",
+          targetid: lr.staffid,
+          ntype: "attendance",
+          title: "Leave request rejected",
+          message: `${p?.leavetypeid?.name || "Leave"} • ${lr.fromDate} → ${lr.toDate}${rejectionReason ? ` • ${rejectionReason}` : ""} • by ${approverName || approverType || "admin"}`,
+          appscreen: "Attendance",
+          docmodel: "LeaveRequest",
+          docid: lr._id,
+        });
+      } catch (e) { /* notifications are best-effort */ }
+
       return formatLeaveRequest(populated);
     },
     cancelLeaveRequest: async (_: any, { id }: any) => {

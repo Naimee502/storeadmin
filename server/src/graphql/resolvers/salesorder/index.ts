@@ -4,6 +4,7 @@ import { SalesInvoice } from "../../../models/salesinvoice";
 import { Account } from "../../../models/accounts";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
+import { pushNotification } from "../../../models/notifications";
 
 // Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
 const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
@@ -37,6 +38,148 @@ const resolveCreatedBy = async (user: any, input: any) => {
     }
   } catch (e) { /* best-effort */ }
   return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
+};
+
+// Notify everyone concerned about an order lifecycle event (edited, confirmed,
+// dispatched, delivered, cancelled …). Mirrors the create-order notification
+// rules: actor ≠ admin → tell admin; always tell the assigned salesman (order's
+// salesmenid, else the party's linked salesman) and the party — skipping
+// whoever performed the action themselves. Best-effort, never throws.
+const notifyOrderEvent = async (doc: any, context: any, event: string, input?: any) => {
+  try {
+    if (!doc) return;
+    const user = context?.user;
+    // input carries createdby_name/type from the admin panel forms — used as a
+    // fallback so the actor label stays correct even if the JWT has expired.
+    const actor = await resolveCreatedBy(user, input || {});
+    // Unidentifiable actor (expired/missing token, no input fallback):
+    // resolveCreatedBy defaults to "admin", which would wrongly skip the admin
+    // notification. Treat as unknown instead so the admin still gets notified.
+    if (!user && !input?.createdby_type && !input?.createdby_name) {
+      actor.createdby_type = "unknown";
+      if (actor.createdby_name === "N/A") actor.createdby_name = "Unknown user";
+    }
+    const actorLabel = `${actor.createdby_name} (${actor.createdby_type})`;
+    const orderNo = `SO-${doc.billnumber || ""}`;
+    const partyName = doc.partyacc?.name || doc.partyacc?.accountname || "Party";
+    const amount = Number(doc.totalamount || 0).toFixed(2);
+    const adminid = doc.adminid?._id || doc.adminid;
+    const branchid = doc.branchid?._id || doc.branchid;
+
+    if (actor.createdby_type !== "admin") {
+      await pushNotification({
+        adminid, branchid,
+        targettype: "admin",
+        ntype: "order",
+        title: `Order ${orderNo} ${event}`,
+        message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+        webpath: "/salesorder",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      });
+    }
+
+    let salesmanId: any = doc.salesmenid?._id || doc.salesmenid;
+    if (!salesmanId) {
+      const partyRefId = doc.partyacc?._id || doc.partyacc;
+      if (partyRefId) {
+        const acc: any = await Account.findById(partyRefId).select("salesmanid").lean();
+        salesmanId = acc?.salesmanid || null;
+      }
+    }
+    if (salesmanId && String(salesmanId) !== String(user?.id || "")) {
+      await pushNotification({
+        adminid, branchid,
+        targettype: "staff",
+        targetid: salesmanId,
+        ntype: "order",
+        title: `Order ${orderNo} ${event}`,
+        message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      });
+    }
+
+    // Assigned delivery boy — hears about events on orders he delivers.
+    const deliveryBoyId = doc.deliveryboyid?._id || doc.deliveryboyid;
+    if (
+      deliveryBoyId &&
+      String(deliveryBoyId) !== String(user?.id || "") &&
+      String(deliveryBoyId) !== String(salesmanId || "")
+    ) {
+      await pushNotification({
+        adminid, branchid,
+        targettype: "staff",
+        targetid: deliveryBoyId,
+        ntype: "order",
+        title: `Order ${orderNo} ${event} — ${partyName}`,
+        message: `₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      });
+    }
+
+    // Staff creator (staff/deliveryboy app users) — hears about lifecycle
+    // changes to orders they punched, same as a salesman does.
+    const creatorId = doc.createdby_id;
+    const creatorType = String(doc.createdby_type || "").toLowerCase();
+    if (
+      creatorId &&
+      ["staff", "salesman", "deliveryboy"].includes(creatorType) &&
+      String(creatorId) !== String(user?.id || "") &&
+      String(creatorId) !== String(salesmanId || "") &&
+      String(creatorId) !== String(deliveryBoyId || "")
+    ) {
+      await pushNotification({
+        adminid, branchid,
+        targettype: "staff",
+        targetid: creatorId,
+        ntype: "order",
+        title: `Order ${orderNo} ${event}`,
+        message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      });
+    }
+
+    const partyId = doc.partyacc?._id || doc.partyacc;
+    if (partyId && String(partyId) !== String(user?.id || "")) {
+      await pushNotification({
+        adminid, branchid,
+        targettype: "party",
+        targetid: partyId,
+        ntype: "order",
+        title: `Your order ${orderNo} ${event}`,
+        message: `₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      });
+    }
+
+    // Channel downline: the parent (upline) party also hears about its child
+    // party's order events — mirrors the "Parties Orders" visibility.
+    if (partyId) {
+      const accDoc: any = await Account.findById(partyId).select("assignaccountid").lean();
+      const parentId = accDoc?.assignaccountid;
+      if (parentId && String(parentId) !== String(user?.id || "")) {
+        await pushNotification({
+          adminid, branchid,
+          targettype: "party",
+          targetid: parentId,
+          ntype: "order",
+          title: `Order ${orderNo} ${event} — ${partyName}`,
+          message: `₹${amount} • by ${actorLabel}`,
+          appscreen: "Orders",
+          docmodel: "SalesOrder",
+          docid: doc._id,
+        });
+      }
+    }
+  } catch (e) { /* notifications are best-effort */ }
 };
 
 // Recursively collect all party ids under a root party (assignaccountid chain).
@@ -234,7 +377,21 @@ export const salesOrderResolvers = {
       } else if (user?.type === 'staff') {
         // Delivery boys see orders by delivery assignment, not by who created them.
         const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
-        if (staff?.role !== 'deliveryboy') {
+        if (staff?.role === 'salesman') {
+          // Salesman sees: own orders + orders assigned to them + orders of
+          // THEIR parties (covers admin-punched orders for a party the
+          // salesman manages — with or without salesmenid set on the order).
+          const myParties = await Account.find({ salesmanid: user.id, status: true })
+            .select('_id').lean();
+          const partyIds = myParties.map((p: any) => p._id);
+          query.$or = [
+            { createdby_id: user.id },
+            { salesmenid: user.id },
+            ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
+          ];
+        } else if (staff?.role !== 'deliveryboy') {
+          // Plain staff: strictly own-created orders only (never other
+          // staff members' or salesmen's orders).
           query.createdby_id = user?.id;
         }
       }
@@ -252,7 +409,21 @@ export const salesOrderResolvers = {
 
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
-      if (filter.salesmenid) query.salesmenid = filter.salesmenid;
+      // Skip when role-based $or scoping already covers the salesman —
+      // ANDing salesmenid on top would hide their parties' admin-punched orders.
+      // When only the explicit filter is present (e.g. the app's access token
+      // expired so context.user is null), expand it the same way the role-based
+      // scoping does: own orders + assigned orders + orders of their parties.
+      if (filter.salesmenid && !query.$or) {
+        const myParties = await Account.find({ salesmanid: filter.salesmenid, status: true })
+          .select('_id').lean();
+        const partyIds = myParties.map((p: any) => p._id);
+        query.$or = [
+          { createdby_id: filter.salesmenid },
+          { salesmenid: filter.salesmenid },
+          ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
+        ];
+      }
       if (filter.routeid) query.routeid = filter.routeid;
       if (filter.ordersource) query.ordersource = filter.ordersource;
       if (filter.paymenttype) query.paymenttype = filter.paymenttype;
@@ -341,6 +512,11 @@ export const salesOrderResolvers = {
         console.log("User from context:", user);
         console.log("CreatedbyData:", createdbyData);
 
+        // billnumber is ALWAYS generated server-side (pre-save hook) so numbers
+        // stay unique across the app, admin panel and POS. Client-computed
+        // numbers (from a possibly stale list) caused duplicates like SO-000001.
+        delete input.billnumber;
+
         const created = await SalesOrder.create({ ...input, ...createdbyData, ...lockedData });
 
         console.log("Created Sales Order:", {
@@ -350,10 +526,120 @@ export const salesOrderResolvers = {
           createdby_type: created.createdby_type
         });
 
-        return await SalesOrder.findById(created._id)
+        const doc: any = await SalesOrder.findById(created._id)
           .populate(populateFields)
-          .lean()
-          .then(formatOrder);
+          .lean();
+
+        // ── Notifications ──────────────────────────────────────────
+        // Non-admin punched (salesman/staff/deliveryboy/party) → tell admin.
+        // Back-office punched (admin/branch/staff) → tell the assigned
+        // salesman + the party (app).
+        try {
+          const orderNo = `SO-${doc?.billnumber || ""}`;
+          const partyName = doc?.partyacc?.name || doc?.partyacc?.accountname || "Party";
+          const amount = Number(doc?.totalamount || 0).toFixed(2);
+          const puncherType = createdbyData.createdby_type;
+          const puncherLabel = `${createdbyData.createdby_name} (${puncherType})`;
+          const isBackOffice = ["admin", "branch", "staff"].includes(puncherType);
+
+          if (puncherType !== "admin") {
+            await pushNotification({
+              adminid: input.adminid,
+              branchid: input.branchid,
+              targettype: "admin",
+              ntype: "order",
+              title: `New order ${orderNo} punched`,
+              message: `${partyName} • ₹${amount} • by ${puncherLabel}`,
+              webpath: "/salesorder",
+              docmodel: "SalesOrder",
+              docid: created._id,
+            });
+          }
+
+          if (isBackOffice) {
+            // Assigned salesman: from the order itself, else the party's
+            // linked salesman (accounts.salesmanid).
+            let salesmanId: any = doc?.salesmenid?._id || doc?.salesmenid || input.salesmenid;
+            if (!salesmanId) {
+              const partyRefId = doc?.partyacc?._id || doc?.partyacc || input.partyacc;
+              if (partyRefId) {
+                const acc: any = await Account.findById(partyRefId).select("salesmanid").lean();
+                salesmanId = acc?.salesmanid || null;
+              }
+            }
+            if (salesmanId && String(salesmanId) !== String(createdbyData.createdby_id)) {
+              await pushNotification({
+                adminid: input.adminid,
+                branchid: input.branchid,
+                targettype: "staff",
+                targetid: salesmanId,
+                ntype: "order",
+                title: `New order ${orderNo} for ${partyName}`,
+                message: `₹${amount} • punched by ${puncherLabel}`,
+                appscreen: "Orders",
+                docmodel: "SalesOrder",
+                docid: created._id,
+              });
+            }
+            const partyId = doc?.partyacc?._id || doc?.partyacc || input.partyacc;
+            if (partyId) {
+              await pushNotification({
+                adminid: input.adminid,
+                branchid: input.branchid,
+                targettype: "party",
+                targetid: partyId,
+                ntype: "order",
+                title: `Order ${orderNo} placed for you`,
+                message: `₹${amount} • by ${puncherLabel}`,
+                appscreen: "Orders",
+                docmodel: "SalesOrder",
+                docid: created._id,
+              });
+            }
+          }
+
+          // Channel downline (party hierarchy via assignaccountid):
+          // • parent (upline) party hears about its child party's new order;
+          // • a parent punching for a child also notifies the child.
+          const orderPartyId = doc?.partyacc?._id || doc?.partyacc || input.partyacc;
+          if (orderPartyId) {
+            const accDoc: any = await Account.findById(orderPartyId).select("assignaccountid").lean();
+            const parentId = accDoc?.assignaccountid;
+            if (parentId && String(parentId) !== String(createdbyData.createdby_id || "")) {
+              await pushNotification({
+                adminid: input.adminid,
+                branchid: input.branchid,
+                targettype: "party",
+                targetid: parentId,
+                ntype: "order",
+                title: `New order ${orderNo} for ${partyName}`,
+                message: `₹${amount} • by ${puncherLabel}`,
+                appscreen: "Orders",
+                docmodel: "SalesOrder",
+                docid: created._id,
+              });
+            }
+            if (
+              puncherType === "party" &&
+              String(createdbyData.createdby_id || "") !== String(orderPartyId)
+            ) {
+              await pushNotification({
+                adminid: input.adminid,
+                branchid: input.branchid,
+                targettype: "party",
+                targetid: orderPartyId,
+                ntype: "order",
+                title: `Order ${orderNo} placed for you`,
+                message: `₹${amount} • by ${puncherLabel}`,
+                appscreen: "Orders",
+                docmodel: "SalesOrder",
+                docid: created._id,
+              });
+            }
+          }
+        } catch (e) { /* notifications are best-effort */ }
+
+        return formatOrder(doc);
       } catch (error: any) {
         console.error("=== ERROR Creating Sales Order ===");
         console.error("Error message:", error.message);
@@ -362,10 +648,16 @@ export const salesOrderResolvers = {
       }
     },
 
-    editSalesOrder: async (_: any, { id, input }: any) => {
+    editSalesOrder: async (_: any, { id, input }: any, context: any) => {
       const updated = await SalesOrder.findByIdAndUpdate(id, input, { new: true })
         .populate(populateFields)
         .lean();
+      // Skip the "updated" notification when this edit is the conversion sync
+      // (invoice creation already sends "converted to invoice") — otherwise
+      // every conversion would fire a redundant, confusing "updated" notif.
+      if (updated && !input?.isConverted) {
+        await notifyOrderEvent(updated, context, "updated", input);
+      }
       return updated ? formatOrder(updated) : null;
     },
 
@@ -381,7 +673,7 @@ export const salesOrderResolvers = {
     // Refuses if the order has already been converted, since there is no
     // safe automatic reversal — the invoice would need to be returned via
     // the SalesReturn flow instead.
-    cancelSalesOrder: async (_: any, { id, reason }: { id: string; reason?: string }) => {
+    cancelSalesOrder: async (_: any, { id, reason }: { id: string; reason?: string }, context: any) => {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.isConverted) {
@@ -395,6 +687,7 @@ export const salesOrderResolvers = {
         { cancelStatus: "cancelled", orderStatus: "cancelled", cancelReason: reason || "", cancelledAt: new Date() },
         { new: true }
       ).populate(populateFields).lean();
+      if (updated) await notifyOrderEvent(updated, context, "cancelled");
       return updated ? formatOrder(updated) : null;
     },
 
@@ -414,15 +707,16 @@ export const salesOrderResolvers = {
     },
 
     // ── Fulfilment transitions (order = source of truth, syncs the invoice) ──
-    confirmSalesOrder: async (_: any, { id }: any) => {
+    confirmSalesOrder: async (_: any, { id }: any, context: any) => {
       const updated = await SalesOrder.findByIdAndUpdate(
         id, { orderStatus: "confirmed" }, { new: true }
       ).populate(populateFields).lean();
       if (!updated) throw new Error("Sales Order not found");
+      await notifyOrderEvent(updated, context, "confirmed");
       return formatOrder(updated);
     },
 
-    markSalesOrderDispatched: async (_: any, { id, deliveryboyid }: any) => {
+    markSalesOrderDispatched: async (_: any, { id, deliveryboyid }: any, context: any) => {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
@@ -431,6 +725,7 @@ export const salesOrderResolvers = {
       const updated = await SalesOrder.findByIdAndUpdate(id, update, { new: true })
         .populate(populateFields).lean();
       await syncInvoiceFromOrder(id, { deliveryStatus: "dispatched", ...(deliveryboyid ? { deliveryboyid } : {}) });
+      if (updated) await notifyOrderEvent(updated, context, "dispatched");
       return updated ? formatOrder(updated) : null;
     },
 
@@ -451,10 +746,11 @@ export const salesOrderResolvers = {
         { new: true }
       ).populate(populateFields).lean();
       await syncInvoiceFromOrder(id, { deliveryStatus: "delivered", deliveredAt, ...patch });
+      if (updated) await notifyOrderEvent(updated, context, "delivered");
       return updated ? formatOrder(updated) : null;
     },
 
-    assignOrderDeliveryBoy: async (_: any, { id, deliveryboyid }: any) => {
+    assignOrderDeliveryBoy: async (_: any, { id, deliveryboyid }: any, context: any) => {
       await syncInvoiceFromOrder(id, { deliveryboyid, deliveryStatus: "dispatched" });
       const updated = await SalesOrder.findByIdAndUpdate(
         id,
@@ -462,6 +758,7 @@ export const salesOrderResolvers = {
         { new: true }
       ).populate(populateFields).lean();
       if (!updated) throw new Error("Sales Order not found");
+      await notifyOrderEvent(updated, context, "assigned for delivery");
       return formatOrder(updated);
     },
   },
