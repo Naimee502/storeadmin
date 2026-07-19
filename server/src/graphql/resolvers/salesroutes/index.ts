@@ -194,9 +194,20 @@ const populateAndFormat = async (doc: any): Promise<any> => {
   if (allDayAccountIds.length > 0) {
     const accounts = await Account.find({ _id: { $in: allDayAccountIds } })
       .populate("channel")
+      .populate("accountgroupid")
       .lean();
     accounts.forEach((a: any) => {
-      accountMap[a._id.toString()] = { ...a, id: a._id.toString() };
+      // .lean() strips Mongoose's automatic `id` virtual from populated
+      // sub-docs too, so nested refs (accountgroupid, channel) need `id` set
+      // by hand — otherwise a client selecting e.g. `accountgroupid { id }`
+      // hits the non-null AccountGroup.id field with nothing to resolve, and
+      // GraphQL nulls out the whole response (empty route list client-side).
+      accountMap[a._id.toString()] = {
+        ...a,
+        id: a._id.toString(),
+        accountgroupid: a.accountgroupid ? { ...a.accountgroupid, id: a.accountgroupid._id.toString() } : null,
+        channel: a.channel ? { ...a.channel, id: a.channel._id.toString() } : null,
+      };
     });
   }
 

@@ -5,12 +5,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
 import { GET_SALES_ORDERS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
+import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 // Days come in mixed formats: admin panel saves "sun"/"mon", the app used
@@ -46,6 +47,7 @@ function mapServerRoutes(serverRoutes: any[], visitedSet: Set<string>, allowedId
           city: a.city ?? '',
           address: a.address ?? '',
           channelName: a.channel?.channelName ?? '',
+          accountgroupid: a.accountgroupid?.id ?? null,
           lat: a.latitude ?? null,
           lng: a.longitude ?? null,
           // Live ledger balance from the server (Dr−Cr of posted transactions),
@@ -165,7 +167,7 @@ function openInMaps(lat: number, lng: number, label: string, fromLoc: LatLng | n
 
 // ── RouteCard ─────────────────────────────────────────────────────────────────
 
-function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate, defaultExpanded }: {
+function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate, defaultExpanded, onAddLocation, savingLocId }: {
   route: any; colors: any; salesmanLoc: LatLng | null;
   onNavigate: (lat: number, lng: number, label: string) => void;
   onPartyPress:   (party: any) => void;
@@ -173,6 +175,8 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
   onManageParty:  (party: any, routeId: string, routeName: string, day: string, dayWiseAccounts: any[], salesmanId: string, allRoutes: any[]) => void;
   allRoutes:      any[];
   defaultExpanded?: boolean;
+  onAddLocation:  (party: any) => void;
+  savingLocId:    string | null;
 }) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);
 
@@ -265,35 +269,54 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                       <Icon name={vm.icon} size={16} color={vm.color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.partyName, { color: colors.text }]}>{party.name}</Text>
-                      {!!party.channelName && (
-                        <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
-                          <Icon name="account-network-outline" size={10} color={colors.brand} />
-                          <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
-                            {party.channelName}
-                          </Text>
-                        </View>
-                      )}
-                      {!!party.mobile && (
-                        <View style={styles.partyLocRow}>
-                          <Icon name="phone-outline" size={11} color={colors.subText} />
-                          <Text style={[styles.partyCity, { color: colors.subText }]} numberOfLines={1}>
-                            {party.mobile}
-                          </Text>
-                        </View>
-                      )}
-                      {/* tappable location row → opens maps */}
-                      <TouchableOpacity
-                        style={styles.partyLocRow}
-                        onPress={() => onNavigate(party.lat, party.lng, party.name)}
-                        activeOpacity={0.7}
-                      >
-                        <Icon name="map-marker-outline" size={11} color={colors.brand} />
-                        <Text style={[styles.partyCity, { color: colors.brand }]} numberOfLines={1}>
-                          {party.address}, {party.city}
-                        </Text>
-                        <Icon name="open-in-new" size={10} color={colors.brand} />
-                      </TouchableOpacity>
+                      <View style={styles.partyNameRow}>
+                        <Text style={[styles.partyName, { color: colors.text }]} numberOfLines={1}>{party.name}</Text>
+                        {!!party.channelName && (
+                          <View style={[styles.channelPill, { backgroundColor: colors.brandSoft }]}>
+                            <Icon name="account-network-outline" size={10} color={colors.brand} />
+                            <Text style={[styles.channelText, { color: colors.brand }]} numberOfLines={1}>
+                              {party.channelName}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Phone + location share one row to keep the card compact. */}
+                      <View style={styles.partyMetaRow}>
+                        {!!party.mobile && (
+                          <View style={styles.partyMetaItem}>
+                            <Icon name="phone-outline" size={11} color={colors.subText} />
+                            <Text style={[styles.partyCity, { color: colors.subText }]} numberOfLines={1}>
+                              {party.mobile}
+                            </Text>
+                          </View>
+                        )}
+                        {party.lat != null && party.lng != null ? (
+                          <TouchableOpacity
+                            style={[styles.partyMetaItem, { flex: 1 }]}
+                            onPress={() => onNavigate(party.lat, party.lng, party.name)}
+                            activeOpacity={0.7}
+                          >
+                            <Icon name="map-marker-outline" size={11} color={colors.brand} />
+                            <Text style={[styles.partyCity, { color: colors.brand, flexShrink: 1 }]} numberOfLines={1}>
+                              {[party.address, party.city].filter(Boolean).join(', ')}
+                            </Text>
+                            <Icon name="open-in-new" size={10} color={colors.brand} />
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.partyMetaItem}
+                            onPress={() => onAddLocation(party)}
+                            activeOpacity={0.7}
+                            disabled={savingLocId === party.id}
+                          >
+                            <Icon name={savingLocId === party.id ? 'loading' : 'map-marker-plus-outline'} size={11} color={colors.brand} />
+                            <Text style={[styles.partyCity, { color: colors.brand }]} numberOfLines={1}>
+                              {savingLocId === party.id ? 'Saving location…' : 'Add location'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                       {party.outstanding > 0 ? (
                         <Text style={[styles.outstanding, { color: '#ef4444' }]}>
                           Pending: ₹{Math.abs(party.outstanding).toLocaleString('en-IN')}
@@ -349,6 +372,8 @@ export default function SalesmanRoutes() {
   const { colors, isDark } = useTheme();
   const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
   const [locLabel,    setLocLabel]    = useState<'fetching' | 'live' | 'off'>('fetching');
+  const [savingLocId, setSavingLocId] = useState<string | null>(null);
+  const [editAccount] = useMutation(EDIT_ACCOUNT);
 
   const fetchLocation = useCallback(async () => {
     setLocLabel('fetching');
@@ -449,6 +474,59 @@ export default function SalesmanRoutes() {
     openInMaps(lat, lng, label, salesmanLoc);
   }, [salesmanLoc]);
 
+  // Party has no GPS yet → capture the salesman's CURRENT position (he's
+  // standing at the shop) and save it onto the party record.
+  const handleAddLocation = useCallback(async (party: any) => {
+    if (savingLocId) return;
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location permission',
+            message: 'Your location is used to add this party\'s location.',
+            buttonPositive: 'Allow',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Location permission needed', 'Please allow location access to add this party\'s location.');
+          return;
+        }
+      } catch {
+        Alert.alert('Location permission needed', 'Please allow location access to add this party\'s location.');
+        return;
+      }
+    }
+    setSavingLocId(party.id);
+    Geolocation.getCurrentPosition(
+      async (pos: any) => {
+        try {
+          await editAccount({
+            variables: {
+              id: party.id,
+              input: {
+                name: party.name,
+                accountgroupid: party.accountgroupid,
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              },
+            },
+          });
+          await refetch?.();
+        } catch (e: any) {
+          Alert.alert('Error', e?.message || 'Could not save location.');
+        } finally {
+          setSavingLocId(null);
+        }
+      },
+      () => {
+        setSavingLocId(null);
+        Alert.alert('Location Error', 'Could not get current location. Please enable GPS and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }, [editAccount, refetch, savingLocId]);
+
   const handlePartyPress = (party: any) => {
     navigation.navigate('RoutePartyVisit', {
       partyId: party.id, partyName: party.name,
@@ -520,6 +598,8 @@ export default function SalesmanRoutes() {
             onNavigate={handleNavigate}
             allRoutes={routes}
             defaultExpanded={index === 0}
+            onAddLocation={handleAddLocation}
+            savingLocId={savingLocId}
           />
         )}
         estimatedItemSize={280}
@@ -577,15 +657,18 @@ const styles = StyleSheet.create({
 
   partyRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   partyRowMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   manageBtn:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
   visitIcon:    { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginTop: 2 },
-  partyName:    { fontSize: 13, fontFamily: FONTS.semiBold },
-  channelPill:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginTop: 3 },
+  partyNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  partyName:    { fontSize: 13, fontFamily: FONTS.semiBold, flexShrink: 1 },
+  channelPill:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   channelText:  { fontSize: 10, fontFamily: FONTS.semiBold, flexShrink: 1 },
-  partyLocRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  // Phone + location live in the same row now, so the card needs one fewer line.
+  partyMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
+  partyMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   partyCity:    { fontSize: 11, fontFamily: FONTS.regular, flex: 1 },
   outstanding:  { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2, color: '#ef4444' },
 

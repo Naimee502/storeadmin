@@ -77,7 +77,16 @@ export default function CartScreen() {
       });
 
       Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
-        { text: 'View Orders', onPress: () => navigation.navigate('MyOrders') },
+        {
+          text: 'View Orders',
+          // Cart lives in the outer stack; the tabs are nested under
+          // PartyDrawer → MainTabs, so target the tab through its parents
+          // (a plain navigate('MyOrders') from here throws).
+          onPress: () => navigation.navigate('PartyDrawer', {
+            screen: 'MainTabs',
+            params: { screen: 'MyOrders' },
+          }),
+        },
         { text: 'Continue Shopping', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {

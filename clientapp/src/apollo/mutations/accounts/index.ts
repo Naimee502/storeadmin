@@ -133,6 +133,20 @@ export const ADD_ACCOUNT = gql`
   }
 `;
 
+// Used to save the salesman's live GPS fix onto a party that has no
+// latitude/longitude yet ("Add location" button in My Parties / My Routes).
+// AccountInput requires name + accountgroupid even though the resolver only
+// $sets the fields actually sent, so callers must pass those through too.
+export const EDIT_ACCOUNT = gql`
+  mutation EditAccount($id: ID!, $input: AccountInput!) {
+    editAccount(id: $id, input: $input) {
+      id
+      latitude
+      longitude
+    }
+  }
+`;
+
 export const ADD_PAYMENT = gql`
   mutation AddPayment($input: PaymentInput!) {
     addPayment(input: $input) {

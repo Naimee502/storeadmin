@@ -11,6 +11,7 @@ export const GET_SALES_ROUTES = gql`
           id name mobile address city
           latitude longitude
           outstanding
+          accountgroupid { id }
           channel { channelName }
         }
       }

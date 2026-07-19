@@ -173,6 +173,7 @@ export const GET_ACCOUNTS = gql`
       outstanding
       salesmanid { id name }
       ledgerid { id ledgername }
+      accountgroupid { id }
       channel { id channelName }
     }
   }

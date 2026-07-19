@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar,
 } from 'react-native';
@@ -54,14 +54,17 @@ export default function PartyHome() {
   const adminid = tenant.adminId ?? '';
 
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
+  const [category, setCategory] = useState<string | null>(null); // null = "All"
 
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id },
     skip: !adminid || !user?.id,
     refetchPolicy: 'cache-and-network',
   });
+  // Fetch a bigger page than we display (6) so the category chip row has
+  // something real to filter across, same as the full Catalog/Shop screen.
   const { data: productsData, loading: productsLoading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid, limit: 6 },
+    variables: { adminid, limit: 24 },
     skip: !adminid,
     refetchPolicy: 'cache-first',
   });
@@ -85,9 +88,28 @@ export default function PartyHome() {
   // Outstanding = bill-wise due from the server (same basis as the salesman app).
   const outstanding = Math.max(0, partyAccount?.outstanding || 0);
 
-  const recent = orders.slice(0, 5);
+  const recent = orders.slice(0, 2);
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;
   const isLoading = adminid && (ordersLoading || productsLoading);
+
+  // Distinct categories among the fetched products → "All" + one chip per
+  // category, same filter UX as the Shop/Catalog screen.
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    const cats: { id: string; name: string }[] = [];
+    products.forEach((p: any) => {
+      if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
+        seen.add(p.categoryid.id);
+        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname });
+      }
+    });
+    return cats;
+  }, [products]);
+
+  const visibleProducts = useMemo(() => {
+    const list = category ? products.filter((p: any) => p.categoryid?.id === category) : products;
+    return list.slice(0, 6);
+  }, [products, category]);
 
   const getCartQty = (productId: string, variantId: string, unitId?: string) =>
     cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
@@ -239,8 +261,36 @@ export default function PartyHome() {
             {products.length === 0 ? (
               <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
             ) : (
+              <>
+                {categories.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipList}
+                    style={styles.chipScroll}
+                  >
+                    {[{ id: null, name: 'All' }, ...categories].map((item: any) => {
+                      const active = category === item.id;
+                      return (
+                        <TouchableOpacity
+                          key={item.id ?? 'all'}
+                          style={[styles.chip, active
+                            ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                            : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                          ]}
+                          onPress={() => setCategory(item.id)}
+                        >
+                          <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>
+                            {item.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
               <View style={styles.productGrid}>
-                {products.slice(0, 4).map((p: any) => {
+                {visibleProducts.map((p: any) => {
                   const v = p.productvariants?.[0];
                   const unitIdx = selectedUnits[p.id] ?? 0;
                   const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
@@ -331,6 +381,7 @@ export default function PartyHome() {
                   );
                 })}
               </View>
+              </>
             )}
           </Animated.View>
 
@@ -381,6 +432,11 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontFamily: FONTS.bold },
   viewAll: { fontSize: 13, fontFamily: FONTS.semiBold },
+
+  chipScroll: { flexGrow: 0 },
+  chipList: { paddingBottom: 12, gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
+  chipText: { fontSize: 13, fontFamily: FONTS.semiBold },
 
   emptyCard: {
     borderRadius: 16, borderWidth: 1, paddingVertical: 22, alignItems: 'center', justifyContent: 'center',
