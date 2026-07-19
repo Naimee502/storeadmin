@@ -290,14 +290,18 @@ export default function StaffCreateParty() {
     : regionOptions.filter((o: Option) => o.value !== '' && o.label !== 'Default');
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0}
+    >
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
         <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
 
         <BackHeader label="Add New Party" />
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
           {/* Party type */}
           <Text style={[styles.fieldLabel, { color: colors.text }]}>Party Type</Text>

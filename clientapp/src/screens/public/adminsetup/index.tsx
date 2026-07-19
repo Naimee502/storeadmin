@@ -116,9 +116,11 @@ export default function AdminSetup() {
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0}
         >
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -229,8 +231,8 @@ export default function AdminSetup() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: {
-    flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40,
-    alignItems: 'center', justifyContent: 'center',
+    flexGrow: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40,
+    alignItems: 'center', justifyContent: 'flex-start',
   },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
   glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
