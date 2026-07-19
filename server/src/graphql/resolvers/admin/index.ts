@@ -76,6 +76,7 @@ export const adminResolvers = {
       if (input.password) admin.password = input.password;
       if (input.companyName) admin.companyName = input.companyName;
       if (input.mobile) admin.mobile = input.mobile;
+      if (input.address !== undefined) admin.address = input.address;
       if (input.noOfBranches !== undefined) admin.noOfBranches = input.noOfBranches;
       if (input.subscriptionType) admin.subscriptionType = input.subscriptionType;
       if (input.businesstype) admin.businesstype = input.businesstype;

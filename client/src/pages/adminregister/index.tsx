@@ -16,6 +16,7 @@ const AdminRegister = () => {
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [mobile, setMobile] = useState("");
+  const [address, setAddress] = useState("");
   const [noOfBranches, setNoOfBranches] = useState<number>(1);
   const [subscription, setSubscription] = useState("monthly");
   const [businesstype, setBusinesstype] = useState("retail");
@@ -83,6 +84,7 @@ const AdminRegister = () => {
             password,
             companyName,
             mobile,
+            address,
             noOfBranches: Number(noOfBranches),
             subscriptionType: subscription,
             businesstype,
@@ -174,7 +176,18 @@ const AdminRegister = () => {
               </div>
             </div>
 
-            {/* Row 3: Password */}
+            {/* Row 3: Address — used on Sales Invoice print header */}
+            <FormField
+              label="Address"
+              type="text"
+              name="address"
+              placeholder="Company Address"
+              value={address}
+              onChange={(e: any) => setAddress(e.target.value)}
+              multiline
+            />
+
+            {/* Row 4: Password */}
             <FormField
               label="Password"
               type="password"

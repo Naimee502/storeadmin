@@ -226,7 +226,7 @@ const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
   salesmenid: toSimpleRef(inv.salesmenid, ["name"]),
-  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]),
+  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile", "address", "city", "state", "latitude", "longitude", "gstnumber"]),
   createdby_id: inv.createdby_id,
   createdby_name: inv.createdby_name,
   createdby_type: inv.createdby_type,

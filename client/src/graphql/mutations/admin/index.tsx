@@ -14,6 +14,7 @@ export const CREATE_ADMIN = gql`
       businesstype
       companyName
       mobile
+      address
       noOfBranches
       allowedmodules
     }
@@ -31,6 +32,7 @@ export const UPDATE_ADMIN_BY_ID = gql`
       businesstype
       companyName
       mobile
+      address
       noOfBranches
       allowedmodules
       status
@@ -84,6 +86,7 @@ export const LOGIN_ADMIN = gql`
         businesstype
         companyName
         mobile
+        address
         noOfBranches
         allowedmodules
       }

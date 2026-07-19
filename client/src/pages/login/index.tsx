@@ -103,6 +103,7 @@ const Login = () => {
             email: admin.email,
             companyName: admin.companyName,
             mobile: admin.mobile,
+            address: admin.address,
             noOfBranches: admin.noOfBranches,
             subscriptionType: admin.subscriptionType,
             subscribed: admin.subscribed,

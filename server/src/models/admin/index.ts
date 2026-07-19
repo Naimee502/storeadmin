@@ -11,6 +11,7 @@ interface IAdmin extends Document {
   password: string;
   companyName: string;
   mobile: string;
+  address: string;
   noOfBranches: number;
   subscriptionType: "monthly" | "yearly" | "lifetime" | null;
   subscribed: boolean;
@@ -42,6 +43,7 @@ const AdminSchema: Schema<IAdmin> = new mongoose.Schema(
     password: { type: String, required: true },
     companyName: { type: String, required: true },
     mobile: { type: String, required: true },
+    address: { type: String, default: "" },
     noOfBranches: { type: Number, default: 1 },
 
     // Subscription

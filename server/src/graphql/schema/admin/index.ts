@@ -9,6 +9,7 @@ export const adminTypeDefs = gql`
     password: String!
     companyName: String!
     mobile: String!
+    address: String
     noOfBranches: Int!
     subscriptionType: String
     subscribed: Boolean!
@@ -30,6 +31,7 @@ export const adminTypeDefs = gql`
     password: String!
     companyName: String!
     mobile: String!
+    address: String
     noOfBranches: Int!
     subscriptionType: String
     businesstype: String
@@ -43,6 +45,7 @@ export const adminTypeDefs = gql`
     password: String
     companyName: String
     mobile: String
+    address: String
     noOfBranches: Int
     subscriptionType: String
     businesstype: String

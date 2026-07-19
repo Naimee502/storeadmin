@@ -17,6 +17,12 @@ import { useReactToPrint } from "react-to-print";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { stateOptions } from "../../utils/constants";
+
+// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
+// proper display label (e.g. "Gujarat") for the printed invoice.
+const stateLabel = (slug?: string) =>
+  stateOptions.find((s) => s.value === slug)?.label || "";
 
 
 const SalesInvoices = () => {
@@ -90,7 +96,6 @@ const SalesInvoices = () => {
     const message =
       `*Invoice INV-${orig.billnumber}*\n` +
       `Date: ${formatDateDMY(orig.billdate)}\n` +
-      `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
       `Thank you for your business!\n` +
       `${companyName ? `— ${companyName}` : ""}`;
 
@@ -215,6 +220,14 @@ const SalesInvoices = () => {
     return {
       ...invoice,
       seqNo: index + 1,
+      // Kept for the printable invoice — Party name & GSTIN come from the
+      // Party Account record and are only shown on print if actually set
+      // there (no static/default GSTIN).
+      partyname: invoice.partyacc?.accountname || "",
+      gstin: invoice.partyacc?.gstnumber || "",
+      // Place of Supply on the printed bill = the party's City - State
+      // (GST jurisdiction), not the street address.
+      placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,

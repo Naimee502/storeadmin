@@ -109,6 +109,7 @@ export const LOGIN_BRANCH = gql`
           businesstype
           companyName
           mobile
+          address
           noOfBranches
           allowedmodules
         }

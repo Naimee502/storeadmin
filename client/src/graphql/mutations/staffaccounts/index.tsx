@@ -126,6 +126,7 @@ export const LOGIN_STAFF = gql`
           businesstype
           companyName
           mobile
+          address
           noOfBranches
           allowedmodules
         }

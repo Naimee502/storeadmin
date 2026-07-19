@@ -16,6 +16,12 @@ import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { formatDateDMY } from "../../utils/helper";
 import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { stateOptions } from "../../utils/constants";
+
+// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
+// proper display label (e.g. "Gujarat") for the printed invoice.
+const stateLabel = (slug?: string) =>
+  stateOptions.find((s) => s.value === slug)?.label || "";
 
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
@@ -173,6 +179,13 @@ const PurchaseInvoices = () => {
     return {
       ...invoice,
       seqNo: index + 1,
+      // Kept for the printable invoice — Party name & GSTIN come from the
+      // Party Account record and are only shown on print if actually set
+      // there (no static/default GSTIN). Place of Supply = City - State
+      // (GST jurisdiction), not the street address.
+      partyname: invoice.partyacc?.accountname || "",
+      gstin: invoice.partyacc?.gstnumber || "",
+      placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice?.length || 0,
       totalqty,

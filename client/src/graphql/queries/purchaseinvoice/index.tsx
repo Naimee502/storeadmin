@@ -12,6 +12,10 @@ export const GET_PURCHASE_INVOICES = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate
@@ -76,6 +80,10 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate
@@ -140,6 +148,10 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate

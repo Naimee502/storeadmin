@@ -11,8 +11,10 @@ export const salesInvoiceTypeDefs = gql`
     ledgername: String
     address: String
     city: String
+    state: String
     latitude: Float
     longitude: Float
+    gstnumber: String
   }
 
   type OtherCharge {

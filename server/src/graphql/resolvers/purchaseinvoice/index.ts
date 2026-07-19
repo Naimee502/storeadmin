@@ -44,7 +44,7 @@ const populateFields = [
 const formatInvoice = (inv: any) => ({
   ...inv,
   id: inv._id.toString(),
-  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile"]),
+  partyacc: toSimpleRef(inv.partyacc, ["accountname", "mobile", "address", "city", "state", "gstnumber"]),
   createdby_id: inv.createdby_id,
   createdby_name: inv.createdby_name,
   createdby_type: inv.createdby_type,

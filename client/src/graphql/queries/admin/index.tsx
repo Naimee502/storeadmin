@@ -10,6 +10,7 @@ const ADMIN_FIELDS = `
   email
   companyName
   mobile
+  address
   noOfBranches
   subscriptionType
   subscribed

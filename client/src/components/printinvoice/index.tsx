@@ -49,14 +49,20 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const auth = useAppSelector((state) => state.auth);
     const branch = auth.branch;
-    const companyName =
+    // Resolve the owning Admin record regardless of who is logged in
+    // (admin / branch / staff) so the print header can use the admin's
+    // company address & mobile instead of the branch's.
+    const adminInfo: any =
       auth.type === "admin"
-        ? auth.admin?.companyName
+        ? auth.admin
         : auth.type === "branch"
-          ? auth.branch?.admin?.companyName
+          ? auth.branch?.admin
           : auth.type === "staff"
-            ? auth.staff?.admin?.companyName
-            : "";
+            ? auth.staff?.admin
+            : null;
+    const companyName = adminInfo?.companyName;
+    const companyAddress = adminInfo?.address || branch?.address;
+    const companyMobile = adminInfo?.mobile || branch?.phone || branch?.mobile;
 
     const { settings } = useAppSelector((state: any) => state.adminsettings);
 
@@ -277,9 +283,9 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
           <div className="inv-company">
             <p className="inv-company-name">{companyName || "---"}</p>
             <div className="inv-company-addr">
-              {branch?.address || "---"}
+              {companyAddress || "---"}
               <br />
-              {branch?.city || "---"} - {branch?.phone || branch?.mobile || "---"}
+              {[branch?.city, companyMobile].filter(Boolean).join(" - ")}
             </div>
           </div>
 
@@ -300,7 +306,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             </div>
             <div className="inv-meta-cell">
               <div className="inv-meta-label">Place of Supply</div>
-              <div className="inv-meta-value">{invoice.placeofsupply || "Rajkot"}</div>
+              <div className="inv-meta-value">{invoice.placeofsupply || "---"}</div>
             </div>
 
             <div className="inv-meta-cell">
@@ -325,7 +331,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
             <div className="inv-meta-cell">
               <div className="inv-meta-label">GSTIN No.</div>
-              <div className="inv-meta-value">{invoice.gstin || "24CGQPM7906P1ZJ"}</div>
+              <div className="inv-meta-value">{invoice.gstin || "---"}</div>
             </div>
             <div className="inv-meta-cell">
               <div className="inv-meta-label">Date</div>

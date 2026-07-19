@@ -33,6 +33,7 @@ const AdminList = () => {
     email: string;
     companyName: string;
     mobile: string;
+    address: string;
     noOfBranches: number;
     subscriptionType: string;
     businesstype: string;
@@ -42,6 +43,7 @@ const AdminList = () => {
     email: "",
     companyName: "",
     mobile: "",
+    address: "",
     noOfBranches: 1,
     subscriptionType: "monthly",
     businesstype: "retail",
@@ -82,6 +84,7 @@ const AdminList = () => {
       email: raw.email || "",
       companyName: raw.companyName || "",
       mobile: raw.mobile || "",
+      address: raw.address || "",
       noOfBranches: Number(raw.noOfBranches) || 1,
       subscriptionType: raw.subscriptionType || "monthly",
       businesstype: raw.businesstype || "retail",
@@ -124,6 +127,7 @@ const AdminList = () => {
         email: "",
         companyName: "",
         mobile: "",
+        address: "",
         noOfBranches: 1,
         subscriptionType: "monthly",
         businesstype: "retail",
@@ -254,6 +258,15 @@ const AdminList = () => {
                 required
               />
             </div>
+
+            {/* Address — shown on the Sales Invoice print header */}
+            <FormField
+              label="Address"
+              name="address"
+              value={formValues.address}
+              onChange={(e: any) => handleFormChange("address", e.target.value)}
+              multiline
+            />
 
             {/* Row 3: No of Branches + Subscription + Business Type */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

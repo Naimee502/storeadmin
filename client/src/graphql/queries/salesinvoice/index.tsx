@@ -14,6 +14,10 @@ export const GET_SALES_INVOICES = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate
@@ -89,6 +93,10 @@ export const GET_DELETED_SALES_INVOICES = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate
@@ -164,6 +172,10 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate

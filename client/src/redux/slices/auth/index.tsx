@@ -13,6 +13,7 @@ interface AdminData {
   rejected: boolean;
   companyName: string;
   mobile: string;
+  address?: string;
   noOfBranches: number;
   businesstype: 'retail' | 'wholesale' | 'manufacturer' | 'service' | 'trader' | 'other';
   allowedmodules: string[];
