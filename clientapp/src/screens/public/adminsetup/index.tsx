@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, StatusBar,
   TextInput, TouchableOpacity, KeyboardAvoidingView,
@@ -22,16 +22,27 @@ export default function AdminSetup() {
   const dispatch = useDispatch();
 
   const [code, setCode] = useState('');
-  const [error, setError] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [errors, setErrors] = useState<{ code?: string; mobile?: string }>({});
   const [preview, setPreview] = useState<{ companyName: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const mobileRef = useRef<TextInput>(null);
+
+  // Last-10-digits compare so stored formats like "+91 98765 43210" or
+  // "919876543210" still match a plain 10-digit entry.
+  const last10 = (v: string) => (v || '').replace(/\D/g, '').slice(-10);
 
   const handleActivate = async () => {
     // Admin code like "#ADM0001" — accept with/without "#", any case
     const raw = code.trim().toUpperCase();
-    if (!raw) { setError('Please enter your business code.'); return; }
+    const mobileDigits = mobile.replace(/\D/g, '');
+    const nextErrors: { code?: string; mobile?: string } = {};
+    if (!raw) nextErrors.code = 'Please enter your business code.';
+    if (mobileDigits.length !== 10) nextErrors.mobile = 'Enter a valid 10-digit mobile number.';
+    if (nextErrors.code || nextErrors.mobile) { setErrors(nextErrors); return; }
+
     const normalized = raw.startsWith('#') ? raw : `#${raw}`;
-    setError('');
+    setErrors({});
     setPreview(null);
     setLoading(true);
 
@@ -46,7 +57,14 @@ export default function AdminSetup() {
       console.log('Business Detail:', JSON.stringify(admin));
 
       if (!admin) {
-        setError('Business code not found. Please check and try again.');
+        setErrors({ code: 'Business code not found. Please check and try again.' });
+        setLoading(false);
+        return;
+      }
+
+      // Both fields must match the SAME business — code alone is not enough.
+      if (last10(admin.mobile) !== mobileDigits) {
+        setErrors({ mobile: 'Mobile number does not match this business code.' });
         setLoading(false);
         return;
       }
@@ -78,10 +96,10 @@ export default function AdminSetup() {
       activateBusiness();
     } catch (err: any) {
       const isNetwork = err?.networkError || err?.message?.toLowerCase().includes('network') || err?.message?.toLowerCase().includes('fetch');
-      setError(isNetwork
+      setErrors({ code: isNetwork
         ? 'Cannot connect to server. Make sure the server is running and your device is on the same network.'
         : 'Business code not found. Please check and try again.'
-      );
+      });
       setLoading(false);
     }
   };
@@ -119,31 +137,54 @@ export default function AdminSetup() {
             <Animated.View entering={FadeInDown.duration(700).delay(220)} style={styles.headingWrap}>
               <Text style={[styles.title, { color: colors.text }]}>Activate Business</Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>
-                Enter the business code (e.g. #ADM0001) provided by your administrator to link this app to your business account.
+                Enter the business code (e.g. #ADM0001) and the registered mobile number provided by your administrator to link this app to your business account.
               </Text>
             </Animated.View>
 
             {/* Input card */}
             <Animated.View entering={FadeInUp.duration(700).delay(340)} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
               <Text style={[styles.inputLabel, { color: colors.subText }]}>Business Code</Text>
-              <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: error ? '#ef4444' : colors.border }]}>
+              <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: errors.code ? '#ef4444' : colors.border }]}>
                 <Icon name="briefcase-outline" size={20} color={colors.brand} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
                   placeholder="#ADM0001"
                   placeholderTextColor={colors.placeholder}
                   value={code}
-                  onChangeText={t => { setCode(t); setError(''); }}
+                  onChangeText={t => { setCode(t); setErrors(e => ({ ...e, code: undefined })); }}
                   autoCapitalize="characters"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => mobileRef.current?.focus()}
+                />
+              </View>
+              {!!errors.code && (
+                <View style={styles.errorRow}>
+                  <Icon name="alert-circle-outline" size={14} color="#ef4444" />
+                  <Text style={styles.errorText}>{errors.code}</Text>
+                </View>
+              )}
+
+              <Text style={[styles.inputLabel, { color: colors.subText, marginTop: 16 }]}>Registered Mobile Number</Text>
+              <View style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: errors.mobile ? '#ef4444' : colors.border }]}>
+                <Icon name="phone-outline" size={20} color={colors.brand} style={styles.inputIcon} />
+                <TextInput
+                  ref={mobileRef}
+                  style={[styles.input, { color: colors.text, letterSpacing: 0 }]}
+                  placeholder="10-digit mobile number"
+                  placeholderTextColor={colors.placeholder}
+                  value={mobile}
+                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); }}
+                  keyboardType="number-pad"
+                  maxLength={10}
                   returnKeyType="done"
                   onSubmitEditing={handleActivate}
                 />
               </View>
-              {!!error && (
+              {!!errors.mobile && (
                 <View style={styles.errorRow}>
                   <Icon name="alert-circle-outline" size={14} color="#ef4444" />
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{errors.mobile}</Text>
                 </View>
               )}
 
