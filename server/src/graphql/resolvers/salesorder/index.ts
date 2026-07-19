@@ -40,6 +40,29 @@ const resolveCreatedBy = async (user: any, input: any) => {
   return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
 };
 
+// Plain "staff" role has no order-assignment field (unlike salesman's
+// salesmenid / deliveryboy's deliveryboyid), so without this broadcast they'd
+// only ever hear about an order via attendance or by being its creator —
+// which is why staff logins saw far fewer notifications than salesman/
+// deliveryboy/party. Tell every active "staff"-role StaffAccount at the
+// branch about order activity, same visibility admin already has.
+const notifyBranchStaff = async (
+  adminid: any,
+  branchid: any,
+  excludeIds: any[],
+  payload: { ntype: string; title: string; message: string; docmodel: string; docid: any; appscreen?: string }
+) => {
+  if (!adminid) return;
+  const exclude = new Set(excludeIds.filter(Boolean).map((id: any) => String(id)));
+  const query: any = { admin: adminid, role: "staff", status: true };
+  if (branchid) query.branchid = branchid;
+  const staffList: any[] = await StaffAccount.find(query).select("_id").lean();
+  for (const s of staffList) {
+    if (exclude.has(String(s._id))) continue;
+    await pushNotification({ adminid, branchid, targettype: "staff", targetid: s._id, ...payload });
+  }
+};
+
 // Notify everyone concerned about an order lifecycle event (edited, confirmed,
 // dispatched, delivered, cancelled …). Mirrors the create-order notification
 // rules: actor ≠ admin → tell admin; always tell the assigned salesman (order's
@@ -144,6 +167,21 @@ const notifyOrderEvent = async (doc: any, context: any, event: string, input?: a
         docid: doc._id,
       });
     }
+
+    // Branch-wide "staff" role — same visibility admin has, since plain
+    // staff aren't assignable to orders the way salesman/deliveryboy are.
+    await notifyBranchStaff(
+      adminid, branchid,
+      [user?.id, salesmanId, deliveryBoyId, creatorId],
+      {
+        ntype: "order",
+        title: `Order ${orderNo} ${event}`,
+        message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesOrder",
+        docid: doc._id,
+      }
+    );
 
     const partyId = doc.partyacc?._id || doc.partyacc;
     if (partyId && String(partyId) !== String(user?.id || "")) {
@@ -555,6 +593,21 @@ export const salesOrderResolvers = {
               docid: created._id,
             });
           }
+
+          // Branch-wide "staff" role — same live visibility admin gets, since
+          // plain staff have no order-assignment field of their own.
+          await notifyBranchStaff(
+            input.adminid, input.branchid,
+            [createdbyData.createdby_id],
+            {
+              ntype: "order",
+              title: `New order ${orderNo} punched`,
+              message: `${partyName} • ₹${amount} • by ${puncherLabel}`,
+              appscreen: "Orders",
+              docmodel: "SalesOrder",
+              docid: created._id,
+            }
+          );
 
           if (isBackOffice) {
             // Assigned salesman: from the order itself, else the party's

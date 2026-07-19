@@ -67,6 +67,34 @@ export const selectIsModuleAllowed = (state: any, moduleId: string): boolean => 
   return isModuleInAllowed(state, moduleId);
 };
 
+// Business-level "is this module part of how the company works" check —
+// business + branch allowance only, deliberately SKIPPING the staff-level
+// restriction (Level 3 above). Use this for workflow decisions that must
+// look the same for every role at a branch (e.g. "does this business
+// convert Sales Orders to Sales Invoices, or keep orders standalone?"),
+// as opposed to selectIsModuleAllowed which also gates a staff member's own
+// page access and should stay staff-restricted for that purpose.
+export const selectIsModuleBusinessEnabled = (state: any, moduleId: string): boolean => {
+  const mid = moduleId.toLowerCase();
+  if (DEFAULT_ON_MODULE_IDS.includes(mid)) return true;
+
+  const includes = (arr: string[] | null | undefined) => {
+    if (!arr || !Array.isArray(arr)) return true;
+    return arr.some((m: string) => m.toLowerCase() === mid);
+  };
+
+  const businessAllowed = state.auth.admin?.allowedmodules;
+  if (!includes(businessAllowed)) return false;
+
+  const role = state.auth.type?.toString().toLowerCase();
+  if (role === "branch" || role === "staff") {
+    const branchAllowed = state.auth.branch?.allowedmodules;
+    if (!includes(branchAllowed)) return false;
+  }
+
+  return true;
+};
+
 // Selectors for slice-based access
 export const selectModuleActions = (state: any, moduleId: string) => {
   const role = state.auth.type?.toString().toLowerCase();

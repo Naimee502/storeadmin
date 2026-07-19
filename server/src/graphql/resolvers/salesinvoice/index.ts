@@ -102,6 +102,29 @@ const populateFields = [
   "othercharges.ledgerid",
 ];
 
+// Plain "staff" role has no invoice-assignment field (unlike salesman's
+// salesmenid / deliveryboy's deliveryboyid), so without this broadcast they'd
+// only ever hear about an invoice via attendance or by being its creator —
+// the reason staff logins saw far fewer notifications than salesman/
+// deliveryboy/party. Tell every active "staff"-role StaffAccount at the
+// branch about invoice activity, same visibility admin already has.
+const notifyBranchStaff = async (
+  adminid: any,
+  branchid: any,
+  excludeIds: any[],
+  payload: { ntype: string; title: string; message: string; docmodel: string; docid: any; appscreen?: string }
+) => {
+  if (!adminid) return;
+  const exclude = new Set(excludeIds.filter(Boolean).map((id: any) => String(id)));
+  const query: any = { admin: adminid, role: "staff", status: true };
+  if (branchid) query.branchid = branchid;
+  const staffList: any[] = await StaffAccount.find(query).select("_id").lean();
+  for (const s of staffList) {
+    if (exclude.has(String(s._id))) continue;
+    await pushNotification({ adminid, branchid, targettype: "staff", targetid: s._id, ...payload });
+  }
+};
+
 // Notify everyone concerned about an invoice lifecycle event (dispatched,
 // delivered …). Actor ≠ admin → tell admin; always tell the assigned salesman
 // (invoice's salesmenid, else the party's linked salesman) and the party —
@@ -203,6 +226,21 @@ const notifyInvoiceEvent = async (doc: any, context: any, event: string) => {
         docid: doc._id,
       });
     }
+
+    // Branch-wide "staff" role — same visibility admin has, since plain
+    // staff aren't assignable to invoices the way salesman/deliveryboy are.
+    await notifyBranchStaff(
+      adminid, branchid,
+      [user?.id, salesmanId, deliveryBoyId, creatorId],
+      {
+        ntype: "invoice",
+        title: `Invoice ${invNo} ${event}`,
+        message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+        appscreen: "Orders",
+        docmodel: "SalesInvoice",
+        docid: doc._id,
+      }
+    );
 
     const partyId = doc.partyacc?._id || doc.partyacc;
     if (partyId && String(partyId) !== String(user?.id || "")) {
@@ -540,6 +578,21 @@ export const salesInvoiceResolvers = {
             docid: created._id,
           });
         }
+
+        // Branch-wide "staff" role — same live visibility admin gets, since
+        // plain staff have no invoice-assignment field of their own.
+        await notifyBranchStaff(
+          input.adminid, input.branchid,
+          [createdbyData.createdby_id],
+          {
+            ntype: "invoice",
+            title: titleBase,
+            message: `${partyName} • ₹${amount} • by ${actorLabel}`,
+            appscreen: "Orders",
+            docmodel: "SalesInvoice",
+            docid: created._id,
+          }
+        );
 
         let notifiedSalesmanId: any = null; // avoid double-notifying the same staff below
         if (isBackOffice) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectModuleActions, selectIsModuleAllowed } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
@@ -19,7 +19,9 @@ const SalesOrders = () => {
   // When invoicing is enabled, an order is "confirmed" by converting it to an
   // invoice — so the status dropdown offers "Convert to Invoice" instead of a
   // separate "Confirmed". Order-only businesses keep plain "Confirmed".
-  const salesInvoiceEnabled = useAppSelector(state => selectIsModuleAllowed(state, "salesinvoice"));
+  // Business-level check (not staff-restricted) so every role at a branch —
+  // staff included — sees the same order→invoice workflow as the branch does.
+  const salesInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "salesinvoice"));
   const dispatch = useAppDispatch();
   
   const { data, refetch } = useSalesOrdersQuery();
