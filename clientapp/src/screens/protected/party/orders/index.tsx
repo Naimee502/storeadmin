@@ -7,7 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_SALES_ORDERS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { AppHeader, DynamicFlashList } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
@@ -65,6 +65,17 @@ export default function MyOrders() {
     variables: { adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
   });
   const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
+
+  // The admin setting is business-wide; whether THIS party actually has any
+  // sub-parties under it is separate — an end-user party has none, so the
+  // "Parties Orders" tab must stay hidden for them even when the setting
+  // is on for the business.
+  const { data: downlineBalData } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+    variables: { partyid: user?.id },
+    skip: !user?.id || !manageDownline,
+    fetchPolicy: 'cache-and-network',
+  });
+  const hasDownline = ((downlineBalData as any)?.getDownlinePartyBalances?.length ?? 0) > 0;
 
   const { data, loading, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id, includeDownline: manageDownline },
@@ -185,8 +196,9 @@ export default function MyOrders() {
         }]}
       />
 
-      {/* Scope segmented toggle (own vs sub-party) — only when downline is on */}
-      {manageDownline && (
+      {/* Scope segmented toggle (own vs sub-party) — only when downline is on
+          AND this party actually has sub-parties (hidden for end-users) */}
+      {manageDownline && hasDownline && (
         <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
           {([
             { key: 'mine',     label: 'My Orders' },

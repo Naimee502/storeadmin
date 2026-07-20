@@ -62,6 +62,10 @@ export default function Payments() {
     fetchPolicy: 'cache-and-network',
   });
   const downlineParties = (downlineData?.getDownlinePartyBalances ?? []) as any[];
+  // The admin setting is business-wide; whether THIS party actually has any
+  // sub-parties under it is separate — an end-user party has none, so the
+  // "Parties" tab must stay hidden for them even when the setting is on.
+  const hasDownline = downlineParties.length > 0;
 
   // Refetch on focus (after collecting a payment and returning to the list).
   useFocusEffect(useCallback(() => {
@@ -200,7 +204,7 @@ export default function Payments() {
         ? <BackHeader label={`${targetName || 'Party'} — Payments`} />
         : <AppHeader label="Payments" />}
 
-      {showScope && (
+      {showScope && hasDownline && (
         <View style={[styles.segment, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
           {([
             { key: 'mine', label: 'My Payments' },
