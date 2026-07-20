@@ -15,6 +15,7 @@ import { GET_SALES_ORDER_BY_ID, GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from 
 import { EDIT_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 type Line = {
@@ -31,6 +32,11 @@ export default function OrderEdit() {
   const tenant = useSelector((s: RootState) => s.tenant);
   const user = useSelector((s: RootState) => s.auth.user);
   const orderId: string = route.params?.orderId;
+  // Edit Order is shared across all role logins, but the "hide price"
+  // business setting is a party-only restriction — salesman/staff/delivery
+  // boy always see prices regardless of this flag.
+  const priceSettingOn = useShowProductPrice();
+  const showPrice = user?.role !== 'party' || priceSettingOn;
 
   const { data, loading } = useQuery(GET_SALES_ORDER_BY_ID, {
     variables: { id: orderId }, skip: !orderId, fetchPolicy: 'network-only',
@@ -248,9 +254,11 @@ export default function OrderEdit() {
               <Text style={[styles.sub, { color: colors.brand }]}>
                 {[l.variantName, l.unitName].filter(Boolean).join(' · ') || '—'}
               </Text>
-              <Text style={[styles.price, { color: colors.subText }]}>
-                {formatINR(l.rate)}{l.discount > 0 ? ` (-${formatINR(l.discount)})` : ''} · GST {l.gst}%
-              </Text>
+              {showPrice && (
+                <Text style={[styles.price, { color: colors.subText }]}>
+                  {formatINR(l.rate)}{l.discount > 0 ? ` (-${formatINR(l.discount)})` : ''} · GST {l.gst}%
+                </Text>
+              )}
             </View>
             <View style={{ alignItems: 'flex-end', gap: 6 }}>
               <View style={[styles.qtyRow, { borderColor: colors.brand }]}>
@@ -262,7 +270,9 @@ export default function OrderEdit() {
                   <Icon name="plus" size={13} color={colors.brand} />
                 </TouchableOpacity>
               </View>
-              <Text style={[styles.amt, { color: colors.text }]}>{formatINR((l.rate - l.discount) * l.qty)}</Text>
+              {showPrice && (
+                <Text style={[styles.amt, { color: colors.text }]}>{formatINR((l.rate - l.discount) * l.qty)}</Text>
+              )}
             </View>
           </View>
         ))}
@@ -276,18 +286,20 @@ export default function OrderEdit() {
           <Text style={[styles.addText, { color: colors.brand }]}>Add Product</Text>
         </TouchableOpacity>
 
-        <View style={[styles.summary, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-          <Row label="Subtotal" value={formatINR(totals.subtotal)} colors={colors} />
-          <Row label="Discount" value={`-${formatINR(totals.totaldiscount)}`} colors={colors} />
-          <Row label="GST" value={formatINR(totals.totalgst)} colors={colors} />
-          {charges.lines.map((c) => (
-            <Row key={c.ruleId} label={c.name} value={formatINR(c.totalamount)} colors={colors} />
-          ))}
-          <View style={[styles.row, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 4 }]}>
-            <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
-            <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
+        {showPrice && (
+          <View style={[styles.summary, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <Row label="Subtotal" value={formatINR(totals.subtotal)} colors={colors} />
+            <Row label="Discount" value={`-${formatINR(totals.totaldiscount)}`} colors={colors} />
+            <Row label="GST" value={formatINR(totals.totalgst)} colors={colors} />
+            {charges.lines.map((c) => (
+              <Row key={c.ruleId} label={c.name} value={formatINR(c.totalamount)} colors={colors} />
+            ))}
+            <View style={[styles.row, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 4 }]}>
+              <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
+              <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <TouchableOpacity
           style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.brand }]}
@@ -296,7 +308,7 @@ export default function OrderEdit() {
           activeOpacity={0.88}
         >
           <Icon name="content-save-outline" size={18} color="#fff" />
-          <Text style={styles.saveText}>{saving ? 'Saving…' : `Save Changes · ${formatINR(grandTotal)}`}</Text>
+          <Text style={styles.saveText}>{saving ? 'Saving…' : (showPrice ? `Save Changes · ${formatINR(grandTotal)}` : 'Save Changes')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -350,7 +362,7 @@ export default function OrderEdit() {
                           >
                             <Icon name="plus" size={12} color={colors.brand} />
                             <Text style={[styles.unitChipText, { color: colors.brand }]}>
-                              {u.unitid?.unitname}{price != null ? ` · ${formatINR(price)}` : ''}
+                              {u.unitid?.unitname}{showPrice && price != null ? ` · ${formatINR(price)}` : ''}
                             </Text>
                           </TouchableOpacity>
                         );

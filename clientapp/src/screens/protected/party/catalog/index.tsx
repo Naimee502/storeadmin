@@ -15,6 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, DynamicFlashList } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Catalog() {
@@ -26,6 +27,7 @@ export default function Catalog() {
   const cartItems = useSelector((s: RootState) => s.cart.items);
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = tenant.adminId ?? '';
+  const showPrice = useShowProductPrice();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -186,12 +188,14 @@ export default function Catalog() {
           </ScrollView>
         )}
 
-        <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-          {hasMrp && (
-            <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
-          )}
-        </View>
+        {showPrice && (
+          <View style={styles.priceRow}>
+            <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+            {hasMrp && (
+              <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+            )}
+          </View>
+        )}
 
         {v && !outOfStock && (
           cartQty === 0 ? (

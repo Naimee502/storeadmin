@@ -15,6 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCT = {
@@ -67,6 +68,7 @@ export default function ProductDetail() {
 
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [selectedUnitIdx, setSelectedUnitIdx] = useState(0);
+  const showPrice = useShowProductPrice();
 
   const { data, loading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 200 },
@@ -197,17 +199,19 @@ export default function ProductDetail() {
           )}
           <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
 
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-            {hasMrp && (
-              <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
-            )}
-            {hasDiscount && (
-              <View style={[styles.discountBadge, { backgroundColor: '#22c55e22' }]}>
-                <Text style={[styles.discountText, { color: '#16a34a' }]}>{discountPct}% OFF</Text>
-              </View>
-            )}
-          </View>
+          {showPrice && (
+            <View style={styles.priceRow}>
+              <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+              {hasMrp && (
+                <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+              )}
+              {hasDiscount && (
+                <View style={[styles.discountBadge, { backgroundColor: '#22c55e22' }]}>
+                  <Text style={[styles.discountText, { color: '#16a34a' }]}>{discountPct}% OFF</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           <View style={styles.stockRow}>
             <Icon
@@ -242,9 +246,11 @@ export default function ProductDetail() {
                     onPress={() => selectVariant(i)}
                   >
                     <Text style={[styles.variantChipText, { color: active ? '#fff' : colors.text }]}>{v.name}</Text>
-                    <Text style={[styles.variantPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.subText }]}>
-                      {formatINR(vPrice)}
-                    </Text>
+                    {showPrice && (
+                      <Text style={[styles.variantPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.subText }]}>
+                        {formatINR(vPrice)}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -276,10 +282,12 @@ export default function ProductDetail() {
                     <Text style={[styles.unitChipLabel, { color: active ? '#fff' : colors.text }]}>
                       {getUnitLabel(up)}
                     </Text>
-                    <Text style={[styles.unitChipPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.brand }]}>
-                      {formatINR(uPrice)}
-                    </Text>
-                    {uHasDisc && (
+                    {showPrice && (
+                      <Text style={[styles.unitChipPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.brand }]}>
+                        {formatINR(uPrice)}
+                      </Text>
+                    )}
+                    {showPrice && uHasDisc && (
                       <Text style={[styles.unitChipMrp, { color: active ? 'rgba(255,255,255,0.55)' : colors.subText }]}>
                         {formatINR(uMrp)}
                       </Text>

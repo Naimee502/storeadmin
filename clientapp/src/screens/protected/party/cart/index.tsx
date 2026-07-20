@@ -16,6 +16,7 @@ import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function CartScreen() {
@@ -29,6 +30,7 @@ export default function CartScreen() {
   const adminid = tenant.adminId ?? '';
   const branchid = tenant.branchId ?? '';
   const [placing, setPlacing] = useState(false);
+  const showPrice = useShowProductPrice();
 
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
@@ -131,7 +133,9 @@ export default function CartScreen() {
             {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
           </Text>
           {/* Price line: ₹rate (-₹disc) · GST gst% — same format as POS */}
-          <Text style={[styles.itemPriceInfo, { color: colors.subText }]}>{priceInfo}</Text>
+          {showPrice && (
+            <Text style={[styles.itemPriceInfo, { color: colors.subText }]}>{priceInfo}</Text>
+          )}
         </View>
 
         {/* Right: qty control + amount (same column, amount below qty like POS) */}
@@ -158,7 +162,9 @@ export default function CartScreen() {
               <Icon name="plus" size={13} color={colors.brand} />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.itemTotal, { color: colors.text }]}>{formatINR(item.amount)}</Text>
+          {showPrice && (
+            <Text style={[styles.itemTotal, { color: colors.text }]}>{formatINR(item.amount)}</Text>
+          )}
         </View>
       </View>
     );
@@ -166,40 +172,42 @@ export default function CartScreen() {
 
   const Footer = () => (
     <Animated.View entering={FadeInUp.duration(400).delay(60)}>
-      <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-        <Text style={[styles.summaryTitle, { color: colors.text }]}>Price Details</Text>
+      {showPrice && (
+        <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>Price Details</Text>
 
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.subText }]}>
-            Subtotal ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(subtotal)}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.subText }]}>Total Discount</Text>
-          <Text style={[styles.summaryValue, { color: totaldiscount > 0 ? '#16a34a' : colors.subText }]}>
-            {totaldiscount > 0 ? `-${formatINR(totaldiscount)}` : formatINR(0)}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
-        </View>
-        {charges.lines.map((c) => (
-          <View style={styles.summaryRow} key={c.ruleId}>
-            <Text style={[styles.summaryLabel, { color: colors.subText }]}>{c.name}</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(c.totalamount)}</Text>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>
+              Subtotal ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
+            </Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(subtotal)}</Text>
           </View>
-        ))}
-        <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={[styles.totalLabel, { color: colors.text }]}>Total Payable</Text>
-          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>Total Discount</Text>
+            <Text style={[styles.summaryValue, { color: totaldiscount > 0 ? '#16a34a' : colors.subText }]}>
+              {totaldiscount > 0 ? `-${formatINR(totaldiscount)}` : formatINR(0)}
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
+          </View>
+          {charges.lines.map((c) => (
+            <View style={styles.summaryRow} key={c.ruleId}>
+              <Text style={[styles.summaryLabel, { color: colors.subText }]}>{c.name}</Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(c.totalamount)}</Text>
+            </View>
+          ))}
+          <View style={[styles.summaryRow, styles.totalRow]}>
+            <Text style={[styles.totalLabel, { color: colors.text }]}>Total Payable</Text>
+            <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Place Order button with total — same as POS "Place Order • ₹115.50" */}
       <TouchableOpacity
-        style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }]}
+        style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }, !showPrice && { marginTop: 6 }]}
         onPress={handlePlaceOrder}
         disabled={placing}
         activeOpacity={0.88}
@@ -209,7 +217,7 @@ export default function CartScreen() {
         ) : (
           <>
             <Icon name="check-circle-outline" size={18} color="#fff" />
-            <Text style={styles.placeBtnText}>Place Order · {formatINR(grandTotal)}</Text>
+            <Text style={styles.placeBtnText}>{showPrice ? `Place Order · ${formatINR(grandTotal)}` : 'Place Order'}</Text>
           </>
         )}
       </TouchableOpacity>

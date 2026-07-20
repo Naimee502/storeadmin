@@ -15,6 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
 import { AppHeader, useNotificationCenter } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -65,6 +66,7 @@ export default function PartyHome() {
 
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<string | null>(null); // null = "All"
+  const showPrice = useShowProductPrice();
 
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id },
@@ -357,10 +359,12 @@ export default function PartyHome() {
                         </ScrollView>
                       )}
 
-                      <View style={styles.priceRow}>
-                        <Text style={[styles.productPrice, { color: colors.brand }]}>{formatINR(price)}</Text>
-                        {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
-                      </View>
+                      {showPrice && (
+                        <View style={styles.priceRow}>
+                          <Text style={[styles.productPrice, { color: colors.brand }]}>{formatINR(price)}</Text>
+                          {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+                        </View>
+                      )}
 
                       {v && !outOfStock && (
                         cartQty === 0 ? (
