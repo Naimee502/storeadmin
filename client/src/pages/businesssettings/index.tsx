@@ -252,6 +252,54 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
+      <Section title="App Support & Legal">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Drives the mobile app's Help &amp; Support contact cards and Privacy Policy / Terms &amp; Conditions pages. Leave blank to keep the app's defaults.
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            label="Support Email"
+            name="supportEmail"
+            type="email"
+            placeholder="support@yourbusiness.com"
+            value={draft.supportEmail ?? ""}
+            onChange={(e: any) => set("supportEmail", e.target.value)}
+          />
+          <FormField
+            label="Support Phone (Call Us)"
+            name="supportPhone"
+            type="tel"
+            placeholder="+91 98765 43210"
+            value={draft.supportPhone ?? ""}
+            onChange={(e: any) => set("supportPhone", e.target.value)}
+          />
+          <FormField
+            label="WhatsApp Number (digits only, with country code)"
+            name="supportWhatsapp"
+            type="tel"
+            placeholder="919876543210"
+            value={draft.supportWhatsapp ?? ""}
+            onChange={(e: any) => set("supportWhatsapp", e.target.value)}
+          />
+          <FormField
+            label="Privacy Policy URL"
+            name="privacyPolicyUrl"
+            type="url"
+            placeholder="https://yourbusiness.com/privacy"
+            value={draft.privacyPolicyUrl ?? ""}
+            onChange={(e: any) => set("privacyPolicyUrl", e.target.value)}
+          />
+          <FormField
+            label="Terms & Conditions URL"
+            name="termsConditionsUrl"
+            type="url"
+            placeholder="https://yourbusiness.com/terms"
+            value={draft.termsConditionsUrl ?? ""}
+            onChange={(e: any) => set("termsConditionsUrl", e.target.value)}
+          />
+        </div>
+      </Section>
+
       <div className="flex justify-end">
         <Button variant="outline" onClick={handleSave}>Save Business Settings</Button>
       </div>

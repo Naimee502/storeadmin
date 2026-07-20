@@ -40,6 +40,11 @@ const SETTINGS_FIELDS = `
   printShowTermsAndConditions
   printTermsAndConditions
   printShowPartyBalance
+  supportEmail
+  supportPhone
+  supportWhatsapp
+  privacyPolicyUrl
+  termsConditionsUrl
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

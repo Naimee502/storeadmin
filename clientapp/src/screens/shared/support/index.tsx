@@ -3,11 +3,15 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   StatusBar, Linking,
 } from 'react-native';
+import { useQuery } from '@apollo/client/react';
+import { useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme } from '../../../config';
 import { BackHeader } from '../../../components';
+import { GET_ADMIN_SETTINGS } from '../../../apollo/queries/accounts';
+import type { RootState } from '../../../store/rootreducer';
 
 const FAQS = [
   {
@@ -36,11 +40,24 @@ const FAQS = [
   },
 ];
 
-const CONTACT = [
-  { icon: 'email-outline',     label: 'Email Support',  value: 'support@businesssuite.app', action: () => Linking.openURL('mailto:support@businesssuite.app') },
-  { icon: 'phone-outline',     label: 'Call Us',        value: '+91 98765 43210',           action: () => Linking.openURL('tel:+919876543210') },
-  { icon: 'whatsapp',          label: 'WhatsApp',       value: 'Chat with us',              action: () => Linking.openURL('https://wa.me/919876543210') },
-];
+// Fallback defaults — used whenever the business hasn't configured its own
+// support contact details in Business Settings.
+const DEFAULT_SUPPORT_EMAIL = 'support@businesssuite.app';
+const DEFAULT_SUPPORT_PHONE = '+91 98765 43210';
+const DEFAULT_SUPPORT_WHATSAPP = '919876543210';
+
+function buildContact(settings: any) {
+  const email = settings?.supportEmail || DEFAULT_SUPPORT_EMAIL;
+  const phone = settings?.supportPhone || DEFAULT_SUPPORT_PHONE;
+  const whatsapp = settings?.supportWhatsapp || DEFAULT_SUPPORT_WHATSAPP;
+  const phoneDigits = phone.replace(/[^0-9+]/g, '');
+
+  return [
+    { icon: 'email-outline', label: 'Email Support', value: email, action: () => Linking.openURL(`mailto:${email}`) },
+    { icon: 'phone-outline', label: 'Call Us', value: phone, action: () => Linking.openURL(`tel:${phoneDigits}`) },
+    { icon: 'whatsapp', label: 'WhatsApp', value: 'Chat with us', action: () => Linking.openURL(`https://wa.me/${whatsapp}`) },
+  ];
+}
 
 function FaqItem({ item, colors }: { item: typeof FAQS[0]; colors: any }) {
   const [open, setOpen] = useState(false);
@@ -68,6 +85,13 @@ function FaqItem({ item, colors }: { item: typeof FAQS[0]; colors: any }) {
 
 export default function Support() {
   const { colors, isDark } = useTheme();
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const CONTACT = buildContact((settingsData as any)?.getAdminSettings);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

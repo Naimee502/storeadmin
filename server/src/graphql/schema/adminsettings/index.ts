@@ -48,6 +48,12 @@ export const adminSettingsTypeDefs = gql`
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
 
+    supportEmail: String
+    supportPhone: String
+    supportWhatsapp: String
+    privacyPolicyUrl: String
+    termsConditionsUrl: String
+
     createdAt: String
     updatedAt: String
   }
@@ -97,6 +103,12 @@ export const adminSettingsTypeDefs = gql`
     printShowTermsAndConditions: Boolean
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
+
+    supportEmail: String
+    supportPhone: String
+    supportWhatsapp: String
+    privacyPolicyUrl: String
+    termsConditionsUrl: String
   }
 
   extend type Query {

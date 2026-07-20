@@ -132,6 +132,18 @@ const adminSettingsSchema = new mongoose.Schema(
     allowAdminToManageBusinessSettings: { type: Boolean, default: true },
     allowAdminToManageModules: { type: Boolean, default: true },
     allowAdminToManagePermissions: { type: Boolean, default: true },
+
+    /* ============================================================
+       APP SUPPORT & LEGAL — drives the mobile app's Help & Support
+       contact cards and Privacy Policy / Terms & Conditions pages, so
+       each business can point these at their own details/pages instead
+       of the app's hardcoded placeholders.
+       ============================================================ */
+    supportEmail: { type: String, default: "" },
+    supportPhone: { type: String, default: "" }, // e.g. "+91 98765 43210"
+    supportWhatsapp: { type: String, default: "" }, // digits only, e.g. "919876543210"
+    privacyPolicyUrl: { type: String, default: "" },
+    termsConditionsUrl: { type: String, default: "" },
   },
   { timestamps: true }
 );
