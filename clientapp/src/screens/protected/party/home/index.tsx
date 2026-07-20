@@ -21,6 +21,8 @@ const STATUS_COLOR: Record<string, string> = {
   Cancelled: '#ef4444',
   Confirmed: '#3b82f6',
   Pending: '#f59e0b',
+  Dispatched: '#0ea5e9',
+  Delivered: '#22c55e',
 };
 
 const DUMMY_ORDERS = [
@@ -36,8 +38,16 @@ const DUMMY_PRODUCTS = [
   { id: 'dp4', name: 'Whole Wheat Atta', imageurl: null, categoryid: { id: 'c1', categoryname: 'Grains' }, productvariants: [{ id: 'dv4', name: '5 kg', gst: 0, currentstock: 0, unitprices: [{ salesrate: 275, offerprice: 0, mrp: 310, discount: 0, unitid: null, quantity: 1 }] }] },
 ];
 
+// Mirrors displayStatus() in MyOrders (orders/index.tsx) so the home screen's
+// "Recent Orders" preview matches the real status shown on the full list —
+// it was previously stuck on Cancelled/Confirmed/Pending and never showed
+// Dispatched/Delivered.
 function orderStatus(order: any): string {
   if (order.cancelStatus === 'cancelled') return 'Cancelled';
+  if (order.deliveryStatus === 'delivered') return 'Delivered';
+  if (order.deliveryStatus === 'dispatched') return 'Dispatched';
+  const os = String(order.orderStatus || '').toLowerCase();
+  if (os) return os.charAt(0).toUpperCase() + os.slice(1);
   if (order.isConverted) return 'Confirmed';
   return 'Pending';
 }
@@ -88,7 +98,9 @@ export default function PartyHome() {
   // Outstanding = bill-wise due from the server (same basis as the salesman app).
   const outstanding = Math.max(0, partyAccount?.outstanding || 0);
 
-  const recent = orders.slice(0, 2);
+  // Newest first — orders come back oldest-first, so reverse before taking
+  // the most recent 2 for the home screen preview.
+  const recent = [...orders].reverse().slice(0, 2);
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;
   const isLoading = adminid && (ordersLoading || productsLoading);
 

@@ -118,18 +118,21 @@ export default function DeliveryList() {
 
   useFocusEffect(useCallback(() => { refetchPool?.(); refetchMine?.(); }, [refetchPool, refetchMine]));
 
+  // Newest first — invoices come back oldest-first from the server.
   const available = useMemo(
-    () => ((poolData as any)?.getSalesInvoices ?? []).map((o: any) => toDelivery(o, 'available')),
+    () => [...((poolData as any)?.getSalesInvoices ?? [])].reverse().map((o: any) => toDelivery(o, 'available')),
     [poolData],
   );
   const out = useMemo(
-    () => ((mineData as any)?.getSalesInvoices ?? [])
+    () => [...((mineData as any)?.getSalesInvoices ?? [])]
+      .reverse()
       .filter((o: any) => o.deliveryStatus === 'dispatched')
       .map((o: any) => toDelivery(o, 'out')),
     [mineData],
   );
   const delivered = useMemo(
-    () => ((mineData as any)?.getSalesInvoices ?? [])
+    () => [...((mineData as any)?.getSalesInvoices ?? [])]
+      .reverse()
       .filter((o: any) => o.deliveryStatus === 'delivered')
       .map((o: any) => toDelivery(o, 'delivered')),
     [mineData],

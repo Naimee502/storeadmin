@@ -71,7 +71,8 @@ export default function Payments() {
   const account = accountData?.getAccountById;
   const ledgerId = account?.ledgerid?.id;
   const orders = (ordersData?.getSalesOrders ?? []) as any[];
-  const payments = ((paymentsData?.getPayments ?? []) as any[]).filter(p => p.status !== false);
+  // Newest first — payments come back oldest-first from the server.
+  const payments = ((paymentsData?.getPayments ?? []) as any[]).filter(p => p.status !== false).reverse();
 
   // Authoritative outstanding = the party ledger balance (same source as Home
   // & Ledger), so the three screens never disagree.
@@ -82,7 +83,8 @@ export default function Payments() {
   });
   const transactions = (txData?.getTransactions ?? []) as any[];
 
-  const convertedOrders = orders.filter(o => o.isConverted && o.cancelStatus !== 'cancelled');
+  // Newest first — orders come back oldest-first from the server.
+  const convertedOrders = [...orders].reverse().filter(o => o.isConverted && o.cancelStatus !== 'cancelled');
 
   const { totalOutstanding, totalPaid } = useMemo(() => {
     // Bill-wise due from the server (same basis as Home, Ledger & salesman app).

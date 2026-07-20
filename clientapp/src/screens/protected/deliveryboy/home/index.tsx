@@ -67,8 +67,9 @@ export default function DeliveryDashboard() {
     return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
   };
 
-  const availableOrders = (poolData as any)?.getSalesInvoices ?? [];
-  const mineOrders      = (mineData as any)?.getSalesInvoices ?? [];
+  // Newest first — orders come back oldest-first from the server.
+  const availableOrders = [...((poolData as any)?.getSalesInvoices ?? [])].reverse();
+  const mineOrders      = [...((mineData as any)?.getSalesInvoices ?? [])].reverse();
   const outOrders       = mineOrders.filter((o: any) => o.deliveryStatus === 'dispatched');
   const deliveredAll    = mineOrders.filter((o: any) => o.deliveryStatus === 'delivered');
   const deliveredToday  = deliveredAll.filter((o: any) => ymd(o.deliveredAt) === today);
@@ -88,7 +89,7 @@ export default function DeliveryDashboard() {
     const fmt = (o: any) => formatBillNumber({ billnumber: o.billnumber, isConverted: true });
     const out = outOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'out' }));
     const avail = availableOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'available' }));
-    return [...out, ...avail].slice(0, 6);
+    return [...out, ...avail].slice(0, 3);
   }, [mineData, poolData]);
 
   return (

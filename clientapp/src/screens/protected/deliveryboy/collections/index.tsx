@@ -32,8 +32,10 @@ export default function DeliveryCollections() {
   });
   useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
 
+  // Newest first — payments come back oldest-first from the server.
   const collections = useMemo(() => {
-    return ((data as any)?.getPayments ?? [])
+    return [...((data as any)?.getPayments ?? [])]
+      .reverse()
       .filter((p: any) => p.type === 'receipt' && p.status !== false)
       .map((p: any) => ({
         id: p.id,

@@ -69,7 +69,8 @@ export default function StaffOrders() {
     variables: { adminid: tenant.adminId },
     skip: !tenant.adminId,
   });
-  const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+  // Newest first — orders come back oldest-first from the server.
+  const allOrders = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return allOrders;

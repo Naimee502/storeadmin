@@ -59,14 +59,15 @@ export default function StaffDashboard() {
   });
   useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
 
-  const orders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+  // Newest first — orders come back oldest-first from the server.
+  const orders = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
 
   const today       = new Date().toISOString().slice(0, 10);
   const thisMonth   = today.slice(0, 7);
   const todayOrders = useMemo(() => orders.filter((o: any) => (o.billdate ?? '').startsWith(today)), [orders, today]);
   const pending     = useMemo(() => orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length, [orders]);
   const confirmed   = useMemo(() => orders.filter((o: any) => o.isConverted).length, [orders]);
-  const recent      = useMemo(() => orders.slice(0, 5), [orders]);
+  const recent      = useMemo(() => orders.slice(0, 3), [orders]);
 
   const todaySales = useMemo(
     () => todayOrders.reduce((s: number, o: any) => s + (o.totalamount || 0), 0),

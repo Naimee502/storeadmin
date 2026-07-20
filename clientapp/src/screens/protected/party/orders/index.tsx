@@ -76,7 +76,8 @@ export default function MyOrders() {
   // order detail reflects here when you come back.
   useFocusEffect(useCallback(() => { refetch?.(); }, [refetch]));
 
-  const allOrders = useMemo(() => (data as any)?.getSalesOrders ?? [], [data]);
+  // Newest first — orders come back oldest-first from the server.
+  const allOrders = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
 
   // Scope: own orders vs sub-party (downline) orders. Only meaningful when
   // downline management is on; otherwise everything is "mine".
