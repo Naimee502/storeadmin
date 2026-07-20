@@ -17,6 +17,11 @@ dotenv.config();
 
 const startServer = async () => {
   const app: Application = express();
+  // Behind a reverse proxy (production), this makes req.protocol/req.get('host')
+  // reflect the real public scheme/host (https://rudra...) instead of the
+  // internal http/localhost the node process actually listens on — needed so
+  // uploadImage can build a URL the app/browser can actually reach.
+  app.set('trust proxy', true);
 
   await connectDB();
 

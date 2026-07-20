@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -130,7 +130,10 @@ export default function StaffCart() {
     return (
       <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
-          <Icon name="package-variant-closed" size={20} color={colors.brand} />
+          {item.imageUrl
+            ? <Image source={{ uri: item.imageUrl }} style={styles.itemImg} resizeMode="cover" />
+            : <Icon name="package-variant-closed" size={20} color={colors.brand} />
+          }
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{item.productName}</Text>
@@ -248,7 +251,8 @@ const styles = StyleSheet.create({
   partyBannerText: { fontSize: 13, fontFamily: FONTS.semiBold },
   addMoreText:     { fontSize: 12, fontFamily: FONTS.semiBold },
   itemCard:  { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  itemIcon:    { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  itemIcon:    { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  itemImg:     { width: '100%', height: '100%' },
   itemName:    { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
   itemVariant: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 2 },
   itemRate:    { fontSize: 11, fontFamily: FONTS.regular },

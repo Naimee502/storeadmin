@@ -665,6 +665,9 @@ const AddEditProductService = () => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+      // Show the newly picked file immediately in the preview, before it's
+      // actually uploaded (upload only happens on Save).
+      setFormData((prev: any) => ({ ...prev, imageurl: URL.createObjectURL(file), imagename: file.name }));
     }
   };
 
@@ -966,6 +969,19 @@ const AddEditProductService = () => {
               <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>
               <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>
 
+              {/* Image preview, next to Size — label on top, image directly below it. */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-700">Image Preview</label>
+                {formData.imageurl ? (
+                  <img
+                    src={formData.imageurl}
+                    alt="Product"
+                    className="h-16 w-16 object-contain rounded-lg self-start"
+                  />
+                ) : (
+                  <span className="text-xs text-gray-400">No image selected</span>
+                )}
+              </div>
 
               <div className="md:col-span-2 lg:col-span-3">
                 <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />

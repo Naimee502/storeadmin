@@ -7,7 +7,7 @@ export const uploadResolvers = {
   Upload: GraphQLUpload,
 
   Mutation: {
-    uploadImage: async (_parent: any, { file }: { file: any }) => {
+    uploadImage: async (_parent: any, { file }: { file: any }, context: any) => {
       console.log("📥 UploadImage resolver hit!");
       const { createReadStream, filename, mimetype, encoding } = await file;
 
@@ -30,12 +30,22 @@ export const uploadResolvers = {
       stream.pipe(out);
       await finished(out); // wait for the file to be fully written
 
-      // Return file info with URL pointing to static served folder
+      // Build a URL any caller can actually reach. A hardcoded
+      // "http://localhost:4000" only resolves on the machine running the
+      // server itself — the admin panel's own browser (localhost) happened
+      // to work by coincidence, but the mobile app (LAN IP / ngrok /
+      // production domain) could never load it. Prefer an explicit
+      // PUBLIC_BASE_URL (set this in production), otherwise derive it from
+      // the incoming request so LAN/ngrok/prod all resolve correctly.
+      const req = context?.req;
+      const base = process.env.PUBLIC_BASE_URL
+        || (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 4000}`);
+
       return {
         filename: uniqueFilename,
         mimetype,
         encoding,
-        url: `http://localhost:4000/uploads/${uniqueFilename}`,
+        url: `${base}/uploads/${uniqueFilename}`,
       };
     },
   },

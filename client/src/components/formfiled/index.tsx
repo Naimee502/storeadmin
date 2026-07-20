@@ -343,8 +343,15 @@ const FormField: React.FC<FormFieldProps> = ({
     }
 
     if (isFile) {
+      // Compact row: file input + just the current file name (no thumbnail
+      // here — a bigger image preview is shown separately so this field
+      // doesn't grow taller than the rest of the grid row).
+      const previewName = previewUrl
+        ? decodeURIComponent(previewUrl.split('/').pop() || '').replace(/^\d+-/, '')
+        : null;
+
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full">
           <input
             type="file"
             id={name}
@@ -354,12 +361,10 @@ const FormField: React.FC<FormFieldProps> = ({
             disabled={disabled}
             className="text-sm"
           />
-          {previewUrl && (
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="w-8 h-8 object-cover rounded"
-            />
+          {previewName && (
+            <span className="text-xs text-gray-500 truncate max-w-[140px]" title={previewName}>
+              {previewName}
+            </span>
           )}
         </div>
       );
