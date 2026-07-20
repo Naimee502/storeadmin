@@ -12,6 +12,7 @@ import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { ADD_VISIT } from '../../../../apollo/mutations/tracking';
 import { formatINR } from '../../../../utils';
 import { clearCart, updateQty, removeFromCart } from '../../../../store/slices';
+import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import type { RootState } from '../../../../store/rootreducer';
 import type { CartItem } from '../../../../store/slices/cart';
 
@@ -39,11 +40,17 @@ export default function SalesmanCart() {
   const totalgst      = cartItems.reduce((s, i) => s + (i.rate - (i.discount ?? 0)) * i.qty * (i.gst ?? 0) / 100, 0);
   const total         = subtotal - totaldiscount + totalgst;
 
+  // Preview of the admin's auto-charges (delivery/handling/COD, etc.) —
+  // display only. The order is still submitted with `total` (unchanged);
+  // the server applies the same rules itself at order-creation time.
+  const charges    = useChargePreview(subtotal, 'salesman');
+  const grandTotal = total + charges.total;
+
   const handlePlaceOrder = async () => {
     if (!partyId || cartItems.length === 0) return;
     if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before taking orders.'); return; }
 
-    Alert.alert('Confirm Order', `Place order of ${formatINR(total)} for ${partyName}?`, [
+    Alert.alert('Confirm Order', `Place order of ${formatINR(grandTotal)} for ${partyName}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Place Order',
@@ -189,15 +196,19 @@ export default function SalesmanCart() {
             {totaldiscount > 0 ? `-${formatINR(totaldiscount)}` : formatINR(0)}
           </Text>
         </View>
-        {totalgst > 0 && (
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
+        </View>
+        {charges.lines.map((c) => (
+          <View style={styles.summaryRow} key={c.ruleId}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>{c.name}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(c.totalamount)}</Text>
           </View>
-        )}
+        ))}
         <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
           <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
-          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(total)}</Text>
+          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
         </View>
       </View>
 
@@ -209,7 +220,7 @@ export default function SalesmanCart() {
       >
         {placing
           ? <Text style={styles.placeBtnText}>Placing Order…</Text>
-          : <><Icon name="check-circle-outline" size={18} color="#fff" /><Text style={styles.placeBtnText}>Place Order · {formatINR(total)}</Text></>
+          : <><Icon name="check-circle-outline" size={18} color="#fff" /><Text style={styles.placeBtnText}>Place Order · {formatINR(grandTotal)}</Text></>
         }
       </TouchableOpacity>
     </View>

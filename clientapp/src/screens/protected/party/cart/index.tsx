@@ -15,6 +15,7 @@ import { AppHeader, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
+import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function CartScreen() {
@@ -35,6 +36,12 @@ export default function CartScreen() {
   const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
   const totalgst = cartItems.reduce((s, i) => s + (i.rate - (i.discount ?? 0)) * i.qty * (i.gst ?? 0) / 100, 0);
   const total = subtotal - totaldiscount + totalgst;
+
+  // Preview of the admin's auto-charges (delivery/handling/COD, etc.) —
+  // display only. The order is still submitted with `total` (unchanged);
+  // the server applies the same rules itself at order-creation time.
+  const charges = useChargePreview(subtotal, 'party');
+  const grandTotal = total + charges.total;
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
@@ -178,9 +185,15 @@ export default function CartScreen() {
           <Text style={[styles.summaryLabel, { color: colors.subText }]}>GST</Text>
           <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(totalgst)}</Text>
         </View>
+        {charges.lines.map((c) => (
+          <View style={styles.summaryRow} key={c.ruleId}>
+            <Text style={[styles.summaryLabel, { color: colors.subText }]}>{c.name}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatINR(c.totalamount)}</Text>
+          </View>
+        ))}
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={[styles.totalLabel, { color: colors.text }]}>Total Payable</Text>
-          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(total)}</Text>
+          <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
         </View>
       </View>
 
@@ -196,7 +209,7 @@ export default function CartScreen() {
         ) : (
           <>
             <Icon name="check-circle-outline" size={18} color="#fff" />
-            <Text style={styles.placeBtnText}>Place Order · {formatINR(total)}</Text>
+            <Text style={styles.placeBtnText}>Place Order · {formatINR(grandTotal)}</Text>
           </>
         )}
       </TouchableOpacity>

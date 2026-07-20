@@ -34,7 +34,7 @@ const EMPTY: Draft = {
 
 const CREATOR_OPTIONS = [
   { value: "all", label: "Everyone" },
-  { value: "party", label: "Party (End-user)" },
+  { value: "party", label: "Party" },
   { value: "salesman", label: "Salesman" },
   { value: "staff", label: "Staff" },
   { value: "website", label: "Website" },

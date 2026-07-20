@@ -85,6 +85,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       billtype
       taxorsupplytype
       isservice
+      createdby_type
       partyacc   { id accountname mobile channelName }
       salesmenid { id name }
       productservice {
@@ -424,6 +425,29 @@ export const GET_ADMIN_SETTINGS = gql`
       deliveryMode
       partyManagesDownline
       enablePaymentDiscountCommission
+    }
+  }
+`;
+
+// Active charge rules (delivery/handling/COD, etc.) — used to preview the
+// auto-charges an order will pick up BEFORE it's placed, so the cart total
+// matches what the server will actually charge (see computeAutoCharges on
+// addSalesOrder).
+export const GET_CHARGE_RULES = gql`
+  query GetChargeRules($adminid: ID!) {
+    getChargeRules(adminid: $adminid) {
+      id
+      name
+      chargeType
+      value
+      gstpercent
+      minOrderValue
+      freeAboveValue
+      applyToCreatorTypes
+      paymentTypes
+      onlyWhenDeliveryBoy
+      priority
+      active
     }
   }
 `;

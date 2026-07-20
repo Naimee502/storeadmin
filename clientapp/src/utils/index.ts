@@ -5,3 +5,4 @@ export * from './uiprovider';
 export { useInAppUpdate } from './inappupdatemanager';
 export * from './validators';
 export * from './formatters';
+export * from './chargerules';

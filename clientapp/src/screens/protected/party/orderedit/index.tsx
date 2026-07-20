@@ -14,6 +14,7 @@ import { BackHeader } from '../../../../components';
 import { GET_SALES_ORDER_BY_ID, GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { EDIT_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { apolloClient } from '../../../../apollo/client';
+import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import type { RootState } from '../../../../store/rootreducer';
 
 type Line = {
@@ -77,6 +78,12 @@ export default function OrderEdit() {
     const totalamount = subtotal - totaldiscount + totalgst;
     return { subtotal, totaldiscount, totalgst, totalamount };
   }, [lines]);
+
+  // Preview of the admin's auto-charges (delivery/handling/COD, etc.) —
+  // display only. The server re-evaluates and applies the same rules itself
+  // when the edit is saved (editSalesOrder), same as a new order.
+  const charges = useChargePreview(totals.subtotal, order?.createdby_type || 'party');
+  const grandTotal = totals.totalamount + charges.total;
 
   const setQty = (idx: number, qty: number) => {
     setLines(prev => {
@@ -273,9 +280,12 @@ export default function OrderEdit() {
           <Row label="Subtotal" value={formatINR(totals.subtotal)} colors={colors} />
           <Row label="Discount" value={`-${formatINR(totals.totaldiscount)}`} colors={colors} />
           <Row label="GST" value={formatINR(totals.totalgst)} colors={colors} />
+          {charges.lines.map((c) => (
+            <Row key={c.ruleId} label={c.name} value={formatINR(c.totalamount)} colors={colors} />
+          ))}
           <View style={[styles.row, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 4 }]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
-            <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(totals.totalamount)}</Text>
+            <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
           </View>
         </View>
 
@@ -286,7 +296,7 @@ export default function OrderEdit() {
           activeOpacity={0.88}
         >
           <Icon name="content-save-outline" size={18} color="#fff" />
-          <Text style={styles.saveText}>{saving ? 'Saving…' : `Save Changes · ${formatINR(totals.totalamount)}`}</Text>
+          <Text style={styles.saveText}>{saving ? 'Saving…' : `Save Changes · ${formatINR(grandTotal)}`}</Text>
         </TouchableOpacity>
       </ScrollView>
 

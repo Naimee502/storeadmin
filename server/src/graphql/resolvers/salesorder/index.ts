@@ -702,6 +702,26 @@ export const salesOrderResolvers = {
     },
 
     editSalesOrder: async (_: any, { id, input }: any, context: any) => {
+      // Re-evaluate charge rules when this is a real line-item edit (i.e. a
+      // new subtotal was sent, same as addSalesOrder). Partial updates from
+      // other flows (status/isConverted syncs) never send `subtotal`, so
+      // they skip this and behave exactly as before. Without this, editing
+      // an order's items would leave a stale auto-charge line in
+      // `othercharges` while `totalamount` silently dropped it.
+      try {
+        if (input?.subtotal != null) {
+          const existing: any = await SalesOrder.findById(id).lean();
+          if (existing) {
+            const auto = await computeAutoCharges(input, existing.createdby_type || "party");
+            const manualCharges = (existing.othercharges || []).filter(
+              (c: any) => c?.remarks !== "Auto-applied charge"
+            );
+            input.othercharges = [...manualCharges, ...auto.lines];
+            input.totalamount = +(Number(input.totalamount || 0) + auto.total).toFixed(2);
+          }
+        }
+      } catch (e) { /* charge engine is best-effort; never block an edit */ }
+
       const updated = await SalesOrder.findByIdAndUpdate(id, input, { new: true })
         .populate(populateFields)
         .lean();
