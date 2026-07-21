@@ -189,7 +189,7 @@ export default function SalesmanCatalog() {
     return (
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         {/* Thumbnail */}
-        <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
+        <View style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}>
           {p.imageurl
             ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
@@ -208,31 +208,33 @@ export default function SalesmanCatalog() {
             </Text>
           ) : null}
 
-          {multiUnit && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-              {v.unitprices.map((u: any, ui: number) => {
-                const active = (selectedUnits[p.id] ?? 0) === ui;
-                return (
-                  <TouchableOpacity
-                    key={`${u.unitid?.id ?? ui}`}
-                    style={[styles.unitChip, active
-                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                    ]}
-                    onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
-                  >
-                    <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
-                      {getUnitLabel(u)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
             {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+          </View>
+
+          <View style={styles.unitSlot}>
+            {multiUnit && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+                {v.unitprices.map((u: any, ui: number) => {
+                  const active = (selectedUnits[p.id] ?? 0) === ui;
+                  return (
+                    <TouchableOpacity
+                      key={`${u.unitid?.id ?? ui}`}
+                      style={[styles.unitChip, active
+                        ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                        : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                      ]}
+                      onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
+                    >
+                      <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                        {getUnitLabel(u)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
         </View>
 
@@ -368,12 +370,13 @@ const styles = StyleSheet.create({
 
   // Compact list row — image left, details middle, Add/qty right.
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 98,
     borderRadius: 14, borderWidth: 1, padding: 10, marginBottom: 10,
     shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  thumb:   { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  img:     { width: '100%', height: '100%' },
+  thumb:   { width: 78, height: 78, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  thumbTop: { alignSelf: 'flex-start' },
+  img:     { ...StyleSheet.absoluteFillObject },
   oosTag:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, alignItems: 'center' },
   oosText: { fontSize: 8, fontFamily: FONTS.semiBold, color: '#fff' },
   rowMid:  { flex: 1, justifyContent: 'center' },
@@ -383,7 +386,11 @@ const styles = StyleSheet.create({
   priceRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   price:       { fontSize: 14, fontFamily: FONTS.bold },
   mrp:         { fontSize: 11.5, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
-  unitScroll:   { flexGrow: 0, marginBottom: 3 },
+  // Fixed-height slot reserved for the unit-chip strip so rows with a single
+  // unit (no chips) end up exactly as tall as rows with multiple units —
+  // keeps the whole list's row height (and Add button position) consistent.
+  unitSlot:     { height: 26, justifyContent: 'center', marginTop: 2 },
+  unitScroll:   { flexGrow: 0 },
   unitChip:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, marginRight: 5 },
   unitChipText: { fontSize: 10, fontFamily: FONTS.semiBold },
   addBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 11, paddingVertical: 8, paddingHorizontal: 16, gap: 4 },

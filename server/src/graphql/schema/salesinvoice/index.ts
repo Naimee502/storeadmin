@@ -15,6 +15,7 @@ export const salesInvoiceTypeDefs = gql`
     latitude: Float
     longitude: Float
     gstnumber: String
+    imageurl: String
   }
 
   type OtherCharge {

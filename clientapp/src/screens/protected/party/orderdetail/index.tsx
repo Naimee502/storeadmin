@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -345,7 +345,10 @@ export default function OrderDetail() {
                 idx < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
               ]}>
                 <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
-                  <Icon name="package-variant-closed" size={16} color={colors.brand} />
+                  {item.productserviceid?.imageurl
+                    ? <Image source={{ uri: item.productserviceid.imageurl }} style={styles.itemImg} resizeMode="cover" />
+                    : <Icon name="package-variant-closed" size={16} color={colors.brand} />
+                  }
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
@@ -571,7 +574,8 @@ const styles = StyleSheet.create({
   timelineLabel:{ fontSize: 13, paddingTop: 2, paddingBottom: 12 },
 
   itemRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  itemIcon:   { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  itemIcon:   { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  itemImg:    { ...StyleSheet.absoluteFillObject },
   itemName:   { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 2 },
   itemVariant:{ fontSize: 11, fontFamily: FONTS.regular },
   itemAmount: { fontSize: 13, fontFamily: FONTS.bold },

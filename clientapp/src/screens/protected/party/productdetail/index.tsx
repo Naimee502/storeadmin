@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, ScrollView,
+  StatusBar, Image, ScrollView, Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -69,6 +69,33 @@ export default function ProductDetail() {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [selectedUnitIdx, setSelectedUnitIdx] = useState(0);
   const showPrice = useShowProductPrice();
+  // Auto-fit the hero image to its own aspect ratio (no cropping) instead of
+  // forcing every photo into one fixed box shape. Read the real pixel size
+  // once the image loads, then size the box to match it exactly, capped so
+  // a tall portrait photo doesn't take over the screen.
+  //
+  // Earlier attempt used CSS `aspectRatio` + `maxHeight` together, which
+  // clamps height but leaves width at the parent's full size — the box's
+  // shape no longer matched the photo's real ratio, so the image ended up
+  // small and pinned to one side with dead space next to it. Fix: compute
+  // width AND height together in JS from the same ratio, so the box is
+  // always exactly the photo's shape, then center that box horizontally.
+  const [imgRatio, setImgRatio] = useState<number | null>(null);
+  const cardWidth = Dimensions.get('window').width - 36; // matches scroll's 18px side padding
+  const HERO_MAX_H = 320;
+  const HERO_MIN_H = 200;
+  let imgBoxWidth = cardWidth;
+  let imgBoxHeight = 220;
+  if (imgRatio) {
+    imgBoxHeight = cardWidth / imgRatio;
+    if (imgBoxHeight > HERO_MAX_H) {
+      imgBoxHeight = HERO_MAX_H;
+      imgBoxWidth = imgBoxHeight * imgRatio; // shrink width to match — keeps the box's aspect identical to the photo's
+    } else if (imgBoxHeight < HERO_MIN_H) {
+      imgBoxHeight = HERO_MIN_H;
+      imgBoxWidth = Math.min(cardWidth, imgBoxHeight * imgRatio);
+    }
+  }
 
   const { data, loading } = useQuery(GET_PRODUCTS, {
     variables: { adminid, limit: 200 },
@@ -84,6 +111,10 @@ export default function ProductDetail() {
   const allProducts = (data as any)?.getProductServices ?? [];
   const fetchedProduct = allProducts.find((p: any) => p.id === productId);
   const product = fetchedProduct ?? DUMMY_PRODUCT;
+
+  // New photo → forget the last one's measured ratio so we don't render it
+  // with the wrong box size for a split second before onLoad fires again.
+  useEffect(() => { setImgRatio(null); }, [product.imageurl]);
 
   const variant = product.productvariants?.[selectedVariantIdx];
   const unitprice = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
@@ -179,9 +210,29 @@ export default function ProductDetail() {
 
         {/* Product image */}
         <Animated.View entering={FadeInUp.duration(400).delay(40)} style={[styles.imgCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-          <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
+          <View
+            style={[
+              styles.imgWrap,
+              {
+                backgroundColor: colors.brandSoft,
+                width: imgBoxWidth,
+                height: imgBoxHeight,
+                alignSelf: 'center', // centers the box itself when it's narrower than the card (capped-height photos)
+              },
+            ]}
+          >
             {product.imageurl
-              ? <Image source={{ uri: product.imageurl }} style={styles.img} resizeMode="cover" />
+              ? (
+                <Image
+                  source={{ uri: product.imageurl }}
+                  style={styles.img}
+                  resizeMode="cover"
+                  onLoad={(e) => {
+                    const { width, height } = e.nativeEvent?.source ?? {};
+                    if (width && height) setImgRatio(width / height);
+                  }}
+                />
+              )
               : <Icon name="package-variant-closed" size={72} color={colors.brand} />
             }
           </View>
@@ -370,7 +421,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
   },
   imgWrap: { height: 200, justifyContent: 'center', alignItems: 'center' },
-  img: { width: '100%', height: '100%' },
+  img: { ...StyleSheet.absoluteFillObject },
   oosOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 8, alignItems: 'center',

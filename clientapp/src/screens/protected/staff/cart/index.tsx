@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   addMoreText:     { fontSize: 12, fontFamily: FONTS.semiBold },
   itemCard:  { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   itemIcon:    { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  itemImg:     { width: '100%', height: '100%' },
+  itemImg:     { ...StyleSheet.absoluteFillObject },
   itemName:    { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
   itemVariant: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 2 },
   itemRate:    { fontSize: 11, fontFamily: FONTS.regular },

@@ -89,7 +89,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       partyacc   { id accountname mobile channelName }
       salesmenid { id name }
       productservice {
-        productserviceid { id name }
+        productserviceid { id name imageurl }
         variantid        { id name }
         salesunitid      { id unitname }
         unitqty
@@ -134,7 +134,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       partyacc   { id accountname mobile }
       salesmenid { id name }
       productservice {
-        productserviceid { id name }
+        productserviceid { id name imageurl }
         variantid        { id name }
         qty
         rate

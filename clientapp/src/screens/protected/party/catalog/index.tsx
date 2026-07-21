@@ -148,54 +148,56 @@ export default function Catalog() {
         onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
         activeOpacity={0.88}
       >
-        <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
-          {p.imageurl
-            ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
-            : <Icon name="package-variant-closed" size={30} color={colors.brand} />
-          }
-          {outOfStock && (
-            <View style={styles.oosTag}>
-              <Text style={styles.oosText}>{STRINGS.party.outOfStock}</Text>
+        <View>
+          <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
+            {p.imageurl
+              ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
+              : <Icon name="package-variant-closed" size={30} color={colors.brand} />
+            }
+            {outOfStock && (
+              <View style={styles.oosTag}>
+                <Text style={styles.oosText}>{STRINGS.party.outOfStock}</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
+          {p.categoryid?.categoryname && (
+            <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
+          )}
+
+          {/* Unit chips */}
+          {multiUnit && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+              {v.unitprices.map((u: any, ui: number) => {
+                const active = (selectedUnits[p.id] ?? 0) === ui;
+                return (
+                  <TouchableOpacity
+                    key={`${u.unitid?.id ?? ui}`}
+                    style={[styles.unitChip, active
+                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                    ]}
+                    onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
+                  >
+                    <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                      {getUnitLabel(u)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {showPrice && (
+            <View style={styles.priceRow}>
+              <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+              {hasMrp && (
+                <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+              )}
             </View>
           )}
         </View>
-
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
-        {p.categoryid?.categoryname && (
-          <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
-        )}
-
-        {/* Unit chips */}
-        {multiUnit && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-            {v.unitprices.map((u: any, ui: number) => {
-              const active = (selectedUnits[p.id] ?? 0) === ui;
-              return (
-                <TouchableOpacity
-                  key={`${u.unitid?.id ?? ui}`}
-                  style={[styles.unitChip, active
-                    ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                  ]}
-                  onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
-                >
-                  <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
-                    {getUnitLabel(u)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        {showPrice && (
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-            {hasMrp && (
-              <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
-            )}
-          </View>
-        )}
 
         {v && !outOfStock && (
           cartQty === 0 ? (
@@ -316,7 +318,8 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontFamily: FONTS.semiBold },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
   card: {
-    flex: 1, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
+    flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
+    justifyContent: 'space-between',
     shadowColor: COLORS.light.shadow,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
@@ -324,7 +327,7 @@ const styles = StyleSheet.create({
     height: 90, borderRadius: 12, marginBottom: 10,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
   },
-  img: { width: '100%', height: '100%' },
+  img: { ...StyleSheet.absoluteFillObject },
   oosTag: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 3, alignItems: 'center',

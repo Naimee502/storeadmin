@@ -13,6 +13,7 @@ export const salesOrderTypeDefs = gql`
     city: String
     latitude: Float
     longitude: Float
+    imageurl: String
   }
 
   type OtherCharge {

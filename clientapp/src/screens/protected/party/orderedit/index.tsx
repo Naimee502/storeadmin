@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator,
-  Modal, FlatList, TextInput, ScrollView,
+  Modal, FlatList, TextInput, ScrollView, Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -19,7 +19,7 @@ import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 type Line = {
-  productserviceid: string; productName: string;
+  productserviceid: string; productName: string; imageUrl: string | null;
   variantid: string | null; variantName: string;
   salesunitid: string | null; unitName: string; unitqty: number;
   qty: number; rate: number; discount: number; gst: number;
@@ -65,6 +65,7 @@ export default function OrderEdit() {
     setLines((order.productservice || []).map((p: any) => ({
       productserviceid: p.productserviceid?.id,
       productName: p.productserviceid?.name || 'Item',
+      imageUrl: p.productserviceid?.imageurl || null,
       variantid: p.variantid?.id || null,
       variantName: p.variantid?.name || '',
       salesunitid: p.salesunitid?.id || null,
@@ -134,6 +135,7 @@ export default function OrderEdit() {
       const newLine: Line = {
         productserviceid: product.id,
         productName: product.name,
+        imageUrl: product.imageurl || null,
         variantid: variant.id,
         variantName: variant.name || '',
         salesunitid: up.unitid.id,
@@ -249,6 +251,12 @@ export default function OrderEdit() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
         {lines.map((l, idx) => (
           <View key={idx} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
+              {l.imageUrl
+                ? <Image source={{ uri: l.imageUrl }} style={styles.thumbImg} resizeMode="cover" />
+                : <Icon name="package-variant-closed" size={20} color={colors.brand} />
+              }
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{l.productName}</Text>
               <Text style={[styles.sub, { color: colors.brand }]}>
@@ -392,6 +400,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 30 },
   note: { fontSize: 14, fontFamily: FONTS.semiBold, textAlign: 'center' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 12, marginTop: 10 },
+  thumb: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexShrink: 0 },
+  thumbImg: { ...StyleSheet.absoluteFillObject },
   name: { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 2 },
   sub: { fontSize: 11, fontFamily: FONTS.semiBold, marginBottom: 3 },
   price: { fontSize: 11, fontFamily: FONTS.regular },

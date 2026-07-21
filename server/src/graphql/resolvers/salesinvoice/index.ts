@@ -302,7 +302,7 @@ const formatInvoice = (inv: any) => ({
 
     return {
       ...ps,
-      productserviceid: toSimpleRef(ps.productserviceid, ["name"]),
+      productserviceid: toSimpleRef(ps.productserviceid, ["name", "imageurl"]),
       variantid: variant ? { id: variant._id.toString(), name: variant.name } : null,
       salesunitid: toSimpleRef(ps.salesunitid, ["unitname"]),
       salesaccountid: toSimpleRef(ps.salesaccountid, ["ledgername"]),

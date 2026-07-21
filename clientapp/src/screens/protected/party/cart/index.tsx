@@ -120,7 +120,7 @@ export default function CartScreen() {
         {/* Product image */}
         <View style={[styles.itemImg, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            ? <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={22} color={colors.brand} />
           }
         </View>
