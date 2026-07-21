@@ -34,11 +34,24 @@ export const uploadResolvers = {
       // "http://localhost:4000" only resolves on the machine running the
       // server itself — the admin panel's own browser (localhost) happened
       // to work by coincidence, but the mobile app (LAN IP / ngrok /
-      // production domain) could never load it. Prefer an explicit
-      // PUBLIC_BASE_URL (set this in production), otherwise derive it from
-      // the incoming request so LAN/ngrok/prod all resolve correctly.
+      // production domain) could never load it.
+      //
+      // Which base URL to use is picked automatically from NODE_ENV so
+      // nobody has to remember to flip a value before/after deploying:
+      //   - NODE_ENV=production (set by ecosystem.config.js under pm2)
+      //     -> PUBLIC_BASE_URL_PROD (public domain, e.g. https://rudra...)
+      //   - anything else (local dev)
+      //     -> PUBLIC_BASE_URL_DEV (LAN IP, so the mobile app on the same
+      //        network can load it too)
+      // If neither is set, fall back to deriving it from the incoming
+      // request (works for LAN/ngrok/prod alike as long as `trust proxy`
+      // is configured), and finally to localhost as a last resort.
       const req = context?.req;
-      const base = process.env.PUBLIC_BASE_URL
+      const isProd = process.env.NODE_ENV === 'production';
+      const configuredBase = isProd
+        ? process.env.PUBLIC_BASE_URL_PROD
+        : (process.env.PUBLIC_BASE_URL_DEV || process.env.PUBLIC_BASE_URL); // PUBLIC_BASE_URL kept for back-compat
+      const base = configuredBase
         || (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 4000}`);
 
       return {
