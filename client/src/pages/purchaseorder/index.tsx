@@ -52,7 +52,7 @@ const PurchaseOrders = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = orderList.map((order: any, index: number) => {
+  const tableData = [...orderList].reverse().map((order: any, index: number) => {
     const totalqty = order.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0

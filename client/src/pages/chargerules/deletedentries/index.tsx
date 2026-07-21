@@ -37,7 +37,7 @@ const ChargeRuleDeletedEntries = () => {
     { label: "Active", key: "activeText" },
   ];
 
-  const tableData = deleted.map((r: any, i: number) => ({
+  const tableData = [...deleted].reverse().map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
     typeText: r.chargeType === "percent" ? "Percent" : "Flat",

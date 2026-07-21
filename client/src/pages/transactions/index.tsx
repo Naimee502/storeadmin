@@ -50,7 +50,7 @@ const Transaction = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = transactionList.map((txn: any, index: number) => {
+  const tableData = [...transactionList].reverse().map((txn: any, index: number) => {
     // 🔹 Convert string timestamp to number and format
     let formattedDate = "-";
     if (txn.transactiondate) {

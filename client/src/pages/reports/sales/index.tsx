@@ -54,10 +54,10 @@ const SalesReports: React.FC = () => {
   const { data: accountData } = useAccountsQuery();
   const { data: productData } = useProductServicesQuery();
 
-  const activeInvoices = activeData?.getSalesInvoices || [];
-  const deletedInvoices = deletedData?.getDeletedSalesInvoices || [];
-  const salesOrders = ordersData?.getSalesOrders || [];
-  const salesReturns = returnsData?.getSalesReturns || [];
+  const activeInvoices = [...(activeData?.getSalesInvoices || [])].reverse();
+  const deletedInvoices = [...(deletedData?.getDeletedSalesInvoices || [])].reverse();
+  const salesOrders = [...(ordersData?.getSalesOrders || [])].reverse();
+  const salesReturns = [...(returnsData?.getSalesReturns || [])].reverse();
   const accountsList = accountData?.getAccounts || [];
   const productList = productData?.getProductServices ?? [];
 

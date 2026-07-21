@@ -38,7 +38,7 @@ const DeletedBranches = () => {
     { label: "Status", key: "status" },
     ];
 
-    const tableData = deletedBranches.map((branch: any, index: number) => ({
+    const tableData = [...deletedBranches].reverse().map((branch: any, index: number) => ({
     ...branch,
     seqNo: index + 1,
     name: branch.branchname,

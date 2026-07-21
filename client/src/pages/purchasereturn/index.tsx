@@ -50,7 +50,7 @@ const PurchaseReturns = () => {
     { label: "Status", key: "statusLabel" },
   ];
 
-  const tableData = list.map((r: any, i: number) => ({
+  const tableData = [...list].reverse().map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
     returndate: formatDateDMY(r.returndate),

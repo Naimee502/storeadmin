@@ -41,7 +41,7 @@ const PartyReports: React.FC = () => {
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
 
-  const accounts = accountsData?.getAccounts || [];
+  const accounts = [...(accountsData?.getAccounts || [])].reverse();
   const transactions = transactionsData?.getTransactions || [];
   const payments = paymentsData?.getPayments || [];
   const ledgers = ledgerData?.getAccountLedgers || [];

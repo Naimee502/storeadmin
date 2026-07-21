@@ -33,7 +33,7 @@ const DeletedAccountLedgers = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = ledgerList.map((lg: any, index: number) => ({
+  const tableData = [...ledgerList].reverse().map((lg: any, index: number) => ({
     ...lg,
     seqNo: index + 1,
     accountgroup: lg.accountgroupid?.accountgroupname ?? "-",

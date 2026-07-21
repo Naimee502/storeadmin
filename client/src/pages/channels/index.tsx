@@ -132,7 +132,7 @@ const Channels = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = channelList.map((channel: any, index: number) => ({
+  const tableData = [...channelList].reverse().map((channel: any, index: number) => ({
     ...channel,
     seqNo: index + 1,
     isDefaultText: channel.isDefault ? "Yes" : "No",

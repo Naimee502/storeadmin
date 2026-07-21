@@ -157,7 +157,7 @@ const AttendanceReports: React.FC = () => {
   }, [punchesQ.data]);
 
   const balanceRows = useMemo(() => {
-    return (balancesQ.data?.getLeaveBalances ?? [])
+    return [...(balancesQ.data?.getLeaveBalances ?? [])].reverse()
       .filter((b: any) => {
         if (appliedFilters.leaveYear && String(b.year) !== String(appliedFilters.leaveYear)) return false;
         return true;

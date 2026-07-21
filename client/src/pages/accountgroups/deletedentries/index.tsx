@@ -31,7 +31,7 @@ const DeletedAccountGroups = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = accountGroupList.map((ag: any, index: number) => ({
+  const tableData = [...accountGroupList].reverse().map((ag: any, index: number) => ({
     ...ag,
     seqNo: index + 1,
     status: ag.status ? "Active" : "Inactive",

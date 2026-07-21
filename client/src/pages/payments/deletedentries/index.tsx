@@ -49,7 +49,7 @@ const DeletedPayments = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = deletedPayments.map((pay: any, index: number) => {
+  const tableData = [...deletedPayments].reverse().map((pay: any, index: number) => {
     let formattedDate = "-";
     if (pay.paymentdate) {
       const ts = Number(pay.paymentdate);

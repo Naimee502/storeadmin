@@ -6,6 +6,7 @@ import { useAppSelector } from "../../redux/hooks";
 // Queries / Hooks
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useBranchesQuery } from "../../graphql/hooks/branches";
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import { useStaffQuery } from "../../graphql/hooks/staffaccounts";
 import { useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
@@ -49,7 +50,8 @@ const Home: React.FC = () => {
 
   // Existing Core Queries
   const { data: customerData, refetch: refetchCustomers } = useAccountsQuery();
-  const { data: productData, refetch: refetchProducts } = useProductServicesQuery();
+  const { data: productData, refetch: refetchProducts } = useProductServicesQuery(true, 500, 0);
+  const { data: branchesData } = useBranchesQuery();
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: staffData, refetch: refetchStaff } = useStaffQuery();
   const { data: salesInvoiceData, refetch: refetchSalesInvoices } = useSalesInvoicesQuery();
@@ -189,6 +191,8 @@ const Home: React.FC = () => {
           expenseNotes={expenseNotes}
           payments={payments}
           leaveRequests={leaveRequests}
+          branchesData={branchesData}
+          productData={productData}
         />
       </div>
     </HomeLayout>

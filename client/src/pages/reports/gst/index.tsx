@@ -31,8 +31,8 @@ const GSTReports: React.FC = () => {
   const { data: transactionsData } = useTransactionsQuery();
 
   const accounts = accountsData?.getAccounts || [];
-  const salesInvoices = salesData?.getSalesInvoices || [];
-  const purchaseInvoices = purchaseData?.getPurchaseInvoices || [];
+  const salesInvoices = [...(salesData?.getSalesInvoices || [])].reverse();
+  const purchaseInvoices = [...(purchaseData?.getPurchaseInvoices || [])].reverse();
   const products = productData?.getProductServices || [];
 
   // Default Date Range

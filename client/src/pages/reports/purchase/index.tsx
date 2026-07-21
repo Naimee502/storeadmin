@@ -54,10 +54,10 @@ const PurchaseReports: React.FC = () => {
   const { data: accountData } = useAccountsQuery();
   const { data: productData } = useProductServicesQuery();
 
-  const activeInvoices = activeData?.getPurchaseInvoices || [];
-  const deletedInvoices = deletedData?.getDeletedPurchaseInvoices || [];
-  const purchaseOrders = ordersData?.getPurchaseOrders || [];
-  const purchaseReturns = returnsData?.getPurchaseReturns || [];
+  const activeInvoices = [...(activeData?.getPurchaseInvoices || [])].reverse();
+  const deletedInvoices = [...(deletedData?.getDeletedPurchaseInvoices || [])].reverse();
+  const purchaseOrders = [...(ordersData?.getPurchaseOrders || [])].reverse();
+  const purchaseReturns = [...(returnsData?.getPurchaseReturns || [])].reverse();
   const accountsList = accountData?.getAccounts || [];
   const productList = productData?.getProductServices ?? [];
 

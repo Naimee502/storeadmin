@@ -118,14 +118,14 @@ const Sizes = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = sizeList.map((size: any, index: number) => ({
+  const tableData = [...sizeList].reverse().map((size: any, index: number) => ({
     ...size,
     seqNo: index + 1,
     status: size.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = sizeList.map((size: any, index: number) => ({
+    const exportData = [...sizeList].reverse().map((size: any, index: number) => ({
       ID: index + 1,
       SizeName: size.sizename || "-",
       Status: size.status ? "true" : "false",

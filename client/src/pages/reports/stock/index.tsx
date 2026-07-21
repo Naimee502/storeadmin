@@ -21,10 +21,10 @@ const StockReports: React.FC = () => {
   const { data: deletedTransferData } = useDeletedTransferStocksQuery();
   const { data: branchData } = useBranchesQuery();
 
-  const products = productData?.getProductServices || [];
-  const deletedProducts = deletedProductData?.getProductServices || [];
-  const transfers = transferData?.getTransferStocks || [];
-  const deletedTransfers = deletedTransferData?.getDeletedTransferStocks || [];
+  const products = [...(productData?.getProductServices || [])].reverse();
+  const deletedProducts = [...(deletedProductData?.getProductServices || [])].reverse();
+  const transfers = [...(transferData?.getTransferStocks || [])].reverse();
+  const deletedTransfers = [...(deletedTransferData?.getDeletedTransferStocks || [])].reverse();
   const branches = branchData?.getBranches || [];
 
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);

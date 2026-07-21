@@ -44,7 +44,7 @@ const DeletedAdmins = () => {
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
 
-  const tableData = adminList.map((admin: any, index: number) => ({
+  const tableData = [...adminList].reverse().map((admin: any, index: number) => ({
     ...admin,
     seqNo: index + 1,
     admincode: admin.admincode || "-",

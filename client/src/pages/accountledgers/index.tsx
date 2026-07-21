@@ -158,7 +158,7 @@ const AccountLedgers = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = ledgerList.map((l: any, index: number) => ({
+  const tableData = [...ledgerList].reverse().map((l: any, index: number) => ({
     ...l,
     seqNo: index + 1,
     groupName: l.accountgroupid?.accountgroupname || "-",

@@ -42,7 +42,7 @@ const DeletedAccounts = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = deletedAccounts.map((account: any, index: number) => {
+  const tableData = [...deletedAccounts].reverse().map((account: any, index: number) => {
     const ledgerName =
     typeof account.ledgerid === "string"
       ? "-" // string — not populated

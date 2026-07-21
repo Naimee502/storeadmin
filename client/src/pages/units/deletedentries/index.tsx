@@ -31,7 +31,7 @@ const DeletedUnits = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = unitList.map((unit: any, index: number) => ({
+  const tableData = [...unitList].reverse().map((unit: any, index: number) => ({
     ...unit,
     seqNo: index + 1,
     status: unit.status ? "Active" : "Inactive",

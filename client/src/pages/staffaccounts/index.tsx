@@ -313,7 +313,7 @@ const StaffAccounts = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = staffList.map((s: any, i: number) => {
+  const tableData = [...staffList].reverse().map((s: any, i: number) => {
     const role = s.role
       ? s.role.charAt(0).toUpperCase() + s.role.slice(1)
       : "Staff";

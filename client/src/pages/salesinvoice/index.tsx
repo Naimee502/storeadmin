@@ -100,23 +100,53 @@ const SalesInvoices = () => {
   const [waInvoice, setWaInvoice] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
-  const handleWhatsAppShare = (row: any) => {
+  const handleWhatsAppShare = async (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
+    // Business Settings → Invoice Print → "Show company name in signature"
+    // also governs the WhatsApp message's sign-off — when disabled, the
+    // company name should not leak into the chat message either.
+    const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
     const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
     const message =
       `*Invoice INV-${orig.billnumber}*\n` +
       `Date: ${formatDateDMY(orig.billdate)}\n` +
       `Thank you for your business!\n` +
-      `${companyName ? `— ${companyName}` : ""}`;
+      `${showSignatureCompanyName && companyName ? `— ${companyName}` : ""}`;
 
     waMeta.current = {
       phone: mobile,
       message,
       fileName: `Invoice-INV-${orig.billnumber}.pdf`,
     };
-    setWaInvoice(row);
+
+    // Party's Previous/Current Balance (Business Settings → Invoice Print)
+    // — same lazy fetch used for Print, so the shared PDF matches what's
+    // shown on-screen instead of omitting the balance rows.
+    if (!settings?.printShowPartyBalance) {
+      setWaInvoice(row);
+      return;
+    }
+    dispatch(showLoading());
+    try {
+      const { data } = await apolloClient.query({
+        query: GET_SALES_INVOICE_BALANCE,
+        variables: { id: row.id, adminid },
+        fetchPolicy: "network-only",
+      });
+      const bal = data?.getSalesInvoiceById;
+      setWaInvoice({
+        ...row,
+        partyPreviousBalance: bal?.partyPreviousBalance,
+        partyCurrentBalance: bal?.partyCurrentBalance,
+      });
+    } catch (e) {
+      console.error("Failed to fetch party balance for WhatsApp share:", e);
+      setWaInvoice(row);
+    } finally {
+      dispatch(hideLoading());
+    }
   };
 
   useEffect(() => {
@@ -223,7 +253,7 @@ const SalesInvoices = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = invoiceList.map((invoice: any, index: number) => {
+  const tableData = [...invoiceList].reverse().map((invoice: any, index: number) => {
     const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0

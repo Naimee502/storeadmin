@@ -75,7 +75,7 @@ const DeletedExpenseNotes = () => {
      FORMAT DATA
      ========================= */
 
-  const tableData = deletedExpenseNotes.map((exp: any, index: number) => {
+  const tableData = [...deletedExpenseNotes].reverse().map((exp: any, index: number) => {
     let formattedDate = "-";
 
     if (exp.expensedate) {

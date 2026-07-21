@@ -68,7 +68,7 @@ const PriceAssignments = () => {
     return id;
   };
 
-  const tableData = assignments.map((item: any, index: number) => {
+  const tableData = [...assignments].reverse().map((item: any, index: number) => {
     const targetType = item.targettype;
     const targetId = item.targetid;
     

@@ -31,7 +31,7 @@ const DeletedCategories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = categoryList.map((category: any, index: number) => ({
+  const tableData = [...categoryList].reverse().map((category: any, index: number) => ({
     ...category,
     seqNo: index + 1,
     status: category.status ? "Active" : "Inactive",

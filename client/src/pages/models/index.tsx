@@ -118,14 +118,14 @@ const Models = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = modelList.map((model: any, index: number) => ({
+  const tableData = [...modelList].reverse().map((model: any, index: number) => ({
     ...model,
     seqNo: index + 1,
     status: model.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = modelList.map((model: any, index: number) => ({
+    const exportData = [...modelList].reverse().map((model: any, index: number) => ({
       ID: index + 1,
       ModelName: model.modelname || "-",
       Status: model.status ? "true" : "false",

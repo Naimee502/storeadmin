@@ -170,7 +170,7 @@ const SubCategories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = subCategoryList.map((sub: any, index: number) => ({
+  const tableData = [...subCategoryList].reverse().map((sub: any, index: number) => ({
     ...sub,
     seqNo: index + 1,
     status: sub.status ? "Active" : "Inactive",
@@ -178,7 +178,7 @@ const SubCategories = () => {
   }));
 
   const handleExport = () => {
-    const exportData = subCategoryList.map((sub: any, index: number) => ({
+    const exportData = [...subCategoryList].reverse().map((sub: any, index: number) => ({
       ID: index + 1,
       SubCategoryName: sub.subcategoryname || "-",
       Category: sub.category?.categoryname || "-",

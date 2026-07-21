@@ -118,6 +118,16 @@ const AddEditExpenseNote = () => {
     editExpenseNoteMutation,
   } = useExpenseNoteMutations();
 
+  // Keep the (new) voucher's branch in sync if the admin switches branches
+  // in the header dropdown while this page is open — otherwise formValues
+  // would keep whatever branchid was set on mount (possibly "" for "All
+  // Branches", which the server rejects).
+  useEffect(() => {
+    if (!isEdit) {
+      setFormValues((prev) => ({ ...prev, branchid: branchId || "" }));
+    }
+  }, [branchId, isEdit]);
+
   /* =========================
      LOAD EDIT DATA
      ========================= */
@@ -320,6 +330,15 @@ const AddEditExpenseNote = () => {
   const validate = () => {
     const errors: { [key: string]: string } = {};
 
+    // The header's branch dropdown includes "All Branches" (value "") for
+    // filtering lists — but an Expense Note must belong to one real branch
+    // (server requires it). Catch that here instead of letting an empty
+    // string reach the server as a raw ObjectId cast error.
+    if (!formValues.branchid) {
+      errors.branchid =
+        "Select a specific branch from the dropdown in the top-right (not \"All Branches\") before adding an expense.";
+    }
+
     if (!formValues.paymenttype) errors.paymenttype = "Payment type required";
 
     if (!formValues.ledgerid) {
@@ -359,7 +378,11 @@ const AddEditExpenseNote = () => {
       setFormErrors(errors);
       dispatch(
         showMessage({
-          message: "Please fix highlighted fields",
+          // branchid has no dedicated field on this form (it comes from the
+          // header dropdown), so surface its message directly rather than
+          // the generic "fix highlighted fields" — there's nothing on this
+          // screen for the user to see highlighted.
+          message: errors.branchid || "Please fix highlighted fields",
           type: "error",
         })
       );

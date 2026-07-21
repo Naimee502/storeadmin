@@ -31,7 +31,7 @@ const DeletedProductGroups = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = productGroupList.map((group: any, index: number) => ({
+  const tableData = [...productGroupList].reverse().map((group: any, index: number) => ({
     ...group,
     seqNo: index + 1,
     status: group.status ? "Active" : "Inactive",

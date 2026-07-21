@@ -71,7 +71,7 @@ const SalesmanFieldReport: React.FC = () => {
   const { data: locationsData } = useLatestLocationsQuery(locFilter);
   const { data: trailData } = useLocationPingsQuery(locFilter);
 
-  const staffList = staffData?.getStaffAccounts || [];
+  const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
   // Salesman field report → only salesman-role staff (not "staff" or "deliveryboy").
   const salesmen = staffList.filter(
     (s: any) => s.role?.toLowerCase() === "salesman"

@@ -31,7 +31,7 @@ const DeletedSizes = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = sizeList.map((size: any, index: number) => ({
+  const tableData = [...sizeList].reverse().map((size: any, index: number) => ({
     ...size,
     seqNo: index + 1,
     status: size.status ? "Active" : "Inactive",

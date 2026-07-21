@@ -31,7 +31,7 @@ const DeletedBrands = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = brandList.map((brand: any, index: number) => ({
+  const tableData = [...brandList].reverse().map((brand: any, index: number) => ({
     ...brand,
     seqNo: index + 1,
     status: brand.status ? "Active" : "Inactive",

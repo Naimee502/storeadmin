@@ -137,7 +137,7 @@ const AccountGroups = () => {
   const capitalize = (str: string) =>
   str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
-  const tableData = accountGroupList.map((ag: any, index: number) => ({
+  const tableData = [...accountGroupList].reverse().map((ag: any, index: number) => ({
     ...ag,
     seqNo: index + 1,
     category: capitalize(ag.category || "assets"),
@@ -145,7 +145,7 @@ const AccountGroups = () => {
   }));
 
   const handleExport = () => {
-    const exportData = accountGroupList.map((ag: any, index: number) => ({
+    const exportData = [...accountGroupList].reverse().map((ag: any, index: number) => ({
       ID: index + 1,
       AccountGroupName: ag.accountgroupname || "-",
       Category: ag.category || "assets",

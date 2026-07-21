@@ -43,7 +43,7 @@ const DeletedSalesReturns = () => {
     { label: "Created By", key: "createdByDisplay" },
   ];
 
-  const rows = list.map((r: any, i: number) => ({
+  const rows = [...list].reverse().map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
     returndate: formatDateDMY(r.returndate),

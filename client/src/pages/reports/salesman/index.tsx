@@ -13,7 +13,7 @@ const SalesmanReports: React.FC = () => {
   const { data: staffData } = useStaffQuery();
 
   const salesInvoices = salesData?.getSalesInvoices || [];
-  const staff = staffData?.getStaffAccounts || [];
+  const staff = [...(staffData?.getStaffAccounts || [])].reverse();
 
   // All staff who can take orders (salesman role or any staff)
   const salesmen = staff.filter(

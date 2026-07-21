@@ -53,7 +53,7 @@ const Payment = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = paymentList.map((pay: any, index: number) => {
+  const tableData = [...paymentList].reverse().map((pay: any, index: number) => {
     // Format date
     let formattedDate = "-";
     if (pay.paymentdate) {

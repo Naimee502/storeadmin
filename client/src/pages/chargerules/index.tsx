@@ -145,7 +145,7 @@ const ChargeRules = () => {
     { label: "Active", key: "activeText" },
   ];
 
-  const tableData = rules.map((r: any, i: number) => ({
+  const tableData = [...rules].reverse().map((r: any, i: number) => ({
     ...r,
     seqNo: i + 1,
     typeText: r.chargeType === "percent" ? "Percent" : "Flat",

@@ -769,7 +769,7 @@ const Attendance: React.FC = () => {
   /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Leave Balances                                            */
   /* ═══════════════════════════════════════════════════════════════ */
-  const balanceRows = (leaveBalancesQ.data?.getLeaveBalances ?? []).map((b: any, i: number) => ({
+  const balanceRows = [...(leaveBalancesQ.data?.getLeaveBalances ?? [])].reverse().map((b: any, i: number) => ({
     ...b, seqNo: i+1,
     staffName: b.staffid?.name ?? "-",
     typeName:  b.leavetypeid?.name ?? "-",
@@ -867,7 +867,7 @@ const Attendance: React.FC = () => {
   /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Holidays                                                  */
   /* ═══════════════════════════════════════════════════════════════ */
-  const holidayRows = (holidaysQ.data?.getHolidays ?? []).map((h: any, i: number) => ({
+  const holidayRows = [...(holidaysQ.data?.getHolidays ?? [])].reverse().map((h: any, i: number) => ({
     ...h, seqNo: i+1, dateLabel: formatDateDMY(h.date), nameLabel: h.name, typeLabel: cap(h.type), descriptionLabel: h.description ?? "-",
   }));
 

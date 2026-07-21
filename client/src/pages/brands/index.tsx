@@ -118,14 +118,14 @@ const Brands = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = brandList.map((brand: any, index: number) => ({
+  const tableData = [...brandList].reverse().map((brand: any, index: number) => ({
     ...brand,
     seqNo: index + 1,
     status: brand.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = brandList.map((brand: any, index: number) => ({
+    const exportData = [...brandList].reverse().map((brand: any, index: number) => ({
       ID: index + 1,
       BrandName: brand.brandname || "-",
       Status: brand.status ? "true" : "false",

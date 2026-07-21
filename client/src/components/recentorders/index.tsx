@@ -24,6 +24,8 @@ interface RecentOrdersProps {
   expenseNotes?: any[];
   payments?: any[];
   leaveRequests?: any[];
+  branchesData?: any;
+  productData?: any;
 }
 
 const RecentOrders: React.FC<RecentOrdersProps> = ({
@@ -37,6 +39,8 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   expenseNotes = [],
   payments = [],
   leaveRequests = [],
+  branchesData,
+  productData,
 }) => {
   const [activeTab, setActiveTab] = useState<string>("salesinvoices");
 
@@ -44,13 +48,55 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   const isAllowed = (moduleId: string) => selectIsModuleAllowed(fullState, moduleId);
 
   const salesInvoices = Array.isArray(salesInvoiceData?.getSalesInvoices) ? salesInvoiceData.getSalesInvoices : [];
+  const purchaseInvoices = Array.isArray(purchaseInvoiceData?.getPurchaseInvoices) ? purchaseInvoiceData.getPurchaseInvoices : [];
   const transferStocks = Array.isArray(transferStockData?.getTransferStocks) ? transferStockData.getTransferStocks : [];
+  const branches = Array.isArray(branchesData?.getBranches) ? branchesData.getBranches : [];
+  const allProducts = Array.isArray(productData?.getProductServices) ? productData.getProductServices : [];
+
+  // Same resolution used by the Transfer Stock module list — the transfer
+  // query only returns raw branch/product ids, not populated names, and
+  // transferunitid points at one of the product variant's own unit
+  // conversions (or its base unit).
+  const productNameOf = (item: any) => {
+    const product = allProducts.find((p: any) => p.id === item.productid);
+    if (!product) return "-";
+    const variant = (product.productvariants || []).find((v: any) => v.id === item.variantid);
+    return variant?.name ? `${product.name} - ${variant.name}` : product.name;
+  };
+
+  const unitNameOf = (item: any) => {
+    const product = allProducts.find((p: any) => p.id === item.productid);
+    const variant = (product?.productvariants || []).find((v: any) => v.id === item.variantid);
+    if (!variant) return "";
+    const uc = (variant.unitconversions || []).find(
+      (u: any) => (typeof u.unitid === "object" ? u.unitid?.id : u.unitid) === item.transferunitid
+    );
+    if (uc) return typeof uc.unitid === "object" ? uc.unitid?.unitname || "" : "";
+    if (variant.baseunitid) {
+      const baseId = typeof variant.baseunitid === "object" ? variant.baseunitid.id : variant.baseunitid;
+      if (baseId === item.transferunitid) {
+        return typeof variant.baseunitid === "object" ? variant.baseunitid.unitname || "" : "";
+      }
+    }
+    return "";
+  };
+
+  const stackedCell = (items: any[], render: (item: any) => any) => (
+    <div className="flex flex-col gap-0">
+      {(items || []).map((it, i) => (
+        <div key={i} className="py-0.5 border-b border-gray-50 last:border-0 border-dashed">
+          {render(it)}
+        </div>
+      ))}
+    </div>
+  );
 
   const rawTabs = [
-    { id: "salesinvoices", moduleId: "salesinvoice", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" /> },
     { id: "salesorders", moduleId: "salesorder", label: "Sales Orders", count: salesOrders.length, icon: <FaClipboardList className="text-emerald-600" /> },
-    { id: "purchaseorders", moduleId: "purchaseorder", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" /> },
+    { id: "salesinvoices", moduleId: "salesinvoice", label: "Sales Invoices", count: salesInvoices.length, icon: <FaFileInvoiceDollar className="text-blue-600" /> },
     { id: "salesreturns", moduleId: "salesreturn", label: "Sales Returns", count: salesReturns.length, icon: <FaUndoAlt className="text-rose-600" /> },
+    { id: "purchaseorders", moduleId: "purchaseorder", label: "Purchase Orders", count: purchaseOrders.length, icon: <FaClipboardList className="text-amber-600" /> },
+    { id: "purchaseinvoices", moduleId: "purchaseinvoice", label: "Purchase Invoices", count: purchaseInvoices.length, icon: <FaFileInvoiceDollar className="text-cyan-700" /> },
     { id: "purchasereturns", moduleId: "purchasereturn", label: "Purchase Returns", count: purchaseReturns.length, icon: <FaUndoAlt className="text-indigo-600" /> },
     { id: "transfers", moduleId: "transferstock", label: "Transfer Stock", count: transferStocks.length, icon: <FaExchangeAlt className="text-teal-600" /> },
     { id: "expenses", moduleId: "expensenote", label: "Expense Notes", count: expenseNotes.length, icon: <FaMoneyCheckAlt className="text-purple-600" /> },
@@ -115,6 +161,61 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
         return (
           <DataTable
             title="Sales Invoices"
+            columns={columns}
+            data={data}
+            showAdd={false}
+            showDeleted={false}
+            showImport={false}
+            showExport={false}
+            showPrint={false}
+            showView={false}
+            showEdit={false}
+            showDelete={false}
+            showActionsColumn={false}
+            defaultEntriesPerPage={5}
+            entriesOptions={[5, 10, 25, 50]}
+          />
+        );
+      }
+
+      case "purchaseinvoices": {
+        const columns = [
+          { label: "Seq Number", key: "seqNo" },
+          { label: "Payment Type", key: "paymenttype" },
+          { label: "Party A/c", key: "partyacc" },
+          { label: "Total Items", key: "totalitem" },
+          { label: "Total Qty", key: "totalqty" },
+          { label: "Billing Date", key: "billdate" },
+          { label: "Billing No", key: "billtype_billnumber" },
+          { label: "Total Amount", key: "totalamountFormatted" },
+          { label: "Created By", key: "createdby_name" },
+          { label: "Status", key: "status" },
+        ];
+        // getPurchaseInvoices has no server-side sort (natural/insertion
+        // order), so reverse here to put the newest voucher on top — same
+        // as Sales Invoices/Orders and Purchase Orders below.
+        const data = purchaseInvoices.slice().reverse().map((item: any, idx: number) => {
+          const totalqty = (item.productservice || []).reduce(
+            (sum: number, p: any) => sum + (p.qty || 0),
+            0
+          );
+          return {
+            ...item,
+            seqNo: idx + 1,
+            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            totalitem: (item.productservice || []).length,
+            totalqty,
+            billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
+            billtype_billnumber: `INV-${item.billnumber}`,
+            paymenttype: capitalizeFirst(item.paymenttype || "Cash"),
+            totalamountFormatted: `₹${Number(item.totalamount ?? 0).toFixed(2)}`,
+            createdby_name: item.createdby_name || "N/A",
+            status: item.status ? "Active" : "Inactive",
+          };
+        });
+        return (
+          <DataTable
+            title="Purchase Invoices"
             columns={columns}
             data={data}
             showAdd={false}
@@ -334,30 +435,37 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       case "transfers": {
         const columns = [
-          { label: "Seq Number", key: "seqNo" },
+          { label: "Voucher #", key: "vouchernumber" },
           { label: "From Branch", key: "frombranchname" },
           { label: "To Branch", key: "tobranchname" },
-          { label: "Product", key: "productname" },
-          { label: "Qty", key: "transferqty" },
-          { label: "Unit", key: "transferunitname" },
-          { label: "Purchase Rate", key: "purchaserateFormatted" },
+          { label: "Product", key: "productCell" },
+          { label: "Qty", key: "qtyCell" },
+          { label: "Purchase Rate", key: "rateCell" },
+          { label: "Total Value", key: "totalamountFormatted" },
           { label: "Date", key: "transferdate" },
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
-        const data = transferStocks.slice().reverse().map((stock: any, idx: number) => ({
-          ...stock,
-          seqNo: idx + 1,
-          frombranchname: stock.frombranchname || stock.frombranchid || "Branch",
-          tobranchname: stock.tobranchname || stock.tobranchid || "Branch",
-          productname: stock.productname || stock.productid || "Product",
-          transferqty: stock.transferqty ?? 0,
-          transferunitname: stock.transferunitname || "Unit",
-          purchaserateFormatted: `₹${Number(stock.purchaserate ?? 0).toFixed(2)}`,
-          transferdate: formatDateDMY(stock.transferdate || stock.createdAt),
-          createdby_name: stock.createdby_name || "N/A",
-          statusLabel: stock.status ? "Active" : "Inactive",
-        }));
+        // Server already returns these newest-first (sort createdAt:-1) —
+        // don't re-reverse, or the dashboard ends up oldest-first instead.
+        const data = transferStocks.map((stock: any, idx: number) => {
+          const fromBranch = branches.find((b: any) => b.id === stock.frombranchid);
+          const toBranch = branches.find((b: any) => b.id === stock.tobranchid);
+          const items = stock.items || [];
+          return {
+            ...stock,
+            seqNo: idx + 1,
+            frombranchname: fromBranch?.branchname || stock.frombranchid || "-",
+            tobranchname: toBranch?.branchname || stock.tobranchid || "-",
+            productCell: stackedCell(items, (it) => productNameOf(it)),
+            qtyCell: stackedCell(items, (it) => `${it.transferqty} ${unitNameOf(it)}`.trim()),
+            rateCell: stackedCell(items, (it) => `₹${Number(it.rate || 0).toFixed(2)}`),
+            transferdate: formatDateDMY(stock.transferdate || stock.createdAt),
+            totalamountFormatted: `₹${Number(stock.totalamount ?? 0).toFixed(2)}`,
+            createdby_name: stock.createdby_name || "N/A",
+            statusLabel: stock.status ? "Active" : "Inactive",
+          };
+        });
         return (
           <DataTable
             title="Stock Transfers"
@@ -392,7 +500,9 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
-        const data = expenseNotes.slice().reverse().map((exp: any, idx: number) => {
+        // Server already returns these newest-first (sort expensedate:-1,
+        // createdAt:-1) — don't re-reverse.
+        const data = expenseNotes.map((exp: any, idx: number) => {
           let formattedDate = "-";
           if (exp.expensedate) {
             const timestamp = Number(exp.expensedate);
@@ -503,7 +613,9 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Status", key: "status" },
           { label: "Reason", key: "reason" },
         ];
-        const data = leaveRequests.slice().reverse().map((r: any, idx: number) => ({
+        // Server already returns these newest-first (sort createdAt:-1) —
+        // don't re-reverse.
+        const data = leaveRequests.map((r: any, idx: number) => ({
           ...r,
           seqNo: idx + 1,
           staffName: capitalizeFirst(r.staffid?.name),

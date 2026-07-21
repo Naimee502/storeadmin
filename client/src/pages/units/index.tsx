@@ -108,14 +108,14 @@ const Units = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = unitList.map((unit, index) => ({
+  const tableData = [...unitList].reverse().map((unit, index) => ({
     ...unit,
     seqNo: index + 1,
     status: unit.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = unitList.map((unit, index) => ({
+    const exportData = [...unitList].reverse().map((unit, index) => ({
       ID: index + 1,
       UnitName: unit.unitname || "-",
       Status: unit.status ? "true" : "false",

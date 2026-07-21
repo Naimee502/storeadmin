@@ -119,14 +119,14 @@ const ProductGroups = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = productGroupList.map((pg: any, index: number) => ({
+  const tableData = [...productGroupList].reverse().map((pg: any, index: number) => ({
     ...pg,
     seqNo: index + 1,
     status: pg.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = productGroupList.map((pg: any, index: number) => ({
+    const exportData = [...productGroupList].reverse().map((pg: any, index: number) => ({
       ID: index + 1,
       ProductGroupName: pg.productgroupname || "-",
       Status: pg.status ? "true" : "false",

@@ -41,8 +41,8 @@ const AccountingFinanceReports: React.FC = () => {
     const accounts = accountsData?.getAccounts || [];
     const accountsGroup = accountsGroupData?.getAccountGroups || [];
     const ledgers = accountLedgerData?.getAccountLedgers || [];
-    const transactions = transactionsData?.getTransactions || [];
-    const payments = paymentsData?.getPayments || [];
+    const transactions = [...(transactionsData?.getTransactions || [])].reverse();
+    const payments = [...(paymentsData?.getPayments || [])].reverse();
     const expenseNotes = expenseData?.getExpenseNotes || [];
     const staff = staffData?.getStaffAccounts || [];
 

@@ -38,7 +38,7 @@ const DeletedProducts = () => {
   const capitalize = (str: string | undefined) => 
   str ? str.charAt(0).toUpperCase() + str.slice(1) : "-";
 
-  const tableData = deletedList?.map((item: any, index: number) => {
+  const tableData = [...deletedList].reverse().map((item: any, index: number) => {
     const variants = item.isservice ? item.servicevariants : item.productvariants;
 
     return {

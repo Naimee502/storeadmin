@@ -31,7 +31,7 @@ const DeliveryBoyReport: React.FC = () => {
   const { data: paymentsData } = usePaymentsQuery();
   const { data: locationsData } = useLatestLocationsQuery({ role: "deliveryboy" });
 
-  const staffList = staffData?.getStaffAccounts || [];
+  const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
   const deliveryBoys = staffList.filter((s: any) => s.role?.toLowerCase() === "deliveryboy");
   const orders = ordersData?.getSalesOrders || [];
   const payments = paymentsData?.getPayments || [];

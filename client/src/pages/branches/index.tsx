@@ -50,7 +50,7 @@ const Branches = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = branchList.map((branch: any, index: any) => ({
+  const tableData = [...branchList].reverse().map((branch: any, index: any) => ({
     ...branch,
     seqNo: index + 1,
     name: branch.branchname,
@@ -59,7 +59,7 @@ const Branches = () => {
 
   // 📤 Export branches to .xlsx file
   const handleExport = () => {
-    const exportData = branchList.map((branch: any, index: any) => ({
+    const exportData = [...branchList].reverse().map((branch: any, index: any) => ({
       ID: index + 1,
       BranchCode: branch.branchcode || "-",
       BranchName: branch.branchname || "-",

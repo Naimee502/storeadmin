@@ -48,7 +48,7 @@ const DeletedTransactions = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = deletedTransactions.map((txn: any, index: number) => {
+  const tableData = [...deletedTransactions].reverse().map((txn: any, index: number) => {
     // 🔹 Convert string timestamp to number and format
     let formattedDate = "-";
     if (txn.transactiondate) {

@@ -170,7 +170,7 @@ const PurchaseInvoices = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = invoiceList.map((invoice: any, index: number) => {
+  const tableData = [...invoiceList].reverse().map((invoice: any, index: number) => {
     const totalqty = (invoice.productservice || []).reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
@@ -191,7 +191,10 @@ const PurchaseInvoices = () => {
       totalqty,
       billdate: formatDateDMY(invoice.billdate),
       billdateRaw: invoice.billdate,
-      billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
+      // Same "INV-000001" style as Sales Invoice (and what the WhatsApp
+      // share message / PDF filename below already use) instead of the
+      // raw billtype ("Taxinvoice-000001").
+      billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",
       status: invoice.status ? "Active" : "Inactive",

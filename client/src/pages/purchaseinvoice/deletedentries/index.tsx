@@ -43,7 +43,7 @@ const DeletedPurchaseInvoices = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = invoiceList.map((invoice: any, index: number) => {
+  const tableData = [...invoiceList].reverse().map((invoice: any, index: number) => {
     const totalqty = invoice.productservice.reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
@@ -56,7 +56,9 @@ const DeletedPurchaseInvoices = () => {
       partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
       totalitem: invoice.productservice.length,
       totalqty,
-      billtype_billnumber: `${capitalizeFirst(String(invoice.billtype))}-${invoice.billnumber}`,
+      // Same "INV-000001" style as Sales Invoice / the active Purchase
+      // Invoice list, instead of the raw billtype ("Taxinvoice-000001").
+      billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",
       status: invoice.status ? "Active" : "Inactive",

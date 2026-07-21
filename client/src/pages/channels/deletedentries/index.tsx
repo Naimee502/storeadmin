@@ -59,7 +59,7 @@ const ChannelDeletedEntries = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = deletedChannels.map((channel: any, index: number) => ({
+  const tableData = [...deletedChannels].reverse().map((channel: any, index: number) => ({
     ...channel,
     seqNo: index + 1,
     status: "Inactive",

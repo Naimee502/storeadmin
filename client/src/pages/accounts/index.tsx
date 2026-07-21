@@ -57,7 +57,7 @@ const Accounts = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = accountList.map((acc, index) => {
+  const tableData = [...accountList].reverse().map((acc, index) => {
     const ledgerName =
     typeof acc.ledgerid === "string"
       ? "-" // string — not populated
@@ -77,7 +77,7 @@ const Accounts = () => {
   });
 
   const handleExport = () => {
-    const exportData = accountList.map((acc: any, index: number) => {
+    const exportData = [...accountList].reverse().map((acc: any, index: number) => {
 
       const ledgerId =
         typeof acc.ledgerid === "string"

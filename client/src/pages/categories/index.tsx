@@ -128,14 +128,14 @@ const Categories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = categoryList.map((cat: any, index: number) => ({
+  const tableData = [...categoryList].reverse().map((cat: any, index: number) => ({
     ...cat,
     seqNo: index + 1,
     status: cat.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = categoryList.map((cat: any, index: number) => ({
+    const exportData = [...categoryList].reverse().map((cat: any, index: number) => ({
       ID: index + 1,
       CategoryName: cat.categoryname || "-",
       Status: cat.status ? "true" : "false",
