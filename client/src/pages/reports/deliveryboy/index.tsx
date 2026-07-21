@@ -4,7 +4,8 @@ import ReportTable, { type ReportFilterField, type ReportColumn } from "../../..
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
-import { useLatestLocationsQuery } from "../../../graphql/hooks/locationping";
+import LiveTrackingMap from "../../../components/livetrackingmap";
+import { useLatestLocationsQuery, useLocationPingsQuery } from "../../../graphql/hooks/locationping";
 import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
 import { FaChartBar, FaTruck, FaMapMarkedAlt } from "react-icons/fa";
 
@@ -13,6 +14,11 @@ const reportTabsObj = [
   { id: "Day-wise", label: "Day-wise", icon: <FaTruck className="text-blue-500" /> },
   { id: "Live Tracking", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
 ];
+
+// Reverse-geocoded place names, cached per rounded lat/long across the whole
+// session so re-opening the tab or switching delivery boy doesn't re-fetch a
+// spot that's already been resolved.
+const geocodeCache: Record<string, string> = {};
 
 /**
  * Delivery Boy Report — field overview per delivery boy:
@@ -26,16 +32,33 @@ const DeliveryBoyReport: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
+  // Live Tracking has its own filter set (single Date instead of a From/To
+  // range) — kept separate from the Summary / Day-wise filters above.
+  const [trackingFilters, setTrackingFilters] = useState<{ [key: string]: any }>({});
+  const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
+
   const { data: staffData } = useStaffQuery();
   const { data: ordersData } = useSalesOrdersQuery();
   const { data: paymentsData } = usePaymentsQuery();
-  const { data: locationsData } = useLatestLocationsQuery({ role: "deliveryboy" });
+
+  // Live-tracking data honours its own single-date filter, and picking a
+  // delivery boy fetches their ordered trail (punch-in → punch-out) for that day.
+  const locFilter = useMemo(() => ({
+    role: "deliveryboy",
+    staffid: trackingAppliedFilters.deliveryboyid || undefined,
+    dateFrom: trackingAppliedFilters.date || undefined,
+    dateTo: trackingAppliedFilters.date || undefined,
+  }), [trackingAppliedFilters]);
+  const { data: locationsData } = useLatestLocationsQuery(locFilter);
+  const { data: trailData } = useLocationPingsQuery(locFilter);
 
   const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
   const deliveryBoys = staffList.filter((s: any) => s.role?.toLowerCase() === "deliveryboy");
   const orders = ordersData?.getSalesOrders || [];
   const payments = paymentsData?.getPayments || [];
   const locations = locationsData?.getLatestLocations || [];
+  // Full ordered trail (punch-in → punch-out) only when a single delivery boy is picked.
+  const trail = trackingAppliedFilters.deliveryboyid ? ((trailData as any)?.getLocationPings || []) : [];
 
   useEffect(() => {
     const today = new Date();
@@ -43,6 +66,13 @@ const DeliveryBoyReport: React.FC = () => {
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30).toISOString().slice(0, 10);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
+  }, []);
+
+  // Live Tracking defaults to today's date.
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    setTrackingFilters({ date: today, deliveryboyid: "" });
+    setTrackingAppliedFilters({ date: today, deliveryboyid: "" });
   }, []);
 
   const inRange = (d: string | null) => {
@@ -136,32 +166,88 @@ const DeliveryBoyReport: React.FC = () => {
     { label: "Delivered Value (₹)", key: "deliveredValue", numeric: true },
   ];
 
-  // ── Live tracking: latest known location per delivery boy ────────────
+  // ── Live tracking: full day's trail when a delivery boy is picked (punch-in
+  // → punch-out, one row per GPS ping, oldest first), otherwise the latest
+  // known location per delivery boy. Location shown as a place name, not raw
+  // lat/long — resolved via free-text reverse geocoding (OpenStreetMap
+  // Nominatim), cached per rounded coordinate so the same spot isn't looked
+  // up twice.
+  const showingTrail = !!trackingAppliedFilters.deliveryboyid;
+  const trackingPings = showingTrail ? trail : locations;
+
+  const [locationNames, setLocationNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const keys: string[] = Array.from(
+      new Set<string>(
+        trackingPings
+          .filter((p: any) => p.latitude != null && p.longitude != null)
+          .map((p: any) => `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`)
+      )
+    ).filter((k: string) => !(k in geocodeCache));
+
+    if (keys.length === 0) return;
+    let cancelled = false;
+
+    const resolveNext = (i: number) => {
+      if (cancelled || i >= keys.length) return;
+      const key = keys[i];
+      const [lat, lon] = key.split(",");
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=16&addressdetails=0`,
+        { headers: { Accept: "application/json" } }
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          geocodeCache[key] = json?.display_name || `${lat}, ${lon}`;
+        })
+        .catch(() => {
+          geocodeCache[key] = `${lat}, ${lon}`;
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLocationNames((prev) => ({ ...prev, [key]: geocodeCache[key] }));
+            // Throttle to ~1 request/sec per Nominatim's usage policy.
+            setTimeout(() => resolveNext(i + 1), 1100);
+          }
+        });
+    };
+    resolveNext(0);
+
+    return () => { cancelled = true; };
+  }, [trackingPings]);
+
   const trackingData = useMemo(() => {
-    return locations
-      .filter((p: any) => matchDb(p.staffid?.id))
-      .map((p: any, idx: number) => ({
+    return trackingPings.map((p: any, idx: number) => {
+      const key = p.latitude != null && p.longitude != null
+        ? `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`
+        : "";
+      return {
         seqNo: idx + 1,
         staffName: p.staffid?.name || "-",
         lastSeen: p.pingedAt ? formatDateTimeDMY(p.pingedAt) : "-",
-        latitude: p.latitude ?? "-",
-        longitude: p.longitude ?? "-",
+        location: key ? (geocodeCache[key] || locationNames[key] || "Resolving…") : "-",
         accuracy: p.accuracy ?? "-",
-      }));
-  }, [locations, appliedFilters]);
+      };
+    });
+  }, [trackingPings, locationNames]);
 
   const trackingColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
     { label: "Delivery Boy", key: "staffName" },
-    { label: "Last Seen", key: "lastSeen" },
-    { label: "Latitude", key: "latitude" },
-    { label: "Longitude", key: "longitude" },
+    { label: showingTrail ? "Time" : "Last Seen", key: "lastSeen" },
+    { label: "Location", key: "location" },
     { label: "Accuracy (m)", key: "accuracy" },
   ];
 
   const filterFields: ReportFilterField[] = [
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
+    { name: "deliveryboyid", label: "Delivery Boy", type: "select", searchable: true, options: deliveryBoys.map((s: any) => ({ label: s.name, value: s.id })) },
+  ];
+
+  const trackingFilterFields: ReportFilterField[] = [
+    { name: "date", label: "Date", type: "date" },
     { name: "deliveryboyid", label: "Delivery Boy", type: "select", searchable: true, options: deliveryBoys.map((s: any) => ({ label: s.name, value: s.id })) },
   ];
 
@@ -200,18 +286,25 @@ const DeliveryBoyReport: React.FC = () => {
           <>
             <div className="bg-white border rounded-lg p-4 text-sm text-gray-600 mb-4">
               <div className="font-semibold text-gray-700 mb-1">Live Location & Route Tracking</div>
-              Latest known location per delivery boy. This stays empty until the app starts
-              posting GPS pings — the backend and data feed are already in place.
+              {trackingAppliedFilters.deliveryboyid
+                ? "Showing the selected delivery boy's full trail for the chosen date (green = punch-in / start, red = latest). Pick a different date to change the day."
+                : "Latest known location per delivery boy shown as pins. Pick a delivery boy to see their full route for the day (punch-in → punch-out)."}
             </div>
+
+            {/* Live map */}
+            <div className="mb-4">
+              <LiveTrackingMap latest={locations} trail={trail} height={440} />
+            </div>
+
             <ReportTable
-              title="Live Location (Latest per Delivery Boy)"
+              title={showingTrail ? "Live Location (Full Day Trail)" : "Live Location (Latest per Delivery Boy)"}
               columns={trackingColumns}
               data={trackingData}
-              filterFields={filterFields}
-              filters={filters}
-              setFilters={setFilters}
-              appliedFilters={appliedFilters}
-              setAppliedFilters={setAppliedFilters}
+              filterFields={trackingFilterFields}
+              filters={trackingFilters}
+              setFilters={setTrackingFilters}
+              appliedFilters={trackingAppliedFilters}
+              setAppliedFilters={setTrackingAppliedFilters}
               showCsv
               exportFileName="DeliveryBoyLiveLocation"
             />

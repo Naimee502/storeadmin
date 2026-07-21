@@ -18,7 +18,7 @@
 // For Android emulator (no ngrok needed):
 //   const SERVER_URL = 'http://10.0.2.2:4000'
 // ─────────────────────────────────────────────────────────────────────────────
-const SERVER_URL = 'http://192.168.29.173:4000';
+const SERVER_URL = 'http://192.168.29.228:4000';
 
 // Same production GraphQL host the web admin panel (client/.env.production)
 // points to. Update here if the production domain ever changes.

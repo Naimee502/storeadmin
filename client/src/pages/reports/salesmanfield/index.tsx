@@ -35,6 +35,11 @@ const DAY_FULL: Record<string, string> = {
 const fullDay = (day: string | undefined, ymd: string) =>
   DAY_FULL[String(day ?? "").trim().slice(0, 3).toLowerCase()] || weekdayOf(ymd);
 
+// Reverse-geocoded place names, cached per rounded lat/long across the whole
+// session (not just per-render) so re-opening the tab or switching salesman
+// doesn't re-fetch a spot that's already been resolved.
+const geocodeCache: Record<string, string> = {};
+
 /**
  * Salesman Field Report — SaaS-style overview of field activity per salesman:
  *  • Orders taken (total / via app / on a route / without a route)
@@ -48,6 +53,11 @@ const SalesmanFieldReport: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
+  // Live Tracking has its own filter set (single Date instead of a From/To
+  // range) — kept separate from the Summary / Day-wise filters above.
+  const [trackingFilters, setTrackingFilters] = useState<{ [key: string]: any }>({});
+  const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
+
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
   const adminId = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
   const branchId = type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
@@ -60,14 +70,14 @@ const SalesmanFieldReport: React.FC = () => {
   const { data: visitsData } = useVisitsQuery();
   const { data: routesData } = useSalesRoutesQuery({ adminId, branchId });
 
-  // Live-tracking data honours the report filters: date range narrows the pings,
-  // and picking a salesman fetches their ordered trail (punch-in → punch-out).
+  // Live-tracking data honours its own single-date filter, and picking a
+  // salesman fetches their ordered trail (punch-in → punch-out) for that day.
   const locFilter = useMemo(() => ({
     role: "salesman",
-    staffid: appliedFilters.salesmanid || undefined,
-    dateFrom: appliedFilters.fromDate || undefined,
-    dateTo: appliedFilters.toDate || undefined,
-  }), [appliedFilters]);
+    staffid: trackingAppliedFilters.salesmanid || undefined,
+    dateFrom: trackingAppliedFilters.date || undefined,
+    dateTo: trackingAppliedFilters.date || undefined,
+  }), [trackingAppliedFilters]);
   const { data: locationsData } = useLatestLocationsQuery(locFilter);
   const { data: trailData } = useLocationPingsQuery(locFilter);
 
@@ -82,15 +92,22 @@ const SalesmanFieldReport: React.FC = () => {
   const routes = routesData?.getSalesRoutes || [];
   const locations = locationsData?.getLatestLocations || [];
   // Full ordered trail (punch-in → punch-out) only when a single salesman is picked.
-  const trail = appliedFilters.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];
+  const trail = trackingAppliedFilters.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];
 
-  // Default last 30 days
+  // Default last 30 days (Summary / Day-wise)
   useEffect(() => {
     const today = new Date();
     const to = today.toISOString().slice(0, 10);
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30).toISOString().slice(0, 10);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
+  }, []);
+
+  // Live Tracking defaults to today's date.
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    setTrackingFilters({ date: today, salesmanid: "" });
+    setTrackingAppliedFilters({ date: today, salesmanid: "" });
   }, []);
 
   const inRange = (d: string | null) => {
@@ -180,6 +197,9 @@ const SalesmanFieldReport: React.FC = () => {
         : `SO-${String(o.billnumber ?? "").padStart(6, "0")}`;
 
     return fOrders
+      // Only orders that actually have a salesman assigned — rows with no
+      // salesman (shown as "-") don't belong in a per-salesman field report.
+      .filter((o: any) => !!o.salesmenid?.id)
       .slice()
       .sort((a: any, b: any) => ((normalizeToYMD(a.billdate) || "") < (normalizeToYMD(b.billdate) || "") ? 1 : -1))
       .map((o: any, idx: number) => {
@@ -229,26 +249,77 @@ const SalesmanFieldReport: React.FC = () => {
     { label: "Sales (₹)", key: "sales", numeric: true },
   ];
 
-  // ── Live tracking: latest known location per salesman ────────────────
+  // ── Live tracking: full day's trail when a salesman is picked (punch-in →
+  // punch-out, one row per GPS ping, oldest first), otherwise the latest
+  // known location per salesman. Location shown as a place name, not raw
+  // lat/long — resolved via free-text reverse geocoding (OpenStreetMap
+  // Nominatim), cached per rounded coordinate so the same spot isn't looked
+  // up twice.
+  const showingTrail = !!trackingAppliedFilters.salesmanid;
+  const trackingPings = showingTrail ? trail : locations;
+
+  const [locationNames, setLocationNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const keys: string[] = Array.from(
+      new Set<string>(
+        trackingPings
+          .filter((p: any) => p.latitude != null && p.longitude != null)
+          .map((p: any) => `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`)
+      )
+    ).filter((k: string) => !(k in geocodeCache));
+
+    if (keys.length === 0) return;
+    let cancelled = false;
+
+    const resolveNext = (i: number) => {
+      if (cancelled || i >= keys.length) return;
+      const key = keys[i];
+      const [lat, lon] = key.split(",");
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=16&addressdetails=0`,
+        { headers: { Accept: "application/json" } }
+      )
+        .then((res) => res.json())
+        .then((json) => {
+          geocodeCache[key] = json?.display_name || `${lat}, ${lon}`;
+        })
+        .catch(() => {
+          geocodeCache[key] = `${lat}, ${lon}`;
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLocationNames((prev) => ({ ...prev, [key]: geocodeCache[key] }));
+            // Throttle to ~1 request/sec per Nominatim's usage policy.
+            setTimeout(() => resolveNext(i + 1), 1100);
+          }
+        });
+    };
+    resolveNext(0);
+
+    return () => { cancelled = true; };
+  }, [trackingPings]);
+
   const trackingData = useMemo(() => {
-    return locations
-      .filter((p: any) => matchSalesman(p.staffid?.id))
-      .map((p: any, idx: number) => ({
+    return trackingPings.map((p: any, idx: number) => {
+      const key = p.latitude != null && p.longitude != null
+        ? `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`
+        : "";
+      return {
         seqNo: idx + 1,
         staffName: p.staffid?.name || "-",
         lastSeen: p.pingedAt ? formatDateTimeDMY(p.pingedAt) : "-",
-        latitude: p.latitude ?? "-",
-        longitude: p.longitude ?? "-",
+        location: key ? (geocodeCache[key] || locationNames[key] || "Resolving…") : "-",
         accuracy: p.accuracy ?? "-",
-      }));
-  }, [locations, appliedFilters]);
+      };
+    });
+  }, [trackingPings, locationNames]);
 
   const trackingColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
     { label: "Salesman", key: "staffName" },
-    { label: "Last Seen", key: "lastSeen" },
-    { label: "Latitude", key: "latitude" },
-    { label: "Longitude", key: "longitude" },
+    { label: showingTrail ? "Time" : "Last Seen", key: "lastSeen" },
+    { label: "Location", key: "location" },
     { label: "Accuracy (m)", key: "accuracy" },
   ];
 
@@ -256,7 +327,11 @@ const SalesmanFieldReport: React.FC = () => {
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
     { name: "salesmanid", label: "Salesman", type: "select", searchable: true, options: salesmen.map((s: any) => ({ label: s.name, value: s.id })) },
-    { name: "routeid", label: "Route", type: "select", searchable: true, options: routes.map((r: any) => ({ label: r.routename, value: r.id })) },
+  ];
+
+  const trackingFilterFields: ReportFilterField[] = [
+    { name: "date", label: "Date", type: "date" },
+    { name: "salesmanid", label: "Salesman", type: "select", searchable: true, options: salesmen.map((s: any) => ({ label: s.name, value: s.id })) },
   ];
 
   // ── Per-tab config ──
@@ -296,9 +371,9 @@ const SalesmanFieldReport: React.FC = () => {
           <>
             <div className="bg-white border rounded-lg p-4 text-sm text-gray-600 mb-4">
               <div className="font-semibold text-gray-700 mb-1">Live Location & Route Tracking</div>
-              {appliedFilters.salesmanid
-                ? "Showing the selected salesman's movement trail (green = punch-in / start, red = latest). Adjust the date range to change the window."
-                : "Latest known location per salesman shown as pins. Pick a salesman to see their full route (punch-in → punch-out)."}
+              {trackingAppliedFilters.salesmanid
+                ? "Showing the selected salesman's full trail for the chosen date (green = punch-in / start, red = latest). Pick a different date to change the day."
+                : "Latest known location per salesman shown as pins. Pick a salesman to see their full route for the day (punch-in → punch-out)."}
             </div>
 
             {/* Live map */}
@@ -307,14 +382,14 @@ const SalesmanFieldReport: React.FC = () => {
             </div>
 
             <ReportTable
-              title="Live Location (Latest per Salesman)"
+              title={showingTrail ? "Live Location (Full Day Trail)" : "Live Location (Latest per Salesman)"}
               columns={trackingColumns}
               data={trackingData}
-              filterFields={filterFields}
-              filters={filters}
-              setFilters={setFilters}
-              appliedFilters={appliedFilters}
-              setAppliedFilters={setAppliedFilters}
+              filterFields={trackingFilterFields}
+              filters={trackingFilters}
+              setFilters={setTrackingFilters}
+              appliedFilters={trackingAppliedFilters}
+              setAppliedFilters={setTrackingAppliedFilters}
               showCsv
               exportFileName="SalesmanLiveLocation"
             />
