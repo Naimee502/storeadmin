@@ -38,7 +38,11 @@ const DeliveryBoyReport: React.FC = () => {
   const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
 
   const { data: staffData } = useStaffQuery();
-  const { data: ordersData } = useSalesOrdersQuery();
+  // includeConverted: once a delivery order is invoiced (isConverted: true),
+  // the default query (isConverted: false) hides it — but it's still a real
+  // delivery that must show up here (deliveryboyid/deliveryStatus carry over
+  // to the invoice via syncInvoiceFromOrder on the server).
+  const { data: ordersData } = useSalesOrdersQuery({ includeConverted: true });
   const { data: paymentsData } = usePaymentsQuery();
 
   // Live-tracking data honours its own single-date filter, and picking a
