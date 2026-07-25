@@ -49,6 +49,8 @@ interface FormFieldProps {
   accept?: string;
   className?: string;
   previewUrl?: string | null;
+  /** type="file" only — lets the picker select more than one file at once. */
+  multiple?: boolean;
   multiline?: boolean;
   searchable?: boolean;
   icon?: React.ReactNode;
@@ -167,6 +169,7 @@ const FormField: React.FC<FormFieldProps> = ({
   accept,
   className = '',
   previewUrl = null,
+  multiple = false,
   multiline = false,
   searchable = false,
   icon,
@@ -352,6 +355,7 @@ const FormField: React.FC<FormFieldProps> = ({
           id={name}
           name={name}
           accept={accept}
+          multiple={multiple}
           onChange={onChange}
           disabled={disabled}
           className="w-full text-sm"

@@ -75,6 +75,7 @@ function mapProduct(p: any): SampleProduct {
     from: "#ecfdf5",
     to: "#d1fae5",
     imageurl: p.imageurl || undefined,
+    imageurls: Array.isArray(p.imageurls) && p.imageurls.length ? p.imageurls : undefined,
     createdAt: p.createdAt || undefined,
     description: p.description || `Genuine, quality-checked — ${p.name}.`,
     highlights: ["Genuine product", "Quality checked", "Fast delivery", "Easy returns"],

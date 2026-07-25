@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { sampleProducts, type SampleProduct } from "../data/sampleData";
+import type { SampleProduct } from "../data/sampleData";
 
 export interface CartLine {
   lineId: string;
@@ -13,6 +13,7 @@ export interface CartLine {
   icon: SampleProduct["icon"];
   from: string;
   to: string;
+  imageurl?: string;
 }
 
 interface CartContextValue {
@@ -28,29 +29,11 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-// A couple of items pre-seeded so Cart/Checkout don't look empty on first
-// load — matches the "3 items" cart badge in the reference screenshots.
-const seedProducts = [sampleProducts[0], sampleProducts[1]];
-
 // In-memory cart — a real cart (Redux slice + SalesOrder draft synced with
 // PriceList/PriceAssignment) is the natural next step once GraphQL is wired.
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>(() =>
-    seedProducts.map((p) => ({
-      lineId: `${p.id}-${p.units[0]}`,
-      productId: p.id,
-      name: p.name,
-      categoryName: p.categoryName,
-      unit: p.units[0],
-      price: p.price,
-      mrp: p.mrp,
-      qty: 1,
-      icon: p.icon,
-      from: p.from,
-      to: p.to,
-    }))
-  );
-  const [wishlistCount, setWishlistCount] = useState(2);
+  const [lines, setLines] = useState<CartLine[]>([]);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   const addToCart = (product: SampleProduct, qty = 1, unit?: string) => {
     const chosenUnit = unit ?? product.units[0];
@@ -80,6 +63,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           icon: product.icon,
           from: product.from,
           to: product.to,
+          imageurl: product.imageurl,
         },
       ];
     });

@@ -88,7 +88,11 @@ const AddEditProductService = () => {
   const { data: productData } = useProductServiceByIDQuery(id || "");
   const { addProductServiceMutation, updateProductServiceMutation } = useProductServiceMutations();
   const { uploadImageMutation } = useImageUpload();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Full image gallery — each item is either an already-uploaded URL (from
+  // edit mode) or a freshly picked File (blob preview, uploaded on Save,
+  // same upload-on-save pattern used by Hero Banner slides). imageurl is
+  // kept in sync as galleryImages[0] for older single-image consumers.
+  const [galleryImages, setGalleryImages] = useState<{ url: string; file?: File }[]>([]);
 
   const [errors, setErrors] = useState<any>({});
   const [isFormValid, setIsFormValid] = useState(false);
@@ -380,6 +384,11 @@ const AddEditProductService = () => {
       serviceaccountid: p.serviceaccountid?.id ?? "",
       status: p.status ?? true,
     });
+
+    const existingUrls: string[] = Array.isArray(p.imageurls) && p.imageurls.length
+      ? p.imageurls
+      : (p.imageurl ? [p.imageurl] : []);
+    setGalleryImages(existingUrls.map((url: string) => ({ url })));
   }
   }, [productData]);
 
@@ -662,21 +671,27 @@ const AddEditProductService = () => {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      // Show the newly picked file immediately in the preview, before it's
-      // actually uploaded (upload only happens on Save).
-      setFormData((prev: any) => ({ ...prev, imageurl: URL.createObjectURL(file), imagename: file.name }));
-    }
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    // Show the newly picked files immediately (blob preview) — added to
+    // whatever's already in the gallery, not replacing it. Upload only
+    // happens on Save, same as everywhere else in this app.
+    setGalleryImages((prev) => [...prev, ...files.map((file) => ({ url: URL.createObjectURL(file), file }))]);
+    e.target.value = ""; // allow picking the same file(s) again later
   };
 
-  const uploadImage = async () => {
-    if (!selectedFile) return null;
-    const { data } = await uploadImageMutation({
-      variables: { file: selectedFile },
-    });
-    return data?.uploadImage?.url || null;
+  const removeGalleryImage = (idx: number) => {
+    setGalleryImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const uploadGalleryImages = async (): Promise<string[]> => {
+    return Promise.all(
+      galleryImages.map(async (img) => {
+        if (!img.file) return img.url;
+        const { data } = await uploadImageMutation({ variables: { file: img.file } });
+        return data?.uploadImage?.url || img.url;
+      })
+    );
   };
 
   const validateForm = () => {
@@ -751,7 +766,7 @@ const AddEditProductService = () => {
   };
 
   const generatePayload = async (isUpdate = false): Promise<any> => {
-    const uploadedUrl = selectedFile ? await uploadImage() : formData.imageurl;
+    const uploadedUrls = await uploadGalleryImages();
 
     const parseDate = (val: any, fallback: Date | null = null) => {
       if (!val) return fallback;
@@ -778,8 +793,9 @@ const AddEditProductService = () => {
       purchaseaccountid: formData.purchaseaccountid?.trim() || undefined,
       serviceaccountid: formData.serviceaccountid?.trim() || undefined,
 
-      imageurl: uploadedUrl,
-      imagename: selectedFile ? selectedFile.name : formData.imagename,
+      imageurl: uploadedUrls[0] || "",
+      imagename: galleryImages[0]?.file ? galleryImages[0].file.name : formData.imagename,
+      imageurls: uploadedUrls,
 
       seo: {
         ...formData.seo,
@@ -961,7 +977,7 @@ const AddEditProductService = () => {
             <legend className="text-sm font-medium px-2">General Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>
-              <FormField label="Image" name="imageurl" type="file" accept="image/*" onChange={handleImageChange} previewUrl={formData.imageurl} />
+              <FormField label="Images" name="imageurl" type="file" accept="image/*" multiple onChange={handleImageChange} />
               <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>
               <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>
               <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>
@@ -969,19 +985,37 @@ const AddEditProductService = () => {
               <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>
               <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>
 
-              {/* Image preview, next to Size — label on top, image directly below it. */}
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700">Image Preview</label>
-                {formData.imageurl ? (
-                  <img
-                    src={formData.imageurl}
-                    alt="Product"
-                    className="h-16 w-16 object-contain rounded-lg self-start"
-                  />
-                ) : (
-                  <span className="text-xs text-gray-400">No image selected</span>
-                )}
-              </div>
+              {/* Gallery thumbnails — pick adds to this list (doesn't replace it);
+                  each thumbnail can be removed individually. First image is the
+                  product's main/cover image everywhere else in the app.
+                  Whole block only shows once at least one image is picked. */}
+              {galleryImages.length > 0 && (
+                <div className="md:col-span-2 lg:col-span-3 flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">Image Preview ({galleryImages.length})</label>
+                  <div className="flex flex-wrap gap-2">
+                    {galleryImages.map((img, idx) => (
+                      <div key={idx} className="relative h-16 w-16 shrink-0">
+                        <img
+                          src={img.url}
+                          alt={`Product ${idx + 1}`}
+                          className="h-16 w-16 rounded-lg border border-gray-200 object-contain"
+                        />
+                        {idx === 0 && (
+                          <span className="absolute -top-1.5 -left-1.5 rounded bg-indigo-600 px-1 text-[9px] font-bold text-white">Main</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(idx)}
+                          className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-red-600 text-[10px] font-bold text-white hover:bg-red-700"
+                          aria-label={`Remove image ${idx + 1}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="md:col-span-2 lg:col-span-3">
                 <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />

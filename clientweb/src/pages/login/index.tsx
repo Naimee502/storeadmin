@@ -3,16 +3,21 @@ import { Link } from "react-router";
 import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, User, Mail } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
+import { useAuth } from "../../contexts/auth";
 
 type Step = "mobile" | "otp" | "success";
 
 export default function LoginPage() {
   const { companyName } = useTenant();
+  const { login } = useAuth();
   const brandName = companyName || siteConfig.name;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
+  const [otp, setOtp] = useState<string[]>(Array(4).fill(""));
+  const [regName, setRegName] = useState("");
+  const [regMobile, setRegMobile] = useState("");
+  const [regEmail, setRegEmail] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [loading, setLoading] = useState(false);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -22,6 +27,31 @@ export default function LoginPage() {
     const id = setInterval(() => setResendIn((s) => s - 1), 1000);
     return () => clearInterval(id);
   }, [resendIn]);
+
+  // WebOTP API — the browser-level equivalent of the app's SMS auto-read.
+  // It only fires when: (1) the page is served over HTTPS on a real
+  // domain (not http://localhost), and (2) an actual SMS arrives on that
+  // device containing the OTP followed by "@<domain> #<code>" on its own
+  // line. Since this demo sends no real SMS, nothing will visibly happen
+  // here or on localhost — this is wired up for when a real SMS gateway
+  // is connected in production, where it'll auto-fill without the user
+  // touching anything, same as the app.
+  useEffect(() => {
+    if (mode !== "login" || step !== "otp") return;
+    if (!("OTPCredential" in window)) return;
+    const controller = new AbortController();
+    (navigator.credentials as any)
+      .get({ otp: { transport: ["sms"] }, signal: controller.signal })
+      .then((otpCred: any) => {
+        const code: string | undefined = otpCred?.code;
+        if (code) handleOtpChange(0, code);
+      })
+      .catch(() => {
+        // Aborted (user left the step) or unsupported — ignore.
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, step]);
 
   const sendOtp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,15 +69,37 @@ export default function LoginPage() {
     setTimeout(() => {
       setLoading(false);
       setStep("success");
+      login({ name: "Customer", mobile });
     }, 700);
   };
 
-  const handleOtpChange = (idx: number, value: string) => {
-    if (!/^[0-9]?$/.test(value)) return;
+  const handleOtpChange = (idx: number, rawValue: string) => {
+    const digits = rawValue.replace(/\D/g, "");
+    if (!digits) {
+      const next = [...otp];
+      next[idx] = "";
+      setOtp(next);
+      return;
+    }
+    // Supports both a single keystroke and the browser/OS auto-filling the
+    // whole SMS code (some browsers drop the full code into one box), same
+    // as the app's OTP screen auto-filling all digits at once.
     const next = [...otp];
-    next[idx] = value;
+    let cursor = idx;
+    for (const d of digits) {
+      if (cursor > otp.length - 1) break;
+      next[cursor] = d;
+      cursor++;
+    }
     setOtp(next);
-    if (value && idx < 5) inputsRef.current[idx + 1]?.focus();
+    const focusIdx = Math.min(cursor, otp.length - 1);
+    inputsRef.current[focusIdx]?.focus();
+  };
+
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+      inputsRef.current[idx - 1]?.focus();
+    }
   };
 
   return (
@@ -122,9 +174,9 @@ export default function LoginPage() {
                 <ArrowLeft className="h-3.5 w-3.5" /> Change number
               </button>
               <p className="text-sm text-slate-500">
-                Enter the 6-digit code sent to <span className="font-semibold text-ink-900">+91 {mobile}</span>
+                Enter the 4-digit code sent to <span className="font-semibold text-ink-900">+91 {mobile}</span>
               </p>
-              <div className="flex justify-between gap-2">
+              <div className="flex justify-center gap-2.5">
                 {otp.map((digit, i) => (
                   <input
                     key={i}
@@ -133,9 +185,11 @@ export default function LoginPage() {
                     }}
                     value={digit}
                     onChange={(e) => handleOtpChange(i, e.target.value)}
-                    maxLength={1}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                    maxLength={i === 0 ? 4 : 1}
                     inputMode="numeric"
-                    className="h-12 w-11 rounded-lg border border-slate-200 text-center text-lg font-semibold outline-none focus:border-brand-500"
+                    autoComplete="one-time-code"
+                    className="h-11 w-11 rounded-lg border border-slate-200 text-center text-base font-semibold outline-none focus:border-brand-500"
                   />
                 ))}
               </div>
@@ -165,19 +219,41 @@ export default function LoginPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 setStep("success");
+                login({ name: regName.trim() || "Customer", mobile: regMobile });
               }}
               className="space-y-4"
             >
-              <Field icon={User} label="Full Name" placeholder="Your name" required />
+              <Field
+                icon={User}
+                label="Full Name"
+                placeholder="Your name"
+                required
+                value={regName}
+                onChange={(v) => setRegName(v)}
+              />
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-900">Mobile Number</label>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
                   <Phone className="h-4 w-4 text-slate-400" />
                   <span className="text-sm text-slate-500">+91</span>
-                  <input required maxLength={10} placeholder="98765 43210" className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400" />
+                  <input
+                    required
+                    maxLength={10}
+                    value={regMobile}
+                    onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, ""))}
+                    placeholder="98765 43210"
+                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
+                  />
                 </div>
               </div>
-              <Field icon={Mail} label="Email (optional)" placeholder="you@example.com" type="email" />
+              <Field
+                icon={Mail}
+                label="Email (optional)"
+                placeholder="you@example.com"
+                type="email"
+                value={regEmail}
+                onChange={(v) => setRegEmail(v)}
+              />
               <button type="submit" className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
                 Create Account
               </button>
@@ -224,12 +300,16 @@ function Field({
   placeholder,
   type = "text",
   required,
+  value,
+  onChange,
 }: {
   icon: typeof User;
   label: string;
   placeholder?: string;
   type?: string;
   required?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   return (
     <div>
@@ -239,6 +319,8 @@ function Field({
         <input
           type={type}
           required={required}
+          value={value}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
           placeholder={placeholder}
           className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
         />

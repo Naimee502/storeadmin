@@ -17,11 +17,13 @@ import {
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
+import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { count, wishlistCount } = useCart();
+  const { isLoggedIn, user } = useAuth();
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail } = useTenant();
   const brandName = companyName || siteConfig.name;
@@ -47,7 +49,7 @@ export default function Header() {
             <Link to="/login" className="flex items-center gap-1.5 font-medium text-brand-300 hover:text-brand-200">
               <Briefcase className="h-3.5 w-3.5" /> Apply for a Business / Party Account
             </Link>
-            <Link to="/account" className="flex items-center gap-1.5 hover:text-white">
+            <Link to={isLoggedIn ? "/account" : "/login"} className="flex items-center gap-1.5 hover:text-white">
               <Truck className="h-3.5 w-3.5" /> Track Order
             </Link>
             <a href="#" className="flex items-center gap-1.5 hover:text-white">
@@ -85,12 +87,15 @@ export default function Header() {
             }}
             className="hidden flex-1 items-stretch overflow-hidden rounded-lg border border-slate-200 focus-within:border-brand-500 md:flex"
           >
-            <select className="hidden shrink-0 border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none sm:block">
-              <option>All Categories</option>
-              {visibleCategories.map((c) => (
-                <option key={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <div className="relative hidden shrink-0 border-r border-slate-200 bg-slate-50 sm:block">
+              <select className="appearance-none bg-transparent py-2.5 pl-3 pr-8 text-sm text-slate-600 outline-none">
+                <option>All Categories</option>
+                {visibleCategories.map((c) => (
+                  <option key={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
             <input
               type="text"
               placeholder="Search for groceries, electronics, fashion, toys & more…"
@@ -102,19 +107,26 @@ export default function Header() {
           </form>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-3">
-            <Link to="/login" className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3">
+            <Link
+              to={isLoggedIn ? "/account" : "/login"}
+              className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3"
+            >
               <User className="h-5 w-5 text-ink-900" />
               <span className="hidden text-left leading-tight sm:block">
-                <span className="block text-[11px] text-slate-500">Welcome</span>
+                <span className="block text-[11px] text-slate-500">{isLoggedIn ? "Welcome" : "Welcome"}</span>
                 <span className="flex items-center gap-0.5 font-semibold text-ink-900">
-                  Login / Sign up <ChevronDown className="h-3.5 w-3.5" />
+                  {isLoggedIn ? user?.name || "My Account" : "Login / Sign up"} <ChevronDown className="h-3.5 w-3.5" />
                 </span>
               </span>
             </Link>
 
-            <Link to="/account" className="relative rounded-md p-2 hover:bg-slate-100" aria-label="Wishlist">
+            <Link
+              to={isLoggedIn ? "/account" : "/login"}
+              className="relative rounded-md p-2 hover:bg-slate-100"
+              aria-label="Wishlist"
+            >
               <Heart className="h-5.5 w-5.5 text-ink-900" />
-              {wishlistCount > 0 && (
+              {isLoggedIn && wishlistCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
                   {wishlistCount}
                 </span>

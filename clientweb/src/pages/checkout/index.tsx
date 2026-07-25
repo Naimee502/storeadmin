@@ -148,12 +148,18 @@ export default function CheckoutPage() {
                   const Icon = line.icon;
                   return (
                     <div key={line.lineId} className="flex items-center gap-3">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg"
-                        style={{ background: `linear-gradient(135deg, ${line.from}, ${line.to})` }}
-                      >
-                        <Icon className="h-6 w-6 text-ink-800/70" />
-                      </div>
+                      {line.imageurl ? (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white p-1">
+                          <img src={line.imageurl} alt={line.name} className="h-full w-full object-contain" />
+                        </div>
+                      ) : (
+                        <div
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: `linear-gradient(135deg, ${line.from}, ${line.to})` }}
+                        >
+                          <Icon className="h-6 w-6 text-ink-800/70" />
+                        </div>
+                      )}
                       <div className="flex-1">
                         <p className="line-clamp-1 text-sm font-medium text-ink-900">{line.name}</p>
                         <p className="text-xs text-slate-500">

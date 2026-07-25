@@ -97,6 +97,9 @@ export interface IProductService extends Document {
   description?: string;
   imageurl?: string;
   imagename?: string;
+  // Full gallery — imageurl is kept in sync as imageurls[0] for older
+  // consumers (ProductCard/cart/etc.) that only ever read a single image.
+  imageurls?: string[];
   categoryid?: Types.ObjectId;
   subcategoryid?: Types.ObjectId;
   groupid?: Types.ObjectId;
@@ -126,6 +129,7 @@ const productServiceSchema = new Schema<IProductService>(
     description: { type: String, default: "" },
     imageurl: String,
     imagename: String,
+    imageurls: { type: [String], default: [] },
     categoryid: { type: Schema.Types.ObjectId, ref: "Category" },
     subcategoryid: { type: Schema.Types.ObjectId, ref: "SubCategory" },
     groupid: { type: Schema.Types.ObjectId, ref: "ProductGroup" },

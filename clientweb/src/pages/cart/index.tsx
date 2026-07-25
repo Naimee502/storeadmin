@@ -49,12 +49,18 @@ export default function CartPage() {
               const Icon = line.icon;
               return (
                 <div key={line.lineId} className="flex gap-4 rounded-2xl border border-slate-100 p-4">
-                  <div
-                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: `linear-gradient(135deg, ${line.from}, ${line.to})` }}
-                  >
-                    <Icon className="h-9 w-9 text-ink-800/70" />
-                  </div>
+                  {line.imageurl ? (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1.5">
+                      <img src={line.imageurl} alt={line.name} className="h-full w-full object-contain" />
+                    </div>
+                  ) : (
+                    <div
+                      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl"
+                      style={{ background: `linear-gradient(135deg, ${line.from}, ${line.to})` }}
+                    >
+                      <Icon className="h-9 w-9 text-ink-800/70" />
+                    </div>
+                  )}
 
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">

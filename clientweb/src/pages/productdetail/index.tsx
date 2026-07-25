@@ -24,6 +24,9 @@ export default function ProductDetailPage() {
 
   const [selectedUnit, setSelectedUnit] = useState(product?.units[0]);
   useEffect(() => setSelectedUnit(product?.units[0]), [product]);
+  // Which gallery image is shown large — resets whenever the product changes.
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+  useEffect(() => setActiveImageIdx(0), [product]);
   // Quantity to add, only used before the product is actually in the cart —
   // once it's in, the stepper reads/writes the real cart line quantity
   // instead of a separate local counter that always looked reset to 1.
@@ -51,6 +54,11 @@ export default function ProductDetailPage() {
   const discount = discountPercent(selected.price, selected.mrp);
   const outOfStock = typeof product.stock === "number" && product.stock <= 0;
   const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+
+  // Full gallery — falls back to the single imageurl, or no images at all
+  // (decorative icon tiles below cover that case, same as before).
+  const galleryImages = product.imageurls?.length ? product.imageurls : product.imageurl ? [product.imageurl] : [];
+  const mainImage = galleryImages[activeImageIdx] ?? galleryImages[0];
 
   // Cart line for whichever unit is currently selected — same lineId scheme
   // as CartProvider (`${productId}-${unit}`), so the stepper here shows the
@@ -95,17 +103,39 @@ export default function ProductDetailPage() {
         <div className="grid gap-10 lg:grid-cols-2">
           {/* Gallery */}
           <div>
-            <div
-              className="mb-4 flex h-80 items-center justify-center overflow-hidden rounded-2xl sm:h-96"
-              style={product.imageurl ? undefined : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
-            >
-              {product.imageurl ? (
-                <img src={product.imageurl} alt={product.name} className="h-full w-full object-contain" />
+            <div className="relative mb-4 aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              {mainImage ? (
+                <img src={mainImage} alt={product.name} className="h-full w-full object-contain" />
               ) : (
-                <Icon className="h-32 w-32 text-brand-600" />
+                <div
+                  className="flex h-full w-full items-center justify-center rounded-xl"
+                  style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
+                >
+                  <Icon className="h-32 w-32 text-brand-600" />
+                </div>
+              )}
+              {discount > 0 && (
+                <span className="absolute left-3 top-3 rounded-full bg-brand-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+                  {discount}% OFF
+                </span>
               )}
             </div>
-            {!product.imageurl && (
+            {galleryImages.length > 1 ? (
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {galleryImages.map((url, i) => (
+                  <button
+                    key={url + i}
+                    onClick={() => setActiveImageIdx(i)}
+                    className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 bg-white p-1.5 transition ${
+                      i === activeImageIdx ? "border-brand-600 shadow-sm" : "border-slate-200 hover:border-brand-400"
+                    }`}
+                    aria-label={`Show image ${i + 1}`}
+                  >
+                    <img src={url} alt={`${product.name} ${i + 1}`} className="h-full w-full object-contain" />
+                  </button>
+                ))}
+              </div>
+            ) : !mainImage ? (
               <div className="grid grid-cols-4 gap-3">
                 {[0, 1, 2, 3].map((i) => (
                   <button
@@ -117,7 +147,7 @@ export default function ProductDetailPage() {
                   </button>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Info */}

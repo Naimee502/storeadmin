@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 import {
   Package,
   User,
@@ -16,6 +16,7 @@ import {
 import Breadcrumb from "../../components/breadcrumb";
 import { sampleOrders, type SampleOrder } from "../../data/sampleData";
 import { formatPrice } from "../../utils/format";
+import { useAuth } from "../../contexts/auth";
 
 type Tab = "orders" | "profile" | "addresses" | "business";
 
@@ -37,6 +38,23 @@ const statusStyles: Record<SampleOrder["orderStatus"], { label: string; classNam
 
 export default function AccountPage() {
   const [tab, setTab] = useState<Tab>("orders");
+  const { isLoggedIn, user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Nothing here is real yet without a login — send anyone who isn't
+  // signed in (including a direct/typed visit to this URL) to the login
+  // page instead of showing this account's data.
+  if (!isLoggedIn || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const initials = user.name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <div>
@@ -48,11 +66,11 @@ export default function AccountPage() {
           <aside>
             <div className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-100 p-4">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-brand-700 text-base font-bold text-white">
-                TN
+                {initials || "U"}
               </span>
               <div>
-                <p className="text-sm font-semibold text-ink-900">Tejas Nariya</p>
-                <p className="text-xs text-slate-500">+91 98765 43210</p>
+                <p className="text-sm font-semibold text-ink-900">{user.name}</p>
+                <p className="text-xs text-slate-500">+91 {user.mobile}</p>
               </div>
             </div>
 
@@ -68,12 +86,15 @@ export default function AccountPage() {
                   <Icon className="h-4 w-4" /> {label}
                 </button>
               ))}
-              <Link
-                to="/login"
+              <button
+                onClick={() => {
+                  logout();
+                  navigate("/login");
+                }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-600 hover:bg-rose-50"
               >
                 <LogOut className="h-4 w-4" /> Logout
-              </Link>
+              </button>
             </nav>
           </aside>
 
@@ -134,9 +155,9 @@ export default function AccountPage() {
               <div>
                 <h1 className="mb-5 text-xl font-bold text-ink-900">Profile</h1>
                 <div className="grid gap-4 rounded-2xl border border-slate-100 p-5 sm:grid-cols-2">
-                  <ReadField label="Full Name" value="Tejas Nariya" />
-                  <ReadField label="Mobile Number" value="+91 98765 43210" />
-                  <ReadField label="Email" value="tejasnariya@gmail.com" />
+                  <ReadField label="Full Name" value={user.name} />
+                  <ReadField label="Mobile Number" value={`+91 ${user.mobile}`} />
+                  <ReadField label="Email" value="Not added" />
                   <ReadField label="GSTIN" value="Not added" />
                   <div className="sm:col-span-2">
                     <button className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
@@ -160,11 +181,9 @@ export default function AccountPage() {
                     <span className="mb-2 inline-block rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-semibold text-white">
                       DEFAULT
                     </span>
-                    <p className="text-sm font-semibold text-ink-900">Tejas Nariya</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      12, Shreeji Complex, Ring Road, Ahmedabad, Gujarat – 380001
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">+91 98765 43210</p>
+                    <p className="text-sm font-semibold text-ink-900">{user.name}</p>
+                    <p className="mt-1 text-sm text-slate-600">No address added yet.</p>
+                    <p className="mt-1 text-sm text-slate-500">+91 {user.mobile}</p>
                   </div>
                 </div>
               </div>

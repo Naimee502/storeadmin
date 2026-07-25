@@ -120,6 +120,8 @@ export const productServiceTypeDefs = gql`
     description: String
     imageurl: String
     imagename: String
+    # Full gallery — imageurl mirrors imageurls[0] for older consumers.
+    imageurls: [String]
 
     categoryid: Category
     subcategoryid: SubCategory
@@ -177,6 +179,7 @@ export const productServiceTypeDefs = gql`
     description: String
     imageurl: String
     imagename: String
+    imageurls: [String]
     categoryid: ID
     subcategoryid: ID
     groupid: ID

@@ -76,6 +76,7 @@ export interface SampleProduct {
   description: string;
   highlights: string[];
   imageurl?: string; // real product photo (from server) — shown instead of the icon/gradient tile when present
+  imageurls?: string[]; // full gallery — imageurl mirrors imageurls[0]; ProductDetail's thumbnails switch between these
   // Per-unit price breakdown (e.g. Piece vs Dozen) — when present, ProductCard
   // and ProductDetail let the buyer switch units and show/add-to-cart the
   // price for whichever one is selected, same as the mobile app's catalog.

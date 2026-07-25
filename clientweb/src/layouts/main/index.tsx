@@ -6,6 +6,7 @@ import BusinessPreview from "../../components/businesspreview";
 import FullScreenLoader from "../../components/fullscreenloader";
 import StoreNotFound from "../../components/storenotfound";
 import { CartProvider } from "../../contexts/cart";
+import { AuthProvider } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 
 export default function MainLayout() {
@@ -15,16 +16,18 @@ export default function MainLayout() {
   if (tenant.notFound) return <StoreNotFound storeSlug={tenant.storeSlug} />;
 
   return (
-    <CartProvider>
-      <div className="flex min-h-screen flex-col bg-white">
-        <Header />
-        <main className="flex-1 pb-16 lg:pb-0">
-          <Outlet />
-        </main>
-        <Footer />
-        <MobileBottomNav />
-        {import.meta.env.DEV && <BusinessPreview />}
-      </div>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <div className="flex min-h-screen flex-col bg-white">
+          <Header />
+          <main className="flex-1 pb-16 lg:pb-0">
+            <Outlet />
+          </main>
+          <Footer />
+          <MobileBottomNav />
+          {import.meta.env.DEV && <BusinessPreview />}
+        </div>
+      </CartProvider>
+    </AuthProvider>
   );
 }

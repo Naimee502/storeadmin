@@ -12,6 +12,7 @@ export const GET_STORE_PRODUCTS = gql`
       name
       description
       imageurl
+      imageurls
       status
       createdAt
       categoryid { id categoryname }
