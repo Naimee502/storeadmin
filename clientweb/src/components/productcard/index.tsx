@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Heart, Plus, Check, Star } from "lucide-react";
+import { Heart, Plus, Minus, Star } from "lucide-react";
 import type { SampleProduct } from "../../data/sampleData";
 import { useCart } from "../../contexts/cart";
 import { formatPrice, discountPercent } from "../../utils/format";
@@ -12,8 +12,7 @@ const badgeStyles: Record<string, string> = {
 };
 
 export default function ProductCard({ product }: { product: SampleProduct }) {
-  const { addToCart, addToWishlist } = useCart();
-  const [added, setAdded] = useState(false);
+  const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
   const [wished, setWished] = useState(false);
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
@@ -31,11 +30,31 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
   const outOfStock = typeof product.stock === "number" && product.stock <= 0;
   const lowStock = typeof product.stock === "number" && product.stock > 0 && product.stock <= 5;
 
-  const handleAdd = () => {
+  // Cart line for whichever unit is currently selected — same lineId scheme
+  // as CartProvider (`${productId}-${unit}`), so switching the unit chip
+  // shows/adds to that unit's own line instead of a shared counter.
+  const lineId = `${product.id}-${selected.label}`;
+  const line = lines.find((l) => l.lineId === lineId);
+  const atStockLimit = typeof product.stock === "number" && !!line && line.qty >= product.stock;
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (outOfStock) return;
     addToCart(product, 1, selected.label);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+  };
+
+  const handleIncrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (atStockLimit) return;
+    if (line) updateQty(line.lineId, line.qty + 1);
+    else addToCart(product, 1, selected.label);
+  };
+
+  const handleDecrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!line) return;
+    if (line.qty <= 1) removeFromCart(line.lineId);
+    else updateQty(line.lineId, line.qty - 1);
   };
 
   return (
@@ -117,8 +136,8 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
         ))}
       </div>
 
-      <div className="mt-auto flex items-center justify-between pt-2">
-        <div>
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold text-ink-900">{formatPrice(selected.price)}</span>
             {selected.mrp > selected.price && (
@@ -129,16 +148,40 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
             {discount > 0 ? `${discount}% off` : " "}
           </span>
         </div>
-        <button
-          onClick={handleAdd}
-          disabled={outOfStock}
-          className={`flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition ${
-            outOfStock ? "bg-slate-300" : added ? "bg-brand-600" : "bg-ink-900 hover:bg-brand-700"
-          }`}
-        >
-          {added ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-          {outOfStock ? "Unavailable" : added ? "Added" : "Add"}
-        </button>
+        {outOfStock ? (
+          <button
+            disabled
+            className="shrink-0 whitespace-nowrap rounded-lg bg-slate-200 px-2.5 py-2 text-[11px] font-semibold text-slate-500"
+          >
+            Unavailable
+          </button>
+        ) : line ? (
+          <div className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-900 px-1 py-1">
+            <button
+              onClick={handleDecrement}
+              className="grid h-6 w-6 place-items-center rounded-md text-white hover:bg-white/10"
+              aria-label="Decrease quantity"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <span className="w-5 text-center text-xs font-semibold text-white">{line.qty}</span>
+            <button
+              onClick={handleIncrement}
+              disabled={atStockLimit}
+              className="grid h-6 w-6 place-items-center rounded-md text-white hover:bg-white/10 disabled:opacity-40"
+              aria-label="Increase quantity"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleAdd}
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-ink-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-700"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add
+          </button>
+        )}
       </div>
     </div>
   );

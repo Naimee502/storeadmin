@@ -24,11 +24,14 @@ export default function ProductDetailPage() {
 
   const [selectedUnit, setSelectedUnit] = useState(product?.units[0]);
   useEffect(() => setSelectedUnit(product?.units[0]), [product]);
-  const [qty, setQty] = useState(1);
+  // Quantity to add, only used before the product is actually in the cart —
+  // once it's in, the stepper reads/writes the real cart line quantity
+  // instead of a separate local counter that always looked reset to 1.
+  const [pendingQty, setPendingQty] = useState(1);
+  useEffect(() => setPendingQty(1), [product, selectedUnit]);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const [wished, setWished] = useState(false);
-  const [added, setAdded] = useState(false);
-  const { addToCart, addToWishlist } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
 
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
@@ -49,11 +52,34 @@ export default function ProductDetailPage() {
   const outOfStock = typeof product.stock === "number" && product.stock <= 0;
   const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
+  // Cart line for whichever unit is currently selected — same lineId scheme
+  // as CartProvider (`${productId}-${unit}`), so the stepper here shows the
+  // real quantity already in the cart instead of resetting to 1.
+  const lineId = `${product.id}-${selectedUnit}`;
+  const line = lines.find((l) => l.lineId === lineId);
+  const atStockLimit = typeof product.stock === "number" && !!line && line.qty >= product.stock;
+  const displayQty = line ? line.qty : pendingQty;
+
   const handleAdd = () => {
     if (outOfStock) return;
-    addToCart(product, qty, selectedUnit);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
+    addToCart(product, pendingQty, selectedUnit);
+  };
+
+  const handleIncrement = () => {
+    if (line) {
+      if (!atStockLimit) updateQty(line.lineId, line.qty + 1);
+    } else {
+      setPendingQty((q) => q + 1);
+    }
+  };
+
+  const handleDecrement = () => {
+    if (line) {
+      if (line.qty <= 1) removeFromCart(line.lineId);
+      else updateQty(line.lineId, line.qty - 1);
+    } else {
+      setPendingQty((q) => Math.max(1, q - 1));
+    }
   };
 
   return (
@@ -159,24 +185,30 @@ export default function ProductDetailPage() {
             {/* Quantity + actions */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <div className="flex items-center rounded-lg border border-slate-200">
-                <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2.5 hover:bg-slate-50" aria-label="Decrease quantity">
+                <button onClick={handleDecrement} disabled={outOfStock} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Decrease quantity">
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="w-10 text-center text-sm font-semibold">{qty}</span>
-                <button onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-slate-50" aria-label="Increase quantity">
+                <span className="w-10 text-center text-sm font-semibold">{displayQty}</span>
+                <button onClick={handleIncrement} disabled={outOfStock || atStockLimit} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Increase quantity">
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
 
-              <button
-                onClick={handleAdd}
-                disabled={outOfStock}
-                className={`flex-1 rounded-lg px-6 py-3 text-sm font-semibold text-white transition sm:flex-none ${
-                  outOfStock ? "bg-slate-300" : added ? "bg-brand-600" : "bg-ink-900 hover:bg-brand-700"
-                }`}
-              >
-                {outOfStock ? "Unavailable" : added ? "Added to Cart ✓" : "Add to Cart"}
-              </button>
+              {line ? (
+                <span className="flex-1 rounded-lg bg-brand-50 px-6 py-3 text-center text-sm font-semibold text-brand-700 sm:flex-none">
+                  Added to Cart ✓
+                </span>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  disabled={outOfStock}
+                  className={`flex-1 rounded-lg px-6 py-3 text-sm font-semibold text-white transition sm:flex-none ${
+                    outOfStock ? "bg-slate-300" : "bg-ink-900 hover:bg-brand-700"
+                  }`}
+                >
+                  {outOfStock ? "Unavailable" : "Add to Cart"}
+                </button>
+              )}
               {!outOfStock && (
                 <Link
                   to="/checkout"
