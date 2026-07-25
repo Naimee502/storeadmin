@@ -26,4 +26,7 @@ export const navCategories: NavCategory[] = [
   { id: "toys", label: "Toys & Baby", children: ["Toys & Games", "Baby Care", "School Supplies"] },
   { id: "appliances", label: "Appliances", children: ["Refrigerators", "ACs", "Small Appliances"] },
   { id: "sports", label: "Sports & Fitness", children: ["Fitness Gear", "Outdoor", "Cycling"] },
+  { id: "books", label: "Books & Stationery", children: ["Fiction", "Academic", "Office Supplies"] },
+  { id: "pet", label: "Pet Supplies", children: ["Pet Food", "Toys & Accessories", "Grooming"] },
+  { id: "pharma", label: "Pharmacy & Healthcare", children: ["Medicines", "Health Devices", "Wellness"] },
 ];

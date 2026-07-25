@@ -18,12 +18,14 @@ export const categoryTypeDefs = gql`
     id: ID!
     categorycode: String!
     categoryname: String!
+    image: String
     status: Boolean!
     admin: Admin
   }
 
   input CategoryInput {
     categoryname: String!
+    image: String
     status: Boolean!
     admin: ID
   }

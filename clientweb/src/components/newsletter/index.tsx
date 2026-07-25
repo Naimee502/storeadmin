@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Send, Smartphone } from "lucide-react";
+import { useTenant } from "../../contexts/tenant";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const { appDownloadUrl } = useTenant();
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -37,13 +39,28 @@ export default function Newsletter() {
           </form>
         </div>
         <div className="flex items-center justify-center gap-4 md:justify-end">
-          <div className="flex items-center gap-3 rounded-xl bg-white/10 px-5 py-4">
-            <Smartphone className="h-8 w-8 text-brand-300" />
-            <div>
-              <p className="text-sm font-semibold">Get the app</p>
-              <p className="text-xs text-slate-300">Order &amp; track on the go</p>
+          {appDownloadUrl ? (
+            <a
+              href={appDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl bg-white/10 px-5 py-4 transition hover:bg-white/15"
+            >
+              <Smartphone className="h-8 w-8 text-brand-300" />
+              <div>
+                <p className="text-sm font-semibold">Get the app</p>
+                <p className="text-xs text-slate-300">Order &amp; track on the go</p>
+              </div>
+            </a>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl bg-white/10 px-5 py-4">
+              <Smartphone className="h-8 w-8 text-brand-300" />
+              <div>
+                <p className="text-sm font-semibold">Get the app</p>
+                <p className="text-xs text-slate-300">Order &amp; track on the go</p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </section>

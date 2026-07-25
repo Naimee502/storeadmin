@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, User, Mail, Briefcase } from "lucide-react";
+import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, User, Mail } from "lucide-react";
 import { siteConfig } from "../../config/site";
+import { useTenant } from "../../contexts/tenant";
 
 type Step = "mobile" | "otp" | "success";
 
-const businessTypes = ["Individual Customer", "Retailer", "Wholesaler", "Distributor", "Manufacturer"];
-
 export default function LoginPage() {
+  const { companyName } = useTenant();
+  const brandName = companyName || siteConfig.name;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
@@ -54,9 +55,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-xl font-bold text-white">
-            R
+            {brandName[0]?.toUpperCase() ?? "R"}
           </span>
-          <h1 className="text-xl font-bold text-ink-900">Welcome to {siteConfig.name}</h1>
+          <h1 className="text-xl font-bold text-ink-900">Welcome to {brandName}</h1>
           <p className="mt-1 text-sm text-slate-500">{siteConfig.tagline}</p>
         </div>
 
@@ -106,7 +107,7 @@ export default function LoginPage() {
                 {loading ? "Sending OTP…" : "Send OTP"}
               </button>
               <p className="text-center text-xs text-slate-400">
-                By continuing you agree to Rudra's Terms of Service &amp; Privacy Policy.
+                By continuing you agree to {brandName}'s Terms of Service &amp; Privacy Policy.
               </p>
             </form>
           )}
@@ -177,22 +178,6 @@ export default function LoginPage() {
                 </div>
               </div>
               <Field icon={Mail} label="Email (optional)" placeholder="you@example.com" type="email" />
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-900">
-                  <Briefcase className="h-3.5 w-3.5 text-slate-400" /> Account Type
-                </label>
-                <select
-                  defaultValue="Individual Customer"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-                >
-                  {businessTypes.map((b) => (
-                    <option key={b}>{b}</option>
-                  ))}
-                </select>
-                <p className="mt-1.5 text-xs text-slate-400">
-                  Retailers, wholesalers &amp; distributors get wholesale pricing after admin approval.
-                </p>
-              </div>
               <button type="submit" className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
                 Create Account
               </button>
@@ -201,13 +186,6 @@ export default function LoginPage() {
 
           {mode === "register" && step === "success" && <SuccessState registered />}
         </div>
-
-        <p className="mt-5 text-center text-xs text-slate-400">
-          Need a business account with credit terms?{" "}
-          <a href="#" className="font-semibold text-brand-700">
-            Apply here
-          </a>
-        </p>
       </div>
     </div>
   );
@@ -222,7 +200,7 @@ function SuccessState({ registered }: { registered?: boolean }) {
       </h2>
       <p className="mt-1 text-sm text-slate-500">
         {registered
-          ? "We've received your details. Business/party accounts are activated after a quick review."
+          ? "Your account is ready — start shopping right away."
           : "Welcome back — start shopping or check your recent orders."}
       </p>
       <div className="mt-5 flex gap-3">

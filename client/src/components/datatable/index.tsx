@@ -37,6 +37,8 @@ interface FormField {
     placeholder?: string;
     options?: { label: string; value: string }[];
     searchable?: boolean;
+    // For type: "file" — restricts the file picker (e.g. "image/*").
+    accept?: string;
 }
 
 interface DataTableProps {
@@ -89,7 +91,7 @@ interface DataTableProps {
     formFields?: FormField[];
     formValues?: { [key: string]: any };
     formErrors?: { [key: string]: string };
-    onFormChange?: (name: string, value: string) => void;
+    onFormChange?: (name: string, value: any) => void;
     onFormSubmit?: () => void;
     onActiveToggle?: (checked: boolean) => void;
     showActionsColumn?: boolean;
@@ -226,15 +228,40 @@ const DataTable: React.FC<DataTableProps> = ({
                                 label={field.label}
                                 name={field.name}
                                 type={field.type as any}
-                                value={formValues[field.name] || ""}
-                                onChange={(e: any) => onFormChange(field.name, e.target.value)}
+                                accept={field.accept}
+                                value={field.type === "file" ? undefined : (formValues[field.name] || "")}
+                                previewUrl={field.type === "file" ? (formValues[field.name] || null) : undefined}
+                                onChange={(e: any) => {
+                                    if (field.type === "file") {
+                                        const file = e.target?.files?.[0];
+                                        if (file) onFormChange(field.name, file);
+                                    } else {
+                                        onFormChange(field.name, e.target.value);
+                                    }
+                                }}
                                 error={formErrors?.[field.name]}
                                 placeholder={field.placeholder}
                                 options={field.options}
                                 className="flex-1"
-                                searchable={field.searchable} 
+                                searchable={field.searchable}
                             />
                         ))}
+
+                        {(() => {
+                            const fileField = formFields.find((f) => f.type === "file");
+                            const previewUrl = fileField ? formValues[fileField.name] : null;
+                            if (!previewUrl) return null;
+                            return (
+                                <div className="flex shrink-0 flex-col items-center gap-1">
+                                    <span className="text-sm font-medium text-gray-700">Preview</span>
+                                    <img
+                                        src={previewUrl}
+                                        alt="Preview"
+                                        className="h-10 w-10 rounded-lg border border-gray-200 object-cover"
+                                    />
+                                </div>
+                            );
+                        })()}
 
                         <fieldset className="flex items-center max-w-xs">
                             <legend className="text-sm sm:text-base font-medium">Status</legend>

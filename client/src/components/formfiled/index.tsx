@@ -343,30 +343,19 @@ const FormField: React.FC<FormFieldProps> = ({
     }
 
     if (isFile) {
-      // Compact row: file input + just the current file name (no thumbnail
-      // here — a bigger image preview is shown separately so this field
-      // doesn't grow taller than the rest of the grid row).
-      const previewName = previewUrl
-        ? decodeURIComponent(previewUrl.split('/').pop() || '').replace(/^\d+-/, '')
-        : null;
-
+      // Just the file input — the thumbnail preview is shown separately
+      // (e.g. DataTable's dedicated "Preview" column) so this field stays
+      // compact instead of spilling a raw blob/UUID filename into the row.
       return (
-        <div className="flex items-center gap-2 w-full">
-          <input
-            type="file"
-            id={name}
-            name={name}
-            accept={accept}
-            onChange={onChange}
-            disabled={disabled}
-            className="text-sm"
-          />
-          {previewName && (
-            <span className="text-xs text-gray-500 truncate max-w-[140px]" title={previewName}>
-              {previewName}
-            </span>
-          )}
-        </div>
+        <input
+          type="file"
+          id={name}
+          name={name}
+          accept={accept}
+          onChange={onChange}
+          disabled={disabled}
+          className="w-full text-sm"
+        />
       );
     }
 

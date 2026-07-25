@@ -1,6 +1,35 @@
 import { gql } from "apollo-server-express";
 
 export const adminSettingsTypeDefs = gql`
+  type HeroBannerSlide {
+    image: String
+    title: String
+    subtitle: String
+    cta: String
+    link: String
+  }
+
+  input HeroBannerSlideInput {
+    image: String
+    title: String
+    subtitle: String
+    cta: String
+    link: String
+  }
+
+  # A single product+variant pick — used independently by Featured
+  # Products, New Arrivals and Deal of the Day, so each Home page
+  # section can have its own curated list.
+  type ProductPickItem {
+    productid: ID!
+    unitid: ID
+  }
+
+  input ProductPickItemInput {
+    productid: ID!
+    unitid: ID
+  }
+
   type AdminSettings {
     id: ID!
     adminid: ID!
@@ -54,8 +83,85 @@ export const adminSettingsTypeDefs = gql`
     privacyPolicyUrl: String
     termsConditionsUrl: String
 
+    # "Get the app" link on the website (Home page + footer prompt).
+    appDownloadUrl: String
+
+    # Website storefront — whether checkout offers online payments or
+    # Cash on Delivery only, and this admin's public website link.
+    websiteCodOnly: Boolean
+    storeslug: String
+
+    # Website content (rich HTML) shown directly on the clientweb
+    # About/Privacy/Terms pages.
+    websiteAboutContent: String
+    websitePrivacyContent: String
+    websiteTermsContent: String
+
+    # Short one-line footer/about tagline describing the business.
+    websiteTagline: String
+
+    # Social links — footer only shows an icon once a URL is set here.
+    socialFacebookUrl: String
+    socialInstagramUrl: String
+    socialTwitterUrl: String
+    socialLinkedinUrl: String
+
+    # Home page product selections — each section independently curated.
+    featuredProductItems: [ProductPickItem!]
+    newArrivalItems: [ProductPickItem!]
+
+    # Deal of the Day (Home page) — enable/disable, header copy, and the
+    # admin's explicit product+variant pick list.
+    dealOfDayEnabled: Boolean
+    dealOfDayTitle: String
+    dealOfDaySubtitle: String
+    dealOfDayItems: [ProductPickItem!]
+
+    # Hero banner — admin-managed list of Home page carousel slides.
+    heroBannerSlides: [HeroBannerSlide!]
+
+    # Promo tiles between Featured Products and New Arrivals.
+    promoBanners: [HeroBannerSlide!]
+
     createdAt: String
     updatedAt: String
+  }
+
+  # Minimal, public-safe shape returned to an anonymous website visitor when
+  # resolving which admin a storefront link (yourdomain.com/<storeslug>)
+  # belongs to. Deliberately doesn't reuse the full AdminSettings/Admin
+  # types — clientweb only ever needs these fields to boot the site.
+  type StorefrontInfo {
+    adminid: ID!
+    companyName: String!
+    address: String
+    codOnly: Boolean!
+
+    supportEmail: String
+    supportPhone: String
+    supportWhatsapp: String
+    appDownloadUrl: String
+
+    websiteAboutContent: String
+    websitePrivacyContent: String
+    websiteTermsContent: String
+    websiteTagline: String
+
+    socialFacebookUrl: String
+    socialInstagramUrl: String
+    socialTwitterUrl: String
+    socialLinkedinUrl: String
+
+    featuredProductItems: [ProductPickItem!]
+    newArrivalItems: [ProductPickItem!]
+
+    dealOfDayEnabled: Boolean
+    dealOfDayTitle: String
+    dealOfDaySubtitle: String
+    dealOfDayItems: [ProductPickItem!]
+
+    heroBannerSlides: [HeroBannerSlide!]
+    promoBanners: [HeroBannerSlide!]
   }
 
   # Partial input — only sends fields that changed. Server merges over the
@@ -109,10 +215,36 @@ export const adminSettingsTypeDefs = gql`
     supportWhatsapp: String
     privacyPolicyUrl: String
     termsConditionsUrl: String
+    appDownloadUrl: String
+
+    websiteCodOnly: Boolean
+    storeslug: String
+
+    websiteAboutContent: String
+    websitePrivacyContent: String
+    websiteTermsContent: String
+    websiteTagline: String
+
+    socialFacebookUrl: String
+    socialInstagramUrl: String
+    socialTwitterUrl: String
+    socialLinkedinUrl: String
+
+    featuredProductItems: [ProductPickItemInput!]
+    newArrivalItems: [ProductPickItemInput!]
+
+    dealOfDayEnabled: Boolean
+    dealOfDayTitle: String
+    dealOfDaySubtitle: String
+    dealOfDayItems: [ProductPickItemInput!]
+
+    heroBannerSlides: [HeroBannerSlideInput!]
+    promoBanners: [HeroBannerSlideInput!]
   }
 
   extend type Query {
     getAdminSettings(adminid: ID!): AdminSettings!
+    getStorefrontByStoreSlug(storeslug: String!): StorefrontInfo
   }
 
   extend type Mutation {

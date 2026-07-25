@@ -77,6 +77,30 @@ const adminSettingsSchema = new mongoose.Schema(
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 
     /* ============================================================
+       WEBSITE STOREFRONT — controls for the customer-facing website.
+       ============================================================ */
+    // When true, clientweb's checkout only offers Cash on Delivery — UPI,
+    // Card, Net Banking and Party/Business-account billing are hidden.
+    websiteCodOnly: { type: Boolean, default: false },
+
+    // Human-picked, URL-friendly handle for this admin's public website —
+    // e.g. "rudra" → yourdomain.com/rudra. Distinct from `admincode`
+    // (#ADM0001, auto-generated, used by clientapp's one-time device
+    // setup) — this one is editable by the admin and meant to be shared
+    // with customers, so it needs to be short and memorable, not a code.
+    // Resolved by the public getStorefrontByStoreSlug query below, with no
+    // login/mobile check — browsing a storefront is not sensitive like the
+    // app's staff/party data access is.
+    storeslug: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[a-z0-9-]*$/, "Only lowercase letters, numbers and hyphens allowed"],
+    },
+
+    /* ============================================================
        INVOICE PRINT LAYOUT — lets an admin switch off parts of the
        printed Sales/Purchase Invoice header & footer, and customise the
        Terms & Conditions text shown on it.
@@ -144,6 +168,115 @@ const adminSettingsSchema = new mongoose.Schema(
     supportWhatsapp: { type: String, default: "" }, // digits only, e.g. "919876543210"
     privacyPolicyUrl: { type: String, default: "" },
     termsConditionsUrl: { type: String, default: "" },
+
+    // Link for the "Get the app" card on the website (Home page + footer
+    // "Order & track on the go" prompt) — e.g. Play Store / App Store link.
+    // Blank by default; the card just isn't clickable until this is set.
+    appDownloadUrl: { type: String, default: "" },
+
+    /* ============================================================
+       WEBSITE CONTENT — the actual About Us / Privacy Policy / Terms
+       text shown directly on the clientweb pages (/about, /privacy,
+       /terms), instead of only linking out via the URLs above. Fully
+       admin-editable, blank by default — nothing static/hardcoded.
+       ============================================================ */
+    websiteAboutContent: { type: String, default: "" },
+    websitePrivacyContent: { type: String, default: "" },
+    websiteTermsContent: { type: String, default: "" },
+
+    // Short one-line footer/about tagline describing the business — e.g.
+    // "A multi-category marketplace & B2B ordering platform — one storefront
+    // for retail shoppers and wholesale/manufacturer party accounts alike."
+    // Blank by default; clientweb falls back to a generic sentence when empty.
+    websiteTagline: { type: String, default: "" },
+
+    /* ============================================================
+       SOCIAL LINKS — website footer only shows an icon for a network
+       once its URL is filled in here. No dummy/placeholder icons.
+       ============================================================ */
+    socialFacebookUrl: { type: String, default: "" },
+    socialInstagramUrl: { type: String, default: "" },
+    socialTwitterUrl: { type: String, default: "" },
+    socialLinkedinUrl: { type: String, default: "" },
+
+    /* ============================================================
+       HOME PAGE PRODUCT SELECTIONS — Featured Products, New Arrivals
+       and Deal of the Day are each independently admin-curated
+       (product + optional unit/variant pick list), same idea as a
+       normal ecommerce admin panel. Any list left empty falls back to
+       a sensible catalog-driven default so the section is never blank.
+       ============================================================ */
+    featuredProductItems: {
+      type: [
+        {
+          _id: false,
+          productid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService", required: true },
+          unitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit", default: null },
+        },
+      ],
+      default: [],
+    },
+    newArrivalItems: {
+      type: [
+        {
+          _id: false,
+          productid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService", required: true },
+          unitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit", default: null },
+        },
+      ],
+      default: [],
+    },
+    dealOfDayEnabled: { type: Boolean, default: true },
+    dealOfDayTitle: { type: String, default: "" },
+    dealOfDaySubtitle: { type: String, default: "" },
+    dealOfDayItems: {
+      type: [
+        {
+          _id: false,
+          productid: { type: mongoose.Schema.Types.ObjectId, ref: "ProductService", required: true },
+          // Which unit/variant (Piece, Dozen, ...) to feature for this
+          // product — optional; blank = product's default/first unit.
+          unitid: { type: mongoose.Schema.Types.ObjectId, ref: "Unit", default: null },
+        },
+      ],
+      default: [],
+    },
+
+    /* ============================================================
+       HERO BANNER — admin-managed list of Home page carousel slides
+       (image + copy, add/edit/remove any number of them). Empty list
+       keeps the automatic catalog-driven slides instead.
+       ============================================================ */
+    heroBannerSlides: {
+      type: [
+        {
+          _id: false,
+          image: { type: String, default: "" },
+          title: { type: String, default: "" },
+          subtitle: { type: String, default: "" },
+          cta: { type: String, default: "" },
+          link: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
+
+    // Promo tiles shown between Featured Products and New Arrivals on the
+    // Home page (same shape as hero banner slides) — add/edit/remove any
+    // number; empty list keeps the built-in default two tiles.
+    promoBanners: {
+      type: [
+        {
+          _id: false,
+          image: { type: String, default: "" },
+          title: { type: String, default: "" },
+          subtitle: { type: String, default: "" },
+          cta: { type: String, default: "" },
+          link: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

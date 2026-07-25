@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router";
 import { Star, Heart, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
-import { sampleProducts, categoryTiles } from "../../data/sampleData";
+import { useCatalog } from "../../hooks/useCatalog";
 import { useCart } from "../../contexts/cart";
 import { formatPrice, discountPercent } from "../../utils/format";
 
@@ -18,21 +18,39 @@ const sampleReviews = [
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const product = useMemo(() => sampleProducts.find((p) => p.id === id) ?? sampleProducts[0], [id]);
-  const category = categoryTiles.find((c) => c.id === product.category);
+  const { products, categories, loading } = useCatalog();
+  const product = useMemo(() => products.find((p) => p.id === id) ?? products[0], [products, id]);
+  const category = categories.find((c) => c.id === product?.category);
 
-  const [selectedUnit, setSelectedUnit] = useState(product.units[0]);
+  const [selectedUnit, setSelectedUnit] = useState(product?.units[0]);
+  useEffect(() => setSelectedUnit(product?.units[0]), [product]);
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const [wished, setWished] = useState(false);
   const [added, setAdded] = useState(false);
   const { addToCart, addToWishlist } = useCart();
 
+  if (loading && !product) {
+    return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
+  }
+  if (!product) {
+    return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Product not found.</div>;
+  }
+
   const Icon = product.icon;
-  const discount = discountPercent(product.price, product.mrp);
-  const related = sampleProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  // Look up the price for whichever unit (Piece, Dozen, ...) is selected —
+  // same as ProductCard, instead of always showing the first unit's price.
+  const selected = product.unitPrices?.find((u) => u.label === selectedUnit) ?? {
+    label: selectedUnit ?? product.unit,
+    price: product.price,
+    mrp: product.mrp,
+  };
+  const discount = discountPercent(selected.price, selected.mrp);
+  const outOfStock = typeof product.stock === "number" && product.stock <= 0;
+  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   const handleAdd = () => {
+    if (outOfStock) return;
     addToCart(product, qty, selectedUnit);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
@@ -52,44 +70,61 @@ export default function ProductDetailPage() {
           {/* Gallery */}
           <div>
             <div
-              className="mb-4 flex h-80 items-center justify-center rounded-2xl sm:h-96"
-              style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
+              className="mb-4 flex h-80 items-center justify-center overflow-hidden rounded-2xl sm:h-96"
+              style={product.imageurl ? undefined : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
             >
-              <Icon className="h-32 w-32 text-ink-800/60" />
+              {product.imageurl ? (
+                <img src={product.imageurl} alt={product.name} className="h-full w-full object-contain" />
+              ) : (
+                <Icon className="h-32 w-32 text-brand-600" />
+              )}
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {[0, 1, 2, 3].map((i) => (
-                <button
-                  key={i}
-                  className="flex h-20 items-center justify-center rounded-xl border-2 border-transparent transition hover:border-brand-400"
-                  style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
-                >
-                  <Icon className="h-8 w-8 rotate-0 text-ink-800/50" style={{ transform: `rotate(${i * 15}deg)` }} />
-                </button>
-              ))}
-            </div>
+            {!product.imageurl && (
+              <div className="grid grid-cols-4 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    className="flex h-20 items-center justify-center rounded-xl border-2 border-transparent transition hover:border-brand-400"
+                    style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
+                  >
+                    <Icon className="h-8 w-8 rotate-0 text-brand-600/70" style={{ transform: `rotate(${i * 15}deg)` }} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">{product.brand}</p>
-            <h1 className="mt-1 text-2xl font-bold text-ink-900 sm:text-3xl">{product.name}</h1>
+            <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">{product.name}</h1>
+            {product.categoryName && <p className="mt-1 text-sm text-slate-500">{product.categoryName}</p>}
 
-            <div className="mt-2 flex items-center gap-3">
-              <div className="flex items-center gap-1 rounded bg-brand-50 px-2 py-0.5 text-sm font-semibold text-brand-700">
-                {product.rating} <Star className="h-3.5 w-3.5 fill-brand-700 text-brand-700" />
+            {product.ratingCount > 0 && (
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex items-center gap-1 rounded bg-brand-50 px-2 py-0.5 text-sm font-semibold text-brand-700">
+                  {product.rating} <Star className="h-3.5 w-3.5 fill-brand-700 text-brand-700" />
+                </div>
+                <a href="#reviews" className="text-sm text-slate-500 hover:text-brand-700">
+                  {product.ratingCount} ratings
+                </a>
               </div>
-              <a href="#reviews" className="text-sm text-slate-500 hover:text-brand-700">
-                {product.ratingCount} ratings
-              </a>
-            </div>
+            )}
 
             <div className="mt-4 flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-ink-900">{formatPrice(product.price)}</span>
-              <span className="text-base text-slate-400 line-through">{formatPrice(product.mrp)}</span>
+              <span className="text-3xl font-bold text-ink-900">{formatPrice(selected.price)}</span>
+              {selected.mrp > selected.price && (
+                <span className="text-base text-slate-400 line-through">{formatPrice(selected.mrp)}</span>
+              )}
               {discount > 0 && <span className="text-sm font-semibold text-brand-600">{discount}% off</span>}
             </div>
             <p className="mt-1 text-xs text-slate-500">Inclusive of all taxes</p>
+            {outOfStock ? (
+              <p className="mt-2 text-sm font-semibold text-rose-600">Out of stock</p>
+            ) : typeof product.stock === "number" && product.stock <= 5 ? (
+              <p className="mt-2 text-sm font-semibold text-amber-600">Only {product.stock} left in stock</p>
+            ) : typeof product.stock === "number" ? (
+              <p className="mt-2 text-sm font-semibold text-brand-600">In stock</p>
+            ) : null}
 
             <ul className="mt-4 space-y-1.5">
               {product.highlights.slice(0, 3).map((h) => (
@@ -135,18 +170,21 @@ export default function ProductDetailPage() {
 
               <button
                 onClick={handleAdd}
+                disabled={outOfStock}
                 className={`flex-1 rounded-lg px-6 py-3 text-sm font-semibold text-white transition sm:flex-none ${
-                  added ? "bg-brand-600" : "bg-ink-900 hover:bg-brand-700"
+                  outOfStock ? "bg-slate-300" : added ? "bg-brand-600" : "bg-ink-900 hover:bg-brand-700"
                 }`}
               >
-                {added ? "Added to Cart ✓" : "Add to Cart"}
+                {outOfStock ? "Unavailable" : added ? "Added to Cart ✓" : "Add to Cart"}
               </button>
-              <Link
-                to="/checkout"
-                className="flex-1 rounded-lg bg-accent-600 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-accent-700 sm:flex-none"
-              >
-                Buy Now
-              </Link>
+              {!outOfStock && (
+                <Link
+                  to="/checkout"
+                  className="flex-1 rounded-lg bg-accent-600 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-accent-700 sm:flex-none"
+                >
+                  Buy Now
+                </Link>
+              )}
               <button
                 onClick={() => {
                   setWished((w) => !w);

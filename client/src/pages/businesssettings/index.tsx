@@ -23,6 +23,14 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 
+// Strips Apollo's injected __typename from every nested object/array before
+// sending a query result back as a mutation input — the settings draft here
+// includes nested arrays (heroBannerSlides, dealOfDayItems, etc.) fetched by
+// the same query, and GraphQL input types reject any field they don't
+// declare, __typename included.
+const deepStripTypename = (value: any): any =>
+  JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
+
 type TabKey = "general" | "modules" | "permissions";
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
@@ -163,7 +171,8 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   const handleSave = async () => {
     if (!adminId) return;
-    const { id, adminid, __typename, ...input } = draft;
+    const { id, adminid, __typename, ...rest } = draft;
+    const input = deepStripTypename(rest);
     try {
       await updateAdminSettings({ variables: { adminid: adminId, input } });
       const { data: updated } = await refetch();
@@ -252,50 +261,33 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
-      <Section title="App Support & Legal">
+      <Section title="Website Storefront">
         <div className="text-xs text-gray-400 mb-1 px-1">
-          Drives the mobile app's Help &amp; Support contact cards and Privacy Policy / Terms &amp; Conditions pages. Leave blank to keep the app's defaults.
+          Controls your customer-facing website (clientweb) link, and which payment methods appear at checkout.
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
           <FormField
-            label="Support Email"
-            name="supportEmail"
-            type="email"
-            placeholder="support@yourbusiness.com"
-            value={draft.supportEmail ?? ""}
-            onChange={(e: any) => set("supportEmail", e.target.value)}
+            label="Website Link (store handle)"
+            name="storeslug"
+            placeholder="e.g. rudra"
+            value={draft.storeslug ?? ""}
+            onChange={(e: any) =>
+              set("storeslug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+            }
           />
-          <FormField
-            label="Support Phone (Call Us)"
-            name="supportPhone"
-            type="tel"
-            placeholder="+91 98765 43210"
-            value={draft.supportPhone ?? ""}
-            onChange={(e: any) => set("supportPhone", e.target.value)}
-          />
-          <FormField
-            label="WhatsApp Number (digits only, with country code)"
-            name="supportWhatsapp"
-            type="tel"
-            placeholder="919876543210"
-            value={draft.supportWhatsapp ?? ""}
-            onChange={(e: any) => set("supportWhatsapp", e.target.value)}
-          />
-          <FormField
-            label="Privacy Policy URL"
-            name="privacyPolicyUrl"
-            type="url"
-            placeholder="https://yourbusiness.com/privacy"
-            value={draft.privacyPolicyUrl ?? ""}
-            onChange={(e: any) => set("privacyPolicyUrl", e.target.value)}
-          />
-          <FormField
-            label="Terms & Conditions URL"
-            name="termsConditionsUrl"
-            type="url"
-            placeholder="https://yourbusiness.com/terms"
-            value={draft.termsConditionsUrl ?? ""}
-            onChange={(e: any) => set("termsConditionsUrl", e.target.value)}
+          {draft.storeslug && (
+            <p className="mt-1.5 text-xs text-gray-400">
+              Your website link:{" "}
+              <span className="font-medium text-gray-600">yourdomain.com/{draft.storeslug}</span>{" "}
+              — share this with your customers. (Replace "yourdomain.com" with your live site's actual address.)
+            </p>
+          )}
+        </div>
+        <div className="pt-2">
+          <Toggle
+            label="Cash on Delivery only (hide UPI / Card / Net Banking / Party billing on website checkout)"
+            checked={!!draft.websiteCodOnly}
+            onChange={(v: boolean) => set("websiteCodOnly", v)}
           />
         </div>
       </Section>

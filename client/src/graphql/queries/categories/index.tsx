@@ -6,6 +6,7 @@ export const GET_CATEGORIES = gql`
       id
       categorycode
       categoryname
+      image
       status
       admin {
         id
@@ -22,6 +23,7 @@ export const GET_DELETED_CATEGORIES = gql`
       id
       categorycode
       categoryname
+      image
       status
       admin {
         id
@@ -38,6 +40,7 @@ export const GET_CATEGORY_BY_ID = gql`
       id
       categorycode
       categoryname
+      image
       status
       admin {
         id

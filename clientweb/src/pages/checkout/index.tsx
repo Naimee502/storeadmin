@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircle2, MapPin, Wallet, Landmark, Smartphone, Building2, Package } from "lucide-react";
+import { CheckCircle2, MapPin, Wallet, Landmark, Smartphone, Building2, Package, Truck } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useCart } from "../../contexts/cart";
+import { useBusinessSettings } from "../../contexts/businesssettings";
 import { formatPrice } from "../../utils/format";
 
 type PaymentMethod = "cod" | "upi" | "card" | "netbanking" | "party";
@@ -21,9 +22,18 @@ const indianStates = [
 
 export default function CheckoutPage() {
   const { lines, subtotal } = useCart();
+  const { codOnly } = useBusinessSettings();
   const [payment, setPayment] = useState<PaymentMethod>("upi");
   const [placed, setPlaced] = useState(false);
   const [orderNumber] = useState(() => `#SO${String(Math.floor(1000 + Math.random() * 8999))}`);
+
+  // Business Settings → "Cash on Delivery only" hides every online method,
+  // including party-account billing, and locks the selection to COD.
+  const visibleMethods = codOnly ? paymentMethods.filter((m) => m.id === "cod") : paymentMethods;
+
+  useEffect(() => {
+    if (codOnly) setPayment("cod");
+  }, [codOnly]);
 
   const deliveryFee = subtotal >= 999 || subtotal === 0 ? 0 : 49;
   const total = subtotal + deliveryFee;
@@ -98,8 +108,13 @@ export default function CheckoutPage() {
               <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-ink-900">
                 <Wallet className="h-4.5 w-4.5 text-brand-600" /> Payment Method
               </h2>
+              {codOnly && (
+                <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-700">
+                  <Truck className="h-4 w-4" /> This store accepts Cash on Delivery only — set in Business Settings.
+                </div>
+              )}
               <div className="space-y-2.5">
-                {paymentMethods.map(({ id, label, desc, icon: Icon }) => (
+                {visibleMethods.map(({ id, label, desc, icon: Icon }) => (
                   <label
                     key={id}
                     className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition ${

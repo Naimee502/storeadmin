@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import { useCategoriesQuery, useCategoryMutations } from "../../graphql/hooks/categories";
+import { useImageUpload } from "../../graphql/hooks/uploads";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addCategories } from "../../redux/slices/categories";
@@ -25,18 +26,28 @@ const Categories = () => {
 
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } =
     useCategoryMutations();
+  const { uploadImageMutation } = useImageUpload();
 
   // Form state for add/edit
-  const [formValues, setFormValues] = useState({
+  const [formValues, setFormValues] = useState<{ categoryname: string; status: boolean; image: string }>({
     categoryname: "",
     status: true,
+    image: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change
-  const handleFormChange = (name: string, value: string | boolean) => {
+  // Handle form input change — a File means the image picker just fired,
+  // so preview it immediately (blob URL) and hold the real file for upload
+  // on Save, same pattern as the product form.
+  const handleFormChange = (name: string, value: string | boolean | File) => {
+    if (value instanceof File) {
+      setSelectedFile(value);
+      setFormValues((prev) => ({ ...prev, image: URL.createObjectURL(value) }));
+      return;
+    }
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -55,7 +66,9 @@ const Categories = () => {
     setFormValues({
       categoryname: row.categoryname,
       status: row.status === "Active",
+      image: row.image || "",
     });
+    setSelectedFile(null);
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -79,6 +92,12 @@ const Categories = () => {
     if (!validateForm()) return;
     dispatch(showLoading());
     try {
+      // Upload the newly picked file (if any) now — same as the product
+      // form, upload only happens on Save, not on file pick.
+      const uploadedUrl = selectedFile
+        ? (await uploadImageMutation({ variables: { file: selectedFile } })).data?.uploadImage?.url
+        : formValues.image;
+
       if (isEditing && editingId) {
         // Edit mutation
         await editCategoryMutation({
@@ -86,6 +105,7 @@ const Categories = () => {
             id: editingId,
             input: {
               categoryname: formValues.categoryname,
+              image: uploadedUrl || "",
               status: formValues.status,
               admin: adminId
             },
@@ -98,6 +118,7 @@ const Categories = () => {
           variables: {
             input: {
               categoryname: formValues.categoryname,
+              image: uploadedUrl || "",
               status: formValues.status,
               admin: adminId
             },
@@ -107,7 +128,8 @@ const Categories = () => {
       }
 
       await refetch();
-      setFormValues({ categoryname: "", status: true });
+      setFormValues({ categoryname: "", status: true, image: "" });
+      setSelectedFile(null);
       setIsEditing(false);
       setEditingId(null);
     } catch (error) {
@@ -224,6 +246,12 @@ const Categories = () => {
               label: "Category Name",
               type: "text",
               placeholder: "Enter category name",
+            },
+            {
+              name: "image",
+              label: "Image",
+              type: "file",
+              accept: "image/*",
             },
           ]}
           formValues={formValues}

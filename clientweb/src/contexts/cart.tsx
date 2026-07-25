@@ -5,7 +5,7 @@ export interface CartLine {
   lineId: string;
   productId: string;
   name: string;
-  brand: string;
+  categoryName?: string;
   unit: string;
   price: number;
   mrp: number;
@@ -40,7 +40,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lineId: `${p.id}-${p.units[0]}`,
       productId: p.id,
       name: p.name,
-      brand: p.brand,
+      categoryName: p.categoryName,
       unit: p.units[0],
       price: p.price,
       mrp: p.mrp,
@@ -54,6 +54,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (product: SampleProduct, qty = 1, unit?: string) => {
     const chosenUnit = unit ?? product.units[0];
+    // Each unit (Piece, Dozen, ...) can have its own price — look it up so
+    // the cart charges for whichever unit was actually selected, instead of
+    // always using the first unit's price.
+    const matched = product.unitPrices?.find((u) => u.label === chosenUnit);
+    const price = matched?.price ?? product.price;
+    const mrp = matched?.mrp ?? product.mrp;
     const lineId = `${product.id}-${chosenUnit}`;
     setLines((prev) => {
       const existing = prev.find((l) => l.lineId === lineId);
@@ -66,10 +72,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           lineId,
           productId: product.id,
           name: product.name,
-          brand: product.brand,
+          categoryName: product.categoryName,
           unit: chosenUnit,
-          price: product.price,
-          mrp: product.mrp,
+          price,
+          mrp,
           qty,
           icon: product.icon,
           from: product.from,

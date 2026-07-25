@@ -45,6 +45,46 @@ const SETTINGS_FIELDS = `
   supportWhatsapp
   privacyPolicyUrl
   termsConditionsUrl
+  appDownloadUrl
+  websiteCodOnly
+  storeslug
+  websiteAboutContent
+  websitePrivacyContent
+  websiteTermsContent
+  websiteTagline
+  socialFacebookUrl
+  socialInstagramUrl
+  socialTwitterUrl
+  socialLinkedinUrl
+  featuredProductItems {
+    productid
+    unitid
+  }
+  newArrivalItems {
+    productid
+    unitid
+  }
+  dealOfDayEnabled
+  dealOfDayTitle
+  dealOfDaySubtitle
+  dealOfDayItems {
+    productid
+    unitid
+  }
+  heroBannerSlides {
+    image
+    title
+    subtitle
+    cta
+    link
+  }
+  promoBanners {
+    image
+    title
+    subtitle
+    cta
+    link
+  }
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

@@ -7,6 +7,9 @@ import CartPage from "../pages/cart";
 import CheckoutPage from "../pages/checkout";
 import LoginPage from "../pages/login";
 import AccountPage from "../pages/account";
+import AboutPage from "../pages/about";
+import PrivacyPage from "../pages/privacy";
+import TermsPage from "../pages/terms";
 
 export default function AppRoutes() {
   return (
@@ -19,6 +22,9 @@ export default function AppRoutes() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Route>
     </Routes>
   );

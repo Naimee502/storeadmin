@@ -22,6 +22,20 @@ import {
 import { useBranchesQuery, useBranchMutations } from "../../graphql/hooks/branches";
 import { useStaffQuery, useStaffMutations } from "../../graphql/hooks/staffaccounts";
 import {
+  useAdminSettingsQuery,
+  useAdminSettingsMutations,
+} from "../../graphql/hooks/adminsettings";
+import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { useImageUpload } from "../../graphql/hooks/uploads";
+import RichTextEditor from "../../components/richtexteditor";
+
+// Strips Apollo's injected __typename from every nested object/array before
+// sending a query result back as a mutation input — needed once fields stop
+// being flat scalars (heroBannerSlides / dealOfDayItems are objects, and
+// GraphQL input types reject any field they don't declare, __typename included).
+const deepStripTypename = (value: any): any =>
+  JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
+import {
   MODULES,
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
@@ -30,6 +44,7 @@ import {
 } from "../../config/modules";
 
 type TabKey =
+  | "general"
   | "branch_modules"
   | "staff_modules"
   | "access";
@@ -112,6 +127,7 @@ const Settings = () => {
     const tabs: Array<[TabKey, string]> = [];
 
     if (isAdmin) {
+      tabs.push(["general", "General"]);
       // Child-management tabs
       tabs.push(["branch_modules", "Branch Modules"]);
       tabs.push(["access", "Branch Access"]);
@@ -177,8 +193,11 @@ const Settings = () => {
           ))}
         </div>
 
-        {/* ── Child-management tabs (need target selection) ── */}
-        {!selectedTargetId ? (
+        {/* ── General tab — admin's own website settings, no branch/staff target needed ── */}
+        {tab === "general" && isAdmin ? (
+          <WebsiteTab adminId={adminId} dispatch={dispatch} />
+        ) : !selectedTargetId ? (
+          /* ── Child-management tabs (need target selection) ── */
           <div className="text-center py-10 bg-white border rounded-lg text-gray-500 text-sm">
             Please select {isAdmin ? "a Branch" : "a Staff member"} above to manage settings.
           </div>
@@ -219,6 +238,495 @@ const Settings = () => {
 };
 
 export default Settings;
+
+/* =====================================================================
+   WEBSITE TAB — everything that drives the customer-facing website
+   (clientweb): storefront link/payment mode, support & legal contacts,
+   About/Privacy/Terms content, social links, Deal of the Day and Hero
+   Banner copy. Moved here (from Business Settings) so the admin can
+   manage their own website straight after logging in — no need to hop
+   into the multi-tenant Business Settings screen.
+   ===================================================================== */
+
+const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, dispatch }) => {
+  const { data, refetch } = useAdminSettingsQuery(adminId);
+  const { updateAdminSettings } = useAdminSettingsMutations();
+  const { uploadImageMutation } = useImageUpload();
+  const settings = data?.getAdminSettings;
+  const [draft, setDraft] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settings) setDraft({ ...settings });
+  }, [settings]);
+
+  if (!draft) return <div className="text-gray-500 text-sm">Loading…</div>;
+
+  const set = (k: string, v: any) => setDraft((d: any) => ({ ...d, [k]: v }));
+
+  const handleSave = async () => {
+    if (!adminId) return;
+    const { id, adminid, __typename, ...rest } = draft;
+    setSaving(true);
+    try {
+      // Any slide with a newly picked file (not yet uploaded) gets uploaded
+      // now, same as the product form — upload only happens on Save.
+      const uploadSlides = (slides: any[]) =>
+        Promise.all(
+          (slides ?? []).map(async (s: any) => {
+            let image = s.image ?? "";
+            if (s._file) {
+              const { data: uploaded } = await uploadImageMutation({ variables: { file: s._file } });
+              image = uploaded?.uploadImage?.url || image;
+            }
+            return { image, title: s.title ?? "", subtitle: s.subtitle ?? "", cta: s.cta ?? "", link: s.link ?? "" };
+          })
+        );
+
+      const heroBannerSlides = await uploadSlides(rest.heroBannerSlides);
+      const promoBanners = await uploadSlides(rest.promoBanners);
+
+      const input = deepStripTypename({ ...rest, heroBannerSlides, promoBanners });
+      await updateAdminSettings({ variables: { adminid: adminId, input } });
+      await refetch();
+      dispatch(showMessage({ message: "Website settings saved.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Section title="App and Web Support & Legal">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Drives the mobile app's Help &amp; Support contact cards, the Privacy Policy / Terms &amp; Conditions links, the website footer tagline, the "Get the app" link, and the social icons shown on the website footer.
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <FormField
+            label="Support Email"
+            name="supportEmail"
+            type="email"
+            placeholder="support@yourbusiness.com"
+            value={draft.supportEmail ?? ""}
+            onChange={(e: any) => set("supportEmail", e.target.value)}
+          />
+          <FormField
+            label="Support Phone"
+            name="supportPhone"
+            type="tel"
+            placeholder="+91 98765 43210"
+            value={draft.supportPhone ?? ""}
+            onChange={(e: any) => set("supportPhone", e.target.value)}
+          />
+          <FormField
+            label="WhatsApp Number"
+            name="supportWhatsapp"
+            type="tel"
+            placeholder="919876543210"
+            value={draft.supportWhatsapp ?? ""}
+            onChange={(e: any) => set("supportWhatsapp", e.target.value)}
+          />
+          <FormField
+            label="Privacy Policy URL"
+            name="privacyPolicyUrl"
+            type="url"
+            placeholder="https://yourbusiness.com/privacy"
+            value={draft.privacyPolicyUrl ?? ""}
+            onChange={(e: any) => set("privacyPolicyUrl", e.target.value)}
+          />
+          <FormField
+            label="Terms & Conditions URL"
+            name="termsConditionsUrl"
+            type="url"
+            placeholder="https://yourbusiness.com/terms"
+            value={draft.termsConditionsUrl ?? ""}
+            onChange={(e: any) => set("termsConditionsUrl", e.target.value)}
+          />
+          <FormField
+            label="Footer Tagline"
+            name="websiteTagline"
+            placeholder="A multi-category marketplace & B2B ordering platform — one storefront for retail shoppers and wholesale/manufacturer party accounts alike."
+            value={draft.websiteTagline ?? ""}
+            onChange={(e: any) => set("websiteTagline", e.target.value)}
+          />
+          <FormField
+            label="App Download Link"
+            name="appDownloadUrl"
+            type="url"
+            placeholder="https://play.google.com/store/apps/details?id=..."
+            value={draft.appDownloadUrl ?? ""}
+            onChange={(e: any) => set("appDownloadUrl", e.target.value)}
+          />
+          <FormField
+            label="Facebook URL"
+            name="socialFacebookUrl"
+            type="url"
+            placeholder="https://facebook.com/yourbusiness"
+            value={draft.socialFacebookUrl ?? ""}
+            onChange={(e: any) => set("socialFacebookUrl", e.target.value)}
+          />
+          <FormField
+            label="Instagram URL"
+            name="socialInstagramUrl"
+            type="url"
+            placeholder="https://instagram.com/yourbusiness"
+            value={draft.socialInstagramUrl ?? ""}
+            onChange={(e: any) => set("socialInstagramUrl", e.target.value)}
+          />
+          <FormField
+            label="Twitter / X URL"
+            name="socialTwitterUrl"
+            type="url"
+            placeholder="https://x.com/yourbusiness"
+            value={draft.socialTwitterUrl ?? ""}
+            onChange={(e: any) => set("socialTwitterUrl", e.target.value)}
+          />
+          <FormField
+            label="LinkedIn URL"
+            name="socialLinkedinUrl"
+            type="url"
+            placeholder="https://linkedin.com/company/yourbusiness"
+            value={draft.socialLinkedinUrl ?? ""}
+            onChange={(e: any) => set("socialLinkedinUrl", e.target.value)}
+          />
+        </div>
+        <p className="mt-1.5 text-xs text-gray-400">
+          Footer tagline: leave blank to keep the default line. Social links: the footer only shows an icon once a URL is filled in here.
+        </p>
+      </Section>
+
+      <Section title="Website Content">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Shown directly on your website's About Us / Privacy Policy / Terms &amp; Conditions pages. Leave blank and the page will say content hasn't been added yet.
+        </div>
+        <div className="space-y-4">
+          <RichTextEditor
+            label="About Us content"
+            value={draft.websiteAboutContent ?? ""}
+            onChange={(html) => set("websiteAboutContent", html)}
+            placeholder="Tell customers about your business…"
+          />
+          <RichTextEditor
+            label="Privacy Policy content"
+            value={draft.websitePrivacyContent ?? ""}
+            onChange={(html) => set("websitePrivacyContent", html)}
+            placeholder="Your privacy policy…"
+          />
+          <RichTextEditor
+            label="Terms & Conditions content"
+            value={draft.websiteTermsContent ?? ""}
+            onChange={(html) => set("websiteTermsContent", html)}
+            placeholder="Your terms & conditions…"
+          />
+        </div>
+      </Section>
+
+      <Section title="Featured Products (Home page)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Pick exactly which products show in the Home page's "Featured Products" section. Leave empty to show the live catalog with category tabs instead.
+        </div>
+        <ProductPickerEditor
+          idPrefix="featured"
+          items={draft.featuredProductItems ?? []}
+          onChange={(items) => set("featuredProductItems", items)}
+        />
+      </Section>
+
+      <Section title="New Arrivals (Home page)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Pick exactly which products show in "New Arrivals". Leave empty and the newest products (by date added) are shown automatically.
+        </div>
+        <ProductPickerEditor
+          idPrefix="newarrival"
+          items={draft.newArrivalItems ?? []}
+          onChange={(items) => set("newArrivalItems", items)}
+        />
+      </Section>
+
+      <Section title="Deal of the Day (Home page)">
+        <Toggle
+          label="Show Deal of the Day section on website home page"
+          checked={draft.dealOfDayEnabled !== false}
+          onChange={(v: boolean) => set("dealOfDayEnabled", v)}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <FormField
+            label="Title"
+            name="dealOfDayTitle"
+            placeholder="Deal of the Day"
+            value={draft.dealOfDayTitle ?? ""}
+            onChange={(e: any) => set("dealOfDayTitle", e.target.value)}
+            disabled={draft.dealOfDayEnabled === false}
+          />
+          <FormField
+            label="Subtitle"
+            name="dealOfDaySubtitle"
+            placeholder="Grab it before the clock runs out"
+            value={draft.dealOfDaySubtitle ?? ""}
+            onChange={(e: any) => set("dealOfDaySubtitle", e.target.value)}
+            disabled={draft.dealOfDayEnabled === false}
+          />
+        </div>
+        <div className="pt-3">
+          <ProductPickerEditor
+            idPrefix="dealofday"
+            items={draft.dealOfDayItems ?? []}
+            onChange={(items) => set("dealOfDayItems", items)}
+            disabled={draft.dealOfDayEnabled === false}
+          />
+        </div>
+      </Section>
+
+      <Section title="Hero Banner (Home page slides)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Manage your own Home page banner slides — add as many as you like, edit or remove any of them. Leave empty to keep the automatic banner built from your categories instead.
+        </div>
+        <HeroBannerSlidesEditor
+          slides={draft.heroBannerSlides ?? []}
+          onChange={(slides) => set("heroBannerSlides", slides)}
+        />
+      </Section>
+
+      <Section title="Promo Banners (between Featured Products and New Arrivals)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Manage the promo tiles shown between Featured Products and New Arrivals — add as many as you like, edit or remove any of them. Leave empty to keep the default two tiles.
+        </div>
+        <HeroBannerSlidesEditor
+          slides={draft.promoBanners ?? []}
+          onChange={(slides) => set("promoBanners", slides)}
+        />
+      </Section>
+
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleSave} isLoading={saving}>
+          {saving ? "Saving…" : "Save Website Settings"}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   PRODUCT PICKER — shared by Featured Products, New Arrivals and Deal of
+   the Day. Search/select one of the admin's own products, optionally pick
+   which unit (Piece, Dozen, ...) to feature, add it to the list; each row
+   can be removed again. Each section keeps its own independent list.
+   ===================================================================== */
+
+const ProductPickerEditor: React.FC<{
+  idPrefix: string;
+  items: { productid: string; unitid?: string | null }[];
+  onChange: (items: { productid: string; unitid?: string | null }[]) => void;
+  disabled?: boolean;
+}> = ({ idPrefix, items, onChange, disabled }) => {
+  const { data } = useProductServicesQuery();
+  const products = useMemo(() => data?.getProductServices ?? [], [data]);
+
+  const [pendingProductId, setPendingProductId] = useState("");
+  const [pendingUnitId, setPendingUnitId] = useState("");
+
+  const productOptions = useMemo(
+    () => products.map((p: any) => ({ value: p.id, label: p.name })),
+    [products]
+  );
+
+  const pendingProduct = useMemo(
+    () => products.find((p: any) => p.id === pendingProductId),
+    [products, pendingProductId]
+  );
+
+  const unitOptions = useMemo(() => {
+    const unitprices = pendingProduct?.productvariants?.[0]?.unitprices ?? [];
+    return unitprices
+      .filter((u: any) => u.unitid?.id)
+      .map((u: any) => ({
+        value: u.unitid.id,
+        label: u.quantity > 1 ? `${u.quantity} × ${u.unitid.unitname}` : u.unitid.unitname,
+      }));
+  }, [pendingProduct]);
+
+  const describe = (item: { productid: string; unitid?: string | null }) => {
+    const product = products.find((p: any) => p.id === item.productid);
+    if (!product) return { name: "Unknown product", unit: "" };
+    const unitprices = product.productvariants?.[0]?.unitprices ?? [];
+    const match = item.unitid ? unitprices.find((u: any) => u.unitid?.id === item.unitid) : null;
+    const unit = match ? (match.quantity > 1 ? `${match.quantity} × ${match.unitid.unitname}` : match.unitid.unitname) : "";
+    return { name: product.name, unit };
+  };
+
+  const addItem = () => {
+    if (!pendingProductId || disabled) return;
+    const next = { productid: pendingProductId, unitid: pendingUnitId || null };
+    const exists = items.some((i) => i.productid === next.productid && (i.unitid || null) === next.unitid);
+    if (!exists) onChange([...items, next]);
+    setPendingProductId("");
+    setPendingUnitId("");
+  };
+
+  const removeItem = (idx: number) => {
+    onChange(items.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        Selected products ({items.length})
+      </div>
+
+      {items.length > 0 && (
+        <div className="space-y-1.5">
+          {items.map((item, idx) => {
+            const { name, unit } = describe(item);
+            return (
+              <div key={`${item.productid}-${item.unitid ?? ""}-${idx}`} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                <div className="text-sm">
+                  <span className="font-medium text-gray-800">{name}</span>
+                  {unit && <span className="ml-2 text-xs text-gray-500">({unit})</span>}
+                </div>
+                <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeItem(idx)} disabled={disabled}>
+                  Remove
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-[2fr_1.3fr_auto] gap-2 items-end">
+        <FormField
+          label="Product"
+          name={`${idPrefix}Product`}
+          type="select"
+          searchable
+          options={productOptions}
+          value={pendingProductId}
+          onChange={(e: any) => {
+            setPendingProductId(e.target.value);
+            setPendingUnitId("");
+          }}
+          disabled={disabled}
+        />
+        <FormField
+          label="Unit / Variant (optional)"
+          name={`${idPrefix}Unit`}
+          type="select"
+          searchable
+          options={unitOptions}
+          value={pendingUnitId}
+          onChange={(e: any) => setPendingUnitId(e.target.value)}
+          disabled={disabled || !pendingProductId || unitOptions.length === 0}
+        />
+        <Button variant="outline" onClick={addItem} disabled={disabled || !pendingProductId}>
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   HERO BANNER SLIDES — admin-managed list, add/edit/remove any number.
+   ===================================================================== */
+
+const HeroBannerSlidesEditor: React.FC<{
+  slides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string; _file?: File }[];
+  onChange: (slides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string; _file?: File }[]) => void;
+}> = ({ slides, onChange }) => {
+  const updateSlide = (idx: number, patch: Partial<{ image: string; title: string; subtitle: string; cta: string; link: string; _file: File }>) => {
+    onChange(slides.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  const removeSlide = (idx: number) => {
+    onChange(slides.filter((_, i) => i !== idx));
+  };
+
+  const addSlide = () => {
+    onChange([...slides, { image: "", title: "", subtitle: "", cta: "", link: "" }]);
+  };
+
+  const handleImagePick = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Preview immediately (like the product form) — the real upload only
+    // happens when "Save Website Settings" is clicked.
+    updateSlide(idx, { image: URL.createObjectURL(file), _file: file });
+  };
+
+  return (
+    <div className="space-y-4">
+      {slides.map((slide, idx) => (
+        <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Slide {idx + 1}</span>
+            <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeSlide(idx)}>
+              Remove
+            </Button>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <FormField
+              label="Banner Image"
+              name={`heroBannerImage-${idx}`}
+              type="file"
+              accept="image/*"
+              onChange={handleImagePick(idx)}
+              previewUrl={slide.image}
+            />
+            <div className="shrink-0">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Preview</label>
+              {slide.image ? (
+                <img
+                  src={slide.image}
+                  alt={`Slide ${idx + 1} preview`}
+                  className="h-20 w-36 rounded-lg border border-gray-200 object-cover"
+                />
+              ) : (
+                <div className="flex h-20 w-36 items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-400">
+                  No image
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Title"
+              name={`heroBannerTitle-${idx}`}
+              placeholder="e.g. Big Diwali Sale"
+              value={slide.title ?? ""}
+              onChange={(e: any) => updateSlide(idx, { title: e.target.value })}
+            />
+            <FormField
+              label="Subtitle"
+              name={`heroBannerSubtitle-${idx}`}
+              placeholder="e.g. Up to 40% off, this week only"
+              value={slide.subtitle ?? ""}
+              onChange={(e: any) => updateSlide(idx, { subtitle: e.target.value })}
+            />
+            <FormField
+              label="Button Text"
+              name={`heroBannerCta-${idx}`}
+              placeholder="e.g. Shop the Sale"
+              value={slide.cta ?? ""}
+              onChange={(e: any) => updateSlide(idx, { cta: e.target.value })}
+            />
+            <FormField
+              label="Button Link (relative, e.g. /shop)"
+              name={`heroBannerLink-${idx}`}
+              placeholder="/shop"
+              value={slide.link ?? ""}
+              onChange={(e: any) => updateSlide(idx, { link: e.target.value })}
+            />
+          </div>
+        </div>
+      ))}
+
+      <Button variant="outline" onClick={addSlide}>+ Add Slide</Button>
+    </div>
+  );
+};
 
 /* =====================================================================
    SUB-MODULES TAB — configure allowed modules for children (Admin -> Branch or Branch -> Staff)

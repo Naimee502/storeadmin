@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { SlidersHorizontal, X, Star, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
+import { SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
-import { categoryTiles, sampleProducts, brandStrip } from "../../data/sampleData";
+import { useCatalog } from "../../hooks/useCatalog";
 import { formatPrice } from "../../utils/format";
 
 type SortKey = "popularity" | "price-asc" | "price-desc" | "rating" | "newest";
@@ -16,18 +17,40 @@ const sortOptions: { id: SortKey; label: string }[] = [
 ];
 
 const PAGE_SIZE = 8;
-const MAX_PRICE = 30000;
+const DEFAULT_MAX_PRICE = 30000;
 
 export default function ShopPage() {
+  const { categories, products, loading } = useCatalog();
+  const [searchParams] = useSearchParams();
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [priceMax, setPriceMax] = useState(MAX_PRICE);
-  const [minRating, setMinRating] = useState(0);
+  const [priceMax, setPriceMax] = useState(DEFAULT_MAX_PRICE);
   const [sortBy, setSortBy] = useState<SortKey>("popularity");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
 
-  const brands = useMemo(() => Array.from(new Set(brandStrip)), []);
+  // Support /shop?category=<id> links from CategoryGrid / Header nav.
+  useEffect(() => {
+    const fromUrl = searchParams.get("category");
+    if (fromUrl) setSelectedCategories([fromUrl]);
+  }, [searchParams]);
+
+  const maxPrice = useMemo(
+    () => Math.max(DEFAULT_MAX_PRICE, ...products.map((p) => p.price)),
+    [products]
+  );
+
+  // Once real products load, make sure the price slider actually covers
+  // their full range instead of clipping at the placeholder default.
+  useEffect(() => {
+    setPriceMax((prev) => (prev === DEFAULT_MAX_PRICE ? maxPrice : prev));
+  }, [maxPrice]);
+
+  const brands = useMemo(
+    () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))),
+    [products]
+  );
 
   const toggle = (list: string[], value: string, setter: (v: string[]) => void) => {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -35,11 +58,10 @@ export default function ShopPage() {
   };
 
   const filtered = useMemo(() => {
-    let result = sampleProducts.filter((p) => {
+    let result = products.filter((p) => {
       if (selectedCategories.length && !selectedCategories.includes(p.category)) return false;
       if (selectedBrands.length && !selectedBrands.includes(p.brand)) return false;
       if (p.price > priceMax) return false;
-      if (p.rating < minRating) return false;
       return true;
     });
 
@@ -59,7 +81,7 @@ export default function ShopPage() {
     });
 
     return result;
-  }, [selectedCategories, selectedBrands, priceMax, minRating, sortBy]);
+  }, [products, selectedCategories, selectedBrands, priceMax, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -67,8 +89,7 @@ export default function ShopPage() {
   const clearFilters = () => {
     setSelectedCategories([]);
     setSelectedBrands([]);
-    setPriceMax(MAX_PRICE);
-    setMinRating(0);
+    setPriceMax(maxPrice);
     setPage(1);
   };
 
@@ -84,7 +105,7 @@ export default function ShopPage() {
       <div>
         <h4 className="mb-3 text-sm font-semibold text-ink-900">Category</h4>
         <div className="space-y-2.5">
-          {categoryTiles.map((c) => (
+          {categories.map((c) => (
             <label key={c.id} className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -121,7 +142,7 @@ export default function ShopPage() {
         <input
           type="range"
           min={500}
-          max={MAX_PRICE}
+          max={maxPrice}
           step={500}
           value={priceMax}
           onChange={(e) => {
@@ -130,30 +151,6 @@ export default function ShopPage() {
           }}
           className="w-full accent-brand-600"
         />
-      </div>
-
-      <div className="border-t border-slate-100 pt-5">
-        <h4 className="mb-3 text-sm font-semibold text-ink-900">Customer Rating</h4>
-        <div className="space-y-2">
-          {[4, 3, 2].map((r) => (
-            <label key={r} className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="radio"
-                name="rating"
-                checked={minRating === r}
-                onChange={() => {
-                  setMinRating(r);
-                  setPage(1);
-                }}
-                className="h-4 w-4 border-slate-300 text-brand-600 focus:ring-brand-500"
-              />
-              <span className="flex items-center gap-1">
-                {r}
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> &amp; above
-              </span>
-            </label>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -197,7 +194,13 @@ export default function ShopPage() {
           <aside className="hidden lg:block">{FiltersPanel}</aside>
 
           <div>
-            {paged.length === 0 ? (
+            {loading ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-64 animate-pulse rounded-2xl bg-slate-100" />
+                ))}
+              </div>
+            ) : paged.length === 0 ? (
               <div className="rounded-2xl border border-slate-100 py-20 text-center">
                 <p className="text-lg font-semibold text-ink-900">No products match your filters</p>
                 <p className="mt-1 text-sm text-slate-500">Try clearing some filters to see more results.</p>

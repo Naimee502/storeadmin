@@ -59,8 +59,8 @@ export default function CartPage() {
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{line.brand}</p>
                         <h3 className="text-sm font-semibold text-ink-900">{line.name}</h3>
+                        {line.categoryName && <p className="text-[11px] text-slate-400">{line.categoryName}</p>}
                         <p className="mt-0.5 text-xs text-slate-500">{line.unit}</p>
                       </div>
                       <button

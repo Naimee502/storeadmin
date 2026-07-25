@@ -1,4 +1,5 @@
 import { AdminSettings } from "../../../models/adminsettings";
+import { Admin } from "../../../models/admin";
 
 const formatSettings = (s: any) =>
   s
@@ -9,11 +10,78 @@ const formatSettings = (s: any) =>
       }
     : null;
 
+// Shared by Featured Products / New Arrivals / Deal of the Day — each is
+// an independent list of {productid, unitid} picks on the same shape.
+const mapPickItems = (items: any[]) =>
+  (items || []).map((d: any) => ({
+    productid: String(d.productid),
+    unitid: d.unitid ? String(d.unitid) : null,
+  }));
+
+// Shared by Hero Banner slides and Promo Banner tiles — same shape.
+const mapSlides = (slides: any[]) =>
+  (slides || []).map((s: any) => ({
+    image: s.image || "",
+    title: s.title || "",
+    subtitle: s.subtitle || "",
+    cta: s.cta || "",
+    link: s.link || "",
+  }));
+
 export const adminSettingsResolvers = {
   Query: {
     getAdminSettings: async (_: any, { adminid }: { adminid: string }) => {
       const doc = await AdminSettings.getOrCreateForAdmin(adminid);
       return formatSettings(doc.toObject ? doc.toObject() : doc);
+    },
+
+    // Public lookup for clientweb — resolves which admin a storefront link
+    // (e.g. yourdomain.com/rudra) belongs to. No login/mobile check here
+    // (unlike clientapp's getAdminByCode): browsing a public catalog isn't
+    // sensitive, only the party-login step needs to check identity, and it
+    // does that scoped to the adminid this query returns.
+    getStorefrontByStoreSlug: async (_: any, { storeslug }: { storeslug: string }) => {
+      const normalized = String(storeslug || "").trim().toLowerCase();
+      if (!normalized) return null;
+
+      const settings: any = await AdminSettings.findOne({ storeslug: normalized }).lean();
+      if (!settings) return null;
+
+      const admin: any = await Admin.findOne({ _id: settings.adminid, status: true }).lean();
+      if (!admin) return null;
+
+      return {
+        adminid: String(settings.adminid),
+        companyName: admin.companyName || admin.name || "",
+        address: admin.address || "",
+        codOnly: !!settings.websiteCodOnly,
+
+        supportEmail: settings.supportEmail || "",
+        supportPhone: settings.supportPhone || "",
+        supportWhatsapp: settings.supportWhatsapp || "",
+        appDownloadUrl: settings.appDownloadUrl || "",
+
+        websiteAboutContent: settings.websiteAboutContent || "",
+        websitePrivacyContent: settings.websitePrivacyContent || "",
+        websiteTermsContent: settings.websiteTermsContent || "",
+        websiteTagline: settings.websiteTagline || "",
+
+        socialFacebookUrl: settings.socialFacebookUrl || "",
+        socialInstagramUrl: settings.socialInstagramUrl || "",
+        socialTwitterUrl: settings.socialTwitterUrl || "",
+        socialLinkedinUrl: settings.socialLinkedinUrl || "",
+
+        featuredProductItems: mapPickItems(settings.featuredProductItems),
+        newArrivalItems: mapPickItems(settings.newArrivalItems),
+
+        dealOfDayEnabled: settings.dealOfDayEnabled !== false,
+        dealOfDayTitle: settings.dealOfDayTitle || "",
+        dealOfDaySubtitle: settings.dealOfDaySubtitle || "",
+        dealOfDayItems: mapPickItems(settings.dealOfDayItems),
+
+        heroBannerSlides: mapSlides(settings.heroBannerSlides),
+        promoBanners: mapSlides(settings.promoBanners),
+      };
     },
   },
 

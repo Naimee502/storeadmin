@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 
 const categorySchema = new mongoose.Schema(
   {
-    categorycode: { type: String },  
-    categoryname: { type: String, required: true }, 
+    categorycode: { type: String },
+    categoryname: { type: String, required: true },
+    image: { type: String, default: "" },
     status: Boolean,
     admin: {
       type: mongoose.Schema.Types.ObjectId,

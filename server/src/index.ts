@@ -74,7 +74,12 @@ const startServer = async () => {
   app.use(
     '/graphql',
     cors({
-      origin: ['https://rudra.digisysindiatech.com', 'http://localhost:5173'],
+      origin: [
+        'https://rudra.digisysindiatech.com',
+        'http://localhost:5173', // client (admin panel)
+        'http://localhost:5174', // clientweb (customer website, dev)
+        'http://localhost:5175', // clientweb fallback port if 5174 is busy
+      ],
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
     }),
