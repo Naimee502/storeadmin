@@ -80,8 +80,13 @@ export interface SampleProduct {
   // Per-unit price breakdown (e.g. Piece vs Dozen) — when present, ProductCard
   // and ProductDetail let the buyer switch units and show/add-to-cart the
   // price for whichever one is selected, same as the mobile app's catalog.
-  unitPrices?: { label: string; price: number; mrp: number; unitid?: string | null }[];
+  unitPrices?: { label: string; price: number; mrp: number; unitid?: string | null; unitQuantity?: number }[];
   createdAt?: string;
+  // Needed to actually place a real order (SalesOrderProductServiceInput) —
+  // both are variant-level on the server (single variant per product here),
+  // so they're the same across every unit chip.
+  variantid?: string;
+  gst?: number;
 }
 
 export const sampleProducts: SampleProduct[] = [

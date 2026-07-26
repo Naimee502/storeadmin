@@ -133,9 +133,11 @@ export const adminSettingsTypeDefs = gql`
   # types — clientweb only ever needs these fields to boot the site.
   type StorefrontInfo {
     adminid: ID!
+    branchid: ID
     companyName: String!
     address: String
     codOnly: Boolean!
+    displayProductPriceOnWebsite: Boolean!
 
     supportEmail: String
     supportPhone: String

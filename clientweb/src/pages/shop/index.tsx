@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
+import { Search } from "lucide-react";
 import { SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import { useCatalog } from "../../hooks/useCatalog";
+import { useTenant } from "../../contexts/tenant";
 import { formatPrice } from "../../utils/format";
 
 type SortKey = "popularity" | "price-asc" | "price-desc" | "rating" | "newest";
 
-const sortOptions: { id: SortKey; label: string }[] = [
+const sortOptions: { id: SortKey; label: string; priceOnly?: boolean }[] = [
   { id: "popularity", label: "Popularity" },
   { id: "newest", label: "Newest first" },
-  { id: "price-asc", label: "Price: Low to High" },
-  { id: "price-desc", label: "Price: High to Low" },
+  { id: "price-asc", label: "Price: Low to High", priceOnly: true },
+  { id: "price-desc", label: "Price: High to Low", priceOnly: true },
   { id: "rating", label: "Customer Rating" },
 ];
 
@@ -21,7 +23,9 @@ const DEFAULT_MAX_PRICE = 30000;
 
 export default function ShopPage() {
   const { categories, products, loading } = useCatalog();
+  const { displayProductPrice } = useTenant();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -29,11 +33,14 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState<SortKey>("popularity");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
 
-  // Support /shop?category=<id> links from CategoryGrid / Header nav.
+  // Support /shop?category=<id> links from CategoryGrid / Header nav, and
+  // /shop?q=<text> from the header search bar.
   useEffect(() => {
     const fromUrl = searchParams.get("category");
     if (fromUrl) setSelectedCategories([fromUrl]);
+    setQuery(searchParams.get("q") ?? "");
   }, [searchParams]);
 
   const maxPrice = useMemo(
@@ -58,10 +65,12 @@ export default function ShopPage() {
   };
 
   const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
     let result = products.filter((p) => {
       if (selectedCategories.length && !selectedCategories.includes(p.category)) return false;
       if (selectedBrands.length && !selectedBrands.includes(p.brand)) return false;
       if (p.price > priceMax) return false;
+      if (q && !p.name.toLowerCase().includes(q) && !p.categoryName?.toLowerCase().includes(q)) return false;
       return true;
     });
 
@@ -81,7 +90,7 @@ export default function ShopPage() {
     });
 
     return result;
-  }, [products, selectedCategories, selectedBrands, priceMax, sortBy]);
+  }, [products, selectedCategories, selectedBrands, priceMax, sortBy, query]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -137,21 +146,23 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <div className="border-t border-slate-100 pt-5">
-        <h4 className="mb-3 text-sm font-semibold text-ink-900">Max Price: {formatPrice(priceMax)}</h4>
-        <input
-          type="range"
-          min={500}
-          max={maxPrice}
-          step={500}
-          value={priceMax}
-          onChange={(e) => {
-            setPriceMax(Number(e.target.value));
-            setPage(1);
-          }}
-          className="w-full accent-brand-600"
-        />
-      </div>
+      {displayProductPrice && (
+        <div className="border-t border-slate-100 pt-5">
+          <h4 className="mb-3 text-sm font-semibold text-ink-900">Max Price: {formatPrice(priceMax)}</h4>
+          <input
+            type="range"
+            min={500}
+            max={maxPrice}
+            step={500}
+            value={priceMax}
+            onChange={(e) => {
+              setPriceMax(Number(e.target.value));
+              setPage(1);
+            }}
+            className="w-full accent-brand-600"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -162,11 +173,27 @@ export default function ShopPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">All Products</h1>
+            <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">
+              {query ? `Results for "${query}"` : "All Products"}
+            </h1>
             <p className="mt-1 text-sm text-slate-500">{filtered.length} products across every category</p>
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="relative hidden sm:block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                  navigate(`/shop?q=${encodeURIComponent(e.target.value)}`, { replace: true });
+                }}
+                placeholder="Search products…"
+                className="w-56 rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+              />
+            </div>
             <button
               onClick={() => setMobileFiltersOpen(true)}
               className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-ink-900 lg:hidden"
@@ -179,11 +206,13 @@ export default function ShopPage() {
                 onChange={(e) => setSortBy(e.target.value as SortKey)}
                 className="appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-medium text-ink-900 outline-none focus:border-brand-500"
               >
-                {sortOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    Sort: {o.label}
-                  </option>
-                ))}
+                {sortOptions
+                  .filter((o) => displayProductPrice || !o.priceOnly)
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      Sort: {o.label}
+                    </option>
+                  ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
             </div>

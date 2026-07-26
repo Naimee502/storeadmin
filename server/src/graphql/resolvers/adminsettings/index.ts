@@ -1,5 +1,6 @@
 import { AdminSettings } from "../../../models/adminsettings";
 import { Admin } from "../../../models/admin";
+import { Branch } from "../../../models/branches";
 
 const formatSettings = (s: any) =>
   s
@@ -50,11 +51,20 @@ export const adminSettingsResolvers = {
       const admin: any = await Admin.findOne({ _id: settings.adminid, status: true }).lean();
       if (!admin) return null;
 
+      // Same "first active branch" default clientapp's setup screen uses
+      // (adminsetup/index.tsx → GET_BRANCHES) — resolved here so clientweb
+      // gets a usable branchid for placing real orders without a second
+      // round trip, and without needing its own branch-picker UI (a website
+      // storefront always books to the business's default branch).
+      const branch: any = await Branch.findOne({ admin: settings.adminid, status: true }).sort({ createdAt: 1 }).lean();
+
       return {
         adminid: String(settings.adminid),
+        branchid: branch ? String(branch._id) : null,
         companyName: admin.companyName || admin.name || "",
         address: admin.address || "",
         codOnly: !!settings.websiteCodOnly,
+        displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
 
         supportEmail: settings.supportEmail || "",
         supportPhone: settings.supportPhone || "",

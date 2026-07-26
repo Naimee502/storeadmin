@@ -6,9 +6,11 @@ export const GET_STOREFRONT_BY_SLUG = gql`
   query GetStorefrontByStoreSlug($storeslug: String!) {
     getStorefrontByStoreSlug(storeslug: $storeslug) {
       adminid
+      branchid
       companyName
       address
       codOnly
+      displayProductPriceOnWebsite
 
       supportEmail
       supportPhone

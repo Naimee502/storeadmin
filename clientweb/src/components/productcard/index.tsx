@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Heart, Plus, Minus, Star } from "lucide-react";
 import type { SampleProduct } from "../../data/sampleData";
 import { useCart } from "../../contexts/cart";
+import { useTenant } from "../../contexts/tenant";
 import { formatPrice, discountPercent } from "../../utils/format";
 
 const badgeStyles: Record<string, string> = {
@@ -13,6 +14,7 @@ const badgeStyles: Record<string, string> = {
 
 export default function ProductCard({ product }: { product: SampleProduct }) {
   const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
+  const { displayProductPrice } = useTenant();
   const [wished, setWished] = useState(false);
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
@@ -137,6 +139,7 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        {displayProductPrice ? (
         <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold text-ink-900">{formatPrice(selected.price)}</span>
@@ -148,6 +151,9 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
             {discount > 0 ? `${discount}% off` : " "}
           </span>
         </div>
+        ) : (
+          <div />
+        )}
         {outOfStock ? (
           <button
             disabled

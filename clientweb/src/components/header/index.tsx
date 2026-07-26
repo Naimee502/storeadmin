@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Search,
@@ -13,20 +13,41 @@ import {
   Truck,
   Briefcase,
   HelpCircle,
+  Package,
+  Wallet,
+  LogOut,
+  Bell,
 } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
+import NotificationBell from "../notificationbell";
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const { count, wishlistCount } = useCart();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, account, logout } = useAuth();
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail } = useTenant();
   const brandName = companyName || siteConfig.name;
+
+  // Close the account dropdown on an outside click, same as any standard
+  // header user-menu.
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [accountMenuOpen]);
 
   // Real categories from this admin's own catalog — every business
   // automatically only sees its own categories, no manual filtering needed.
@@ -83,7 +104,7 @@ export default function Header() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              navigate("/shop");
+              navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
             }}
             className="hidden flex-1 items-stretch overflow-hidden rounded-lg border border-slate-200 focus-within:border-brand-500 md:flex"
           >
@@ -98,6 +119,8 @@ export default function Header() {
             </div>
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for groceries, electronics, fashion, toys & more…"
               className="w-full px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"
             />
@@ -107,31 +130,96 @@ export default function Header() {
           </form>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-3">
-            <Link
-              to={isLoggedIn ? "/account" : "/login"}
-              className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3"
-            >
-              <User className="h-5 w-5 text-ink-900" />
-              <span className="hidden text-left leading-tight sm:block">
-                <span className="block text-[11px] text-slate-500">{isLoggedIn ? "Welcome" : "Welcome"}</span>
-                <span className="flex items-center gap-0.5 font-semibold text-ink-900">
-                  {isLoggedIn ? user?.name || "My Account" : "Login / Sign up"} <ChevronDown className="h-3.5 w-3.5" />
-                </span>
-              </span>
-            </Link>
+            {isLoggedIn ? (
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  onClick={() => setAccountMenuOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3"
+                >
+                  <User className="h-5 w-5 text-ink-900" />
+                  <span className="hidden text-left leading-tight sm:block">
+                    <span className="block text-[11px] text-slate-500">Welcome</span>
+                    <span className="flex items-center gap-0.5 font-semibold text-ink-900">
+                      {account?.name || "My Account"} <ChevronDown className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                </button>
 
-            <Link
-              to={isLoggedIn ? "/account" : "/login"}
-              className="relative rounded-md p-2 hover:bg-slate-100"
-              aria-label="Wishlist"
-            >
-              <Heart className="h-5.5 w-5.5 text-ink-900" />
-              {isLoggedIn && wishlistCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
-                  {wishlistCount}
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-slate-100 bg-white p-1.5 shadow-lg">
+                    <Link
+                      to="/account"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                    >
+                      <User className="h-4 w-4" /> My Account
+                    </Link>
+                    <Link
+                      to="/account?tab=orders"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                    >
+                      <Package className="h-4 w-4" /> My Orders
+                    </Link>
+                    <Link
+                      to="/account?tab=payments"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                    >
+                      <Wallet className="h-4 w-4" /> Payments
+                    </Link>
+                    <Link
+                      to="/account/notifications"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                    >
+                      <Bell className="h-4 w-4" /> Notifications
+                    </Link>
+                    <div className="my-1 border-t border-slate-100" />
+                    <button
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        logout();
+                        navigate("/login");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 hover:bg-rose-50"
+                    >
+                      <LogOut className="h-4 w-4" /> Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-slate-100 md:px-3"
+              >
+                <User className="h-5 w-5 text-ink-900" />
+                <span className="hidden text-left leading-tight sm:block">
+                  <span className="block text-[11px] text-slate-500">Welcome</span>
+                  <span className="flex items-center gap-0.5 font-semibold text-ink-900">
+                    Login / Sign up <ChevronDown className="h-3.5 w-3.5" />
+                  </span>
                 </span>
-              )}
-            </Link>
+              </Link>
+            )}
+
+            <div className="flex items-center">
+              <NotificationBell />
+
+              <Link
+                to={isLoggedIn ? "/account" : "/login"}
+                className="relative rounded-md p-2 hover:bg-slate-100"
+                aria-label="Wishlist"
+              >
+                <Heart className="h-5.5 w-5.5 text-ink-900" />
+                {isLoggedIn && wishlistCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
+            </div>
 
             <Link to="/cart" className="relative flex items-center gap-2 rounded-lg bg-ink-900 px-3 py-2 text-white hover:bg-ink-800">
               <span className="relative">
@@ -151,13 +239,15 @@ export default function Header() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            navigate("/shop");
+            navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
           }}
           className="px-4 pb-3 md:hidden"
         >
           <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-200">
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search products…"
               className="w-full px-3 py-2 text-sm outline-none placeholder:text-slate-400"
             />

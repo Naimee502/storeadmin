@@ -1,24 +1,28 @@
-import { useState } from "react";
 import { Link } from "react-router";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, ShieldCheck, ArrowRight } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ShieldCheck, ArrowRight } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useCart } from "../../contexts/cart";
+import { useTenant } from "../../contexts/tenant";
+import { useChargePreview } from "../../hooks/useChargePreview";
 import { formatPrice } from "../../utils/format";
-
-const FREE_DELIVERY_THRESHOLD = 999;
-const DELIVERY_FEE = 49;
 
 export default function CartPage() {
   const { lines, updateQty, removeFromCart } = useCart();
-  const [coupon, setCoupon] = useState("");
-  const [couponApplied, setCouponApplied] = useState(false);
+  const { displayProductPrice } = useTenant();
 
   const itemsTotal = lines.reduce((sum, l) => sum + l.mrp * l.qty, 0);
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const discount = itemsTotal - subtotal;
-  const deliveryFee = subtotal >= FREE_DELIVERY_THRESHOLD || subtotal === 0 ? 0 : DELIVERY_FEE;
-  const couponDiscount = couponApplied ? Math.round(subtotal * 0.05) : 0;
-  const total = subtotal + deliveryFee - couponDiscount;
+  // Same GST calc the app's party cart uses: (rate - discount) * qty * gst%,
+  // here discount per-line is already baked into price vs mrp, so it's
+  // simply price * qty * gst / 100.
+  const totalgst = lines.reduce((sum, l) => sum + (l.price * l.qty * (l.gst ?? 0)) / 100, 0);
+
+  // Real delivery/handling/COD charges from the admin's Charge Rules module
+  // — exact same computeAutoCharges logic the mobile app's party cart uses,
+  // instead of the old fake flat ₹49 delivery fee.
+  const charges = useChargePreview(subtotal, "party");
+  const total = subtotal + totalgst + charges.total;
 
   if (lines.length === 0) {
     return (
@@ -97,12 +101,14 @@ export default function CartPage() {
                         </button>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-ink-900">{formatPrice(line.price * line.qty)}</p>
-                        {line.mrp > line.price && (
-                          <p className="text-xs text-slate-400 line-through">{formatPrice(line.mrp * line.qty)}</p>
-                        )}
-                      </div>
+                      {displayProductPrice && (
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-ink-900">{formatPrice(line.price * line.qty)}</p>
+                          {line.mrp > line.price && (
+                            <p className="text-xs text-slate-400 line-through">{formatPrice(line.mrp * line.qty)}</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -115,73 +121,60 @@ export default function CartPage() {
           </div>
 
           {/* Order summary */}
-          <div className="h-fit rounded-2xl border border-slate-100 p-5">
-            <h2 className="mb-4 text-base font-bold text-ink-900">Order Summary</h2>
+          {displayProductPrice ? (
+            <div className="h-fit rounded-2xl border border-slate-100 p-5">
+              <h2 className="mb-4 text-base font-bold text-ink-900">Price Details</h2>
 
-            <div className="mb-4 flex gap-2">
-              <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 px-3">
-                <Tag className="h-4 w-4 text-slate-400" />
-                <input
-                  value={coupon}
-                  onChange={(e) => setCoupon(e.target.value)}
-                  placeholder="Coupon code"
-                  className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
-                />
-              </div>
-              <button
-                onClick={() => setCouponApplied(!!coupon)}
-                className="rounded-lg bg-ink-900 px-4 text-sm font-semibold text-white hover:bg-brand-700"
-              >
-                Apply
-              </button>
-            </div>
-            {couponApplied && <p className="mb-3 text-xs font-semibold text-brand-600">Coupon applied — 5% off</p>}
-
-            <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
-              <div className="flex justify-between text-slate-600">
-                <span>Price ({lines.length} items)</span>
-                <span>{formatPrice(itemsTotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Discount</span>
-                <span className="text-brand-600">−{formatPrice(discount)}</span>
-              </div>
-              {couponApplied && (
+              <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
                 <div className="flex justify-between text-slate-600">
-                  <span>Coupon discount</span>
-                  <span className="text-brand-600">−{formatPrice(couponDiscount)}</span>
+                  <span>Price ({lines.length} items)</span>
+                  <span>{formatPrice(itemsTotal)}</span>
                 </div>
-              )}
-              <div className="flex justify-between text-slate-600">
-                <span>Delivery Fee</span>
-                <span className={deliveryFee === 0 ? "text-brand-600" : ""}>
-                  {deliveryFee === 0 ? "FREE" : formatPrice(deliveryFee)}
-                </span>
+                <div className="flex justify-between text-slate-600">
+                  <span>Discount</span>
+                  <span className="text-brand-600">−{formatPrice(discount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>GST</span>
+                  <span>{formatPrice(totalgst)}</span>
+                </div>
+                {charges.lines.map((c) => (
+                  <div key={c.ruleId} className="flex justify-between text-slate-600">
+                    <span>{c.name}</span>
+                    <span>{formatPrice(c.totalamount)}</span>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            <div className="mt-4 flex justify-between border-t border-slate-100 pt-4 text-base font-bold text-ink-900">
-              <span>Total Amount</span>
-              <span>{formatPrice(total)}</span>
-            </div>
+              <div className="mt-4 flex justify-between border-t border-slate-100 pt-4 text-base font-bold text-ink-900">
+                <span>Total Payable</span>
+                <span>{formatPrice(total)}</span>
+              </div>
 
-            {deliveryFee > 0 && (
-              <p className="mt-2 text-xs text-slate-500">
-                Add {formatPrice(FREE_DELIVERY_THRESHOLD - subtotal)} more for free delivery
+              <Link
+                to="/checkout"
+                className="mt-5 flex items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800"
+              >
+                Proceed to Checkout <ArrowRight className="h-4 w-4" />
+              </Link>
+
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" /> Safe and secure payments
               </p>
-            )}
-
-            <Link
-              to="/checkout"
-              className="mt-5 flex items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800"
-            >
-              Proceed to Checkout <ArrowRight className="h-4 w-4" />
-            </Link>
-
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-              <ShieldCheck className="h-3.5 w-3.5" /> Safe and secure payments
-            </p>
-          </div>
+            </div>
+          ) : (
+            <div className="h-fit rounded-2xl border border-slate-100 p-5">
+              <Link
+                to="/checkout"
+                className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800"
+              >
+                Proceed to Checkout <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" /> Safe and secure payments
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

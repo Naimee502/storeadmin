@@ -1,26 +1,38 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
-import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, User, Mail } from "lucide-react";
+import { Link, useSearchParams } from "react-router";
+import { useMutation } from "@apollo/client";
+import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, Mail, MessageCircle } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
+import { SEND_OTP, VERIFY_OTP } from "../../graphql/queries/accounts";
 
 type Step = "mobile" | "otp" | "success";
 
+// Real party login — the same sendOTP/verifyOTP the mobile app uses against
+// the Account/Party model. There's no self-service signup here: an Account
+// document has to already exist for this business + mobile number (created
+// by the admin/salesman) before OTP login works, so "Create Account" is an
+// informational tab pointing people at the business instead of a fake form.
 export default function LoginPage() {
-  const { companyName } = useTenant();
-  const { login } = useAuth();
+  const { companyName, adminid, supportPhone, supportEmail, supportWhatsapp } = useTenant();
+  const { setSession } = useAuth();
+  const [searchParams] = useSearchParams();
+  // Checkout (and anywhere else that requires login) links here with
+  // ?redirect=/checkout so a customer lands back where they left off
+  // instead of always bouncing to Home/Account after logging in.
+  const redirectTo = searchParams.get("redirect");
   const brandName = companyName || siteConfig.name;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(4).fill(""));
-  const [regName, setRegName] = useState("");
-  const [regMobile, setRegMobile] = useState("");
-  const [regEmail, setRegEmail] = useState("");
   const [resendIn, setResendIn] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  const [sendOtpMutation, { loading: sending }] = useMutation(SEND_OTP);
+  const [verifyOtpMutation, { loading: verifying }] = useMutation(VERIFY_OTP);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -32,10 +44,8 @@ export default function LoginPage() {
   // It only fires when: (1) the page is served over HTTPS on a real
   // domain (not http://localhost), and (2) an actual SMS arrives on that
   // device containing the OTP followed by "@<domain> #<code>" on its own
-  // line. Since this demo sends no real SMS, nothing will visibly happen
-  // here or on localhost — this is wired up for when a real SMS gateway
-  // is connected in production, where it'll auto-fill without the user
-  // touching anything, same as the app.
+  // line. Nothing will visibly happen on localhost — this is wired up for
+  // when a real SMS gateway is connected in production.
   useEffect(() => {
     if (mode !== "login" || step !== "otp") return;
     if (!("OTPCredential" in window)) return;
@@ -53,24 +63,66 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, step]);
 
-  const sendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  const requestOtp = async () => {
+    if (!adminid) {
+      setError("Store is still loading — please try again in a moment.");
+      return;
+    }
+    setError(null);
+    try {
+      const { data } = await sendOtpMutation({ variables: { adminId: adminid, mobile } });
+      if (!data?.sendOTP?.success) {
+        setError(data?.sendOTP?.message || "Couldn't send the OTP. Please try again.");
+        return;
+      }
+      // No SMS gateway is wired up yet, so the server hands the OTP straight
+      // back in the response (dev-only — this is what "auto-fill" actually
+      // is right now, not the WebOTP API reading a real SMS). Pre-fill it so
+      // testing doesn't require checking server logs for the code. Remove
+      // this once a real SMS provider is connected and `otp` stops being
+      // returned by sendOTP.
+      const devOtp: string | undefined = data.sendOTP.otp;
+      setOtp(devOtp ? devOtp.padStart(4, "0").slice(-4).split("") : Array(4).fill(""));
       setStep("otp");
       setResendIn(30);
-    }, 700);
+    } catch (err: any) {
+      const msg: string = err?.message || "";
+      setError(
+        msg.includes("not registered")
+          ? "This mobile number isn't registered with us yet. Please contact us to get set up."
+          : "Couldn't send the OTP. Please try again."
+      );
+    }
   };
 
-  const verifyOtp = (e: React.FormEvent) => {
+  const sendOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    requestOtp();
+  };
+
+  const verifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminid) return;
+    setError(null);
+    try {
+      const { data } = await verifyOtpMutation({
+        variables: { adminId: adminid, mobile, otp: otp.join("") },
+      });
+      const result = data?.verifyOTP;
+      if (!result?.accessToken || !result?.account) {
+        setError("Invalid or expired code. Please try again.");
+        return;
+      }
+      setSession(result.accessToken, {
+        id: result.account.id,
+        name: result.account.name,
+        mobile: result.account.mobile,
+        email: result.account.email,
+      });
       setStep("success");
-      login({ name: "Customer", mobile });
-    }, 700);
+    } catch {
+      setError("Invalid or expired code. Please try again.");
+    }
   };
 
   const handleOtpChange = (idx: number, rawValue: string) => {
@@ -122,15 +174,22 @@ export default function LoginPage() {
                 onClick={() => {
                   setMode(m);
                   setStep("mobile");
+                  setError(null);
                 }}
                 className={`rounded-md py-2 text-sm font-semibold transition ${
                   mode === m ? "bg-white text-brand-700 shadow-sm" : "text-slate-500"
                 }`}
               >
-                {m === "login" ? "Login" : "Create Account"}
+                {m === "login" ? "Login" : "New Customer"}
               </button>
             ))}
           </div>
+
+          {error && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> <span>{error}</span>
+            </div>
+          )}
 
           {mode === "login" && step === "mobile" && (
             <form onSubmit={sendOtp} className="space-y-4">
@@ -153,10 +212,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={mobile.length !== 10 || loading}
+                disabled={mobile.length !== 10 || sending || !adminid}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? "Sending OTP…" : "Send OTP"}
+                {sending ? "Sending OTP…" : "Send OTP"}
               </button>
               <p className="text-center text-xs text-slate-400">
                 By continuing you agree to {brandName}'s Terms of Service &amp; Privacy Policy.
@@ -195,16 +254,16 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={otp.some((d) => !d) || loading}
+                disabled={otp.some((d) => !d) || verifying}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? "Verifying…" : "Verify & Continue"}
+                {verifying ? "Verifying…" : "Verify & Continue"}
               </button>
               <p className="text-center text-xs text-slate-500">
                 {resendIn > 0 ? (
                   `Resend OTP in ${resendIn}s`
                 ) : (
-                  <button type="button" onClick={() => setResendIn(30)} className="font-semibold text-brand-700">
+                  <button type="button" onClick={requestOtp} className="font-semibold text-brand-700">
                     Resend OTP
                   </button>
                 )}
@@ -212,119 +271,78 @@ export default function LoginPage() {
             </form>
           )}
 
-          {mode === "login" && step === "success" && <SuccessState />}
+          {mode === "login" && step === "success" && <SuccessState redirectTo={redirectTo} />}
 
-          {mode === "register" && step !== "success" && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setStep("success");
-                login({ name: regName.trim() || "Customer", mobile: regMobile });
-              }}
-              className="space-y-4"
-            >
-              <Field
-                icon={User}
-                label="Full Name"
-                placeholder="Your name"
-                required
-                value={regName}
-                onChange={(v) => setRegName(v)}
-              />
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-ink-900">Mobile Number</label>
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
-                  <Phone className="h-4 w-4 text-slate-400" />
-                  <span className="text-sm text-slate-500">+91</span>
-                  <input
-                    required
-                    maxLength={10}
-                    value={regMobile}
-                    onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, ""))}
-                    placeholder="98765 43210"
-                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
-                  />
-                </div>
+          {mode === "register" && (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-slate-600">
+                New customer accounts (with your pricing, credit terms and order history) are set up by {brandName}
+                {" "}directly — get in touch and they'll register you in a moment.
+              </p>
+              <div className="space-y-2">
+                {supportPhone && (
+                  <a
+                    href={`tel:${supportPhone}`}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
+                  >
+                    <Phone className="h-4 w-4" /> {supportPhone}
+                  </a>
+                )}
+                {supportWhatsapp && (
+                  <a
+                    href={`https://wa.me/${supportWhatsapp.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp us
+                  </a>
+                )}
+                {supportEmail && (
+                  <a
+                    href={`mailto:${supportEmail}`}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
+                  >
+                    <Mail className="h-4 w-4" /> {supportEmail}
+                  </a>
+                )}
               </div>
-              <Field
-                icon={Mail}
-                label="Email (optional)"
-                placeholder="you@example.com"
-                type="email"
-                value={regEmail}
-                onChange={(v) => setRegEmail(v)}
-              />
-              <button type="submit" className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
-                Create Account
-              </button>
-            </form>
+              {!supportPhone && !supportWhatsapp && !supportEmail && (
+                <p className="text-xs text-slate-400">Contact details for this business aren't set up yet.</p>
+              )}
+            </div>
           )}
-
-          {mode === "register" && step === "success" && <SuccessState registered />}
         </div>
       </div>
     </div>
   );
 }
 
-function SuccessState({ registered }: { registered?: boolean }) {
+function SuccessState({ redirectTo }: { redirectTo: string | null }) {
   return (
     <div className="flex flex-col items-center py-4 text-center">
       <CheckCircle2 className="h-12 w-12 text-brand-600" />
-      <h2 className="mt-3 text-base font-bold text-ink-900">
-        {registered ? "Account created!" : "Logged in successfully!"}
-      </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        {registered
-          ? "Your account is ready — start shopping right away."
-          : "Welcome back — start shopping or check your recent orders."}
-      </p>
+      <h2 className="mt-3 text-base font-bold text-ink-900">Logged in successfully!</h2>
+      <p className="mt-1 text-sm text-slate-500">Welcome back — start shopping or check your recent orders.</p>
       <div className="mt-5 flex gap-3">
-        <Link to="/" className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
-          Go to Home
-        </Link>
-        <Link to="/account" className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50">
-          My Account
-        </Link>
+        {redirectTo ? (
+          <Link to={redirectTo} className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+            Continue
+          </Link>
+        ) : (
+          <>
+            <Link to="/" className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+              Go to Home
+            </Link>
+            <Link to="/account" className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50">
+              My Account
+            </Link>
+          </>
+        )}
       </div>
       <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
         <ShieldCheck className="h-3.5 w-3.5" /> Your details are secure and never shared.
       </p>
-    </div>
-  );
-}
-
-function Field({
-  icon: Icon,
-  label,
-  placeholder,
-  type = "text",
-  required,
-  value,
-  onChange,
-}: {
-  icon: typeof User;
-  label: string;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-ink-900">{label}</label>
-      <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
-        <Icon className="h-4 w-4 text-slate-400" />
-        <input
-          type={type}
-          required={required}
-          value={value}
-          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-          placeholder={placeholder}
-          className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
-        />
-      </div>
     </div>
   );
 }

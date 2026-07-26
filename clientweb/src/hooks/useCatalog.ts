@@ -39,13 +39,13 @@ function mapProduct(p: any): SampleProduct {
   // login will later override this per line via resolvePrice. Each unit
   // (Piece, Dozen, ...) gets its own price/mrp here, same as the app, so
   // switching units on the card actually changes the price shown/added.
-  const unitPrices: { label: string; price: number; mrp: number; unitid: string | null }[] = rawUnitprices.map((u: any) => {
+  const unitPrices: { label: string; price: number; mrp: number; unitid: string | null; unitQuantity: number }[] = rawUnitprices.map((u: any) => {
     const name = u.unitid?.unitname ?? "Unit";
     const label = u.quantity > 1 ? `${u.quantity} × ${name}` : name;
     const price = (u.offerprice ?? 0) > 0 ? u.offerprice : (u.salesrate ?? 0);
     const mrp = u.mrp && u.mrp > price ? u.mrp : price;
     const unitid = u.unitid?.id ?? null;
-    return { label, price, mrp, unitid };
+    return { label, price, mrp, unitid, unitQuantity: u.quantity || 1 };
   });
 
   const first = unitPrices[0] ?? { label: "1 unit", price: 0, mrp: 0 };
@@ -77,6 +77,8 @@ function mapProduct(p: any): SampleProduct {
     imageurl: p.imageurl || undefined,
     imageurls: Array.isArray(p.imageurls) && p.imageurls.length ? p.imageurls : undefined,
     createdAt: p.createdAt || undefined,
+    variantid: variant?.id,
+    gst: variant?.gst ?? 0,
     description: p.description || `Genuine, quality-checked — ${p.name}.`,
     highlights: ["Genuine product", "Quality checked", "Fast delivery", "Easy returns"],
   };

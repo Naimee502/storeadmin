@@ -7,9 +7,11 @@ interface TenantContextValue {
   loading: boolean;
   notFound: boolean;
   adminid: string | null;
+  branchid: string | null;
   companyName: string | null;
   address: string;
   codOnly: boolean;
+  displayProductPrice: boolean;
 
   // Real contact details (Settings → General on the admin panel) — used by
   // Header/Footer instead of the static site config placeholders.
@@ -69,9 +71,11 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     loading,
     notFound,
     adminid: info?.adminid ?? null,
+    branchid: info?.branchid ?? null,
     companyName: info?.companyName ?? null,
     address: info?.address ?? "",
     codOnly: info?.codOnly ?? false,
+    displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
 
     supportEmail: info?.supportEmail ?? "",
     supportPhone: info?.supportPhone ?? "",

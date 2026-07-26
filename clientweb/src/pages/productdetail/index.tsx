@@ -6,6 +6,7 @@ import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
 import { useCatalog } from "../../hooks/useCatalog";
 import { useCart } from "../../contexts/cart";
+import { useTenant } from "../../contexts/tenant";
 import { formatPrice, discountPercent } from "../../utils/format";
 
 const tabs = ["Description", "Highlights", "Reviews"] as const;
@@ -35,6 +36,7 @@ export default function ProductDetailPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const [wished, setWished] = useState(false);
   const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
+  const { displayProductPrice } = useTenant();
 
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
@@ -114,7 +116,7 @@ export default function ProductDetailPage() {
                   <Icon className="h-32 w-32 text-brand-600" />
                 </div>
               )}
-              {discount > 0 && (
+              {displayProductPrice && discount > 0 && (
                 <span className="absolute left-3 top-3 rounded-full bg-brand-600 px-2.5 py-1 text-xs font-bold text-white shadow">
                   {discount}% OFF
                 </span>
@@ -166,14 +168,18 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-ink-900">{formatPrice(selected.price)}</span>
-              {selected.mrp > selected.price && (
-                <span className="text-base text-slate-400 line-through">{formatPrice(selected.mrp)}</span>
-              )}
-              {discount > 0 && <span className="text-sm font-semibold text-brand-600">{discount}% off</span>}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Inclusive of all taxes</p>
+            {displayProductPrice && (
+              <>
+                <div className="mt-4 flex items-baseline gap-3">
+                  <span className="text-3xl font-bold text-ink-900">{formatPrice(selected.price)}</span>
+                  {selected.mrp > selected.price && (
+                    <span className="text-base text-slate-400 line-through">{formatPrice(selected.mrp)}</span>
+                  )}
+                  {discount > 0 && <span className="text-sm font-semibold text-brand-600">{discount}% off</span>}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Inclusive of all taxes</p>
+              </>
+            )}
             {outOfStock ? (
               <p className="mt-2 text-sm font-semibold text-rose-600">Out of stock</p>
             ) : typeof product.stock === "number" && product.stock <= 5 ? (

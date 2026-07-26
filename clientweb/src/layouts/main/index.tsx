@@ -16,7 +16,7 @@ export default function MainLayout() {
   if (tenant.notFound) return <StoreNotFound storeSlug={tenant.storeSlug} />;
 
   return (
-    <AuthProvider>
+    <AuthProvider storeSlug={tenant.storeSlug}>
       <CartProvider>
         <div className="flex min-h-screen flex-col bg-white">
           <Header />

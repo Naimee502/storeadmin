@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
-import { CheckCircle2, MapPin, Wallet, Landmark, Smartphone, Building2, Package, Truck } from "lucide-react";
+import { Link, useNavigate } from "react-router";
+import { useMutation } from "@apollo/client";
+import { CheckCircle2, Wallet, Landmark, Smartphone, Building2, Package, Truck, LogIn } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useCart } from "../../contexts/cart";
+import { useTenant } from "../../contexts/tenant";
+import { useAuth } from "../../contexts/auth";
 import { useBusinessSettings } from "../../contexts/businesssettings";
+import { useChargePreview } from "../../hooks/useChargePreview";
+import { useDownline } from "../../hooks/useDownline";
+import { ADD_SALES_ORDER, GET_SALES_ORDERS } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
 
 type PaymentMethod = "cod" | "upi" | "card" | "netbanking" | "party";
@@ -16,16 +22,19 @@ const paymentMethods: { id: PaymentMethod; label: string; desc: string; icon: ty
   { id: "party", label: "Bill to my Party / Business Account", desc: "Credit-cycle billing for approved retailers", icon: Building2 },
 ];
 
-const indianStates = [
-  "Gujarat", "Maharashtra", "Rajasthan", "Delhi", "Karnataka", "Tamil Nadu", "Uttar Pradesh", "West Bengal",
-];
-
 export default function CheckoutPage() {
-  const { lines, subtotal } = useCart();
+  const navigate = useNavigate();
+  const { lines, subtotal, clearCart } = useCart();
   const { codOnly } = useBusinessSettings();
+  const { adminid, branchid, displayProductPrice } = useTenant();
+  const { isLoggedIn, account } = useAuth();
+  const { manageDownline } = useDownline();
   const [payment, setPayment] = useState<PaymentMethod>("upi");
-  const [placed, setPlaced] = useState(false);
-  const [orderNumber] = useState(() => `#SO${String(Math.floor(1000 + Math.random() * 8999))}`);
+  const [placedOrder, setPlacedOrder] = useState<{ billnumber?: string } | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
   // Business Settings → "Cash on Delivery only" hides every online method,
   // including party-account billing, and locks the selection to COD.
@@ -35,24 +44,111 @@ export default function CheckoutPage() {
     if (codOnly) setPayment("cod");
   }, [codOnly]);
 
-  const deliveryFee = subtotal >= 999 || subtotal === 0 ? 0 : 49;
-  const total = subtotal + deliveryFee;
+  const totaldiscount = lines.reduce((sum, l) => sum + (l.mrp - l.price) * l.qty, 0);
+  const totalgst = lines.reduce((sum, l) => sum + (l.price * l.qty * (l.gst ?? 0)) / 100, 0);
 
-  if (placed) {
+  // Real delivery/handling/COD charges — same Charge Rules module +
+  // computeAutoCharges logic the app's party checkout uses, instead of a
+  // fake flat delivery fee. Display-only preview; the server computes and
+  // applies these itself when the order is created.
+  const charges = useChargePreview(subtotal, "party", payment === "cod" ? "cash" : payment);
+  const total = subtotal + totalgst + charges.total;
+
+  const handlePlaceOrder = async () => {
+    if (!isLoggedIn || !account) {
+      navigate("/login?redirect=/checkout");
+      return;
+    }
+    if (!adminid || !branchid) {
+      setError("Store is still loading — please try again in a moment.");
+      return;
+    }
+    if (lines.length === 0) return;
+
+    setError(null);
+    setPlacing(true);
+    try {
+      const { data } = await addSalesOrder({
+        variables: {
+          input: {
+            adminid,
+            branchid,
+            partyacc: account.id,
+            paymenttype: payment === "cod" ? "cash" : payment,
+            billdate: new Date().toISOString().slice(0, 10),
+            billtype: "order",
+            taxorsupplytype: "regular",
+            isservice: false,
+            subtotal,
+            totaldiscount,
+            totalgst,
+            totalamount: total,
+            createdby_id: account.id,
+            createdby_name: account.name,
+            createdby_type: "party",
+            productservice: lines.map((l) => ({
+              productserviceid: l.productId,
+              variantid: l.variantid,
+              salesunitid: l.unitid,
+              qty: l.qty,
+              unitqty: l.unitqty ?? l.qty,
+              rate: l.price,
+              discount: l.mrp > l.price ? l.mrp - l.price : 0,
+              amount: l.price * l.qty,
+              gst: l.gst ?? 0,
+            })),
+          },
+        },
+        refetchQueries: [
+          { query: GET_SALES_ORDERS, variables: { adminid, partyacc: account.id, includeDownline: manageDownline } },
+        ],
+      });
+      setPlacedOrder({ billnumber: data?.addSalesOrder?.billnumber });
+      clearCart();
+    } catch (err: any) {
+      setError(err?.message || "Failed to place order. Please try again.");
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  if (placedOrder) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-24 text-center sm:px-6">
         <CheckCircle2 className="h-16 w-16 text-brand-600" />
         <h1 className="mt-4 text-2xl font-bold text-ink-900">Order placed successfully!</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Your order <span className="font-semibold text-ink-900">{orderNumber}</span> has been received and is pending
-          confirmation. You'll get updates by SMS as it's confirmed and dispatched.
+          Your order{" "}
+          {placedOrder.billnumber && <span className="font-semibold text-ink-900">#{placedOrder.billnumber}</span>} has
+          been received and is pending confirmation. You'll get updates as it's confirmed and dispatched.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link to="/account" className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+          <Link to="/account?tab=orders" className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
             View My Orders
           </Link>
           <Link to="/shop" className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50">
             Continue Shopping
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div>
+        <Breadcrumb items={[{ label: "Cart", to: "/cart" }, { label: "Checkout" }]} />
+        <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-24 text-center sm:px-6">
+          <LogIn className="h-14 w-14 text-slate-300" />
+          <h1 className="mt-4 text-xl font-bold text-ink-900">Please login to continue</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            You need to be logged in with your registered account to place an order.
+          </p>
+          <Link
+            to="/login?redirect=/checkout"
+            className="mt-6 rounded-lg bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-800"
+          >
+            Login to Checkout
           </Link>
         </div>
       </div>
@@ -69,38 +165,16 @@ export default function CheckoutPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setPlaced(true);
+            handlePlaceOrder();
           }}
           className="grid gap-8 lg:grid-cols-[1fr_360px]"
         >
           <div className="space-y-6">
-            {/* Delivery address */}
+            {/* Account */}
             <div className="rounded-2xl border border-slate-100 p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-ink-900">
-                <MapPin className="h-4.5 w-4.5 text-brand-600" /> Delivery Address
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Full Name" required defaultValue="Tejas Nariya" />
-                <Field label="Mobile Number" required type="tel" defaultValue="98765 43210" />
-                <div className="sm:col-span-2">
-                  <Field label="Address (Shop / House No, Street, Area)" required />
-                </div>
-                <Field label="City" required defaultValue="Ahmedabad" />
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-ink-900">State</label>
-                  <select
-                    required
-                    defaultValue="Gujarat"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-                  >
-                    {indianStates.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <Field label="Pincode" required defaultValue="380001" />
-                <Field label="GSTIN (optional, for business accounts)" />
-              </div>
+              <h2 className="mb-1 text-base font-bold text-ink-900">Delivering to</h2>
+              <p className="text-sm text-ink-900">{account?.name}</p>
+              <p className="text-sm text-slate-500">+91 {account?.mobile}</p>
             </div>
 
             {/* Payment */}
@@ -166,64 +240,54 @@ export default function CheckoutPage() {
                           {line.unit} × {line.qty}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-ink-900">{formatPrice(line.price * line.qty)}</p>
+                      {displayProductPrice && (
+                        <p className="text-sm font-semibold text-ink-900">{formatPrice(line.price * line.qty)}</p>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Delivery Fee</span>
-                  <span className={deliveryFee === 0 ? "text-brand-600" : ""}>
-                    {deliveryFee === 0 ? "FREE" : formatPrice(deliveryFee)}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-bold text-ink-900">
-                <span>Total</span>
-                <span>{formatPrice(total)}</span>
-              </div>
+              {displayProductPrice && (
+                <>
+                  <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Subtotal</span>
+                      <span>{formatPrice(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>GST</span>
+                      <span>{formatPrice(totalgst)}</span>
+                    </div>
+                    {charges.lines.map((c) => (
+                      <div key={c.ruleId} className="flex justify-between text-slate-600">
+                        <span>{c.name}</span>
+                        <span>{formatPrice(c.totalamount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-bold text-ink-900">
+                    <span>Total</span>
+                    <span>{formatPrice(total)}</span>
+                  </div>
+                </>
+              )}
             </div>
+
+            {error && (
+              <div className="rounded-lg bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700">{error}</div>
+            )}
 
             <button
               type="submit"
-              disabled={lines.length === 0}
+              disabled={lines.length === 0 || placing}
               className="w-full rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Place Order
+              {placing ? "Placing Order…" : "Place Order"}
             </button>
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  type = "text",
-  defaultValue,
-}: {
-  label: string;
-  required?: boolean;
-  type?: string;
-  defaultValue?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-ink-900">{label}</label>
-      <input
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-      />
     </div>
   );
 }
