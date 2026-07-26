@@ -12,6 +12,7 @@ interface TenantContextValue {
   address: string;
   codOnly: boolean;
   displayProductPrice: boolean;
+  displayStock: boolean;
 
   // Real contact details (Settings → General on the admin panel) — used by
   // Header/Footer instead of the static site config placeholders.
@@ -80,6 +81,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     address: info?.address ?? "",
     codOnly: info?.codOnly ?? false,
     displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
+    displayStock: info?.displayStockOnWebsite ?? true,
 
     supportEmail: info?.supportEmail ?? "",
     supportPhone: info?.supportPhone ?? "",

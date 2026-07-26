@@ -15,7 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCT = {
@@ -69,6 +69,7 @@ export default function ProductDetail() {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [selectedUnitIdx, setSelectedUnitIdx] = useState(0);
   const showPrice = useShowProductPrice();
+  const showStock = useShowProductStock();
   // Auto-fit the hero image to its own aspect ratio (no cropping) instead of
   // forcing every photo into one fixed box shape. Read the real pixel size
   // once the image loads, then size the box to match it exactly, capped so
@@ -298,16 +299,18 @@ export default function ProductDetail() {
             </View>
           )}
 
-          <View style={styles.stockRow}>
-            <Icon
-              name={inStock ? 'check-circle-outline' : 'close-circle-outline'}
-              size={14}
-              color={inStock ? '#22c55e' : '#ef4444'}
-            />
-            <Text style={[styles.stockText, { color: inStock ? '#22c55e' : '#ef4444' }]}>
-              {inStock ? `In stock (${variant?.currentstock ?? 0} units)` : 'Out of stock'}
-            </Text>
-          </View>
+          {showStock && (
+            <View style={styles.stockRow}>
+              <Icon
+                name={inStock ? 'check-circle-outline' : 'close-circle-outline'}
+                size={14}
+                color={inStock ? '#22c55e' : '#ef4444'}
+              />
+              <Text style={[styles.stockText, { color: inStock ? '#22c55e' : '#ef4444' }]}>
+                {inStock ? `In stock (${variant?.currentstock ?? 0} units)` : 'Out of stock'}
+              </Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Variants (Pack Size) */}

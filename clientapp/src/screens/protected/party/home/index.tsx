@@ -15,7 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
 import { AppHeader, useNotificationCenter } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -67,6 +67,7 @@ export default function PartyHome() {
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<string | null>(null); // null = "All"
   const showPrice = useShowProductPrice();
+  const showStock = useShowProductStock();
 
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id },
@@ -329,7 +330,7 @@ export default function PartyHome() {
                             ? <Image source={{ uri: p.imageurl }} style={styles.productImg} resizeMode="cover" />
                             : <Icon name="package-variant-closed" size={26} color={colors.brand} />
                           }
-                          {outOfStock && (
+                          {showStock && outOfStock && (
                             <View style={styles.oosTag}>
                               <Text style={styles.oosText}>Out of Stock</Text>
                             </View>

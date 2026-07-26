@@ -210,6 +210,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       <Section title="Feature Toggles">
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
+        <Toggle label="Display Product Stock on App/Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />
         <Toggle label="Encrypt Invoice Prices (Mask actual amounts)" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
         <Toggle
           label="Deliver orders via Delivery Boy (off = salesman delivers on route)"

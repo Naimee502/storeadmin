@@ -35,7 +35,7 @@ export default function ProductDetailPage() {
   useEffect(() => setPendingQty(1), [product, selectedUnit]);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const { lines, addToCart, updateQty, removeFromCart } = useCart();
-  const { displayProductPrice } = useTenant();
+  const { displayProductPrice, displayStock } = useTenant();
 
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
@@ -179,13 +179,15 @@ export default function ProductDetailPage() {
                 <p className="mt-1 text-xs text-slate-500">Inclusive of all taxes</p>
               </>
             )}
-            {outOfStock ? (
-              <p className="mt-2 text-sm font-semibold text-rose-600">Out of stock</p>
-            ) : typeof product.stock === "number" && product.stock <= 5 ? (
-              <p className="mt-2 text-sm font-semibold text-amber-600">Only {product.stock} left in stock</p>
-            ) : typeof product.stock === "number" ? (
-              <p className="mt-2 text-sm font-semibold text-brand-600">In stock</p>
-            ) : null}
+            {displayStock && (
+              outOfStock ? (
+                <p className="mt-2 text-sm font-semibold text-rose-600">Out of stock</p>
+              ) : typeof product.stock === "number" && product.stock <= 5 ? (
+                <p className="mt-2 text-sm font-semibold text-amber-600">Only {product.stock} left in stock</p>
+              ) : typeof product.stock === "number" ? (
+                <p className="mt-2 text-sm font-semibold text-brand-600">In stock</p>
+              ) : null
+            )}
 
             <ul className="mt-4 space-y-1.5">
               {product.highlights.slice(0, 3).map((h) => (

@@ -14,7 +14,7 @@ const badgeStyles: Record<string, string> = {
 
 export default function ProductCard({ product }: { product: SampleProduct }) {
   const { lines, addToCart, updateQty, removeFromCart } = useCart();
-  const { displayProductPrice } = useTenant();
+  const { displayProductPrice, displayStock } = useTenant();
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
 
@@ -97,13 +97,15 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
         )}
       </div>
 
-      {outOfStock ? (
-        <p className="mb-1.5 text-[11px] font-semibold text-rose-600">Out of stock</p>
-      ) : lowStock ? (
-        <p className="mb-1.5 text-[11px] font-semibold text-amber-600">Only {product.stock} left</p>
-      ) : typeof product.stock === "number" ? (
-        <p className="mb-1.5 text-[11px] font-medium text-emerald-600">{product.stock} in stock</p>
-      ) : null}
+      {displayStock && (
+        outOfStock ? (
+          <p className="mb-1.5 text-[11px] font-semibold text-rose-600">Out of stock</p>
+        ) : lowStock ? (
+          <p className="mb-1.5 text-[11px] font-semibold text-amber-600">Only {product.stock} left</p>
+        ) : typeof product.stock === "number" ? (
+          <p className="mb-1.5 text-[11px] font-medium text-emerald-600">{product.stock} in stock</p>
+        ) : null
+      )}
 
       {/* Unit chips — Piece / Dozen etc., same as the app's catalog card.
           Always shown (even for a single unit) so every card has the same layout. */}

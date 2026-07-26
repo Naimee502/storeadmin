@@ -15,7 +15,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, DynamicFlashList } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Catalog() {
@@ -28,6 +28,7 @@ export default function Catalog() {
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = tenant.adminId ?? '';
   const showPrice = useShowProductPrice();
+  const showStock = useShowProductStock();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -154,7 +155,7 @@ export default function Catalog() {
               ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
               : <Icon name="package-variant-closed" size={30} color={colors.brand} />
             }
-            {outOfStock && (
+            {showStock && outOfStock && (
               <View style={styles.oosTag}>
                 <Text style={styles.oosText}>{STRINGS.party.outOfStock}</Text>
               </View>

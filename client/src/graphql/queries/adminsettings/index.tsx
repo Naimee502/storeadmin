@@ -28,6 +28,7 @@ const SETTINGS_FIELDS = `
   expenseNotePrefix
   enableGst
   displayProductPriceOnWebsite
+  displayStockOnWebsite
   encryptInvoicePrices
   deliveryMode
   partyManagesDownline

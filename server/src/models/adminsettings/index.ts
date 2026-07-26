@@ -73,6 +73,11 @@ const adminSettingsSchema = new mongoose.Schema(
 
     // New Features
     displayProductPriceOnWebsite: { type: Boolean, default: true },
+    // Whether product stock ("In stock (N)", "Only X left", "Out of
+    // stock") is shown on the app/website — same idea as the price flag
+    // above, gating the visible text only. The underlying stock number
+    // still blocks ordering past what's on hand regardless of this flag.
+    displayStockOnWebsite: { type: Boolean, default: true },
     encryptInvoicePrices: { type: Boolean, default: false },
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 

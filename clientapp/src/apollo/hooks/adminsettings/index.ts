@@ -16,3 +16,19 @@ export function useShowProductPrice(): boolean {
   });
   return (data as any)?.getAdminSettings?.displayProductPriceOnWebsite !== false;
 }
+
+// Whether product stock ("In stock", "Only X left", "Out of stock" text) is
+// shown. Admin-controlled via Business Settings → "Display Product Stock on
+// App/Website" (displayStockOnWebsite). Defaults to true (server default) so
+// tenants who haven't touched the setting see no change. Purely a display
+// toggle — the underlying stock number still blocks ordering past what's on
+// hand regardless of this flag.
+export function useShowProductStock(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.displayStockOnWebsite !== false;
+}

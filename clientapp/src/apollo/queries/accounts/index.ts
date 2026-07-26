@@ -428,6 +428,7 @@ export const GET_ADMIN_SETTINGS = gql`
       partyManagesDownline
       enablePaymentDiscountCommission
       displayProductPriceOnWebsite
+      displayStockOnWebsite
       supportEmail
       supportPhone
       supportWhatsapp

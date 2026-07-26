@@ -11,6 +11,7 @@ import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/que
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { addToCart, updateQty } from '../../../../store/slices';
+import { useShowProductStock } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function SalesmanCatalog() {
@@ -21,6 +22,7 @@ export default function SalesmanCatalog() {
   const tenant     = useSelector((s: RootState) => s.tenant);
   const cartItems  = useSelector((s: RootState) => s.cart.items);
   const adminid    = tenant.adminId ?? '';
+  const showStock  = useShowProductStock();
 
   const { partyId, partyName } = route.params ?? {};
 
@@ -194,7 +196,7 @@ export default function SalesmanCatalog() {
             ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
-          {outOfStock && (
+          {showStock && outOfStock && (
             <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
           )}
         </View>

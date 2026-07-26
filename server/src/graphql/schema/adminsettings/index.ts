@@ -74,6 +74,7 @@ export const adminSettingsTypeDefs = gql`
 
     enableGst: Boolean!
     displayProductPriceOnWebsite: Boolean!
+    displayStockOnWebsite: Boolean!
     encryptInvoicePrices: Boolean!
     deliveryMode: String
     partyManagesDownline: Boolean
@@ -152,6 +153,7 @@ export const adminSettingsTypeDefs = gql`
     address: String
     codOnly: Boolean!
     displayProductPriceOnWebsite: Boolean!
+    displayStockOnWebsite: Boolean!
 
     supportEmail: String
     supportPhone: String
@@ -214,6 +216,7 @@ export const adminSettingsTypeDefs = gql`
 
     enableGst: Boolean
     displayProductPriceOnWebsite: Boolean
+    displayStockOnWebsite: Boolean
     encryptInvoicePrices: Boolean
     deliveryMode: String
     partyManagesDownline: Boolean

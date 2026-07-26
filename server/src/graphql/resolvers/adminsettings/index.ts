@@ -72,6 +72,7 @@ export const adminSettingsResolvers = {
         address: admin.address || "",
         codOnly: !!settings.websiteCodOnly,
         displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
+        displayStockOnWebsite: settings.displayStockOnWebsite !== false,
 
         supportEmail: settings.supportEmail || "",
         supportPhone: settings.supportPhone || "",
