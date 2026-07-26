@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@apollo/client";
 import type { SampleProduct } from "../data/sampleData";
 import { useAuth } from "./auth";
@@ -40,13 +40,33 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-// In-memory cart — a real cart (Redux slice + SalesOrder draft synced with
-// PriceList/PriceAssignment) is the natural next step once GraphQL is wired.
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
+// Persisted per-store (storeSlug) in localStorage — same reasoning as
+// AuthProvider's session persistence: a page reload/HMR update or the user
+// just closing and reopening the tab must not silently empty their cart
+// (which, before this, quietly disabled "Place Order" with no explanation).
+export function CartProvider({ storeSlug, children }: { storeSlug: string; children: ReactNode }) {
+  const storageKey = `rkn_storefront_cart_${storeSlug}`;
+
+  const [lines, setLines] = useState<CartLine[]>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [wishlistCount, setWishlistCount] = useState(0);
   const { account } = useAuth();
   const { adminid } = useTenant();
+
+  useEffect(() => {
+    try {
+      if (lines.length > 0) localStorage.setItem(storageKey, JSON.stringify(lines));
+      else localStorage.removeItem(storageKey);
+    } catch {
+      // ignore storage errors (e.g. private browsing)
+    }
+  }, [lines, storageKey]);
 
   // Channel/region for the logged-in party — needed for resolvePrice's
   // channel/channel+region/region fallback tiers, same as clientapp's

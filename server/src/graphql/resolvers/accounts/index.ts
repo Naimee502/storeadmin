@@ -1,4 +1,6 @@
 import { Account } from "../../../models/accounts";
+import { AccountGroup } from "../../../models/accountgroups";
+import { Channel } from "../../../models/channel";
 import { Transaction } from "../../../models/transactions";
 import { Payment } from "../../../models/payments";
 import { SalesInvoice } from "../../../models/salesinvoice";
@@ -338,6 +340,77 @@ export const accountResolvers = {
       console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
 
       return { success: true, message: "OTP sent successfully.", otp };
+    },
+
+    // Self-service signup — an unregistered mobile number entering their own
+    // Name/Email (app/website "New Customer" flow, no admin-only fields).
+    // Creates a real end-user Account (type "customer") under the tenant's
+    // "Sundry Debtors" group, same group every admin-created customer uses,
+    // so the model's own pre-save hook auto-generates its accountcode AND
+    // ledger exactly like an admin adding an account would. Then sends an
+    // OTP immediately so the caller can go straight into the normal
+    // verifyOTP step, same shape as sendOTP.
+    registerAccount: async (_: any, { adminId, name, mobile, email }: any) => {
+      const existing = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (existing) throw new Error("This mobile number is already registered. Please login instead.");
+
+      let group = await AccountGroup.findOne({ admin: adminId, accountgroupname: "Sundry Debtors" });
+      if (!group) {
+        group = await AccountGroup.create({
+          admin: adminId,
+          accountgroupname: "Sundry Debtors",
+          category: "assets",
+          status: true,
+        });
+      }
+
+      // Self-registered app/website customers are always the "EndUser"
+      // channel — same default channel every admin gets auto-created for
+      // them at signup (see adminResolvers.addAdmin) — never a channel an
+      // admin/salesman assigns manually (Retailer/Wholesaler/Distributor).
+      let endUserChannel = await Channel.findOne({ admin: adminId, channelName: "EndUser" });
+      if (!endUserChannel) {
+        endUserChannel = await Channel.create({
+          admin: adminId,
+          channelName: "EndUser",
+          isDefault: true,
+          status: true,
+        });
+      }
+
+      const account = new Account({
+        admin: adminId,
+        name,
+        mobile,
+        email: email || undefined,
+        type: "customer",
+        accountgroupid: group._id,
+        channel: endUserChannel._id,
+        status: true,
+      });
+      await account.save();
+
+      try {
+        await pushNotification({
+          adminid: adminId,
+          targettype: "admin",
+          ntype: "party",
+          title: `New customer "${name}" self-registered`,
+          message: mobile || "",
+          webpath: "/accounts",
+          docmodel: "Account",
+          docid: account._id,
+        });
+      } catch (e) { /* notifications are best-effort */ }
+
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+      await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+
+      // TODO: replace with SMS provider (Twilio, AWS SNS, etc.) and remove otp from response
+      console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
+
+      return { success: true, message: "Registered successfully. OTP sent.", otp };
     },
 
     verifyOTP: async (_: any, { adminId, mobile, otp }: any, { res }: any) => {

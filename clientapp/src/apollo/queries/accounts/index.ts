@@ -7,6 +7,7 @@ export const GET_PRODUCTS = gql`
       name
       description
       imageurl
+      imageurls
       status
       categoryid { id categoryname }
       productvariants {
@@ -197,6 +198,7 @@ export const GET_ACCOUNT = gql`
       openingbalance
       openingbalancetype
       outstanding
+      accountgroupid { id }
       channel    { id channelName }
       region
       salesmanid { id name }

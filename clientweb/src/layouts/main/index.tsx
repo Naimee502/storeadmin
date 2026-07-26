@@ -17,7 +17,7 @@ export default function MainLayout() {
 
   return (
     <AuthProvider storeSlug={tenant.storeSlug}>
-      <CartProvider>
+      <CartProvider storeSlug={tenant.storeSlug}>
         <div className="flex min-h-screen flex-col bg-white">
           <Header />
           <main className="flex-1 pb-16 lg:pb-0">

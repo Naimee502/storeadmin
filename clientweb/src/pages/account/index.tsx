@@ -27,9 +27,11 @@ import {
   Bell,
   LayoutDashboard,
   Boxes,
+  Pencil,
 } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
+import AddressForm from "../../components/addressform";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -42,6 +44,9 @@ import {
 } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
 import { orderStatus, formatBillNumber, formatDate, titleCase, type FilterKey } from "../../utils/orders";
+import { stateOptions } from "../../utils/states";
+
+const stateLabel = (value?: string) => (value ? stateOptions.find((s) => s.value === value)?.label : undefined);
 
 type Tab = "dashboard" | "orders" | "payments" | "profile";
 
@@ -83,6 +88,7 @@ export default function AccountPage() {
     setSearchParams(t === "dashboard" ? {} : { tab: t });
   };
   const [dashboardCategory, setDashboardCategory] = useState<string>("all");
+  const [editingProfileAddress, setEditingProfileAddress] = useState(false);
   const [filter, setFilter] = useState<FilterKey>("all");
   // Scope: own vs sub-party (downline) records — only meaningful when the
   // business has "Party manages downline" on AND this party actually has
@@ -95,7 +101,7 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const { products, categories } = useCatalog();
 
-  const { data: accountData } = useQuery(GET_ACCOUNT, {
+  const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: account?.id, adminId: adminid },
     skip: !account?.id || !adminid,
   });
@@ -180,6 +186,7 @@ export default function AccountPage() {
   const myOrders = allOrders.filter((o: any) => o.partyacc?.id === account.id);
   const outstandingInvoices = myOrders.filter((o: any) => o.isConverted && o.cancelStatus !== "cancelled");
   const showDownlineUI = manageDownline && hasDownline;
+  const hasAddress = !!(fullAccount?.address && fullAccount?.city && fullAccount?.state && fullAccount?.pincode);
 
   const displayName = fullAccount?.name || account.name;
   const initials = displayName
@@ -633,15 +640,6 @@ export default function AccountPage() {
                     <InfoRow icon={Phone} label="Mobile" value={fullAccount?.mobile || account.mobile} />
                     {fullAccount?.email && <InfoRow icon={Mail} label="Email" value={fullAccount.email} />}
                     {fullAccount?.accountcode && <InfoRow icon={UserCircle} label="Account Code" value={fullAccount.accountcode} />}
-                    {(fullAccount?.address || fullAccount?.city) && (
-                      <InfoRow
-                        icon={MapPin}
-                        label="Address"
-                        value={[fullAccount?.address, fullAccount?.city, fullAccount?.state, fullAccount?.pincode]
-                          .filter(Boolean)
-                          .join(", ")}
-                      />
-                    )}
                     {fullAccount?.channel?.channelName && (
                       <InfoRow icon={Tag} label="Channel" value={fullAccount.channel.channelName} />
                     )}
@@ -650,6 +648,40 @@ export default function AccountPage() {
                       <InfoRow icon={UserCircle} label="Salesman" value={fullAccount.salesmanid.name} />
                     )}
                   </div>
+                </div>
+
+                <div className="mb-4 rounded-2xl border border-slate-100 p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-bold text-ink-900">Delivery Address</p>
+                    {hasAddress && !editingProfileAddress && (
+                      <button
+                        onClick={() => setEditingProfileAddress(true)}
+                        className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    )}
+                  </div>
+                  {editingProfileAddress || !hasAddress ? (
+                    <AddressForm
+                      accountId={account.id}
+                      name={fullAccount?.name || account.name}
+                      accountGroupId={fullAccount?.accountgroupid?.id}
+                      initial={fullAccount}
+                      submitLabel={hasAddress ? "Save Address" : "Add Address"}
+                      onSaved={() => {
+                        setEditingProfileAddress(false);
+                        refetchAccount();
+                      }}
+                    />
+                  ) : (
+                    <p className="flex items-start gap-1.5 text-sm text-slate-600">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      {[fullAccount?.address, fullAccount?.city, stateLabel(fullAccount?.state), fullAccount?.pincode]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                  )}
                 </div>
 
                 {hasFinancial && (

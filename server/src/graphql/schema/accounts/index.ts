@@ -169,5 +169,12 @@ export const accountTypeDefs = gql`
     resetAccount(id: ID!): Boolean!
     sendOTP(adminId: ID!, mobile: String!): SendOTPResponse!
     verifyOTP(adminId: ID!, mobile: String!, otp: String!): VerifyOTPResponse!
+    # Self-service signup for an unregistered mobile number (app/website "New
+    # Customer" flow) — creates a real end-user Account (type "customer",
+    # auto-assigned to the tenant's "Sundry Debtors" group, which triggers the
+    # existing pre-save hook to auto-create its Ledger + accountcode too),
+    # then sends an OTP exactly like sendOTP so the caller can go straight to
+    # OTP verification afterwards.
+    registerAccount(adminId: ID!, name: String!, mobile: String!, email: String): SendOTPResponse!
   }
 `;

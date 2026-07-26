@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useMutation } from "@apollo/client";
-import { CheckCircle2, Wallet, Landmark, Smartphone, Building2, Package, Truck, LogIn } from "lucide-react";
+import { useMutation, useQuery } from "@apollo/client";
+import { CheckCircle2, Wallet, Landmark, Smartphone, Building2, Package, Truck, LogIn, MapPin, Pencil } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
+import AddressForm from "../../components/addressform";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
 import { useBusinessSettings } from "../../contexts/businesssettings";
 import { useChargePreview } from "../../hooks/useChargePreview";
 import { useDownline } from "../../hooks/useDownline";
-import { ADD_SALES_ORDER, GET_SALES_ORDERS } from "../../graphql/queries/accounts";
+import { ADD_SALES_ORDER, GET_SALES_ORDERS, GET_ACCOUNT } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
+import { stateOptions } from "../../utils/states";
 
 type PaymentMethod = "cod" | "upi" | "card" | "netbanking" | "party";
 
@@ -33,8 +35,19 @@ export default function CheckoutPage() {
   const [placedOrder, setPlacedOrder] = useState<{ billnumber?: string } | null>(null);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
 
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
+
+  // A delivery address is required before checking out — same fields the
+  // admin panel's Add Account "Address Info" section collects. Guests never
+  // reach here (isLoggedIn gate below), so this only runs for a real account.
+  const { data: accountData, loading: accountLoading, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
+    variables: { id: account?.id, adminId: adminid },
+    skip: !account?.id || !adminid,
+  });
+  const fullAccount = accountData?.getAccountById;
+  const hasAddress = !!(fullAccount?.address && fullAccount?.city && fullAccount?.state && fullAccount?.pincode);
 
   // Business Settings → "Cash on Delivery only" hides every online method,
   // including party-account billing, and locks the selection to COD.
@@ -64,6 +77,16 @@ export default function CheckoutPage() {
       return;
     }
     if (lines.length === 0) return;
+    // Hard safety net — the render gate below normally stops the user before
+    // they ever see this button without an address on file, but it can only
+    // do that once GET_ACCOUNT has loaded. Re-check here too so a click that
+    // lands during that loading window (e.g. right after a fresh
+    // registration) can never place an order without a delivery address.
+    if (!hasAddress) {
+      setEditingAddress(false);
+      setError("Please add your delivery address before placing the order.");
+      return;
+    }
 
     setError(null);
     setPlacing(true);
@@ -155,6 +178,44 @@ export default function CheckoutPage() {
     );
   }
 
+  // Still waiting on GET_ACCOUNT (e.g. the split-second right after a fresh
+  // registration + redirect here) — don't render the full checkout form yet.
+  // Otherwise the "Place Order" button would be live during a window where
+  // we don't yet know whether an address is on file.
+  if (accountLoading && !fullAccount) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center text-sm text-slate-400">Loading your account…</div>
+    );
+  }
+
+  // No delivery address on file yet — collect one before anything else,
+  // same Address/City/State/Pincode fields the admin panel's Add Account
+  // page uses. Waits for the account to actually load first so this doesn't
+  // flash before we know either way.
+  if (fullAccount && !hasAddress && !editingAddress) {
+    return (
+      <div>
+        <Breadcrumb items={[{ label: "Cart", to: "/cart" }, { label: "Checkout" }]} />
+        <div className="mx-auto max-w-md px-4 py-12 sm:px-6">
+          <div className="mb-6 text-center">
+            <MapPin className="mx-auto h-10 w-10 text-brand-600" />
+            <h1 className="mt-3 text-xl font-bold text-ink-900">Add a delivery address</h1>
+            <p className="mt-1 text-sm text-slate-500">We need this to deliver your order — you'll only have to do this once.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-100 p-5">
+            <AddressForm
+              accountId={account!.id}
+              name={fullAccount.name}
+              accountGroupId={fullAccount.accountgroupid?.id}
+              submitLabel="Save & Continue"
+              onSaved={() => refetchAccount()}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <Breadcrumb items={[{ label: "Cart", to: "/cart" }, { label: "Checkout" }]} />
@@ -172,9 +233,45 @@ export default function CheckoutPage() {
           <div className="space-y-6">
             {/* Account */}
             <div className="rounded-2xl border border-slate-100 p-5">
-              <h2 className="mb-1 text-base font-bold text-ink-900">Delivering to</h2>
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="text-base font-bold text-ink-900">Delivering to</h2>
+                {hasAddress && !editingAddress && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingAddress(true)}
+                    className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                )}
+              </div>
               <p className="text-sm text-ink-900">{account?.name}</p>
               <p className="text-sm text-slate-500">+91 {account?.mobile}</p>
+
+              {editingAddress ? (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <AddressForm
+                    accountId={account!.id}
+                    name={fullAccount?.name || account!.name}
+                    accountGroupId={fullAccount?.accountgroupid?.id}
+                    initial={fullAccount}
+                    submitLabel="Save Address"
+                    onSaved={() => {
+                      setEditingAddress(false);
+                      refetchAccount();
+                    }}
+                  />
+                </div>
+              ) : (
+                hasAddress && (
+                  <p className="mt-2 flex items-start gap-1.5 border-t border-slate-100 pt-2.5 text-sm text-slate-600">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                    {[fullAccount?.address, fullAccount?.city, fullAccount?.state && stateOptions.find((s) => s.value === fullAccount.state)?.label, fullAccount?.pincode]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )
+              )}
             </div>
 
             {/* Payment */}

@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMutation } from "@apollo/client";
-import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, Mail, MessageCircle } from "lucide-react";
+import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, User, Mail } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
-import { SEND_OTP, VERIFY_OTP } from "../../graphql/queries/accounts";
+import { SEND_OTP, VERIFY_OTP, REGISTER_ACCOUNT } from "../../graphql/queries/accounts";
 
-type Step = "mobile" | "otp" | "success";
+type Step = "mobile" | "register" | "otp" | "success";
 
-// Real party login — the same sendOTP/verifyOTP the mobile app uses against
-// the Account/Party model. There's no self-service signup here: an Account
-// document has to already exist for this business + mobile number (created
-// by the admin/salesman) before OTP login works, so "Create Account" is an
-// informational tab pointing people at the business instead of a fake form.
+// Real party login against the Account/Party model — same sendOTP/verifyOTP
+// the mobile app uses. Entering a mobile number that has no matching
+// Account drops straight into an inline registration form (Name + Email
+// only — Party Type/Sales Channel/Ledger are all set automatically
+// server-side by registerAccount), then continues into the same OTP step
+// as an existing account would. No separate "New Customer" tab/toggle —
+// the mobile number itself is what decides which path this takes.
 export default function LoginPage() {
-  const { companyName, adminid, supportPhone, supportEmail, supportWhatsapp } = useTenant();
+  const { companyName, adminid } = useTenant();
   const { setSession } = useAuth();
   const [searchParams] = useSearchParams();
   // Checkout (and anywhere else that requires login) links here with
@@ -23,9 +25,10 @@ export default function LoginPage() {
   // instead of always bouncing to Home/Account after logging in.
   const redirectTo = searchParams.get("redirect");
   const brandName = companyName || siteConfig.name;
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(4).fill(""));
   const [resendIn, setResendIn] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +36,7 @@ export default function LoginPage() {
 
   const [sendOtpMutation, { loading: sending }] = useMutation(SEND_OTP);
   const [verifyOtpMutation, { loading: verifying }] = useMutation(VERIFY_OTP);
+  const [registerMutation, { loading: registering }] = useMutation(REGISTER_ACCOUNT);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -47,7 +51,7 @@ export default function LoginPage() {
   // line. Nothing will visibly happen on localhost — this is wired up for
   // when a real SMS gateway is connected in production.
   useEffect(() => {
-    if (mode !== "login" || step !== "otp") return;
+    if (step !== "otp") return;
     if (!("OTPCredential" in window)) return;
     const controller = new AbortController();
     (navigator.credentials as any)
@@ -61,7 +65,7 @@ export default function LoginPage() {
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, step]);
+  }, [step]);
 
   const requestOtp = async () => {
     if (!adminid) {
@@ -87,17 +91,41 @@ export default function LoginPage() {
       setResendIn(30);
     } catch (err: any) {
       const msg: string = err?.message || "";
-      setError(
-        msg.includes("not registered")
-          ? "This mobile number isn't registered with us yet. Please contact us to get set up."
-          : "Couldn't send the OTP. Please try again."
-      );
+      if (msg.includes("not registered")) {
+        // No Account exists for this number yet — drop into the inline
+        // registration form instead of just showing an error.
+        setStep("register");
+        return;
+      }
+      setError("Couldn't send the OTP. Please try again.");
     }
   };
 
   const sendOtp = (e: React.FormEvent) => {
     e.preventDefault();
     requestOtp();
+  };
+
+  const submitRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminid) return;
+    setError(null);
+    try {
+      const { data } = await registerMutation({
+        variables: { adminId: adminid, name: name.trim(), mobile, email: email.trim() || null },
+      });
+      if (!data?.registerAccount?.success) {
+        setError(data?.registerAccount?.message || "Couldn't create your account. Please try again.");
+        return;
+      }
+      // Same dev-only OTP pre-fill as requestOtp — see comment there.
+      const devOtp: string | undefined = data.registerAccount.otp;
+      setOtp(devOtp ? devOtp.padStart(4, "0").slice(-4).split("") : Array(4).fill(""));
+      setStep("otp");
+      setResendIn(30);
+    } catch (err: any) {
+      setError(err?.message || "Couldn't create your account. Please try again.");
+    }
   };
 
   const verifyOtp = async (e: React.FormEvent) => {
@@ -166,34 +194,15 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-100 p-6 shadow-sm">
-          {/* Tabs */}
-          <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-            {(["login", "register"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => {
-                  setMode(m);
-                  setStep("mobile");
-                  setError(null);
-                }}
-                className={`rounded-md py-2 text-sm font-semibold transition ${
-                  mode === m ? "bg-white text-brand-700 shadow-sm" : "text-slate-500"
-                }`}
-              >
-                {m === "login" ? "Login" : "New Customer"}
-              </button>
-            ))}
-          </div>
-
           {error && (
             <div className="mb-4 flex items-start gap-2 rounded-lg bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> <span>{error}</span>
             </div>
           )}
 
-          {mode === "login" && step === "mobile" && (
+          {step === "mobile" && (
             <form onSubmit={sendOtp} className="space-y-4">
-              <p className="text-sm text-slate-500">Enter your registered mobile number to receive a one-time password.</p>
+              <p className="text-sm text-slate-500">Enter your mobile number to receive a one-time password.</p>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-900">Mobile Number</label>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
@@ -218,12 +227,70 @@ export default function LoginPage() {
                 {sending ? "Sending OTP…" : "Send OTP"}
               </button>
               <p className="text-center text-xs text-slate-400">
+                New here? Just enter your number — we'll set your account up in a moment.
+              </p>
+              <p className="text-center text-xs text-slate-400">
                 By continuing you agree to {brandName}'s Terms of Service &amp; Privacy Policy.
               </p>
             </form>
           )}
 
-          {mode === "login" && step === "otp" && (
+          {step === "register" && (
+            <form onSubmit={submitRegister} className="space-y-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("mobile");
+                  setError(null);
+                }}
+                className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-700"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Change number
+              </button>
+              <p className="text-sm text-slate-500">
+                +91 {mobile} isn't registered yet — tell us a bit about yourself to get set up.
+              </p>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Full Name</label>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
+                  <User className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Email (optional)</label>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!name.trim() || registering || !adminid}
+                className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {registering ? "Creating account…" : "Create Account & Send OTP"}
+              </button>
+              <p className="text-center text-xs text-slate-400">
+                By continuing you agree to {brandName}'s Terms of Service &amp; Privacy Policy.
+              </p>
+            </form>
+          )}
+
+          {step === "otp" && (
             <form onSubmit={verifyOtp} className="space-y-4">
               <button
                 type="button"
@@ -271,47 +338,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          {mode === "login" && step === "success" && <SuccessState redirectTo={redirectTo} />}
-
-          {mode === "register" && (
-            <div className="space-y-4 text-center">
-              <p className="text-sm text-slate-600">
-                New customer accounts (with your pricing, credit terms and order history) are set up by {brandName}
-                {" "}directly — get in touch and they'll register you in a moment.
-              </p>
-              <div className="space-y-2">
-                {supportPhone && (
-                  <a
-                    href={`tel:${supportPhone}`}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
-                  >
-                    <Phone className="h-4 w-4" /> {supportPhone}
-                  </a>
-                )}
-                {supportWhatsapp && (
-                  <a
-                    href={`https://wa.me/${supportWhatsapp.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
-                  >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp us
-                  </a>
-                )}
-                {supportEmail && (
-                  <a
-                    href={`mailto:${supportEmail}`}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50"
-                  >
-                    <Mail className="h-4 w-4" /> {supportEmail}
-                  </a>
-                )}
-              </div>
-              {!supportPhone && !supportWhatsapp && !supportEmail && (
-                <p className="text-xs text-slate-400">Contact details for this business aren't set up yet.</p>
-              )}
-            </div>
-          )}
+          {step === "success" && <SuccessState redirectTo={redirectTo} />}
         </div>
       </div>
     </div>

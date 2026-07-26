@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, InteractionManager, Modal } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -9,7 +9,7 @@ import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { ProfileSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_ACCOUNT } from '../../../../apollo/queries/accounts';
 import { formatINR } from '../../../../utils';
-import { AppHeader, AppModal } from '../../../../components';
+import { AppHeader, AppModal, AddressForm } from '../../../../components';
 import { logout } from '../../../../store/slices';
 import { useAuth } from '../../../../navigation';
 import type { RootState } from '../../../../store/rootreducer';
@@ -32,6 +32,7 @@ function InfoRow({ icon, label, value, colors }: { icon: string; label: string; 
 
 export default function PartyProfile() {
   const [logoutModal, setLogoutModal] = useState(false);
+  const [addressModal, setAddressModal] = useState(false);
   const { colors, isDark } = useTheme();
   const dispatch  = useDispatch();
   const { signOut } = useAuth();
@@ -39,7 +40,7 @@ export default function PartyProfile() {
   const tenant  = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
 
-  const { data, loading } = useQuery(GET_ACCOUNT, {
+  const { data, loading, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: user?.id, adminId: adminid },
     skip: !adminid || !user?.id,
   });
@@ -93,7 +94,14 @@ export default function PartyProfile() {
             <InfoRow icon="email-outline"            label="Email"        value={account?.email ?? user?.email}   colors={colors} />
             <InfoRow icon="file-certificate-outline" label="GSTIN"        value={account?.gstnumber}              colors={colors} />
             <InfoRow icon="identifier"               label="Account Code" value={account?.accountcode}            colors={colors} />
-            <InfoRow icon="map-marker-outline"       label="Address"      value={address}                         colors={colors} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <InfoRow icon="map-marker-outline" label="Address" value={address} colors={colors} />
+              </View>
+              <TouchableOpacity onPress={() => setAddressModal(true)} style={styles.addrEditBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name={address ? 'pencil-outline' : 'plus-circle-outline'} size={16} color={colors.brand} />
+              </TouchableOpacity>
+            </View>
             <InfoRow icon="tag-outline"              label="Channel"      value={account?.channel?.channelName}    colors={colors} />
             <InfoRow icon="map-outline"              label="Region"       value={account?.region}                 colors={colors} />
             <InfoRow icon="account-tie-outline"      label="Salesman"     value={account?.salesmanid?.name}       colors={colors} />
@@ -144,6 +152,35 @@ export default function PartyProfile() {
         onClose={() => setLogoutModal(false)}
         onConfirm={handleLogout}
       />
+
+      <Modal visible={addressModal} transparent animationType="slide" onRequestClose={() => setAddressModal(false)}>
+        <View style={styles.addrOverlay}>
+          <View style={[styles.addrSheet, { backgroundColor: colors.background }]}>
+            <View style={styles.addrHeader}>
+              <Icon name="map-marker-outline" size={22} color={colors.brand} />
+              <Text style={[styles.addrTitle, { color: colors.text }]}>Delivery Address</Text>
+              <TouchableOpacity onPress={() => setAddressModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close" size={22} color={colors.subText} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {!!user?.id && (
+                <AddressForm
+                  accountId={user.id}
+                  name={account?.name || user?.name || ''}
+                  accountGroupId={account?.accountgroupid?.id}
+                  initial={account}
+                  submitLabel={address ? 'Save Address' : 'Add Address'}
+                  onSaved={() => {
+                    setAddressModal(false);
+                    refetchAccount();
+                  }}
+                />
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -186,4 +223,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   signOutText: { flex: 1, fontSize: 15, fontFamily: FONTS.semiBold },
+
+  addrEditBtn: { padding: 6 },
+  addrOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  addrSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' },
+  addrHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  addrTitle: { flex: 1, fontSize: 17, fontFamily: FONTS.bold },
 });

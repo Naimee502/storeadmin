@@ -112,9 +112,23 @@ export default function ProductDetail() {
   const fetchedProduct = allProducts.find((p: any) => p.id === productId);
   const product = fetchedProduct ?? DUMMY_PRODUCT;
 
-  // New photo → forget the last one's measured ratio so we don't render it
+  // Full gallery — same fallback as the website: imageurls[] if the admin
+  // uploaded more than one photo, otherwise just the single imageurl, or
+  // nothing at all (falls back to the decorative icon tile below).
+  const galleryImages: string[] = product.imageurls?.length ? product.imageurls : product.imageurl ? [product.imageurl] : [];
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+  useEffect(() => { setActiveImageIdx(0); }, [product.id]);
+  const mainImage = galleryImages[activeImageIdx] ?? galleryImages[0];
+
+  // New PRODUCT → forget the last one's measured ratio so we don't render it
   // with the wrong box size for a split second before onLoad fires again.
-  useEffect(() => { setImgRatio(null); }, [product.imageurl]);
+  // Deliberately NOT keyed on `mainImage`/thumbnail taps — resetting on every
+  // gallery-thumbnail switch collapsed the box back to the default size and
+  // then snapped to the new ratio once onLoad fired, which reflowed
+  // everything below it and looked like the whole screen refreshing.
+  // Keeping the previous ratio while the next photo loads makes the resize
+  // (if any) subtle instead of a visible jump.
+  useEffect(() => { setImgRatio(null); }, [product.id]);
 
   const variant = product.productvariants?.[selectedVariantIdx];
   const unitprice = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
@@ -221,10 +235,10 @@ export default function ProductDetail() {
               },
             ]}
           >
-            {product.imageurl
+            {mainImage
               ? (
                 <Image
-                  source={{ uri: product.imageurl }}
+                  source={{ uri: mainImage }}
                   style={styles.img}
                   resizeMode="cover"
                   onLoad={(e) => {
@@ -242,6 +256,26 @@ export default function ProductDetail() {
             </View>
           )}
         </Animated.View>
+
+        {/* Gallery thumbnails — only worth showing once there's more than
+            one photo to switch between. */}
+        {galleryImages.length > 1 && (
+          <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.thumbRow}>
+            {galleryImages.map((uri, i) => (
+              <TouchableOpacity
+                key={`${uri}-${i}`}
+                onPress={() => setActiveImageIdx(i)}
+                style={[
+                  styles.thumb,
+                  { borderColor: i === activeImageIdx ? colors.brand : colors.border },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Image source={{ uri }} style={styles.thumbImg} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        )}
 
         {/* Name + category + price */}
         <Animated.View entering={FadeInUp.duration(400).delay(80)} style={styles.infoBlock}>
@@ -427,6 +461,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 8, alignItems: 'center',
   },
   oosText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
+
+  thumbRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  thumb: { width: 56, height: 56, borderRadius: 12, borderWidth: 1.5, overflow: 'hidden' },
+  thumbImg: { width: '100%', height: '100%' },
 
   infoBlock: { marginBottom: 14 },
   category: { fontSize: 12, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },

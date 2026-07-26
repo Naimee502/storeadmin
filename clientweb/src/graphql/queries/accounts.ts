@@ -1,9 +1,9 @@
 import { gql } from "@apollo/client";
 
 // Same OTP login the mobile app (clientapp) uses against the Account/Party
-// model — an Account document must already exist for this adminid+mobile
-// (created by the admin/salesman) for sendOTP to succeed; there's no
-// self-service account creation here.
+// model. If the mobile number has no matching Account yet, sendOTP throws
+// "Mobile number not registered." — the login page catches that and drops
+// into the registerAccount flow below instead of just showing an error.
 export const SEND_OTP = gql`
   mutation SendOTP($adminId: ID!, $mobile: String!) {
     sendOTP(adminId: $adminId, mobile: $mobile) {
@@ -29,6 +29,20 @@ export const VERIFY_OTP = gql`
   }
 `;
 
+// Self-service signup for an unregistered mobile number — Name + Email only
+// (Party Type/Sales Channel/etc. are all set automatically server-side).
+// Returns the same shape as sendOTP so the login page can flow straight
+// into OTP verification afterwards.
+export const REGISTER_ACCOUNT = gql`
+  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String) {
+    registerAccount(adminId: $adminId, name: $name, mobile: $mobile, email: $email) {
+      success
+      message
+      otp
+    }
+  }
+`;
+
 // Account Details + Financial sections on the app's Profile screen.
 export const GET_ACCOUNT = gql`
   query GetAccount($id: ID!, $adminId: ID!) {
@@ -41,16 +55,39 @@ export const GET_ACCOUNT = gql`
       address
       city
       state
+      country
       pincode
+      latitude
+      longitude
       gstnumber
       creditlimit
       openingbalance
       openingbalancetype
       outstanding
+      accountgroupid { id }
       channel    { id channelName }
       region
       salesmanid { id name }
       ledgerid   { id ledgername }
+    }
+  }
+`;
+
+// Self-service address update — AccountInput requires name + accountgroupid
+// even for a partial edit (the resolver just $sets whatever's sent, but the
+// schema itself demands both), so callers must always resend those two
+// alongside whatever fields they're actually changing.
+export const EDIT_ACCOUNT = gql`
+  mutation EditAccount($id: ID!, $input: AccountInput!) {
+    editAccount(id: $id, input: $input) {
+      id
+      address
+      city
+      state
+      country
+      pincode
+      latitude
+      longitude
     }
   }
 `;

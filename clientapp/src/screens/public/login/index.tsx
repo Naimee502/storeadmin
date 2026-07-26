@@ -12,7 +12,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, setBranch } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
-import { SEND_OTP } from '../../../apollo/mutations/accounts';
+import { SEND_OTP, REGISTER_ACCOUNT } from '../../../apollo/mutations/accounts';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../store/rootreducer';
 
@@ -28,12 +28,22 @@ export default function Login({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isStaffMode, setIsStaffMode] = useState(false);
-  const [errors, setErrors] = useState<{ mobile?: string; password?: string }>({});
+  // Entering a mobile number sendOTP doesn't recognize drops straight into
+  // this inline registration form (Name + Email only — Party Type/Sales
+  // Channel/Ledger are all set automatically server-side by
+  // registerAccount), instead of just showing "not registered" as an error.
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string }>({});
   const [mobileFocused, setMobileFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
 
   const mobileRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+  const nameRef = useRef<TextInput>(null);
 
   const validateMobile = () => {
     if (!mobile.trim() || mobile.replace(/\D/g, '').length < 10) {
@@ -60,10 +70,50 @@ export default function Login({ navigation }: any) {
       }
     } catch (err: any) {
       const msg = err?.message || 'Could not send OTP. Try again.';
+      if (msg.toLowerCase().includes('not registered')) {
+        setIsRegisterMode(true);
+        setErrors({});
+        setTimeout(() => nameRef.current?.focus(), 350);
+        return;
+      }
       setErrors(e => ({ ...e, mobile: msg }));
     } finally {
       showLoader(false);
     }
+  };
+
+  const handleRegister = async () => {
+    if (!validateMobile()) return;
+    if (!name.trim()) {
+      setErrors(e => ({ ...e, name: 'Enter your name' }));
+      return;
+    }
+    showLoader(true);
+    try {
+      const { data } = await apolloClient.mutate({
+        mutation: REGISTER_ACCOUNT,
+        variables: { adminId, name: name.trim(), mobile: mobile.trim(), email: email.trim() || null },
+      });
+      if (data?.registerAccount?.success) {
+        navigation.navigate('OTPVerification', {
+          mobile: mobile.trim(),
+          adminId,
+          autoOtp: data.registerAccount.otp ?? '',
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Could not create your account. Try again.';
+      setErrors(e => ({ ...e, mobile: msg }));
+    } finally {
+      showLoader(false);
+    }
+  };
+
+  const exitRegisterMode = () => {
+    setIsRegisterMode(false);
+    setName('');
+    setEmail('');
+    setErrors({});
   };
 
   const handleStaffLogin = async () => {
@@ -150,7 +200,9 @@ export default function Login({ navigation }: any) {
               <Text style={[styles.eyebrow, { color: colors.brand }]}>Business Suite</Text>
               <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>
-                {isStaffMode
+                {isRegisterMode
+                  ? "This number isn't registered yet — tell us a bit about yourself to get set up."
+                  : isStaffMode
                   ? 'Enter your mobile number and password to sign in.'
                   : 'Enter your mobile number to receive a one-time passcode.'}
               </Text>
@@ -174,11 +226,12 @@ export default function Login({ navigation }: any) {
                   placeholder="Enter mobile number"
                   placeholderTextColor={colors.placeholder}
                   value={mobile}
+                  editable={!isRegisterMode}
                   onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); }}
                   keyboardType="number-pad"
                   maxLength={10}
-                  returnKeyType={isStaffMode ? 'next' : 'done'}
-                  onSubmitEditing={isStaffMode ? () => passwordRef.current?.focus() : handleSendOTP}
+                  returnKeyType={isRegisterMode ? 'done' : isStaffMode ? 'next' : 'done'}
+                  onSubmitEditing={isRegisterMode ? undefined : isStaffMode ? () => passwordRef.current?.focus() : handleSendOTP}
                   onFocus={() => setMobileFocused(true)}
                   onBlur={() => setMobileFocused(false)}
                 />
@@ -189,9 +242,66 @@ export default function Login({ navigation }: any) {
                   <Text style={styles.errorText}>{errors.mobile}</Text>
                 </View>
               )}
+              {isRegisterMode && (
+                <TouchableOpacity onPress={exitRegisterMode} style={{ marginTop: 6, marginLeft: 2 }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={[styles.staffToggleText, { color: colors.brand, fontSize: 12 }]}>Change number</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Registration fields — Name + Email only, everything else
+                  (Party Type, Sales Channel, Ledger) is set automatically. */}
+              {isRegisterMode && (
+                <Animated.View entering={FadeInDown.duration(350)}>
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Full Name</Text>
+                  <View style={[styles.inputRow, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: errors.name ? '#ef4444' : nameFocused ? colors.brand : colors.border,
+                  }]}>
+                    <Icon name="account-outline" size={20} color={nameFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                    <TextInput
+                      ref={nameRef}
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="Your full name"
+                      placeholderTextColor={colors.placeholder}
+                      value={name}
+                      onChangeText={t => { setName(t); setErrors(e => ({ ...e, name: undefined })); }}
+                      returnKeyType="next"
+                      onFocus={() => setNameFocused(true)}
+                      onBlur={() => setNameFocused(false)}
+                    />
+                  </View>
+                  {!!errors.name && (
+                    <View style={styles.errorRow}>
+                      <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                      <Text style={styles.errorText}>{errors.name}</Text>
+                    </View>
+                  )}
+
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Email (optional)</Text>
+                  <View style={[styles.inputRow, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: emailFocused ? colors.brand : colors.border,
+                  }]}>
+                    <Icon name="email-outline" size={20} color={emailFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="you@example.com"
+                      placeholderTextColor={colors.placeholder}
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      returnKeyType="done"
+                      onSubmitEditing={handleRegister}
+                      onFocus={() => setEmailFocused(true)}
+                      onBlur={() => setEmailFocused(false)}
+                    />
+                  </View>
+                </Animated.View>
+              )}
 
               {/* Staff password section */}
-              {isStaffMode && (
+              {!isRegisterMode && isStaffMode && (
                 <Animated.View entering={FadeInDown.duration(350)}>
                   <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Password</Text>
                   <View style={[styles.inputRow, {
@@ -228,7 +338,7 @@ export default function Login({ navigation }: any) {
               {/* Primary action button */}
               <TouchableOpacity
                 style={[styles.primaryBtn, { marginTop: 20 }]}
-                onPress={isStaffMode ? handleStaffLogin : handleSendOTP}
+                onPress={isRegisterMode ? handleRegister : isStaffMode ? handleStaffLogin : handleSendOTP}
                 activeOpacity={0.85}
               >
                 <LinearGradient
@@ -236,25 +346,34 @@ export default function Login({ navigation }: any) {
                   style={styles.btnGrad}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.btnText}>{isStaffMode ? 'Sign In' : 'Send OTP'}</Text>
-                  <Icon name={isStaffMode ? 'login' : 'message-badge-outline'} size={18} color={COLORS.light.onBrand} style={{ marginLeft: 8 }} />
+                  <Text style={styles.btnText}>
+                    {isRegisterMode ? 'Create Account & Send OTP' : isStaffMode ? 'Sign In' : 'Send OTP'}
+                  </Text>
+                  <Icon
+                    name={isRegisterMode ? 'account-plus-outline' : isStaffMode ? 'login' : 'message-badge-outline'}
+                    size={18}
+                    color={COLORS.light.onBrand}
+                    style={{ marginLeft: 8 }}
+                  />
                 </LinearGradient>
               </TouchableOpacity>
 
               {/* Staff mode toggle */}
-              <TouchableOpacity style={styles.staffToggle} onPress={toggleStaffMode} activeOpacity={0.7}>
-                {isStaffMode
-                  ? <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
-                    <Icon name="arrow-left" size={16} color={colors.brand} />
-                    <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Back to OTP login</Text>
-                  </Animated.View>
-                  : <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
-                    <Icon name="account-tie-outline" size={18} color={colors.brand} />
-                    <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Login as Staff</Text>
-                    <Icon name="chevron-right" size={16} color={colors.brand} />
-                  </Animated.View>
-                }
-              </TouchableOpacity>
+              {!isRegisterMode && (
+                <TouchableOpacity style={styles.staffToggle} onPress={toggleStaffMode} activeOpacity={0.7}>
+                  {isStaffMode
+                    ? <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
+                      <Icon name="arrow-left" size={16} color={colors.brand} />
+                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Back to OTP login</Text>
+                    </Animated.View>
+                    : <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
+                      <Icon name="account-tie-outline" size={18} color={colors.brand} />
+                      <Text style={[styles.staffToggleText, { color: colors.brand }]}>  Login as Staff</Text>
+                      <Icon name="chevron-right" size={16} color={colors.brand} />
+                    </Animated.View>
+                  }
+                </TouchableOpacity>
+              )}
             </Animated.View>
 
             {/* Terms */}

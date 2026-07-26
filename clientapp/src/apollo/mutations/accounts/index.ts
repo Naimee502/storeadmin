@@ -25,6 +25,20 @@ export const VERIFY_OTP = gql`
   }
 `;
 
+// Self-service signup for an unregistered mobile number — Name + Email only
+// (Party Type/Sales Channel/Ledger are all set automatically server-side).
+// Same response shape as SEND_OTP so the Login screen can flow straight
+// into OTP verification afterwards.
+export const REGISTER_ACCOUNT = gql`
+  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String) {
+    registerAccount(adminId: $adminId, name: $name, mobile: $mobile, email: $email) {
+      success
+      message
+      otp
+    }
+  }
+`;
+
 export const ADD_SALES_ORDER = gql`
   mutation AddSalesOrder($input: SalesOrderInput!) {
     addSalesOrder(input: $input) {
@@ -143,6 +157,10 @@ export const EDIT_ACCOUNT = gql`
       id
       latitude
       longitude
+      address
+      city
+      state
+      pincode
     }
   }
 `;

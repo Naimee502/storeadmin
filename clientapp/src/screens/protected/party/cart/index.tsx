@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, Alert,
+  StatusBar, Image, Alert, Modal, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import { useMutation, useApolloClient } from '@apollo/client/react';
+import { useMutation, useQuery, useApolloClient } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { formatINR } from '../../../../utils';
-import { AppHeader, DynamicFlashList } from '../../../../components';
+import { AppHeader, DynamicFlashList, AddressForm } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
-import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ACCOUNT } from '../../../../apollo/queries/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
@@ -30,9 +30,19 @@ export default function CartScreen() {
   const adminid = tenant.adminId ?? '';
   const branchid = tenant.branchId ?? '';
   const [placing, setPlacing] = useState(false);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
   const showPrice = useShowProductPrice();
 
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
+
+  // A delivery address is required before placing an order — same fields
+  // the admin panel's Add Account "Address Info" section collects.
+  const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
+    variables: { id: user?.id, adminId: adminid },
+    skip: !user?.id || !adminid,
+  });
+  const fullAccount = (accountData as any)?.getAccountById;
+  const hasAddress = !!(fullAccount?.address && fullAccount?.city && fullAccount?.state && fullAccount?.pincode);
 
   const subtotal = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
   const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
@@ -45,7 +55,16 @@ export default function CartScreen() {
   const charges = useChargePreview(subtotal, 'party');
   const grandTotal = total + charges.total;
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = () => {
+    if (cartItems.length === 0) return;
+    if (!hasAddress) {
+      setAddressModalOpen(true);
+      return;
+    }
+    submitOrder();
+  };
+
+  const submitOrder = async () => {
     if (cartItems.length === 0) return;
     setPlacing(true);
     try {
@@ -253,6 +272,41 @@ export default function CartScreen() {
           ListFooterComponent={<Footer />}
         />
       )}
+
+      {/* Delivery address required before placing an order — same fields
+          the admin panel's Add Account "Address Info" section collects. */}
+      <Modal visible={addressModalOpen} transparent animationType="slide" onRequestClose={() => setAddressModalOpen(false)}>
+        <View style={styles.addrOverlay}>
+          <View style={[styles.addrSheet, { backgroundColor: colors.background }]}>
+            <View style={styles.addrHeader}>
+              <Icon name="map-marker-outline" size={22} color={colors.brand} />
+              <Text style={[styles.addrTitle, { color: colors.text }]}>Add a delivery address</Text>
+              <TouchableOpacity onPress={() => setAddressModalOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close" size={22} color={colors.subText} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.addrSubtitle, { color: colors.subText }]}>
+              We need this to deliver your order — you'll only have to do this once.
+            </Text>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {!!user?.id && (
+                <AddressForm
+                  accountId={user.id}
+                  name={fullAccount?.name || user?.name || ''}
+                  accountGroupId={fullAccount?.accountgroupid?.id}
+                  initial={fullAccount}
+                  submitLabel="Save & Place Order"
+                  onSaved={() => {
+                    setAddressModalOpen(false);
+                    refetchAccount();
+                    submitOrder();
+                  }}
+                />
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -308,4 +362,10 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontFamily: FONTS.semiBold },
   browseBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
   browseBtnText: { fontSize: 14, fontFamily: FONTS.bold },
+
+  addrOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  addrSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' },
+  addrHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  addrTitle: { flex: 1, fontSize: 17, fontFamily: FONTS.bold },
+  addrSubtitle: { fontSize: 13, fontFamily: FONTS.regular, marginBottom: 16, lineHeight: 19 },
 });
