@@ -42,6 +42,10 @@ interface TenantContextValue {
 
   heroBannerSlides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
   promoBanners: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
+
+  // Home page "trust bar" stat tiles (Settings → General on the admin
+  // panel). Empty = clientweb keeps its own built-in placeholder stats.
+  businessStats: { label?: string; value?: string }[];
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -102,6 +106,8 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
 
     heroBannerSlides: info?.heroBannerSlides ?? [],
     promoBanners: info?.promoBanners ?? [],
+
+    businessStats: info?.businessStats ?? [],
   };
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

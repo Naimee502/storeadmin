@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Heart, Plus, Minus, Star } from "lucide-react";
+import { Plus, Minus, Star } from "lucide-react";
 import type { SampleProduct } from "../../data/sampleData";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
@@ -13,9 +13,8 @@ const badgeStyles: Record<string, string> = {
 };
 
 export default function ProductCard({ product }: { product: SampleProduct }) {
-  const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart } = useCart();
   const { displayProductPrice } = useTenant();
-  const [wished, setWished] = useState(false);
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
 
@@ -73,17 +72,6 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
             {product.badge}
           </span>
         )}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            setWished((w) => !w);
-            if (!wished) addToWishlist();
-          }}
-          className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/80 hover:bg-white"
-          aria-label="Add to wishlist"
-        >
-          <Heart className={`h-3.5 w-3.5 ${wished ? "fill-rose-500 text-rose-500" : "text-slate-500"}`} />
-        </button>
         {product.imageurl ? (
           <img src={product.imageurl} alt={product.name} className="h-full w-full object-cover" />
         ) : (

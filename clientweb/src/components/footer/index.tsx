@@ -16,7 +16,6 @@ const accountLinks = [
   { label: "Login / Sign up", to: "/login" },
   { label: "Order History", to: "/account?tab=orders" },
   { label: "Track Order", to: "/account?tab=orders" },
-  { label: "Wishlist", to: "/account" },
 ];
 
 const supportLinks = [

@@ -17,6 +17,17 @@ export const adminSettingsTypeDefs = gql`
     link: String
   }
 
+  # "Trust bar" stat tile — e.g. { label: "Active retail partners", value: "12,400+" }.
+  type BusinessStat {
+    label: String
+    value: String
+  }
+
+  input BusinessStatInput {
+    label: String
+    value: String
+  }
+
   # A single product+variant pick — used independently by Featured
   # Products, New Arrivals and Deal of the Day, so each Home page
   # section can have its own curated list.
@@ -123,6 +134,9 @@ export const adminSettingsTypeDefs = gql`
     # Promo tiles between Featured Products and New Arrivals.
     promoBanners: [HeroBannerSlide!]
 
+    # Home page "trust bar" stat tiles.
+    businessStats: [BusinessStat!]
+
     createdAt: String
     updatedAt: String
   }
@@ -164,6 +178,8 @@ export const adminSettingsTypeDefs = gql`
 
     heroBannerSlides: [HeroBannerSlide!]
     promoBanners: [HeroBannerSlide!]
+
+    businessStats: [BusinessStat!]
   }
 
   # Partial input — only sends fields that changed. Server merges over the
@@ -242,6 +258,8 @@ export const adminSettingsTypeDefs = gql`
 
     heroBannerSlides: [HeroBannerSlideInput!]
     promoBanners: [HeroBannerSlideInput!]
+
+    businessStats: [BusinessStatInput!]
   }
 
   extend type Query {

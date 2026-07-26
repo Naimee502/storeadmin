@@ -1,5 +1,6 @@
 import { Truck, ShieldCheck, RotateCcw, Headset, Wallet } from "lucide-react";
-import { businessStats } from "../../data/sampleData";
+import { businessStats as defaultBusinessStats } from "../../data/sampleData";
+import { useTenant } from "../../contexts/tenant";
 
 const props = [
   { icon: Truck, title: "Fast, Reliable Delivery", desc: "Route-based dispatch for both retail & bulk orders." },
@@ -10,6 +11,11 @@ const props = [
 ];
 
 export default function ValueProps() {
+  // Admin-editable (Settings → General → "Trust bar" stats) — falls back to
+  // the built-in placeholder numbers whenever the admin hasn't set any.
+  const { businessStats: overrideStats } = useTenant();
+  const stats = overrideStats.length ? overrideStats : defaultBusinessStats;
+
   return (
     <section className="border-y border-slate-100 bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -26,8 +32,8 @@ export default function ValueProps() {
         </div>
 
         <div className="mt-10 grid grid-cols-2 gap-6 rounded-2xl bg-ink-900 p-8 text-white sm:grid-cols-4">
-          {businessStats.map((s) => (
-            <div key={s.label} className="text-center">
+          {stats.map((s, i) => (
+            <div key={`${s.label}-${i}`} className="text-center">
               <p className="text-2xl font-extrabold text-brand-300 sm:text-3xl">{s.value}</p>
               <p className="mt-1 text-xs text-slate-300">{s.label}</p>
             </div>

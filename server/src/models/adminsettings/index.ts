@@ -277,6 +277,20 @@ const adminSettingsSchema = new mongoose.Schema(
       ],
       default: [],
     },
+
+    // "Trust bar" stat tiles on the Home page (e.g. "12,400+ / Active retail
+    // partners") — admin-managed, add/edit/remove any number; empty list
+    // keeps clientweb's built-in placeholder stats instead.
+    businessStats: {
+      type: [
+        {
+          _id: false,
+          label: { type: String, default: "" },
+          value: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

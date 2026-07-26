@@ -85,6 +85,10 @@ const SETTINGS_FIELDS = `
     cta
     link
   }
+  businessStats {
+    label
+    value
+  }
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

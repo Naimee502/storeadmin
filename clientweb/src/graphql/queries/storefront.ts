@@ -58,6 +58,10 @@ export const GET_STOREFRONT_BY_SLUG = gql`
         cta
         link
       }
+      businessStats {
+        label
+        value
+      }
     }
   }
 `;

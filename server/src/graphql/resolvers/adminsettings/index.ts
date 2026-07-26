@@ -29,6 +29,13 @@ const mapSlides = (slides: any[]) =>
     link: s.link || "",
   }));
 
+// Home page "trust bar" stat tiles.
+const mapStats = (stats: any[]) =>
+  (stats || []).map((s: any) => ({
+    label: s.label || "",
+    value: s.value || "",
+  }));
+
 export const adminSettingsResolvers = {
   Query: {
     getAdminSettings: async (_: any, { adminid }: { adminid: string }) => {
@@ -91,6 +98,8 @@ export const adminSettingsResolvers = {
 
         heroBannerSlides: mapSlides(settings.heroBannerSlides),
         promoBanners: mapSlides(settings.promoBanners),
+
+        businessStats: mapStats(settings.businessStats),
       };
     },
   },

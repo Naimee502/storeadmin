@@ -30,12 +30,10 @@ interface CartContextValue {
   lines: CartLine[];
   count: number;
   subtotal: number;
-  wishlistCount: number;
   addToCart: (product: SampleProduct, qty?: number, unit?: string) => void;
   updateQty: (lineId: string, qty: number) => void;
   removeFromCart: (lineId: string) => void;
   clearCart: () => void;
-  addToWishlist: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -55,7 +53,6 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
       return [];
     }
   });
-  const [wishlistCount, setWishlistCount] = useState(0);
   const { account } = useAuth();
   const { adminid } = useTenant();
 
@@ -176,14 +173,12 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
       lines,
       count,
       subtotal,
-      wishlistCount,
       addToCart,
       updateQty,
       removeFromCart,
       clearCart,
-      addToWishlist: () => setWishlistCount((c) => c + 1),
     }),
-    [lines, count, subtotal, wishlistCount, account?.id, adminid, partyAccount]
+    [lines, count, subtotal, account?.id, adminid, partyAccount]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

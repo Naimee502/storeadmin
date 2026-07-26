@@ -499,6 +499,16 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         />
       </Section>
 
+      <Section title="Trust Bar Stats (Home page)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          The stat tiles shown under "Fast, Reliable Delivery" etc. on the Home page (e.g. "12,400+ / Active retail partners"). Add as many as you like, edit or remove any of them. Leave empty to keep the default placeholder numbers.
+        </div>
+        <BusinessStatsEditor
+          stats={draft.businessStats ?? []}
+          onChange={(stats) => set("businessStats", stats)}
+        />
+      </Section>
+
       <div className="flex justify-end">
         <Button variant="outline" onClick={handleSave} isLoading={saving}>
           {saving ? "Saving…" : "Save Website Settings"}
@@ -724,6 +734,72 @@ const HeroBannerSlidesEditor: React.FC<{
       ))}
 
       <Button variant="outline" onClick={addSlide}>+ Add Slide</Button>
+    </div>
+  );
+};
+
+/* =====================================================================
+   TRUST BAR STATS — simple label/value tiles for the Home page's stat
+   strip (e.g. "12,400+ / Active retail partners"). Same add/edit/remove
+   pattern as the banner slide editors, just without the image upload.
+   ===================================================================== */
+
+// The Home page renders these in a fixed 4-column strip (sm:grid-cols-4) —
+// a 5th tile would just wrap awkwardly, so the editor caps it here instead
+// of letting the admin add more than the layout can actually show.
+const MAX_BUSINESS_STATS = 4;
+
+const BusinessStatsEditor: React.FC<{
+  stats: { label?: string; value?: string }[];
+  onChange: (stats: { label?: string; value?: string }[]) => void;
+}> = ({ stats, onChange }) => {
+  const atLimit = stats.length >= MAX_BUSINESS_STATS;
+
+  const updateStat = (idx: number, patch: Partial<{ label: string; value: string }>) => {
+    onChange(stats.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  const removeStat = (idx: number) => {
+    onChange(stats.filter((_, i) => i !== idx));
+  };
+
+  const addStat = () => {
+    if (atLimit) return;
+    onChange([...stats, { label: "", value: "" }]);
+  };
+
+  return (
+    <div className="space-y-4">
+      {stats.map((stat, idx) => (
+        <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Stat {idx + 1}</span>
+            <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeStat(idx)}>
+              Remove
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Value"
+              name={`businessStatValue-${idx}`}
+              placeholder="e.g. 12,400+"
+              value={stat.value ?? ""}
+              onChange={(e: any) => updateStat(idx, { value: e.target.value })}
+            />
+            <FormField
+              label="Label"
+              name={`businessStatLabel-${idx}`}
+              placeholder="e.g. Active retail partners"
+              value={stat.label ?? ""}
+              onChange={(e: any) => updateStat(idx, { label: e.target.value })}
+            />
+          </div>
+        </div>
+      ))}
+
+      <Button variant="outline" onClick={addStat} disabled={atLimit}>
+        {atLimit ? `Max ${MAX_BUSINESS_STATS} stats` : "+ Add Stat"}
+      </Button>
     </div>
   );
 };

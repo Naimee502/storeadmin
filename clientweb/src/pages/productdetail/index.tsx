@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router";
-import { Star, Heart, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check } from "lucide-react";
+import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
@@ -34,8 +34,7 @@ export default function ProductDetailPage() {
   const [pendingQty, setPendingQty] = useState(1);
   useEffect(() => setPendingQty(1), [product, selectedUnit]);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
-  const [wished, setWished] = useState(false);
-  const { lines, addToCart, updateQty, removeFromCart, addToWishlist } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart } = useCart();
   const { displayProductPrice } = useTenant();
 
   if (loading && !product) {
@@ -253,16 +252,6 @@ export default function ProductDetailPage() {
                   Buy Now
                 </Link>
               )}
-              <button
-                onClick={() => {
-                  setWished((w) => !w);
-                  if (!wished) addToWishlist();
-                }}
-                className="grid h-11 w-11 place-items-center rounded-lg border border-slate-200 hover:bg-slate-50"
-                aria-label="Add to wishlist"
-              >
-                <Heart className={`h-5 w-5 ${wished ? "fill-rose-500 text-rose-500" : "text-slate-500"}`} />
-              </button>
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl border border-slate-100 p-4 sm:grid-cols-3">

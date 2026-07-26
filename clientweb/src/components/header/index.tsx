@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Search,
-  Heart,
   ShoppingCart,
   User,
   ChevronDown,
@@ -30,7 +29,7 @@ export default function Header() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const { count, wishlistCount } = useCart();
+  const { count } = useCart();
   const { isLoggedIn, account, logout } = useAuth();
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail } = useTenant();
@@ -206,19 +205,6 @@ export default function Header() {
 
             <div className="flex items-center">
               <NotificationBell />
-
-              <Link
-                to={isLoggedIn ? "/account" : "/login"}
-                className="relative rounded-md p-2 hover:bg-slate-100"
-                aria-label="Wishlist"
-              >
-                <Heart className="h-5.5 w-5.5 text-ink-900" />
-                {isLoggedIn && wishlistCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-accent-600 text-[10px] font-bold text-white">
-                    {wishlistCount}
-                  </span>
-                )}
-              </Link>
             </div>
 
             <Link to="/cart" className="relative flex items-center gap-2 rounded-lg bg-ink-900 px-3 py-2 text-white hover:bg-ink-800">
