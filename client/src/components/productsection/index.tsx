@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import FormField from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
+import { belowCostError } from "../../utils/rates";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 
 /** ✅ Invoice line type */
@@ -112,6 +113,35 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [qtyError, setQtyError] = useState<string | null>(null);
+
+  // Selling below cost is blocked on sales lines. Purchase lines are exempt —
+  // there the entered rate IS the purchase rate, so there is nothing to
+  // compare it against. Rates are normalised per base unit before comparing,
+  // so a Piece line and a Dozen line are both judged correctly.
+  const rateError = useMemo(() => {
+    if (type !== "sales" || iservice) return null;
+    if (!selectedProduct?.productserviceid) return null;
+
+    const product = normalizedProducts.find(
+      (p: any) => p.id === selectedProduct.productserviceid
+    );
+    const variant = product?.productvariants?.find(
+      (v: any) => v.id === selectedProduct.variantid
+    );
+    if (!variant) return null;
+
+    const unitId = selectedProduct.salesunitid || variant.baseunitid;
+    return belowCostError(variant, unitId, selectedProduct.rate) || null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    type,
+    iservice,
+    selectedProduct?.productserviceid,
+    selectedProduct?.variantid,
+    selectedProduct?.salesunitid,
+    selectedProduct?.rate,
+    productData,
+  ]);
   const { resolvePrice } = usePriceResolvers();
 
   useEffect(() => {
@@ -139,6 +169,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const handleAddOrUpdateProduct = () => {
     if (!selectedProduct.productserviceid) return alert("Please select a product");
     if (!selectedProduct.quantity || !selectedProduct.rate) return alert("Enter qty & rate");
+    // The button is already disabled in this case; this guards any other path
+    // into the handler (keyboard submit, future callers).
+    if (rateError) return;
 
      const product = normalizedProducts.find(
         (p) => p.id === selectedProduct.productserviceid
@@ -448,6 +481,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           onChange={(e) =>
             setSelectedProduct({ ...selectedProduct, rate: parseFloat(e.target.value) })
           }
+          error={rateError ?? undefined}
         />
 
         {/* ✅ Discount */}
@@ -475,7 +509,13 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
       {/* ✅ Buttons */}
       <div className="flex gap-4">
-        <Button type="button" variant="outline" onClick={handleAddOrUpdateProduct}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleAddOrUpdateProduct}
+          disabled={!!rateError}
+          title={rateError || undefined}
+        >
           {editIndex !== null ? "Update" : "Add"}
         </Button>
 

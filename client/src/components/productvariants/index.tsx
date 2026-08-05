@@ -119,6 +119,10 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                     : "text"}
                             value={variant[field]}
                             onChange={handleChange}
+                            // These core fields previously rendered no error at
+                            // all, so validation messages for them (e.g. negative
+                            // stock) had nowhere to appear.
+                            error={errors?.productvariants?.[index]?.[field]}
                             disabled={isEdit && [
                                 "productcode",
                                 "openingstockamount",

@@ -21,6 +21,7 @@ import { useSubCategoriesQuery } from "../../../graphql/hooks/subcategories";
 import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
+import { belowCostError } from "../../../utils/rates";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 
@@ -408,6 +409,100 @@ const AddEditProductService = () => {
     setIsFormValid(valid);
   }, [errors]);
 
+  // Live "sales rate below purchase rate" check.
+  //
+  // Kept separate from validateForm() because that only runs on submit — the
+  // requirement is that the save button stays disabled and the message sits
+  // under the rate field as soon as a bad rate is typed. Rates are compared
+  // per base unit, so Piece vs Dozen pricing is handled (see utils/rates).
+  const belowCostErrors = useMemo(() => {
+    const out: Record<number, Record<number, string>> = {};
+    if (formData.isservice) return out;
+    (formData.productvariants || []).forEach((variant: any, vIdx: number) => {
+      (variant.unitprices || []).forEach((up: any, upIdx: number) => {
+        const msg = belowCostError(variant, up.unitid, up.salesrate);
+        if (msg) {
+          if (!out[vIdx]) out[vIdx] = {};
+          out[vIdx][upIdx] = msg;
+        }
+      });
+    });
+    return out;
+    // Depends on the whole formData on purpose. handleChange does a shallow
+    // copy (`{ ...prev }`) and then mutates the nested variant objects in
+    // place, so `formData.productvariants` keeps the SAME array reference
+    // across edits — depending on it would freeze this memo at whatever the
+    // form loaded with, and typing a bad rate would never flag. The top-level
+    // object is new on every change, so this recomputes as expected.
+  }, [formData]);
+
+  const hasBelowCostError = Object.keys(belowCostErrors).length > 0;
+
+  // Stock quantities and their values can never be negative. The number
+  // inputs happily accepted "-1" (a product did end up with -200 in stock),
+  // so this is checked live like the rate rule above — same reason for
+  // depending on the whole formData object.
+  const NON_NEGATIVE_FIELDS: Record<string, string> = {
+    openingstock: "Opening Stock",
+    currentstock: "Current Stock",
+    closingstock: "Closing Stock",
+    openingstockamount: "Opening Stock Amount",
+    currentstockamount: "Current Stock Amount",
+    closingstockamount: "Closing Stock Amount",
+    minimumstock: "Minimum Stock",
+    reorderlevel: "Reorder Level",
+  };
+
+  const negativeStockErrors = useMemo(() => {
+    const out: Record<number, Record<string, string>> = {};
+    if (formData.isservice) return out;
+    (formData.productvariants || []).forEach((variant: any, vIdx: number) => {
+      Object.entries(NON_NEGATIVE_FIELDS).forEach(([field, label]) => {
+        const raw = variant?.[field];
+        if (raw === "" || raw === null || raw === undefined) return;
+        if (Number(raw) < 0) {
+          if (!out[vIdx]) out[vIdx] = {};
+          out[vIdx][field] = `${label} cannot be negative.`;
+        }
+      });
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData]);
+
+  const hasNegativeStockError = Object.keys(negativeStockErrors).length > 0;
+  const hasBlockingError = hasBelowCostError || hasNegativeStockError;
+
+  // Merge the live messages (below-cost rate, negative stock) into the errors
+  // the variants section renders, so they appear in the normal error slot
+  // under the field they belong to.
+  const variantErrorsWithRate = useMemo(() => {
+    if (!hasBlockingError) return errors;
+    const merged: any = { ...errors };
+    const variants: any[] = Array.isArray(merged.productvariants)
+      ? merged.productvariants.map((v: any) => ({ ...v }))
+      : [];
+    Object.entries(belowCostErrors).forEach(([vIdx, ups]) => {
+      const i = Number(vIdx);
+      if (!variants[i]) variants[i] = {};
+      const existing = Array.isArray(variants[i].unitprices) ? [...variants[i].unitprices] : [];
+      Object.entries(ups).forEach(([upIdx, msg]) => {
+        const j = Number(upIdx);
+        existing[j] = { ...(existing[j] || {}), salesrate: msg };
+      });
+      variants[i].unitprices = existing;
+    });
+    Object.entries(negativeStockErrors).forEach(([vIdx, fields]) => {
+      const i = Number(vIdx);
+      if (!variants[i]) variants[i] = {};
+      Object.entries(fields).forEach(([field, msg]) => {
+        variants[i][field] = msg;
+      });
+    });
+    merged.productvariants = variants;
+    return merged;
+  }, [errors, belowCostErrors, negativeStockErrors, hasBlockingError]);
+
   const isEmptyDeep = (obj: any): boolean => {
     if (obj == null) return true;
     if (Array.isArray(obj)) return obj.every(isEmptyDeep);
@@ -723,6 +818,13 @@ const AddEditProductService = () => {
           if (!variant.purchaserate || Number(variant.purchaserate) <= 0)
             variantErrors.purchaserate = "Purchase rate must be greater than 0";
 
+          // Stock quantities / values must never be negative.
+          Object.entries(NON_NEGATIVE_FIELDS).forEach(([field, label]) => {
+            const raw = variant?.[field];
+            if (raw === "" || raw === null || raw === undefined) return;
+            if (Number(raw) < 0) variantErrors[field] = `${label} cannot be negative.`;
+          });
+
           // Unit Conversions
           if (!variant.unitconversions || variant.unitconversions.length === 0) {
             variantErrors.unitconversions = "At least 1 unit conversion is required";
@@ -750,6 +852,11 @@ const AddEditProductService = () => {
                 upErrors.quantity = "Quantity must be greater than 0";
               if (!up.salesrate || Number(up.salesrate) <= 0)
                 upErrors.salesrate = "Sales rate must be greater than 0";
+              else {
+                // Selling below cost is blocked (equal to cost is allowed).
+                const belowCost = belowCostError(variant, up.unitid, up.salesrate);
+                if (belowCost) upErrors.salesrate = belowCost;
+              }
               if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
             });
             if (unitPriceErrors.length > 0) variantErrors.unitprices = unitPriceErrors;
@@ -1146,7 +1253,7 @@ const AddEditProductService = () => {
             isserialised={formData.isserialised}
             navigate={navigate}
             onQuickAdd={openQuickAdd}
-            errors={errors}
+            errors={variantErrorsWithRate}
           />
         )}
       </div>
@@ -1156,7 +1263,20 @@ const AddEditProductService = () => {
         <Button variant="outline" onClick={() => navigate('/products')}>
           Cancel
         </Button>
-        <Button variant="outline" onClick={handleSubmit}>
+        <Button
+          variant="outline"
+          onClick={handleSubmit}
+          // Stays disabled while a sales rate is below its purchase rate or
+          // any stock field is negative.
+          disabled={hasBlockingError}
+          title={
+            hasBelowCostError
+              ? "One or more sales rates are below the purchase rate."
+              : hasNegativeStockError
+                ? "Stock values cannot be negative."
+                : undefined
+          }
+        >
           {isEdit ? 'Update Product Service' : 'Add Product Service'}
         </Button>
       </div>
