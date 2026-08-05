@@ -1,6 +1,5 @@
-import { Notification, pushNotification } from "../../../models/notifications";
-import { Account } from "../../../models/accounts";
-import { Admin } from "../../../models/admin";
+import { Notification } from "../../../models/notifications";
+import { sendOutstandingReminder } from "../../../utils/outstandingreminder";
 
 const formatNotification = (n: any) => ({
   ...n,
@@ -55,53 +54,15 @@ export const notificationResolvers = {
     // message so the caller can also open WhatsApp for that same number.
     sendOutstandingReminder: async (_: any, { input }: any) => {
       const { adminid, branchid, partyid, amount, pendingBills, overdueDays, dueDate } = input;
-
-      const account: any = await Account.findById(partyid).select("name mobile").lean();
-      if (!account) return { success: false, mobile: null, message: null };
-
-      const admin: any = await Admin.findById(adminid).select("companyName").lean();
-      const companyName = admin?.companyName || "";
-
-      const amt = Number(amount || 0);
-      const amtLabel = `₹${amt.toFixed(2)}`;
-
-      const title = "Payment reminder";
-      const detailParts = [
-        `Outstanding: ${amtLabel}`,
-        pendingBills ? `${pendingBills} pending bill${pendingBills > 1 ? "s" : ""}` : "",
-        dueDate && dueDate !== "-" ? `Due: ${dueDate}` : "",
-        overdueDays && overdueDays > 0 ? `Overdue by ${overdueDays} days` : "",
-      ].filter(Boolean);
-      const message = detailParts.join(" • ");
-
-      await pushNotification({
+      return sendOutstandingReminder({
         adminid,
-        branchid: branchid || null,
-        targettype: "party",
-        targetid: partyid,
-        ntype: "payment",
-        title,
-        message,
-        webpath: "/payments",
-        appscreen: "Payments",
+        branchid,
+        partyid,
+        amount,
+        pendingBills,
+        overdueDays,
+        dueDate,
       });
-
-      // Longer, human-readable text for the WhatsApp chat.
-      const waMessage =
-        `*Payment Reminder*\n` +
-        `Dear ${account.name || "Customer"},\n\n` +
-        `Your outstanding balance is *${amtLabel}*.\n` +
-        (pendingBills ? `Pending bills: ${pendingBills}\n` : "") +
-        (dueDate && dueDate !== "-" ? `Due date: ${dueDate}\n` : "") +
-        (overdueDays && overdueDays > 0 ? `Overdue by: ${overdueDays} days\n` : "") +
-        `\nKindly arrange the payment at your earliest convenience.\n` +
-        (companyName ? `\n— ${companyName}` : "");
-
-      return {
-        success: true,
-        mobile: (account.mobile || "").replace(/\D/g, ""),
-        message: waMessage,
-      };
     },
   },
 };

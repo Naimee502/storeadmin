@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
+import { startReminderScheduler } from './utils/reminderscheduler';
 
 dotenv.config();
 
@@ -96,6 +97,9 @@ const startServer = async () => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server ready at http://0.0.0.0:${PORT}${server.graphqlPath}`);
   });
+
+  // Month-end outstanding reminders (in-app, customers only).
+  startReminderScheduler();
 };
 
 startServer();
