@@ -37,6 +37,12 @@ export type ReportColumn = {
   render?: (row: any) => React.ReactNode;
   /** Mark true → right-align + include in Totals row */
   numeric?: boolean;
+  /**
+   * Mark true for action-only columns (buttons, icons). Exports read raw
+   * row values, not rendered output, so these would otherwise land in the
+   * Excel/CSV/PDF file as an empty column.
+   */
+  noExport?: boolean;
 };
 
 interface ReportTableProps {
@@ -64,8 +70,20 @@ interface ReportTableProps {
 /* ──────────────────────────────────────────────────────────────────
    Helpers
 ────────────────────────────────────────────────────────────────── */
-const isNumericVal = (v: any) =>
-  v !== null && v !== undefined && v !== "" && !isNaN(Number(v));
+// Accounting reports render negatives in brackets — "(25000.00)" means
+// -25000. Number("(25000.00)") is NaN, so a plain Number() check silently
+// dropped every negative row from the totals (a vendor sheet full of
+// payables added up to 0). Strip the brackets and restore the sign.
+const toNumericVal = (v: any): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).trim();
+  const negative = /^\(.*\)$/.test(s);
+  const n = Number(negative ? s.slice(1, -1).replace(/,/g, "") : s.replace(/,/g, ""));
+  if (isNaN(n)) return null;
+  return negative ? -n : n;
+};
+
+const isNumericVal = (v: any) => toNumericVal(v) !== null;
 
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
@@ -95,7 +113,7 @@ const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) =
   const totalRow = hasTotals
     ? `<tr>${columns.map((col, idx) => {
         if (col.numeric) {
-          const s = data.reduce((a, r) => a + (isNumericVal(r[col.key]) ? Number(r[col.key]) : 0), 0);
+          const s = data.reduce((a, r) => a + (toNumericVal(r[col.key]) ?? 0), 0);
           return `<td style="text-align:right;font-weight:bold;border-top:2px solid #333;">${Number.isInteger(s) ? s : s.toFixed(2)}</td>`;
         }
         return `<td style="font-weight:bold;border-top:2px solid #333;">${idx === 0 ? "Total" : ""}</td>`;
@@ -221,16 +239,23 @@ const ReportTable: React.FC<ReportTableProps> = ({
     return columns.map((col) => {
       if (!col.numeric) return null;
       const sum = filteredData.reduce(
-        (acc, row) => acc + (isNumericVal(row[col.key]) ? Number(row[col.key]) : 0), 0
+        (acc, row) => acc + (toNumericVal(row[col.key]) ?? 0), 0
       );
       return Number.isInteger(sum) ? String(sum) : sum.toFixed(2);
     });
   }, [filteredData, columns, showTotals]);
 
   /* ── Built-in exports ── */
+  // Action-only columns (the reminder bell, etc.) hold no row data, so they
+  // are dropped from every export rather than shipping an empty column.
+  const exportColumns = useMemo(
+    () => columns.filter((c) => !c.noExport),
+    [columns]
+  );
+
   const handleExcelExport = () => {
     if (onExport) { onExport(); return; }
-    const rows = filteredData.map((r) => buildExportRow(r, columns));
+    const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
     const ws = XLSX.utils.aoa_to_sheet([
       [title],
       [`Financial Year: ${fyInfo()}`],
@@ -245,7 +270,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
   const handleCsvExport = () => {
     if (onCsvExport) { onCsvExport(); return; }
-    const rows = filteredData.map((r) => buildExportRow(r, columns));
+    const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
     const header =
       `${title}\r\n` +
       `Financial Year: ${fyInfo()}\r\n` +
@@ -262,7 +287,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
   const handlePdfExport = () => {
     if (onPdfExport) { onPdfExport(); return; }
-    printReportAsPDF(title, columns, filteredData);
+    printReportAsPDF(title, exportColumns, filteredData);
   };
 
   /* ── Render ── */

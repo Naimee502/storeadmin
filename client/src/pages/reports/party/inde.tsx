@@ -2,14 +2,17 @@ import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { formatDateDMY, normalizeToYMD, getFinancialYear } from "../../../utils/helper";
+import { useMutation } from "@apollo/client";
+import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
+import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { showMessage } from "../../../redux/slices/message";
 
-import { FaUserClock, FaStoreSlash, FaHistory } from "react-icons/fa";
+import { FaUserClock, FaStoreSlash, FaHistory, FaBell } from "react-icons/fa";
 
 const reportTabsObj = [
   { id: "Customer Outstanding", label: "Customer Outstanding", icon: <FaUserClock className="text-blue-600" /> },
@@ -25,6 +28,106 @@ const partyLabelOf = (a: any) =>
   `${a.name || "-"}${a.mobile ? ` - ${a.mobile}` : ""}`;
 
 const PartyReports: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const auth = useAppSelector((state: any) => state.auth);
+  const adminid =
+    auth.type === "admin"
+      ? auth.admin?.id
+      : auth.type === "branch"
+        ? auth.branch?.admin?.id
+        : auth.type === "staff"
+          ? auth.staff?.admin?.id
+          : undefined;
+  const branchid = auth.type === "branch" ? auth.branch?.id : undefined;
+
+  const [sendReminder, { loading: reminderLoading }] = useMutation(SEND_OUTSTANDING_REMINDER);
+  // Track which row is mid-send so only that button shows a busy state.
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+
+  // Manual payment reminder: one click creates the in-app notification for
+  // that party (it shows up in both the party mobile app and the party
+  // website, since both read the same party-targeted notifications) and
+  // opens WhatsApp on that same party's stored mobile number.
+  const handleSendReminder = async (row: any) => {
+    if (!row?._partyid || !adminid) return;
+
+    // Bill-wise amount (unpaid bills only) — matches the party's own
+    // dashboard, so the reminder and what they see after logging in agree.
+    const amount = Number(row._billOutstanding || 0);
+    if (amount <= 0) {
+      dispatch(
+        showMessage({ message: "No outstanding amount for this party.", type: "info" })
+      );
+      return;
+    }
+
+    // Pop the WhatsApp tab synchronously from the click, before awaiting the
+    // mutation — browsers block window.open() called after an await, since it
+    // no longer counts as a direct user gesture.
+    //
+    // NOTE: no "noopener" here on purpose. With noopener the browser returns
+    // null instead of a window handle, which left the placeholder tab stranded
+    // on about:blank with no way to navigate or close it. We drop the opener
+    // reference manually right after navigating instead.
+    const waTab = window.open("", "_blank");
+
+    setRemindingId(row._partyid);
+    try {
+      const { data } = await sendReminder({
+        variables: {
+          input: {
+            adminid,
+            branchid: branchid || null,
+            partyid: row._partyid,
+            amount,
+            pendingBills: Number(row.pendingBills || 0),
+            overdueDays: Number(row._overdueDays || 0),
+            dueDate: row._dueDateLabel || "",
+          },
+        },
+      });
+
+      const res = data?.sendOutstandingReminder;
+      if (!res?.success) {
+        waTab?.close();
+        dispatch(showMessage({ message: "Failed to send reminder.", type: "error" }));
+        return;
+      }
+
+      if (res.mobile) {
+        const wa = `https://wa.me/${res.mobile}?text=${encodeURIComponent(res.message || "")}`;
+        if (waTab) {
+          waTab.opener = null; // don't hand WhatsApp a reference back to us
+          waTab.location.replace(wa);
+        } else {
+          // Popup blocker ate the placeholder — try a direct open instead.
+          window.open(wa, "_blank", "noopener,noreferrer");
+        }
+        dispatch(
+          showMessage({
+            message: `Reminder sent to ${row._partyname} — WhatsApp opened.`,
+            type: "success",
+          })
+        );
+      } else {
+        // In-app notification still went out; only WhatsApp is unavailable.
+        waTab?.close();
+        dispatch(
+          showMessage({
+            message: `Reminder sent to ${row._partyname} in-app. No mobile number saved for WhatsApp.`,
+            type: "info",
+          })
+        );
+      }
+    } catch (e: any) {
+      waTab?.close();
+      console.error("Outstanding reminder failed:", e);
+      dispatch(showMessage({ message: e?.message || "Failed to send reminder.", type: "error" }));
+    } finally {
+      setRemindingId(null);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
@@ -35,14 +138,12 @@ const PartyReports: React.FC = () => {
   // Fetch data
   // -----------------------------
   const { data: accountsData } = useAccountsQuery();
-  const { data: transactionsData } = useTransactionsQuery();
   const { data: paymentsData } = usePaymentsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
-  const transactions = transactionsData?.getTransactions || [];
   const payments = paymentsData?.getPayments || [];
   const ledgers = ledgerData?.getAccountLedgers || [];
   const salesInvoices = salesInvData?.getSalesInvoices || [];
@@ -100,29 +201,44 @@ const PartyReports: React.FC = () => {
   };
 
   // -----------------------------
-  // Ledger-wise outstanding (opening + txns - settlements)
-  // -----------------------------
-  const calculateOutstanding = (account: any) => {
-    const ledgerId = account.ledgerid?.id;
-    if (!ledgerId) return 0;
+  // Bill-wise outstanding.
+  //
+  // Previously this was computed ledger-wise (opening + every journal entry
+  // on the party ledger, then minus payment settlements). That double-counted
+  // every receipt: a payment already posts a credit on the party ledger
+  // (resolvers/payments builds that entry), so subtracting the settled amount
+  // again knocked the balance down twice. Parties who had never paid looked
+  // fine while paying parties drifted negative.
+  //
+  // Bill-wise is the number the user can actually verify — it matches the
+  // Bill Settlement list on the Add Payment screen and the aging buckets:
+  //   opening + unpaid bills − payments not allocated to any bill
+  // On-account (unallocated) receipts are subtracted so advances still reduce
+  // the balance even though they don't belong to a specific invoice.
+  //
+  // Sign convention is preserved: customers (receivable) come out positive,
+  // vendors (payable) negative, because a vendor's opening balance is stored
+  // as a credit and their unpaid bills are subtracted rather than added.
+  const calculateOutstanding = (account: any, invoices: any[]) => {
+    const sign = account.type === "vendor" ? -1 : 1;
     let balance = getOpeningBalance(account);
 
-    transactions.forEach((txn: any) => {
-      txn.entries?.forEach((entry: any) => {
-        if (entry.ledgerid?.id === ledgerId) {
-          balance += (entry.debit || 0) - (entry.credit || 0);
-        }
+    invoices
+      .filter((inv: any) => inv.partyacc?.id === account.id)
+      .forEach((inv: any) => {
+        const unpaid = Number(inv.totalamount || 0) - (settledByInvoice[inv.id] || 0);
+        if (unpaid > 0.005) balance += sign * unpaid;
       });
-    });
 
     payments
       .filter((p: any) => p.partyid?.id === account.id)
       .forEach((p: any) => {
-        const settled = (p.invoices || []).reduce(
-          (sum: number, inv: any) => sum + (inv.settledamount || 0),
+        const allocated = (p.invoices || []).reduce(
+          (sum: number, inv: any) => sum + (inv.settledamount || 0) + (inv.discount || 0),
           0
         );
-        balance -= settled;
+        const unallocated = Number(p.amount || 0) - allocated;
+        if (unallocated > 0.005) balance -= sign * unallocated;
       });
 
     return balance;
@@ -138,6 +254,10 @@ const PartyReports: React.FC = () => {
 
     let billedInPeriod = 0;
     let pendingBills = 0;
+    // Sum of unpaid bills only — excludes the opening balance. This is the
+    // figure the party themselves sees on their dashboard / payments screen
+    // (server's partyBillOutstanding), so reminders quote the same number.
+    let billOutstanding = 0;
     let nextDue: Date | null = null;
     let maxOverdueDays = 0;
     const aging = { b0: 0, b31: 0, b61: 0, b90: 0 }; // 0-30 / 31-60 / 61-90 / 90+
@@ -158,6 +278,7 @@ const PartyReports: React.FC = () => {
         if (unpaid <= 0.005) return; // fully settled bill
 
         pendingBills += 1;
+        billOutstanding += unpaid;
 
         // Reference date: duedate if set, else billdate
         const refRaw = inv.duedate || inv.billdate;
@@ -177,7 +298,7 @@ const PartyReports: React.FC = () => {
         }
       });
 
-    return { billedInPeriod, pendingBills, nextDue, maxOverdueDays, aging };
+    return { billedInPeriod, pendingBills, billOutstanding, nextDue, maxOverdueDays, aging };
   };
 
   // -----------------------------
@@ -201,15 +322,34 @@ const PartyReports: React.FC = () => {
   // -----------------------------
   const buildOutstandingRow = (a: any, invoices: any[]) => {
     const opening = getOpeningBalance(a);
-    const outstanding = calculateOutstanding(a);
-    const { billedInPeriod, pendingBills, nextDue, maxOverdueDays } = getBillInfo(a, invoices);
+    const outstanding = calculateOutstanding(a, invoices);
+    const { billedInPeriod, pendingBills, billOutstanding, nextDue, maxOverdueDays } =
+      getBillInfo(a, invoices);
     const paidInPeriod = getPaidInPeriod(a);
 
     const creditLimit = Number(a.creditlimit || 0);
-    const used = Math.max(0, outstanding); // credit currently used
+    // Credit used is always the balance owed in this party's own direction.
+    // A customer owes us when `outstanding` is positive; a vendor is owed by
+    // us when it's negative. Taking max(0, outstanding) for both meant every
+    // vendor showed zero credit used and a permanently full credit limit.
+    const used =
+      a.type === "vendor" ? Math.max(0, -outstanding) : Math.max(0, outstanding);
     const creditAvailable = creditLimit > 0 ? creditLimit - used : null;
 
     return {
+      // Raw values (underscore-prefixed so they're never rendered as a
+      // column) used by the manual payment-reminder action.
+      _partyid: a.id,
+      _partyname: a.name || "",
+      _mobile: (a.mobile || "").replace(/\D/g, ""),
+      _outstandingNum: outstanding,
+      // Reminders quote the bill-wise figure (unpaid bills only, no opening
+      // balance) so the amount matches what the party sees on their own
+      // dashboard when they open the notification.
+      _billOutstanding: billOutstanding,
+      _overdueDays: maxOverdueDays,
+      _dueDateLabel: nextDue ? formatDateDMY(nextDue) : "-",
+
       party: partyLabelOf(a),
       ledger: a.ledgerid?.ledgername || "-",
       openingBalance: fmtAmt(opening),
@@ -243,14 +383,14 @@ const PartyReports: React.FC = () => {
       .filter((a: any) => a.type === "customer")
       .map((a: any) => buildOutstandingRow(a, salesInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, transactions, payments, ledgers, salesInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, salesInvoices, settledByInvoice, appliedFilters]);
 
   const vendorOutstandingData = useMemo(() => {
     return accounts
       .filter((a: any) => a.type === "vendor")
       .map((a: any) => buildOutstandingRow(a, purchaseInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, transactions, payments, ledgers, purchaseInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, purchaseInvoices, settledByInvoice, appliedFilters]);
 
   // -----------------------------
   // Receivable / Payable Aging (bill-wise buckets)
@@ -260,7 +400,7 @@ const PartyReports: React.FC = () => {
       .filter((a: any) => a.type === "customer" || a.type === "vendor")
       .map((a: any) => {
         const invoices = a.type === "customer" ? salesInvoices : purchaseInvoices;
-        const outstanding = calculateOutstanding(a);
+        const outstanding = calculateOutstanding(a, invoices);
         const { aging, nextDue, maxOverdueDays } = getBillInfo(a, invoices);
         const creditLimit = Number(a.creditlimit || 0);
         const used = Math.max(0, outstanding);
@@ -284,7 +424,7 @@ const PartyReports: React.FC = () => {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, transactions, payments, ledgers, salesInvoices, purchaseInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, salesInvoices, purchaseInvoices, settledByInvoice, appliedFilters]);
 
   // -----------------------------
   // Table Switcher
@@ -296,7 +436,10 @@ const PartyReports: React.FC = () => {
     { name: "toDate", label: "To Date", type: "date" },
   ];
 
-  const outstandingColumns = (partyLabel: string) => [
+  // `withRemind` is only true for the Customer tab. A payment reminder tells
+  // the party to pay us — on the Vendor tab the money flows the other way
+  // (we owe them), so the button has no meaning there.
+  const outstandingColumns = (partyLabel: string, withRemind: boolean) => [
     { label: partyLabel, key: "party" },
     { label: "Ledger", key: "ledger" },
     { label: "Opening (₹)", key: "openingBalance", numeric: true },
@@ -309,16 +452,46 @@ const PartyReports: React.FC = () => {
     { label: "Due Date", key: "dueDate" },
     { label: "Overdue", key: "overdue" },
     { label: "Status", key: "status" },
+    ...(!withRemind ? [] : [{
+      label: "Remind",
+      key: "remind",
+      noExport: true, // action-only column — keep it out of Excel/CSV/PDF
+      render: (row: any) => {
+        const amount = Number(row._billOutstanding || 0);
+        const disabled = amount <= 0 || (reminderLoading && remindingId === row._partyid);
+        return (
+          <button
+            type="button"
+            title={
+              amount <= 0
+                ? "No pending bills to collect"
+                : row._mobile
+                  ? `Send payment reminder to ${row._partyname}`
+                  : `Send in-app reminder to ${row._partyname} (no mobile saved)`
+            }
+            disabled={disabled}
+            onClick={() => handleSendReminder(row)}
+            className={`text-lg ${
+              disabled
+                ? "text-gray-300 cursor-not-allowed"
+                : "text-amber-500 hover:text-amber-600 cursor-pointer"
+            }`}
+          >
+            <FaBell />
+          </button>
+        );
+      },
+    }]),
   ];
 
   switch (activeTab) {
     case "Customer Outstanding":
       tableData = customerOutstandingData;
-      columns = outstandingColumns("Customer");
+      columns = outstandingColumns("Customer", true);
       break;
     case "Vendor Outstanding":
       tableData = vendorOutstandingData;
-      columns = outstandingColumns("Vendor");
+      columns = outstandingColumns("Vendor", false);
       break;
     case "Receivable / Payable Aging":
       tableData = agingData;

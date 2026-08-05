@@ -30,8 +30,25 @@ export const notificationTypeDefs = gql`
     getNotifications(filter: NotificationFilterInput!): [Notification!]!
   }
 
+  input OutstandingReminderInput {
+    adminid: ID!
+    branchid: ID
+    partyid: ID!
+    amount: Float!
+    pendingBills: Int
+    overdueDays: Int
+    dueDate: String
+  }
+
+  type OutstandingReminderResult {
+    success: Boolean!
+    mobile: String
+    message: String
+  }
+
   extend type Mutation {
     markNotificationRead(id: ID!): Boolean
     markAllNotificationsRead(filter: NotificationFilterInput!): Boolean
+    sendOutstandingReminder(input: OutstandingReminderInput!): OutstandingReminderResult!
   }
 `;
