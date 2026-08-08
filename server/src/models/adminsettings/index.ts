@@ -125,6 +125,11 @@ const adminSettingsSchema = new mongoose.Schema(
     // the printed Sales Invoice (like a running-account statement). New,
     // opt-in feature — off by default so existing invoices don't change.
     printShowPartyBalance: { type: Boolean, default: false },
+    printShowEwayBillDistance: { type: Boolean, default: true },
+    printShowDeliveryDueDate: { type: Boolean, default: true },
+    printShowGstin: { type: Boolean, default: true },
+    printShowHsnColumn: { type: Boolean, default: true },
+    printShowGstColumn: { type: Boolean, default: true },
 
     /* ============================================================
        FULFILMENT — who delivers orders for this business.

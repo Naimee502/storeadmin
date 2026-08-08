@@ -41,6 +41,11 @@ const SETTINGS_FIELDS = `
   printShowTermsAndConditions
   printTermsAndConditions
   printShowPartyBalance
+  printShowEwayBillDistance
+  printShowDeliveryDueDate
+  printShowGstin
+  printShowHsnColumn
+  printShowGstColumn
   supportEmail
   supportPhone
   supportWhatsapp

@@ -261,6 +261,31 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.printShowPartyBalance}
           onChange={(v: boolean) => set("printShowPartyBalance", v)}
         />
+        <Toggle
+          label="Show E-Way Bill / Distance on print"
+          checked={draft.printShowEwayBillDistance !== false}
+          onChange={(v: boolean) => set("printShowEwayBillDistance", v)}
+        />
+        <Toggle
+          label="Show Delivery / Due Date on print"
+          checked={draft.printShowDeliveryDueDate !== false}
+          onChange={(v: boolean) => set("printShowDeliveryDueDate", v)}
+        />
+        <Toggle
+          label="Show GSTIN No. on print"
+          checked={draft.printShowGstin !== false}
+          onChange={(v: boolean) => set("printShowGstin", v)}
+        />
+        <Toggle
+          label="Show HSN Column on print"
+          checked={draft.printShowHsnColumn !== false}
+          onChange={(v: boolean) => set("printShowHsnColumn", v)}
+        />
+        <Toggle
+          label="Show GST% Column on print"
+          checked={draft.printShowGstColumn !== false}
+          onChange={(v: boolean) => set("printShowGstColumn", v)}
+        />
         <div className="pt-1">
           <FormField
             label="Terms & Conditions text (one line per point)"

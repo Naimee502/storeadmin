@@ -192,10 +192,10 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             border-right: 1px solid #cccccc;
             border-bottom: 1px solid #cccccc;
           }
-          .inv-meta-cell:nth-child(3n) {
+          .inv-meta-cell.no-right-border {
             border-right: none;
           }
-          .inv-meta-cell:nth-last-child(-n+3) {
+          .inv-meta-cell.no-bottom-border {
             border-bottom: none;
           }
           .inv-meta-label {
@@ -351,100 +351,90 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
           {/* ---- Invoice meta ---- */}
           <div className="inv-meta">
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">M/S.</div>
-              <div className="inv-meta-value">{invoice.partyname || "---"}</div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Invoice No.</div>
-              <div className="inv-meta-value">{invoice.billtype_billnumber}</div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Place of Supply</div>
-              <div className="inv-meta-value">{invoice.placeofsupply || "---"}</div>
-            </div>
+            {(() => {
+              const cells = [
+                { label: "M/S.", value: invoice.partyname || "---" },
+                { label: "Invoice No.", value: invoice.billtype_billnumber },
+                { label: "Place of Supply", value: invoice.placeofsupply || "---" },
+                { label: "Transport / Vehicle No", value: `${invoice.transportname || "---"} / ${invoice.vehiclenumber || "---"}` },
+              ];
+              if (settings?.printShowEwayBillDistance !== false) {
+                cells.push({ label: "E-Way Bill / Distance", value: `${invoice.ewaybillno || "---"} / ${invoice.distance ? `${invoice.distance} km` : "---"}` });
+              }
+              if (settings?.printShowDeliveryDueDate !== false) {
+                cells.push({ label: "Delivery / Due Date", value: `${invoice.deliverydate ? formatDateDMY(invoice.deliverydate) : "---"} / ${invoice.duedate ? formatDateDMY(invoice.duedate) : "---"}` });
+              }
+              if (settings?.printShowGstin !== false) {
+                cells.push({ label: "GSTIN No.", value: invoice.gstin || "---" });
+              }
+              cells.push({ label: "Date", value: formatDateTimeDMY((invoice as any).billdateRaw ?? invoice.billdate, (invoice as any).createdAt) });
+              cells.push({ label: "Party A/c", value: invoice.partyacc });
 
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Transport / Vehicle No</div>
-              <div className="inv-meta-value">
-                {invoice.transportname || "---"} / {invoice.vehiclenumber || "---"}
-              </div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">E-Way Bill / Distance</div>
-              <div className="inv-meta-value">
-                {invoice.ewaybillno || "---"} / {invoice.distance ? `${invoice.distance} km` : "---"}
-              </div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Delivery / Due Date</div>
-              <div className="inv-meta-value">
-                {invoice.deliverydate ? formatDateDMY(invoice.deliverydate) : "---"}{" "}
-                / {invoice.duedate ? formatDateDMY(invoice.duedate) : "---"}
-              </div>
-            </div>
-
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">GSTIN No.</div>
-              <div className="inv-meta-value">{invoice.gstin || "---"}</div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Date</div>
-              <div className="inv-meta-value">
-                {formatDateTimeDMY(
-                  (invoice as any).billdateRaw ?? invoice.billdate,
-                  (invoice as any).createdAt
-                )}
-              </div>
-            </div>
-            <div className="inv-meta-cell">
-              <div className="inv-meta-label">Party A/c</div>
-              <div className="inv-meta-value">{invoice.partyacc}</div>
-            </div>
+              const lastRowStartIndex = Math.floor((cells.length - 1) / 3) * 3;
+              return cells.map((cell, idx) => (
+                <div 
+                  key={idx} 
+                  className={`inv-meta-cell ${idx % 3 === 2 ? 'no-right-border' : ''} ${idx >= lastRowStartIndex ? 'no-bottom-border' : ''}`}
+                >
+                  <div className="inv-meta-label">{cell.label}</div>
+                  <div className="inv-meta-value">{cell.value}</div>
+                </div>
+              ));
+            })()}
           </div>
 
           {/* ---- Items ---- */}
-          <table className="inv-table">
-            <thead>
-              <tr>
-                <th style={{ width: "6%" }}>Sr</th>
-                <th style={{ width: "34%", textAlign: "left" }}>Product Name</th>
-                <th style={{ width: "9%" }}>HSN</th>
-                <th style={{ width: "8%" }}>Qty</th>
-                <th style={{ width: "12%" }}>Rate</th>
-                <th style={{ width: "10%" }}>Disc</th>
-                <th style={{ width: "8%" }}>GST%</th>
-                <th style={{ width: "13%" }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((item, idx) => {
-                const base = item.qty * item.rate;
-                const discount = item.discount || 0;
-                const taxable = base - discount;
-                const gstAmt = (taxable * item.gst) / 100;
-                const total = taxable + gstAmt;
+          {(() => {
+            const showHsn = settings?.printShowHsnColumn !== false;
+            const showGst = settings?.printShowGstColumn !== false;
+            let nameWidth = 34;
+            if (!showHsn) nameWidth += 9;
+            if (!showGst) nameWidth += 8;
 
-                return (
-                  <tr key={idx}>
-                    <td className="ctr">{idx + 1}</td>
-                    <td>
-                      {item.productserviceid.name}
-                      {item.variantid?.name && ` - ${item.variantid.name}`}
-                      {item.salesunitid?.unitname &&
-                        ` (${item.salesunitid.unitname})`}
-                    </td>
-                    <td className="ctr">{item.hsn || "-"}</td>
-                    <td className="ctr">{item.qty}</td>
-                    <td className="num">{mask(item.rate).toFixed(2)}</td>
-                    <td className="num">{mask(discount).toFixed(2)}</td>
-                    <td className="ctr">{item.gst}</td>
-                    <td className="num">{mask(total).toFixed(2)}</td>
+            return (
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "6%" }}>Sr</th>
+                    <th style={{ width: `${nameWidth}%`, textAlign: "left" }}>Product Name</th>
+                    {showHsn && <th style={{ width: "9%" }}>HSN</th>}
+                    <th style={{ width: "8%" }}>Qty</th>
+                    <th style={{ width: "12%" }}>Rate</th>
+                    <th style={{ width: "10%" }}>Disc</th>
+                    {showGst && <th style={{ width: "8%" }}>GST%</th>}
+                    <th style={{ width: "13%" }}>Amount</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {products.map((item, idx) => {
+                    const base = item.qty * item.rate;
+                    const discount = item.discount || 0;
+                    const taxable = base - discount;
+                    const gstAmt = (taxable * item.gst) / 100;
+                    const total = taxable + gstAmt;
+
+                    return (
+                      <tr key={idx}>
+                        <td className="ctr">{idx + 1}</td>
+                        <td>
+                          {item.productserviceid.name}
+                          {item.variantid?.name && ` - ${item.variantid.name}`}
+                          {item.salesunitid?.unitname &&
+                            ` (${item.salesunitid.unitname})`}
+                        </td>
+                        {showHsn && <td className="ctr">{item.hsn || "-"}</td>}
+                        <td className="ctr">{item.qty}</td>
+                        <td className="num">{mask(item.rate).toFixed(2)}</td>
+                        <td className="num">{mask(discount).toFixed(2)}</td>
+                        {showGst && <td className="ctr">{item.gst}</td>}
+                        <td className="num">{mask(total).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })()}
 
           {/* ---- Totals ---- */}
           <div className="inv-totals">

@@ -88,6 +88,11 @@ export const adminSettingsTypeDefs = gql`
     printShowTermsAndConditions: Boolean
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
+    printShowEwayBillDistance: Boolean
+    printShowDeliveryDueDate: Boolean
+    printShowGstin: Boolean
+    printShowHsnColumn: Boolean
+    printShowGstColumn: Boolean
 
     supportEmail: String
     supportPhone: String
@@ -230,6 +235,11 @@ export const adminSettingsTypeDefs = gql`
     printShowTermsAndConditions: Boolean
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
+    printShowEwayBillDistance: Boolean
+    printShowDeliveryDueDate: Boolean
+    printShowGstin: Boolean
+    printShowHsnColumn: Boolean
+    printShowGstColumn: Boolean
 
     supportEmail: String
     supportPhone: String
