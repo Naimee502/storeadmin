@@ -3,6 +3,7 @@ import FormField from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
 import { belowCostError } from "../../utils/rates";
+import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 
 /** ✅ Invoice line type */
@@ -79,6 +80,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   invoiceHistory = [],
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
+
+  const moduleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
+  const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return formPermissions[fieldId] !== false;
+  };
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
 
@@ -272,70 +279,72 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* ✅ Product DropDown */}
-        <FormField
-          label={iservice ? "Service" : "Product"}
-          name="productserviceid"
-          type="select"
-          value={
-            iservice
-              ? selectedProduct.variantid ?? ""
-              : `${selectedProduct.productserviceid ?? ""}--${selectedProduct.variantid ?? ""}`
-          }
-          onChange={(e) => {
-            if (!e.target.value) {
-              setSelectedProduct({}); // ✕ clear → unselect product
-              return;
+        {isFieldEnabled("product") && (
+          <FormField
+            label={iservice ? "Service" : "Product"}
+            name="productserviceid"
+            type="select"
+            value={
+              iservice
+                ? selectedProduct.variantid ?? ""
+                : `${selectedProduct.productserviceid ?? ""}--${selectedProduct.variantid ?? ""}`
             }
-            const [pid, vid] = e.target.value.split("--");
-            const product = normalizedProducts.find((p) => p.id === pid);
-            const variant = product?.productvariants.find((v: any) => v.id === vid);
+            onChange={(e) => {
+              if (!e.target.value) {
+                setSelectedProduct({}); // ✕ clear → unselect product
+                return;
+              }
+              const [pid, vid] = e.target.value.split("--");
+              const product = normalizedProducts.find((p) => p.id === pid);
+              const variant = product?.productvariants.find((v: any) => v.id === vid);
 
-            const salesAccountId = getUnitId(product?.salesaccountid?.id) ?? null;
-            const purchaseAccountId = getUnitId(product?.purchaseaccountid?.id) ?? null;
-            const purchaseUnitId = getUnitId(variant?.purchaseunitid) ?? null;
+              const salesAccountId = getUnitId(product?.salesaccountid?.id) ?? null;
+              const purchaseAccountId = getUnitId(product?.purchaseaccountid?.id) ?? null;
+              const purchaseUnitId = getUnitId(variant?.purchaseunitid) ?? null;
 
-            setSelectedProduct({
-              productserviceid: pid,
-              variantid: vid,
-              productname: product?.name || "",
-              rate:
-                type === "sales"
-                  ? 0
-                  : Number(variant?.purchaserate ?? 0),
-              quantity: 1,
-              gst: Number(variant?.gst ?? 0),
-              salesaccountid: salesAccountId,
-              purchaseaccountid: purchaseAccountId,
-              purchaseunitid: purchaseUnitId,
-            });
-          }}
-          options={normalizedProducts.flatMap((p) =>
-            p.productvariants.map((v: any) => ({
-              value: `${p.id}--${v.id}`,
-              label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
-            }))
-          )}
-          searchable
-          addable
-          onAddNew={() => navigate("/products")}
-          historyTitle={
-            invoiceHistory.length
-              ? selectedProduct.productserviceid
-                ? `Last 5 ${type === "purchase" ? "Purchase" : "Sale"} Rates of this Product`
-                : `Product ${type === "purchase" ? "Purchase" : "Sale"} History`
-              : undefined
-          }
-          historyHeaders={["Date", "Party", "Qty", "Rate (₹)", "Disc (₹)"]}
-          historyRows={productSaleHistory}
-          historyEmptyText={
-            selectedProduct.productserviceid
-              ? `This product has no ${type === "purchase" ? "purchase" : "sale"} history yet.`
-              : "Select a product first to see its history."
-          }
-        />
+              setSelectedProduct({
+                productserviceid: pid,
+                variantid: vid,
+                productname: product?.name || "",
+                rate:
+                  type === "sales"
+                    ? 0
+                    : Number(variant?.purchaserate ?? 0),
+                quantity: 1,
+                gst: Number(variant?.gst ?? 0),
+                salesaccountid: salesAccountId,
+                purchaseaccountid: purchaseAccountId,
+                purchaseunitid: purchaseUnitId,
+              });
+            }}
+            options={normalizedProducts.flatMap((p) =>
+              p.productvariants.map((v: any) => ({
+                value: `${p.id}--${v.id}`,
+                label: `${p.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+              }))
+            )}
+            searchable
+            addable
+            onAddNew={() => navigate("/products")}
+            historyTitle={
+              invoiceHistory.length
+                ? selectedProduct.productserviceid
+                  ? `Last 5 ${type === "purchase" ? "Purchase" : "Sale"} Rates of this Product`
+                  : `Product ${type === "purchase" ? "Purchase" : "Sale"} History`
+                : undefined
+            }
+            historyHeaders={["Date", "Party", "Qty", "Rate (₹)", "Disc (₹)"]}
+            historyRows={productSaleHistory}
+            historyEmptyText={
+              selectedProduct.productserviceid
+                ? `This product has no ${type === "purchase" ? "purchase" : "sale"} history yet.`
+                : "Select a product first to see its history."
+            }
+          />
+        )}
 
         {/* ✅ Sales Unit Select — FIXED */}
-        {type === "sales" && !iservice && (
+        {isFieldEnabled("unit") && type === "sales" && !iservice && (
           <FormField
             label="Unit"
             name="unit"
@@ -386,7 +395,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 if (!price) {
                   price = variant.unitprices?.[0];
                 }
-
                 correctRate =
                   price?.offerprice && price.offerprice > 0
                     ? price.offerprice
@@ -432,92 +440,102 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         )}
 
         {/* ✅ Quantity */}
-        <FormField
-          label="Quantity"
-          name="quantity"
-          type="number"
-          value={selectedProduct.quantity ?? ""}
-          onChange={(e) => {
-            const qty = parseFloat(e.target.value);
+        {isFieldEnabled("quantity") && (
+          <FormField
+            label="Quantity"
+            name="quantity"
+            type="number"
+            value={selectedProduct.quantity ?? ""}
+            onChange={(e) => {
+              const qty = parseFloat(e.target.value);
 
-            const product = normalizedProducts.find(
-              (p) => p.id === selectedProduct.productserviceid
-            );
-
-            const variant = product?.productvariants.find(
-              (v: any) => v.id === selectedProduct.variantid
-            );
-
-            if (!variant) return;
-
-            const selectedUnitId = selectedProduct.salesunitid || variant.baseunitid;
-            const baseQty = getBaseQuantity(qty, selectedUnitId, variant);
-
-            const currentStock = Number(variant.currentstock ?? 0);
-
-            // ✅ SALES ONLY validation
-            if (type === "sales" && baseQty > currentStock) {
-              setQtyError(
-                `Available stock (${currentStock} in base units)`
+              const product = normalizedProducts.find(
+                (p) => p.id === selectedProduct.productserviceid
               );
-            } else {
-              setQtyError(null);
-            }
 
-            setSelectedProduct((prev) => ({
-              ...prev,
-              quantity: qty,
-            }));
-          }}
-          error={qtyError}
-        />
+              const variant = product?.productvariants.find(
+                (v: any) => v.id === selectedProduct.variantid
+              );
+
+              if (!variant) return;
+
+              const selectedUnitId = selectedProduct.salesunitid || variant.baseunitid;
+              const baseQty = getBaseQuantity(qty, selectedUnitId, variant);
+
+              const currentStock = Number(variant.currentstock ?? 0);
+
+              // ✅ SALES ONLY validation
+              if (type === "sales" && baseQty > currentStock) {
+                setQtyError(
+                  `Available stock (${currentStock} in base units)`
+                );
+              } else {
+                setQtyError(null);
+              }
+
+              setSelectedProduct((prev) => ({
+                ...prev,
+                quantity: qty,
+              }));
+            }}
+            error={qtyError}
+          />
+        )}
 
         {/* ✅ Rate */}
-        <FormField
-          label="Rate"
-          name="rate"
-          type="number"
-          value={selectedProduct.rate ?? ""}
-          onChange={(e) =>
-            setSelectedProduct({ ...selectedProduct, rate: parseFloat(e.target.value) })
-          }
-          error={rateError ?? undefined}
-        />
+        {isFieldEnabled("rate") && (
+          <FormField
+            label="Rate"
+            name="rate"
+            type="number"
+            value={selectedProduct.rate ?? ""}
+            onChange={(e) =>
+              setSelectedProduct({ ...selectedProduct, rate: parseFloat(e.target.value) })
+            }
+            error={rateError ?? undefined}
+          />
+        )}
 
         {/* ✅ Discount */}
-        <FormField
-          label="Discount"
-          name="discount"
-          type="number"
-          value={selectedProduct.discount ?? ""}
-          onChange={(e) =>
-            setSelectedProduct({ ...selectedProduct, discount: parseFloat(e.target.value) })
-          }
-        />
+        {isFieldEnabled("discount") && (
+          <FormField
+            label="Discount"
+            name="discount"
+            type="number"
+            value={selectedProduct.discount ?? ""}
+            onChange={(e) =>
+              setSelectedProduct({ ...selectedProduct, discount: parseFloat(e.target.value) })
+            }
+          />
+        )}
 
         {/* ✅ GST */}
-        <FormField
-          label="GST %"
-          name="gst"
-          type="number"
-          value={selectedProduct.gst ?? ""}
-          onChange={(e) =>
-            setSelectedProduct({ ...selectedProduct, gst: parseFloat(e.target.value) })
-          }
-        />
+        {isFieldEnabled("gst") && (
+          <FormField
+            label="GST %"
+            name="gst"
+            type="number"
+            value={selectedProduct.gst ?? ""}
+            onChange={(e) =>
+              setSelectedProduct({ ...selectedProduct, gst: parseFloat(e.target.value) })
+            }
+          />
+        )}
       </div>
 
       {/* ✅ Buttons */}
       <div className="flex gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleAddOrUpdateProduct}
-          disabled={!!rateError}
-          title={rateError || undefined}
-        >
-          {editIndex !== null ? "Update" : "Add"}
-        </Button>
+        {isFieldEnabled("add_product_button") && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddOrUpdateProduct}
+            disabled={!!rateError}
+            title={rateError || undefined}
+          >
+            {editIndex !== null ? "Update" : "Add"}
+          </Button>
+        )}
 
         {editIndex !== null && (
           <Button

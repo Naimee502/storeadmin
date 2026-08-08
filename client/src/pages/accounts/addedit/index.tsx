@@ -17,7 +17,7 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useChannelsQuery } from "../../../graphql/hooks/channels";
 import { regionOptions, stateOptions } from "../../../utils/constants";
-import { selectIsModuleAllowed } from "../../../redux/slices/permissions";
+import { selectIsModuleAllowed, selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 
 // Tally-style: auto-map party type to standard account group name patterns + category fallback
 const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
@@ -41,6 +41,9 @@ const AddEditAccount = () => {
   const channelAllowed = useAppSelector((s: any) => selectIsModuleAllowed(s, "channels"));
   // "Assign parent party" only when downline management is on.
   const partyManagesDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
+
+  const isFieldEnabled = (fieldId: string) => 
+    useAppSelector(state => selectIsFormFieldEnabled(state, "accounts", fieldId));
 
   const { data: existingData } = useAccountByIDQuery(id || "");
   const { data: accountGroupData } = useAccountGroupsQuery();
@@ -282,110 +285,128 @@ const AddEditAccount = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm sm:text-base font-medium px-2">Account Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField
-                  label="Name"
-                  name="name"
-                  value={formValues.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  icon={<FaUser />}
-                  error={formErrors.name}
-                  placeholder="Enter full name"
-                />
-                <FormField
-                  label="Mobile"
-                  name="mobile"
-                  value={formValues.mobile}
-                  onChange={(e) => handleChange("mobile", e.target.value)}
-                  icon={<FaMobileAlt />}
-                  error={formErrors.mobile}
-                  placeholder="Enter mobile number"
-                />
-                <FormField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  value={formValues.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  icon={<FaEnvelope />}
-                  placeholder="Enter email address"
-                />
+                {isFieldEnabled("name") && (
+                  <FormField
+                    label="Name"
+                    name="name"
+                    value={formValues.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    icon={<FaUser />}
+                    error={formErrors.name}
+                    placeholder="Enter full name"
+                  />
+                )}
+                {isFieldEnabled("mobile") && (
+                  <FormField
+                    label="Mobile"
+                    name="mobile"
+                    value={formValues.mobile}
+                    onChange={(e) => handleChange("mobile", e.target.value)}
+                    icon={<FaMobileAlt />}
+                    error={formErrors.mobile}
+                    placeholder="Enter mobile number"
+                  />
+                )}
+                {isFieldEnabled("email") && (
+                  <FormField
+                    label="Email"
+                    name="email"
+                    type="email"
+                    value={formValues.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                    icon={<FaEnvelope />}
+                    placeholder="Enter email address"
+                  />
+                )}
 
                 {/* Party Type — auto-triggers account group selection */}
-                <FormField
-                  label="Party Type"
-                  name="type"
-                  type="select"
-                  value={formValues.type}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  options={[
-                    { label: "Customer",          value: "customer" },
-                    { label: "Vendor / Supplier", value: "vendor" },
-                    { label: "Expense Account",   value: "expense" },
-                    { label: "Bank / Cash",        value: "bank" },
-                    { label: "Other",              value: "other" },
-                  ]}
-                  placeholder="Select type"
-                />
+                {/* Party Type — auto-triggers account group selection */}
+                {isFieldEnabled("type") && (
+                  <FormField
+                    label="Party Type"
+                    name="type"
+                    type="select"
+                    value={formValues.type}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    options={[
+                      { label: "Customer",          value: "customer" },
+                      { label: "Vendor / Supplier", value: "vendor" },
+                      { label: "Expense Account",   value: "expense" },
+                      { label: "Bank / Cash",        value: "bank" },
+                      { label: "Other",              value: "other" },
+                    ]}
+                    placeholder="Select type"
+                  />
+                )}
 
                 {/* Account Group — auto-set based on type, can be overridden */}
-                <div>
-                  <FormField
-                    label="Account Group"
-                    name="accountgroupid"
-                    type="select"
-                    value={formValues.accountgroupid}
-                    onChange={(e) => handleChange("accountgroupid", e.target.value)}
-                    options={groups.map((g: any) => ({ label: g.accountgroupname, value: g.id }))}
-                    error={formErrors.accountgroupid}
-                    placeholder="Select Account Group"
-                    searchable
-                  />
-                  {autoGroupName && (
-                    <p className="text-xs text-green-600 mt-0.5 pl-1">
-                      Auto-selected: <strong>{autoGroupName}</strong> — change if needed
-                    </p>
-                  )}
-                </div>
+                {/* Account Group — auto-set based on type, can be overridden */}
+                {isFieldEnabled("accountgroupid") && (
+                  <div>
+                    <FormField
+                      label="Account Group"
+                      name="accountgroupid"
+                      type="select"
+                      value={formValues.accountgroupid}
+                      onChange={(e) => handleChange("accountgroupid", e.target.value)}
+                      options={groups.map((g: any) => ({ label: g.accountgroupname, value: g.id }))}
+                      error={formErrors.accountgroupid}
+                      placeholder="Select Account Group"
+                      searchable
+                    />
+                    {autoGroupName && (
+                      <p className="text-xs text-green-600 mt-0.5 pl-1">
+                        Auto-selected: <strong>{autoGroupName}</strong> — change if needed
+                      </p>
+                    )}
+                  </div>
+                )}
 
+                {/* Channel & Region — only when the channels module is enabled */}
                 {/* Channel & Region — only when the channels module is enabled */}
                 {channelAllowed && (
                   <>
-                    <div>
-                      <FormField
-                        label="Sales Channel"
-                        name="channel"
-                        type="select"
-                        value={formValues.channel}
-                        onChange={(e) => handleChange("channel", e.target.value)}
-                        options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
-                        placeholder="Select Channel (optional)"
-                        searchable
-                      />
-                      <p className="text-xs text-gray-400 mt-0.5 pl-1">
-                        Used for channel-specific pricing from price assignments
-                      </p>
-                    </div>
+                    {isFieldEnabled("channel") && (
+                      <div>
+                        <FormField
+                          label="Sales Channel"
+                          name="channel"
+                          type="select"
+                          value={formValues.channel}
+                          onChange={(e) => handleChange("channel", e.target.value)}
+                          options={channelData?.getChannels?.map((c: any) => ({ label: c.channelName, value: c.id })) || []}
+                          placeholder="Select Channel (optional)"
+                          searchable
+                        />
+                        <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                          Used for channel-specific pricing from price assignments
+                        </p>
+                      </div>
+                    )}
 
-                    <div>
-                      <FormField
-                        label="Region / Price Zone"
-                        name="region"
-                        type="select"
-                        value={formValues.region}
-                        onChange={(e) => handleChange("region", e.target.value)}
-                        options={regionOptions}
-                        placeholder="Select Region (optional)"
-                        searchable
-                      />
-                      <p className="text-xs text-gray-400 mt-0.5 pl-1">
-                        Used for region-specific pricing from price assignments
-                      </p>
-                    </div>
+                    {isFieldEnabled("region") && (
+                      <div>
+                        <FormField
+                          label="Region / Price Zone"
+                          name="region"
+                          type="select"
+                          value={formValues.region}
+                          onChange={(e) => handleChange("region", e.target.value)}
+                          options={regionOptions}
+                          placeholder="Select Region (optional)"
+                          searchable
+                        />
+                        <p className="text-xs text-gray-400 mt-0.5 pl-1">
+                          Used for region-specific pricing from price assignments
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
 
                 {/* Salesman — channel-based; shown when channels module is enabled */}
-                {channelAllowed && (
+                {/* Salesman — channel-based; shown when channels module is enabled */}
+                {channelAllowed && isFieldEnabled("salesmanid") && (
                   <div>
                     <FormField
                       label="Assigned Salesman"
@@ -408,7 +429,8 @@ const AddEditAccount = () => {
                 )}
 
                 {/* Assign Parent Party — only when downline management is on */}
-                {partyManagesDownline && (
+                {/* Assign Parent Party — only when downline management is on */}
+                {partyManagesDownline && isFieldEnabled("assignaccountid") && (
                   <div>
                     <FormField
                       label="Assign Parent Party"
@@ -429,67 +451,81 @@ const AddEditAccount = () => {
             </fieldset>
 
             {/* Address Info */}
-            <fieldset className="border rounded-xl p-4">
-              <legend className="text-sm sm:text-base font-medium px-2">Address Info</legend>
-              <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Address" name="address" value={formValues.address} onChange={(e) => handleChange("address", e.target.value)} icon={<FaLocationArrow />} placeholder="Enter address" />
-                <FormField label="City" name="city" value={formValues.city} onChange={(e) => handleChange("city", e.target.value)} icon={<FaCity />} placeholder="Enter city" />
-                <FormField
-                  label="State"
-                  name="state"
-                  type="select"
-                  options={stateOptions}
-                  value={formValues.state}
-                  onChange={(e) => handleChange("state", e.target.value)}
-                  placeholder="Select state"
-                  error={formErrors.state}
-                />
-                <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />
-                <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />
-                <FormField label="Latitude" name="latitude" value={formValues.latitude} onChange={(e) => handleChange("latitude", e.target.value)} placeholder="e.g. 23.0225" />
-                <FormField label="Longitude" name="longitude" value={formValues.longitude} onChange={(e) => handleChange("longitude", e.target.value)} placeholder="e.g. 72.5714" />
+            {(isFieldEnabled("address") || isFieldEnabled("city") || isFieldEnabled("state") || isFieldEnabled("country") || isFieldEnabled("pincode") || isFieldEnabled("latitude") || isFieldEnabled("longitude")) && (
+              <fieldset className="border rounded-xl p-4">
+                <legend className="text-sm sm:text-base font-medium px-2">Address Info</legend>
+                <div className="grid grid-cols-1 gap-4 mb-4">
+                {/* Address Info is not rendered directly here anymore since the fields are broken out. Wait, Mobile and Email were duplicated here earlier by me? Actually let's just remove them from Address Info because they belong in Account Info. */}
+                {isFieldEnabled("address") && <FormField label="Address" name="address" value={formValues.address} onChange={(e) => handleChange("address", e.target.value)} icon={<FaLocationArrow />} placeholder="Enter address" />}
+                {isFieldEnabled("city") && <FormField label="City" name="city" value={formValues.city} onChange={(e) => handleChange("city", e.target.value)} icon={<FaCity />} placeholder="Enter city" />}
+                {isFieldEnabled("state") && <FormField
+                    label="State"
+                    name="state"
+                    type="select"
+                    options={stateOptions}
+                    value={formValues.state}
+                    onChange={(e) => handleChange("state", e.target.value)}
+                    placeholder="Select state"
+                    error={formErrors.state}
+                  />
+                }
+                {isFieldEnabled("country") && <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />}
+                {isFieldEnabled("pincode") && <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />}
+                {isFieldEnabled("latitude") && <FormField label="Latitude" name="latitude" value={formValues.latitude} onChange={(e) => handleChange("latitude", e.target.value)} placeholder="e.g. 23.0225" />}
+                {isFieldEnabled("longitude") && <FormField label="Longitude" name="longitude" value={formValues.longitude} onChange={(e) => handleChange("longitude", e.target.value)} placeholder="e.g. 72.5714" />}
               </div>
             </fieldset>
+            )}
 
             {/* Financial Info */}
-            <fieldset className="border rounded-xl p-4">
-              <legend className="text-sm sm:text-base font-medium px-2">Financial Info</legend>
-              <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField
-                  label="Opening Balance"
-                  name="openingbalance"
-                  type="number"
-                  value={formValues.openingbalance}
-                  onChange={(e) => handleChange("openingbalance", e.target.value === "" ? "" : parseFloat(e.target.value))}
-                  icon={<FaRupeeSign />}
-                  placeholder="Enter opening balance"
-                  error={formErrors.openingbalance}
-                />
-                <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
-                <FormField
-                  label="Credit Limit"
-                  name="creditlimit"
-                  type="number"
-                  value={formValues.creditlimit}
-                  onChange={(e) => handleChange("creditlimit", e.target.value === "" ? "" : parseFloat(e.target.value))}
-                  icon={<FaRupeeSign />}
-                  placeholder="Enter credit limit"
-                />
-                <FormField label="GST Number" name="gstnumber" value={formValues.gstnumber} onChange={(e) => handleChange("gstnumber", e.target.value)} placeholder="Enter GST number" />
-                <FormField label="PAN" name="pan" value={formValues.pan} onChange={(e) => handleChange("pan", e.target.value)} placeholder="Enter PAN" />
+            {(isFieldEnabled("openingbalance") || isFieldEnabled("openingbalancetype") || isFieldEnabled("creditlimit") || isFieldEnabled("gstnumber") || isFieldEnabled("pan")) && (
+              <fieldset className="border rounded-xl p-4">
+                <legend className="text-sm sm:text-base font-medium px-2">Financial Info</legend>
+                <div className="grid grid-cols-1 gap-4 mb-4">
+                {isFieldEnabled("openingbalance") && (
+                  <FormField
+                    label="Opening Balance"
+                    name="openingbalance"
+                    type="number"
+                    value={formValues.openingbalance}
+                    onChange={(e) => handleChange("openingbalance", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                    icon={<FaRupeeSign />}
+                    placeholder="Enter opening balance"
+                    error={formErrors.openingbalance}
+                  />
+                )}
+                {isFieldEnabled("openingbalancetype") && (
+                  <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
+                )}
+                {isFieldEnabled("creditlimit") && (
+                  <FormField
+                    label="Credit Limit"
+                    name="creditlimit"
+                    type="number"
+                    value={formValues.creditlimit}
+                    onChange={(e) => handleChange("creditlimit", e.target.value === "" ? "" : parseFloat(e.target.value))}
+                    icon={<FaRupeeSign />}
+                    placeholder="Enter credit limit"
+                  />
+                )}
+                {isFieldEnabled("gstnumber") && <FormField label="GST Number" name="gstnumber" value={formValues.gstnumber} onChange={(e) => handleChange("gstnumber", e.target.value)} placeholder="Enter GST number" />}
+                {isFieldEnabled("pan") && <FormField label="PAN" name="pan" value={formValues.pan} onChange={(e) => handleChange("pan", e.target.value)} placeholder="Enter PAN" />}
               </div>
             </fieldset>
+            )}
 
             {/* Bank Info */}
-            <fieldset className="border rounded-xl p-4">
-              <legend className="text-sm sm:text-base font-medium px-2">Bank Info</legend>
+            {(isFieldEnabled("bankname") || isFieldEnabled("bankaccountnumber") || isFieldEnabled("ifsc") || isFieldEnabled("upiid")) && (
+              <fieldset className="border rounded-xl p-4">
+                <legend className="text-sm sm:text-base font-medium px-2">Bank Info</legend>
               <div className="grid grid-cols-1 gap-4 mb-4">
-                <FormField label="Bank Name" name="bankname" value={formValues.bankname} onChange={(e) => handleChange("bankname", e.target.value)} icon={<FaUniversity />} placeholder="Enter bank name" />
-                <FormField label="Account No." name="bankaccountnumber" value={formValues.bankaccountnumber} onChange={(e) => handleChange("bankaccountnumber", e.target.value)} icon={<FaMoneyCheckAlt />} placeholder="Enter account number" />
-                <FormField label="IFSC" name="ifsc" value={formValues.ifsc} onChange={(e) => handleChange("ifsc", e.target.value)} placeholder="Enter IFSC code" />
-                <FormField label="UPI ID" name="upiid" value={formValues.upiid} onChange={(e) => handleChange("upiid", e.target.value)} placeholder="Enter UPI ID" />
+                {isFieldEnabled("bankname") && <FormField label="Bank Name" name="bankname" value={formValues.bankname} onChange={(e) => handleChange("bankname", e.target.value)} icon={<FaUniversity />} placeholder="Enter bank name" />}
+                {isFieldEnabled("bankaccountnumber") && <FormField label="Account No." name="bankaccountnumber" value={formValues.bankaccountnumber} onChange={(e) => handleChange("bankaccountnumber", e.target.value)} icon={<FaMoneyCheckAlt />} placeholder="Enter account number" />}
+                {isFieldEnabled("ifsc") && <FormField label="IFSC" name="ifsc" value={formValues.ifsc} onChange={(e) => handleChange("ifsc", e.target.value)} placeholder="Enter IFSC code" />}
+                {isFieldEnabled("upiid") && <FormField label="UPI ID" name="upiid" value={formValues.upiid} onChange={(e) => handleChange("upiid", e.target.value)} placeholder="Enter UPI ID" />}
               </div>
             </fieldset>
+            )}
           </div>
 
           {/* Preferences */}

@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import { setAllowedModules } from "../../redux/slices/auth";
 import { setAdminSettings } from "../../redux/slices/adminsettings";
+import { setPermissions as setReduxPermissions } from "../../redux/slices/permissions";
 import {
   useAdminSettingsQuery,
   useAdminSettingsMutations,
@@ -23,6 +24,7 @@ import {
   ACTION_LABELS,
   type ModuleAction,
 } from "../../config/modules";
+import FormPermissionsTab from "./formpermissionstab";
 
 // Strips Apollo's injected __typename from every nested object/array before
 // sending a query result back as a mutation input — the settings draft here
@@ -32,7 +34,7 @@ import {
 const deepStripTypename = (value: any): any =>
   JSON.parse(JSON.stringify(value), (key, val) => (key === "__typename" ? undefined : val));
 
-type TabKey = "general" | "modules" | "permissions";
+type TabKey = "general" | "modules" | "permissions" | "formpermissions";
 
 const FEATURE_TO_MODULES: Record<string, string[]> = {
   enableGst: ["reports.gst"],
@@ -60,6 +62,7 @@ const BusinessSettings = () => {
     ["general", "General"],
     ["modules", "Business Modules"],
     ["permissions", "Business Permissions"],
+    ["formpermissions", "Business Form Permissions"],
   ], []);
 
   // Auto-fix current tab if it becomes hidden
@@ -127,6 +130,13 @@ const BusinessSettings = () => {
                   adminsData?.getAdmins?.find((a: any) => a.id === selectedAdminId)?.allowedmodules
                   ?? admin?.allowedmodules
                 }
+              />
+            )}
+            {tab === "formpermissions" && (
+              <FormPermissionsTab
+                scope="admin"
+                scopeid={selectedAdminId}
+                dispatch={dispatch}
               />
             )}
           </>
@@ -465,7 +475,15 @@ const PermissionsTab: React.FC<{
           completePerms[m.id][a] = !!draft?.[m.id]?.[a]; // undefined/missing → false
         });
       });
-      await setPermissions({ variables: { scope, scopeid, permissions: completePerms } });
+      const response = await setPermissions({ variables: { scope, scopeid, permissions: completePerms } });
+      
+      // Update Redux state immediately so changes reflect without reloading
+      if (response.data?.setPermissions?.permissions) {
+        dispatch(setReduxPermissions(response.data.setPermissions.permissions));
+      } else {
+        dispatch(setReduxPermissions(completePerms));
+      }
+
       dispatch(showMessage({ message: "Permissions saved.", type: "success" }));
     } catch (e: any) {
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));

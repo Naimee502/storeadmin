@@ -17,11 +17,13 @@ export type OtherCharge = {
 type OtherChargesSectionProps = {
   otherCharges: OtherCharge[];
   setOtherCharges: React.Dispatch<React.SetStateAction<OtherCharge[]>>;
+  type: "sales" | "purchase";
 };
 
 const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
   otherCharges,
   setOtherCharges,
+  type,
 }) => {
   const [selectedCharge, setSelectedCharge] = useState<Partial<OtherCharge>>({
     amount: 0,
@@ -30,6 +32,12 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
     totalamount: 0,
   });
   const [editIndex, setEditIndex] = useState<number | null>(null);
+
+  const moduleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
+  const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return formPermissions[fieldId] !== false;
+  };
 
   const { data: ledgersData } = useAccountLedgersQuery();
   // Filter for income/expense ledgers typically used for charges
@@ -91,72 +99,80 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Ledger Selection */}
-        <div className="md:col-span-1">
-          <FormField
-            label="Ledger Account"
-            name="ledgerid"
-            type="select"
-            value={selectedCharge.ledgerid ?? ""}
-            onChange={(e) => {
-              const ledger = chargeLedgers.find((l: any) => l.id === e.target.value);
-              setSelectedCharge({
-                ...selectedCharge,
-                ledgerid: e.target.value,
-                ledgername: ledger?.ledgername || "",
-              });
-            }}
-            options={chargeLedgers.map((l: any) => ({
-              value: l.id,
-              label: l.ledgername,
-            }))}
-            searchable
-          />
-        </div>
+        {isFieldEnabled("ledgeraccount") && (
+          <div className="md:col-span-1">
+            <FormField
+              label="Ledger Account"
+              name="ledgerid"
+              type="select"
+              value={selectedCharge.ledgerid ?? ""}
+              onChange={(e) => {
+                const ledger = chargeLedgers.find((l: any) => l.id === e.target.value);
+                setSelectedCharge({
+                  ...selectedCharge,
+                  ledgerid: e.target.value,
+                  ledgername: ledger?.ledgername || "",
+                });
+              }}
+              options={chargeLedgers.map((l: any) => ({
+                value: l.id,
+                label: l.ledgername,
+              }))}
+              searchable
+            />
+          </div>
+        )}
 
         {/* Amount */}
-        <FormField
-          label="Amount"
-          name="amount"
-          type="number"
-          value={selectedCharge.amount || ""}
-          onChange={(e) => {
-            const val = parseFloat(e.target.value) || 0;
-            const computed = handleCalculateGst(val, selectedCharge.gstpercent || 0);
-            setSelectedCharge({
-              ...selectedCharge,
-              amount: val,
-              ...computed,
-            });
-          }}
-        />
+        {isFieldEnabled("amount") && (
+          <FormField
+            label="Amount"
+            name="amount"
+            type="number"
+            value={selectedCharge.amount || ""}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value) || 0;
+              const computed = handleCalculateGst(val, selectedCharge.gstpercent || 0);
+              setSelectedCharge({
+                ...selectedCharge,
+                amount: val,
+                ...computed,
+              });
+            }}
+          />
+        )}
 
         {/* GST % */}
-        <FormField
-          label="GST %"
-          name="gstpercent"
-          type="number"
-          value={selectedCharge.gstpercent || ""}
-          onChange={(e) => {
-            const val = parseFloat(e.target.value) || 0;
-            const computed = handleCalculateGst(selectedCharge.amount || 0, val);
-            setSelectedCharge({
-              ...selectedCharge,
-              gstpercent: val,
-              ...computed,
-            });
-          }}
-        />
+        {isFieldEnabled("other_gst") && (
+          <FormField
+            label="GST %"
+            name="gstpercent"
+            type="number"
+            value={selectedCharge.gstpercent || ""}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value) || 0;
+              const computed = handleCalculateGst(selectedCharge.amount || 0, val);
+              setSelectedCharge({
+                ...selectedCharge,
+                ...computed,
+                gstpercent: val,
+              });
+            }}
+          />
+        )}
 
         {/* Remarks */}
-        <FormField
-          label="Remarks"
-          name="remarks"
-          type="text"
-          value={selectedCharge.remarks || ""}
-          onChange={(e) =>
-            setSelectedCharge({ ...selectedCharge, remarks: e.target.value })
-          }
-        />
+        {isFieldEnabled("remarks") && (
+          <FormField
+            label="Remarks"
+            name="remarks"
+            type="text"
+            value={selectedCharge.remarks || ""}
+            onChange={(e) =>
+              setSelectedCharge({ ...selectedCharge, remarks: e.target.value })
+            }
+          />
+        )}
       </div>
 
       <div className="flex gap-4 items-center">
@@ -166,9 +182,11 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
         <div className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-2 rounded">
           Total: ₹{selectedCharge.totalamount || 0}
         </div>
-        <Button type="button" variant="outline" onClick={handleAddOrUpdate}>
-          {editIndex !== null ? "Update" : "Add"}
-        </Button>
+        {isFieldEnabled("add_charge_button") && (
+          <Button type="button" variant="outline" onClick={handleAddOrUpdate}>
+            {editIndex !== null ? "Update" : "Add"}
+          </Button>
+        )}
         {editIndex !== null && (
           <Button
             type="button"

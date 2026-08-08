@@ -1,5 +1,7 @@
 import FormField from "../formfiled";
 import BarcodeImage from "../barcode";
+import { useAppSelector } from "../../redux/hooks";
+import { selectIsFormFieldEnabled } from "../../redux/slices/permissions";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -25,6 +27,7 @@ interface ProductVariantsProps {
     navigate: (path: string) => void;
     onQuickAdd: (type: string, label: string, name: string) => void;
     errors: any;
+    isAddVariantEnabled?: boolean;
 }
 
 const LABELS: Record<string, string> = {
@@ -78,16 +81,22 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     navigate,
     onQuickAdd,
     errors,
-}) => (
-    <>
-        {formData.productvariants.map((variant, index) => (
-            <fieldset key={variant.tempid || index} className="border rounded-xl p-4 mb-4 relative">
-                <legend className="text-sm font-semibold px-2">Product Variant {index + 1}</legend>
+}) => {
+    const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
+    const isFieldEnabled = (fieldId: string) => {
+        return productFormPermissions[fieldId] !== false;
+    };
 
-                {formData.productvariants.length > 1 && (
-                    <button
-                        type="button"
-                        className="absolute top-2 right-2 px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
+    return (
+        <div className="space-y-8">
+            {formData.productvariants.map((variant: any, index: number) => (
+                <fieldset key={variant.tempid || index} className="border rounded-xl p-4 mb-4 relative">
+                    <legend className="text-sm font-semibold px-2">Product Variant {index + 1}</legend>
+
+                    {formData.productvariants.length > 1 && (
+                        <button
+                            type="button"
+                            className="absolute top-2 right-2 px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
                         onClick={() => removeProductVariant(index)}
                     >
                         Remove Product Variant
@@ -101,7 +110,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         "gst", "hsncode", "openingstock", "currentstock",
                         "closingstock", "minimumstock", "reorderlevel", "racklocation",
                         ...(isEdit ? ["productcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
-                    ].map((field) => (
+                    ].filter(field => isFieldEnabled(field === "name" ? "variant_name" : field)).map((field) => (
                         <FormField
                             key={field}
                             label={LABELS[field.toLowerCase()] || field}
@@ -132,42 +141,48 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         />
                     ))}
 
-                    {/* Units + Purchase Rate remain always visible */}
-                    <FormField
-                        label="Base Unit"
-                        placeholder="Base Unit"
-                        name={`productvariants.${index}.baseunitid`}
-                        type="select"
-                        options={unitData?.getUnits.map((u) => ({ value: u.id, label: u.unitname })) || []}
-                        value={variant.baseunitid}
-                        onChange={handleChange}
-                        searchable
-                        addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.baseunitid`)}
-                        error={errors?.productvariants?.[index]?.baseunitid}
-                    />
+                    {/* Units + Purchase Rate remain always visible unless disabled */}
+                    {isFieldEnabled("baseunitid") && (
+                        <FormField
+                            label="Base Unit"
+                            placeholder="Base Unit"
+                            name={`productvariants.${index}.baseunitid`}
+                            type="select"
+                            options={unitData?.getUnits.map((u) => ({ value: u.id, label: u.unitname })) || []}
+                            value={variant.baseunitid}
+                            onChange={handleChange}
+                            searchable
+                            addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.baseunitid`)}
+                            error={errors?.productvariants?.[index]?.baseunitid}
+                        />
+                    )}
 
-                    <FormField
-                        label="Purchase Unit"
-                        placeholder="Purchase Unit"
-                        name={`productvariants.${index}.purchaseunitid`}
-                        type="select"
-                        options={unitData?.getUnits.map((u) => ({ value: u.id, label: u.unitname })) || []}
-                        value={variant.purchaseunitid}
-                        onChange={handleChange}
-                        searchable
-                        addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.purchaseunitid`)}
-                        error={errors?.productvariants?.[index]?.purchaseunitid}
-                    />
+                    {isFieldEnabled("purchaseunitid") && (
+                        <FormField
+                            label="Purchase Unit"
+                            placeholder="Purchase Unit"
+                            name={`productvariants.${index}.purchaseunitid`}
+                            type="select"
+                            options={unitData?.getUnits.map((u) => ({ value: u.id, label: u.unitname })) || []}
+                            value={variant.purchaseunitid}
+                            onChange={handleChange}
+                            searchable
+                            addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.purchaseunitid`)}
+                            error={errors?.productvariants?.[index]?.purchaseunitid}
+                        />
+                    )}
 
-                    <FormField
-                        label="Purchase Rate"
-                        placeholder="Purchase Rate"
-                        name={`productvariants.${index}.purchaserate`}
-                        type="number"
-                        value={variant.purchaserate}
-                        onChange={handleChange}
-                        error={errors?.productvariants?.[index]?.purchaserate}
-                    />
+                    {isFieldEnabled("purchaserate") && (
+                        <FormField
+                            label="Purchase Rate"
+                            placeholder="Purchase Rate"
+                            name={`productvariants.${index}.purchaserate`}
+                            type="number"
+                            value={variant.purchaserate}
+                            onChange={handleChange}
+                            error={errors?.productvariants?.[index]?.purchaserate}
+                        />
+                    )}
                 </div>
 
                 {/* Unit Conversions */}
@@ -176,25 +191,29 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     <div className="space-y-2">
                         {(variant.unitconversions || []).map((conv, convIndex) => (
                             <div key={convIndex} className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded bg-gray-50">
-                                <FormField
-                                    label="Unit"
-                                    name={`productvariants.${index}.unitconversions.${convIndex}.unitid`}
-                                    type="select"
-                                    options={unitData?.getUnits.map(u => ({ value: u.id, label: u.unitname })) || []}
-                                    value={conv.unitid}
-                                    onChange={handleChange}
-                                    searchable
-                                    addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.unitconversions.${convIndex}.unitid`)}
-                                    error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.unitid}
-                                />
-                                <FormField
-                                    label="Factor"
-                                    name={`productvariants.${index}.unitconversions.${convIndex}.factor`}
-                                    type="number"
-                                    value={conv.factor}
-                                    onChange={handleChange}
-                                    error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.factor}
-                                />
+                                {isFieldEnabled("unitconversions_unitid") && (
+                                    <FormField
+                                        label="Unit"
+                                        name={`productvariants.${index}.unitconversions.${convIndex}.unitid`}
+                                        type="select"
+                                        options={unitData?.getUnits.map(u => ({ value: u.id, label: u.unitname })) || []}
+                                        value={conv.unitid}
+                                        onChange={handleChange}
+                                        searchable
+                                        addable onAddNew={() => onQuickAdd("unit", "Unit", `productvariants.${index}.unitconversions.${convIndex}.unitid`)}
+                                        error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.unitid}
+                                    />
+                                )}
+                                {isFieldEnabled("factor") && (
+                                    <FormField
+                                        label="Factor"
+                                        name={`productvariants.${index}.unitconversions.${convIndex}.factor`}
+                                        type="number"
+                                        value={conv.factor}
+                                        onChange={handleChange}
+                                        error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.factor}
+                                    />
+                                )}
                                 <button
                                     type="button"
                                     className="w-10 h-10 mt-6 right-2 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
@@ -205,13 +224,15 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             </div>
                         ))}
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => addUnitConversion(index)}
-                        className="px-3 py-1 border rounded text-sm"
-                    >
-                        ➕ Add Unit Conversion
-                    </button>
+                    {isFieldEnabled("add_unit_conversion") && (
+                        <button
+                            type="button"
+                            onClick={() => addUnitConversion(index)}
+                            className="px-3 py-1 border rounded text-sm"
+                        >
+                            ➕ Add Unit Conversion
+                        </button>
+                    )}
                 </div>
 
                 <div className="border-t pt-4 space-y-2 pb-4">
@@ -219,7 +240,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     <div className="space-y-2">
                         {(variant.unitprices || []).map((up, upIndex) => (
                             <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 border rounded bg-gray-50 p-2 relative">
-                                {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].map((f) => (
+                                {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].filter(f => isFieldEnabled(f === "unitid" ? "unitprices_unitid" : f)).map((f) => (
                                     <FormField
                                         key={f}
                                         label={LABELS[f.toLowerCase()] || f}
@@ -264,13 +285,15 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             </div>
                         ))}
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => addUnitPrice(index)}
-                        className="px-3 py-1 border rounded text-sm"
-                    >
-                        ➕ Add Unit Price
-                    </button>
+                    {isFieldEnabled("add_unit_price") && (
+                        <button
+                            type="button"
+                            onClick={() => addUnitPrice(index)}
+                            className="px-3 py-1 border rounded text-sm mt-2"
+                        >
+                            ➕ Add Unit Price
+                        </button>
+                    )}
                 </div>
 
                 {/* Serials */}
@@ -307,6 +330,9 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
             </fieldset>
         ))}
 
-        <button type="button" onClick={addProductVariant} className="px-4 py-2 border rounded text-sm">➕ Add Product Variant</button>
-    </>
-);
+        {isFieldEnabled("add_product_variant") && (
+            <button type="button" onClick={addProductVariant} className="px-4 py-2 border rounded text-sm">➕ Add Product Variant</button>
+        )}
+    </div>
+  );
+};

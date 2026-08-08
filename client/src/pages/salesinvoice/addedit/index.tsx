@@ -14,6 +14,7 @@ import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 
@@ -54,6 +55,11 @@ const AddEditSalesInvoice = () => {
     return { id: '', name: 'Unknown', type: 'unknown' };
   }, [type, admin, branch, staff]);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+
+  const salesInvoiceFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesinvoice || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return salesInvoiceFormPermissions[fieldId] !== false;
+  };
 
   const [paymentType, setPaymentType] = useState("");
   const [partyAccount, setPartyAccount] = useState<any>(null);
@@ -502,10 +508,11 @@ const AddEditSalesInvoice = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Main Details */}
+          {(isFieldEnabled("party") || isFieldEnabled("invoicedate") || isFieldEnabled("billnumber") || isFieldEnabled("duedays") || isFieldEnabled("salesman") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("shipto") || isFieldEnabled("notes")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Main Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("paymenttype") && <FormField
                 label="Payment Type"
                 name="paymentType"
                 type="select"
@@ -522,8 +529,8 @@ const AddEditSalesInvoice = () => {
                 ]}
                 error={errors.paymentType}
                 searchable
-              />
-              <div className="flex items-end gap-2">
+              />}
+              {isFieldEnabled("partyacc") && <div className="flex items-end gap-2">
                 <FormField
                   label="Party Account (Name - Mobile)"
                   name="partyAccount"
@@ -571,8 +578,8 @@ const AddEditSalesInvoice = () => {
                       : "Select a party first to see their bill history."
                   }
                 />
-              </div>
-              <FormField
+              </div>}
+              {isFieldEnabled("placeofsupply") && <FormField
                 label="Tax/Supply Type"
                 name="taxOrSupplyType"
                 type="select"
@@ -585,15 +592,15 @@ const AddEditSalesInvoice = () => {
                 ]}
                 error={errors.taxOrSupplyType}
                 searchable
-              />
-              <FormField
+              />}
+              {isFieldEnabled("billdate") && <FormField
                 label="Bill Date"
                 name="billDate"
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("billnumber") && <FormField
                 label="Bill Number"
                 name="billNumber"
                 type="text"
@@ -601,8 +608,9 @@ const AddEditSalesInvoice = () => {
                 onChange={(e) => setBillNumber(e.target.value)}
                 placeholder="Auto-generated"
                 disabled={!isEdit && billNumber !== ""}
-              />
-              <FormField
+                error={errors.billNumber}
+              />}
+              {isFieldEnabled("billtype") && <FormField
                 label="Bill Type"
                 name="billType"
                 type="select"
@@ -616,28 +624,28 @@ const AddEditSalesInvoice = () => {
                 ]}
                 error={errors.billType}
                 searchable
-              />
-              <FormField
+              />}
+              {isFieldEnabled("notes") && <FormField
                 label="Notes"
                 name="notes"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-              />
-              {/* <FormSwitch
-                label="Is Service"
-                name="isservice"
-                checked={isService}
-                onChange={(checked) => setIsService(checked)}
-              /> */}
-              <FormSwitch
-                label="Status"
-                name="status"
-                checked={status}
-                onChange={(checked) => setStatus(checked)}
-              />
+                placeholder="#"
+              />}
+              {isFieldEnabled("status") && (
+                <div className="flex flex-col">
+                  <FormSwitch
+                    label="Status"
+                    name="status"
+                    checked={status}
+                    onChange={(checked) => setStatus(checked)}
+                  />
+                </div>
+              )}
             </div>
           </fieldset>
+          )}
 
           {/* Product Section */}
           <ProductSection
@@ -663,75 +671,81 @@ const AddEditSalesInvoice = () => {
           />
 
           {/* Transport & Delivery */}
+          {(isFieldEnabled("deliverydate") || isFieldEnabled("duedate") || isFieldEnabled("transportname") || isFieldEnabled("vehiclenumber") || isFieldEnabled("ewaybill") || isFieldEnabled("distance")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("deliverydate") && <FormField
                 label="Delivery Date"
                 name="deliveryDate"
                 type="date"
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("duedate") && <FormField
                 label="Due Date"
                 name="dueDate"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("transportname") && <FormField
                 label="Transport Name"
                 name="transportName"
                 type="text"
+                placeholder="e.g., ABC Logistics"
                 value={transportName}
                 onChange={(e) => setTransportName(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("vehiclenumber") && <FormField
                 label="Vehicle Number"
                 name="vehicleNumber"
                 type="text"
+                placeholder="e.g., MH-01-AB-1234"
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("ewaybill") && <FormField
                 label="E-Way Bill No."
                 name="ewayBillNo"
                 type="text"
                 value={ewayBillNo}
                 onChange={(e) => setEwayBillNo(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("distance") && <FormField
                 label="Distance (km)"
                 name="distance"
                 type="number"
                 value={distance}
                 onChange={(e) => setDistance(e.target.value)}
-              />
+              />}
             </div>
           </fieldset>
+          )}
 
           {/* Other Charges */}
           <OtherChargesSection
             otherCharges={otherCharges}
             setOtherCharges={setOtherCharges}
+            type="sales"
           />
 
           {/* Summary */}
+          {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />
-              <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />
-              <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />
-              <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />
+              {isFieldEnabled("productstotal") && <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />}
+              {isFieldEnabled("totaldiscount") && <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />}
+              {isFieldEnabled("taxamount") && <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />}
+              {isFieldEnabled("summary_othercharges") && <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />}
 
-              <div className="flex gap-2 items-end">
+              {isFieldEnabled("invoicediscount") && <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <FormField
                     label="Invoice Discount"
                     name="invoiceDiscount"
-                    onChange={(e) => setInvoiceDiscount(e.target.value)}
+                    onChange={(e) => setInvoiceDiscount(parseFloat(e.target.value) || 0)}
                     type="number"
                     value={invoiceDiscount}
                   />
@@ -744,19 +758,20 @@ const AddEditSalesInvoice = () => {
                   <option value="amount">₹</option>
                   <option value="percent">%</option>
                 </select>
-              </div>
+              </div>}
 
-              <FormField
+              {isFieldEnabled("roundoff") && <FormField
                 label="Round Off"
                 name="roundOff"
-                onChange={(e) => setRoundOff(e.target.value)}
+                onChange={(e) => setRoundOff(parseFloat(e.target.value) || 0)}
                 type="number"
                 value={roundOff}
-              />
+              />}
 
-              <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />
+              {isFieldEnabled("grandtotal") && <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />}
             </div>
           </fieldset>
+          )}
 
           <div className="mt-6 flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>

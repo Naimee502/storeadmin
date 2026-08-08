@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
+import FormSwitch from "../../../components/formswitch";
 import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { selectIsModuleBusinessEnabled } from "../../../redux/slices/permissions";
+import { selectIsModuleBusinessEnabled, selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
@@ -36,12 +37,12 @@ const AddEditProductService = () => {
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = admin?.id;
 
-  const isCategoryEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "categories"));
-  const isSubCategoryEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "subcategories"));
-  const isBrandEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "brands"));
-  const isGroupEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "productgroups"));
-  const isModelEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "models"));
-  const isSizeEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "sizes"));
+
+  const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant"));
+  const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return productFormPermissions[fieldId] !== false;
+  };
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: subCategoryDate, refetch: refetchSubCategories } = useSubCategoriesQuery();
@@ -525,6 +526,12 @@ const AddEditProductService = () => {
     return Math.round(num * 10000) / 10000;
   };
 
+  const handleSwitchChange = (name: string, checked: boolean) => {
+    handleChange({
+      target: { name, value: checked, type: "checkbox", checked }
+    } as any);
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -532,6 +539,7 @@ const AddEditProductService = () => {
     const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
 
     const keys = name.split(".");
+
     
     // Update formData
     setFormData((prev) => {
@@ -1088,17 +1096,18 @@ const AddEditProductService = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 py-6">
         {/* === GENERAL INFO === */}
         <div className="space-y-6">
+          {(isFieldEnabled("name") || isFieldEnabled("imageurl") || isFieldEnabled("categoryid") || isFieldEnabled("subcategoryid") || isFieldEnabled("brandid") || isFieldEnabled("groupid") || isFieldEnabled("modelid") || isFieldEnabled("sizeid") || isFieldEnabled("description")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">General Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>
-              <FormField label="Images" name="imageurl" type="file" accept="image/*" multiple onChange={handleImageChange} />
-              {isCategoryEnabled && <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>}
-              {isSubCategoryEnabled && <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>}
-              {isBrandEnabled && <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>}
-              {isGroupEnabled && <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>}
-              {isModelEnabled && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
-              {isSizeEnabled && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
+              {isFieldEnabled("name") && <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>}
+              {isFieldEnabled("imageurl") && <FormField label="Images" name="imageurl" type="file" accept="image/*" multiple onChange={handleImageChange} />}
+              {isFieldEnabled("categoryid") && <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>}
+              {isFieldEnabled("subcategoryid") && <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>}
+              {isFieldEnabled("brandid") && <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>}
+              {isFieldEnabled("groupid") && <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>}
+              {isFieldEnabled("modelid") && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
+              {isFieldEnabled("sizeid") && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
 
               {/* Gallery thumbnails — pick adds to this list (doesn't replace it);
                   each thumbnail can be removed individually. First image is the
@@ -1132,80 +1141,111 @@ const AddEditProductService = () => {
                 </div>
               )}
 
-              <div className="md:col-span-2 lg:col-span-3">
-                <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />
-              </div>
+              {isFieldEnabled("description") && (
+                <div className="md:col-span-2 lg:col-span-3">
+                  <FormField label="Description" name="description" placeholder="Enter description" value={formData.description} onChange={handleChange} multiline />
+                </div>
+              )}
             </div>
           </fieldset>
+          )}
         </div>
 
         {/* === SEO, OPTIONS, ACCOUNTS === */}
         <div className="space-y-6">
+          {(isFieldEnabled("metatitle") || isFieldEnabled("metadescription") || isFieldEnabled("keywords") || isFieldEnabled("slug")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">SEO</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <FormField label="Meta Title" name="seo.metatitle" placeholder="Meta title for SEO" value={formData.seo.metatitle} onChange={handleChange} />
-              <FormField label="Meta Description" name="seo.metadescription" placeholder="Meta description for SEO" value={formData.seo.metadescription} onChange={handleChange} />
-              <FormField label="Keywords" name="seo.keywords" placeholder="SEO keywords, comma separated" value={formData.seo.keywords} onChange={handleChange} />
-              <FormField label="Slug" name="seo.slug" placeholder="URL slug, e.g. /product-slug" value={formData.seo.slug} onChange={handleChange} />
+              {isFieldEnabled("metatitle") && <FormField label="Meta Title" name="seo.metatitle" placeholder="Meta title for SEO" value={formData.seo.metatitle} onChange={handleChange} />}
+              {isFieldEnabled("metadescription") && <FormField label="Meta Description" name="seo.metadescription" placeholder="Meta description for SEO" value={formData.seo.metadescription} onChange={handleChange} />}
+              {isFieldEnabled("keywords") && <FormField label="Keywords" name="seo.keywords" placeholder="SEO keywords, comma separated" value={formData.seo.keywords} onChange={handleChange} />}
+              {isFieldEnabled("slug") && <FormField label="Slug" name="seo.slug" placeholder="URL slug, e.g. /product-slug" value={formData.seo.slug} onChange={handleChange} />}
             </div>
           </fieldset>
+          )}
 
+          {(isFieldEnabled("status") || isFieldEnabled("isserialised")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Options</legend>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
-              <FormField label="Status" name="status" type="checkbox" value={formData.status} onChange={handleChange} />
-              {/* <FormField label="Is Service" name="isservice" type="checkbox" value={formData.isservice} onChange={handleChange} /> */}
-              <FormField label="Is Product Serialised" name={`isserialised`} type="checkbox" value={formData.isserialised} onChange={handleChange} />
+              {isFieldEnabled("status") && (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm sm:text-base font-medium">Status</legend>
+                  <FormSwitch
+                    label=""
+                    name="status"
+                    checked={Boolean(formData.status)}
+                    onChange={(checked) => handleSwitchChange("status", checked)}
+                  />
+                </fieldset>
+              )}
+              {isFieldEnabled("isserialised") && (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm sm:text-base font-medium">Is Product Serialised</legend>
+                  <FormSwitch
+                    label=""
+                    name="isserialised"
+                    checked={Boolean(formData.isserialised)}
+                    onChange={(checked) => handleSwitchChange("isserialised", checked)}
+                  />
+                </fieldset>
+              )}
             </div>
           </fieldset>
+          )}
 
+          {(isFieldEnabled("salesaccount") || isFieldEnabled("purchaseaccount") || (formData.isservice && isFieldEnabled("serviceaccount"))) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Accounts</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <FormField
-                  label="Sales Account"
-                  name="salesaccountid"
-                  type="select"
-                  placeholder="Select sales account"
-                  options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
-                  value={formData.salesaccountid}
-                  onChange={handleChange}
-                  searchable
-                  addable
-                  onAddNew={() => openQuickAdd("account", "Sales Account", "salesaccountid")}
-                  error={errors.salesaccountid}
-                />
-                {formData.salesaccountid && (
-                  <p className="text-xs text-green-600 mt-0.5 pl-1">
-                    Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.salesaccountid)?.ledgername}</strong> — change if needed
-                  </p>
-                )}
-              </div>
+              {isFieldEnabled("salesaccount") && (
+                <div>
+                  <FormField
+                    label="Sales Account"
+                    name="salesaccountid"
+                    type="select"
+                    placeholder="Select sales account"
+                    options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
+                    value={formData.salesaccountid}
+                    onChange={handleChange}
+                    searchable
+                    addable
+                    onAddNew={() => openQuickAdd("account", "Sales Account", "salesaccountid")}
+                    error={errors.salesaccountid}
+                  />
+                  {formData.salesaccountid && (
+                    <p className="text-xs text-green-600 mt-0.5 pl-1">
+                      Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.salesaccountid)?.ledgername}</strong> — change if needed
+                    </p>
+                  )}
+                </div>
+              )}
 
-              <div>
-                <FormField
-                  label="Purchase Account"
-                  name="purchaseaccountid"
-                  type="select"
-                  placeholder="Select purchase account"
-                  options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
-                  value={formData.purchaseaccountid}
-                  onChange={handleChange}
-                  searchable
-                  addable
-                  onAddNew={() => openQuickAdd("account", "Purchase Account", "purchaseaccountid")}
-                  error={errors.purchaseaccountid}
-                />
-                {formData.purchaseaccountid && (
-                  <p className="text-xs text-green-600 mt-0.5 pl-1">
-                    Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.purchaseaccountid)?.ledgername}</strong> — change if needed
-                  </p>
-                )}
-              </div>
+              {isFieldEnabled("purchaseaccount") && (
+                <div>
+                  <FormField
+                    label="Purchase Account"
+                    name="purchaseaccountid"
+                    type="select"
+                    placeholder="Select purchase account"
+                    options={ledgers.map((a: any) => ({ value: a.id, label: a.ledgername }))}
+                    value={formData.purchaseaccountid}
+                    onChange={handleChange}
+                    searchable
+                    addable
+                    onAddNew={() => openQuickAdd("account", "Purchase Account", "purchaseaccountid")}
+                    error={errors.purchaseaccountid}
+                  />
+                  {formData.purchaseaccountid && (
+                    <p className="text-xs text-green-600 mt-0.5 pl-1">
+                      Auto-selected: <strong>{ledgers.find((l: any) => l.id === formData.purchaseaccountid)?.ledgername}</strong> — change if needed
+                    </p>
+                  )}
+                </div>
+              )}
 
-              {formData.isservice && (
+              {formData.isservice && isFieldEnabled("serviceaccount") && (
                 <div>
                   <FormField
                     label="Service Account"
@@ -1218,6 +1258,7 @@ const AddEditProductService = () => {
                     searchable
                     addable
                     onAddNew={() => openQuickAdd("account", "Service Account", "serviceaccountid")}
+                    error={errors.serviceaccountid}
                   />
                   {formData.serviceaccountid && (
                     <p className="text-xs text-green-600 mt-0.5 pl-1">
@@ -1228,6 +1269,7 @@ const AddEditProductService = () => {
               )}
             </div>
           </fieldset>
+          )}
         </div>
       </div>
 
@@ -1262,6 +1304,7 @@ const AddEditProductService = () => {
             navigate={navigate}
             onQuickAdd={openQuickAdd}
             errors={variantErrorsWithRate}
+            isAddVariantEnabled={isAddVariantEnabled}
           />
         )}
       </div>

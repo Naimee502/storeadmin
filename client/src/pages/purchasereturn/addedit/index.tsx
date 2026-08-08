@@ -50,6 +50,11 @@ const AddEditPurchaseReturn: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const fromInvoiceParam = queryParams.get("fromInvoice");
 
+  const purchaseReturnFormPermissions = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.purchasereturn || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return purchaseReturnFormPermissions[fieldId] !== false;
+  };
+
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
   const adminId =
     type === "admin" ? admin?.id :
@@ -507,10 +512,11 @@ const AddEditPurchaseReturn: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Main Details */}
+          {(isFieldEnabled("sourceinvoice") || isFieldEnabled("returndate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("refundmode") || isFieldEnabled("placeofsupply") || isFieldEnabled("reason") || isFieldEnabled("notes")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Main Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("sourceinvoice") && <FormField
                 label="Source Invoice"
                 name="sourceInvoiceId"
                 type="select"
@@ -521,8 +527,8 @@ const AddEditPurchaseReturn: React.FC = () => {
                 disabled={isEdit}
                 required
                 error={errors.sourceInvoiceId}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("returndate") && <FormField
                 label="Return Date"
                 name="returndate"
                 type="date"
@@ -530,8 +536,8 @@ const AddEditPurchaseReturn: React.FC = () => {
                 onChange={(e: any) => setReturndate(e.target.value)}
                 required
                 error={errors.returndate}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("billnumber") && <FormField
                 label="Return Number"
                 name="billnumber"
                 type="text"
@@ -539,8 +545,8 @@ const AddEditPurchaseReturn: React.FC = () => {
                 onChange={(e: any) => setBillnumber(e.target.value)}
                 placeholder="Auto-generated"
                 disabled={!isEdit && billnumber !== ""}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("paymenttype") && <FormField
                 label="Payment Type"
                 name="paymentType"
                 type="select"
@@ -556,8 +562,8 @@ const AddEditPurchaseReturn: React.FC = () => {
                   { value: "other", label: "Other" },
                 ]}
                 searchable
-              />
-              <FormField
+              />}
+              {isFieldEnabled("refundmode") && <FormField
                 label="Refund Mode"
                 name="refundMode"
                 type="select"
@@ -568,8 +574,8 @@ const AddEditPurchaseReturn: React.FC = () => {
                 ]}
                 value={refundMode}
                 onChange={(e: any) => setRefundMode(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("placeofsupply") && <FormField
                 label="Tax/Supply Type"
                 name="taxOrSupplyType"
                 type="select"
@@ -581,20 +587,20 @@ const AddEditPurchaseReturn: React.FC = () => {
                   { value: "other", label: "Other" },
                 ]}
                 searchable
-              />
-              <FormField
+              />}
+              {isFieldEnabled("reason") && <FormField
                 label="Reason"
                 name="reason"
                 value={reason}
                 onChange={(e: any) => setReason(e.target.value)}
                 placeholder="Damaged, wrong item, etc."
-              />
-              <FormField
+              />}
+              {isFieldEnabled("notes") && <FormField
                 label="Notes"
                 name="notes"
                 value={notes}
                 onChange={(e: any) => setNotes(e.target.value)}
-              />
+              />}
 
               {partyacc && (
                 <div className="col-span-1 md:col-span-3 text-sm text-gray-600 bg-gray-50 p-3 rounded">
@@ -604,6 +610,7 @@ const AddEditPurchaseReturn: React.FC = () => {
               )}
             </div>
           </fieldset>
+          )}
 
           {/* Return Items */}
           <fieldset className="border rounded-xl p-4 space-y-4">
@@ -665,71 +672,75 @@ const AddEditPurchaseReturn: React.FC = () => {
           <OtherChargesSection
             otherCharges={otherCharges}
             setOtherCharges={setOtherCharges}
+            type="purchase"
           />
 
           {/* Transport & Delivery */}
+          {(isFieldEnabled("deliverydate") || isFieldEnabled("duedate") || isFieldEnabled("transportname") || isFieldEnabled("vehiclenumber") || isFieldEnabled("ewaybill") || isFieldEnabled("distance")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("deliverydate") && <FormField
                 label="Delivery Date"
                 name="deliveryDate"
                 type="date"
                 value={deliveryDate}
                 onChange={(e: any) => setDeliveryDate(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("duedate") && <FormField
                 label="Due Date"
                 name="dueDate"
                 type="date"
                 value={dueDate}
                 onChange={(e: any) => setDueDate(e.target.value)}
-              />
-              <FormField
+              />}
+              {isFieldEnabled("transportname") && <FormField
                 label="Transport Name"
                 name="transportName"
                 type="text"
                 value={transportName}
                 onChange={(e: any) => setTransportName(e.target.value)}
                 placeholder="e.g., ABC Logistics"
-              />
-              <FormField
+              />}
+              {isFieldEnabled("vehiclenumber") && <FormField
                 label="Vehicle Number"
                 name="vehicleNumber"
                 type="text"
                 value={vehicleNumber}
                 onChange={(e: any) => setVehicleNumber(e.target.value)}
                 placeholder="e.g., MH-01-AB-1234"
-              />
-              <FormField
+              />}
+              {isFieldEnabled("ewaybill") && <FormField
                 label="E-Way Bill No."
                 name="ewayBillNo"
                 type="text"
                 value={ewayBillNo}
                 onChange={(e: any) => setEwayBillNo(e.target.value)}
                 placeholder="e.g., EWB123456789"
-              />
-              <FormField
+              />}
+              {isFieldEnabled("distance") && <FormField
                 label="Distance (km)"
                 name="distance"
                 type="number"
                 value={distance}
                 onChange={(e: any) => setDistance(e.target.value)}
                 placeholder="0"
-              />
+              />}
             </div>
           </fieldset>
+          )}
 
           {/* Summary */}
+          {(isFieldEnabled("subtotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("totalamount")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <FormField label="Subtotal" name="subtotal" onChange={() => ""} type="text" value={totals.subtotal.toFixed(2)} disabled />
-              <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totals.totaldiscount.toFixed(2)} disabled />
-              <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={totals.totalgst.toFixed(2)} disabled />
-              <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />
+              {isFieldEnabled("subtotal") && <FormField label="Subtotal" name="subtotal" onChange={() => ""} type="text" value={totals.subtotal.toFixed(2)} disabled />}
+              {isFieldEnabled("totaldiscount") && <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totals.totaldiscount.toFixed(2)} disabled />}
+              {isFieldEnabled("taxamount") && <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={totals.totalgst.toFixed(2)} disabled />}
+              {isFieldEnabled("summary_othercharges") && <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />}
 
-              <div className="flex gap-2 items-end">
+              {isFieldEnabled("invoicediscount") && <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <FormField
                     label="Invoice Discount"
@@ -747,19 +758,20 @@ const AddEditPurchaseReturn: React.FC = () => {
                   <option value="amount">₹</option>
                   <option value="percent">%</option>
                 </select>
-              </div>
+              </div>}
 
-              <FormField
+              {isFieldEnabled("roundoff") && <FormField
                 label="Round Off"
                 name="roundOff"
                 onChange={(e) => setRoundOff(parseFloat(e.target.value) || 0)}
                 type="number"
                 value={roundOff}
-              />
+              />}
 
-              <FormField label="Refund Amount" name="totalAmount" onChange={() => ""} type="text" value={totals.totalamount.toFixed(2)} disabled />
+              {isFieldEnabled("totalamount") && <FormField label="Refund Amount" name="totalAmount" onChange={() => ""} type="text" value={totals.totalamount.toFixed(2)} disabled />}
             </div>
           </fieldset>
+          )}
 
           <div className="mt-6 flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>

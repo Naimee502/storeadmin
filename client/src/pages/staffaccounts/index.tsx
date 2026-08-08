@@ -29,7 +29,7 @@ import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
 import { useChannelsQuery } from "../../graphql/hooks/channels";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsFormFieldEnabled } from "../../redux/slices/permissions";
 
 type FormValues = {
   branchid: string;
@@ -64,6 +64,11 @@ const StaffAccounts = () => {
       : undefined;
 
   const branchId = useAppSelector((state: any) => state.selectedBranch.branchId);
+
+  const staffFormPermissions = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.staffaccounts || {});
+  const isFieldEnabled = (fieldId: string) => {
+    return staffFormPermissions[fieldId] !== false;
+  };
 
   // HOOKS UPDATED
   const { data, refetch } = useStaffQuery();
@@ -341,19 +346,22 @@ const StaffAccounts = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {/* Name */}
-            <FormField
-              label="Name"
-              name="name"
-              type="text"
-              value={formValues.name}
-              onChange={(e) => handleFormChange("name", e.target.value)}
-              error={formErrors.name}
-              icon={<FaUser />}
-              placeholder="Enter full name"
-            />
+            {isFieldEnabled("name") && (
+              <FormField
+                label="Name"
+                name="name"
+                type="text"
+                value={formValues.name}
+                onChange={(e) => handleFormChange("name", e.target.value)}
+                error={formErrors.name}
+                icon={<FaUser />}
+                placeholder="Enter full name"
+              />
+            )}
 
             {/* Mobile */}
-            <FormField
+            {isFieldEnabled("mobile") && (
+              <FormField
               label="Mobile"
               name="mobile"
               type="text"
@@ -361,11 +369,12 @@ const StaffAccounts = () => {
               onChange={(e) => handleFormChange("mobile", e.target.value)}
               error={formErrors.mobile}
               icon={<FaMobileAlt />}
-              placeholder="Enter mobile number"
-            />
+              />
+            )}
 
             {/* Email */}
-            <FormField
+            {isFieldEnabled("email") && (
+              <FormField
               label="Email"
               name="email"
               type="email"
@@ -373,11 +382,12 @@ const StaffAccounts = () => {
               onChange={(e) => handleFormChange("email", e.target.value)}
               error={formErrors.email}
               icon={<FaEnvelope />}
-              placeholder="Enter email address"
-            />
+              />
+            )}
 
             {/* Password */}
-            <FormField
+            {isFieldEnabled("password") && (
+              <FormField
               label={
                 isEditing
                   ? "New Password (leave blank to keep current)"
@@ -388,11 +398,12 @@ const StaffAccounts = () => {
               value={formValues.password}
               onChange={(e) => handleFormChange("password", e.target.value)}
               error={formErrors.password}
-              placeholder={isEditing ? "Enter new password" : "Enter password"}
-            />
+              />
+            )}
 
             {/* Role SELECT */}
-            <FormField
+            {isFieldEnabled("role") && (
+              <FormField
               label="Role"
               name="role"
               type="select"
@@ -406,9 +417,11 @@ const StaffAccounts = () => {
               ]}
               searchable={false}
             />
+            )}
 
             {/* Account Group — auto-selected as "Staff Account", can be overridden */}
-            <div>
+            {isFieldEnabled("accountgroupid") && (
+              <div>
               <FormField
                 label="Account Group"
                 name="accountgroupid"
@@ -430,9 +443,11 @@ const StaffAccounts = () => {
                 </p>
               )}
             </div>
+            )}
 
             {/* Salary */}
-            <FormField
+            {isFieldEnabled("salary") && (
+              <FormField
               label="Salary"
               name="salary"
               type="number"
@@ -440,11 +455,12 @@ const StaffAccounts = () => {
               onChange={(e) => handleFormChange("salary", e.target.value)}
               icon={<FaMoneyBillWave />}
               error={formErrors.salary}
-              placeholder="Enter fixed salary"
-            />
+              />
+            )}
 
             {/* Commission */}
-            <FormField
+            {isFieldEnabled("commission") && (
+              <FormField
               label="Commission"
               name="commission"
               type="number"
@@ -452,33 +468,35 @@ const StaffAccounts = () => {
               onChange={(e) => handleFormChange("commission", e.target.value)}
               icon={<FaPercent />}
               error={formErrors.commission}
-              placeholder="Enter commission percentage or flat"
-            />
+              />
+            )}
 
             {/* Target */}
-            <FormField
+            {isFieldEnabled("target") && (
+              <FormField
               label="Target Amount"
               name="target"
               type="number"
               value={formValues.target}
               onChange={(e) => handleFormChange("target", e.target.value)}
               icon={<FaBullseye />}
-              placeholder="Enter sales target"
-            />
+              />
+            )}
 
             {/* Address */}
-            <FormField
+            {isFieldEnabled("address") && (
+              <FormField
               label="Address"
               name="address"
               type="text"
               value={formValues.address}
               onChange={(e) => handleFormChange("address", e.target.value)}
               icon={<FaHome />}
-              placeholder="Enter address"
-            />
+              />
+            )}
 
             {/* Assigned Channels (Only for Salesman) */}
-            {formValues.role === "salesman" && (
+            {isFieldEnabled("assignedChannels") && formValues.role === "salesman" && (
               <FormField
                 label="Assigned Channels"
                 name="assignedChannels"
@@ -496,7 +514,8 @@ const StaffAccounts = () => {
             )}
 
             {/* Profile Picture */}
-            <FormField
+            {isFieldEnabled("profilepicture") && (
+              <FormField
               label="Profile Picture"
               name="profilepicture"
               type="file"
@@ -513,18 +532,21 @@ const StaffAccounts = () => {
                 selectedFile ? URL.createObjectURL(selectedFile) : formValues.imageurl || ""
               }
             />
+            )}
 
             {/* Status */}
             <div className="flex items-center max-w-full space-x-4 mt-4">
-              <fieldset className="flex items-center space-x-2">
-                <legend className="text-sm sm:text-base font-medium">Status</legend>
-                <FormSwitch
-                  label=""
-                  name="status"
-                  checked={Boolean(formValues.status)}
-                  onChange={(checked) => handleFormChange("status", checked)}
-                />
-              </fieldset>
+              {isFieldEnabled("status") && (
+                <fieldset className="flex items-center space-x-2">
+                  <legend className="text-sm sm:text-base font-medium">Status</legend>
+                  <FormSwitch
+                    label=""
+                    name="status"
+                    checked={Boolean(formValues.status)}
+                    onChange={(checked) => handleFormChange("status", checked)}
+                  />
+                </fieldset>
+              )}
 
               <Button variant="outline" type="submit">
                 { isEditing
