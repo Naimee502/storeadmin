@@ -40,6 +40,7 @@ import {
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
   DEFAULT_ON_MODULE_IDS,
+  ACTION_LABELS,
   type ModuleAction,
 } from "../../config/modules";
 
@@ -890,10 +891,13 @@ const SubModulesTab: React.FC<{
   // STRICT: only show modules the parent (admin/branch) is allowed
   const eligibleModules = useMemo(
     () =>
-      ADMIN_REGISTER_MODULES.filter((m) =>
-        parentAllowed.map((id) => id.toLowerCase()).includes(m.id.toLowerCase())
-      ),
-    [parentAllowed]
+      ADMIN_REGISTER_MODULES.filter((m) => {
+        if (scope === "staff") {
+          return ["accounts", "salesorder", "attendance", "posdashboard"].includes(m.id);
+        }
+        return parentAllowed.map((id) => id.toLowerCase()).includes(m.id.toLowerCase());
+      }),
+    [parentAllowed, scope]
   );
 
   const grouped = useMemo(() => {
@@ -978,16 +982,19 @@ const PermissionsTab: React.FC<{
 
   const visibleModules = useMemo(() => {
     let list = MODULES.filter((m) => m.section !== "system");
-    if (parentAllowed) {
+    if (scope === "staff") {
+      const allowed = ["accounts", "salesorder", "attendance", "posdashboard"];
+      list = list.filter(m => allowed.includes(m.id));
+    } else if (parentAllowed) {
       list = list.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
     }
     return list;
-  }, [parentAllowed]);
+  }, [parentAllowed, scope]);
 
   if (!scopeid) return <div className="text-sm text-gray-500">Pick a target first.</div>;
   if (loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
-  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
+  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "exportexcel", "exportcsv", "exportpdf", "reset"];
 
   const handleSave = async () => {
     try {
@@ -1068,7 +1075,7 @@ const PermissionsTab: React.FC<{
                               });
                             }}
                           />
-                          <span className="capitalize whitespace-nowrap">{a}</span>
+                          <span className="capitalize whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
                         </div>
                       </th>
                     ))}

@@ -300,7 +300,7 @@ const DeliveryBoyReport: React.FC = () => {
               <LiveTrackingMap latest={locations} trail={trail} height={440} />
             </div>
 
-            <ReportTable
+            <ReportTable moduleId="reports.delivery"
               title={showingTrail ? "Live Location (Full Day Trail)" : "Live Location (Latest per Delivery Boy)"}
               columns={trackingColumns}
               data={trackingData}
@@ -314,7 +314,7 @@ const DeliveryBoyReport: React.FC = () => {
             />
           </>
         ) : (
-          <ReportTable
+          <ReportTable moduleId="reports.delivery"
             title={tableTitle}
             columns={tableColumns}
             data={tableData}

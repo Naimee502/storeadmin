@@ -215,7 +215,7 @@ const StockReports: React.FC = () => {
             );
           })}
         </div>
-        <ReportTable
+        <ReportTable moduleId="reports.stock"
           title="Stock Reports"
           columns={columns}
           data={tableData}

@@ -502,7 +502,7 @@ const AccountingFinanceReports: React.FC = () => {
                         );
                     })}
                 </div>
-                <ReportTable
+                <ReportTable moduleId="reports.accounting"
                     title={title}
                     columns={columns}
                     data={tableData}

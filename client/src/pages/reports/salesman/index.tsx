@@ -109,7 +109,7 @@ const SalesmanReports: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <ReportTable
+        <ReportTable moduleId="reports.salesmen"
           title="Staff Performance Report"
           columns={columns}
           data={reportData}

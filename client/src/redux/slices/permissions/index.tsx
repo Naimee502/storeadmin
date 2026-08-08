@@ -140,6 +140,9 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     showWhatsApp: allow("whatsapp"),
     showImport: allow("import"),
     showExport: allow("export"),
+    showExportExcel: allow("exportexcel"),
+    showExportCsv: allow("exportcsv"),
+    showExportPdf: allow("exportpdf"),
     canReset: allow("reset"),
     showDeleted: allow("delete"),
   };

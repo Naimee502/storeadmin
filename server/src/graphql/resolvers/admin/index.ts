@@ -73,6 +73,7 @@ export const adminResolvers = {
 
       // Safely update allowed fields
       if (input.name) admin.name = input.name;
+      if (input.email) admin.email = input.email;
       if (input.password) admin.password = input.password;
       if (input.companyName) admin.companyName = input.companyName;
       if (input.mobile) admin.mobile = input.mobile;

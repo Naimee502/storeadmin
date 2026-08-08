@@ -21,20 +21,44 @@ export type ModuleAction =
   | "whatsapp"
   | "import"
   | "export"
+  | "exportexcel"
+  | "exportcsv"
+  | "exportpdf"
   | "reset";
+
+export const ACTION_LABELS: Record<ModuleAction, string> = {
+  view: "View",
+  add: "Add",
+  edit: "Edit",
+  delete: "Delete",
+  print: "Print",
+  return: "Return",
+  cancel: "Cancel",
+  convert: "Convert",
+  whatsapp: "WhatsApp",
+  import: "Import",
+  export: "Export",
+  exportexcel: "Export Excel",
+  exportcsv: "Export CSV",
+  exportpdf: "Export PDF",
+  reset: "Reset",
+};
 
 // Default action sets per module category. Sales/Purchase invoices get
 // the full set; master data only gets CRUD; reports only get view+export.
 const FULL_TXN_ACTIONS: ModuleAction[] = [
-  "view", "add", "edit", "delete", "print", "return", "whatsapp", "import", "export", "reset",
+  "add", "edit", "delete", "print", "return", "whatsapp", "reset",
 ];
 const ORDER_ACTIONS: ModuleAction[] = [
-  "view", "add", "edit", "delete", "cancel", "convert", "import", "export", "reset",
+  "add", "edit", "delete", "cancel", "convert", "reset",
 ];
 const CRUD_ACTIONS: ModuleAction[] = [
-  "view", "add", "edit", "delete", "import", "export", "reset",
+  "add", "edit", "delete", "reset",
 ];
-const REPORT_ACTIONS: ModuleAction[] = ["view", "export"];
+const CRUD_WITH_IMPORT_EXPORT_ACTIONS: ModuleAction[] = [
+  "add", "edit", "delete", "import", "export", "reset",
+];
+const REPORT_ACTIONS: ModuleAction[] = ["exportexcel", "exportcsv", "exportpdf"];
 
 export interface ModuleDef {
   id: string;          // permission key
@@ -49,19 +73,21 @@ export interface ModuleDef {
 
 export type ModuleSection =
   | "master"
+  | "accounts"
   | "sales"
+  | "pos"
   | "purchase"
   | "inventory"
   | "distribution"
   | "pricing"
   | "accounting"
   | "manufacturing"
+  | "hr"
   | "reports"
   | "system";
 
 export const MODULES: ModuleDef[] = [
   // ───────────── Master / Setup ─────────────
-  { id: "branches",       label: "Branches",        section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "categories",     label: "Categories",      section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "subcategories",  label: "Sub Categories",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "brands",         label: "Brands",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -69,17 +95,21 @@ export const MODULES: ModuleDef[] = [
   { id: "productgroups",  label: "Product Groups",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "sizes",          label: "Sizes",           section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "units",          label: "Units",           section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "products",       label: "Products",        section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "accountgroups",  label: "Account Groups",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "accountledgers", label: "Account Ledgers", section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "staffaccounts",  label: "Staff Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "accounts",       label: "Party Accounts",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "products",       label: "Products",        section: "master", actions: CRUD_WITH_IMPORT_EXPORT_ACTIONS, inAdminRegister: true },
+
+  // ───────────── Accounts ─────────────
+  { id: "accountgroups",  label: "Account Groups",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "accountledgers", label: "Account Ledgers", section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: CRUD_WITH_IMPORT_EXPORT_ACTIONS, inAdminRegister: true },
 
   // ───────────── Sales pipeline ─────────────
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "salesinvoice",   label: "Sales Invoices",  section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
   { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
-  { id: "posdashboard",   label: "POS Dashboard",   section: "sales", actions: ["view"], inAdminRegister: true },
+
+  // ───────────── Point of Sale ─────────────
+  { id: "posdashboard",   label: "POS Dashboard",   section: "pos", actions: ["view"], inAdminRegister: true },
 
   // ───────────── Purchase pipeline ─────────────
   { id: "purchaseorder",   label: "Purchase Orders",   section: "purchase", actions: ORDER_ACTIONS, inAdminRegister: true },
@@ -103,7 +133,9 @@ export const MODULES: ModuleDef[] = [
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "attendance",    label: "Attendance & Leave", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
+
+  // ───────────── HR & Staff ─────────────
+  { id: "attendance",    label: "Attendance & Leave", section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Manufacturing (BOM / Production) ─────────────
   { id: "bom",         label: "Bill of Materials", section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -123,19 +155,23 @@ export const MODULES: ModuleDef[] = [
   { id: "reports.attendance", label: "Attendance & Leave Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 
   // ───────────── System (always granted, never gated by allowedmodules) ─────────────
-  { id: "settings",      label: "Settings",        section: "system", actions: ["view", "edit"], inAdminRegister: false },
-  { id: "permissions",   label: "Permissions",     section: "system", actions: ["view", "edit"], inAdminRegister: false },
+  { id: "branches",      label: "Branches",        section: "system", actions: CRUD_ACTIONS, inAdminRegister: false },
+  { id: "settings",      label: "Settings",        section: "system", actions: ["edit"], inAdminRegister: false },
+  { id: "permissions",   label: "Permissions",     section: "system", actions: ["edit"], inAdminRegister: false },
 ];
 
 export const SECTION_LABELS: Record<ModuleSection, string> = {
   master: "Master Setup",
+  accounts: "Accounts",
   sales: "Sales",
+  pos: "Point of Sale",
   purchase: "Purchase",
   inventory: "Inventory",
   distribution: "Distribution",
   pricing: "Pricing",
   accounting: "Accounting",
   manufacturing: "Manufacturing",
+  hr: "HR & Staff",
   reports: "Reports",
   system: "System",
 };
@@ -147,13 +183,13 @@ export const findModule = (id: string) => MODULES.find((m) => m.id === id);
 // They bypass the business-level allowedmodules gate (so they show up in the
 // sidebar, the Business Modules checklist and the Permissions matrix), while
 // still honoring branch/staff-level restrictions and per-action permissions.
-export const DEFAULT_ON_MODULE_IDS: string[] = [];
+export const DEFAULT_ON_MODULE_IDS: string[] = ["branches"];
 
 export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {
-    master: [], sales: [], purchase: [], inventory: [], distribution: [], pricing: [],
-    accounting: [], manufacturing: [], reports: [], system: [],
+    master: [], accounts: [], sales: [], pos: [], purchase: [], inventory: [], distribution: [], pricing: [],
+    accounting: [], manufacturing: [], hr: [], reports: [], system: [],
   };
   MODULES.forEach((m) => map[m.section].push(m));
   return map;

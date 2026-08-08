@@ -381,7 +381,7 @@ const SalesmanFieldReport: React.FC = () => {
               <LiveTrackingMap latest={locations} trail={trail} height={440} />
             </div>
 
-            <ReportTable
+            <ReportTable moduleId="reports.salesmanfield"
               title={showingTrail ? "Live Location (Full Day Trail)" : "Live Location (Latest per Salesman)"}
               columns={trackingColumns}
               data={trackingData}
@@ -395,7 +395,7 @@ const SalesmanFieldReport: React.FC = () => {
             />
           </>
         ) : (
-          <ReportTable
+          <ReportTable moduleId="reports.salesmanfield"
             title={tableTitle}
             columns={tableColumns}
             data={tableData}

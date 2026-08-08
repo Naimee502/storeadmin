@@ -40,21 +40,23 @@ const SalesOrders = () => {
   const optionsFor = (order: any) => {
     const opts: { label: string; value: string }[] = [{ label: "Pending", value: "pending" }];
     if (salesInvoiceEnabled) {
-      if (!order.isConverted) opts.push({ label: "Convert to Invoice", value: "convert" });
+      if (!order.isConverted && actions.showConvert) opts.push({ label: "Convert to Invoice", value: "convert" });
     } else {
-      opts.push({ label: "Confirmed", value: "confirmed" });
+      if (actions.showConvert) opts.push({ label: "Confirmed", value: "confirmed" });
     }
-    opts.push(
-      { label: "Dispatched", value: "dispatched" },
-      { label: "Delivered",  value: "delivered" },
-      { label: "Cancelled",  value: "cancelled" },
-    );
+    if (actions.showConvert) {
+      opts.push(
+        { label: "Dispatched", value: "dispatched" },
+        { label: "Delivered",  value: "delivered" },
+        { label: "Cancelled",  value: "cancelled" },
+      );
+    }
     return opts;
   };
   const handleStatusChange = async (row: any, status: string) => {
     try {
       if (status === "convert") {
-        if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "info" })); return; }
+        if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "error" })); return; }
         navigate(`/salesinvoice/addedit?orderId=${row.id}`);
         return;
       }

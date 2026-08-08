@@ -413,7 +413,7 @@ const GSTReports: React.FC = () => {
             );
           })}
         </div>
-        <ReportTable
+        <ReportTable moduleId="reports.gst"
           title="GST Reports"
           columns={columns}
           data={tableData}

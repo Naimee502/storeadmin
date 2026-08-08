@@ -20,6 +20,7 @@ import {
   SECTION_LABELS,
   ADMIN_REGISTER_MODULES,
   DEFAULT_ON_MODULE_IDS,
+  ACTION_LABELS,
   type ModuleAction,
 } from "../../config/modules";
 
@@ -450,7 +451,7 @@ const PermissionsTab: React.FC<{
 
   if (!scopeid || loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
-  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "reset"];
+  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "exportexcel", "exportcsv", "exportpdf", "reset"];
 
   const handleSave = async () => {
     try {
@@ -532,7 +533,7 @@ const PermissionsTab: React.FC<{
                               });
                             }}
                           />
-                          <span className="capitalize whitespace-nowrap">{a}</span>
+                          <span className="capitalize whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
                         </div>
                       </th>
                     ))}

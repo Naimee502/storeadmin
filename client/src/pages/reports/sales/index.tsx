@@ -359,7 +359,7 @@ const SalesReports: React.FC = () => {
           })}
         </div>
 
-        <ReportTable
+        <ReportTable moduleId="reports.sales"
           title={title}
           columns={columns}
           data={tableData}

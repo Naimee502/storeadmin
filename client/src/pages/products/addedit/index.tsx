@@ -5,6 +5,7 @@ import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { selectIsModuleBusinessEnabled } from "../../../redux/slices/permissions";
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
@@ -34,6 +35,13 @@ const AddEditProductService = () => {
   const { admin, branch, type } = useAppSelector((state) => state.auth);
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = admin?.id;
+
+  const isCategoryEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "categories"));
+  const isSubCategoryEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "subcategories"));
+  const isBrandEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "brands"));
+  const isGroupEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "productgroups"));
+  const isModelEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "models"));
+  const isSizeEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "sizes"));
 
   const { data: categoryData, refetch: refetchCategories } = useCategoriesQuery();
   const { data: subCategoryDate, refetch: refetchSubCategories } = useSubCategoriesQuery();
@@ -1085,12 +1093,12 @@ const AddEditProductService = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormField label="Name" name="name" placeholder="Enter product name" value={formData.name} onChange={handleChange}  error={errors.name}/>
               <FormField label="Images" name="imageurl" type="file" accept="image/*" multiple onChange={handleImageChange} />
-              <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>
-              <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>
-              <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>
-              <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>
-              <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>
-              <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>
+              {isCategoryEnabled && <FormField label="Category" name="categoryid" type="select" placeholder="Select category" options={categoryData?.getCategories.map(c => ({ value: c.id, label: c.categoryname })) || []} value={formData.categoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("category", "Category", "categoryid")} error={errors.categoryid}/>}
+              {isSubCategoryEnabled && <FormField label="Sub Category" name="subcategoryid" type="select" placeholder="Select subcategory" options={subcategoryOptions} value={formData.subcategoryid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("subcategory", "Sub Category", "subcategoryid", formData.categoryid)}/>}
+              {isBrandEnabled && <FormField label="Brand" name="brandid" type="select" placeholder="Select brand" options={brandData?.getBrands.map(b => ({ value: b.id, label: b.brandname })) || []} value={formData.brandid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("brand", "Brand", "brandid")}/>}
+              {isGroupEnabled && <FormField label="Product Group" name="groupid" type="select" placeholder="Select group" options={groupData?.getProductGroups.map(g => ({ value: g.id, label: g.productgroupname })) || []} value={formData.groupid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("productgroup", "Product Group", "groupid")}/>}
+              {isModelEnabled && <FormField label="Model" name="modelid" type="select" placeholder="Select model" options={modelData?.getModels.map(m => ({ value: m.id, label: m.modelname })) || []} value={formData.modelid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("model", "Model", "modelid")}/>}
+              {isSizeEnabled && <FormField label="Size" name="sizeid" type="select" placeholder="Select size" options={sizeData?.getSizes.map(s => ({ value: s.id, label: s.sizename })) || []} value={formData.sizeid} onChange={handleChange} searchable addable onAddNew={() => openQuickAdd("size", "Size", "sizeid")}/>}
 
               {/* Gallery thumbnails — pick adds to this list (doesn't replace it);
                   each thumbnail can be removed individually. First image is the

@@ -13,6 +13,8 @@ import FormField from "../formfiled";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { getFinancialYear, formatDateDMY } from "../../utils/helper";
+import { useAppSelector } from "../../redux/hooks";
+import { selectModuleActions } from "../../redux/slices/permissions";
 
 /* Current financial year label, e.g. "FY 2026-27 (01-04-2026 → 31-03-2027)" */
 const fyInfo = () => {
@@ -58,6 +60,7 @@ interface ReportTableProps {
   showExport?: boolean;
   showCsv?: boolean;
   showPdf?: boolean;
+  moduleId?: string;
   onExport?: () => void;
   onCsvExport?: () => void;
   onPdfExport?: () => void;
@@ -164,7 +167,13 @@ const ReportTable: React.FC<ReportTableProps> = ({
   defaultEntriesPerPage = 10,
   showTotals = true,
   exportFileName = "Report",
+  moduleId,
 }) => {
+  const actions = useAppSelector(state => moduleId ? selectModuleActions(state, moduleId) : null);
+  const finalShowExport = moduleId ? actions?.showExportExcel : showExport;
+  const finalShowCsv = moduleId ? actions?.showExportCsv : showCsv;
+  const finalShowPdf = moduleId ? actions?.showExportPdf : showPdf;
+
   const [globalSearch, setGlobalSearch] = useState("");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
@@ -378,7 +387,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
             {/* Export buttons with visible icon + text */}
             <div className="flex flex-wrap items-center gap-2">
-              {showExport && (
+              {finalShowExport && (
                 <button
                   type="button"
                   onClick={handleExcelExport}
@@ -388,7 +397,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   <span className="!text-white font-bold">Export Excel</span>
                 </button>
               )}
-              {showCsv && (
+              {finalShowCsv && (
                 <button
                   type="button"
                   onClick={handleCsvExport}
@@ -398,7 +407,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   <span className="!text-white font-bold">Export CSV</span>
                 </button>
               )}
-              {showPdf && (
+              {finalShowPdf && (
                 <button
                   type="button"
                   onClick={handlePdfExport}

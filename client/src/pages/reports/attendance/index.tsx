@@ -339,7 +339,7 @@ const AttendanceReports: React.FC = () => {
             );
           })}
         </div>
-        <ReportTable
+        <ReportTable moduleId="reports.attendance"
           title={title}
           columns={columns}
           data={rows}

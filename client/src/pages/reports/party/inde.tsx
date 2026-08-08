@@ -534,7 +534,7 @@ const PartyReports: React.FC = () => {
               );
             })}
         </div>
-        <ReportTable
+        <ReportTable moduleId="reports.party"
           title="Party Reports"
           columns={columns}
           data={tableData}

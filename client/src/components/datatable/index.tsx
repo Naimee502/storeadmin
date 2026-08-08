@@ -101,7 +101,7 @@ const DataTable: React.FC<DataTableProps> = ({
     title,
     columns,
     data,
-    showView = true,
+    showView = false,
     showEdit = true,
     showDelete = true,
     showAdd = true,

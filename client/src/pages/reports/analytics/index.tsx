@@ -181,7 +181,7 @@ const AnalyticalReports: React.FC = () => {
             );
           })}
         </div>
-        <ReportTable
+        <ReportTable moduleId="reports.analytical"
           title={title}
           columns={columns}
           data={tableData}

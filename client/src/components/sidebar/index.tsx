@@ -46,7 +46,7 @@ let savedSidebarScroll = 0;
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange }) => {
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
-  const { permissions, isLoaded } = useAppSelector((state: any) => state.permissions);
+
   const { settings } = useAppSelector((state: any) => state.adminsettings);
   const location = useLocation();
   const [isHovered, setIsHovered] = React.useState(false);
@@ -108,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     enableGst: ["reports.gst"],
   };
 
-  const filterLinks = (links: SidebarLink[]) => {
+  const filterLinks = <T extends SidebarLink>(links: T[]): T[] => {
     return links.filter((link) => {
       const moduleId = link.moduleId;
       if (!moduleId) return true;
@@ -144,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
 
   // Dynamic Sidebar Link Registry
   const ALL_LINKS: (SidebarLink & { roles: string[]; section?: string })[] = [
-    { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-amber-400 text-xl flex-shrink-0" />, moduleId: "branches", roles: ["admin", "branch", "staff"] },
+    { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-amber-400 text-xl flex-shrink-0" />, moduleId: "branches", roles: ["admin"] },
     { to: '/categories', label: 'Categories', icon: <FaTags className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "categories", roles: ["admin", "branch", "staff"] },
     { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent className="text-blue-400 text-xl flex-shrink-0" />, moduleId: "subcategories", roles: ["admin", "branch", "staff"] },
     { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined className="text-purple-400 text-xl flex-shrink-0" />, moduleId: "sizes", roles: ["admin", "branch", "staff"] },
