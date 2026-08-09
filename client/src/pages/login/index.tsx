@@ -234,17 +234,8 @@ const Login = () => {
               error={passwordError}
             />
 
-            {/* Subscribe Link */}
+            {/* Subscribe Link (Removed manual link since system redirects automatically on expiry) */}
             <div className="flex justify-end items-center">
-              <p
-                className="text-xs sm:text-sm md:text-base text-blue-600 hover:underline font-medium cursor-pointer"
-                onClick={() => navigate("/subscription")}
-              >
-                {loginType === "admin"
-                  ? "Don't have an active subscription?"
-                  : "Admin subscription required"}
-              </p>
-
               {/* Subscription warning for admin */}
               {isExpiringSoon && (
                 <span className="text-xs text-red-600 font-medium">

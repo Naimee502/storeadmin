@@ -447,10 +447,12 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <span className="lbl">Total Discount</span>
                 <span>{mask(totalDiscount).toFixed(2)}</span>
               </div>
-              <div className="inv-totals-row">
-                <span className="lbl">Total GST</span>
-                <span>{mask(totalGST).toFixed(2)}</span>
-              </div>
+              {settings?.printShowTotalGst !== false && (
+                <div className="inv-totals-row">
+                  <span className="lbl">Total GST</span>
+                  <span>{mask(totalGST).toFixed(2)}</span>
+                </div>
+              )}
               {(invoice.othercharges || []).map((c, idx) => (
                 <div className="inv-totals-row" key={`oc-${idx}`}>
                   <span className="lbl">

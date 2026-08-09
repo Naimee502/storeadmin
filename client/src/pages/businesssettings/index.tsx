@@ -286,6 +286,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={draft.printShowGstColumn !== false}
           onChange={(v: boolean) => set("printShowGstColumn", v)}
         />
+        <Toggle
+          label="Show Total GST on print"
+          checked={draft.printShowTotalGst !== false}
+          onChange={(v: boolean) => set("printShowTotalGst", v)}
+        />
         <div className="pt-1">
           <FormField
             label="Terms & Conditions text (one line per point)"

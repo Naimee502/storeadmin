@@ -93,7 +93,7 @@ const SalesRoutes: React.FC = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-10">
-        <DataTable
+        <DataTable requireBranchForAdd={true}
           {...actions}
           title="Sales Routes"
           columns={columns}

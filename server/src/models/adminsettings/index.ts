@@ -130,6 +130,7 @@ const adminSettingsSchema = new mongoose.Schema(
     printShowGstin: { type: Boolean, default: true },
     printShowHsnColumn: { type: Boolean, default: true },
     printShowGstColumn: { type: Boolean, default: true },
+    printShowTotalGst: { type: Boolean, default: true },
 
     /* ============================================================
        FULFILMENT — who delivers orders for this business.

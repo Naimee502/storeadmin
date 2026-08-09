@@ -886,6 +886,7 @@ const AddEditProductService = () => {
     }
 
     setErrors(newErrors);
+    return isEmptyDeep(newErrors);
   };
 
   const generatePayload = async (isUpdate = false): Promise<any> => {
@@ -1021,9 +1022,9 @@ const AddEditProductService = () => {
   
 
   const handleSubmit = async () => {
-    validateForm(); 
+    const isValid = validateForm(); 
 
-    if (!isFormValid) {
+    if (!isValid) {
       dispatch(
         showMessage({
           message: "Please fix the errors before submitting.",

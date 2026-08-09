@@ -46,6 +46,7 @@ const SETTINGS_FIELDS = `
   printShowGstin
   printShowHsnColumn
   printShowGstColumn
+  printShowTotalGst
   supportEmail
   supportPhone
   supportWhatsapp

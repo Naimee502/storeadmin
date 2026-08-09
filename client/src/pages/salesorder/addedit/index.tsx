@@ -87,6 +87,9 @@ const AddEditSalesOrder = () => {
   const { data: producData } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
 
+  const salesorderFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.salesorder || {});
+  const isFieldEnabled = (fieldId: string) => salesorderFormPermissions[fieldId] !== false;
+
   // Party's last 5 orders — powers dropdown history
   const { data: allOrdersData } = useSalesOrdersQuery();
   const partyOrderHistory = useMemo(
@@ -262,7 +265,7 @@ const AddEditSalesOrder = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Order Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("paymenttype") && (<FormField
                 label="Payment Type"
                 name="paymentType"
                 type="select"
@@ -279,8 +282,8 @@ const AddEditSalesOrder = () => {
                 ]}
                 error={errors.paymentType}
                 searchable
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("partyacc") && (<FormField
                 label="Party Account"
                 name="partyAccount"
                 type="select"
@@ -302,16 +305,16 @@ const AddEditSalesOrder = () => {
                     ? "No previous orders — this is their first order."
                     : "Select a party first to see their order history."
                 }
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("billdate") && (<FormField
                 label="Order Date"
                 name="billDate"
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
                 error={errors.billDate}
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("billnumber") && (<FormField
                 label="Order Number"
                 name="billNumber"
                 type="text"
@@ -319,11 +322,12 @@ const AddEditSalesOrder = () => {
                 onChange={(e) => setBillNumber(e.target.value)}
                 placeholder="Auto-generated"
                 disabled={!isEdit && billNumber !== ""}
-              />
+              />)}
             </div>
           </fieldset>
 
           <ProductSection
+            permissionModuleId="salesorder"
             products={products}
             setProducts={setProducts}
             productData={salesProductData}

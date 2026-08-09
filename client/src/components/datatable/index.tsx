@@ -95,6 +95,7 @@ interface DataTableProps {
     onFormSubmit?: () => void;
     onActiveToggle?: (checked: boolean) => void;
     showActionsColumn?: boolean;
+    requireBranchForAdd?: boolean;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -143,7 +144,9 @@ const DataTable: React.FC<DataTableProps> = ({
     formErrors,
     onFormChange,
     onFormSubmit,
+    onActiveToggle,
     showActionsColumn = true,
+    requireBranchForAdd,
 }) => {
     const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useState(1);
@@ -313,7 +316,16 @@ const DataTable: React.FC<DataTableProps> = ({
                     )}
                     {showAdd && (
                         <button
-                            onClick={onAdd}
+                            onClick={() => {
+                                if (requireBranchForAdd) {
+                                    const bid = localStorage.getItem("branchid");
+                                    if (!bid || bid === "all") {
+                                        alert("Please select a specific branch from the top dropdown to create a new record.");
+                                        return;
+                                    }
+                                }
+                                if (onAdd) onAdd();
+                            }}
                             className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
                         >
                             <FaPlus className="!text-white flex-shrink-0" />

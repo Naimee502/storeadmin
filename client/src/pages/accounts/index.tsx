@@ -140,7 +140,7 @@ const Accounts = () => {
           style={{ display: "none" }}
         />
 
-        <DataTable
+        <DataTable requireBranchForAdd={true}
           title="Manage Party Accounts"
           columns={columns}
           data={tableData}

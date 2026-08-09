@@ -217,6 +217,7 @@ const ProductServices = () => {
           showView={false}
           showPrint={false}
           showBarcode={true}
+          requireBranchForAdd={true}
           onEdit={(row) =>
             navigate(`/products/addedit/${row.id}`, {
               state: {

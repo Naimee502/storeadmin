@@ -61,6 +61,9 @@ const AddEditPayment = () => {
   }, [type, admin, branch, staff]);
 
   // ── Data fetching ──────────────────────────────────────────────────────
+  const paymentFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.payments || {});
+  const isFieldEnabled = (fieldId: string) => paymentFormPermissions[fieldId] !== false;
+
   const { data: existingData } = usePaymentByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: accountsData } = useAccountsQuery();
@@ -454,14 +457,14 @@ const AddEditPayment = () => {
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Payment Info</legend>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("paymentdate") && (<FormField
                 label="Payment Date"
                 name="paymentdate"
                 type="date"
                 value={paymentdate}
                 onChange={e => setPaymentdate(e.target.value)}
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("type") && (<FormField
                 label="Type"
                 name="type"
                 type="select"
@@ -477,8 +480,8 @@ const AddEditPayment = () => {
                   { label: "Payment  (Money Out — to Vendor)", value: "payment" },
                   { label: "Expense  (Settle Expense Note)", value: "expense" },
                 ]}
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("mode") && (<FormField
                 label="Mode"
                 name="mode"
                 type="select"
@@ -492,9 +495,9 @@ const AddEditPayment = () => {
                   { label: "Cheque", value: "cheque" },
                   { label: "Other", value: "other" },
                 ]}
-              />
+              />)}
               {payType !== "expense" ? (
-                <FormField
+                isFieldEnabled("party") && (<FormField
                   label={payType === "receipt" ? "Customer (Party)" : "Vendor (Party)"}
                   name="partyid"
                   type="select"
@@ -506,14 +509,14 @@ const AddEditPayment = () => {
                   options={partyOptions}
                   placeholder="Select party (optional)"
                   searchable
-                />
+                />)
               ) : (
                 <div className="flex flex-col justify-end text-sm text-gray-500">
                   <span className="font-medium text-gray-700 mb-1">Expense Note</span>
                   <span>Pick an expense note to settle from the list below.</span>
                 </div>
               )}
-              <FormField
+              {isFieldEnabled("cashbankledger") && (<FormField
                 label="Cash / Bank Ledger"
                 name="ledgerid"
                 type="select"
@@ -523,21 +526,21 @@ const AddEditPayment = () => {
                 placeholder="Select ledger"
                 searchable
                 error={errors.ledgerid}
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("reference") && (<FormField
                 label="Reference"
                 name="reference"
                 value={reference}
                 onChange={e => setReference(e.target.value)}
                 placeholder="Cheque no., UTR, etc."
-              />
-              <FormField
+              />)}
+              {isFieldEnabled("remarks") && (<FormField
                 label="Remarks"
                 name="remarks"
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 placeholder="Optional"
-              />
+              />)}
             </div>
           </fieldset>
 
@@ -697,7 +700,7 @@ const AddEditPayment = () => {
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm font-medium px-2">Amount</legend>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <FormField
+                {isFieldEnabled("amount") && (<FormField
                   label="Amount (₹)"
                   name="amount"
                   type="number"
@@ -705,7 +708,7 @@ const AddEditPayment = () => {
                   onChange={e => setManualAmount(e.target.value)}
                   placeholder="0.00"
                   error={errors.amount}
-                />
+                />)}
               </div>
             </fieldset>
           )}

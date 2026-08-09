@@ -106,6 +106,64 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
     ],
   },
   {
+    moduleId: "salesorder", // Sales Order
+    label: "Sales Order Fields",
+    sections: [
+      {
+        id: "main_details",
+        label: "Main Details",
+        fields: [
+          { id: "paymenttype", label: "Payment Type" },
+          { id: "partyacc", label: "Party Account" },
+          { id: "billdate", label: "Order Date" },
+          { id: "billnumber", label: "Order Number" },
+        ],
+      },
+      {
+        id: "add_products",
+        label: "Add Products",
+        fields: [
+          { id: "product", label: "Product" },
+          { id: "unit", label: "Unit" },
+          { id: "quantity", label: "Quantity" },
+          { id: "rate", label: "Rate" },
+          { id: "discount", label: "Discount" },
+          { id: "gst", label: "GST %" },
+          { id: "add_product_button", label: "Add Button" },
+        ]
+      }
+    ],
+  },
+  {
+    moduleId: "purchaseorder", // Purchase Order
+    label: "Purchase Order Fields",
+    sections: [
+      {
+        id: "main_details",
+        label: "Main Details",
+        fields: [
+          { id: "paymenttype", label: "Payment Type" },
+          { id: "partyacc", label: "Party Account" },
+          { id: "billdate", label: "Order Date" },
+          { id: "billnumber", label: "Order Number" },
+        ],
+      },
+      {
+        id: "add_products",
+        label: "Add Products",
+        fields: [
+          { id: "product", label: "Product" },
+          { id: "unit", label: "Unit" },
+          { id: "quantity", label: "Quantity" },
+          { id: "rate", label: "Rate" },
+          { id: "discount", label: "Discount" },
+          { id: "gst", label: "GST %" },
+          { id: "add_product_button", label: "Add Button" },
+        ]
+      }
+    ],
+  },
+  {
     moduleId: "salesinvoice", // Sales Invoice
     label: "Sales Invoice Fields",
     sections: [
@@ -453,6 +511,98 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
           { id: "add_product_variant", label: "Add Product Variant" },
           { id: "add_unit_conversion", label: "Add Unit Conversion" },
           { id: "add_unit_price", label: "Add Unit Price" },
+        ],
+      }
+    ]
+  },
+  {
+    moduleId: "expensenote",
+    label: "Expense Note Fields",
+    sections: [
+      {
+        id: "expense_info",
+        label: "Expense Info",
+        fields: [
+          { id: "date", label: "Date" },
+          { id: "category", label: "Category" },
+          { id: "paymenttype", label: "Payment Type" },
+          { id: "paymentledger", label: "Payment Account Ledger" },
+          { id: "narration", label: "Narration" },
+          { id: "notes", label: "Notes" },
+          { id: "status", label: "Status" },
+        ],
+      },
+      {
+        id: "expenses",
+        label: "Expenses",
+        fields: [
+          { id: "ledger", label: "Ledger" },
+          { id: "amount", label: "Amount" },
+          { id: "gst", label: "GST %" },
+          { id: "remarks", label: "Remarks" },
+          { id: "add_expense_button", label: "Add Expense Button" },
+        ],
+      }
+    ]
+  },
+  {
+    moduleId: "transactions",
+    label: "Transaction Fields",
+    sections: [
+      {
+        id: "transaction_info",
+        label: "Transaction Info",
+        fields: [
+          { id: "date", label: "Date" },
+          { id: "narration", label: "Narration" },
+          { id: "entrytype", label: "Entry Type" },
+          { id: "status", label: "Status" },
+        ],
+      },
+      {
+        id: "record_journal",
+        label: "Record Full Journal (Optional)",
+        fields: [
+          { id: "record_journal_section", label: "Show Record Full Journal Section" },
+          { id: "record_from", label: "Record From" },
+          { id: "record_party", label: "Customer / Vendor (Party)" },
+        ],
+      },
+      {
+        id: "entries",
+        label: "Entries",
+        fields: [
+          { id: "ledger", label: "Ledger" },
+          { id: "debit", label: "Debit" },
+          { id: "credit", label: "Credit" },
+          { id: "remarks", label: "Remarks" },
+          { id: "add_entry_button", label: "Add Entry Button" },
+        ],
+      }
+    ]
+  },
+  {
+    moduleId: "payments",
+    label: "Payment Fields",
+    sections: [
+      {
+        id: "payment_info",
+        label: "Payment Info",
+        fields: [
+          { id: "paymentdate", label: "Payment Date" },
+          { id: "type", label: "Type" },
+          { id: "mode", label: "Mode" },
+          { id: "party", label: "Party" },
+          { id: "cashbankledger", label: "Cash / Bank Ledger" },
+          { id: "reference", label: "Reference" },
+          { id: "remarks", label: "Remarks" },
+        ],
+      },
+      {
+        id: "amount",
+        label: "Amount Section",
+        fields: [
+          { id: "amount", label: "Amount" },
         ],
       }
     ]

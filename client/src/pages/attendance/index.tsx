@@ -593,7 +593,7 @@ const Attendance: React.FC = () => {
         </div>
       )}
 
-      <DataTable
+      <DataTable requireBranchForAdd={true}
         title="Attendance Logs"
         columns={[
           { label: "#",        key: "seqNo" },
@@ -685,7 +685,7 @@ const Attendance: React.FC = () => {
         ))}
       </div>
 
-      <DataTable
+      <DataTable requireBranchForAdd={true}
         title="Leave Requests"
         columns={[
           { label: "#",      key: "seqNo" },
@@ -831,7 +831,7 @@ const Attendance: React.FC = () => {
           )}
         </div>
       ) : (
-        <DataTable
+        <DataTable requireBranchForAdd={true}
           title="Leave Balances"
           columns={[
             { label: "#",         key: "seqNo" },
@@ -872,7 +872,7 @@ const Attendance: React.FC = () => {
   }));
 
   const renderHolidaysTab = () => (
-    <DataTable
+    <DataTable requireBranchForAdd={true}
       title="Holidays"
       columns={[
         { label: "#",           key: "seqNo" },
@@ -912,7 +912,7 @@ const Attendance: React.FC = () => {
   }));
 
   const renderLeaveTypesTab = () => (
-    <DataTable
+    <DataTable requireBranchForAdd={true}
       title="Leave Types"
       columns={[
         { label: "#",       key: "seqNo" },
@@ -966,7 +966,7 @@ const Attendance: React.FC = () => {
   }));
 
   const renderPunchesTab = () => (
-    <DataTable
+    <DataTable requireBranchForAdd={true}
       title="Punches"
       columns={[
         { label: "#",       key: "seqNo" },

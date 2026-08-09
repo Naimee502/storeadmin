@@ -66,6 +66,9 @@ const AddEditExpenseNote = () => {
     (state) => state.selectedBranch.branchId
   );
 
+  const expenseFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.expensenote || {});
+  const isFieldEnabled = (fieldId: string) => expenseFormPermissions[fieldId] !== false;
+
   const { data: existingData } = useExpenseNoteByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: staffData } = useStaffQuery();
@@ -464,25 +467,25 @@ const AddEditExpenseNote = () => {
           <legend className="font-medium px-2">Expense Info</legend>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <FormField
+            {isFieldEnabled("date") && (<FormField
               label="Date"
               type="date"
               name="expensedate"
               value={formValues.expensedate}
               onChange={(e) => handleChange("expensedate", e.target.value)}
               icon={<FaCalendarAlt />}
-            />
+            />)}
 
-            <FormField
+            {isFieldEnabled("category") && (<FormField
               label="Category"
               type="select"
               name="category"
               value={formValues.category}
               onChange={(e) => handleCategoryChange(e.target.value)}
               options={CATEGORY_OPTIONS}
-            />
+            />)}
 
-            <FormField
+            {isFieldEnabled("paymenttype") && (<FormField
               label="Payment Type"
               type="select"
               name="paymenttype"
@@ -497,7 +500,7 @@ const AddEditExpenseNote = () => {
                 { label: "Cheque", value: "cheque" },
                 { label: "Other", value: "other" },
               ]}
-            />
+            />)}
 
             {showStaff && (
               <FormField
@@ -548,30 +551,30 @@ const AddEditExpenseNote = () => {
               error={formErrors.ledgerid}
             />
 
-            <FormField
+            {isFieldEnabled("narration") && (<FormField
               label="Narration"
               name="narration"
               value={formValues.narration}
               onChange={(e) => handleChange("narration", e.target.value)}
               icon={<FaFileAlt />}
               placeholder="Enter narration"
-            />
+            />)}
 
-            <FormField
+            {isFieldEnabled("notes") && (<FormField
               label="Notes"
               name="notes"
               value={formValues.notes}
               onChange={(e) => handleChange("notes", e.target.value)}
               icon={<FaFileAlt />}
               placeholder="Enter notes"
-            />
+            />)}
 
-            <FormSwitch
+            {isFieldEnabled("status") && (<FormSwitch
               label="Status"
               name="status"
               checked={formValues.status}
               onChange={(val) => handleChange("status", val)}
-            />
+            />)}
           </div>
 
           {showStaff && formValues.staffid && (
@@ -592,7 +595,7 @@ const AddEditExpenseNote = () => {
               key={i}
               className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3"
             >
-              <FormField
+              {isFieldEnabled("ledger") && (<FormField
                 label="Ledger"
                 type="select"
                 name={`expenseledgerid-${i}`}
@@ -605,9 +608,9 @@ const AddEditExpenseNote = () => {
                   value: l.id,
                 }))}
                 searchable
-              />
+              />)}
 
-              <FormField
+              {isFieldEnabled("amount") && (<FormField
                 label="Amount"
                 type="number"
                 name={`amount-${i}`}
@@ -615,9 +618,9 @@ const AddEditExpenseNote = () => {
                 onChange={(ev) =>
                   handleExpenseChange(i, "amount", ev.target.value)
                 }
-              />
+              />)}
 
-              <FormField
+              {isFieldEnabled("gst") && (<FormField
                 label="GST %"
                 type="number"
                 name={`gstpercent-${i}`}
@@ -625,16 +628,16 @@ const AddEditExpenseNote = () => {
                 onChange={(ev) =>
                   handleExpenseChange(i, "gstpercent", ev.target.value)
                 }
-              />
+              />)}
 
-              <FormField
+              {isFieldEnabled("remarks") && (<FormField
                 label="Remarks"
                 value={e.remarks}
                 name={`remarks-${i}`}
                 onChange={(ev) =>
                   handleExpenseChange(i, "remarks", ev.target.value)
                 }
-              />
+              />)}
 
               <div
                 onClick={() => removeExpenseRow(i)}
@@ -645,9 +648,9 @@ const AddEditExpenseNote = () => {
             </div>
           ))}
 
-          <Button variant="outline" onClick={addExpenseRow}>
+          {isFieldEnabled("add_expense_button") && (<Button variant="outline" onClick={addExpenseRow}>
             ➕ Add Expense
-          </Button>
+          </Button>)}
 
           {formErrors.expenses && (
             <p className="text-red-500 mt-2">{formErrors.expenses}</p>
@@ -656,7 +659,7 @@ const AddEditExpenseNote = () => {
 
         {/* TOTALS */}
         <div className="flex justify-end gap-6 mb-6">
-          <div>GST: ₹ {formValues.totalgst.toFixed(2)}</div>
+          {isFieldEnabled("gst") && (<div>GST: ₹ {formValues.totalgst.toFixed(2)}</div>)}
           <div className="font-bold">
             Total: ₹ {formValues.totalamount.toFixed(2)}
           </div>

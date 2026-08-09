@@ -36,6 +36,8 @@ type ProductSectionProps = {
   iservice?: boolean;
   /** Past invoices — powers "last 5 sale rates" history inside the product dropdown */
   invoiceHistory?: any[];
+  /** Optional override for which module's permissions to check (e.g., salesorder instead of salesinvoice) */
+  permissionModuleId?: string;
 };
 
 /** ✅ Safely convert unit value (string | object | null) → string | null */
@@ -78,10 +80,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   navigate,
   iservice = false,
   invoiceHistory = [],
+  permissionModuleId,
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
 
-  const moduleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
+  const defaultModuleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
+  const moduleId = permissionModuleId || defaultModuleId;
   const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
   const isFieldEnabled = (fieldId: string) => {
     return formPermissions[fieldId] !== false;

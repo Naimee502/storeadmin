@@ -302,7 +302,7 @@ const SalesInvoices = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <DataTable
+        <DataTable requireBranchForAdd={true}
           title="Manage Sales Invoices"
           columns={columns}
           data={tableData}

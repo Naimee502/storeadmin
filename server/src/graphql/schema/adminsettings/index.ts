@@ -93,6 +93,7 @@ export const adminSettingsTypeDefs = gql`
     printShowGstin: Boolean
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
+    printShowTotalGst: Boolean
 
     supportEmail: String
     supportPhone: String
@@ -240,6 +241,7 @@ export const adminSettingsTypeDefs = gql`
     printShowGstin: Boolean
     printShowHsnColumn: Boolean
     printShowGstColumn: Boolean
+    printShowTotalGst: Boolean
 
     supportEmail: String
     supportPhone: String

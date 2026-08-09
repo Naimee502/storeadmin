@@ -32,6 +32,9 @@ const AddEditTransaction = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
+  const transactionFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.transactions || {});
+  const isFieldEnabled = (fieldId: string) => transactionFormPermissions[fieldId] !== false;
+
   const { data: existingData } = useTransactionByIDQuery(id || "");
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: accountsData } = useAccountsQuery();
@@ -312,25 +315,25 @@ const formatTransactionDate = (date: any) => {
         <fieldset className="border rounded-xl p-4">
         <legend className="text-sm sm:text-base font-medium px-2">Transaction Info</legend>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <FormField
+            {isFieldEnabled("date") && (<FormField
             label="Date"
             name="transactiondate"
             type="date"
             value={formValues.transactiondate}
             onChange={(e) => handleChange("transactiondate", e.target.value)}
             icon={<FaCalendarAlt />}
-            />
+            />)}
 
-            <FormField
+            {isFieldEnabled("narration") && (<FormField
             label="Narration"
             name="narration"
             value={formValues.narration}
             onChange={(e) => handleChange("narration", e.target.value)}
             icon={<FaFileAlt />}
             placeholder="Enter narration"
-            />
+            />)}
 
-            <FormField
+            {isFieldEnabled("entrytype") && (<FormField
               label="Entry Type"
               name="entrytype"
               type="select"
@@ -340,19 +343,20 @@ const formatTransactionDate = (date: any) => {
                 { label: "Manual", value: "manual" },
                 { label: "Auto", value: "auto" },
               ]}
-            />
+            />)}
 
-            <FormSwitch
+            {isFieldEnabled("status") && (<FormSwitch
             label="Status"
             name="status"
             checked={formValues.status}
             onChange={(val) => handleChange("status", val)}
-            />
+            />)}
         </div>
         </fieldset>
 
 
           {/* Bill Allocation (Tally "Agst Ref") — optional */}
+          {isFieldEnabled("record_journal_section") && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm sm:text-base font-medium px-2">
               Record Full Journal (Sale / Purchase / Expense Note) — optional
@@ -364,7 +368,7 @@ const formatTransactionDate = (date: any) => {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
+              {isFieldEnabled("record_from") && (<FormField
                 label="Record From"
                 name="settleSide"
                 type="select"
@@ -380,32 +384,34 @@ const formatTransactionDate = (date: any) => {
                   { label: "Vendor (Purchase Invoices)", value: "PurchaseInvoice" },
                   { label: "Expense Note (record journal)", value: "ExpenseNote" },
                 ]}
-              />
-              {settleSide === "ExpenseNote" ? (
-                <FormField
-                  label="Expense Note"
-                  name="expenseNoteId"
-                  type="select"
-                  value={expenseNoteId}
-                  onChange={(e) => setExpenseNoteId(e.target.value)}
-                  options={expenseNoteOptions}
-                  placeholder="Select expense note"
-                  searchable
-                />
-              ) : (
-                <FormField
-                  label={settleSide === "SalesInvoice" ? "Customer (Party)" : "Vendor (Party)"}
-                  name="partyid"
-                  type="select"
-                  value={partyid}
-                  onChange={(e) => {
-                    setPartyid(e.target.value);
-                    setAllocations([]);
-                  }}
-                  options={partyOptions}
-                  placeholder="Select party (optional)"
-                  searchable
-                />
+              />)}
+              {isFieldEnabled("record_party") && (
+                settleSide === "ExpenseNote" ? (
+                  <FormField
+                    label="Expense Note"
+                    name="expenseNoteId"
+                    type="select"
+                    value={expenseNoteId}
+                    onChange={(e) => setExpenseNoteId(e.target.value)}
+                    options={expenseNoteOptions}
+                    placeholder="Select expense note"
+                    searchable
+                  />
+                ) : (
+                  <FormField
+                    label={settleSide === "SalesInvoice" ? "Customer (Party)" : "Vendor (Party)"}
+                    name="partyid"
+                    type="select"
+                    value={partyid}
+                    onChange={(e) => {
+                      setPartyid(e.target.value);
+                      setAllocations([]);
+                    }}
+                    options={partyOptions}
+                    placeholder="Select party (optional)"
+                    searchable
+                  />
+                )
               )}
             </div>
 
@@ -440,13 +446,14 @@ const formatTransactionDate = (date: any) => {
               </div>
             )}
           </fieldset>
+          )}
 
           {/* Entries */}
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm sm:text-base font-medium px-2">Entries</legend>
             {formValues.entries.map((entry, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
-                <FormField
+                {isFieldEnabled("ledger") && (<FormField
                   label="Ledger"
                   name={`ledgerid-${index}`}
                   type="select"
@@ -458,28 +465,28 @@ const formatTransactionDate = (date: any) => {
                   }))}
                   placeholder="Select ledger"
                   searchable
-                />
-                <FormField
+                />)}
+                {isFieldEnabled("debit") && (<FormField
                   label="Debit"
                   name={`debit-${index}`}
                   type="number"
                   value={entry.debit}
                   onChange={(e) => handleEntryChange(index, "debit", e.target.value)}
-                />
-                <FormField
+                />)}
+                {isFieldEnabled("credit") && (<FormField
                   label="Credit"
                   name={`credit-${index}`}
                   type="number"
                   value={entry.credit}
                   onChange={(e) => handleEntryChange(index, "credit", e.target.value)}
-                />
-                <FormField
+                />)}
+                {isFieldEnabled("remarks") && (<FormField
                   label="Remarks"
                   name={`remarks-${index}`}
                   value={entry.remarks}
                   onChange={(e) => handleEntryChange(index, "remarks", e.target.value)}
                   placeholder="Optional"
-                />
+                />)}
                 <div
                     onClick={() => removeEntryRow(index)}
                     className="flex items-center justify-center w-9 h-9 border border-red-500 text-red-500 rounded cursor-pointer hover:bg-red-500 hover:text-white"
@@ -488,9 +495,9 @@ const formatTransactionDate = (date: any) => {
                 </div>
               </div>
             ))}
-            <Button variant="outline" onClick={addEntryRow}>
+            {isFieldEnabled("add_entry_button") && (<Button variant="outline" onClick={addEntryRow}>
               ➕ Add Entry
-            </Button>
+            </Button>)}
             {formErrors.entries && (
               <p className="text-red-500 text-sm mt-2">{formErrors.entries}</p>
             )}

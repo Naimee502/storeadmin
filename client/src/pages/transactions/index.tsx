@@ -82,7 +82,7 @@ const Transaction = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <DataTable
+        <DataTable requireBranchForAdd={true}
           {...actions}
           title="Manage Transactions"
           columns={columns}
