@@ -6,7 +6,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useMutation, useQuery } from '@apollo/client/react';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
@@ -114,6 +114,28 @@ export default function DeliveryCollectPayment() {
       proposal = res?.data?.previewAllocation ?? null;
     } catch {
       // Preview is a courtesy; the receipt is still valid without it.
+    }
+
+    // Preview failed (offline / server hiccup) → without this the payment was
+    // written with NO allocation lines, so the money the boy just collected for
+    // this delivery landed on account and the delivered bill stayed open with
+    // nobody told. Fall back to settling the delivered bill itself, capped at
+    // the amount collected; the server's over-settlement guard still protects
+    // us if the bill owes less by now.
+    if (!proposal && orderId) {
+      proposal = {
+        lines: [
+          {
+            invoiceid: orderId,
+            invoicemodel: 'SalesInvoice',
+            billnumber: orderNum,
+            settledamount: Math.min(parsedAmount, Number(amount) || parsedAmount),
+            fullysettled: parsedAmount >= (Number(amount) || parsedAmount),
+          },
+        ],
+        openingsettled: 0,
+        unallocated: 0,
+      };
     }
 
     const breakdown = (() => {

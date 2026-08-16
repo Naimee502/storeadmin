@@ -6,7 +6,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useMutation, useQuery } from '@apollo/client/react';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, BillAllocation } from '../../../../components';
@@ -14,8 +14,7 @@ import type { Allocation } from '../../../../components';
 import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
 import { PREVIEW_ALLOCATION } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
-import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_TRANSACTIONS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
-import { ledgerEntryTotals } from '../../../../utils';
+import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
 type PaymentMode = 'cash' | 'bank' | 'upi' | 'card' | 'cheque' | 'other';
@@ -47,22 +46,20 @@ export default function CollectPayment() {
     skip: !adminid || !partyId,
     fetchPolicy: 'cache-and-network',
   });
-  const partyLedgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
-
-  const { data: txData } = useQuery(GET_TRANSACTIONS, {
-    variables: { adminid, ledgerid: partyLedgerId },
-    skip: !adminid || !partyLedgerId,
-    fetchPolicy: 'cache-and-network',
-  });
-  const liveOutstanding = useMemo(() => {
-    const txs = (txData as any)?.getTransactions;
-    if (!partyLedgerId || !txs) return outstandingParam;
-    return txs.reduce((run: number, tx: any) => {
-      const { debit, credit } = ledgerEntryTotals(tx, partyLedgerId);
-      return run + debit - credit;
-    }, 0);
-  }, [txData, partyLedgerId, outstandingParam]);
-  const outstanding = Math.max(0, Math.round(liveOutstanding * 100) / 100);
+  // Server-computed party due: opening balance + open bills − advances held.
+  //
+  // This screen used to run its own Dr−Cr sum over the party ledger's
+  // transactions, which was a THIRD formula: it missed the opening balance
+  // (that lives on AccountLedger.openingbalance, not in any Transaction) and
+  // counted journal legs the allocator never touches. So the salesman saw a
+  // different figure than the party's own app, the web portal and the admin
+  // panel. One source of truth now — the same `outstanding` field every other
+  // surface reads. The nav param is only a placeholder until it loads.
+  const liveOutstanding = (accountData as any)?.getAccountById?.outstanding;
+  const outstanding = Math.max(
+    0,
+    Math.round((liveOutstanding ?? outstandingParam ?? 0) * 100) / 100
+  );
 
   // Cash / Bank ledger this receipt is deposited to — same as the admin panel's
   // "Cash / Bank Ledger" selector. Dr this ledger, Cr the party (on-account / Tally style).
