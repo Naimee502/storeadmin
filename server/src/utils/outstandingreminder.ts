@@ -5,7 +5,7 @@ import { Payment } from "../models/payments";
 import { SalesInvoice } from "../models/salesinvoice";
 import { Transaction } from "../models/transactions";
 import { pushNotification } from "../models/notifications";
-import { getPartyOutstandingBills } from "./allocation";
+import { getPartyOutstandingBills, getPartyTotalDue } from "./allocation";
 
 // ---------------------------------------------------------------------------
 // Shared outstanding-reminder logic.
@@ -24,16 +24,17 @@ import { getPartyOutstandingBills } from "./allocation";
 // (utils/allocation → getPartyOutstandingBills) so every surface agrees.
 
 export type PartyOutstanding = {
-  amount: number; // sum of unpaid bills
+  amount: number; // opening balance + unpaid bills − advances held
   pendingBills: number;
   overdueDays: number; // largest overdue span across unpaid bills, 0 if none
   dueDate: string; // earliest upcoming/passed due date, "" if no bill carries one
 };
 
-// Bill-wise outstanding for one customer: sum of (invoice total − settled)
-// across unsettled sales bills. Deliberately excludes the opening balance so
-// this matches what the party sees on their own dashboard/payments screen
-// (server's partyBillOutstanding) — the reminder and their app agree.
+// Total outstanding for one customer, on the same basis as their own
+// dashboard/payments screen and the admin payment screen: opening balance +
+// open bills − advances we already hold. The bill list is still walked for the
+// due-date / overdue-days detail, but the AMOUNT comes from the shared helper
+// so the reminder never asks for a different figure than the app shows.
 export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstanding> => {
   const empty: PartyOutstanding = { amount: 0, pendingBills: 0, overdueDays: 0, dueDate: "" };
   if (!accountId) return empty;
@@ -42,21 +43,20 @@ export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstand
   // report and the mobile app. The old local loop did "total − settled" and
   // ignored sales returns, so a customer who had returned goods could still be
   // chased on WhatsApp for the full amount.
-  const bills = await getPartyOutstandingBills({
-    partyid: accountId,
-    invoicemodel: "SalesInvoice",
-  });
-  if (!bills.length) return empty;
+  const [bills, totaldue] = await Promise.all([
+    getPartyOutstandingBills({ partyid: accountId, invoicemodel: "SalesInvoice" }),
+    getPartyTotalDue({ partyid: accountId, invoicemodel: "SalesInvoice" }),
+  ]);
+  // A party can owe money with no open bill at all — an unpaid opening balance.
+  if (!bills.length && totaldue <= 0) return empty;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let amount = 0;
   let overdueDays = 0;
   let earliestDue: Date | null = null;
 
   for (const bill of bills) {
-    amount += bill.outstanding;
     if (!bill.duedate) continue;
     const ref = new Date(bill.duedate);
     if (isNaN(ref.getTime())) continue;
@@ -67,7 +67,7 @@ export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstand
   }
 
   return {
-    amount: parseFloat(amount.toFixed(2)),
+    amount: totaldue,
     pendingBills: bills.length,
     overdueDays,
     dueDate: earliestDue ? earliestDue.toISOString().slice(0, 10) : "",
@@ -173,7 +173,9 @@ export const sendMonthEndRemindersForAdmin = async (adminid: any): Promise<numbe
   for (const c of customers) {
     try {
       const out = await getPartyOutstanding(c._id);
-      if (out.amount <= 0 || out.pendingBills === 0) continue;
+      // Amount alone decides — a party can owe an unpaid opening balance with
+      // zero open bills, and they still need reminding.
+      if (out.amount <= 0) continue;
 
       const res = await sendOutstandingReminder({
         adminid,

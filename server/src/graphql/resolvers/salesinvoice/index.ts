@@ -8,7 +8,7 @@ import { Transaction } from "../../../models/transactions";
 import {
   autoAdjustAdvances,
   getInvoiceOutstanding,
-  getPartyOutstandingBills,
+  getPartyTotalDue,
 } from "../../../utils/allocation";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
@@ -24,12 +24,14 @@ import {
 // particular bill has since been paid).
 const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
   if (!accountId) return 0;
-  const bills = await getPartyOutstandingBills({
+  // Includes the opening balance the party carried in, and nets advances we
+  // already hold — same basis as Account.outstanding and the payment screen,
+  // so the printed "Previous Balance" matches what we actually ask for.
+  return await getPartyTotalDue({
     partyid: accountId,
     invoicemodel: "SalesInvoice",
     excludeInvoiceId,
   });
-  return parseFloat(bills.reduce((t, b) => t + b.outstanding, 0).toFixed(2));
 };
 
 // Resolve who created a doc into a proper { name, type } — so the listing shows

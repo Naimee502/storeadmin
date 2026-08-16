@@ -508,6 +508,66 @@ export async function getPartyOpeningDue(opts: {
 }
 
 /**
+ * Everything this party still owes, on exactly the same basis a payment is
+ * allocated: opening balance + open bills − money already sitting with us.
+ *
+ *     due = opening still due
+ *         + Σ open bill outstanding
+ *         − unallocated advances (cash received, no bill to put it on)
+ *         − excess credit (returns that arrived after the bill was settled)
+ *
+ * ── Why this replaced the bill-wise-only figure ─────────────────────────────
+ * The portal and the app showed "Due" as the sum of open BILLS only, while
+ * `allocateWithOpening` deliberately clears the OPENING balance first. A party
+ * with a ₹1,000 opening and one ₹250 bill was shown "₹250 Due"; they paid
+ * ₹250, FIFO put it on the opening (correctly — that is the older debt), and
+ * the screen still said "₹250 Due". Paying the number on the screen must clear
+ * the number on the screen, so the display now uses the same basis as the
+ * allocation.
+ *
+ * Advances are netted for the same reason: money we are already holding is not
+ * something to ask for again.
+ */
+export async function getPartyTotalDue(opts: {
+  partyid: any;
+  invoicemodel?: InvoiceModel;
+  adminid?: any;
+  branchid?: any;
+  excludePaymentId?: any;
+  /** Leave one bill out entirely — the printed "Previous Balance". */
+  excludeInvoiceId?: any;
+}): Promise<number> {
+  const { partyid, adminid, branchid, excludePaymentId, excludeInvoiceId } = opts;
+  if (!partyid) return 0;
+  const invoicemodel = opts.invoicemodel || "SalesInvoice";
+
+  const [positions, openingdue] = await Promise.all([
+    getPartyBillPositions({ partyid, invoicemodel, adminid, branchid, excludePaymentId, excludeInvoiceId }),
+    getPartyOpeningDue({ partyid, excludePaymentId }),
+  ]);
+
+  const bills = round2(positions.reduce((t, b) => t + b.outstanding, 0));
+  const excess = round2(positions.reduce((t, b) => t + b.excess, 0));
+
+  const payQuery: any = {
+    partyid,
+    status: true,
+    type: invoicemodel === "SalesInvoice" ? "receipt" : "payment",
+    unallocatedamount: { $gt: 0 },
+  };
+  if (adminid) payQuery.adminid = adminid;
+  if (excludePaymentId) payQuery._id = { $ne: excludePaymentId };
+  const advances: any[] = await mongoose
+    .model("Payment")
+    .find(payQuery)
+    .select("unallocatedamount")
+    .lean();
+  const advance = round2(advances.reduce((t, p) => t + (Number(p.unallocatedamount) || 0), 0));
+
+  return round2(Math.max(0, openingdue + bills - advance - excess));
+}
+
+/**
  * Spread an amount over the opening balance FIRST, then the open bills.
  *
  * Tally enters an opening balance as a bill reference precisely so advances can

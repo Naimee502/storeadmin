@@ -211,7 +211,12 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
 
   const unallocatedamount = computeUnallocated(input);
   const openingsettled = parseFloat((Number(input.openingsettled) || 0).toFixed(2));
-  const allocationmode = !stamped.length && openingsettled <= 0
+  // No bill lines at all → the money went on account and/or straight onto the
+  // opening balance. Neither is an "Invoice-wise" settlement, so it must never
+  // fall through to "manual": a payment that only cleared the opening balance
+  // used to be labelled Invoice-wise in Manage Payments even though the user
+  // had explicitly picked Direct / On Account.
+  const allocationmode = !stamped.length
     ? "on_account"
     : stamped.some((l: any) => l.allocatedmode === "auto_fifo")
     ? "auto_fifo"

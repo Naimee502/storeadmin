@@ -10,7 +10,7 @@ import { Branch } from "../../../models/branches";
 import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
-import { getPartyOutstandingBills } from "../../../utils/allocation";
+import { getPartyTotalDue } from "../../../utils/allocation";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -39,21 +39,21 @@ const resolveActor = async (user: any) => {
 // was removed — outstanding is now computed in one place
 // (utils/allocation → getPartyOutstandingBills) so every surface agrees.
 
-// Party "outstanding" for the collection view = sum of UNSETTLED sales bills.
-// Advances / on-account are deliberately excluded so salesmen see exactly what
-// is left to collect, bill-wise.
+// Party "outstanding" for every collection view (salesman app, party web
+// portal, downline list) = what a payment would actually have to cover:
+// opening balance + open bills − advances already held − excess credit.
+//
+// It used to be bill-wise ONLY, which contradicted the allocation engine:
+// `allocateWithOpening` clears the opening balance before any bill, so a party
+// with a ₹1,000 opening and one ₹250 bill was shown "₹250 Due", paid ₹250, and
+// still saw "₹250 Due" because the money had gone onto the opening. Paying the
+// figure on screen must clear the figure on screen.
 //
 // Delegates to the shared allocation util so this agrees, to the rupee, with
-// the payment screen, the party report and the reminder. It used to run its own
-// "total − settled" loop, which ignored sales returns and therefore asked
-// parties for money they no longer owed.
+// the payment screen, the party report and the reminder.
 const partyBillOutstanding = async (accountId: any): Promise<number> => {
   if (!accountId) return 0;
-  const bills = await getPartyOutstandingBills({
-    partyid: accountId,
-    invoicemodel: "SalesInvoice",
-  });
-  return parseFloat(bills.reduce((t, b) => t + b.outstanding, 0).toFixed(2));
+  return await getPartyTotalDue({ partyid: accountId, invoicemodel: "SalesInvoice" });
 };
 
 // Collect downline party ids under a root party (assignaccountid chain).

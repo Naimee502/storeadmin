@@ -174,13 +174,37 @@ accountSchema.pre('findOneAndUpdate', async function (next) {
     newName = update.name;
   }
 
-  if (newName) {
+  // The ledger mirrors the account, so anything the user edits on the account
+  // form has to be pushed across. Only the NAME used to be synced: an account
+  // created with a 0 opening balance and later edited to 1000 left the ledger
+  // sitting at 0. Every accounting read (party report, payment allocation,
+  // outstanding) takes the ledger as authoritative, so the 1000 was invisible
+  // everywhere except the edit form the user typed it into.
+  const pick = (k: string) => {
+    if ('$set' in update && update.$set?.[k] !== undefined) return update.$set[k];
+    return (update as any)[k];
+  };
+  const newOpening = pick('openingbalance');
+  const newOpeningType = pick('openingbalancetype');
+  const newGroup = pick('accountgroupid');
+
+  const touchesLedger =
+    !!newName ||
+    newOpening !== undefined ||
+    newOpeningType !== undefined ||
+    newGroup !== undefined;
+
+  if (touchesLedger) {
     const doc = await this.model.findOne(this.getQuery());
     if (doc && doc.ledgerid) {
-      await AccountLedger.updateOne(
-        { _id: doc.ledgerid },
-        { $set: { ledgername: `${newName} - ${doc.accountcode}` } }
-      );
+      const $set: Record<string, any> = {};
+      if (newName) $set.ledgername = `${newName} - ${doc.accountcode}`;
+      if (newOpening !== undefined) $set.openingbalance = newOpening;
+      if (newOpeningType !== undefined) $set.openingbalancetype = newOpeningType;
+      if (newGroup !== undefined) $set.accountgroupid = newGroup;
+      if (Object.keys($set).length) {
+        await AccountLedger.updateOne({ _id: doc.ledgerid }, { $set });
+      }
     }
   }
 

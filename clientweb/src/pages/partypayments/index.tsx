@@ -52,6 +52,17 @@ export default function PartyPaymentsPage() {
   );
   const totalOutstanding = Math.max(0, account?.outstanding || 0);
   const totalPaid = payments.reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
+  // Total Outstanding is the party-level due (opening balance + open bills −
+  // advances held), so it is legitimately larger than the invoice list below
+  // when an opening balance was carried in. Surface the gap instead of leaving
+  // the two figures silently contradicting each other.
+  const openingPortion = parseFloat(
+    Math.max(
+      0,
+      totalOutstanding -
+        outstandingInvoices.reduce((s: number, o: any) => s + Math.max(0, o.outstanding || 0), 0)
+    ).toFixed(2)
+  );
 
   if (!allowed) {
     return (
@@ -141,6 +152,12 @@ export default function PartyPaymentsPage() {
                 {outstandingInvoices.length} invoice{outstandingInvoices.length !== 1 ? "s" : ""}
               </p>
             </div>
+            {openingPortion > 0.005 && (
+              <p className="mb-3 text-xs text-slate-500">
+                Plus {formatPrice(openingPortion)} opening balance — carried forward with no invoice
+                behind it, and cleared before any bill.
+              </p>
+            )}
             <div className="space-y-2.5">
               {outstandingInvoices.map((o: any) => (
                 <div key={o.id} className="rounded-2xl border border-slate-100 p-4">

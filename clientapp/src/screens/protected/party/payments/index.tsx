@@ -94,11 +94,20 @@ export default function Payments() {
     .reverse()
     .filter(o => o.isConverted && o.cancelStatus !== 'cancelled' && (o.outstanding ?? 0) > 0.005);
 
-  const { totalOutstanding, totalPaid } = useMemo(() => {
-    // Bill-wise due from the server (same basis as Home, Ledger & salesman app).
+  const { totalOutstanding, totalPaid, openingPortion } = useMemo(() => {
+    // Party-level due from the server: opening balance + open bills − advances
+    // held (same basis as Home, Ledger, the web portal and the salesman app).
+    // It is deliberately MORE than the invoice list below when the party
+    // carried an opening balance in — that debt has no invoice behind it.
     const paid = payments.reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
-    return { totalOutstanding: Math.max(0, account?.outstanding || 0), totalPaid: paid };
-  }, [account, payments]);
+    const due = Math.max(0, account?.outstanding || 0);
+    const bills = convertedOrders.reduce((s: number, o: any) => s + Math.max(0, o.outstanding || 0), 0);
+    return {
+      totalOutstanding: due,
+      totalPaid: paid,
+      openingPortion: parseFloat(Math.max(0, due - bills).toFixed(2)),
+    };
+  }, [account, payments, convertedOrders]);
 
   const renderPayment = ({ item: p }: any) => {
     const mode = (p.mode ?? '').toLowerCase();
@@ -171,6 +180,13 @@ export default function Payments() {
             {convertedOrders.length} invoice{convertedOrders.length !== 1 ? 's' : ''}
           </Text>
         </View>
+        {/* Total Outstanding above counts the opening balance too, which has no
+            invoice to list here. Say so, or the two numbers look contradictory. */}
+        {openingPortion > 0.005 && (
+          <Text style={[styles.countText, { color: colors.subText, marginBottom: 8 }]}>
+            Plus {formatINR(openingPortion)} opening balance (no invoice — cleared first).
+          </Text>
+        )}
         {convertedOrders.map((o: any) => (
           <View key={o.id} style={[styles.invCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={styles.invTop}>

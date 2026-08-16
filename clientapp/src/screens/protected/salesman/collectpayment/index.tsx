@@ -182,7 +182,15 @@ export default function CollectPayment() {
         rows.push(`INV-${l.billnumber}  ${money(l.settledamount)}${l.fullysettled ? '  (cleared)' : '  (part)'}`),
       );
       if (proposal.unallocated > 0) rows.push(`On Account  ${money(proposal.unallocated)}`);
-      return rows.length ? `\n\nApplied as:\n${rows.join('\n')}` : '';
+      // The opening balance is the oldest debt, so it is cleared before any
+      // invoice. Say so when it swallowed the whole amount — otherwise the
+      // collector records the payment and the bills look untouched.
+      const billsDue = Math.max(0, (proposal.totaloutstanding || 0) - (proposal.openingdue || 0));
+      const note =
+        proposal.openingsettled > 0 && !(proposal.lines ?? []).length && billsDue > 0.005
+          ? `\n\nOpening balance is cleared first, so bills worth ${money(billsDue)} stay pending. Use Invoice-wise to pay a specific bill.`
+          : '';
+      return rows.length ? `\n\nApplied as:\n${rows.join('\n')}${note}` : '';
     })();
 
     Alert.alert(

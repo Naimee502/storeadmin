@@ -128,6 +128,29 @@ async function main() {
     }
   }
 
+  // ── Relabel opening-only payments that were stamped "manual" ────────────
+  // `prepareAllocation` used to treat "no bill lines BUT openingsettled > 0" as
+  // a manual settlement, so Manage Payments showed "Invoice-wise" for a receipt
+  // the user had explicitly recorded as Direct / On Account. No bill lines at
+  // all means the money went on account and/or onto the opening balance.
+  const mislabelled: any[] = await Payment.find({
+    status: true,
+    allocationmode: { $nin: ["on_account", null] },
+    $or: [{ invoices: { $size: 0 } }, { invoices: { $exists: false } }],
+  })
+    .select("_id paymentcode amount openingsettled allocationmode")
+    .lean();
+
+  for (const p of mislabelled) {
+    console.log(
+      `${p.paymentcode || p._id}: allocationmode "${p.allocationmode}" -> "on_account"` +
+        ` (${money(p.amount)}, opening settled ${money(p.openingsettled)})`
+    );
+    if (APPLY) {
+      await Payment.updateOne({ _id: p._id }, { $set: { allocationmode: "on_account" } });
+    }
+  }
+
   // ── Journals that posted less than the cash received ────────────────────
   // The party leg used to be the sum of settledamount rather than the amount.
   // Any payment that left money on account or cleared an opening balance
@@ -166,6 +189,7 @@ async function main() {
   console.log(`Fixed                     : ${APPLY ? fixed : 0}${APPLY ? "" : "  (dry run — re-run with --apply)"}`);
   console.log(`Missing unallocatedamount : ${missing.length}`);
   console.log(`Backfilled                : ${APPLY ? backfilled : 0}`);
+  console.log(`Mislabelled Invoice-wise  : ${mislabelled.length}${APPLY ? " (relabelled)" : "  (dry run)"}`);
   if (unresolved.length) {
     console.log(`\nCould not resolve (${unresolved.length}) — create the ledger, then re-run:`);
     unresolved.forEach((u) => console.log(`  - ${u}`));

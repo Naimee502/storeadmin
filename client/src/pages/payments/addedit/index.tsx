@@ -98,8 +98,7 @@ const AddEditPayment = () => {
   // Payment allocations + journal ("Agst Ref") settlements + un-refunded
   // returns, all derived in one shared hook so this page and the Transaction
   // page can never disagree about what a party still owes.
-  const { outstandingOf, paidByInvoice, returnsByInvoice } =
-    useOutstanding({ excludePaymentId: id || undefined });
+  const { outstandingOf } = useOutstanding({ excludePaymentId: id || undefined });
   const { data: expenseNotesData, refetch: refetchExpenseNotes } = useExpenseNotesQuery("cache-and-network");
 
   // Invoices/expense notes can be created right before opening this page (e.g.
@@ -442,88 +441,6 @@ const AddEditPayment = () => {
     }
     return e;
   };
-
-  // ── DIAGNOSTIC (dev only) ──────────────────────────────────────────────
-  // Prints why each of this party's bills is shown or hidden. Remove once the
-  // outstanding list is behaving. Every number below is derived, never stored.
-  useEffect(() => {
-    if (!import.meta.env.DEV || !partyid || payType === "expense") return;
-
-    const all =
-      payType === "receipt"
-        ? (salesInvData?.getSalesInvoices || [])
-        : (purchaseInvData?.getPurchaseInvoices || []);
-    const mine = all.filter((inv: any) => inv.partyacc?.id === partyid);
-
-    console.group(
-      `%c[Outstanding] party=${partyid} | invoices fetched=${all.length} | for this party=${mine.length} | shown=${outstandingInvoices.length}`,
-      "color:#2563eb;font-weight:bold"
-    );
-
-    if (all.length && !mine.length) {
-      console.warn(
-        "None of the fetched invoices belong to this party. Party ids seen:",
-        [...new Set(all.map((i: any) => i.partyacc?.id))]
-      );
-    }
-
-    console.table(
-      mine.map((inv: any) => {
-        const paid = paidByInvoice[inv.id] || 0;
-        const returned = returnsByInvoice[inv.id] || 0;
-        const out = outstandingOf(inv);
-        return {
-          bill: inv.billnumber,
-          id: inv.id,
-          status: inv.status,
-          branchid: inv.branchid,
-          paymenttype: inv.paymenttype,
-          total: inv.totalamount,
-          paid,
-          returned,
-          outstanding: out,
-          SHOWN: !!inv.status && out > 0,
-          hiddenBecause: !inv.status
-            ? "status=false (deleted)"
-            : out > 0
-            ? ""
-            : paid > 0
-            ? `settled by payment(s) of ${paid}`
-            : returned > 0
-            ? `netted by return(s) of ${returned}`
-            : "totalamount is 0",
-        };
-      })
-    );
-
-    // Every allocation line the client can see, so a stray settlement is obvious.
-    const alloc: any[] = [];
-    Object.entries(paidByInvoice).forEach(([invId, amt]) =>
-      alloc.push({ invoiceid: invId, settled: amt })
-    );
-    console.log("allocations seen (invoiceid → settled):", alloc);
-    console.log(
-      "ALL fetched invoices (unfiltered):",
-      all.map((i: any) => ({
-        bill: i.billnumber,
-        party: i.partyacc?.id,
-        partyName: i.partyacc?.accountname,
-        branch: i.branchid,
-        status: i.status,
-        total: i.totalamount,
-      }))
-    );
-    console.groupEnd();
-  }, [
-    partyid,
-    payType,
-    salesInvData,
-    purchaseInvData,
-    paidByInvoice,
-    returnsByInvoice,
-    outstandingOf,
-    outstandingInvoices.length,
-  ]);
 
   /**
    * Bills this party has at all (before subtracting anything). Lets the empty

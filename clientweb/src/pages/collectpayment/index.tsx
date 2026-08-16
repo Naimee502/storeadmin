@@ -83,7 +83,13 @@ export default function CollectPaymentPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Party-level due from the server: opening balance + open bills − advances.
+  // It is deliberately NOT the sum of the bill list — an opening balance is a
+  // real debt with no invoice behind it, and the allocator clears it first.
   const outstanding = Math.max(0, targetAccount?.outstanding || 0);
+  // Whatever the bills don't explain is the opening balance carried forward.
+  // Surfaced so "Outstanding ₹1,250 but only ₹250 of bills" never looks wrong.
+  const openingPortion = parseFloat(Math.max(0, outstanding - totalOutstandingBills).toFixed(2));
 
   useEffect(() => {
     if (!amountTouched && outstanding > 0) setAmount(String(outstanding));
@@ -275,6 +281,11 @@ export default function CollectPaymentPage() {
           <div className="flex-1">
             <p className="text-sm font-semibold text-ink-900">{targetAccount?.name || "…"}</p>
             {outstanding > 0 && <p className="text-xs font-semibold text-rose-600">Outstanding: {formatPrice(outstanding)}</p>}
+            {outstanding > 0 && openingPortion > 0.005 && (
+              <p className="text-[11px] text-slate-500">
+                {formatPrice(totalOutstandingBills)} on bills + {formatPrice(openingPortion)} opening balance
+              </p>
+            )}
           </div>
           {outstanding > 0 && (
             <button
@@ -515,9 +526,27 @@ export default function CollectPaymentPage() {
             <div className="overflow-auto px-5 py-3">
               {proposal.openingsettled > 0 && (
                 <div className="flex items-center justify-between border-b border-slate-100 py-2 text-sm">
-                  <span className="font-medium text-ink-900">Opening Balance</span>
+                  <div>
+                    <p className="font-medium text-ink-900">Opening Balance</p>
+                    <p className="text-xs text-slate-400">
+                      Oldest debt — cleared before any bill.{" "}
+                      {formatPrice(Math.max(0, (proposal.openingdue || 0) - proposal.openingsettled))} left after this.
+                    </p>
+                  </div>
                   <span className="font-semibold text-ink-900">{formatPrice(proposal.openingsettled)}</span>
                 </div>
+              )}
+
+              {/* The money landed entirely on the opening balance, so every
+                  invoice is still open. Without this the party pays and then
+                  wonders why their bills didn't move. */}
+              {proposal.openingsettled > 0 && !(proposal.lines ?? []).length && openBills.length > 0 && (
+                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  This clears the opening balance first, so your {openBills.length} open bill
+                  {openBills.length !== 1 ? "s" : ""} ({formatPrice(totalOutstandingBills)}) stay
+                  {openBills.length === 1 ? "s" : ""} pending. Switch to <strong>Invoice-wise</strong> if
+                  you want to pay a specific bill instead.
+                </p>
               )}
 
               {(proposal.lines ?? []).map((l: any) => (
