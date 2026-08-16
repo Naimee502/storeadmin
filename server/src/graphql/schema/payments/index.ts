@@ -8,6 +8,8 @@ export const paymentTypeDefs = gql`
     settledamount: Float!
     discount: Float
     commission: Float
+    allocatedmode: String
+    allocatedat: String
   }
 
   input PaymentInvoiceInput {
@@ -16,6 +18,40 @@ export const paymentTypeDefs = gql`
     settledamount: Float!
     discount: Float
     commission: Float
+    allocatedmode: String
+  }
+
+  # One open bill of a party, with what is still owed on it.
+  type OutstandingBill {
+    id: ID!
+    billnumber: String
+    billdate: String
+    totalamount: Float!
+    outstanding: Float!
+    invoicemodel: String!
+  }
+
+  # A proposed FIFO spread of an amount over those bills — shown to the user
+  # for confirmation BEFORE the payment is saved.
+  type AllocationProposalLine {
+    invoiceid: ID!
+    invoicemodel: String!
+    billnumber: String
+    billdate: String
+    outstanding: Float!
+    settledamount: Float!
+    fullysettled: Boolean!
+  }
+
+  type AllocationProposal {
+    lines: [AllocationProposalLine!]!
+    totaloutstanding: Float!
+    allocated: Float!
+    unallocated: Float!
+    # Opening balance leg — what the party carried in, and how much of this
+    # amount went to clearing it before any bill was touched.
+    openingdue: Float!
+    openingsettled: Float!
   }
 
   # Account Type
@@ -43,6 +79,9 @@ export const paymentTypeDefs = gql`
     ledgerid: AccountLedger!   # required
     invoices: [PaymentInvoice!]
     amount: Float!
+    openingsettled: Float
+    unallocatedamount: Float
+    allocationmode: String
     reference: String
     remarks: String
     transactionid: ID
@@ -69,6 +108,9 @@ export const paymentTypeDefs = gql`
     ledgerid: ID!                # required
     invoices: [PaymentInvoiceInput!]
     amount: Float!
+    openingsettled: Float
+    unallocatedamount: Float
+    allocationmode: String
     reference: String
     remarks: String
     transactionid: ID
@@ -98,6 +140,28 @@ export const paymentTypeDefs = gql`
     getPayments(filter: PaymentFilterInput): [Payment!]!
     getDeletedPayments(filter: PaymentFilterInput): [Payment!]!
     getPaymentById(id: ID!, adminid: ID): Payment
+
+    # Open bills for a party, oldest first. Computed on the SERVER so the
+    # figures survive a stale client cache and cannot be raced.
+    getPartyOutstandingBills(
+      partyid: ID!
+      invoicemodel: String!
+      adminid: ID!
+      branchid: ID
+      excludePaymentId: ID
+    ): [OutstandingBill!]!
+
+    # Dry-run a direct payment: what would this amount settle?
+    previewAllocation(
+      partyid: ID!
+      invoicemodel: String!
+      adminid: ID!
+      branchid: ID
+      amount: Float!
+      excludePaymentId: ID
+      # Fill this bill before anything else — COD handed over for a delivery.
+      priorityInvoiceId: ID
+    ): AllocationProposal!
   }
 
   # Mutations
@@ -106,5 +170,9 @@ export const paymentTypeDefs = gql`
     editPayment(id: ID!, input: PaymentInput!): Payment!
     deletePayment(id: ID!): Boolean!
     resetPayment(id: ID!): Boolean!
+
+    # Re-spread an existing payment over different bills. Touches allocations
+    # only — the journal is untouched because the party leg does not change.
+    reallocatePayment(id: ID!, invoices: [PaymentInvoiceInput!]!): Payment!
   }
 `;

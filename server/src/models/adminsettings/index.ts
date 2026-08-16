@@ -162,6 +162,22 @@ const adminSettingsSchema = new mongoose.Schema(
     enablePaymentDiscountCommission: { type: Boolean, default: false },
 
     /* ============================================================
+       DIRECT / ON-ACCOUNT SETTLEMENT — how a payment entered as a plain
+       amount (no invoice ticked) is spread over the party's open bills.
+         "off"    → nothing is allocated; the cash sits On Account until
+                    somebody adjusts it by hand.
+         "ask"    → allocation is proposed and shown for confirmation
+                    before saving (default — Tally never allocates silently).
+         "always" → allocated on save without a prompt.
+       ============================================================ */
+    paymentAutoSettlement: { type: String, enum: ["off", "ask", "always"], default: "ask" },
+    paymentAllocationOrder: { type: String, enum: ["fifo", "lifo"], default: "fifo" },
+
+    // When a new invoice is raised, apply any advance the party has already
+    // paid. Allocation-only: the ledger was credited when the advance arrived.
+    autoAdjustAdvanceOnInvoice: { type: Boolean, default: true },
+
+    /* ============================================================
        SAAS GATING — allow/disallow the admin from seeing core tabs
        ============================================================ */
     allowAdminToManageBusinessSettings: { type: Boolean, default: true },

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router";
-import { useQuery, useMutation } from "@apollo/client";
+import { useQuery, useMutation, useLazyQuery } from "@apollo/client";
 import { ArrowLeft, Banknote, Landmark, QrCode, CreditCard, Receipt, MoreHorizontal, CheckCircle2, ShieldOff } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import { useDownline } from "../../hooks/useDownline";
-import { GET_ACCOUNT, GET_ACCOUNT_LEDGERS, ADD_PAYMENT, GET_PAYMENTS, GET_DOWNLINE_PARTY_BALANCES } from "../../graphql/queries/accounts";
+import { GET_ACCOUNT, GET_ACCOUNT_LEDGERS, ADD_PAYMENT, GET_PAYMENTS, GET_DOWNLINE_PARTY_BALANCES, PREVIEW_ALLOCATION, GET_PARTY_OUTSTANDING_BILLS } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
 
 type PaymentMode = "cash" | "bank" | "upi" | "card" | "cheque" | "other";
@@ -21,10 +21,13 @@ const MODES: { id: PaymentMode; label: string; icon: typeof Banknote }[] = [
 ];
 
 // Collect a payment from a downline (sub-party) — the website equivalent of
-// the app's shared salesman/party CollectPayment screen. Scoped down to
-// on-account receipts only (no bill-wise Tally allocation / discount &
-// commission split) to keep this a straightforward, correct MVP; the server
-// mutation is identical either way (addPayment).
+// the app's shared salesman/party CollectPayment screen.
+//
+// The amount is spread by the SERVER (opening balance first, then oldest bills)
+// and shown for approval before anything is written, so this behaves exactly
+// like the admin panel's Direct / On Account mode. Bill-by-bill picking and
+// discount/commission stay admin-only — a downline collecting cash doesn't need
+// them, and the server mutation is the same either way (addPayment).
 export default function CollectPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,6 +53,7 @@ export default function CollectPaymentPage() {
   );
 
   const [addPayment] = useMutation(ADD_PAYMENT);
+  const [previewAllocation] = useLazyQuery(PREVIEW_ALLOCATION, { fetchPolicy: "network-only" });
 
   const [mode, setMode] = useState<PaymentMode>("cash");
   const [ledgerId, setLedgerId] = useState("");
@@ -58,6 +62,24 @@ export default function CollectPaymentPage() {
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Server's proposed spread, held while the user approves it. Nothing is
+  // written until they press Confirm.
+  const [proposal, setProposal] = useState<any>(null);
+  // "direct" → type an amount, the server spreads it (opening first, then oldest
+  // bills). "invoice" → tick the bills yourself. Same two modes as the admin panel.
+  const [settlementMode, setSettlementMode] = useState<"invoice" | "direct">("direct");
+  const [ticked, setTicked] = useState<Record<string, number>>({});
+
+  const { data: billsData } = useQuery(GET_PARTY_OUTSTANDING_BILLS, {
+    variables: { partyid: id, invoicemodel: "SalesInvoice", adminid, branchid },
+    skip: !id || !adminid || !allowed,
+    fetchPolicy: "cache-and-network",
+  });
+  const openBills: any[] = billsData?.getPartyOutstandingBills ?? [];
+  const totalOutstandingBills = openBills.reduce((t, b) => t + (b.outstanding || 0), 0);
+  const tickedTotal = parseFloat(
+    Object.values(ticked).reduce((t: number, v: number) => t + (v || 0), 0).toFixed(2)
+  );
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,7 +119,11 @@ export default function CollectPaymentPage() {
     );
   }
 
-  const parsedAmount = parseFloat(amount) || 0;
+  // Invoice-wise: the ticked rows ARE the amount. Direct: the typed amount.
+  const parsedAmount =
+    settlementMode === "invoice" && openBills.length > 0
+      ? tickedTotal
+      : parseFloat(amount) || 0;
   const selectedMode = MODES.find((m) => m.id === mode)!;
 
   const handleSubmit = async () => {
@@ -114,6 +140,37 @@ export default function CollectPaymentPage() {
       return;
     }
     setError(null);
+
+    // Invoice-wise: the collector already chose the rows, so there is nothing to
+    // propose — write it directly.
+    if (settlementMode === "invoice" && openBills.length > 0) {
+      return handleConfirm();
+    }
+
+    // Step 1 — ask the server where this money lands and show it.
+    setSubmitting(true);
+    try {
+      const res: any = await previewAllocation({
+        variables: {
+          partyid: id,
+          invoicemodel: "SalesInvoice",
+          adminid,
+          branchid,
+          amount: parsedAmount,
+        },
+      });
+      setProposal(res?.data?.previewAllocation ?? { lines: [], openingdue: 0, openingsettled: 0, allocated: 0, unallocated: parsedAmount });
+    } catch {
+      // Preview is a courtesy — fall back to a plain on-account receipt.
+      setProposal({ lines: [], openingdue: 0, openingsettled: 0, allocated: 0, unallocated: parsedAmount });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Step 2 — the user approved the breakdown, so write it.
+  const handleConfirm = async () => {
+    setError(null);
     setSubmitting(true);
     try {
       await addPayment({
@@ -126,7 +183,30 @@ export default function CollectPaymentPage() {
             partyid: id,
             ledgerid: ledgerId,
             amount: parsedAmount,
-            invoices: [],
+            invoices:
+              settlementMode === "invoice" && openBills.length > 0
+                ? openBills
+                    .filter((b) => (ticked[b.id] || 0) > 0)
+                    .map((b) => ({
+                      invoiceid: b.id,
+                      invoicemodel: b.invoicemodel,
+                      settledamount: ticked[b.id],
+                      discount: 0,
+                      commission: 0,
+                      allocatedmode: "manual",
+                    }))
+                : (proposal?.lines ?? []).map((l: any) => ({
+                    invoiceid: l.invoiceid,
+                    invoicemodel: l.invoicemodel,
+                    settledamount: l.settledamount,
+                    discount: 0,
+                    commission: 0,
+                    allocatedmode: "auto_fifo",
+                  })),
+            openingsettled:
+              settlementMode === "invoice" && openBills.length > 0
+                ? 0
+                : (proposal?.openingsettled ?? 0),
             reference: reference.trim() || null,
             remarks: notes.trim() || null,
             paymentdate: new Date().toISOString().slice(0, 10),
@@ -141,6 +221,7 @@ export default function CollectPaymentPage() {
           { query: GET_DOWNLINE_PARTY_BALANCES, variables: { partyid: account?.id } },
         ],
       });
+      setProposal(null);
       setDone(true);
     } catch (err: any) {
       setError(err?.message || "Could not record payment. Please try again.");
@@ -249,21 +330,138 @@ export default function CollectPaymentPage() {
           </select>
         )}
 
-        {/* Amount */}
-        <label className="mb-1.5 block text-sm font-semibold text-ink-900">Amount (₹)</label>
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
-          <span className="text-lg font-bold text-brand-700">₹</span>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              setAmountTouched(true);
-            }}
-            placeholder="0.00"
-            className="w-full py-2.5 text-lg font-bold outline-none placeholder:text-slate-400"
-          />
-        </div>
+        {/* ── Bill Settlement ───────────────────────────────────────────
+            Always rendered. Hiding it when the party had no open bills made the
+            whole feature look absent — better to show it and say why it's empty. */}
+        {true && (
+          <div className="mb-5 rounded-xl border border-slate-200 p-4">
+            <p className="mb-3 text-sm font-semibold text-ink-900">
+              Bill Settlement (Against Invoices) <span className="font-normal text-slate-400">— optional</span>
+            </p>
+
+            <div className="mb-3 flex flex-wrap items-center gap-4 border-b border-slate-100 pb-3 text-sm">
+              <span className="font-medium text-ink-900">Settlement Mode:</span>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  className="h-4 w-4"
+                  checked={settlementMode === "invoice"}
+                  onChange={() => setSettlementMode("invoice")}
+                />
+                <span>Invoice-wise</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  className="h-4 w-4"
+                  checked={settlementMode === "direct"}
+                  onChange={() => setSettlementMode("direct")}
+                />
+                <span>Direct / On Account</span>
+              </label>
+            </div>
+
+            {settlementMode === "direct" ? (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span>Open bills</span>
+                  <span className="font-medium">{openBills.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Outstanding</span>
+                  <span className="font-semibold text-orange-600">{formatPrice(totalOutstandingBills)}</span>
+                </div>
+                <p className="pt-2 text-xs text-slate-500">
+                  Enter the amount below. Oldest bills are cleared first, and you will
+                  see exactly which ones before it saves.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {openBills.map((b) => {
+                  const on = (ticked[b.id] || 0) > 0;
+                  return (
+                    <div
+                      key={b.id}
+                      className={`rounded-lg border p-3 ${on ? "border-brand-300 bg-brand-50/40" : "border-slate-100"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="flex flex-1 cursor-pointer items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={on}
+                            onChange={() =>
+                              setTicked((prev) => {
+                                const next = { ...prev };
+                                if (on) delete next[b.id];
+                                else next[b.id] = b.outstanding;
+                                return next;
+                              })
+                            }
+                          />
+                          <span>
+                            <span className="block text-sm font-semibold text-ink-900">INV-{b.billnumber}</span>
+                            <span className="block text-xs text-slate-400">{b.billdate}</span>
+                          </span>
+                        </label>
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Outstanding</p>
+                          <p className="text-sm font-semibold text-orange-600">{formatPrice(b.outstanding)}</p>
+                        </div>
+                        <input
+                          type="number"
+                          disabled={!on}
+                          value={on ? ticked[b.id] : ""}
+                          onChange={(e) => {
+                            // Never let a row clear more than the bill actually owes —
+                            // the server rejects it anyway, so catch it here.
+                            const v = Math.min(parseFloat(e.target.value) || 0, b.outstanding);
+                            setTicked((prev) => ({ ...prev, [b.id]: v }));
+                          }}
+                          className="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {openBills.length === 0 && (
+                  <p className="py-2 text-sm text-slate-500">
+                    No open bills for this party. Anything collected is recorded On Account
+                    and applied automatically to their next invoice.
+                  </p>
+                )}
+                {openBills.length > 0 && (
+                  <div className="flex justify-between border-t border-slate-100 pt-2 text-sm font-semibold">
+                    <span>Total selected</span>
+                    <span>{formatPrice(tickedTotal)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Amount — Direct mode only. Invoice-wise takes the total from the
+            ticked rows, so an editable box there would just contradict them. */}
+        {(settlementMode === "direct" || openBills.length === 0) && (
+          <>
+            <label className="mb-1.5 block text-sm font-semibold text-ink-900">Amount (₹)</label>
+            <div className="mb-5 flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
+              <span className="text-lg font-bold text-brand-700">₹</span>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  setAmountTouched(true);
+                }}
+                placeholder="0.00"
+                className="w-full py-2.5 text-lg font-bold outline-none placeholder:text-slate-400"
+              />
+            </div>
+          </>
+        )}
 
         {/* Reference */}
         {mode !== "cash" && (
@@ -297,9 +495,81 @@ export default function CollectPaymentPage() {
           disabled={submitting}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Recording…" : parsedAmount > 0 ? `Record ${formatPrice(parsedAmount)}` : "Record Payment"}
+          {submitting ? "Working…" : parsedAmount > 0 ? `Record ${formatPrice(parsedAmount)}` : "Record Payment"}
         </button>
       </div>
+
+      {/* Confirm the spread before writing — the collector sees exactly which
+          bills this clears, mirroring the admin panel's confirmation dialog. */}
+      {proposal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-sm font-bold text-ink-900">Confirm Payment</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {formatPrice(parsedAmount)} from {targetAccount?.name || "this party"} —
+                {proposal.openingsettled > 0 ? " opening balance first, then" : ""} oldest bills first.
+              </p>
+            </div>
+
+            <div className="overflow-auto px-5 py-3">
+              {proposal.openingsettled > 0 && (
+                <div className="flex items-center justify-between border-b border-slate-100 py-2 text-sm">
+                  <span className="font-medium text-ink-900">Opening Balance</span>
+                  <span className="font-semibold text-ink-900">{formatPrice(proposal.openingsettled)}</span>
+                </div>
+              )}
+
+              {(proposal.lines ?? []).map((l: any) => (
+                <div key={l.invoiceid} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm">
+                  <div>
+                    <p className="font-medium text-ink-900">INV-{l.billnumber}</p>
+                    <p className="text-xs text-slate-400">
+                      {l.fullysettled ? "Fully paid" : `Partial — ${formatPrice(l.outstanding - l.settledamount)} left`}
+                    </p>
+                  </div>
+                  <span className="font-semibold text-ink-900">{formatPrice(l.settledamount)}</span>
+                </div>
+              ))}
+
+              {!proposal.openingsettled && !(proposal.lines ?? []).length && (
+                <p className="py-2 text-sm text-slate-500">
+                  This party has nothing outstanding, so the whole amount is recorded on account.
+                </p>
+              )}
+
+              {proposal.unallocated > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <div className="flex items-center justify-between text-sm font-medium text-amber-900">
+                    <span>On Account</span>
+                    <span>{formatPrice(proposal.unallocated)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-amber-800">
+                    More than they owe. The extra stays as an advance and is applied to their next invoice.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+              <button
+                onClick={() => setProposal(null)}
+                disabled={submitting}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className="rounded-lg bg-brand-700 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+              >
+                {submitting ? "Recording…" : "Confirm & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

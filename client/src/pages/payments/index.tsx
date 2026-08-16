@@ -22,7 +22,6 @@ const Payment = () => {
   const { deletePaymentMutation } = usePaymentMutations();
 
   const paymentList = data?.getPayments || [];
-  console.log("Payments Data:", JSON.stringify(paymentList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const { data: accountsData, refetch: accountsDataRefetch } = useAccountsQuery();
@@ -49,6 +48,11 @@ const Payment = () => {
     { label: "Date", key: "paymentdate" },
     { label: "Leadger", key: "ledgername" },
     { label: "Amount", key: "amount" },
+    // How much of this payment is still floating (Tally's "On Account"), and
+    // whether the bills were picked by hand or proposed by FIFO. Both exist so
+    // an allocation can always be explained after the fact.
+    { label: "Unallocated", key: "unallocatedDisplay" },
+    { label: "Settlement", key: "settlementDisplay" },
     { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
   ];
@@ -74,6 +78,15 @@ const Payment = () => {
       mode: capitalizeFirstLetter(pay.mode),
       ledgername: pay?.ledgerid?.ledgername || "-",
       amount: pay.amount?.toFixed(2) || "0.00",
+      unallocatedDisplay:
+        Number(pay.unallocatedamount) > 0 ? Number(pay.unallocatedamount).toFixed(2) : "-",
+      // Mirror the two labels on the payment form's Settlement Mode toggle and
+      // nothing more. The per-bill / opening breakdown lives on the payment
+      // itself, where there's room to show it properly.
+      settlementDisplay:
+        pay.allocationmode === "auto_fifo" || pay.allocationmode === "on_account"
+          ? "Direct / On Account"
+          : "Invoice-wise",
       createdByDisplay: pay.createdby_name || "N/A",
       status: pay.status ? "Active" : "Inactive",
     };

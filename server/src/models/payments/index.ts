@@ -32,10 +32,34 @@ const paymentSchema = new mongoose.Schema(
         // which post to "Discount Allowed" / "Commission" ledgers.
         discount: { type: Number, default: 0 },
         commission: { type: Number, default: 0 },
+        // Audit: was this line picked by the user, or proposed by FIFO?
+        // Lets a report answer "who cleared this bill and how" months later.
+        allocatedmode: { type: String, enum: ["manual", "auto_fifo"], default: "manual" },
+        allocatedat: { type: Date },
       },
     ],
 
     amount: { type: Number, required: true },
+
+    // Part of this receipt that cleared the party's OPENING BALANCE — the
+    // amount they carried in before any invoice existed. It isn't a bill, so it
+    // can't live in invoices[]; without this field an advance always looked
+    // bigger than the party's real credit.
+    openingsettled: { type: Number, default: 0 },
+
+    // Cash received but not tied to any bill — Tally's "On Account".
+    // The party ledger is ALWAYS posted in full, so this never affects the
+    // books; it only tells the aging report how much is still floating.
+    unallocatedamount: { type: Number, default: 0 },
+
+    // How this payment's lines were produced. "on_account" means nothing was
+    // allocated at all (the whole amount is floating).
+    allocationmode: {
+      type: String,
+      enum: ["manual", "auto_fifo", "on_account"],
+      default: "manual",
+    },
+
     reference: { type: String },
     remarks: { type: String },
 

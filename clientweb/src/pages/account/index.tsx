@@ -184,7 +184,13 @@ export default function AccountPage() {
   // Payments tab's "Outstanding Invoices" is always about MY OWN invoices —
   // independent of whatever scope the Orders tab happens to be on.
   const myOrders = allOrders.filter((o: any) => o.partyacc?.id === account.id);
-  const outstandingInvoices = myOrders.filter((o: any) => o.isConverted && o.cancelStatus !== "cancelled");
+  // "Outstanding" means money is still due — so filter on the invoice's actual
+  // outstanding, not merely "this order became an invoice". Every converted
+  // order used to be listed here, so a party who had paid in full still saw
+  // their bills under a heading that says they owe money.
+  const outstandingInvoices = myOrders.filter(
+    (o: any) => o.isConverted && o.cancelStatus !== "cancelled" && (o.outstanding ?? 0) > 0.005
+  );
   const showDownlineUI = manageDownline && hasDownline;
   const hasAddress = !!(fullAccount?.address && fullAccount?.city && fullAccount?.state && fullAccount?.pincode);
 

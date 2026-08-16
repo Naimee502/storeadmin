@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, type WatchQueryFetchPolicy } from "@apollo/client";
 import {
   ADD_PURCHASE_RETURN,
   EDIT_PURCHASE_RETURN,
@@ -11,6 +11,7 @@ import {
   GET_DELETED_PURCHASE_RETURNS,
 } from "../../queries/purchasereturn";
 import { useAppSelector } from "../../../redux/hooks";
+import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
 export const usePurchaseReturnMutations = () => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
@@ -21,23 +22,27 @@ export const usePurchaseReturnMutations = () => {
   const [addPurchaseReturnMutation] = useMutation(ADD_PURCHASE_RETURN, {
     refetchQueries: [
       { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [editPurchaseReturnMutation] = useMutation(EDIT_PURCHASE_RETURN, {
     refetchQueries: [
       { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [deletePurchaseReturnMutation] = useMutation(DELETE_PURCHASE_RETURN, {
     refetchQueries: [
       { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
       { query: GET_DELETED_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [resetPurchaseReturnMutation] = useMutation(RESET_PURCHASE_RETURN, {
     refetchQueries: [
       { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
       { query: GET_DELETED_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   return {
@@ -48,7 +53,9 @@ export const usePurchaseReturnMutations = () => {
   };
 };
 
-export const usePurchaseReturnsQuery = () => {
+// Returns reduce an invoice's outstanding (see useOutstanding), and a return
+// can be created moments before this list is read — so revalidate on mount.
+export const usePurchaseReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
@@ -56,6 +63,7 @@ export const usePurchaseReturnsQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS, {
     variables: { filter: { adminid, branchid } },
+    fetchPolicy,
   });
   return { data, loading, error, refetch };
 };

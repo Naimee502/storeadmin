@@ -5,23 +5,16 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
+import {
+  autoAdjustAdvances,
+  getInvoiceOutstanding,
+  getPartyOutstandingBills,
+} from "../../../utils/allocation";
 
-// Role-free settled amount against an invoice (Payments + Transactions, Agst
-// Ref). Single source of truth for per-invoice outstanding across app + admin.
-const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
-  if (!invoiceId) return 0;
-  const idStr = String(invoiceId);
-  let total = 0;
-  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  return parseFloat(total.toFixed(2));
-};
+// NOTE: the local per-invoice settled-amount helper was removed. Outstanding
+// now comes from utils/allocation, so the admin panel, the mobile app, the
+// party report and the WhatsApp reminder all quote the same figure — and all
+// of them net off sales returns, which this helper never did.
 
 // Party "outstanding" = sum of UNSETTLED sales bills (each bill's total −
 // settled, only positive) — same basis as Account.outstanding on the
@@ -31,16 +24,12 @@ const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
 // particular bill has since been paid).
 const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
   if (!accountId) return 0;
-  const query: any = { partyacc: accountId, status: true };
-  if (excludeInvoiceId) query._id = { $ne: excludeInvoiceId };
-  const invs = await SalesInvoice.find(query).select("totalamount").lean();
-  let sum = 0;
-  for (const inv of invs as any[]) {
-    const settled = await invoiceSettledAmount(inv._id);
-    const due = (inv.totalamount || 0) - settled;
-    if (due > 0) sum += due;
-  }
-  return parseFloat(sum.toFixed(2));
+  const bills = await getPartyOutstandingBills({
+    partyid: accountId,
+    invoicemodel: "SalesInvoice",
+    excludeInvoiceId,
+  });
+  return parseFloat(bills.reduce((t, b) => t + b.outstanding, 0).toFixed(2));
 };
 
 // Resolve who created a doc into a proper { name, type } — so the listing shows
@@ -546,6 +535,25 @@ export const salesInvoiceResolvers = {
       // (ensures Transaction/Payment Created By is never N/A)
       await SalesInvoice.adjustStockAndTransactions(null, created, createdbyData);
 
+      // Apply any advance this party has already paid to the new bill.
+      // Allocation-only — the ledger was credited when the advance arrived, so
+      // no journal entry is created (Tally's bill-adjustment journal is net-zero
+      // for the same reason). Best-effort: never fail a valid invoice over this.
+      try {
+        const settings: any = await AdminSettings.getOrCreateForAdmin(created.adminid);
+        if (settings?.autoAdjustAdvanceOnInvoice !== false) {
+          const used = await autoAdjustAdvances({
+            invoiceid: created._id,
+            invoicemodel: "SalesInvoice",
+            partyid: created.partyacc,
+            adminid: created.adminid,
+          });
+          if (used > 0) console.log(`Applied advance of ${used} to SalesInvoice ${created.billnumber}`);
+        }
+      } catch (e: any) {
+        console.warn("Advance auto-adjust skipped:", e?.message);
+      }
+
       const doc: any = await SalesInvoice.findById(created._id)
         .populate(populateFields)
         .lean();
@@ -902,11 +910,8 @@ export const salesInvoiceResolvers = {
   // Per-invoice outstanding (role-free). Only computed when `outstanding` is
   // selected (e.g. bill allocation), so listings pay no cost.
   SalesInvoice: {
-    outstanding: async (parent: any) => {
-      const total = Number(parent?.totalamount || 0);
-      const settled = await invoiceSettledAmount(parent?.id);
-      return parseFloat((total - settled).toFixed(2));
-    },
+    outstanding: async (parent: any) =>
+      getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "SalesInvoice" }),
     // "Previous Balance" = what the party owed on their OTHER unsettled
     // bills, before this one — this invoice is excluded from the sum
     // entirely, regardless of whether it's since been paid.

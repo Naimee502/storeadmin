@@ -79,6 +79,9 @@ export const adminSettingsTypeDefs = gql`
     deliveryMode: String
     partyManagesDownline: Boolean
     enablePaymentDiscountCommission: Boolean
+    paymentAutoSettlement: String
+    paymentAllocationOrder: String
+    autoAdjustAdvanceOnInvoice: Boolean
     allowAdminToManageBusinessSettings: Boolean!
     allowAdminToManageModules: Boolean!
     allowAdminToManagePermissions: Boolean!
@@ -227,6 +230,9 @@ export const adminSettingsTypeDefs = gql`
     deliveryMode: String
     partyManagesDownline: Boolean
     enablePaymentDiscountCommission: Boolean
+    paymentAutoSettlement: String
+    paymentAllocationOrder: String
+    autoAdjustAdvanceOnInvoice: Boolean
     allowAdminToManageBusinessSettings: Boolean
     allowAdminToManageModules: Boolean
     allowAdminToManagePermissions: Boolean

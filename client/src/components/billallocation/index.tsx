@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../graphql/hooks/purchaseinvoice";
-import { usePaymentsQuery } from "../../graphql/hooks/payments";
 import { useTransactionsQuery } from "../../graphql/hooks/transactions";
+import { useOutstanding } from "../../graphql/hooks/shared/useoutstanding";
 
 /**
  * Shared Tally-style bill allocation ("Agst Ref").
@@ -55,31 +55,10 @@ const BillAllocation: React.FC<Props> = ({
 }) => {
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
-  const { data: paymentsData } = usePaymentsQuery();
   const { data: transactionsData } = useTransactionsQuery();
 
-  // ── Already-settled per invoice (Payments + Transactions) ──────────────
-  const paidByInvoice = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    (paymentsData?.getPayments || []).forEach((pay: any) => {
-      if (excludePaymentId && pay.id === excludePaymentId) return;
-      (pay.invoices || []).forEach((inv: any) => {
-        if (inv.invoiceid)
-          map[inv.invoiceid] = (map[inv.invoiceid] || 0) + (inv.settledamount || 0);
-      });
-    });
-
-    (transactionsData?.getTransactions || []).forEach((txn: any) => {
-      if (excludeTransactionId && txn.id === excludeTransactionId) return;
-      (txn.invoices || []).forEach((inv: any) => {
-        if (inv.invoiceid)
-          map[inv.invoiceid] = (map[inv.invoiceid] || 0) + (inv.settledamount || 0);
-      });
-    });
-
-    return map;
-  }, [paymentsData, transactionsData, excludePaymentId, excludeTransactionId]);
+  // Payments + journal settlements + un-refunded returns, all in one place.
+  const { outstandingOf } = useOutstanding({ excludePaymentId, excludeTransactionId });
 
   // ── Invoices that already have a journal recorded against them ─────────
   // In "record" mode an invoice's full journal is recorded exactly once, so any
@@ -113,13 +92,9 @@ const BillAllocation: React.FC<Props> = ({
         inv.status &&
         (mode !== "record" || !recordedInvoiceIds.has(inv.id))
       )
-      .map((inv: any) => {
-        const paid = paidByInvoice[inv.id] || 0;
-        const outstanding = parseFloat(((inv.totalamount || 0) - paid).toFixed(2));
-        return { ...inv, outstanding };
-      })
+      .map((inv: any) => ({ ...inv, outstanding: outstandingOf(inv) }))
       .filter((inv: any) => inv.outstanding > 0);
-  }, [partyid, allInvoices, paidByInvoice, mode, recordedInvoiceIds]);
+  }, [partyid, allInvoices, outstandingOf, mode, recordedInvoiceIds]);
 
   // Rows to render = outstanding invoices + any already-selected invoice that
   // is now fully settled (so edit mode still shows the allocation row).

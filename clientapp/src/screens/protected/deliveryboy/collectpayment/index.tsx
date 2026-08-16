@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
 import { ADD_PAYMENT, MARK_SALES_INVOICE_DELIVERED } from '../../../../apollo/mutations/accounts';
+import { PREVIEW_ALLOCATION } from '../../../../apollo/queries/accounts';
 import { GET_ACCOUNT_LEDGERS } from '../../../../apollo/queries/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -46,6 +47,10 @@ export default function DeliveryCollectPayment() {
   );
 
   const [addPayment]    = useMutation(ADD_PAYMENT);
+  // COD fills the delivered bill first (priorityInvoiceId), then the opening
+  // balance, then older bills — money handed over for THIS delivery must not
+  // silently disappear into an older debt.
+  const [previewAllocation] = useLazyQuery(PREVIEW_ALLOCATION, { fetchPolicy: 'network-only' });
   const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
   const [mode,       setMode]       = useState<PaymentMode>('cash');
@@ -75,7 +80,7 @@ export default function DeliveryCollectPayment() {
   const selectedMode = MODES.find(m => m.id === mode)!;
   const parsedAmount = parseFloat(inputAmt) || 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid collection amount.');
       return;
@@ -90,9 +95,42 @@ export default function DeliveryCollectPayment() {
     const depositLedger = cashBankLedgers.find((l: any) => l.id === ledgerId) ?? cashBankLedgers[0];
     if (!depositLedger) { Alert.alert('No ledger', 'Ask the admin to create a Cash / Bank ledger.'); return; }
 
+    // Ask the server where this lands, show it, then write it. It also avoids a
+    // hard failure: allocating the whole amount to a bill that owes less now
+    // trips the server's over-settlement guard, so any excess has to be routed
+    // to the opening balance / older bills instead of stuffed onto this one.
+    let proposal: any = null;
+    try {
+      const res: any = await previewAllocation({
+        variables: {
+          partyid: partyId,
+          invoicemodel: 'SalesInvoice',
+          adminid,
+          branchid: tenant.branchId,
+          amount: parsedAmount,
+          priorityInvoiceId: orderId || null,
+        },
+      });
+      proposal = res?.data?.previewAllocation ?? null;
+    } catch {
+      // Preview is a courtesy; the receipt is still valid without it.
+    }
+
+    const breakdown = (() => {
+      if (!proposal) return '';
+      const money = (n: any) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+      const rows: string[] = [];
+      (proposal.lines ?? []).forEach((l: any) =>
+        rows.push(`INV-${l.billnumber}  ${money(l.settledamount)}${l.fullysettled ? '  (cleared)' : '  (part)'}`),
+      );
+      if (proposal.openingsettled > 0) rows.push(`Opening balance  ${money(proposal.openingsettled)}`);
+      if (proposal.unallocated > 0) rows.push(`On Account  ${money(proposal.unallocated)}`);
+      return rows.length ? `\n\nApplied as:\n${rows.join('\n')}` : '';
+    })();
+
     Alert.alert(
       'Confirm Collection',
-      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName} for ${orderNum}? This also marks the order delivered.`,
+      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName} for ${orderNum}? This also marks the order delivered.${breakdown}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -106,9 +144,15 @@ export default function DeliveryCollectPayment() {
                   partyid: partyId, ledgerid: depositLedger.id, amount: parsedAmount,
                   // COD settles the delivered invoice itself (Tally Agst Ref),
                   // so the invoice's outstanding clears on collection.
-                  invoices: orderId
-                    ? [{ invoiceid: orderId, invoicemodel: 'SalesInvoice', settledamount: parsedAmount }]
-                    : [],
+                  invoices: (proposal?.lines ?? []).map((l: any) => ({
+                    invoiceid: l.invoiceid,
+                    invoicemodel: l.invoicemodel,
+                    settledamount: l.settledamount,
+                    discount: 0,
+                    commission: 0,
+                    allocatedmode: 'auto_fifo',
+                  })),
+                  openingsettled: proposal?.openingsettled ?? 0,
                   reference: reference.trim() || null, remarks: notes.trim() || `COD for ${orderNum}`,
                   paymentdate: new Date().toISOString().slice(0, 10),
                   createdby_id: user?.id, createdby_name: user?.name, createdby_type: 'deliveryboy', status: true,

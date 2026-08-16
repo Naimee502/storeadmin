@@ -3,6 +3,7 @@ import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
+import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
@@ -145,6 +146,8 @@ const PartyReports: React.FC = () => {
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
   const payments = paymentsData?.getPayments || [];
+
+  const { outstandingOf, excessCreditOf } = useOutstanding();
   const ledgers = ledgerData?.getAccountLedgers || [];
   const salesInvoices = salesInvData?.getSalesInvoices || [];
   const purchaseInvoices = purchaseInvData?.getPurchaseInvoices || [];
@@ -173,21 +176,34 @@ const PartyReports: React.FC = () => {
   // -----------------------------
   // Per-invoice settled amounts (from payments)
   // -----------------------------
-  const settledByInvoice = useMemo(() => {
-    const map: Record<string, number> = {};
-    payments.forEach((p: any) => {
-      (p.invoices || []).forEach((inv: any) => {
-        if (!inv.invoiceid) return;
-        map[inv.invoiceid] =
-          (map[inv.invoiceid] || 0) + (inv.settledamount || 0) + (inv.discount || 0);
-      });
-    });
-    return map;
-  }, [payments]);
+  // Single source of truth for what a bill still owes, shared with the payment
+  // screen and BillAllocation:
+  //
+  //   outstanding = total − payments − journal settlements − un-refunded returns
+  //
+  // The local map this replaced had two defects: it ignored sales returns
+  // entirely (a returned bill kept showing as owed), and it added `discount` on
+  // top of `settledamount`. `settledamount` is ALREADY the full amount knocked
+  // off the bill — a discount only lowers the CASH received — so adding it
+  // again over-settled every discounted bill.
 
   // -----------------------------
   // Opening balance of a party's ledger
   // -----------------------------
+  // How much of each party's opening balance has already been cleared by a
+  // payment. Without this the report would keep charging them for an opening
+  // that an advance has since settled — and "Unallocated" on the payments list
+  // would never agree with "Outstanding" here.
+  const openingSettledByParty = useMemo(() => {
+    const map: Record<string, number> = {};
+    payments.forEach((p: any) => {
+      const pid = p.partyid?.id;
+      if (!pid) return;
+      map[pid] = (map[pid] || 0) + (Number(p.openingsettled) || 0);
+    });
+    return map;
+  }, [payments]);
+
   const getOpeningBalance = (account: any) => {
     const ledger = ledgers.find((l: any) => l.id === account.ledgerid?.id);
     if (!ledger) {
@@ -198,6 +214,13 @@ const PartyReports: React.FC = () => {
     return ledger.openingbalancetype === "debit"
       ? ledger.openingbalance || 0
       : -(ledger.openingbalance || 0);
+  };
+
+  /** Opening balance still unpaid — what the party actually owes from before. */
+  const getOpeningDue = (account: any) => {
+    const opening = getOpeningBalance(account);
+    if (opening <= 0) return opening; // a credit opening can't be "settled"
+    return parseFloat(Math.max(0, opening - (openingSettledByParty[account.id] || 0)).toFixed(2));
   };
 
   // -----------------------------
@@ -221,23 +244,40 @@ const PartyReports: React.FC = () => {
   // as a credit and their unpaid bills are subtracted rather than added.
   const calculateOutstanding = (account: any, invoices: any[]) => {
     const sign = account.type === "vendor" ? -1 : 1;
-    let balance = getOpeningBalance(account);
+    let balance = getOpeningDue(account);
 
     invoices
       .filter((inv: any) => inv.partyacc?.id === account.id)
       .forEach((inv: any) => {
-        const unpaid = Number(inv.totalamount || 0) - (settledByInvoice[inv.id] || 0);
+        const unpaid = outstandingOf(inv);
         if (unpaid > 0.005) balance += sign * unpaid;
+
+        // Bill paid first, returned later → the return is money we now owe
+        // back. It behaves like an unallocated advance, so it comes off the
+        // balance the same way. Without this the report stayed at the
+        // pre-return figure while the ledger had already moved.
+        const excess = excessCreditOf(inv);
+        if (excess > 0.005) balance -= sign * excess;
       });
 
     payments
       .filter((p: any) => p.partyid?.id === account.id)
       .forEach((p: any) => {
-        const allocated = (p.invoices || []).reduce(
-          (sum: number, inv: any) => sum + (inv.settledamount || 0) + (inv.discount || 0),
-          0
-        );
-        const unallocated = Number(p.amount || 0) - allocated;
+        // Use the server's figure. It already accounts for the opening-balance
+        // leg and for concessions (cash = settled − discount + commission).
+        // Re-deriving it here from invoices[] alone missed both: a receipt that
+        // had cleared a ₹100 opening still showed the whole ₹100 as an advance,
+        // so this report and the payments list disagreed by that amount.
+        const unallocated =
+          p.unallocatedamount != null
+            ? Number(p.unallocatedamount) || 0
+            : Number(p.amount || 0) -
+              ((p.invoices || []).reduce(
+                (sum: number, inv: any) =>
+                  sum + (inv.settledamount || 0) - (inv.discount || 0) + (inv.commission || 0),
+                0
+              ) +
+                (Number(p.openingsettled) || 0));
         if (unallocated > 0.005) balance -= sign * unallocated;
       });
 
@@ -274,7 +314,7 @@ const PartyReports: React.FC = () => {
           billedInPeriod += Number(inv.totalamount || 0);
         }
 
-        const unpaid = Number(inv.totalamount || 0) - (settledByInvoice[inv.id] || 0);
+        const unpaid = outstandingOf(inv);
         if (unpaid <= 0.005) return; // fully settled bill
 
         pendingBills += 1;
@@ -321,6 +361,17 @@ const PartyReports: React.FC = () => {
   // Tally-style outstanding row for one party
   // -----------------------------
   const buildOutstandingRow = (a: any, invoices: any[]) => {
+    // Show the opening at FACE VALUE, not the un-cleared remainder.
+    //
+    // It looks like it should be the remainder, but the face value is what
+    // makes the row read as plain arithmetic:
+    //
+    //     Opening + Billed − Received = Outstanding
+    //     100     + 100    − 250      = (50)
+    //
+    // That identity holds because whatever a payment took off the opening is
+    // already inside "Received". Printing the remainder here would show
+    // 0 + 100 − 250 = (50) instead, and nobody could follow the row.
     const opening = getOpeningBalance(a);
     const outstanding = calculateOutstanding(a, invoices);
     const { billedInPeriod, pendingBills, billOutstanding, nextDue, maxOverdueDays } =
@@ -383,14 +434,14 @@ const PartyReports: React.FC = () => {
       .filter((a: any) => a.type === "customer")
       .map((a: any) => buildOutstandingRow(a, salesInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, payments, ledgers, salesInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, salesInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   const vendorOutstandingData = useMemo(() => {
     return accounts
       .filter((a: any) => a.type === "vendor")
       .map((a: any) => buildOutstandingRow(a, purchaseInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, payments, ledgers, purchaseInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   // -----------------------------
   // Receivable / Payable Aging (bill-wise buckets)
@@ -424,7 +475,7 @@ const PartyReports: React.FC = () => {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts, payments, ledgers, salesInvoices, purchaseInvoices, settledByInvoice, appliedFilters]);
+  }, [accounts, payments, ledgers, salesInvoices, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   // -----------------------------
   // Table Switcher

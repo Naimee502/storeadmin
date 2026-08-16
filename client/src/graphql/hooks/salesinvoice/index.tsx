@@ -14,13 +14,25 @@ import {
   GET_DELETED_SALES_INVOICES
 } from '../../queries/salesinvoice';
 import { useAppSelector } from '../../../redux/hooks';
+import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
 // ----------------- Mutations -----------------
+// A sales invoice auto-creates / updates / removes a Payment + Transaction on
+// the server (SalesInvoice.adjustStockAndTransactions). Refetch those caches or
+// Payments ▸ Add will keep showing the invoice as outstanding.
 export const useSalesInvoiceMutations = () => {
-  const [addSalesInvoiceMutation] = useMutation(ADD_SALES_INVOICE);
-  const [editSalesInvoiceMutation] = useMutation(EDIT_SALES_INVOICE);
-  const [deleteSalesInvoiceMutation] = useMutation(DELETE_SALES_INVOICE);
-  const [resetSalesInvoiceMutation] = useMutation(RESET_SALES_INVOICE);
+  const [addSalesInvoiceMutation] = useMutation(ADD_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [editSalesInvoiceMutation] = useMutation(EDIT_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [deleteSalesInvoiceMutation] = useMutation(DELETE_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [resetSalesInvoiceMutation] = useMutation(RESET_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
   const [dispatchSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DISPATCHED);
   const [deliverSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 

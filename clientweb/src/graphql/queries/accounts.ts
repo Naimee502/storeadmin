@@ -367,3 +367,67 @@ export const GET_ADMIN_BY_ID = gql`
     }
   }
 `;
+
+// Dry run before recording a collection: which bills does this amount clear,
+// how much goes to the party's opening balance, and what stays On Account.
+// Nothing is written — the collector approves the breakdown first, exactly
+// like the admin panel's Confirm Auto Settlement dialog.
+export const PREVIEW_ALLOCATION = gql`
+  query PreviewAllocation(
+    $partyid: ID!
+    $invoicemodel: String!
+    $adminid: ID!
+    $branchid: ID
+    $amount: Float!
+    $priorityInvoiceId: ID
+  ) {
+    previewAllocation(
+      partyid: $partyid
+      invoicemodel: $invoicemodel
+      adminid: $adminid
+      branchid: $branchid
+      amount: $amount
+      priorityInvoiceId: $priorityInvoiceId
+    ) {
+      totaloutstanding
+      allocated
+      unallocated
+      openingdue
+      openingsettled
+      lines {
+        invoiceid
+        invoicemodel
+        billnumber
+        billdate
+        outstanding
+        settledamount
+        fullysettled
+      }
+    }
+  }
+`;
+
+// A party's open bills, computed on the SERVER so the figures survive a stale
+// cache and cannot be raced by another collector.
+export const GET_PARTY_OUTSTANDING_BILLS = gql`
+  query GetPartyOutstandingBills(
+    $partyid: ID!
+    $invoicemodel: String!
+    $adminid: ID!
+    $branchid: ID
+  ) {
+    getPartyOutstandingBills(
+      partyid: $partyid
+      invoicemodel: $invoicemodel
+      adminid: $adminid
+      branchid: $branchid
+    ) {
+      id
+      billnumber
+      billdate
+      totalamount
+      outstanding
+      invoicemodel
+    }
+  }
+`;

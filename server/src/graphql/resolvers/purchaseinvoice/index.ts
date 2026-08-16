@@ -2,22 +2,12 @@ import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
+import { autoAdjustAdvances, getInvoiceOutstanding } from "../../../utils/allocation";
 
-// Role-free settled amount against a purchase invoice (Payments + Transactions).
-const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
-  if (!invoiceId) return 0;
-  const idStr = String(invoiceId);
-  let total = 0;
-  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  return parseFloat(total.toFixed(2));
-};
+// NOTE: the local per-invoice settled-amount helper was removed. Outstanding
+// now comes from utils/allocation, so the admin panel, the mobile app, the
+// party report and the WhatsApp reminder all quote the same figure — and all
+// of them net off sales returns, which this helper never did.
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
@@ -322,6 +312,25 @@ export const purchaseInvoiceResolvers = {
         console.log("\n📌 Step 5: Adjust Stock and Transactions");
         try {
           await PurchaseInvoice.adjustStockAndTransactions(null, created, createdbyData);
+
+          // Apply any advance this party has already paid to the new bill.
+          // Allocation-only — the ledger was credited when the advance arrived, so
+          // no journal entry is created (Tally's bill-adjustment journal is net-zero
+          // for the same reason). Best-effort: never fail a valid invoice over this.
+          try {
+            const settings: any = await AdminSettings.getOrCreateForAdmin(created.adminid);
+            if (settings?.autoAdjustAdvanceOnInvoice !== false) {
+              const used = await autoAdjustAdvances({
+                invoiceid: created._id,
+                invoicemodel: "PurchaseInvoice",
+                partyid: created.partyacc,
+                adminid: created.adminid,
+              });
+              if (used > 0) console.log(`Applied advance of ${used} to PurchaseInvoice ${created.billnumber}`);
+            }
+          } catch (e: any) {
+            console.warn("Advance auto-adjust skipped:", e?.message);
+          }
           console.log("✅ Stock and transactions adjusted successfully");
         } catch (stockError: any) {
           console.warn("⚠️ Stock adjustment warning:", stockError.message);
@@ -454,10 +463,7 @@ export const purchaseInvoiceResolvers = {
   },
 
   PurchaseInvoice: {
-    outstanding: async (parent: any) => {
-      const total = Number(parent?.totalamount || 0);
-      const settled = await invoiceSettledAmount(parent?.id);
-      return parseFloat((total - settled).toFixed(2));
-    },
+    outstanding: async (parent: any) =>
+      getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "PurchaseInvoice" }),
   },
 };

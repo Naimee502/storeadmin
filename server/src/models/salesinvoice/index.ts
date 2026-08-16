@@ -890,11 +890,19 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     payLedger = { _id: created.ledgerid } as any;
   }
 
+  // The cash/bank leg of the auto-created receipt. Resolve it once and fail
+  // loudly if it's missing — writing the wrong ledger here (or undefined)
+  // silently corrupts the Cash Book, which is exactly the bug this replaced.
+  const cashBankLedgerId: any = payLedger?._id;
+  if (!cashBankLedgerId) {
+    throw new Error(`Cash/Bank ledger "${payLedgerName}" could not be resolved for admin ${newInv.adminid}`);
+  }
+
   // ------------------------- PAYMENT ENTRY GENERATION -------------------------
   const payAmount = parseFloat(newInv.totalamount.toFixed(2));
   const paymentEntries = [
     {
-      ledgerid: payLedger?._id,
+      ledgerid: cashBankLedgerId,
       debit: payAmount,
       credit: 0,
       remarks: `Payment received (Invoice ${newInv.billnumber})`,
@@ -928,7 +936,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     const payCreatedByType = userContext?.createdby_type || newInv.createdby_type;
 
     oldPayment.mode = newInv.paymenttype;
-    oldPayment.ledgerid = customer.ledgerid;
+    // Payment.ledgerid is the CASH/BANK ledger (that's how the UI labels it and
+    // how buildPaymentEntries() reads it) — never the customer's own ledger.
+    // Storing the customer ledger here made a re-save of this auto-payment post
+    // "Dr Customer / Cr Customer", i.e. a net-zero journal that never touched Cash.
+    oldPayment.ledgerid = cashBankLedgerId;
     oldPayment.amount = payAmount;
     oldPayment.invoices[0].settledamount = payAmount;
     // ✅ Also update createdby if userContext is provided
@@ -1006,7 +1018,8 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     type: "receipt",
     mode: newInv.paymenttype,
     partyid: customer._id,
-    ledgerid: customer.ledgerid,
+    // Cash/Bank ledger — NOT the customer ledger (see note in the update branch).
+    ledgerid: cashBankLedgerId,
     invoices: [
       {
         invoiceid: invId,

@@ -7,6 +7,14 @@ import { AccountGroup } from "../../../models/accountgroups";
 import { ExpenseNote } from "../../../models/expensenote";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { pushNotification } from "../../../models/notifications";
+import { AdminSettings } from "../../../models/adminsettings";
+import {
+  getPartyOutstandingBills,
+  allocateWithOpening,
+  assertAllocationsFit,
+  computeUnallocated,
+  type InvoiceModel,
+} from "../../../utils/allocation";
 
 // Find (or auto-create) a posting LEDGER by name under a given account group.
 // Used for the optional Discount / Commission concessions on a payment. Creates
@@ -74,15 +82,27 @@ async function buildPaymentEntries(input: any, partyAccount: any) {
   const totalDiscount = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0).toFixed(2));
   const totalCommission = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0).toFixed(2));
 
-  // Party leg = receivable/payable cleared. When bills are selected that's the
-  // sum of settledamount; otherwise it's the manual amount (plain payment).
-  const settledTotal = invs.length
-    ? parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.settledamount) || 0), 0).toFixed(2))
-    : parseFloat(String(input.amount)) || 0;
+  // Cash actually moved. This is the amount on the payment, full stop.
+  const cashLeg = parseFloat((Number(input.amount) || 0).toFixed(2));
 
-  // Cash actually moved = cleared total LESS discount (concession given) PLUS
-  // commission (extra charged on top of the bill).
-  const cashLeg = parseFloat((settledTotal - totalDiscount + totalCommission).toFixed(2));
+  // Party leg = the WHOLE reduction in what the party owes.
+  //
+  // It used to be the sum of settledamount whenever any bill was selected. That
+  // held only while the amount was always equal to what got allocated. Once a
+  // receipt could clear the opening balance or leave money on account, a ₹250
+  // receipt allocating ₹100 to one bill posted only "Dr Cash 100 / Cr Party 100"
+  // — ₹150 of real cash never reached the books, and the ledger drifted from the
+  // payment record.
+  //
+  // Cash lowers the balance by its full value wherever it lands (bill, opening,
+  // or on account). A discount lowers it further (we absorbed part of the bill);
+  // a commission raises what they owe, so it comes back off.
+  //
+  //   Dr Cash      amount
+  //   Dr Discount  discount
+  //     Cr Party     amount + discount − commission
+  //     Cr Commission            commission
+  const settledTotal = parseFloat((cashLeg + totalDiscount - totalCommission).toFixed(2));
 
   const entries: any[] = [];
 
@@ -162,6 +182,44 @@ function formatPayment(r: any) {
   };
 }
 
+// Allocation order comes from AdminSettings (FIFO by default — oldest bill first).
+async function allocationOrder(adminid: any): Promise<"fifo" | "lifo"> {
+  try {
+    const st: any = await AdminSettings.getOrCreateForAdmin(adminid);
+    return st?.paymentAllocationOrder === "lifo" ? "lifo" : "fifo";
+  } catch {
+    return "fifo";
+  }
+}
+
+// Everything that must be true of an allocation before it is written:
+// no bill may be over-settled, and the unallocated remainder is derived on the
+// server rather than trusted from the client.
+async function prepareAllocation(input: any, excludePaymentId?: any) {
+  await assertAllocationsFit({
+    invoices: input.invoices,
+    adminid: input.adminid,
+    excludePaymentId,
+  });
+
+  const lines = Array.isArray(input.invoices) ? input.invoices : [];
+  const stamped = lines.map((l: any) => ({
+    ...l,
+    allocatedmode: l.allocatedmode === "auto_fifo" ? "auto_fifo" : "manual",
+    allocatedat: new Date(),
+  }));
+
+  const unallocatedamount = computeUnallocated(input);
+  const openingsettled = parseFloat((Number(input.openingsettled) || 0).toFixed(2));
+  const allocationmode = !stamped.length && openingsettled <= 0
+    ? "on_account"
+    : stamped.some((l: any) => l.allocatedmode === "auto_fifo")
+    ? "auto_fifo"
+    : "manual";
+
+  return { ...input, invoices: stamped, openingsettled, unallocatedamount, allocationmode };
+}
+
 export const paymentResolvers = {
   Query: {
     getPayments: async (_: any, args: { filter?: any }, context: any) => {
@@ -239,6 +297,63 @@ export const paymentResolvers = {
       return result.map(formatPayment);
     },
 
+    // Open bills for a party — server-computed so a stale client cache can
+    // never show an already-settled invoice as payable.
+    getPartyOutstandingBills: async (_: any, args: any) => {
+      const order = await allocationOrder(args.adminid);
+      return getPartyOutstandingBills({
+        partyid: args.partyid,
+        invoicemodel: args.invoicemodel as InvoiceModel,
+        adminid: args.adminid,
+        branchid: args.branchid,
+        excludePaymentId: args.excludePaymentId,
+        order,
+      });
+    },
+
+    // Dry run: "if I take ₹X from this party, which bills does it clear?"
+    // Drives the confirmation dialog — the user sees the spread and approves
+    // it, so nothing is ever settled behind their back.
+    previewAllocation: async (_: any, args: any) => {
+      const order = await allocationOrder(args.adminid);
+      // Opening balance is cleared before any bill — otherwise an advance keeps
+      // showing as "on account" while the ledger says the party owes less.
+      const { openingdue, openingsettled, bills, lines, unallocated } =
+        await allocateWithOpening({
+          partyid: args.partyid,
+          invoicemodel: args.invoicemodel as InvoiceModel,
+          adminid: args.adminid,
+          branchid: args.branchid,
+          amount: args.amount,
+          excludePaymentId: args.excludePaymentId,
+          priorityInvoiceId: args.priorityInvoiceId,
+          order,
+        });
+      const byId = new Map(bills.map((b) => [b.id, b]));
+      const totaloutstanding = parseFloat(
+        (bills.reduce((t, b) => t + b.outstanding, 0) + openingdue).toFixed(2)
+      );
+      return {
+        openingdue,
+        openingsettled,
+        lines: lines.map((l) => {
+          const bill = byId.get(l.invoiceid);
+          return {
+            invoiceid: l.invoiceid,
+            invoicemodel: l.invoicemodel,
+            billnumber: bill?.billnumber || "",
+            billdate: bill?.billdate || "",
+            outstanding: bill?.outstanding || 0,
+            settledamount: l.settledamount,
+            fullysettled: (bill?.outstanding || 0) - l.settledamount <= 0.01,
+          };
+        }),
+        totaloutstanding,
+        allocated: parseFloat((Number(args.amount) - unallocated).toFixed(2)),
+        unallocated,
+      };
+    },
+
     getPaymentById: async (_: any, args: { id: string; adminid?: string }) => {
       if (!args.id) return null;
       const query: any = { _id: new mongoose.Types.ObjectId(args.id) };
@@ -274,7 +389,8 @@ export const paymentResolvers = {
         createdbyData.createdby_name = "Unknown user";
       }
 
-      const created = await Payment.create({ ...input, ...createdbyData });
+      const prepared = await prepareAllocation(input);
+      const created = await Payment.create({ ...prepared, ...createdbyData });
 
       // ✅ Create journal entry. Party-based payment/receipt when a party + its
       // ledger exist; otherwise fall back to an expense-note settlement journal
@@ -400,7 +516,8 @@ export const paymentResolvers = {
         createdby_name: input.createdby_name || existing.createdby_name || user?.name || user?.email,
       };
 
-      await Payment.findByIdAndUpdate(id, { ...input, ...updatedbyData }, { new: true });
+      const prepared = await prepareAllocation(input, id);
+      await Payment.findByIdAndUpdate(id, { ...prepared, ...updatedbyData }, { new: true });
 
       // ✅ Update journal entry. Party-based when a party + ledger exist;
       // otherwise fall back to an expense-note settlement journal.
@@ -457,6 +574,54 @@ export const paymentResolvers = {
       }
       const result = await Payment.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
+    },
+
+    // Re-spread an existing payment over different bills.
+    //
+    // Deliberately does NOT rebuild the journal: the party leg is the total
+    // cash moved, which re-allocation never changes. Only the bill-level
+    // attribution moves, exactly like Tally's net-zero bill-adjustment
+    // journal. That also means this can never unbalance the books.
+    reallocatePayment: async (_: any, { id, invoices }: any) => {
+      const payment: any = await Payment.findById(id);
+      if (!payment) throw new Error("Payment not found");
+      if (!payment.status) throw new Error("Cannot re-allocate a deleted payment");
+
+      const lines = Array.isArray(invoices) ? invoices : [];
+      const settled = lines.reduce((t: number, l: any) => t + (Number(l.settledamount) || 0), 0);
+      const discount = lines.reduce((t: number, l: any) => t + (Number(l.discount) || 0), 0);
+      const commission = lines.reduce((t: number, l: any) => t + (Number(l.commission) || 0), 0);
+      const cashApplied = parseFloat((settled - discount + commission).toFixed(2));
+
+      if (cashApplied > Number(payment.amount) + 0.01) {
+        throw new Error(
+          `Allocation ₹${cashApplied.toFixed(2)} is more than the payment amount ₹${Number(
+            payment.amount
+          ).toFixed(2)}.`
+        );
+      }
+
+      // Exclude this payment's own existing lines when checking capacity,
+      // otherwise re-saving the same allocation would look like a double-settle.
+      await assertAllocationsFit({ invoices: lines, adminid: payment.adminid, excludePaymentId: id });
+
+      await Payment.findByIdAndUpdate(id, {
+        invoices: lines.map((l: any) => ({
+          ...l,
+          allocatedmode: l.allocatedmode === "auto_fifo" ? "auto_fifo" : "manual",
+          allocatedat: new Date(),
+        })),
+        unallocatedamount: parseFloat(Math.max(0, Number(payment.amount) - cashApplied).toFixed(2)),
+        allocationmode: !lines.length
+          ? "on_account"
+          : lines.some((l: any) => l.allocatedmode === "auto_fifo")
+          ? "auto_fifo"
+          : "manual",
+      });
+
+      const updated = await Payment.findById(id).populate("ledgerid").populate("partyid").lean();
+      if (!updated) throw new Error("Payment not found after re-allocation");
+      return formatPayment(updated);
     },
 
     resetPayment: async (_: any, { id }: { id: string }) => {

@@ -11,13 +11,25 @@ import {
   GET_DELETED_PURCHASE_INVOICES
 } from '../../queries/purchaseinvoice';
 import { useAppSelector } from '../../../redux/hooks';
+import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
 // ----------------- Mutations -----------------
+// A purchase invoice auto-creates / updates / removes a Payment + Transaction
+// on the server (PurchaseInvoice.adjustStockAndTransactions). Refetch those
+// caches or Payments ▸ Add will keep showing the bill as outstanding.
 export const usePurchaseInvoiceMutations = () => {
-  const [addPurchaseInvoiceMutation] = useMutation(ADD_PURCHASE_INVOICE);
-  const [editPurchaseInvoiceMutation] = useMutation(EDIT_PURCHASE_INVOICE);
-  const [deletePurchaseInvoiceMutation] = useMutation(DELETE_PURCHASE_INVOICE);
-  const [resetPurchaseInvoiceMutation] = useMutation(RESET_PURCHASE_INVOICE);
+  const [addPurchaseInvoiceMutation] = useMutation(ADD_PURCHASE_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [editPurchaseInvoiceMutation] = useMutation(EDIT_PURCHASE_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [deletePurchaseInvoiceMutation] = useMutation(DELETE_PURCHASE_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [resetPurchaseInvoiceMutation] = useMutation(RESET_PURCHASE_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
 
   return {
     addPurchaseInvoiceMutation,

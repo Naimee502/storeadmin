@@ -5,6 +5,7 @@ import { Payment } from "../models/payments";
 import { SalesInvoice } from "../models/salesinvoice";
 import { Transaction } from "../models/transactions";
 import { pushNotification } from "../models/notifications";
+import { getPartyOutstandingBills } from "./allocation";
 
 // ---------------------------------------------------------------------------
 // Shared outstanding-reminder logic.
@@ -18,32 +19,9 @@ import { pushNotification } from "../models/notifications";
 // "please pay your outstanding" would be backwards for them.
 // ---------------------------------------------------------------------------
 
-// How much of an invoice has already been settled (payments + agst-ref txns).
-const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
-  if (!invoiceId) return 0;
-  const idStr = String(invoiceId);
-  let total = 0;
-
-  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true })
-    .select("invoices")
-    .lean();
-  pays.forEach((p: any) =>
-    (p.invoices || []).forEach((iv: any) => {
-      if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-    })
-  );
-
-  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true })
-    .select("invoices")
-    .lean();
-  txns.forEach((t: any) =>
-    (t.invoices || []).forEach((iv: any) => {
-      if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-    })
-  );
-
-  return parseFloat(total.toFixed(2));
-};
+// NOTE: the local per-invoice "settled amount" helper that used to live here
+// was removed — outstanding is now computed in one place
+// (utils/allocation → getPartyOutstandingBills) so every surface agrees.
 
 export type PartyOutstanding = {
   amount: number; // sum of unpaid bills
@@ -60,43 +38,39 @@ export const getPartyOutstanding = async (accountId: any): Promise<PartyOutstand
   const empty: PartyOutstanding = { amount: 0, pendingBills: 0, overdueDays: 0, dueDate: "" };
   if (!accountId) return empty;
 
-  const invs: any[] = await SalesInvoice.find({ partyacc: accountId, status: true })
-    .select("totalamount billdate duedate")
-    .lean();
-  if (!invs.length) return empty;
+  // Shared allocation util — same numbers as the payment screen, the party
+  // report and the mobile app. The old local loop did "total − settled" and
+  // ignored sales returns, so a customer who had returned goods could still be
+  // chased on WhatsApp for the full amount.
+  const bills = await getPartyOutstandingBills({
+    partyid: accountId,
+    invoicemodel: "SalesInvoice",
+  });
+  if (!bills.length) return empty;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   let amount = 0;
-  let pendingBills = 0;
   let overdueDays = 0;
   let earliestDue: Date | null = null;
 
-  for (const inv of invs) {
-    const settled = await invoiceSettledAmount(inv._id);
-    const due = (inv.totalamount || 0) - settled;
-    if (due <= 0.005) continue;
-
-    amount += due;
-    pendingBills += 1;
-
-    if (inv.duedate) {
-      const ref = new Date(inv.duedate);
-      if (!isNaN(ref.getTime())) {
-        ref.setHours(0, 0, 0, 0);
-        if (!earliestDue || ref < earliestDue) earliestDue = ref;
-        const days = Math.floor((today.getTime() - ref.getTime()) / 86400000);
-        if (days > overdueDays) overdueDays = days;
-      }
-    }
+  for (const bill of bills) {
+    amount += bill.outstanding;
+    if (!bill.duedate) continue;
+    const ref = new Date(bill.duedate);
+    if (isNaN(ref.getTime())) continue;
+    ref.setHours(0, 0, 0, 0);
+    if (!earliestDue || ref < earliestDue) earliestDue = ref;
+    const days = Math.floor((today.getTime() - ref.getTime()) / 86400000);
+    if (days > overdueDays) overdueDays = days;
   }
 
   return {
     amount: parseFloat(amount.toFixed(2)),
-    pendingBills,
+    pendingBills: bills.length,
     overdueDays,
-    dueDate: earliestDue ? formatDMY(earliestDue) : "",
+    dueDate: earliestDue ? earliestDue.toISOString().slice(0, 10) : "",
   };
 };
 

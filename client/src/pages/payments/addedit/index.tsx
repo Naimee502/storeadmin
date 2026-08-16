@@ -8,13 +8,13 @@ import { showMessage } from "../../../redux/slices/message";
 import {
   usePaymentMutations,
   usePaymentByIDQuery,
-  usePaymentsQuery,
+  usePreviewAllocationLazy,
 } from "../../../graphql/hooks/payments";
+import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 
@@ -29,6 +29,29 @@ type SettledInvoice = {
   othercharges: any[];
   subtotal: number;
   totalgst: number;
+  /** "auto_fifo" when the row came from the FIFO proposal rather than a tick. */
+  allocatedmode?: "manual" | "auto_fifo";
+};
+
+type ProposalLine = {
+  invoiceid: string;
+  invoicemodel: string;
+  billnumber: string;
+  billdate: string;
+  outstanding: number;
+  settledamount: number;
+  fullysettled: boolean;
+};
+
+type Proposal = {
+  lines: ProposalLine[];
+  totaloutstanding: number;
+  allocated: number;
+  unallocated: number;
+  /** Opening balance the party carried in, still unpaid before this receipt. */
+  openingdue: number;
+  /** How much of THIS amount went to clearing that opening. */
+  openingsettled: number;
 };
 
 const fmt = (n: number) => n.toFixed(2);
@@ -72,8 +95,11 @@ const AddEditPayment = () => {
   // revalidate from the server on mount instead of showing stale cache.
   const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesQuery("cache-and-network");
   const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesQuery("cache-and-network");
-  const { data: paymentsData } = usePaymentsQuery();
-  const { data: transactionsData } = useTransactionsQuery();
+  // Payment allocations + journal ("Agst Ref") settlements + un-refunded
+  // returns, all derived in one shared hook so this page and the Transaction
+  // page can never disagree about what a party still owes.
+  const { outstandingOf, paidByInvoice, returnsByInvoice } =
+    useOutstanding({ excludePaymentId: id || undefined });
   const { data: expenseNotesData, refetch: refetchExpenseNotes } = useExpenseNotesQuery("cache-and-network");
 
   // Invoices/expense notes can be created right before opening this page (e.g.
@@ -86,10 +112,15 @@ const AddEditPayment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const { data: adminSettingsData } = useAdminSettingsQuery(adminId);
-  const { addPaymentMutation, editPaymentMutation } = usePaymentMutations();
+  const { addPaymentMutation, editPaymentMutation, reallocatePaymentMutation } = usePaymentMutations();
 
   // Feature flag (per business): allow Discount & Commission while settling a bill.
   const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
+  // off | ask | always — "ask" is the default because Tally never allocates
+  // a rupee the user hasn't seen.
+  const autoSettlement: "off" | "ask" | "always" =
+    adminSettingsData?.getAdminSettings?.paymentAutoSettlement || "ask";
+  const runPreview = usePreviewAllocationLazy();
 
   // ── Form state ─────────────────────────────────────────────────────────
   const [paymentdate, setPaymentdate] = useState(new Date().toISOString().slice(0, 10));
@@ -102,6 +133,19 @@ const AddEditPayment = () => {
   const [manualAmount, setManualAmount] = useState<string>("");
   const [settledInvoices, setSettledInvoices] = useState<SettledInvoice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // "invoice" → tick each bill (classic). "direct" → type one amount and let
+  // FIFO spread it, Tally's On-Account/Agst-Ref flow in a single screen.
+  const [settlementMode, setSettlementMode] = useState<"invoice" | "direct">("invoice");
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  // What the confirm dialog should do on approval: create/update the payment,
+  // or just re-spread an existing one (which never touches the journal).
+  const [proposalIntent, setProposalIntent] = useState<"save" | "reallocate">("save");
+  // Result of the last "Allocate now" attempt. Shown inline under the On Account
+  // banner rather than as a red toast — "nothing open to apply it to" is a normal
+  // state for an advance, not a failure.
+  const [allocateNote, setAllocateNote] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Bill clears = sum of settledamount (reduces outstanding).
   const totalSettled = parseFloat(
@@ -118,34 +162,20 @@ const AddEditPayment = () => {
   // Cash actually moved = bills cleared, LESS discount (concession given), PLUS
   // commission (extra charged on top). This is the payment "amount". When no
   // invoices are linked, the manual amount is the cash.
-  const totalAmount = settledInvoices.length > 0
-    ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
-    : parseFloat(manualAmount) || 0;
-
-  // ── Already-paid amounts per invoice (exclude current edit) ────────────
-  const paidByInvoice = useMemo(() => {
-    const map: Record<string, number> = {};
-    // Payments
-    (paymentsData?.getPayments || []).forEach((pay: any) => {
-      if (isEdit && pay.id === id) return;
-      (pay.invoices || []).forEach((inv: any) => {
-        if (inv.invoiceid) {
-          map[inv.invoiceid] = (map[inv.invoiceid] || 0) + (inv.settledamount || 0);
-        }
-      });
-    });
-    // Manual transactions that settled invoices (Tally "Agst Ref") — counted so
-    // a journal settlement reduces outstanding here too, consistent with the
-    // Transaction page's BillAllocation.
-    (transactionsData?.getTransactions || []).forEach((txn: any) => {
-      (txn.invoices || []).forEach((inv: any) => {
-        if (inv.invoiceid) {
-          map[inv.invoiceid] = (map[inv.invoiceid] || 0) + (inv.settledamount || 0);
-        }
-      });
-    });
-    return map;
-  }, [paymentsData, transactionsData, id, isEdit]);
+  // How much cash this payment represents.
+  //
+  //  • New + Invoice-wise → the ticked rows ARE the amount (tick ₹100, receive ₹100).
+  //  • Direct             → the typed amount drives everything.
+  //  • Editing            → the amount is a FACT that already happened. Un-ticking a
+  //                         bill re-allocates it; it does not mean the party handed
+  //                         over less money. Deriving it from rows here rewrote a
+  //                         ₹250 receipt as ₹100 the moment you opened it invoice-wise.
+  const totalAmount =
+    settlementMode === "direct" || isEdit
+      ? parseFloat(manualAmount) || 0
+      : settledInvoices.length > 0
+      ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
+      : parseFloat(manualAmount) || 0;
 
   // ── Outstanding invoices for the selected party ────────────────────────
   // Show ALL invoices for this party (any payment type) that still have
@@ -191,13 +221,9 @@ const AddEditPayment = () => {
     }
 
     return source
-      .map((inv: any) => {
-        const paid = paidByInvoice[inv.id] || 0;
-        const outstanding = parseFloat((inv.totalamount - paid).toFixed(2));
-        return { ...inv, outstanding };
-      })
+      .map((inv: any) => ({ ...inv, outstanding: outstandingOf(inv) }))
       .filter((inv: any) => inv.outstanding > 0);
-  }, [partyid, payType, salesInvData, purchaseInvData, expenseNotesData, accountsData, paidByInvoice]);
+  }, [partyid, payType, salesInvData, purchaseInvData, expenseNotesData, accountsData, outstandingOf]);
 
   // ── Load existing payment for edit ─────────────────────────────────────
   useEffect(() => {
@@ -214,7 +240,16 @@ const AddEditPayment = () => {
     setPartyid(typeof p.partyid === "string" ? p.partyid : p.partyid?.id || "");
     setReference(p.reference || "");
     setRemarks(p.remarks || "");
-    if (!(p.invoices?.length)) {
+
+    // Re-open the payment in the mode it was created in. A receipt entered as
+    // Direct / On Account should not come back as Invoice-wise — the two modes
+    // behave differently on save, so showing the wrong one is misleading.
+    const savedDirect =
+      p.allocationmode === "auto_fifo" || p.allocationmode === "on_account";
+    setSettlementMode(savedDirect && !isExpense ? "direct" : "invoice");
+
+    // Direct mode is driven by the amount box, so seed it either way.
+    if (savedDirect || !(p.invoices?.length)) {
       setManualAmount(String(p.amount || ""));
     }
   }, [isEdit, existingData]);
@@ -395,13 +430,141 @@ const AddEditPayment = () => {
       );
       if (bad) e.amount = `Discount can't exceed the settle amount for INV-${bad.billnumber}`;
     }
+    // While editing, the rows allocate the amount rather than define it, so they
+    // must fit inside it — including whatever already went to the opening balance.
+    if (isEdit && settlementMode !== "direct") {
+      const applied = parseFloat(
+        (totalSettled - totalDiscount + totalCommission + savedOpeningSettled).toFixed(2)
+      );
+      if (applied > totalAmount + 0.01) {
+        e.amount = `Allocated ₹${fmt(applied)} is more than the ₹${fmt(totalAmount)} received. Reduce a settle amount or raise the amount.`;
+      }
+    }
     return e;
   };
 
-  const handleSubmit = async () => {
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+  // ── DIAGNOSTIC (dev only) ──────────────────────────────────────────────
+  // Prints why each of this party's bills is shown or hidden. Remove once the
+  // outstanding list is behaving. Every number below is derived, never stored.
+  useEffect(() => {
+    if (!import.meta.env.DEV || !partyid || payType === "expense") return;
 
+    const all =
+      payType === "receipt"
+        ? (salesInvData?.getSalesInvoices || [])
+        : (purchaseInvData?.getPurchaseInvoices || []);
+    const mine = all.filter((inv: any) => inv.partyacc?.id === partyid);
+
+    console.group(
+      `%c[Outstanding] party=${partyid} | invoices fetched=${all.length} | for this party=${mine.length} | shown=${outstandingInvoices.length}`,
+      "color:#2563eb;font-weight:bold"
+    );
+
+    if (all.length && !mine.length) {
+      console.warn(
+        "None of the fetched invoices belong to this party. Party ids seen:",
+        [...new Set(all.map((i: any) => i.partyacc?.id))]
+      );
+    }
+
+    console.table(
+      mine.map((inv: any) => {
+        const paid = paidByInvoice[inv.id] || 0;
+        const returned = returnsByInvoice[inv.id] || 0;
+        const out = outstandingOf(inv);
+        return {
+          bill: inv.billnumber,
+          id: inv.id,
+          status: inv.status,
+          branchid: inv.branchid,
+          paymenttype: inv.paymenttype,
+          total: inv.totalamount,
+          paid,
+          returned,
+          outstanding: out,
+          SHOWN: !!inv.status && out > 0,
+          hiddenBecause: !inv.status
+            ? "status=false (deleted)"
+            : out > 0
+            ? ""
+            : paid > 0
+            ? `settled by payment(s) of ${paid}`
+            : returned > 0
+            ? `netted by return(s) of ${returned}`
+            : "totalamount is 0",
+        };
+      })
+    );
+
+    // Every allocation line the client can see, so a stray settlement is obvious.
+    const alloc: any[] = [];
+    Object.entries(paidByInvoice).forEach(([invId, amt]) =>
+      alloc.push({ invoiceid: invId, settled: amt })
+    );
+    console.log("allocations seen (invoiceid → settled):", alloc);
+    console.log(
+      "ALL fetched invoices (unfiltered):",
+      all.map((i: any) => ({
+        bill: i.billnumber,
+        party: i.partyacc?.id,
+        partyName: i.partyacc?.accountname,
+        branch: i.branchid,
+        status: i.status,
+        total: i.totalamount,
+      }))
+    );
+    console.groupEnd();
+  }, [
+    partyid,
+    payType,
+    salesInvData,
+    purchaseInvData,
+    paidByInvoice,
+    returnsByInvoice,
+    outstandingOf,
+    outstandingInvoices.length,
+  ]);
+
+  /**
+   * Bills this party has at all (before subtracting anything). Lets the empty
+   * state say "everything is settled" instead of the misleading "no invoices
+   * found" — the difference matters now that already-paid bills are correctly
+   * hidden.
+   */
+  const partyBillCount = useMemo(() => {
+    if (!partyid || payType === "expense") return 0;
+    const src =
+      payType === "receipt"
+        ? (salesInvData?.getSalesInvoices || [])
+        : (purchaseInvData?.getPurchaseInvoices || []);
+    return src.filter((inv: any) => inv.partyacc?.id === partyid && inv.status).length;
+  }, [partyid, payType, salesInvData, purchaseInvData]);
+
+  /** Total still owed by this party across the bills shown. */
+  const totalOutstanding = parseFloat(
+    outstandingInvoices.reduce((t: number, i: any) => t + (i.outstanding || 0), 0).toFixed(2)
+  );
+
+  /** Turn a server FIFO proposal into rows this page can render/submit. */
+  const linesFromProposal = (p: Proposal): SettledInvoice[] =>
+    p.lines.map((l) => {
+      const inv = outstandingInvoices.find((o: any) => o.id === l.invoiceid);
+      return {
+        invoiceid: l.invoiceid,
+        invoicemodel: l.invoicemodel as SettledInvoice["invoicemodel"],
+        settledamount: l.settledamount,
+        discount: 0,
+        commission: 0,
+        billnumber: l.billnumber || inv?.billnumber || "",
+        totalamount: inv?.totalamount ?? l.outstanding,
+        othercharges: inv?.othercharges || [],
+        subtotal: inv?.subtotal || 0,
+        totalgst: inv?.totalgst || 0,
+        allocatedmode: "auto_fifo",
+      };
+    });
+
+  const persist = async (lines: SettledInvoice[], amount: number, openingsettled = 0) => {
     const input: any = {
       adminid: adminId,
       branchid: branchId,
@@ -412,7 +575,7 @@ const AddEditPayment = () => {
       mode,
       ledgerid,
       partyid: partyid || null,
-      invoices: settledInvoices
+      invoices: lines
         .filter(s => s.invoiceid)
         .map(s => ({
           invoiceid: s.invoiceid,
@@ -420,8 +583,12 @@ const AddEditPayment = () => {
           settledamount: s.settledamount,
           discount: dcEnabled ? (s.discount || 0) : 0,
           commission: dcEnabled ? (s.commission || 0) : 0,
+          allocatedmode: s.allocatedmode || "manual",
         })),
-      amount: totalAmount,
+      amount,
+      // Part of this receipt that cleared the party's opening balance. Not a
+      // bill, so it can't live in invoices[] — see the note on the model.
+      openingsettled,
       reference: reference || undefined,
       remarks: remarks || undefined,
       status: true,
@@ -430,6 +597,7 @@ const AddEditPayment = () => {
       createdby_type: creator.type,
     };
 
+    setSaving(true);
     try {
       if (isEdit) {
         await editPaymentMutation({ variables: { id, input } });
@@ -440,8 +608,132 @@ const AddEditPayment = () => {
       }
       navigate("/payments");
     } catch (err: any) {
+      // The server rejects over-settlement (two users clearing the same bill),
+      // so surface its message rather than a generic one.
       dispatch(showMessage({ message: err?.message || "Error saving payment", type: "error" }));
+    } finally {
+      setSaving(false);
+      setProposal(null);
     }
+  };
+
+  /** Amount on THIS payment that is still unallocated (edit mode only). */
+  const savedUnallocated = Number(existingData?.getPaymentById?.unallocatedamount) || 0;
+  /**
+   * Opening balance this receipt already cleared. Carried through on a plain
+   * edit — otherwise re-saving the payment would silently drop the opening leg
+   * and the party would look like they still owe it.
+   */
+  const savedOpeningSettled = Number(existingData?.getPaymentById?.openingsettled) || 0;
+
+  /** Propose a FIFO spread for the floating part of an already-saved payment. */
+  const startReallocate = async () => {
+    try {
+      const res = await runPreview({
+        variables: {
+          partyid,
+          invoicemodel: payType === "receipt" ? "SalesInvoice" : "PurchaseInvoice",
+          adminid: adminId,
+          branchid: branchId,
+          amount: savedUnallocated,
+          // NOT excluded on purpose: we want what is still open GIVEN this
+          // payment's existing allocations. Excluding it would re-offer the very
+          // bills this payment has already cleared.
+        },
+      });
+      const p: Proposal | null = res?.data?.previewAllocation || null;
+      if (!p || !p.lines.length) {
+        setAllocateNote(
+          "Nothing open to apply it to right now — every bill and the opening balance are settled. It stays as an advance and goes on to their next invoice automatically."
+        );
+        return;
+      }
+      setAllocateNote("");
+      setProposalIntent("reallocate");
+      setProposal(p);
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
+    }
+  };
+
+  /** Apply the approved spread ON TOP of what this payment already settles. */
+  const commitReallocate = async (p: Proposal) => {
+    setSaving(true);
+    try {
+      const merged = [
+        ...settledInvoices.map((s) => ({
+          invoiceid: s.invoiceid,
+          invoicemodel: s.invoicemodel,
+          settledamount: s.settledamount,
+          discount: dcEnabled ? (s.discount || 0) : 0,
+          commission: dcEnabled ? (s.commission || 0) : 0,
+          allocatedmode: s.allocatedmode || "manual",
+        })),
+        ...p.lines.map((l) => ({
+          invoiceid: l.invoiceid,
+          invoicemodel: l.invoicemodel,
+          settledamount: l.settledamount,
+          discount: 0,
+          commission: 0,
+          allocatedmode: "auto_fifo",
+        })),
+      ];
+      await reallocatePaymentMutation({ variables: { id, invoices: merged } });
+      dispatch(showMessage({ message: "Allocation updated", type: "success" }));
+      navigate("/payments");
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Could not re-allocate", type: "error" }));
+    } finally {
+      setSaving(false);
+      setProposal(null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
+
+    const isDirect =
+      settlementMode === "direct" && payType !== "expense" && !!partyid;
+
+    // Invoice-wise, or auto-settlement switched off → save exactly what the
+    // user built. In "off" mode a direct amount simply stays On Account.
+    if (!isDirect || autoSettlement === "off") {
+      return persist(settledInvoices, totalAmount, savedOpeningSettled);
+    }
+
+    let p: Proposal | null = null;
+    try {
+      const res = await runPreview({
+        variables: {
+          partyid,
+          invoicemodel: payType === "receipt" ? "SalesInvoice" : "PurchaseInvoice",
+          adminid: adminId,
+          branchid: branchId,
+          amount: totalAmount,
+          excludePaymentId: id || undefined,
+        },
+      });
+      p = res?.data?.previewAllocation || null;
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
+      return;
+    }
+
+    // Nothing open to settle → the whole amount is On Account. Saving it is
+    // still correct: the party ledger is posted in full either way.
+    // No open bills, but the opening balance may still soak up part of it.
+    if (!p || (!p.lines.length && !p.openingsettled)) {
+      return persist([], totalAmount, 0);
+    }
+
+    if (autoSettlement === "always") {
+      return persist(linesFromProposal(p), totalAmount, p.openingsettled);
+    }
+    // "ask" → show it and let the user decide. Nothing is written yet.
+    setProposalIntent("save");
+    setProposal(p);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -553,11 +845,99 @@ const AddEditPayment = () => {
                   : "Bill Settlement (Against Invoices) — optional"}
               </legend>
 
-              {outstandingInvoices.length === 0 ? (
+              {/* An already-saved payment with money still floating. Re-allocating
+                  moves attribution only — the party ledger was posted in full
+                  when the cash arrived, so no journal entry is created. */}
+              {isEdit && savedUnallocated > 0 && payType !== "expense" && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm">
+                    <span className="font-medium text-amber-900">
+                      ₹{fmt(savedUnallocated)} On Account
+                    </span>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Of ₹{fmt(Number(existingData?.getPaymentById?.amount) || 0)} received:
+                      {savedOpeningSettled > 0 ? ` ₹${fmt(savedOpeningSettled)} opening +` : ""}{" "}
+                      ₹{fmt(
+                        (existingData?.getPaymentById?.invoices || []).reduce(
+                          (t: number, i: any) => t + (Number(i.settledamount) || 0),
+                          0
+                        )
+                      )}{" "}
+                      bills applied, ₹{fmt(savedUnallocated)} still unapplied.
+                    </p>
+                    {allocateNote && (
+                      <p className="text-xs text-amber-900 mt-2 max-w-2xl">{allocateNote}</p>
+                    )}
+                  </div>
+                  <Button variant="outline" onClick={startReallocate} disabled={saving}>
+                    Allocate now
+                  </Button>
+                </div>
+              )}
+
+              {/* Invoice-wise vs Direct. Direct is Tally's On-Account entry: one
+                  amount, spread over the open bills oldest-first, shown for
+                  confirmation before anything is written. */}
+              {payType !== "expense" && partyid && outstandingInvoices.length > 0 && (
+                <div className="flex flex-wrap items-center gap-4 text-sm border-b pb-3">
+                  <span className="font-medium">Settlement Mode:</span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      className="w-4 h-4"
+                      checked={settlementMode === "invoice"}
+                      onChange={() => setSettlementMode("invoice")}
+                    />
+                    <span>Invoice-wise</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      className="w-4 h-4"
+                      checked={settlementMode === "direct"}
+                      onChange={() => {
+                        // Switching is only a change of view — the ticked rows
+                        // are kept, so flipping back and forth loses nothing.
+                        // Direct mode is amount-driven, so carry the current
+                        // total across as the starting amount.
+                        if (!manualAmount && totalAmount > 0) {
+                          setManualAmount(String(totalAmount));
+                        }
+                        setSettlementMode("direct");
+                      }}
+                    />
+                    <span>Direct / On Account</span>
+                  </label>
+                  {settlementMode === "direct" && autoSettlement === "off" && (
+                    <span className="text-xs text-amber-700">
+                      Auto-settlement is off in Settings — this amount will stay On Account.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {settlementMode === "direct" && payType !== "expense" && partyid ? (
+                <div className="rounded-lg bg-gray-50 border p-4 space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Open bills</span>
+                    <span className="font-medium">{outstandingInvoices.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Outstanding</span>
+                    <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pt-2">
+                    Enter the amount below. Oldest bills are cleared first, and you
+                    will see exactly which ones before it saves.
+                  </p>
+                </div>
+              ) : outstandingInvoices.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   {payType === "expense"
                     ? "No outstanding credit expense notes to settle."
-                    : "No outstanding credit invoices found for this party. Enter the amount manually below."}
+                    : partyBillCount > 0
+                    ? `All ${partyBillCount} bill(s) for this party are already fully settled — by their own receipts, by earlier payments, or by returns. Anything entered below is recorded On Account.`
+                    : "This party has no invoices yet. Anything entered below is recorded On Account."}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -696,7 +1076,7 @@ const AddEditPayment = () => {
           )}
 
           {/* ── Section 3: Manual Amount (when no invoices linked) ───── */}
-          {settledInvoices.length === 0 && (
+          {(settlementMode === "direct" || isEdit || settledInvoices.length === 0) && (
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm font-medium px-2">Amount</legend>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -714,7 +1094,7 @@ const AddEditPayment = () => {
           )}
 
           {/* ── Section 4: Summary ───────────────────────────────────── */}
-          {settledInvoices.length > 0 && (
+          {settlementMode !== "direct" && settledInvoices.length > 0 && (
             <div className="flex justify-end">
               <div className="bg-gray-50 border rounded-xl p-4 text-sm space-y-1 min-w-[260px]">
                 <div className="flex justify-between text-gray-600">
@@ -772,7 +1152,20 @@ const AddEditPayment = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    const partyLeg = settledInvoices.length > 0 ? totalSettled : totalAmount;
+                    // The party leg is the FULL reduction in what they owe —
+                    // never just the bills ticked. Cash of ₹250 lowers the party
+                    // balance by ₹250 whether it lands on one bill, the opening
+                    // balance, or sits on account. Using the ticked total here
+                    // produced an unbalanced entry (Dr Cash 250 / Cr Party 100)
+                    // the moment an amount carried an on-account remainder.
+                    //
+                    //   Dr Cash      amount
+                    //   Dr Discount  discount            (concession we absorbed)
+                    //     Cr Party     amount + discount − commission
+                    //     Cr Commission            commission
+                    const partyLeg = parseFloat(
+                      (totalAmount + totalDiscount - totalCommission).toFixed(2)
+                    );
                     if (payType === "receipt") {
                       return (
                         <>
@@ -849,12 +1242,147 @@ const AddEditPayment = () => {
             <Button variant="outline" onClick={() => navigate("/payments")}>
               Cancel
             </Button>
-            <Button variant="outline" onClick={handleSubmit}>
-              {isEdit ? "Update Payment" : "Save Payment"}
+            <Button variant="outline" onClick={handleSubmit} disabled={saving}>
+              {saving ? "Saving..." : isEdit ? "Update Payment" : "Save Payment"}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* ── Confirm Auto Settlement ────────────────────────────────────────
+          Nothing is written until this is approved. It exists so no one can
+          ever say "I never picked these invoices — how did they get cleared?"
+          "Change Manually" drops the same proposal into the invoice-wise
+          table, pre-filled, for the user to adjust. */}
+      {proposal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="px-5 py-4 border-b">
+              <h3 className="text-base font-semibold">Confirm Auto Settlement</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                ₹{fmt(totalAmount)} will be applied
+                {proposal.openingsettled > 0 ? " to the opening balance first, then" : ""} to{" "}
+                {proposal.lines.length} {proposal.lines.length === 1 ? "bill" : "bills"}, oldest first.
+              </p>
+            </div>
+
+            <div className="overflow-auto px-5 py-3">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2">Invoice #</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2 text-right">Outstanding</th>
+                    <th className="px-3 py-2 text-right">Settle Now</th>
+                    <th className="px-3 py-2">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proposal.openingsettled > 0 && (
+                    <tr className="border-t bg-slate-50">
+                      <td className="px-3 py-2 font-medium">Opening Balance</td>
+                      <td className="px-3 py-2 text-gray-500">brought forward</td>
+                      <td className="px-3 py-2 text-right">₹{fmt(proposal.openingdue)}</td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        ₹{fmt(proposal.openingsettled)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {proposal.openingdue - proposal.openingsettled <= 0.01 ? (
+                          <span className="text-green-700">Cleared</span>
+                        ) : (
+                          <span className="text-orange-600">
+                            Partial — ₹{fmt(proposal.openingdue - proposal.openingsettled)} left
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {proposal.lines.map((l) => (
+                    <tr key={l.invoiceid} className="border-t">
+                      <td className="px-3 py-2 font-medium">INV-{l.billnumber}</td>
+                      <td className="px-3 py-2 text-gray-500">{l.billdate}</td>
+                      <td className="px-3 py-2 text-right">₹{fmt(l.outstanding)}</td>
+                      <td className="px-3 py-2 text-right font-medium">₹{fmt(l.settledamount)}</td>
+                      <td className="px-3 py-2">
+                        {l.fullysettled ? (
+                          <span className="text-green-700">Fully Paid</span>
+                        ) : (
+                          <span className="text-orange-600">
+                            Partial — ₹{fmt(l.outstanding - l.settledamount)} left
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 font-semibold">
+                    <td className="px-3 py-2" colSpan={2}>Total</td>
+                    <td className="px-3 py-2 text-right">₹{fmt(proposal.totaloutstanding)}</td>
+                    <td className="px-3 py-2 text-right">₹{fmt(proposal.allocated)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+
+              {proposal.unallocated > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+                  <div className="flex justify-between font-medium text-amber-900">
+                    <span>Unallocated (On Account)</span>
+                    <span>₹{fmt(proposal.unallocated)}</span>
+                  </div>
+                  <p className="text-xs text-amber-800 mt-1">
+                    More than this party owes
+                    {proposal.openingsettled > 0
+                      ? ` (₹${fmt(proposal.openingsettled)} opening + ₹${fmt(
+                          proposal.allocated - proposal.openingsettled
+                        )} bills = ₹${fmt(proposal.allocated)})`
+                      : ""}
+                    . The extra stays as an advance on their ledger and is applied
+                    automatically to their next invoice.
+                  </p>
+                </div>
+              )}
+
+              {dcEnabled && (
+                <p className="text-xs text-gray-500 mt-3">
+                  Auto settlement never applies a discount or commission. Use
+                  &ldquo;Change Manually&rdquo; if this party is getting a concession.
+                </p>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t flex flex-wrap justify-end gap-2">
+              {proposalIntent === "save" && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSettledInvoices(linesFromProposal(proposal));
+                    setSettlementMode("invoice");
+                    setProposal(null);
+                  }}
+                >
+                  Change Manually
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setProposal(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={saving}
+                onClick={() =>
+                  proposalIntent === "reallocate"
+                    ? commitReallocate(proposal)
+                    : persist(linesFromProposal(proposal), totalAmount, proposal.openingsettled)
+                }
+              >
+                {saving ? "Saving..." : "Confirm & Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </HomeLayout>
   );
 };

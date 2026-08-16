@@ -559,17 +559,32 @@ for (const item of newInv.productservice) {
 
   if (!payLedger) {
     const created = await getOrCreateAccount(payLedgerName, "other", newInv.adminid, newInv.branchid);
-    payLedger = { _id: created._id } as any;
+    // getOrCreateAccount returns an Account — the posting ledger is created.ledgerid.
+    // Using created._id here put an Account id where an AccountLedger id was
+    // expected, leaving the cash leg pointing at a non-existent ledger.
+    payLedger = { _id: created.ledgerid } as any;
+  }
+
+  // The cash/bank leg of the auto-created payment. Resolve it once and fail
+  // loudly if it's missing — writing the wrong ledger here (or undefined)
+  // silently corrupts the Cash Book, which is exactly the bug this replaced.
+  const cashBankLedgerId: any = payLedger?._id;
+  if (!cashBankLedgerId) {
+    throw new Error(`Cash/Bank ledger "${payLedgerName}" could not be resolved for admin ${newInv.adminid}`);
   }
 
   const paymentEntries = [
     { ledgerid: vendor.ledgerid, debit: newInv.totalamount, credit: 0 },
-    { ledgerid: payLedger?._id, debit: 0, credit: newInv.totalamount }
+    { ledgerid: cashBankLedgerId, debit: 0, credit: newInv.totalamount }
   ];
 
   if (oldPayment) {
     oldPayment.mode = newInv.paymenttype;
-    oldPayment.ledgerid = vendor.ledgerid;
+    // Payment.ledgerid is the CASH/BANK ledger (that's how the UI labels it and
+    // how buildPaymentEntries() reads it) — never the vendor's own ledger.
+    // Storing the vendor ledger here made a re-save of this auto-payment post
+    // "Dr Vendor / Cr Vendor", i.e. a net-zero journal that never touched Cash.
+    oldPayment.ledgerid = cashBankLedgerId;
     oldPayment.amount = newInv.totalamount;
     oldPayment.invoices[0].settledamount = newInv.totalamount;
     await oldPayment.save();
@@ -630,7 +645,8 @@ for (const item of newInv.productservice) {
     type: "payment",
     mode: newInv.paymenttype,
     partyid: vendor._id,
-    ledgerid: vendor.ledgerid,
+    // Cash/Bank ledger — NOT the vendor ledger (see note in the update branch).
+    ledgerid: cashBankLedgerId,
     invoices: [
       { invoiceid: invId, invoicemodel: "PurchaseInvoice", settledamount: newInv.totalamount }
     ],

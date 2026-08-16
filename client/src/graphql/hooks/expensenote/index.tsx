@@ -15,16 +15,27 @@ import {
 } from "../../queries/expensenote";
 
 import { useAppSelector } from "../../../redux/hooks";
+import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
 /* =========================
    MUTATIONS
    ========================= */
 
+// A credit expense note auto-creates a Payment + Transaction on the server
+// (ExpenseNote.createJournalAndPayment), so those caches must be refetched.
 export const useExpenseNoteMutations = () => {
-  const [addExpenseNoteMutation] = useMutation(ADD_EXPENSE_NOTE);
-  const [editExpenseNoteMutation] = useMutation(EDIT_EXPENSE_NOTE);
-  const [deleteExpenseNoteMutation] = useMutation(DELETE_EXPENSE_NOTE);
-  const [resetExpenseNoteMutation] = useMutation(RESET_EXPENSE_NOTE);
+  const [addExpenseNoteMutation] = useMutation(ADD_EXPENSE_NOTE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [editExpenseNoteMutation] = useMutation(EDIT_EXPENSE_NOTE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [deleteExpenseNoteMutation] = useMutation(DELETE_EXPENSE_NOTE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [resetExpenseNoteMutation] = useMutation(RESET_EXPENSE_NOTE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
 
   return {
     addExpenseNoteMutation,

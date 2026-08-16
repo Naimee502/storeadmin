@@ -413,7 +413,10 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     type: "refund",
     mode: newRet.paymenttype,
     partyid: vendor._id,
-    ledgerid: vendor.ledgerid,
+    // Cash/Bank ledger — NOT the party ledger. Payment.ledgerid is the cash side
+    // of the entry; storing the party ledger here makes a re-save post a net-zero
+    // "Dr party / Cr party" journal that never touches Cash.
+    ledgerid: payLedger?._id,
     invoices: [
       { invoiceid: newRet._id, invoicemodel: "PurchaseReturn", settledamount: refundAmt },
     ],

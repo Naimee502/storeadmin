@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, type WatchQueryFetchPolicy } from "@apollo/client";
 import {
   ADD_SALES_RETURN,
   EDIT_SALES_RETURN,
@@ -11,6 +11,7 @@ import {
   GET_DELETED_SALES_RETURNS,
 } from "../../queries/salesreturn";
 import { useAppSelector } from "../../../redux/hooks";
+import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
 export const useSalesReturnMutations = () => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
@@ -21,23 +22,27 @@ export const useSalesReturnMutations = () => {
   const [addSalesReturnMutation] = useMutation(ADD_SALES_RETURN, {
     refetchQueries: [
       { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [editSalesReturnMutation] = useMutation(EDIT_SALES_RETURN, {
     refetchQueries: [
       { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [deleteSalesReturnMutation] = useMutation(DELETE_SALES_RETURN, {
     refetchQueries: [
       { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [resetSalesReturnMutation] = useMutation(RESET_SALES_RETURN, {
     refetchQueries: [
       { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   return {
@@ -48,7 +53,9 @@ export const useSalesReturnMutations = () => {
   };
 };
 
-export const useSalesReturnsQuery = () => {
+// Returns reduce an invoice's outstanding (see useOutstanding), and a return
+// can be created moments before this list is read — so revalidate on mount.
+export const useSalesReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
   const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
@@ -56,6 +63,7 @@ export const useSalesReturnsQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_RETURNS, {
     variables: { filter: { adminid, branchid } },
+    fetchPolicy,
   });
   return { data, loading, error, refetch };
 };

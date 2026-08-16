@@ -1,16 +1,19 @@
 // src/hooks/graphql/paymentHooks.ts
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery, type WatchQueryFetchPolicy } from "@apollo/client";
 import {
   ADD_PAYMENT,
   EDIT_PAYMENT,
   DELETE_PAYMENT,
   RESET_PAYMENT,
+  REALLOCATE_PAYMENT,
 } from "../../mutations/payments";
 
 import {
   GET_PAYMENTS,
   GET_PAYMENT_BY_ID,
   GET_DELETED_PAYMENTS,
+  GET_PARTY_OUTSTANDING_BILLS,
+  PREVIEW_ALLOCATION,
 } from "../../queries/payments";
 
 import { useAppSelector } from "../../../redux/hooks";
@@ -21,17 +24,39 @@ export const usePaymentMutations = () => {
   const [editPaymentMutation] = useMutation(EDIT_PAYMENT);
   const [deletePaymentMutation] = useMutation(DELETE_PAYMENT);
   const [resetPaymentMutation] = useMutation(RESET_PAYMENT);
+  const [reallocatePaymentMutation] = useMutation(REALLOCATE_PAYMENT, {
+    refetchQueries: ["GetPayments"],
+  });
 
   return {
     addPaymentMutation,
     editPaymentMutation,
     deletePaymentMutation,
     resetPaymentMutation,
+    reallocatePaymentMutation,
   };
 };
 
+// ----------------- Allocation preview (lazy) -----------------
+// "network-only": the whole point is a fresh, race-free view of what the
+// party still owes at the moment the user presses Save.
+export const usePreviewAllocationLazy = () => {
+  const [run] = useLazyQuery(PREVIEW_ALLOCATION, { fetchPolicy: "network-only" });
+  return run;
+};
+
+export const usePartyOutstandingBillsLazy = () => {
+  const [run] = useLazyQuery(GET_PARTY_OUTSTANDING_BILLS, { fetchPolicy: "network-only" });
+  return run;
+};
+
 // ----------------- Payments Query -----------------
-export const usePaymentsQuery = () => {
+// Defaults to "cache-and-network": payments are created as a SERVER-side side
+// effect of sales/purchase invoices, returns and expense notes, so Apollo's
+// cache goes stale without the client ever issuing a payment mutation. The
+// outstanding-invoice list is derived from this data, so a stale read shows
+// already-settled invoices as still payable.
+export const usePaymentsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -40,6 +65,7 @@ export const usePaymentsQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_PAYMENTS, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+    fetchPolicy,
   });
 
   return { data, loading, error, refetch };

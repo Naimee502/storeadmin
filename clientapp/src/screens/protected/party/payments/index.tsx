@@ -88,7 +88,11 @@ export default function Payments() {
   const transactions = (txData?.getTransactions ?? []) as any[];
 
   // Newest first — orders come back oldest-first from the server.
-  const convertedOrders = [...orders].reverse().filter(o => o.isConverted && o.cancelStatus !== 'cancelled');
+  // Newest first, and only bills that still owe something — see note in the
+  // web portal: a fully-paid bill must not sit under "Outstanding Invoices".
+  const convertedOrders = [...orders]
+    .reverse()
+    .filter(o => o.isConverted && o.cancelStatus !== 'cancelled' && (o.outstanding ?? 0) > 0.005);
 
   const { totalOutstanding, totalPaid } = useMemo(() => {
     // Bill-wise due from the server (same basis as Home, Ledger & salesman app).

@@ -6,21 +6,7 @@ import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
 
-// Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
-const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
-  if (!invoiceId) return 0;
-  const idStr = String(invoiceId);
-  let total = 0;
-  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  return parseFloat(total.toFixed(2));
-};
+// NOTE: local settled-amount helper removed — see utils/allocation.
 
 // Resolve who created a doc into a proper { name, type }: staff token →
 // real role (salesman/staff/deliveryboy) + name; party token → account name.
@@ -239,6 +225,7 @@ const getDownlinePartyIds = async (rootId: any): Promise<string[]> => {
 };
 import { ChargeRule } from "../../../models/chargerule";
 import { AdminSettings } from "../../../models/adminsettings";
+import { getInvoiceOutstanding } from "../../../utils/allocation";
 
 // Evaluate the admin's active charge rules (Amazon/Flipkart-style) against an
 // incoming order and return the auto-charge lines + their grand total. Used by
@@ -848,14 +835,16 @@ export const salesOrderResolvers = {
       return inv?.billnumber ?? null;
     },
     // Due on the linked invoice (total − settled). 0 if not yet billed/paid.
+    // What is still owed on the invoice this order became. Uses the shared
+    // allocation util so the party portal and mobile app quote the same figure
+    // as the admin panel — and, unlike the old local loop, net off returns.
     outstanding: async (parent: any) => {
       if (!parent?.isConverted) return 0;
       const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
-        .select("totalamount")
+        .select("_id")
         .lean() as any;
       if (!inv) return 0;
-      const settled = await invoiceSettledAmount(inv._id);
-      return parseFloat(((inv.totalamount || 0) - settled).toFixed(2));
+      return getInvoiceOutstanding({ invoiceid: inv._id, invoicemodel: "SalesInvoice" });
     },
   },
 };

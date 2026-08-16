@@ -1,5 +1,5 @@
 // src/hooks/graphql/transactionHooks.ts
-import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
+import { useMutation, useQuery, useLazyQuery, type WatchQueryFetchPolicy } from "@apollo/client";
 import {
   ADD_TRANSACTION,
   EDIT_TRANSACTION,
@@ -40,7 +40,10 @@ export const usePreviewInvoiceJournalLazy = () => {
 };
 
 // ----------------- Transactions Query -----------------
-export const useTransactionsQuery = () => {
+// Defaults to "cache-and-network" for the same reason as usePaymentsQuery:
+// invoices/returns/expense notes create journal entries server-side, and the
+// outstanding-invoice calculation counts "Agst Ref" transaction settlements.
+export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -49,6 +52,7 @@ export const useTransactionsQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_TRANSACTIONS, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+    fetchPolicy,
   });
 
   return { data, loading, error, refetch };

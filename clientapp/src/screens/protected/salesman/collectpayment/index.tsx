@@ -12,6 +12,7 @@ import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader, BillAllocation } from '../../../../components';
 import type { Allocation } from '../../../../components';
 import { ADD_PAYMENT } from '../../../../apollo/mutations/accounts';
+import { PREVIEW_ALLOCATION } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { GET_ACCOUNT_LEDGERS, GET_ACCOUNT, GET_TRANSACTIONS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import { ledgerEntryTotals } from '../../../../utils';
@@ -84,6 +85,9 @@ export default function CollectPayment() {
   const dcEnabled = !!(settingsData as any)?.getAdminSettings?.enablePaymentDiscountCommission;
 
   const [addPayment] = useMutation(ADD_PAYMENT);
+  // Same server-side FIFO the admin panel uses: opening balance first, then the
+  // oldest bills. network-only so the collector always sees live figures.
+  const [previewAllocation] = useLazyQuery(PREVIEW_ALLOCATION, { fetchPolicy: 'network-only' });
   const { blocked: punchBlocked } = usePunchGate();
 
   const [mode,      setMode]      = useState<PaymentMode>('cash');
@@ -133,7 +137,7 @@ export default function CollectPayment() {
   const selectedMode = MODES.find(m => m.id === mode)!;
   const parsedAmount = settleMode === 'bills' ? allocatedTotal : (parseFloat(amount) || 0);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (punchBlocked) { Alert.alert('Punch in required', 'Please punch in from the Attendance tab before collecting payment.'); return; }
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid payment amount.');
@@ -148,9 +152,42 @@ export default function CollectPayment() {
       return;
     }
 
+    // Direct / On Account: work out where the money will land and show it BEFORE
+    // writing anything, exactly like the admin panel's Confirm Auto Settlement.
+    // Bill-wise needs no preview — the collector picked the rows themselves.
+    let proposal: any = null;
+    if (settleMode !== 'bills') {
+      try {
+        const res: any = await previewAllocation({
+          variables: {
+            partyid: partyId,
+            invoicemodel: 'SalesInvoice',
+            adminid,
+            branchid: tenant.branchId,
+            amount: parsedAmount,
+          },
+        });
+        proposal = res?.data?.previewAllocation ?? null;
+      } catch {
+        // Preview is a courtesy; a plain on-account receipt is still valid.
+      }
+    }
+
+    const breakdown = (() => {
+      if (settleMode === 'bills' || !proposal) return '';
+      const money = (n: any) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+      const rows: string[] = [];
+      if (proposal.openingsettled > 0) rows.push(`Opening balance  ${money(proposal.openingsettled)}`);
+      (proposal.lines ?? []).forEach((l: any) =>
+        rows.push(`INV-${l.billnumber}  ${money(l.settledamount)}${l.fullysettled ? '  (cleared)' : '  (part)'}`),
+      );
+      if (proposal.unallocated > 0) rows.push(`On Account  ${money(proposal.unallocated)}`);
+      return rows.length ? `\n\nApplied as:\n${rows.join('\n')}` : '';
+    })();
+
     Alert.alert(
       'Confirm Payment',
-      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName}?`,
+      `Record ${selectedMode.label} payment of ₹${parsedAmount.toLocaleString('en-IN')} from ${partyName}?${breakdown}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -178,8 +215,18 @@ export default function CollectPayment() {
                               settledamount: a.settledamount,
                               discount: dcEnabled ? (a.discount || 0) : 0,
                               commission: dcEnabled ? (a.commission || 0) : 0,
+                              allocatedmode: 'manual',
                             }))
-                        : [],
+                        : (proposal?.lines ?? []).map((l: any) => ({
+                            invoiceid: l.invoiceid,
+                            invoicemodel: l.invoicemodel,
+                            settledamount: l.settledamount,
+                            discount: 0,
+                            commission: 0,
+                            allocatedmode: 'auto_fifo',
+                          })),
+                    // Part of this receipt that cleared the opening balance.
+                    openingsettled: settleMode === 'bills' ? 0 : (proposal?.openingsettled ?? 0),
                     reference: reference.trim() || null,
                     remarks: notes.trim() || null,
                     paymentdate: new Date().toISOString().slice(0, 10),
@@ -245,8 +292,10 @@ export default function CollectPayment() {
           {/* Settle mode segmented control */}
           <View style={[styles.segment, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             {([
-              { id: 'onaccount', label: 'On Account', icon: 'account-cash' },
-              { id: 'bills', label: 'Settle Bills', icon: 'file-document-multiple' },
+              // Same two words as the admin panel's Settlement Mode toggle, so a
+              // salesman and the back office describe the same thing the same way.
+              { id: 'onaccount', label: 'Direct / On Account', icon: 'account-cash' },
+              { id: 'bills', label: 'Invoice-wise', icon: 'file-document-multiple' },
             ] as const).map(s => {
               const active = settleMode === s.id;
               return (

@@ -10,6 +10,7 @@ import { Branch } from "../../../models/branches";
 import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { getPartyOutstandingBills } from "../../../utils/allocation";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -34,35 +35,25 @@ const resolveActor = async (user: any) => {
   return { id: user?.id, name, type, label: `${name} (${type})` };
 };
 
-// Role-free settled amount against an invoice (Payments + Transactions Agst Ref).
-const invoiceSettledAmount = async (invoiceId: any): Promise<number> => {
-  if (!invoiceId) return 0;
-  const idStr = String(invoiceId);
-  let total = 0;
-  const pays = await Payment.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  pays.forEach((p: any) => (p.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  const txns = await Transaction.find({ "invoices.invoiceid": invoiceId, status: true }).select("invoices").lean();
-  txns.forEach((t: any) => (t.invoices || []).forEach((iv: any) => {
-    if (String(iv.invoiceid) === idStr) total += iv.settledamount || 0;
-  }));
-  return parseFloat(total.toFixed(2));
-};
+// NOTE: the local per-invoice "settled amount" helper that used to live here
+// was removed — outstanding is now computed in one place
+// (utils/allocation → getPartyOutstandingBills) so every surface agrees.
 
-// Party "outstanding" for the collection view = sum of UNSETTLED sales bills
-// (each bill's total − settled, only positive). Ignores advances/on-account so
-// salesmen see exactly what's left to collect, bill-wise.
+// Party "outstanding" for the collection view = sum of UNSETTLED sales bills.
+// Advances / on-account are deliberately excluded so salesmen see exactly what
+// is left to collect, bill-wise.
+//
+// Delegates to the shared allocation util so this agrees, to the rupee, with
+// the payment screen, the party report and the reminder. It used to run its own
+// "total − settled" loop, which ignored sales returns and therefore asked
+// parties for money they no longer owed.
 const partyBillOutstanding = async (accountId: any): Promise<number> => {
   if (!accountId) return 0;
-  const invs = await SalesInvoice.find({ partyacc: accountId, status: true }).select("totalamount").lean();
-  let sum = 0;
-  for (const inv of invs as any[]) {
-    const settled = await invoiceSettledAmount(inv._id);
-    const due = (inv.totalamount || 0) - settled;
-    if (due > 0) sum += due;
-  }
-  return parseFloat(sum.toFixed(2));
+  const bills = await getPartyOutstandingBills({
+    partyid: accountId,
+    invoicemodel: "SalesInvoice",
+  });
+  return parseFloat(bills.reduce((t, b) => t + b.outstanding, 0).toFixed(2));
 };
 
 // Collect downline party ids under a root party (assignaccountid chain).

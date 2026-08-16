@@ -43,7 +43,13 @@ export default function PartyPaymentsPage() {
   // Newest first — same as the app.
   const payments: any[] = [...(paymentsData?.getPayments ?? [])].filter((p: any) => p.status !== false).reverse();
   const orders: any[] = [...(ordersData?.getSalesOrders ?? [])].reverse();
-  const outstandingInvoices = orders.filter((o: any) => o.isConverted && o.cancelStatus !== "cancelled");
+  // "Outstanding" means money is still due — so filter on the invoice's actual
+  // outstanding, not merely "this order became an invoice". Every converted
+  // order used to be listed here, so a party who had paid in full still saw
+  // their bills under a heading that says they owe money.
+  const outstandingInvoices = orders.filter(
+    (o: any) => o.isConverted && o.cancelStatus !== "cancelled" && (o.outstanding ?? 0) > 0.005
+  );
   const totalOutstanding = Math.max(0, account?.outstanding || 0);
   const totalPaid = payments.reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
 

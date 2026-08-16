@@ -33,6 +33,9 @@ const SETTINGS_FIELDS = `
   deliveryMode
   partyManagesDownline
   enablePaymentDiscountCommission
+  paymentAutoSettlement
+  paymentAllocationOrder
+  autoAdjustAdvanceOnInvoice
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions
