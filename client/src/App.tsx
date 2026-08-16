@@ -3,6 +3,7 @@ import './App.css'
 import { AuthProvider } from './contexts/auth';
 import AppRoutes from './routes/approutes';
 import Message from './components/message';
+import ScreenWatermark from './components/screenwatermark';
 
 // Deployed under /admin on the same domain as clientweb (which owns "/" for
 // storefront links like rudra.digisysindiatech.com/rkn) instead of its own
@@ -18,6 +19,9 @@ function App() {
       <BrowserRouter basename={BASE_PATH}>
         <Message />
         <AppRoutes />
+        {/* Last child so it paints over everything, including modals. Renders
+            nothing unless Business Settings → Screen Capture Protection is on. */}
+        <ScreenWatermark />
       </BrowserRouter>
     </AuthProvider>
   );

@@ -73,6 +73,10 @@ export const adminSettingsResolvers = {
         codOnly: !!settings.websiteCodOnly,
         displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
         displayStockOnWebsite: settings.displayStockOnWebsite !== false,
+        // Tiled watermark on the storefront. Browsers expose no
+        // screen-capture detection API, so this is traceability, not
+        // prevention — see the AdminSettings model for the full note.
+        secureScreenWebsite: !!settings.secureScreenWebsite,
 
         supportEmail: settings.supportEmail || "",
         supportPhone: settings.supportPhone || "",

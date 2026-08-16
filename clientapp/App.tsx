@@ -15,6 +15,7 @@ import { store, persistor } from './src/store/store';
 import { apolloClient, setTokenGetter } from './src/apollo/client';
 import AdminSetup from './src/screens/public/adminsetup';
 import FieldServices from './src/hooks/fieldservices';
+import useScreenGuard from './src/hooks/usescreenguard';
 import type { RootState } from './src/store/rootreducer';
 
 const RootStack      = createNativeStackNavigator();
@@ -62,6 +63,11 @@ function ProtectedNavigator() {
 }
 
 function RootNavigator() {
+  // Applies Business Settings -> Screen Capture Protection -> "Mobile app".
+  // Lives here rather than in App() because it needs Apollo + Redux, and App()
+  // renders ABOVE both providers. Highest point that covers every screen and
+  // native modal in one place.
+  useScreenGuard();
   const { isAuthenticated, isSplashDone, isIntroDone, isActivated, isLoading } = useAuth();
   const token = useSelector((state: RootState) => state.auth.token);
 

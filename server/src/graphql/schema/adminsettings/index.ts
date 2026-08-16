@@ -86,6 +86,14 @@ export const adminSettingsTypeDefs = gql`
     allowAdminToManageModules: Boolean!
     allowAdminToManagePermissions: Boolean!
 
+    # Screen-capture protection. See the model for what each one can
+    # actually enforce per platform — "on" does NOT mean the same thing
+    # on Android (OS-enforced black screen) as in a browser tab
+    # (watermark only; browsers expose no capture-detection API).
+    secureScreenApp: Boolean
+    secureScreenAdmin: Boolean
+    secureScreenWebsite: Boolean
+
     printShowCompanyHeader: Boolean
     printShowCompanyNameInSignature: Boolean
     printShowTermsAndConditions: Boolean
@@ -164,6 +172,11 @@ export const adminSettingsTypeDefs = gql`
     displayProductPriceOnWebsite: Boolean!
     displayStockOnWebsite: Boolean!
 
+    # Whether the storefront should render the tiled watermark. Safe to
+    # expose publicly — it reveals nothing about the business, and the
+    # visitor's browser has to know in order to draw it.
+    secureScreenWebsite: Boolean
+
     supportEmail: String
     supportPhone: String
     supportWhatsapp: String
@@ -236,6 +249,10 @@ export const adminSettingsTypeDefs = gql`
     allowAdminToManageBusinessSettings: Boolean
     allowAdminToManageModules: Boolean
     allowAdminToManagePermissions: Boolean
+
+    secureScreenApp: Boolean
+    secureScreenAdmin: Boolean
+    secureScreenWebsite: Boolean
 
     printShowCompanyHeader: Boolean
     printShowCompanyNameInSignature: Boolean

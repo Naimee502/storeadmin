@@ -39,6 +39,9 @@ const SETTINGS_FIELDS = `
   allowAdminToManageBusinessSettings
   allowAdminToManageModules
   allowAdminToManagePermissions
+  secureScreenApp
+  secureScreenAdmin
+  secureScreenWebsite
   printShowCompanyHeader
   printShowCompanyNameInSignature
   printShowTermsAndConditions

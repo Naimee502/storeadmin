@@ -185,6 +185,43 @@ const adminSettingsSchema = new mongoose.Schema(
     allowAdminToManagePermissions: { type: Boolean, default: true },
 
     /* ============================================================
+       SCREEN CAPTURE PROTECTION — stops someone screen-sharing or
+       recording the product to give an unauthorised demo.
+       Default OFF everywhere, so the owner can still demo it themselves
+       by leaving these off (or flipping one off temporarily).
+
+       ⚠️  What each flag can ACTUALLY do differs by platform, and the
+       difference matters — do not assume "on" means "safe":
+
+       secureScreenApp
+         Android: real. Sets FLAG_SECURE on the activity window, so
+         screen share, screen recording AND screenshots all come out
+         black. Enforced by the OS; nothing in JS can bypass it.
+         iOS: best-effort. There is no FLAG_SECURE. We watch
+         UIScreen.isCaptured and cover the app with a black view while a
+         recording/mirroring session is live. A still screenshot cannot
+         be blocked, only detected after the fact.
+
+       secureScreenAdmin
+         In a plain browser tab: NOT enforceable. No browser exposes
+         "am I being screen-shared" to the page — the isScreenCaptured
+         proposal is still just a proposal, and is planned to be
+         allowlisted to financial institutions. So here this flag only
+         drives the tiled watermark (who is logged in + when), which
+         makes a leaked recording traceable rather than impossible.
+         In the Electron desktop build: real. The renderer calls
+         setContentProtection(true), which on Windows 10 2004+ removes
+         the window from capture entirely.
+
+       secureScreenWebsite
+         Customer-facing storefront in a browser — watermark only, same
+         browser limitation as above.
+       ============================================================ */
+    secureScreenApp: { type: Boolean, default: false },
+    secureScreenAdmin: { type: Boolean, default: false },
+    secureScreenWebsite: { type: Boolean, default: false },
+
+    /* ============================================================
        APP SUPPORT & LEGAL — drives the mobile app's Help & Support
        contact cards and Privacy Policy / Terms & Conditions pages, so
        each business can point these at their own details/pages instead

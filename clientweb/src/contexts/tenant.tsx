@@ -13,6 +13,8 @@ interface TenantContextValue {
   codOnly: boolean;
   displayProductPrice: boolean;
   displayStock: boolean;
+  /** Draw the tiled identity watermark over the storefront. */
+  secureScreenWebsite: boolean;
 
   // Real contact details (Settings → General on the admin panel) — used by
   // Header/Footer instead of the static site config placeholders.
@@ -82,6 +84,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     codOnly: info?.codOnly ?? false,
     displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
     displayStock: info?.displayStockOnWebsite ?? true,
+    secureScreenWebsite: info?.secureScreenWebsite ?? false,
 
     supportEmail: info?.supportEmail ?? "",
     supportPhone: info?.supportPhone ?? "",

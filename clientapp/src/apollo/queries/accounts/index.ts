@@ -427,6 +427,7 @@ export const GET_ADMIN_SETTINGS = gql`
       deliveryMode
       partyManagesDownline
       enablePaymentDiscountCommission
+      secureScreenApp
       displayProductPriceOnWebsite
       displayStockOnWebsite
       supportEmail

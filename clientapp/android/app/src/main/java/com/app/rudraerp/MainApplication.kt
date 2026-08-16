@@ -18,6 +18,11 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+
+              // Lives in this app (not an npm package), so autolinking can't
+              // find it — registers the FLAG_SECURE toggle used by Business
+              // Settings -> Screen Capture Protection.
+              add(ScreenGuardPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

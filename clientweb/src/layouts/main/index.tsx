@@ -8,6 +8,7 @@ import StoreNotFound from "../../components/storenotfound";
 import { CartProvider } from "../../contexts/cart";
 import { AuthProvider } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
+import ScreenWatermark from "../../components/screenwatermark";
 
 export default function MainLayout() {
   const tenant = useTenant();
@@ -26,6 +27,9 @@ export default function MainLayout() {
           <Footer />
           <MobileBottomNav />
           {import.meta.env.DEV && <BusinessPreview />}
+          {/* Inside AuthProvider so a logged-in party is named in the
+              watermark. Renders nothing unless the setting is on. */}
+          <ScreenWatermark />
         </div>
       </CartProvider>
     </AuthProvider>

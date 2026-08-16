@@ -334,6 +334,53 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </div>
       </Section>
 
+      {/* What each toggle can ACTUALLY enforce differs a lot by platform, and
+          quietly implying "on = safe" would be worse than no feature at all.
+          So each row states its own real limit inline. */}
+      <Section title="Screen Capture Protection">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Stops someone screen-sharing or recording your product to give an unauthorised demo.
+          Turn a switch off when <span className="font-medium text-gray-500">you</span> need to demo that surface.
+        </div>
+
+        <Toggle
+          label="Mobile app — black screen on screen share / recording"
+          checked={!!draft.secureScreenApp}
+          onChange={(v: boolean) => set("secureScreenApp", v)}
+        />
+        <p className="-mt-1 mb-2 px-1 text-xs text-gray-400">
+          <span className="font-medium text-emerald-600">Android: fully enforced.</span> The OS itself
+          blacks out screen share, screen recording and screenshots — nothing can bypass it.{" "}
+          <span className="font-medium text-amber-600">iOS: best effort.</span> Apple has no equivalent,
+          so the app covers itself in black while a recording or mirroring session is running.
+          A single screenshot can't be blocked there, only detected afterwards.
+        </p>
+
+        <Toggle
+          label="Admin panel — watermark, and capture-block in the desktop app"
+          checked={!!draft.secureScreenAdmin}
+          onChange={(v: boolean) => set("secureScreenAdmin", v)}
+        />
+        <p className="-mt-1 mb-2 px-1 text-xs text-gray-400">
+          <span className="font-medium text-emerald-600">Desktop app: fully enforced</span> on
+          Windows 10 (2004) and newer — the window is removed from any capture entirely.{" "}
+          <span className="font-medium text-amber-600">In a browser tab: watermark only.</span> No
+          browser tells a page that it's being screen-shared, so a recording can't be prevented
+          there — instead every frame carries the logged-in user's name, mobile and the time,
+          which makes a leak traceable back to whoever made it.
+        </p>
+
+        <Toggle
+          label="Customer website — watermark on the storefront"
+          checked={!!draft.secureScreenWebsite}
+          onChange={(v: boolean) => set("secureScreenWebsite", v)}
+        />
+        <p className="-mt-1 px-1 text-xs text-gray-400">
+          <span className="font-medium text-amber-600">Watermark only</span> — same browser limit as
+          above. Doesn't appear on printed invoices or PDFs.
+        </p>
+      </Section>
+
       <div className="flex justify-end">
         <Button variant="outline" onClick={handleSave}>Save Business Settings</Button>
       </div>
