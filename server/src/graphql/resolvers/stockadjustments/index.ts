@@ -15,7 +15,7 @@ function normalizeId(value: any) {
 
 export const stockAdjustmentResolvers = {
   Query: {
-    getStockAdjustments: async (_: any, { filter = {}, limit = 50, offset = 0 }: any) => {
+    getStockAdjustments: async (_: any, { filter = {}, limit = 0, offset = 0 }: any) => {
       try {
         const query: any = {};
 

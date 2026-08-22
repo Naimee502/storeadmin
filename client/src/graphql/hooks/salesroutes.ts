@@ -13,7 +13,7 @@ import {
 
 export const useSalesRoutesQuery = (
   filter: any = {},
-  limit: number = 1000,
+  limit: number = 0,
   offset: number = 0,
   skip: boolean = false
 ) => {
@@ -26,7 +26,7 @@ export const useSalesRoutesQuery = (
 
 export const useDeletedSalesRoutesQuery = (
   filter: any = {},
-  limit: number = 1000,
+  limit: number = 0,
   offset: number = 0,
   skip: boolean = false
 ) => {

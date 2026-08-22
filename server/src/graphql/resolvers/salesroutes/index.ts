@@ -253,7 +253,7 @@ export const salesRouteResolvers = {
         }
 
         let dbQuery = SalesRoute.find(query).sort({ createdAt: -1 });
-        if (limit  !== undefined) dbQuery = dbQuery.limit(limit)  as any;
+        if (limit) dbQuery = dbQuery.limit(limit)  as any;
         if (offset !== undefined) dbQuery = dbQuery.skip(offset)  as any;
 
         const routes = await dbQuery;

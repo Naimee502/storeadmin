@@ -27,7 +27,7 @@ export const useProductServiceMutations = () => {
 
 export const useProductServicesQuery = (
   status: boolean = true,
-  limit: number = 100,
+  limit: number = 0,
   offset: number = 0
 ) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);

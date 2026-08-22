@@ -85,7 +85,7 @@ function mapVariantForResponse(v: any) {
 
 export const productServiceResolvers = {
   Query: {
-    getProductServices: async (_: any, { filter = {}, limit = 50, offset = 0 }: any) => {
+    getProductServices: async (_: any, { filter = {}, limit = 0, offset = 0 }: any) => {
       try {
         const query: any = {};
         query.status = typeof filter.status === "boolean" ? filter.status : true;

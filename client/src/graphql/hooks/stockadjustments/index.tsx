@@ -8,7 +8,7 @@ import {
   RESET_STOCK_ADJUSTMENT,
 } from "../../mutations/stockadjustments";
 
-export const useGetStockAdjustments = (filter: any = {}, limit: number = 50, offset: number = 0) => {
+export const useGetStockAdjustments = (filter: any = {}, limit: number = 0, offset: number = 0) => {
   const { data, loading, error, refetch } = useQuery(GET_STOCK_ADJUSTMENTS, {
     variables: { filter, limit, offset },
     fetchPolicy: "network-only",
