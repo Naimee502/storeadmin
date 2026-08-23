@@ -56,6 +56,24 @@ type Proposal = {
 
 const fmt = (n: number) => n.toFixed(2);
 
+/**
+ * A concession is stored ON a bill line, so it needs one. Say where the money
+ * actually went instead of a generic "no bill" — the opening balance is cleared
+ * before any bill and is invisible on this screen otherwise, which made this
+ * message look wrong when the party clearly had an open bill.
+ */
+const noBillForConcession = (openingsettled = 0, onaccount = 0) => {
+  const went = [
+    openingsettled > 0 ? `₹${fmt(openingsettled)} cleared the opening balance` : "",
+    onaccount > 0 ? `₹${fmt(onaccount)} stayed on account` : "",
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  return `${
+    went ? `${went[0].toUpperCase()}${went.slice(1)} — no` : "No"
+  } bill is being reduced, so a discount or commission has nowhere to sit. Clear the concession, raise the amount so it reaches the bills, or settle invoice-wise.`;
+};
+
 const AddEditPayment = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -136,6 +154,14 @@ const AddEditPayment = () => {
   // "invoice" → tick each bill (classic). "direct" → type one amount and let
   // FIFO spread it, Tally's On-Account/Agst-Ref flow in a single screen.
   const [settlementMode, setSettlementMode] = useState<"invoice" | "direct">("invoice");
+  // Direct mode has no per-bill rows to type a concession into, so the discount
+  // and commission are entered once for the whole receipt and then spread over
+  // whatever bills the FIFO proposal actually clears.
+  const [directDiscount, setDirectDiscount] = useState<string>("");
+  const [directCommission, setDirectCommission] = useState<string>("");
+  // Opening balance this party still carries, as the server last reported it.
+  // Null until a preview has run — we never guess it client-side.
+  const [openingDue, setOpeningDue] = useState<number | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   // What the confirm dialog should do on approval: create/update the payment,
   // or just re-spread an existing one (which never touches the journal).
@@ -150,13 +176,33 @@ const AddEditPayment = () => {
   const totalSettled = parseFloat(
     settledInvoices.reduce((s, i) => s + (i.settledamount || 0), 0).toFixed(2)
   );
-  // Concessions (only when the feature flag is on).
-  const totalDiscount = dcEnabled
-    ? parseFloat(settledInvoices.reduce((s, i) => s + (i.discount || 0), 0).toFixed(2))
-    : 0;
-  const totalCommission = dcEnabled
-    ? parseFloat(settledInvoices.reduce((s, i) => s + (i.commission || 0), 0).toFixed(2))
-    : 0;
+  // Is the Direct / On Account flow actually driving this screen? (Expense
+  // notes are always settled note-wise, and without a party there is nothing
+  // to spread an amount over.)
+  const isDirectSettle =
+    settlementMode === "direct" && payType !== "expense" && !!partyid;
+  // Concessions can be captured in Direct mode too, but only when there is an
+  // allocation to attach them to — with auto-settlement off the money just sits
+  // On Account and a discount would have no bill to reduce.
+  const directConcessionsAllowed =
+    dcEnabled && isDirectSettle && autoSettlement !== "off";
+
+  // Concessions (only when the feature flag is on). Invoice-wise they come from
+  // the ticked rows; Direct mode has one figure for the whole receipt.
+  const totalDiscount = !dcEnabled
+    ? 0
+    : isDirectSettle
+    ? (directConcessionsAllowed ? parseFloat(directDiscount) || 0 : 0)
+    : parseFloat(settledInvoices.reduce((s, i) => s + (i.discount || 0), 0).toFixed(2));
+  const totalCommission = !dcEnabled
+    ? 0
+    : isDirectSettle
+    ? (directConcessionsAllowed ? parseFloat(directCommission) || 0 : 0)
+    : parseFloat(settledInvoices.reduce((s, i) => s + (i.commission || 0), 0).toFixed(2));
+
+  // Direct mode: the box holds the BILL value being settled — exactly what
+  // "Settle Now" is invoice-wise. FIFO spreads this figure over the open bills.
+  const directBillValue = isDirectSettle ? parseFloat(manualAmount) || 0 : 0;
 
   // Cash actually moved = bills cleared, LESS discount (concession given), PLUS
   // commission (extra charged on top). This is the payment "amount". When no
@@ -164,17 +210,20 @@ const AddEditPayment = () => {
   // How much cash this payment represents.
   //
   //  • New + Invoice-wise → the ticked rows ARE the amount (tick ₹100, receive ₹100).
-  //  • Direct             → the typed amount drives everything.
+  //  • Direct             → same formula, one figure instead of many rows:
+  //                         settle ₹100 with ₹5 discount and ₹20 commission and
+  //                         ₹115 is the cash — identical to ticking that bill.
   //  • Editing            → the amount is a FACT that already happened. Un-ticking a
   //                         bill re-allocates it; it does not mean the party handed
   //                         over less money. Deriving it from rows here rewrote a
   //                         ₹250 receipt as ₹100 the moment you opened it invoice-wise.
-  const totalAmount =
-    settlementMode === "direct" || isEdit
-      ? parseFloat(manualAmount) || 0
-      : settledInvoices.length > 0
-      ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
-      : parseFloat(manualAmount) || 0;
+  const totalAmount = isDirectSettle
+    ? parseFloat((directBillValue - totalDiscount + totalCommission).toFixed(2))
+    : isEdit
+    ? parseFloat(manualAmount) || 0
+    : settledInvoices.length > 0
+    ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
+    : parseFloat(manualAmount) || 0;
 
   // ── Outstanding invoices for the selected party ────────────────────────
   // Show ALL invoices for this party (any payment type) that still have
@@ -224,6 +273,16 @@ const AddEditPayment = () => {
       .filter((inv: any) => inv.outstanding > 0);
   }, [partyid, payType, salesInvData, purchaseInvData, expenseNotesData, accountsData, outstandingOf]);
 
+  /**
+   * Is the Invoice-wise / Direct choice on screen? (Same condition the radios
+   * render under.) When it is, Invoice-wise means "the ticked bills ARE the
+   * amount" — so a free amount box next to it is misleading: whatever was typed
+   * there vanished the moment a bill was ticked. Direct / On Account is the
+   * mode for typing one amount, and that is where its box lives.
+   */
+  const settlementModeAvailable =
+    payType !== "expense" && !!partyid && outstandingInvoices.length > 0;
+
   // ── Load existing payment for edit ─────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !existingData?.getPaymentById) return;
@@ -250,6 +309,21 @@ const AddEditPayment = () => {
     // Direct mode is driven by the amount box, so seed it either way.
     if (savedDirect || !(p.invoices?.length)) {
       setManualAmount(String(p.amount || ""));
+    }
+
+    // Concessions were spread across the bill lines when this was saved; in
+    // Direct mode they are edited as one figure, so add them back up.
+    if (savedDirect && !isExpense) {
+      const d = (p.invoices || []).reduce((t: number, i: any) => t + (Number(i.discount) || 0), 0);
+      const c = (p.invoices || []).reduce((t: number, i: any) => t + (Number(i.commission) || 0), 0);
+      setDirectDiscount(d ? String(parseFloat(d.toFixed(2))) : "");
+      setDirectCommission(c ? String(parseFloat(c.toFixed(2))) : "");
+      // The Direct box holds the bill value, not the cash — reverse the
+      // formula so re-opening a ₹115 receipt with ₹5 discount and ₹20
+      // commission shows the ₹100 of bills it actually settled.
+      if (d || c) {
+        setManualAmount(String(parseFloat(((Number(p.amount) || 0) + d - c).toFixed(2))));
+      }
     }
   }, [isEdit, existingData]);
 
@@ -423,11 +497,22 @@ const AddEditPayment = () => {
     if (!ledgerid) e.ledgerid = "Select a cash / bank ledger";
     if (totalAmount <= 0) e.amount = "Amount must be greater than zero";
     // Discount (concession given) can't exceed the bill being cleared.
-    if (dcEnabled) {
+    if (dcEnabled && !isDirectSettle) {
       const bad = settledInvoices.find(
         s => (s.discount || 0) > (s.settledamount || 0) + 0.001
       );
       if (bad) e.amount = `Discount can't exceed the settle amount for INV-${bad.billnumber}`;
+    }
+    // Direct mode: which bills get cleared is only known after the FIFO preview
+    // (checkConcessionFits handles that), but these are wrong on their face.
+    if (directConcessionsAllowed && (totalDiscount > 0 || totalCommission > 0)) {
+      if (totalDiscount < 0 || totalCommission < 0) {
+        e.amount = "Discount and commission can't be negative";
+      } else if (totalDiscount > directBillValue + 0.01) {
+        e.amount = `Discount ₹${fmt(totalDiscount)} can't exceed the ₹${fmt(directBillValue)} being settled.`;
+      } else if (totalDiscount > totalOutstanding + 0.01) {
+        e.amount = `Discount ₹${fmt(totalDiscount)} is more than the ₹${fmt(totalOutstanding)} this party owes.`;
+      }
     }
     // While editing, the rows allocate the amount rather than define it, so they
     // must fit inside it — including whatever already went to the opening balance.
@@ -462,16 +547,41 @@ const AddEditPayment = () => {
     outstandingInvoices.reduce((t: number, i: any) => t + (i.outstanding || 0), 0).toFixed(2)
   );
 
-  /** Turn a server FIFO proposal into rows this page can render/submit. */
-  const linesFromProposal = (p: Proposal): SettledInvoice[] =>
-    p.lines.map((l) => {
+  /**
+   * Split one figure across the proposal lines in proportion to what each line
+   * clears, with the last line absorbing the rounding so the parts always add
+   * back up to the whole. (₹10 over ₹70 + ₹30 → ₹7.00 + ₹3.00, never ₹9.99.)
+   */
+  const spread = (total: number, lines: ProposalLine[]): number[] => {
+    const base = lines.reduce((s, l) => s + (l.settledamount || 0), 0);
+    if (!total || base <= 0) return lines.map(() => 0);
+    let used = 0;
+    return lines.map((l, i) => {
+      if (i === lines.length - 1) return parseFloat((total - used).toFixed(2));
+      const part = parseFloat(((total * (l.settledamount || 0)) / base).toFixed(2));
+      used = parseFloat((used + part).toFixed(2));
+      return part;
+    });
+  };
+
+  /**
+   * Turn a server FIFO proposal into rows this page can render/submit.
+   *
+   * In Direct mode the discount / commission is entered once for the receipt,
+   * so it is spread over the bills the proposal actually clears — the server
+   * stores and journalises concessions per line, exactly as invoice-wise does.
+   */
+  const linesFromProposal = (p: Proposal, withConcessions = false): SettledInvoice[] => {
+    const discounts = withConcessions ? spread(totalDiscount, p.lines) : [];
+    const commissions = withConcessions ? spread(totalCommission, p.lines) : [];
+    return p.lines.map((l, i) => {
       const inv = outstandingInvoices.find((o: any) => o.id === l.invoiceid);
       return {
         invoiceid: l.invoiceid,
         invoicemodel: l.invoicemodel as SettledInvoice["invoicemodel"],
         settledamount: l.settledamount,
-        discount: 0,
-        commission: 0,
+        discount: discounts[i] || 0,
+        commission: commissions[i] || 0,
         billnumber: l.billnumber || inv?.billnumber || "",
         totalamount: inv?.totalamount ?? l.outstanding,
         othercharges: inv?.othercharges || [],
@@ -480,6 +590,30 @@ const AddEditPayment = () => {
         allocatedmode: "auto_fifo",
       };
     });
+  };
+
+  /** Bill value the proposal puts on actual bills (the opening leg is not one). */
+  const billsAllocated = (p: Proposal) =>
+    parseFloat(((p.allocated || 0) - (p.openingsettled || 0)).toFixed(2));
+
+  /**
+   * A discount / commission has to sit on a bill line — the opening balance and
+   * the On Account remainder are not bills and have nowhere to carry it. Returns
+   * an error message when the concession cannot be placed, else "".
+   */
+  const checkConcessionFits = (p: Proposal): string => {
+    if (totalDiscount <= 0 && totalCommission <= 0) return "";
+    const onBills = billsAllocated(p);
+    if (onBills <= 0) {
+      return noBillForConcession(p.openingsettled || 0, p.unallocated || 0);
+    }
+    if (totalDiscount > onBills + 0.01) {
+      return `Discount ₹${fmt(totalDiscount)} is more than the ₹${fmt(
+        onBills
+      )} of bills this clears. Lower the discount or raise the amount.`;
+    }
+    return "";
+  };
 
   const persist = async (lines: SettledInvoice[], amount: number, openingsettled = 0) => {
     const input: any = {
@@ -611,12 +745,9 @@ const AddEditPayment = () => {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
 
-    const isDirect =
-      settlementMode === "direct" && payType !== "expense" && !!partyid;
-
     // Invoice-wise, or auto-settlement switched off → save exactly what the
     // user built. In "off" mode a direct amount simply stays On Account.
-    if (!isDirect || autoSettlement === "off") {
+    if (!isDirectSettle || autoSettlement === "off") {
       return persist(settledInvoices, totalAmount, savedOpeningSettled);
     }
 
@@ -628,11 +759,17 @@ const AddEditPayment = () => {
           invoicemodel: payType === "receipt" ? "SalesInvoice" : "PurchaseInvoice",
           adminid: adminId,
           branchid: branchId,
-          amount: totalAmount,
+          // Bill value, not cash — a discount clears more bill than the money
+          // received, a commission clears less. See directBillValue.
+          amount: directBillValue,
           excludePaymentId: id || undefined,
         },
       });
       p = res?.data?.previewAllocation || null;
+      // Remember what the server says is carried forward. The panel shows open
+      // BILLS only, but the opening balance is cleared before any of them — so
+      // without this the user can't see why their amount never reached a bill.
+      setOpeningDue(p ? Number(p.openingdue) || 0 : 0);
     } catch (err: any) {
       dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
       return;
@@ -642,11 +779,23 @@ const AddEditPayment = () => {
     // still correct: the party ledger is posted in full either way.
     // No open bills, but the opening balance may still soak up part of it.
     if (!p || (!p.lines.length && !p.openingsettled)) {
+      if (totalDiscount > 0 || totalCommission > 0) {
+        setErrors({ amount: noBillForConcession(0, totalAmount) });
+        return;
+      }
       return persist([], totalAmount, 0);
     }
 
+    // A concession is a reduction OF A BILL, so it has to live on a bill line.
+    // The opening balance is not one, and neither is an On Account remainder.
+    const concessionError = checkConcessionFits(p);
+    if (concessionError) {
+      setErrors({ amount: concessionError });
+      return;
+    }
+
     if (autoSettlement === "always") {
-      return persist(linesFromProposal(p), totalAmount, p.openingsettled);
+      return persist(linesFromProposal(p, true), totalAmount, p.openingsettled);
     }
     // "ask" → show it and let the user decide. Nothing is written yet.
     setProposalIntent("save");
@@ -654,6 +803,16 @@ const AddEditPayment = () => {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
+  // Direct-mode concessions are spread across the proposed bills; show that
+  // split in the confirm dialog so nobody has to trust it blind.
+  const showConcessionSplit =
+    !!proposal &&
+    proposalIntent === "save" &&
+    directConcessionsAllowed &&
+    (totalDiscount > 0 || totalCommission > 0);
+  const proposalDiscounts = showConcessionSplit ? spread(totalDiscount, proposal!.lines) : [];
+  const proposalCommissions = showConcessionSplit ? spread(totalCommission, proposal!.lines) : [];
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
@@ -682,6 +841,9 @@ const AddEditPayment = () => {
                   setPayType(e.target.value as "receipt" | "payment" | "expense");
                   setPartyid("");
                   setSettledInvoices([]);
+                  setDirectDiscount("");
+                  setDirectCommission("");
+                  if (!isEdit) setManualAmount("");
                   editLoaded.current = false;
                 }}
                 options={[
@@ -714,6 +876,12 @@ const AddEditPayment = () => {
                   onChange={e => {
                     setPartyid(e.target.value);
                     setSettledInvoices([]);
+                    // A concession belongs to the party it was agreed with, and
+                    // the amount box may be hidden for the new party — don't let
+                    // either linger unseen.
+                    setDirectDiscount("");
+                    setDirectCommission("");
+                    if (!isEdit) setManualAmount("");
                   }}
                   options={partyOptions}
                   placeholder="Select party (optional)"
@@ -795,7 +963,7 @@ const AddEditPayment = () => {
               {/* Invoice-wise vs Direct. Direct is Tally's On-Account entry: one
                   amount, spread over the open bills oldest-first, shown for
                   confirmation before anything is written. */}
-              {payType !== "expense" && partyid && outstandingInvoices.length > 0 && (
+              {settlementModeAvailable && (
                 <div className="flex flex-wrap items-center gap-4 text-sm border-b pb-3">
                   <span className="font-medium">Settlement Mode:</span>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -803,7 +971,13 @@ const AddEditPayment = () => {
                       type="radio"
                       className="w-4 h-4"
                       checked={settlementMode === "invoice"}
-                      onChange={() => setSettlementMode("invoice")}
+                      onChange={() => {
+                        // Invoice-wise takes its amount from the ticked rows and
+                        // hides the amount box, so an amount typed in Direct must
+                        // not stay behind invisibly and get saved.
+                        if (!isEdit) setManualAmount("");
+                        setSettlementMode("invoice");
+                      }}
                     />
                     <span>Invoice-wise</span>
                   </label>
@@ -817,8 +991,20 @@ const AddEditPayment = () => {
                         // are kept, so flipping back and forth loses nothing.
                         // Direct mode is amount-driven, so carry the current
                         // total across as the starting amount.
-                        if (!manualAmount && totalAmount > 0) {
-                          setManualAmount(String(totalAmount));
+                        // The Direct box is a bill figure, so carry the bills
+                        // cleared across — not the cash they added up to.
+                        const seed =
+                          settledInvoices.length > 0 ? totalSettled : totalAmount;
+                        if (!manualAmount && seed > 0) {
+                          setManualAmount(String(seed));
+                        }
+                        // Carry any concession typed on the rows across as the
+                        // receipt-level figure, so switching view loses nothing.
+                        if (dcEnabled && !directDiscount && totalDiscount > 0) {
+                          setDirectDiscount(String(totalDiscount));
+                        }
+                        if (dcEnabled && !directCommission && totalCommission > 0) {
+                          setDirectCommission(String(totalCommission));
                         }
                         setSettlementMode("direct");
                       }}
@@ -833,19 +1019,150 @@ const AddEditPayment = () => {
                 </div>
               )}
 
-              {settlementMode === "direct" && payType !== "expense" && partyid ? (
-                <div className="rounded-lg bg-gray-50 border p-4 space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Open bills</span>
-                    <span className="font-medium">{outstandingInvoices.length}</span>
+              {isDirectSettle ? (
+                /* Read top to bottom the way the entry is actually made: what
+                   this party owes → the money that moved → any concession on it
+                   → what that adds up to on the bills. The amount box lives here
+                   rather than in the Amount section below, so the total is never
+                   shown above the figures it is made of. */
+                <div className="rounded-lg bg-gray-50 border p-4 space-y-4 text-sm">
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span>Open bills</span>
+                      <span className="font-medium">{outstandingInvoices.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Outstanding</span>
+                      <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
+                    </div>
+                    {/* Cleared BEFORE any bill, so it has to be on screen —
+                        otherwise an amount smaller than this never reaches a
+                        bill and there is nothing to explain why. */}
+                    {openingDue !== null && openingDue > 0 && (
+                      <div className="flex justify-between">
+                        <span>
+                          Opening Balance
+                          <span className="block text-[11px] text-gray-500">
+                            Carried forward — cleared before any bill.
+                          </span>
+                        </span>
+                        <span className="font-semibold text-orange-600">₹{fmt(openingDue)}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span>Total Outstanding</span>
-                    <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
+
+                  {/* The three inputs stack in the order the entry is made —
+                      amount, then discount, then commission — with the boxes in
+                      the same right-hand column as the figures above and the
+                      totals below, so one line of numbers runs down the panel. */}
+                  <div className="pt-3 border-t space-y-3">
+                    {isFieldEnabled("amount") && (
+                      <label className="flex items-start justify-between gap-4">
+                        <span className="pt-1.5">
+                          <span className="font-medium text-gray-700">Settle Amount (₹)</span>
+                          <span className="block text-[11px] text-gray-500">
+                            {directConcessionsAllowed
+                              ? "Bill value to clear — same as Settle Now on a bill row."
+                              : "Cleared against the oldest bills first."}
+                          </span>
+                        </span>
+                        <input
+                          type="number"
+                          className={`w-40 shrink-0 border rounded px-2 py-1 text-right ${
+                            errors.amount ? "border-red-400" : "border-gray-300"
+                          }`}
+                          value={manualAmount}
+                          placeholder="0.00"
+                          min={0}
+                          step={0.01}
+                          onChange={e => setManualAmount(e.target.value)}
+                        />
+                      </label>
+                    )}
+
+                    {/* Same pair as the invoice-wise table, entered once because
+                        Direct mode picks the bills itself; they are spread across
+                        those bills on save. */}
+                    {directConcessionsAllowed && (
+                      <>
+                        <label className="flex items-start justify-between gap-4">
+                          <span className="pt-1.5">
+                            <span className="font-medium text-gray-700">Discount (₹)</span>
+                            <span className="block text-[11px] text-gray-500">
+                              {payType === "receipt"
+                                ? "Concession you allowed — comes off the cash received."
+                                : "Discount the vendor allowed — comes off the cash paid."}
+                            </span>
+                          </span>
+                          <input
+                            type="number"
+                            className="w-40 shrink-0 border rounded px-2 py-1 border-gray-300 text-right"
+                            value={directDiscount}
+                            placeholder="0.00"
+                            min={0}
+                            step={0.01}
+                            onChange={e => setDirectDiscount(e.target.value)}
+                          />
+                        </label>
+                        <label className="flex items-start justify-between gap-4">
+                          <span className="pt-1.5">
+                            <span className="font-medium text-gray-700">Commission (₹)</span>
+                            <span className="block text-[11px] text-gray-500">
+                              Charged on top — adds to the cash, not to the bill.
+                            </span>
+                          </span>
+                          <input
+                            type="number"
+                            className="w-40 shrink-0 border rounded px-2 py-1 border-gray-300 text-right"
+                            value={directCommission}
+                            placeholder="0.00"
+                            min={0}
+                            step={0.01}
+                            onChange={e => setDirectCommission(e.target.value)}
+                          />
+                        </label>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 pt-2">
-                    Enter the amount below. Oldest bills are cleared first, and you
-                    will see exactly which ones before it saves.
+
+                  {/* Step 3 — the result. Same arithmetic, same wording, same
+                      order as the invoice-wise summary box: bills cleared, less
+                      the discount, plus the commission, equals the cash. */}
+                  {directBillValue > 0 && (totalDiscount > 0 || totalCommission > 0) && (
+                    <div className="rounded-md bg-white border px-3 py-2 space-y-1">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Bills Cleared:</span>
+                        <span>₹{fmt(directBillValue)}</span>
+                      </div>
+                      {totalDiscount > 0 && (
+                        <div className="flex justify-between text-gray-500">
+                          <span>Less Discount:</span>
+                          <span>− ₹{fmt(totalDiscount)}</span>
+                        </div>
+                      )}
+                      {totalCommission > 0 && (
+                        <div className="flex justify-between text-gray-500">
+                          <span>Add Commission:</span>
+                          <span>+ ₹{fmt(totalCommission)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-semibold border-t pt-1">
+                        <span>{payType === "receipt" ? "Cash Received:" : "Cash Paid:"}</span>
+                        <span>₹{fmt(totalAmount)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {errors.amount && (
+                    <div className="text-red-600 text-xs">{errors.amount}</div>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    Oldest bills are cleared first, and you will see exactly which ones
+                    {directConcessionsAllowed
+                      ? " — and how the discount / commission is split across them —"
+                      : ""}{" "}
+                    before it saves.
                   </p>
                 </div>
               ) : outstandingInvoices.length === 0 ? (
@@ -989,11 +1306,44 @@ const AddEditPayment = () => {
                   </table>
                 </div>
               )}
+
+              {/* Invoice-wise with nothing ticked: say where the amount comes
+                  from, and point at the mode that takes a typed one. This is
+                  where the free amount box used to sit. */}
+              {settlementModeAvailable &&
+                settlementMode === "invoice" &&
+                settledInvoices.length === 0 &&
+                !isEdit && (
+                  <div className="rounded-lg border border-dashed bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                    Tick the bills this {payType === "receipt" ? "receipt" : "payment"} clears —
+                    the amount adds up from them. To enter one amount instead and let it
+                    settle the oldest bills{" "}
+                    {dcEnabled ? "(with a discount or commission if any)" : ""}, switch to{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium text-blue-700"
+                      onClick={() => setSettlementMode("direct")}
+                    >
+                      Direct / On Account
+                    </button>
+                    .
+                    {errors.amount && (
+                      <div className="text-red-600 mt-1">{errors.amount}</div>
+                    )}
+                  </div>
+                )}
             </fieldset>
           )}
 
-          {/* ── Section 3: Manual Amount (when no invoices linked) ───── */}
-          {(settlementMode === "direct" || isEdit || settledInvoices.length === 0) && (
+          {/* ── Section 3: Manual Amount ───────────────────────────────
+              Only where typing an amount is actually the way in:
+                • Direct / On Account → its own box, inline in that panel.
+                • Invoice-wise with the mode choice on screen → the ticked bills
+                  are the amount, so no box (an amount typed here used to
+                  disappear the moment a bill was ticked).
+                • Everything else — no party, a party with nothing open, an
+                  expense note, or editing a saved payment — this box. */}
+          {!isDirectSettle && (isEdit || !settlementModeAvailable) && (
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm font-medium px-2">Amount</legend>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1176,10 +1526,27 @@ const AddEditPayment = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
             <div className="px-5 py-4 border-b">
               <h3 className="text-base font-semibold">Confirm Auto Settlement</h3>
+              {/* Quote what actually LANDS on bills. The typed figure is not all
+                  going onto bills once part of it clears an opening balance or
+                  stays on account — saying "₹125 of bills … applied to 1 bill"
+                  when only ₹100 reaches that bill reads as a mistake. */}
               <p className="text-xs text-gray-500 mt-1">
-                ₹{fmt(totalAmount)} will be applied
+                ₹{fmt(proposal.allocated)} will be applied
                 {proposal.openingsettled > 0 ? " to the opening balance first, then" : ""} to{" "}
-                {proposal.lines.length} {proposal.lines.length === 1 ? "bill" : "bills"}, oldest first.
+                {proposal.lines.length} {proposal.lines.length === 1 ? "bill" : "bills"}, oldest first
+                {proposal.unallocated > 0
+                  ? `, and ₹${fmt(proposal.unallocated)} stays on account`
+                  : ""}
+                .
+                {(totalDiscount > 0 || totalCommission > 0) && (
+                  <>
+                    {" "}
+                    Cash {payType === "receipt" ? "received" : "paid"} ₹{fmt(totalAmount)} = ₹
+                    {fmt(directBillValue)} settled
+                    {totalDiscount > 0 ? ` − ₹${fmt(totalDiscount)} discount` : ""}
+                    {totalCommission > 0 ? ` + ₹${fmt(totalCommission)} commission` : ""}.
+                  </>
+                )}
               </p>
             </div>
 
@@ -1191,6 +1558,12 @@ const AddEditPayment = () => {
                     <th className="px-3 py-2">Date</th>
                     <th className="px-3 py-2 text-right">Outstanding</th>
                     <th className="px-3 py-2 text-right">Settle Now</th>
+                    {showConcessionSplit && totalDiscount > 0 && (
+                      <th className="px-3 py-2 text-right">Discount</th>
+                    )}
+                    {showConcessionSplit && totalCommission > 0 && (
+                      <th className="px-3 py-2 text-right">Commission</th>
+                    )}
                     <th className="px-3 py-2">Result</th>
                   </tr>
                 </thead>
@@ -1203,6 +1576,12 @@ const AddEditPayment = () => {
                       <td className="px-3 py-2 text-right font-medium">
                         ₹{fmt(proposal.openingsettled)}
                       </td>
+                      {showConcessionSplit && totalDiscount > 0 && (
+                        <td className="px-3 py-2 text-right text-gray-400">—</td>
+                      )}
+                      {showConcessionSplit && totalCommission > 0 && (
+                        <td className="px-3 py-2 text-right text-gray-400">—</td>
+                      )}
                       <td className="px-3 py-2">
                         {proposal.openingdue - proposal.openingsettled <= 0.01 ? (
                           <span className="text-green-700">Cleared</span>
@@ -1214,12 +1593,18 @@ const AddEditPayment = () => {
                       </td>
                     </tr>
                   )}
-                  {proposal.lines.map((l) => (
+                  {proposal.lines.map((l, li) => (
                     <tr key={l.invoiceid} className="border-t">
                       <td className="px-3 py-2 font-medium">INV-{l.billnumber}</td>
                       <td className="px-3 py-2 text-gray-500">{l.billdate}</td>
                       <td className="px-3 py-2 text-right">₹{fmt(l.outstanding)}</td>
                       <td className="px-3 py-2 text-right font-medium">₹{fmt(l.settledamount)}</td>
+                      {showConcessionSplit && totalDiscount > 0 && (
+                        <td className="px-3 py-2 text-right">₹{fmt(proposalDiscounts[li] || 0)}</td>
+                      )}
+                      {showConcessionSplit && totalCommission > 0 && (
+                        <td className="px-3 py-2 text-right">₹{fmt(proposalCommissions[li] || 0)}</td>
+                      )}
                       <td className="px-3 py-2">
                         {l.fullysettled ? (
                           <span className="text-green-700">Fully Paid</span>
@@ -1237,6 +1622,12 @@ const AddEditPayment = () => {
                     <td className="px-3 py-2" colSpan={2}>Total</td>
                     <td className="px-3 py-2 text-right">₹{fmt(proposal.totaloutstanding)}</td>
                     <td className="px-3 py-2 text-right">₹{fmt(proposal.allocated)}</td>
+                    {showConcessionSplit && totalDiscount > 0 && (
+                      <td className="px-3 py-2 text-right">₹{fmt(totalDiscount)}</td>
+                    )}
+                    {showConcessionSplit && totalCommission > 0 && (
+                      <td className="px-3 py-2 text-right">₹{fmt(totalCommission)}</td>
+                    )}
                     <td />
                   </tr>
                 </tfoot>
@@ -1263,8 +1654,21 @@ const AddEditPayment = () => {
 
               {dcEnabled && (
                 <p className="text-xs text-gray-500 mt-3">
-                  Auto settlement never applies a discount or commission. Use
-                  &ldquo;Change Manually&rdquo; if this party is getting a concession.
+                  {showConcessionSplit ? (
+                    <>
+                      The {totalDiscount > 0 ? "discount" : ""}
+                      {totalDiscount > 0 && totalCommission > 0 ? " and " : ""}
+                      {totalCommission > 0 ? "commission" : ""} is split across the bills
+                      above in proportion to what each one clears
+                      {proposal.openingsettled > 0 ? " (the opening balance gets none)" : ""}.
+                      Use &ldquo;Change Manually&rdquo; to set it bill by bill instead.
+                    </>
+                  ) : (
+                    <>
+                      Auto settlement is not applying a discount or commission. Use
+                      &ldquo;Change Manually&rdquo; if this party is getting a concession.
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -1274,8 +1678,12 @@ const AddEditPayment = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setSettledInvoices(linesFromProposal(proposal));
+                    // Carry the concession into the rows so switching views
+                    // never silently drops it.
+                    setSettledInvoices(linesFromProposal(proposal, showConcessionSplit));
                     setSettlementMode("invoice");
+                    setDirectDiscount("");
+                    setDirectCommission("");
                     setProposal(null);
                   }}
                 >
@@ -1291,7 +1699,11 @@ const AddEditPayment = () => {
                 onClick={() =>
                   proposalIntent === "reallocate"
                     ? commitReallocate(proposal)
-                    : persist(linesFromProposal(proposal), totalAmount, proposal.openingsettled)
+                    : persist(
+                        linesFromProposal(proposal, showConcessionSplit),
+                        totalAmount,
+                        proposal.openingsettled
+                      )
                 }
               >
                 {saving ? "Saving..." : "Confirm & Save"}
