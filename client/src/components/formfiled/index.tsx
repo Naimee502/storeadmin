@@ -363,6 +363,50 @@ const FormField: React.FC<FormFieldProps> = ({
       );
     }
 
+    // A native date input always renders in the BROWSER's locale — on a US
+    // Chrome that is MM/DD/YYYY, and no attribute changes it (lang="en-GB" was
+    // tried and ignored). So keep the real <input type="date"> — the calendar,
+    // keyboard entry and the YYYY-MM-DD value all stay exactly as they were —
+    // but paint its text transparent and lay a DD/MM/YYYY label over it.
+    if (type === 'date') {
+      const raw = value ?? '';
+      // Callers normally hold YYYY-MM-DD (what the input itself uses), but a few
+      // pass a Date or an epoch — fall back rather than blanking the field.
+      let ymd = String(raw);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd) && raw !== '') {
+        const d = new Date(/^\d+$/.test(ymd) ? Number(ymd) : ymd);
+        ymd = isNaN(d.getTime())
+          ? ''
+          : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+              d.getDate()
+            ).padStart(2, '0')}`;
+      }
+      const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const shown = m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+      return (
+        <span className="relative flex-1 flex items-center">
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 left-0 flex items-center text-sm ${
+              shown ? 'text-gray-900' : 'text-gray-400'
+            }`}
+          >
+            {shown || 'DD/MM/YYYY'}
+          </span>
+          <input
+            id={name}
+            name={name}
+            type="date"
+            value={ymd}
+            onChange={onChange}
+            disabled={disabled}
+            required={required}
+            className={`w-full text-sm bg-transparent outline-none text-transparent ${className}`}
+          />
+        </span>
+      );
+    }
+
     return (
       <input
         id={name}

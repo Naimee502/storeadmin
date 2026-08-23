@@ -7,18 +7,21 @@ import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { formatDateDMY, normalizeToYMD, getFinancialYear } from "../../../utils/helper";
+import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
+import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
+import { formatDateDMY } from "../../../utils/helper";
 import { useMutation } from "@apollo/client";
 import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 
-import { FaUserClock, FaStoreSlash, FaHistory, FaBell } from "react-icons/fa";
+import { FaUserClock, FaStoreSlash, FaHistory, FaBell, FaFileAlt } from "react-icons/fa";
 
 const reportTabsObj = [
   { id: "Customer Outstanding", label: "Customer Outstanding", icon: <FaUserClock className="text-blue-600" /> },
   { id: "Vendor Outstanding", label: "Vendor Outstanding", icon: <FaStoreSlash className="text-amber-600" /> },
   { id: "Receivable / Payable Aging", label: "Receivable / Payable Aging", icon: <FaHistory className="text-emerald-600" /> },
+  { id: "Party Statement", label: "Party Statement", icon: <FaFileAlt className="text-indigo-600" /> },
 ];
 
 const fmtAmt = (n: number) =>
@@ -133,8 +136,6 @@ const PartyReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  const fy = getFinancialYear();
-
   // -----------------------------
   // Fetch data
   // -----------------------------
@@ -143,21 +144,32 @@ const PartyReports: React.FC = () => {
   const { data: ledgerData } = useAccountLedgersQuery();
   const { data: salesInvData } = useSalesInvoicesQuery();
   const { data: purchaseInvData } = usePurchaseInvoicesQuery();
+  // Returns show on a statement as Credit / Debit Notes.
+  const { data: salesRetData } = useSalesReturnsQuery();
+  const { data: purchaseRetData } = usePurchaseReturnsQuery();
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
   const payments = paymentsData?.getPayments || [];
 
   const { outstandingOf, excessCreditOf } = useOutstanding();
   const ledgers = ledgerData?.getAccountLedgers || [];
+  const salesReturns = salesRetData?.getSalesReturns || [];
+  const purchaseReturns = purchaseRetData?.getPurchaseReturns || [];
   const salesInvoices = salesInvData?.getSalesInvoices || [];
   const purchaseInvoices = purchaseInvData?.getPurchaseInvoices || [];
 
   // -----------------------------
-  // Default filters = current financial year
+  // Default filters = last 30 days
   // -----------------------------
+  // Every other report opens on the last 30 days, and so does this page's own
+  // Reset button — only the initial load used the financial-year start, so the
+  // range silently changed the first time anyone hit Reset.
   useEffect(() => {
-    const from = normalizeToYMD(fy.start);
-    const to = normalizeToYMD(new Date());
+    const today = new Date();
+    const to = today.toISOString().slice(0, 10);
+    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+      .toISOString()
+      .slice(0, 10);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -478,11 +490,175 @@ const PartyReports: React.FC = () => {
   }, [accounts, payments, ledgers, salesInvoices, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   // -----------------------------
+  // Party Statement — one party's ledger, transaction by transaction
+  // -----------------------------
+  /** Every party that can have a statement, for the picker. */
+  const statementPartyOptions = useMemo(
+    () =>
+      accounts
+        .filter((a: any) => a.type === "customer" || a.type === "vendor")
+        .map((a: any) => ({ label: partyLabelOf(a), value: a.id })),
+    [accounts]
+  );
+
+  // Pick the first party by default so the tab is never a blank screen.
+  useEffect(() => {
+    if (activeTab !== "Party Statement" || !statementPartyOptions.length) return;
+    if (appliedFilters.partyid) return;
+    const first = statementPartyOptions[0].value;
+    setFilters((f) => ({ ...f, partyid: first }));
+    setAppliedFilters((f) => ({ ...f, partyid: first }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, statementPartyOptions]);
+
+  const statementParty = useMemo(
+    () => accounts.find((a: any) => a.id === appliedFilters.partyid) || null,
+    [accounts, appliedFilters.partyid]
+  );
+
+  /**
+   * The party's ledger as a running statement.
+   *
+   * Debit and credit follow the party's own account, exactly as a Tally party
+   * statement reads. For a CUSTOMER a sale is a debit (they owe more) and a
+   * receipt or credit note is a credit. For a VENDOR it is the mirror: a
+   * purchase is a credit (we owe more), a payment or debit note is a debit.
+   *
+   * The running balance is signed — positive is Dr, negative is Cr — and every
+   * row is labelled so the direction is never ambiguous on a printed sheet.
+   */
+  const statementData = useMemo(() => {
+    const a = statementParty;
+    if (!a) return [];
+
+    const isVendor = a.type === "vendor";
+    const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+
+    const timeOf = (d: any) => {
+      if (!d) return NaN;
+      const str = String(d).trim();
+      return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
+    };
+
+    type Row = { t: number; type: string; ref: string; debit: number; credit: number };
+    const rows: Row[] = [];
+
+    const mine = (list: any[]) => list.filter((x: any) => x.partyacc?.id === a.id);
+
+    // Document numbers are stored bare ("000007") and prefixed at display time
+    // everywhere else in the app — INV- for invoices, CN-/DN- for returns. The
+    // guard keeps an already-prefixed number from becoming "CN-CN-12".
+    const refNo = (prefix: string, num: any) => {
+      const raw = String(num ?? "").trim();
+      if (!raw) return "-";
+      return raw.toUpperCase().startsWith(prefix) ? raw : `${prefix}${raw}`;
+    };
+
+    if (isVendor) {
+      mine(purchaseInvoices).forEach((inv: any) =>
+        rows.push({
+          t: timeOf(inv.billdate), type: "Purchase", ref: refNo("INV-", inv.billnumber),
+          debit: 0, credit: Number(inv.totalamount || 0),
+        })
+      );
+      mine(purchaseReturns).forEach((r: any) =>
+        rows.push({
+          t: timeOf(r.returndate), type: "Debit Note", ref: refNo("DN-", r.billnumber),
+          debit: Number(r.totalamount || 0), credit: 0,
+        })
+      );
+    } else {
+      mine(salesInvoices).forEach((inv: any) =>
+        rows.push({
+          t: timeOf(inv.billdate), type: "Sale", ref: refNo("INV-", inv.billnumber),
+          debit: Number(inv.totalamount || 0), credit: 0,
+        })
+      );
+      mine(salesReturns).forEach((r: any) =>
+        rows.push({
+          t: timeOf(r.returndate), type: "Credit Note", ref: refNo("CN-", r.billnumber),
+          debit: 0, credit: Number(r.totalamount || 0),
+        })
+      );
+    }
+
+    payments
+      .filter((p: any) => p.partyid?.id === a.id && p.status !== false)
+      .forEach((p: any) => {
+        const amt = Number(p.amount || 0);
+        const inward = p.type === "receipt";
+        rows.push({
+          t: timeOf(p.paymentdate),
+          type: inward ? "Payment-In" : "Payment-Out",
+          ref: String(p.paymentcode ?? "-"),
+          debit: inward ? 0 : amt,
+          credit: inward ? amt : 0,
+        });
+      });
+
+    const valid = rows.filter((r) => !isNaN(r.t)).sort((x, y) => x.t - y.t);
+
+    // Everything before the period is folded into one beginning balance, so the
+    // statement opens with what they carried in rather than from zero.
+    let balance = getOpeningBalance(a);
+    const before = valid.filter((r) => fromTimestamp && r.t < fromTimestamp);
+    before.forEach((r) => { balance += r.debit - r.credit; });
+
+    const label = (n: number) =>
+      `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
+
+    const out: any[] = [
+      {
+        date: appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-",
+        txnType: isVendor ? "Payable Beginning Balance" : "Receivable Beginning Balance",
+        ref: "",
+        debit: balance > 0 ? balance.toFixed(2) : "0.00",
+        credit: balance < 0 ? Math.abs(balance).toFixed(2) : "0.00",
+        runningBalance: label(balance),
+      },
+    ];
+
+    valid
+      .filter(
+        (r) =>
+          (!fromTimestamp || r.t >= fromTimestamp) &&
+          (!toTimestamp || r.t <= toTimestamp)
+      )
+      .forEach((r) => {
+        balance += r.debit - r.credit;
+        out.push({
+          date: formatDateDMY(r.t),
+          txnType: r.type,
+          ref: r.ref,
+          debit: r.debit ? r.debit.toFixed(2) : "",
+          credit: r.credit ? r.credit.toFixed(2) : "",
+          runningBalance: label(balance),
+        });
+      });
+
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statementParty, salesInvoices, purchaseInvoices, salesReturns, purchaseReturns, payments, ledgers, appliedFilters]);
+
+  // -----------------------------
   // Table Switcher
   // -----------------------------
   let tableData: any[] = [];
   let columns: any[] = [];
   const filterFields: ReportFilterField[] = [
+    // A statement is always ONE party's ledger, so that choice is a filter here
+    // rather than a column.
+    ...(activeTab === "Party Statement"
+      ? ([
+          {
+            name: "partyid",
+            label: "Party",
+            type: "select",
+            options: statementPartyOptions,
+            searchable: true,
+          },
+        ] as ReportFilterField[])
+      : []),
     { name: "fromDate", label: "From Date", type: "date" },
     { name: "toDate", label: "To Date", type: "date" },
   ];
@@ -560,6 +736,26 @@ const PartyReports: React.FC = () => {
         { label: "Status", key: "status" },
       ];
       break;
+    case "Party Statement":
+      tableData = statementData;
+      columns = [
+        { label: "Date", key: "date" },
+        { label: "Txn Type", key: "txnType" },
+        { label: "Ref No.", key: "ref" },
+        { label: "Debit (₹)", key: "debit", numeric: true },
+        { label: "Credit (₹)", key: "credit", numeric: true },
+        {
+          // Deliberately not `numeric`: a running balance is a position at a
+          // point in time, and adding every row of it together is meaningless.
+          // Right-align it by hand so the column still reads as money.
+          label: "Running Balance",
+          key: "runningBalance",
+          render: (row: any) => (
+            <span className="block text-right whitespace-nowrap">{row.runningBalance}</span>
+          ),
+        },
+      ];
+      break;
   }
 
   return (
@@ -586,7 +782,7 @@ const PartyReports: React.FC = () => {
             })}
         </div>
         <ReportTable moduleId="reports.party"
-          title="Party Reports"
+          title={activeTab === "Party Statement" ? "Party Statement" : "Party Reports"}
           columns={columns}
           data={tableData}
           filterFields={filterFields}
@@ -597,7 +793,7 @@ const PartyReports: React.FC = () => {
           showExport
           showCsv
           showPdf
-          exportFileName="PartyReport"
+          exportFileName={activeTab === "Party Statement" ? "PartyStatement" : "PartyReport"}
           showTotals
         />
       </div>
