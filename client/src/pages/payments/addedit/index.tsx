@@ -969,9 +969,13 @@ const AddEditPayment = () => {
                   if (!isEdit) setManualAmount("");
                   editLoaded.current = false;
                 }}
+                /* Direction only. These used to read "from Customer" / "to
+                   Vendor", which stopped being true the moment the other side
+                   could be a plain ledger — capital, a loan, rent, interest.
+                   Who or what it is against is the next field's job. */
                 options={[
-                  { label: "Receipt  (Money In — from Customer)", value: "receipt" },
-                  { label: "Payment  (Money Out — to Vendor)", value: "payment" },
+                  { label: "Payment In  (Receipt)", value: "receipt" },
+                  { label: "Payment Out  (Payment)", value: "payment" },
                   { label: "Expense  (Settle Expense Note)", value: "expense" },
                 ]}
               />)}
@@ -1074,7 +1078,9 @@ const AddEditPayment = () => {
                           if (!isEdit) setManualAmount("");
                         }}
                         options={partyOptions}
-                        placeholder="Select party (optional)"
+                        /* Not optional any more: in Party mode this IS the other
+                           leg, and without it nothing posts. */
+                        placeholder={payType === "receipt" ? "Select customer" : "Select vendor"}
                         searchable
                       />
                     )}
