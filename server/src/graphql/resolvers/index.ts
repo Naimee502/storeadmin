@@ -9,6 +9,7 @@ import { modelResolvers } from "./models";
 import { paymentResolvers } from "./payments";
 import { productGroupResolvers } from "./productgroups";
 import { productServiceResolvers } from "./products";
+import { productImportResolvers } from "./productimport";
 import { purchaseInvoiceResolvers } from "./purchaseinvoice";
 import { salesInvoiceResolvers } from "./salesinvoice";
 import { staffAccountResolvers } from "./staffaccounts";
@@ -50,6 +51,7 @@ export const resolvers = [
   staffAccountResolvers,
   uploadResolvers,
   productServiceResolvers,
+  productImportResolvers,
   salesInvoiceResolvers,
   purchaseInvoiceResolvers,
   transferStockResolvers,

@@ -1,13 +1,15 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import {
   ADD_PRODUCT_SERVICE,
   UPDATE_PRODUCT_SERVICE,
   DELETE_PRODUCT_SERVICE,
   RESET_PRODUCT_SERVICE,
+  IMPORT_PRODUCT_SERVICES,
 } from '../../mutations/products';
 import {
   GET_PRODUCT_SERVICES,
   GET_PRODUCT_SERVICE_BY_ID,
+  GET_PRODUCT_IMPORT_MASTERS,
 } from '../../queries/products';
 import { useAppSelector } from '../../../redux/hooks';
 
@@ -76,4 +78,71 @@ export const useProductServiceByIDQuery = (id: string) => {
 
 export const useDeletedProductServicesQuery = () => {
   return useProductServicesQuery(false);
+};
+
+/* ------------------------------------------------------------------ *
+ * Import / Export
+ * ------------------------------------------------------------------ */
+
+/**
+ * Master lists for the spreadsheet template.
+ *
+ * Fetched lazily — the lists are only needed once someone opens the import
+ * dialog or clicks Export, and pulling eight collections on every page load
+ * would be wasteful.
+ */
+export const useProductImportMasters = () => {
+  const [load, { data, loading, error }] = useLazyQuery(GET_PRODUCT_IMPORT_MASTERS, {
+    fetchPolicy: "network-only",
+  });
+
+  const masters = data?.getProductImportMasters;
+
+  return {
+    loadMasters: load,
+    masters: masters
+      ? {
+          categories: masters.categories ?? [],
+          subcategories: masters.subcategories ?? [],
+          brands: masters.brands ?? [],
+          models: masters.models ?? [],
+          sizes: masters.sizes ?? [],
+          groups: masters.groups ?? [],
+          units: masters.units ?? [],
+          ledgers: masters.ledgers ?? [],
+        }
+      : null,
+    adminid: masters?.adminid ?? null,
+    branchid: masters?.branchid ?? null,
+    loadingMasters: loading,
+    mastersError: error,
+  };
+};
+
+/** Bulk import, with a dry run for the review screen. */
+export const useProductImport = () => {
+  const [importMutation, { loading }] = useMutation(IMPORT_PRODUCT_SERVICES);
+
+  const runImport = async (params: {
+    products: any[];
+    refs: string[];
+    mode?: "CREATE" | "UPSERT";
+    dryRun?: boolean;
+    abortOnError?: boolean;
+  }) => {
+    const { data } = await importMutation({
+      variables: {
+        input: {
+          products: params.products,
+          refs: params.refs,
+          mode: params.mode ?? "CREATE",
+          dryRun: !!params.dryRun,
+          abortOnError: !!params.abortOnError,
+        },
+      },
+    });
+    return data?.importProductServices;
+  };
+
+  return { runImport, importing: loading };
 };

@@ -1,7 +1,5 @@
-import React, { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import DataTable from "../../components/datatable";
@@ -14,12 +12,13 @@ import {
   useProductServicesQuery,
 } from "../../graphql/hooks/products";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import ImportDialog from "../../components/importdialog";
+import { useProductImportExport } from "../../hooks/useproductimportexport";
 
 const ProductServices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "products"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch, loading } = useProductServicesQuery();
 
   // ?filter=lowstock (from the dashboard "Low Stock Alert" card) —
@@ -121,78 +120,14 @@ const ProductServices = () => {
     };
   });
 
-  const handleExport = () => {
-    const exportData = tableData.map((item: any) => {
-      const variants = item.isservice ? item.servicevariants : item.productvariants;
-      const pricingStr = variants?.flatMap((v: any) => 
-        item.isservice 
-          ? [`${v.servicerate || 0} / ${v.uom || 'Unit'}`]
-          : v.unitprices?.map((up: any) => 
-                `₹${up.salesrate} / ${up.quantity} ${up.unitid?.unitname || 'Unit'}`
-              )
-      ).filter(Boolean).join(" | ") || "-";
-
-      return {
-        ID: item.seqNo,
-        Code: item.code,
-        Name: item.name,
-        Pricing: pricingStr,
-        Status: item.status,
-      };
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "ProductServices");
-
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const dataBlob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(dataBlob, "product_services.xlsx");
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const data = new Uint8Array(event.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: "array" });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-      const imported = jsonData.map((row: any) => ({
-        productcode: row.ProductCode || "",
-        name: row.Name || "",
-        currentstock: row.CurrentStock || "",
-        salesrate: row.SalesRate || "",
-        salesunit: row.SalesUnit || "",
-        status: row.Status === "true" || row.Status === "1" || row.Status === true,
-      }));
-
-      // TODO: Use a mutation to bulk insert this `imported` array
-      console.log("Imported products:", imported);
-    };
-
-    reader.readAsArrayBuffer(file);
-    e.target.value = "";
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
+  // Import and export live in useProductImportExport — it owns the template
+  // with its dropdowns, the four-sheet layout, image uploads, the dry run and
+  // the error report. The page only opens the dialog and refetches afterwards.
+  const importExport = useProductImportExport(productServiceList);
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <input
-          type="file"
-          accept=".xlsx"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          style={{ display: "none" }}
-        />
-
         {/* Low-stock filter chip (from dashboard card) */}
         {isLowStockFilter && (
           <div className="mb-3 flex items-center gap-2">
@@ -244,8 +179,8 @@ const ProductServices = () => {
             }
           }}
           onShowDeleted={() => navigate("/products/deletedentries")}
-          onImport={handleImportClick}
-          onExport={handleExport}
+          onImport={importExport.open}
+          onExport={() => importExport.downloadCurrent("xlsx")}
           onBarcode={(row) => {
             let barcodeValue = "";
             let itemName = row.name;
@@ -286,6 +221,27 @@ const ProductServices = () => {
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={loading}
+        />
+
+        <ImportDialog
+          isOpen={importExport.isOpen}
+          onClose={importExport.close}
+          stage={importExport.stage}
+          errors={importExport.errors}
+          warnings={importExport.warnings}
+          summary={importExport.summary}
+          uploadProgress={importExport.uploadProgress}
+          busyMessage={importExport.busyMessage}
+          mode={importExport.mode}
+          onModeChange={importExport.setMode}
+          abortOnError={importExport.abortOnError}
+          onAbortOnErrorChange={importExport.setAbortOnError}
+          onDownloadTemplate={importExport.downloadTemplate}
+          onDownloadCurrent={importExport.downloadCurrent}
+          onFileSelected={importExport.handleFile}
+          onDownloadErrorFile={importExport.downloadErrorFile}
+          onConfirm={() => importExport.confirmImport(() => refetch())}
+          onReset={importExport.reset}
         />
 
         <BarcodeModal

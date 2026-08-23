@@ -3,6 +3,11 @@ import { ProductService } from "../../../models/products";
 import { getStockDetails, manageStock } from "../../../utils/stockmanager";
 import { Branch } from "../../../models/branches";
 import { ProductBranchStock } from "../../../models/productbranchstock";
+import {
+  resolveTenant,
+  requireBackofficeTenant,
+  stripSensitiveForPublic,
+} from "../../../utils/tenant";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -85,17 +90,31 @@ function mapVariantForResponse(v: any) {
 
 export const productServiceResolvers = {
   Query: {
-    getProductServices: async (_: any, { filter = {}, limit = 0, offset = 0 }: any) => {
+    getProductServices: async (_: any, { filter = {}, limit = 0, offset = 0 }: any, context: any) => {
       try {
+        // Tenant comes from the verified token for a back-office caller; the
+        // adminid the client sent is discarded. A public storefront caller
+        // (clientweb, no login) may name the store it is browsing, but only
+        // gets active records with cost fields stripped.
+        const tenant = await resolveTenant(context, {
+          requestedAdminId: filter.adminid,
+          requestedBranchId: filter.branchid,
+        });
+        const isPublic = tenant.mode === "public";
+
         const query: any = {};
-        query.status = typeof filter.status === "boolean" ? filter.status : true;
+        query.status = isPublic
+          ? true
+          : (typeof filter.status === "boolean" ? filter.status : true);
 
         // NOTE: "branchid" intentionally excluded here — a product's own branchid
         // only records the branch it was created in. We resolve branch visibility
         // separately below so transferred-in stock (which lives in
         // productbranchstocks, not on the product) also surfaces in that branch.
+        // "adminid" is deliberately NOT in this list — it is stamped from the
+        // resolved tenant below, never taken from the client payload.
         const directKeys = [
-          "adminid", "vendorid", "productcode", "productbarcode",
+          "vendorid", "productcode", "productbarcode",
           "servicecode", "servicebarcode", "isservice", "isfeatured", "isshowinpos",
           "categoryid", "subcategoryid", "groupid", "modelid", "brandid", "sizeid"
         ];
@@ -103,6 +122,8 @@ export const productServiceResolvers = {
         directKeys.forEach((key) => {
           if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
         });
+
+        query.adminid = tenant.adminid;
 
         if (filter.name_contains) {
           query.name = { $regex: filter.name_contains, $options: "i" };
@@ -117,8 +138,8 @@ export const productServiceResolvers = {
         // Branch-aware visibility: a product shows in a branch if it was created
         // there (product.branchid) OR it has any stock record in that branch
         // (e.g. received via a stock transfer).
-        if (filter.branchid && filter.branchid !== "") {
-          const branchFilterId = new Types.ObjectId(filter.branchid);
+        if (tenant.branchid) {
+          const branchFilterId = tenant.branchid;
           const stockProductIds = await ProductBranchStock.find({ branchid: branchFilterId })
             .distinct("productid");
           query.$or = [
@@ -151,8 +172,8 @@ export const productServiceResolvers = {
 
         const products = await productsQuery.exec();
 
-        const adminId = filter.adminid ? new Types.ObjectId(filter.adminid) : undefined;
-        const branchId = filter.branchid ? new Types.ObjectId(filter.branchid) : undefined;
+        const adminId = tenant.adminid;
+        const branchId = tenant.branchid;
 
         const convertRef = (obj: any) => {
           if (!obj) return obj;
@@ -199,7 +220,7 @@ export const productServiceResolvers = {
           })
         );
 
-        return response;
+        return isPublic ? response.map(stripSensitiveForPublic) : response;
 
       } catch (err) {
         console.error("❌ Error in getProductServices:", err);
@@ -207,10 +228,22 @@ export const productServiceResolvers = {
       }
     },
 
-    getProductServiceById: async (_: any, { id, branchId, adminId }: any) => {
+    getProductServiceById: async (_: any, { id, branchId, adminId }: any, context: any) => {
       if (!Types.ObjectId.isValid(id)) throw new Error("Invalid product ID");
 
-      const product = await ProductService.findById(id)
+      const tenant = await resolveTenant(context, {
+        requestedAdminId: adminId,
+        requestedBranchId: branchId,
+      });
+      const isPublic = tenant.mode === "public";
+
+      // Scoped at the query, not after it — a wrong-tenant id must read as
+      // "not found", never as a record we then decline to return.
+      const product = await ProductService.findOne({
+        _id: id,
+        adminid: tenant.adminid,
+        ...(isPublic ? { status: true } : {}),
+      })
         .populate("categoryid", "id categoryname")
         .populate("subcategoryid", "id subcategoryname")
         .populate("groupid", "id productgroupname")
@@ -228,8 +261,8 @@ export const productServiceResolvers = {
 
       if (!product) return null;
 
-      const adminObjId = adminId ? new Types.ObjectId(adminId) : undefined;
-      const branchObjId = branchId ? new Types.ObjectId(branchId) : undefined;
+      const adminObjId = tenant.adminid;
+      const branchObjId = tenant.branchid;
 
       const convertRef = (obj: any) => {
         if (!obj) return obj;
@@ -272,16 +305,24 @@ export const productServiceResolvers = {
 
       response.stock = await getStockDetails(response.id, adminObjId, branchObjId);
 
-      return response;
+      return isPublic ? stripSensitiveForPublic(response) : response;
     }
   },
 
   Mutation: {
-    addProductService: async (_: any, { input }: any) => {
+    addProductService: async (_: any, { input }: any, context: any) => {
       try {
-        
-        input.adminid = normalizeId(input.adminid);
-        input.branchid = normalizeId(input.branchid);
+        const tenant = await requireBackofficeTenant(context, {
+          requestedBranchId: input?.branchid,
+        });
+        if (!tenant.branchid) {
+          throw new Error("Select a branch before adding a product.");
+        }
+
+        // Stamped from the verified token. Whatever the client sent for
+        // adminid / branchid is discarded.
+        input.adminid = tenant.adminid;
+        input.branchid = tenant.branchid;
         input.categoryid = normalizeId(input.categoryid);
         input.subcategoryid = normalizeId(input.subcategoryid);
         input.groupid = normalizeId(input.groupid);
@@ -390,9 +431,13 @@ export const productServiceResolvers = {
       }
     },
 
-    updateProductService: async (_: any, { id, input }: any) => {
+    updateProductService: async (_: any, { id, input }: any, context: any) => {
       try {
-        const existing = await ProductService.findById(id);
+        const tenant = await requireBackofficeTenant(context, {
+          requestedBranchId: input?.branchid,
+        });
+
+        const existing = await ProductService.findOne({ _id: id, adminid: tenant.adminid });
         if (!existing) throw new Error("Product not found");
 
         // -----------------------------------------
@@ -419,6 +464,10 @@ export const productServiceResolvers = {
         ].forEach((key) => {
           input[key] = normalizeId(input[key]);
         });
+
+        // Tenant fields are never client-controlled, even on update.
+        input.adminid = tenant.adminid;
+        input.branchid = tenant.branchid ?? existing.branchid;
 
         // ---------------------------
         // Normalize Variants
@@ -574,13 +623,23 @@ export const productServiceResolvers = {
       }
     },
 
-    deleteProductService: async (_: any, { id }: { id: string }) => {
-      const result = await ProductService.findByIdAndUpdate(id, { status: false }, { new: true });
+    deleteProductService: async (_: any, { id }: { id: string }, context: any) => {
+      const tenant = await requireBackofficeTenant(context);
+      const result = await ProductService.findOneAndUpdate(
+        { _id: id, adminid: tenant.adminid },
+        { status: false },
+        { new: true }
+      );
       return !!result;
     },
 
-    resetProductService: async (_: any, { id }: { id: string }) => {
-      const result = await ProductService.findByIdAndUpdate(id, { status: true }, { new: true });
+    resetProductService: async (_: any, { id }: { id: string }, context: any) => {
+      const tenant = await requireBackofficeTenant(context);
+      const result = await ProductService.findOneAndUpdate(
+        { _id: id, adminid: tenant.adminid },
+        { status: true },
+        { new: true }
+      );
       return !!result;
     },
   },

@@ -420,6 +420,8 @@ export const accountResolvers = {
         id: account.id,
         email: account.email || mobile,
         type: "party",
+        adminid: (account as any).admin,
+        branchid: (account as any).branchid,
       });
 
       sendRefreshToken(res, refreshToken);

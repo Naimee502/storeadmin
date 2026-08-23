@@ -151,6 +151,8 @@ export const staffAccountResolvers = {
         id: staff.id,
         email: staff.email,
         type: "staff",
+        adminid: (staff as any).admin,
+        branchid: (staff as any).branchid,
       });
 
       sendRefreshToken(res, refreshToken);
@@ -171,6 +173,8 @@ export const staffAccountResolvers = {
         id: staff.id,
         email: staff.email,
         type: "staff",
+        adminid: (staff as any).admin,
+        branchid: (staff as any).branchid,
       });
 
       sendRefreshToken(res, refreshToken);

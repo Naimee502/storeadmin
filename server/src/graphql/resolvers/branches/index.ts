@@ -55,6 +55,8 @@ export const branchResolvers = {
         id: branch.id,
         email: branch.email,
         type: "branch",
+        adminid: (branch as any).admin,
+        branchid: branch.id,
       });
 
       sendRefreshToken(res, refreshToken);

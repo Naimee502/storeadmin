@@ -170,9 +170,12 @@ export const productServiceTypeDefs = gql`
   # Input Types
   input ProductServiceInput {
     id: ID
-    adminid: ID!
+    # adminid / branchid are resolved from the caller's token server-side and
+    # whatever arrives here is discarded. Kept on the input (nullable) so the
+    # existing web panel and mobile app keep compiling unchanged.
+    adminid: ID
     vendorid: ID
-    branchid: ID!
+    branchid: ID
     isservice: Boolean
     isserialised: Boolean
     name: String!
@@ -292,9 +295,61 @@ export const productServiceTypeDefs = gql`
     productbarcode: String
   }
 
+  # ---------------- Import / Export ----------------
+
+  type ImportMasterOption {
+    id: ID!
+    name: String!
+    parentid: ID
+  }
+
+  """Every dropdown list the spreadsheet template needs, in one round trip."""
+  type ProductImportMasters {
+    adminid: ID!
+    branchid: ID
+    categories: [ImportMasterOption!]!
+    subcategories: [ImportMasterOption!]!
+    brands: [ImportMasterOption!]!
+    models: [ImportMasterOption!]!
+    sizes: [ImportMasterOption!]!
+    groups: [ImportMasterOption!]!
+    units: [ImportMasterOption!]!
+    ledgers: [ImportMasterOption!]!
+  }
+
+  type ProductImportIssue {
+    ref: String
+    sheet: String
+    row: Int
+    field: String
+    message: String!
+  }
+
+  type ProductImportResult {
+    total: Int!
+    created: Int!
+    updated: Int!
+    skipped: Int!
+    dryRun: Boolean!
+    errors: [ProductImportIssue!]!
+  }
+
+  input ProductImportInput {
+    """CREATE (default) refuses rows whose product code already exists; UPSERT overwrites them."""
+    mode: String
+    """Validate and report without writing anything. Powers the review screen."""
+    dryRun: Boolean
+    """Write nothing at all if any row fails, instead of importing the good ones."""
+    abortOnError: Boolean
+    products: [ProductServiceInput!]!
+    """Row labels, parallel to products, used in the error report."""
+    refs: [String!]
+  }
+
   type Query {
     getProductServices(filter: ProductServiceFilterInput, limit: Int, offset: Int): [ProductService]!
     getProductServiceById(id: ID!, adminId: ID, branchId: ID): ProductService
+    getProductImportMasters: ProductImportMasters!
   }
 
   type Mutation {
@@ -302,5 +357,6 @@ export const productServiceTypeDefs = gql`
     updateProductService(id: ID!, input: ProductServiceInput!): ProductService
     deleteProductService(id: ID!): Boolean!
     resetProductService(id: ID!): Boolean!
+    importProductServices(input: ProductImportInput!): ProductImportResult!
   }
 `;

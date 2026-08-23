@@ -222,3 +222,25 @@ export const RESET_PRODUCT_SERVICE = gql`
     resetProductService(id: $id)
   }
 `;
+
+// Bulk import. adminid / branchid are deliberately absent — the server stamps
+// both from the caller's token onto every product. dryRun validates and
+// reports without writing, which is what the review screen shows.
+export const IMPORT_PRODUCT_SERVICES = gql`
+  mutation ImportProductServices($input: ProductImportInput!) {
+    importProductServices(input: $input) {
+      total
+      created
+      updated
+      skipped
+      dryRun
+      errors {
+        ref
+        sheet
+        row
+        field
+        message
+      }
+    }
+  }
+`;
