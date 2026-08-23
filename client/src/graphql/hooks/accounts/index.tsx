@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, type WatchQueryFetchPolicy } from '@apollo/client';
 import {
   ADD_ACCOUNT,
   DELETE_ACCOUNT,
@@ -25,7 +25,8 @@ export const useAccountMutations = () => {
   };
 };
 
-export const useAccountsQuery = (status: boolean = true) => {
+/** @param fetchPolicy "cache-and-network" where a party may have just been created. */
+export const useAccountsQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
@@ -42,6 +43,7 @@ export const useAccountsQuery = (status: boolean = true) => {
       },
     },
     skip: !adminId,
+    fetchPolicy,
   });
 
   return { data, loading, error, refetch };

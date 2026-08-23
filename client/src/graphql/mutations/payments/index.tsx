@@ -16,6 +16,10 @@ export const ADD_PAYMENT = gql`
         id
         ledgername
       }
+      counterledgerid {
+        id
+        ledgername
+      }
       amount
       transactionid
       status
@@ -38,6 +42,10 @@ export const EDIT_PAYMENT = gql`
         name
       }
       ledgerid {
+        id
+        ledgername
+      }
+      counterledgerid {
         id
         ledgername
       }

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery, type WatchQueryFetchPolicy } from '@apollo/client';
 import {
   ADD_ACCOUNTLEDGER,
   EDIT_ACCOUNTLEDGER,
@@ -28,7 +28,12 @@ export const useAccountLedgerMutations = () => {
   };
 };
 
-export const useAccountLedgersQuery = () => {
+/**
+ * @param fetchPolicy pass "cache-and-network" on screens where a ledger may
+ *   have been created moments ago (the Payment form's Against Ledger picker).
+ *   The default cache-first policy showed a stale list until a full reload.
+ */
+export const useAccountLedgersQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
   const adminId =
@@ -39,6 +44,7 @@ export const useAccountLedgersQuery = () => {
 
   const { data, loading, error, refetch } = useQuery(GET_ACCOUNTLEDGERS, {
     variables: { adminId },
+    fetchPolicy,
   });
 
   return {

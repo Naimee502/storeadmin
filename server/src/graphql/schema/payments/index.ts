@@ -76,9 +76,16 @@ export const paymentTypeDefs = gql`
     type: String!
     mode: String!
     partyid: Account           # optional
+    # The non-cash leg when there is no party — Capital, Loan, Rent, Salary,
+    # Interest. Exactly one of partyid / counterledgerid is set.
+    counterledgerid: AccountLedger
     ledgerid: AccountLedger!   # required
     invoices: [PaymentInvoice!]
     amount: Float!
+    # Concession totals for the whole payment (Σ of the lines, plus the
+    # Ledger-mode figures that have no line to sit on).
+    discount: Float
+    commission: Float
     openingsettled: Float
     unallocatedamount: Float
     allocationmode: String
@@ -105,9 +112,12 @@ export const paymentTypeDefs = gql`
     type: String!
     mode: String!
     partyid: ID                  # optional
+    counterledgerid: ID          # the non-cash leg when there is no party
     ledgerid: ID!                # required
     invoices: [PaymentInvoiceInput!]
     amount: Float!
+    discount: Float
+    commission: Float
     openingsettled: Float
     unallocatedamount: Float
     allocationmode: String
@@ -127,6 +137,7 @@ export const paymentTypeDefs = gql`
     branchid: ID
     type: String
     partyid: ID
+    counterledgerid: ID
     ledgerid: ID
     paymentcode: String
     dateFrom: String

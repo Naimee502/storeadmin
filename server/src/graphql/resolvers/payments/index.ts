@@ -173,11 +173,82 @@ async function buildExpenseSettlementEntries(input: any) {
   return { entries, totaldebit: total, totalcredit: total };
 }
 
+/**
+ * Build journal entries for a payment whose other side is a LEDGER, not a
+ * party — Tally's Receipt / Payment voucher, where the counter leg can be any
+ * ledger at all: Capital introduced, a loan taken or repaid, rent, salary,
+ * interest received, a bank charge, cash moved to the bank.
+ *
+ *   Receipt (money in)  →  Dr Cash/Bank · Cr <counter ledger>
+ *   Payment (money out) →  Dr <counter ledger> · Cr Cash/Bank
+ *
+ * There is no party, so there are no bills, no discount and no commission —
+ * just the two legs. This is what a payment with neither a party nor an
+ * expense note used to be missing: it saved, but no Transaction was ever
+ * written, so the cash ledger never moved.
+ */
+async function buildLedgerEntries(input: any) {
+  const counterLedgerId = input.counterledgerid;
+  const cashBankLedgerId = input.ledgerid;
+  if (!counterLedgerId || !cashBankLedgerId) return null;
+
+  const cashLeg = parseFloat((Number(input.amount) || 0).toFixed(2));
+  if (cashLeg <= 0) return null;
+
+  const led: any = await AccountLedger.findById(counterLedgerId).select("ledgername").lean();
+  const name = led?.ledgername || "Ledger";
+
+  // Same arithmetic as a party settlement, with this ledger standing in for the
+  // party: the balance knocked off is the cash PLUS any discount allowed, LESS
+  // any commission charged on top.
+  //
+  //   Dr Cash      amount
+  //   Dr Discount  discount
+  //     Cr Ledger    amount + discount − commission
+  //     Cr Commission            commission
+  const discount = parseFloat((Number(input.discount) || 0).toFixed(2));
+  const commission = parseFloat((Number(input.commission) || 0).toFixed(2));
+  const settledTotal = parseFloat((cashLeg + discount - commission).toFixed(2));
+
+  const entries: any[] = [];
+
+  if (input.type === "receipt") {
+    entries.push({ ledgerid: cashBankLedgerId, debit: cashLeg, credit: 0, remarks: `Receipt — ${name}` });
+    if (discount > 0) {
+      const lid = await getOrCreateLedgerId("Discount Allowed", "Indirect Expenses", "expenses", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: discount, credit: 0, remarks: `Discount allowed — ${name}` });
+    }
+    entries.push({ ledgerid: counterLedgerId, debit: 0, credit: settledTotal, remarks: `Receipt — ${name}` });
+    if (commission > 0) {
+      const lid = await getOrCreateLedgerId("Commission Received", "Indirect Income", "income", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: commission, remarks: `Commission — ${name}` });
+    }
+  } else {
+    entries.push({ ledgerid: counterLedgerId, debit: settledTotal, credit: 0, remarks: `Payment — ${name}` });
+    if (commission > 0) {
+      const lid = await getOrCreateLedgerId("Commission", "Commission Expense", "expenses", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: commission, credit: 0, remarks: `Commission — ${name}` });
+    }
+    entries.push({ ledgerid: cashBankLedgerId, debit: 0, credit: cashLeg, remarks: `Payment — ${name}` });
+    if (discount > 0) {
+      const lid = await getOrCreateLedgerId("Discount Received", "Indirect Income", "income", input.adminid);
+      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: discount, remarks: `Discount received — ${name}` });
+    }
+  }
+
+  const totaldebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
+  const totalcredit = parseFloat(entries.reduce((t, e) => t + (e.credit || 0), 0).toFixed(2));
+  return { entries, totaldebit, totalcredit };
+}
+
 function formatPayment(r: any) {
   return {
     ...r,
     id: r._id.toString(),
     ledgerid: r.ledgerid ? { ...r.ledgerid, id: r.ledgerid._id?.toString() } : null,
+    counterledgerid: r.counterledgerid
+      ? { ...r.counterledgerid, id: r.counterledgerid._id?.toString() }
+      : null,
     partyid: r.partyid ? { ...r.partyid, id: r.partyid._id?.toString() } : null,
   };
 }
@@ -210,6 +281,19 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
   }));
 
   const unallocatedamount = computeUnallocated(input);
+  // Payment-level concession totals. Derived on the SERVER so they can never
+  // disagree with the lines: Σ of the bill lines, or the client's figures when
+  // there are no lines at all (Ledger mode).
+  const lineDiscount = parseFloat(
+    lines.reduce((t: number, l: any) => t + (Number(l.discount) || 0), 0).toFixed(2)
+  );
+  const lineCommission = parseFloat(
+    lines.reduce((t: number, l: any) => t + (Number(l.commission) || 0), 0).toFixed(2)
+  );
+  const discount = lines.length ? lineDiscount : parseFloat((Number(input.discount) || 0).toFixed(2));
+  const commission = lines.length
+    ? lineCommission
+    : parseFloat((Number(input.commission) || 0).toFixed(2));
   const openingsettled = parseFloat((Number(input.openingsettled) || 0).toFixed(2));
   // No bill lines at all → the money went on account and/or straight onto the
   // opening balance. Neither is an "Invoice-wise" settlement, so it must never
@@ -222,7 +306,15 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
     ? "auto_fifo"
     : "manual";
 
-  return { ...input, invoices: stamped, openingsettled, unallocatedamount, allocationmode };
+  return {
+    ...input,
+    invoices: stamped,
+    openingsettled,
+    unallocatedamount,
+    allocationmode,
+    discount,
+    commission,
+  };
 }
 
 export const paymentResolvers = {
@@ -253,6 +345,8 @@ export const paymentResolvers = {
         }
       }
       if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
+      if (filter.counterledgerid)
+        query.counterledgerid = new mongoose.Types.ObjectId(filter.counterledgerid);
       if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
       if (typeof filter.status === "boolean") query.status = filter.status;
       if (filter.dateFrom || filter.dateTo) {
@@ -261,7 +355,7 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).populate("ledgerid").populate("partyid").lean();
+      const result = await Payment.find(query).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
       return result.map(formatPayment);
     },
 
@@ -291,6 +385,8 @@ export const paymentResolvers = {
         }
       }
       if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
+      if (filter.counterledgerid)
+        query.counterledgerid = new mongoose.Types.ObjectId(filter.counterledgerid);
       if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
       if (filter.dateFrom || filter.dateTo) {
         query.paymentdate = {};
@@ -298,7 +394,7 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).populate("partyid").populate("ledgerid").lean();
+      const result = await Payment.find(query).populate("partyid").populate("ledgerid").populate("counterledgerid").lean();
       return result.map(formatPayment);
     },
 
@@ -363,7 +459,7 @@ export const paymentResolvers = {
       if (!args.id) return null;
       const query: any = { _id: new mongoose.Types.ObjectId(args.id) };
       if (args.adminid) query.adminid = new mongoose.Types.ObjectId(args.adminid);
-      const payment = await Payment.findOne(query).populate("partyid").populate("ledgerid").lean();
+      const payment = await Payment.findOne(query).populate("partyid").populate("ledgerid").populate("counterledgerid").lean();
       if (!payment) return null;
       return formatPayment(payment);
     },
@@ -410,6 +506,11 @@ export const paymentResolvers = {
       if (!built && input.ledgerid) {
         built = await buildExpenseSettlementEntries(input);
       }
+      // No party and no expense note — the other side is a plain ledger
+      // (Capital, Loan, Rent, Salary, Interest, a bank charge).
+      if (!built) {
+        built = await buildLedgerEntries(input);
+      }
       if (built) {
         const trx = await Transaction.create({
           adminid: input.adminid,
@@ -426,7 +527,7 @@ export const paymentResolvers = {
         await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
       }
 
-      const populated = await Payment.findById(created._id).populate("ledgerid").populate("partyid").lean();
+      const populated = await Payment.findById(created._id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
       if (!populated) throw new Error("Payment not found after creation");
 
       // ── Notifications ──────────────────────────────────────────
@@ -536,6 +637,11 @@ export const paymentResolvers = {
       if (!built && input.ledgerid) {
         built = await buildExpenseSettlementEntries(input);
       }
+      // No party and no expense note — the other side is a plain ledger
+      // (Capital, Loan, Rent, Salary, Interest, a bank charge).
+      if (!built) {
+        built = await buildLedgerEntries(input);
+      }
       if (built) {
         if (existing.transactionid) {
           // Update existing transaction
@@ -566,7 +672,7 @@ export const paymentResolvers = {
         }
       }
 
-      const updated = await Payment.findById(id).populate("ledgerid").populate("partyid").lean();
+      const updated = await Payment.findById(id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
       if (!updated) throw new Error("Payment not found after update");
       return formatPayment(updated);
     },
@@ -624,7 +730,7 @@ export const paymentResolvers = {
           : "manual",
       });
 
-      const updated = await Payment.findById(id).populate("ledgerid").populate("partyid").lean();
+      const updated = await Payment.findById(id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
       if (!updated) throw new Error("Payment not found after re-allocation");
       return formatPayment(updated);
     },

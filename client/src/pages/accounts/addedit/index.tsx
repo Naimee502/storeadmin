@@ -97,11 +97,24 @@ const AddEditAccount = () => {
     const rule = TYPE_GROUP_MAP[partyType];
     if (!rule) return "";
 
-    // 1. Try name match (case-insensitive substring)
-    const byName = groups.find((g: any) =>
-      rule.names.some(n => g.accountgroupname.toLowerCase().includes(n))
-    );
-    if (byName) return byName.id;
+    // 1. Name match, walking the patterns in PRIORITY order and preferring a
+    //    group whose category also fits.
+    //
+    //    Scanning groups first and asking "does any pattern match?" picked
+    //    whichever group the DB happened to return first, so the loose
+    //    catch-all pattern beat the specific one: "Expense Account" landed on
+    //    "Prepaid Expenses" (an ASSET group) because it contains "expense",
+    //    and "Bank / Cash" could land on "Bank OD A/c" (a LIABILITY) because
+    //    it contains "bank". The party then sat on the wrong side of the
+    //    balance sheet unless someone spotted it and changed it by hand.
+    for (const n of rule.names) {
+      const matches = groups.filter((g: any) =>
+        g.accountgroupname.toLowerCase().includes(n)
+      );
+      if (!matches.length) continue;
+      const best = matches.find((g: any) => g.category === rule.category) || matches[0];
+      return best.id;
+    }
 
     // 2. Fallback: category match
     const byCat = groups.find((g: any) => g.category === rule.category);

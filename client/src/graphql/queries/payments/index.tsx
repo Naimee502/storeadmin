@@ -19,6 +19,10 @@ export const GET_PAYMENTS = gql`
         id
         ledgername
       }
+      counterledgerid {
+        id
+        ledgername
+      }
       invoices {
         invoiceid
         invoicemodel
@@ -65,6 +69,10 @@ export const GET_DELETED_PAYMENTS = gql`
         id
         ledgername
       }
+      counterledgerid {
+        id
+        ledgername
+      }
       invoices {
         invoiceid
         invoicemodel
@@ -107,6 +115,10 @@ export const GET_PAYMENT_BY_ID = gql`
         name
       }
       ledgerid {
+        id
+        ledgername
+      }
+      counterledgerid {
         id
         ledgername
       }

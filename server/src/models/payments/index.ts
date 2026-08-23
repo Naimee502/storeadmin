@@ -18,7 +18,16 @@ const paymentSchema = new mongoose.Schema(
     },
 
     partyid: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
-    
+
+    // The OTHER side of the voucher when there is no party — Tally's Receipt /
+    // Payment, where the counter leg is simply a ledger: Capital introduced,
+    // a loan taken or repaid, rent, salary, interest, a bank charge.
+    //
+    // Exactly one of partyid / counterledgerid carries the non-cash leg. With a
+    // party the leg is that party's ledger and the money can settle bills; with
+    // a counter ledger there are no bills, just the two legs.
+    counterledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", default: null },
+
     ledgerid: { type: mongoose.Schema.Types.ObjectId, ref: "AccountLedger", required: true },
 
     invoices: [
@@ -40,6 +49,13 @@ const paymentSchema = new mongoose.Schema(
     ],
 
     amount: { type: Number, required: true },
+
+    // Concession totals for the WHOLE payment. For a party settlement these are
+    // just the sum of invoices[].discount / .commission, kept here so a report
+    // never has to walk the array. In Ledger mode there is no bill line at all,
+    // so this is the only place the concession can live.
+    discount: { type: Number, default: 0 },
+    commission: { type: Number, default: 0 },
 
     // Part of this receipt that cleared the party's OPENING BALANCE — the
     // amount they carried in before any invoice existed. It isn't a bill, so it
