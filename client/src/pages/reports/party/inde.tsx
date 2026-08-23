@@ -711,6 +711,8 @@ const PartyReports: React.FC = () => {
     }]),
   ];
 
+  let pdfSubtitle: string[] | undefined;
+
   switch (activeTab) {
     case "Customer Outstanding":
       tableData = customerOutstandingData;
@@ -737,6 +739,12 @@ const PartyReports: React.FC = () => {
       ];
       break;
     case "Party Statement":
+      if (statementParty) {
+        pdfSubtitle = [
+          `Party name: ${statementParty.name || ""}`,
+          `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`
+        ];
+      }
       tableData = statementData;
       columns = [
         { label: "Date", key: "date" },
@@ -795,6 +803,7 @@ const PartyReports: React.FC = () => {
           showPdf
           exportFileName={activeTab === "Party Statement" ? "PartyStatement" : "PartyReport"}
           showTotals
+          pdfSubtitle={pdfSubtitle}
         />
       </div>
     </HomeLayout>

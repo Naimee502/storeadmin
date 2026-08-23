@@ -68,6 +68,7 @@ interface ReportTableProps {
   defaultEntriesPerPage?: number;
   showTotals?: boolean;
   exportFileName?: string;
+  pdfSubtitle?: string[];
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ const buildExportRow = (row: any, columns: ReportColumn[]) => {
 /* ──────────────────────────────────────────────────────────────────
    PDF via print window  (Tally-style)
 ────────────────────────────────────────────────────────────────── */
-const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) => {
+const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[], pdfSubtitle?: string[]) => {
   const today = formatDateDMY(new Date());
 
   const thRow = columns.map((c) => `<th>${c.label}</th>`).join("");
@@ -125,6 +126,10 @@ const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) =
 
   const win = window.open("", "_blank");
   if (!win) return;
+  const subtitleHtml = pdfSubtitle && pdfSubtitle.length > 0 
+    ? `<div style="text-align:left;font-size:12px;font-weight:bold;margin-bottom:15px;line-height:1.5;">${pdfSubtitle.join("<br/>")}</div>`
+    : "";
+
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#222;}
@@ -138,6 +143,7 @@ const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[]) =
 </style></head><body>
 <h2>${title}</h2>
 <div class="meta">${fyInfo()} &nbsp;|&nbsp; Generated on: ${today} &nbsp;|&nbsp; Total records: ${data.length}</div>
+${subtitleHtml}
 <table><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}${totalRow}</tbody></table>
 <script>window.onload=()=>{window.print();window.close();}<\/script>
 </body></html>`);
@@ -168,6 +174,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
   showTotals = true,
   exportFileName = "Report",
   moduleId,
+  pdfSubtitle,
 }) => {
   const actions = useAppSelector(state => moduleId ? selectModuleActions(state, moduleId) : null);
   const finalShowExport = moduleId ? actions?.showExportExcel : showExport;
@@ -265,13 +272,20 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleExcelExport = () => {
     if (onExport) { onExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
-    const ws = XLSX.utils.aoa_to_sheet([
+    
+    const headerRows = [
       [title],
       [`Financial Year: ${fyInfo()}`],
       [`Generated on: ${formatDateDMY(new Date())}`],
-      [],
-    ]);
-    XLSX.utils.sheet_add_json(ws, rows, { origin: "A5" });
+    ];
+    
+    if (pdfSubtitle && pdfSubtitle.length > 0) {
+      pdfSubtitle.forEach(sub => headerRows.push([sub]));
+    }
+    headerRows.push([]); // Empty row before data
+
+    const ws = XLSX.utils.aoa_to_sheet(headerRows);
+    XLSX.utils.sheet_add_json(ws, rows, { origin: `A${headerRows.length + 1}` });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
     XLSX.writeFile(wb, `${exportFileName}.xlsx`);
@@ -280,10 +294,17 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleCsvExport = () => {
     if (onCsvExport) { onCsvExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
-    const header =
+    
+    let header =
       `${title}\r\n` +
       `Financial Year: ${fyInfo()}\r\n` +
-      `Generated on: ${formatDateDMY(new Date())}\r\n\r\n`;
+      `Generated on: ${formatDateDMY(new Date())}\r\n`;
+      
+    if (pdfSubtitle && pdfSubtitle.length > 0) {
+      header += pdfSubtitle.join("\r\n") + "\r\n";
+    }
+    header += "\r\n";
+
     const csv = header + Papa.unparse(rows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -296,7 +317,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
   const handlePdfExport = () => {
     if (onPdfExport) { onPdfExport(); return; }
-    printReportAsPDF(title, exportColumns, filteredData);
+    printReportAsPDF(title, exportColumns, filteredData, pdfSubtitle);
   };
 
   /* ── Render ── */
