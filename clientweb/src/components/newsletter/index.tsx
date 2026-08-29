@@ -8,7 +8,7 @@ export default function Newsletter() {
   const { appDownloadUrl } = useTenant();
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <section data-newsletter className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid gap-6 overflow-hidden rounded-2xl bg-gradient-to-r from-ink-900 to-ink-800 p-8 text-white sm:p-10 md:grid-cols-2 md:items-center">
         <div>
           <h3 className="text-2xl font-bold sm:text-3xl">Get deals before everyone else</h3>

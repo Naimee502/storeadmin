@@ -14,7 +14,11 @@ export default function ValueProps() {
   // Admin-editable (Settings → General → "Trust bar" stats) — falls back to
   // the built-in placeholder numbers whenever the admin hasn't set any.
   const { businessStats: overrideStats } = useTenant();
-  const stats = overrideStats.length ? overrideStats : defaultBusinessStats;
+  // Admin rows can come back present-but-blank ({ label: "", value: "" }), and
+  // those rendered the trust bar as an empty dark slab. Only rows that actually
+  // carry text count as "set"; anything else falls back to the placeholders.
+  const filledStats = overrideStats.filter((s) => s.value?.trim() || s.label?.trim());
+  const stats = filledStats.length ? filledStats : defaultBusinessStats;
 
   return (
     <section className="border-y border-slate-100 bg-slate-50">
@@ -31,11 +35,11 @@ export default function ValueProps() {
           ))}
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-6 rounded-2xl bg-ink-900 p-8 text-white sm:grid-cols-4">
+        <div data-statsbar className="mt-10 grid grid-cols-2 gap-6 rounded-2xl bg-ink-900 p-8 text-white sm:grid-cols-4">
           {stats.map((s, i) => (
             <div key={`${s.label}-${i}`} className="text-center">
-              <p className="text-2xl font-extrabold text-brand-300 sm:text-3xl">{s.value}</p>
-              <p className="mt-1 text-xs text-slate-300">{s.label}</p>
+              <p className="text-2xl font-extrabold text-white sm:text-3xl">{s.value}</p>
+              <p className="mt-1 text-xs text-slate-200">{s.label}</p>
             </div>
           ))}
         </div>

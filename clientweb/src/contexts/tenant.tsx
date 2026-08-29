@@ -1,12 +1,16 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, type ReactNode } from "react";
 import { useQuery } from "@apollo/client";
 import { GET_STOREFRONT_BY_SLUG } from "../graphql/queries/storefront";
+import { GET_ADMIN_BY_ID } from "../graphql/queries/accounts";
+import { applyBrandOverride } from "../config/brandoverrides";
 
 interface TenantContextValue {
   storeSlug: string;
   loading: boolean;
   notFound: boolean;
   adminid: string | null;
+  /** Business code, e.g. "#ADM0001" — drives the per-business brand override. */
+  adminCode: string | null;
   branchid: string | null;
   companyName: string | null;
   address: string;
@@ -65,6 +69,20 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
   const info = data?.getStorefrontByStoreSlug;
   const notFound = !loading && (!!error || !info);
 
+  // The storefront record has no business code on it, so resolve it from the
+  // admin the slug pointed at. Skipped until adminid is known; folded into
+  // `loading` below so MainLayout keeps the loader up until the brand colours
+  // are settled — otherwise a black-brand store flashes teal on first paint.
+  const { data: adminData, loading: adminLoading } = useQuery(GET_ADMIN_BY_ID, {
+    variables: { id: info?.adminid },
+    skip: !info?.adminid,
+  });
+  const adminCode: string | null = adminData?.getAdminById?.admincode ?? null;
+
+  useLayoutEffect(() => {
+    applyBrandOverride(adminCode);
+  }, [adminCode]);
+
   if (error) {
     // Surface the real cause in the console — "Store not found" on screen looks
     // the same whether the slug truly doesn't exist or the server/schema call
@@ -75,9 +93,10 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
 
   const value: TenantContextValue = {
     storeSlug,
-    loading,
+    loading: loading || adminLoading,
     notFound,
     adminid: info?.adminid ?? null,
+    adminCode,
     branchid: info?.branchid ?? null,
     companyName: info?.companyName ?? null,
     address: info?.address ?? "",

@@ -379,7 +379,7 @@ export default function OrderDetailPage() {
           {canEdit && (
             <button
               onClick={() => navigate(`/account/orders/${order.id}/edit`)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800"
             >
               <Pencil className="h-4 w-4" /> Edit Order
             </button>
@@ -389,7 +389,7 @@ export default function OrderDetailPage() {
             <button
               onClick={handleConfirm}
               disabled={acting === "confirm"}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 py-3 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CheckCircle2 className="h-4 w-4" /> {acting === "confirm" ? "Updating…" : "Mark Confirmed"}
             </button>
@@ -409,7 +409,7 @@ export default function OrderDetailPage() {
             <button
               onClick={handleDispatch}
               disabled={acting === "dispatch"}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 py-3 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Truck className="h-4 w-4" /> {acting === "dispatch" ? "Updating…" : "Mark Dispatched"}
             </button>

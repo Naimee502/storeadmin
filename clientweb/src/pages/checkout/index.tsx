@@ -316,7 +316,8 @@ export default function CheckoutPage() {
               <h2 className="mb-4 text-base font-bold text-ink-900">Order Summary</h2>
               <div className="mb-4 max-h-56 space-y-3 overflow-y-auto">
                 {lines.map((line) => {
-                  const Icon = line.icon;
+                  // Rehydrated-from-localStorage lines have no icon (see CartLine).
+                  const Icon = line.icon ?? Package;
                   return (
                     <div key={line.lineId} className="flex items-center gap-3">
                       {line.imageurl ? (

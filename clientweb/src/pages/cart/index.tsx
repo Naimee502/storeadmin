@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Minus, Plus, Trash2, ShoppingBag, ShieldCheck, ArrowRight } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ShieldCheck, ArrowRight, Package } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
@@ -50,7 +50,8 @@ export default function CartPage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4">
             {lines.map((line) => {
-              const Icon = line.icon;
+              // Rehydrated-from-localStorage lines have no icon (see CartLine).
+              const Icon = line.icon ?? Package;
               return (
                 <div key={line.lineId} className="flex gap-4 rounded-2xl border border-slate-100 p-4">
                   {line.imageurl ? (
