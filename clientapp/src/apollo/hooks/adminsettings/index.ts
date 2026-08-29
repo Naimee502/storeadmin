@@ -32,3 +32,47 @@ export function useShowProductStock(): boolean {
   });
   return (data as any)?.getAdminSettings?.displayStockOnWebsite !== false;
 }
+
+// Promo banner tiles the admin manages from the web panel (Settings → General
+// → "Promo Banners"), the same list the website renders between Featured
+// Products and New Arrivals. Empty list = the admin hasn't configured any, in
+// which case the app simply shows nothing (no hardcoded fallback tiles).
+export type PromoBanner = {
+  image?: string | null;
+  title?: string | null;
+  subtitle?: string | null;
+  cta?: string | null;
+  link?: string | null;
+};
+
+export function usePromoBanners(): PromoBanner[] {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const banners = ((data as any)?.getAdminSettings?.promoBanners ?? []) as PromoBanner[];
+  // Same guard the website uses — a row with neither image nor title is an
+  // empty draft the admin hasn't filled in yet.
+  return banners.filter(b => b?.image || b?.title);
+}
+
+// Hero banner slides the admin manages from the web panel (Settings → General
+// → "Hero Banner") — the Home page carousel. Empty list = not configured, in
+// which case HeroBanner builds its slides from this business's own catalog,
+// same as the website does.
+export type HeroSlide = PromoBanner;
+
+export function useHeroBannerSlides(): HeroSlide[] {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const slides = ((data as any)?.getAdminSettings?.heroBannerSlides ?? []) as HeroSlide[];
+  // The website only renders a slide once it has a title; an untitled row is
+  // an empty draft the admin hasn't filled in yet.
+  return slides.filter(s => s?.title);
+}

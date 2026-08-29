@@ -7,6 +7,9 @@ interface TenantState {
   primaryColor: string | null;
   tagline: string | null;
   branchId: string | null;
+  // Human-entered business code (e.g. "#ADM0001"). Drives the per-business-code
+  // brand override in useTheme (see BRAND_OVERRIDES in config/colors).
+  businessCode: string | null;
 }
 
 const initialState: TenantState = {
@@ -16,6 +19,7 @@ const initialState: TenantState = {
   primaryColor: null,
   tagline: null,
   branchId: null,
+  businessCode: null,
 };
 
 const tenantSlice = createSlice({
@@ -29,6 +33,7 @@ const tenantSlice = createSlice({
       state.primaryColor = action.payload.primaryColor;
       state.tagline      = action.payload.tagline;
       state.branchId     = action.payload.branchId;
+      state.businessCode = action.payload.businessCode ?? null;
     },
     // Update just the active admin/branch (e.g. when a staff member logs in)
     // without wiping the rest of the tenant branding configured earlier.

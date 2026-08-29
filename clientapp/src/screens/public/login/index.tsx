@@ -179,7 +179,7 @@ export default function Login({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
-      <View style={[styles.glow, styles.glowOne]} />
+      <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 22, paddingBottom: 40, flexGrow: 1 },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
-  glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
+  glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
   glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
 
   hero: { paddingTop: 56, paddingBottom: 22, alignItems: 'flex-start' },

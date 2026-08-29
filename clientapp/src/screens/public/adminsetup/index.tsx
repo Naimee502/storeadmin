@@ -89,6 +89,7 @@ export default function AdminSetup() {
         primaryColor: null,
         tagline: null,
         branchId,
+        businessCode: normalized,
       }));
 
       setPreview({ companyName });

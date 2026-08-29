@@ -26,7 +26,7 @@ export default function ForgotPassword({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
-      <View style={[styles.glow, styles.glowOne]} />
+      <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={styles.safeArea}>
@@ -66,7 +66,7 @@ export default function ForgotPassword({ navigation }: any) {
           <Animated.View entering={FadeInDown.duration(800).delay(500)} style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.subText }]}>Remembered it?</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.footerLink}> Sign in</Text>
+              <Text style={[styles.footerLink, { color: colors.brand }]}> Sign in</Text>
             </TouchableOpacity>
           </Animated.View>
         </ScrollView>
@@ -81,7 +81,6 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: 22, paddingBottom: 38 },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
   glowOne: {
-    backgroundColor: COLORS.light.brandSoft,
     top: -72,
     right: -34,
     borderBottomLeftRadius: 120,
@@ -102,11 +101,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontFamily: FONTS.bold, marginTop: 8, textAlign: 'center' },
   subtitle: { fontSize: 15, fontFamily: FONTS.regular, lineHeight: 22, textAlign: 'center', marginTop: 10, paddingHorizontal: 8 },
   card: { borderWidth: 1, borderRadius: 28, padding: 18, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 8 },
-  button: { borderRadius: 14, backgroundColor: COLORS.light.brand },
+  button: { borderRadius: 14 },
   buttonText: { color: COLORS.light.onBrand },
   tip: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 13, marginTop: 8 },
   tipText: { flex: 1, marginLeft: 10, fontSize: 12, lineHeight: 18, fontFamily: FONTS.medium },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   footerText: { fontSize: 14, fontFamily: FONTS.medium },
-  footerLink: { color: COLORS.light.brand, fontSize: 14, fontFamily: FONTS.bold },
+  footerLink: { fontSize: 14, fontFamily: FONTS.bold },
 });

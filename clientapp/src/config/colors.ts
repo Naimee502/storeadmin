@@ -5,6 +5,23 @@ export const COLORS = {
     brandDark: '#17622E',
     brandLight: '#2FA34F',
     brandSoft: '#E7F6E8',
+    // Second (lighter) stop of the drawer header gradient. Was hardcoded in
+    // customdrawer; lives here so per-business-code overrides can reach it.
+    brandSoftAlt: '#F0FDF4',
+    // Bottom tab bar. These default to the same values the tab bar already
+    // resolved from cardGlass/border/brand/subText/brandSoft, so nothing
+    // changes for a business code without an override. They are separate
+    // tokens because a business can paint the bar a colour that the brand
+    // itself cannot sit on — e.g. "#ADM0001" has a black brand AND wants a
+    // black bar, so the active icon there has to come from its own token.
+    tabBarBg: 'rgba(255,255,255,0.92)',   // = cardGlass
+    tabBarBorder: '#EAEAEA',              // = border
+    tabBarActive: '#1F7A3A',              // = brand
+    tabBarInactive: '#666666',            // = subText
+    tabBarPill: '#E7F6E8',                // = brandSoft
+    // Unselected label in the Home/Shop category strip. Defaults to subText,
+    // so nothing changes for a business code without an override.
+    categoryLabel: '#666666',             // = subText
     warmSoft: '#FFF0D8',
     appGradient: ['#F8FFF4', '#FFF9EF', '#FFFFFF'],
     darkGradient: ['#07110C', '#101010', '#000000'],
@@ -43,6 +60,16 @@ export const COLORS = {
     brandDark: '#1F7A3A',
     brandLight: '#7EE08E',
     brandSoft: 'rgba(31,122,58,0.16)',
+    // Dark mode already used brandSoft for both drawer gradient stops, so the
+    // alt stop matches it here — the drawer looks exactly as it did before.
+    brandSoftAlt: 'rgba(31,122,58,0.16)',
+    // Same defaults as light mode: whatever the tab bar resolved before.
+    tabBarBg: 'rgba(255,255,255,0.06)',   // = cardGlass
+    tabBarBorder: '#2A2A2A',              // = border
+    tabBarActive: '#5BCB73',              // = brand
+    tabBarInactive: '#A0A0A0',            // = subText
+    tabBarPill: 'rgba(31,122,58,0.16)',   // = brandSoft
+    categoryLabel: '#A0A0A0',             // = subText
     warmSoft: 'rgba(244,180,77,0.10)',
     appGradient: ['#07110C', '#101010', '#000000'],
     darkGradient: ['#07110C', '#101010', '#000000'],
@@ -74,5 +101,82 @@ export const COLORS = {
     transparent: 'transparent',
     accentGray: '#333333',
     gradient: ['#000000', '#121212', '#1E1E1E'],
+  },
+};
+
+// Per-business-code brand override.
+// Only the brand-family keys listed here replace the default (green) brand for
+// the given business code — every other color stays exactly as the base
+// light/dark theme. Business codes NOT present here keep the normal green brand,
+// so nothing changes for them.
+//
+// "#ADM0001" -> pure black brand (no gray mixed in). In dark mode the accent is
+// white so icons/text stay visible on the dark background, while the button
+// gradient stays black with its white label — a clean black/white monochrome.
+//
+// This client does not want ANY green in the UI, so the override also covers
+// the tokens that only carry a faint green *tint* rather than the brand colour
+// itself: the page gradients, the soft surface behind icon chips, and the
+// hero/modal scrims. Each is replaced by its neutral grey/black equivalent at
+// the same lightness and opacity, so layouts and contrast stay identical —
+// only the hue is removed. Toast colours are deliberately NOT touched: they
+// come from react-native-toast-notifications' own success/danger palette, and
+// a green success toast is still wanted.
+type ColorKey =
+  | 'brand' | 'brandDark' | 'brandLight' | 'brandSoft' | 'brandSoftAlt'
+  | 'brandOverlay' | 'softSurface' | 'heroOverlay' | 'modalOverlay'
+  | 'tabBarBg' | 'tabBarBorder' | 'tabBarActive' | 'tabBarInactive' | 'tabBarPill'
+  | 'categoryLabel';
+type GradientKey = 'appGradient' | 'darkGradient';
+type BrandOverride = {
+  light: Partial<Record<ColorKey, string> & Record<GradientKey, string[]>>;
+  dark: Partial<Record<ColorKey, string> & Record<GradientKey, string[]>>;
+};
+
+export const BRAND_OVERRIDES: Record<string, BrandOverride> = {
+  '#ADM0001': {
+    light: {
+      brand: '#000000',
+      brandDark: '#000000',
+      brandLight: '#000000',
+      brandSoft: '#EDEDED',
+      brandSoftAlt: '#F7F7F7',      // was #F0FDF4 (green tint)
+      brandOverlay: 'rgba(0,0,0,0.16)',
+      softSurface: '#F5F5F5',       // was #F4F8F2 (green tint)
+      appGradient: ['#F7F7F7', '#FAFAFA', '#FFFFFF'],   // was ['#F8FFF4', ...]
+      darkGradient: ['#0A0A0A', '#101010', '#000000'],  // was ['#07110C', ...]
+      heroOverlay: 'rgba(0,0,0,0.5)',      // was rgba(9,35,18,0.5)
+      modalOverlay: 'rgba(0,0,0,0.56)',    // was rgba(7,17,12,0.56)
+      // Solid black bottom bar. Its contents cannot use `brand` (black on
+      // black), so every icon and label is pure white — active AND inactive.
+      // With both states the same colour, the selected tab is told apart by
+      // the pill background, the indicator bar and the bolder label instead.
+      tabBarBg: '#000000',
+      tabBarBorder: 'rgba(255,255,255,0.12)',
+      tabBarActive: '#FFFFFF',
+      tabBarInactive: '#FFFFFF',
+      tabBarPill: 'rgba(255,255,255,0.14)',
+      // Category names read black rather than grey. Dark mode flips to white
+      // for the same reason the brand does — black on a black page is invisible.
+      categoryLabel: '#000000',
+    },
+    dark: {
+      brand: '#FFFFFF',
+      brandDark: '#000000',
+      brandLight: '#000000',
+      brandSoft: 'rgba(255,255,255,0.06)',
+      brandSoftAlt: 'rgba(255,255,255,0.06)',
+      brandOverlay: 'rgba(0,0,0,0.20)',
+      appGradient: ['#0A0A0A', '#101010', '#000000'],   // was ['#07110C', ...]
+      darkGradient: ['#0A0A0A', '#101010', '#000000'],
+      heroOverlay: 'rgba(0,0,0,0.5)',      // was rgba(9,35,18,0.5)
+      // Same solid black bar in dark mode, so the bar looks identical in both.
+      tabBarBg: '#000000',
+      tabBarBorder: 'rgba(255,255,255,0.12)',
+      tabBarActive: '#FFFFFF',
+      tabBarInactive: '#FFFFFF',
+      tabBarPill: 'rgba(255,255,255,0.14)',
+      categoryLabel: '#FFFFFF',
+    },
   },
 };

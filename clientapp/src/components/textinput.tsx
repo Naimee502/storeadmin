@@ -18,6 +18,10 @@ type AppTextInputProps = {
   errorStyle?: StyleProp<TextStyle>;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   showEyeIcon?: boolean;
+  /** Override the default (very light) placeholder tint — e.g. the Home
+   *  and Shop search bars, which need a more legible hint over the
+   *  card background. Defaults to `colors.placeholder`. */
+  placeholderTextColor?: string;
 };
 
 export const AppTextInput: React.FC<AppTextInputProps> = ({
@@ -35,6 +39,7 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
   errorStyle,
   autoCapitalize = 'sentences',
   showEyeIcon = false,
+  placeholderTextColor,
 }) => {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
@@ -70,7 +75,7 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
         <TextInput
           style={[styles.input, { color: colors.text }]}
           placeholder={placeholder}
-          placeholderTextColor={colors.placeholder}
+          placeholderTextColor={placeholderTextColor ?? colors.placeholder}
           value={value}
           onChangeText={onChangeText}
           keyboardType={keyboardType}

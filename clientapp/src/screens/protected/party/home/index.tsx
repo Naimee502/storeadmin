@@ -13,9 +13,10 @@ import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
-import { AppHeader, useNotificationCenter } from '../../../../components';
+import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
+import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -64,10 +65,22 @@ export default function PartyHome() {
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = tenant.adminId ?? '';
 
+  // Home tweaks that apply to business code "#ADM0001" only. Every other
+  // business keeps Home exactly as it was.
+  const isAdm0001          = tenant.businessCode === '#ADM0001';
+  const hideStatsAndOrders = isAdm0001;   // Stats + Recent Orders hidden
+  const showSearchBar      = isAdm0001;   // same product search the Shop screen has
+  const showHeroBanner     = isAdm0001;   // website's Home page hero carousel
+  const hideCatalogHeader  = isAdm0001;   // "Products" / "Browse all" row hidden
+
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<string | null>(null); // null = "All"
+  const [search, setSearch] = useState('');
   const showPrice = useShowProductPrice();
   const showStock = useShowProductStock();
+  // Admin-managed hero slides from the web panel — only queried/rendered for
+  // the business codes that opt in above.
+  const heroSlides = useHeroBannerSlides();
 
   const { data: ordersData, loading: ordersLoading, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, partyacc: user?.id },
@@ -111,20 +124,24 @@ export default function PartyHome() {
   // category, same filter UX as the Shop/Catalog screen.
   const categories = useMemo(() => {
     const seen = new Set<string>();
-    const cats: { id: string; name: string }[] = [];
+    const cats: CategoryItem[] = [];
     products.forEach((p: any) => {
       if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
         seen.add(p.categoryid.id);
-        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname });
+        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname, image: p.categoryid.image });
       }
     });
     return cats;
   }, [products]);
 
   const visibleProducts = useMemo(() => {
-    const list = category ? products.filter((p: any) => p.categoryid?.id === category) : products;
+    let list = category ? products.filter((p: any) => p.categoryid?.id === category) : products;
+    // Same name-contains match the Shop screen uses. Scoped to the page already
+    // fetched, exactly like the category filter above it.
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter((p: any) => p.name?.toLowerCase().includes(q));
     return list.slice(0, 6);
-  }, [products, category]);
+  }, [products, category, search]);
 
   const getCartQty = (productId: string, variantId: string, unitId?: string) =>
     cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
@@ -207,7 +224,8 @@ export default function PartyHome() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-          {/* Stats */}
+          {/* Stats — hidden when logged in with business code "#ADM0001" */}
+          {!hideStatsAndOrders && (
           <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.statsRow}>
             {[
               { icon: 'cash-multiple', value: formatINR(outstanding), label: STRINGS.party.outstanding },
@@ -223,8 +241,10 @@ export default function PartyHome() {
               </View>
             ))}
           </Animated.View>
+          )}
 
-          {/* Recent Orders */}
+          {/* Recent Orders — hidden when logged in with business code "#ADM0001" */}
+          {!hideStatsAndOrders && (
           <Animated.View entering={FadeInUp.duration(400).delay(120)} style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>{STRINGS.party.recentOrders}</Text>
@@ -263,46 +283,55 @@ export default function PartyHome() {
               })
             )}
           </Animated.View>
+          )}
 
           {/* Featured Products */}
           <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>{STRINGS.party.catalog}</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Catalog')}>
-                <Text style={[styles.viewAll, { color: colors.brand }]}>{STRINGS.party.browseAll}</Text>
-              </TouchableOpacity>
-            </View>
+            {/* "Products" / "Browse all" row — hidden for "#ADM0001", whose
+                Home leads with the hero banner instead. */}
+            {!hideCatalogHeader && (
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>{STRINGS.party.catalog}</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Catalog')}>
+                  <Text style={[styles.viewAll, { color: colors.brand }]}>{STRINGS.party.browseAll}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {products.length === 0 ? (
               <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
             ) : (
               <>
-                {categories.length > 0 && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipList}
-                    style={styles.chipScroll}
-                  >
-                    {[{ id: null, name: 'All' }, ...categories].map((item: any) => {
-                      const active = category === item.id;
-                      return (
-                        <TouchableOpacity
-                          key={item.id ?? 'all'}
-                          style={[styles.chip, active
-                            ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                            : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                          ]}
-                          onPress={() => setCategory(item.id)}
-                        >
-                          <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>
-                            {item.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
+                {/* Product search — "#ADM0001" only; mirrors the Shop screen. */}
+                {showSearchBar && (
+                  <AppTextInput
+                    leftIcon="magnify"
+                    placeholder={STRINGS.storefront.searchPlaceholder}
+                    value={search}
+                    onChangeText={setSearch}
+                    autoCapitalize="none"
+                    placeholderTextColor={colors.subText}
+                    containerStyle={{ marginBottom: 20 }}
+                  />
                 )}
+
+                {/* Hero banner — "#ADM0001" only; mirrors the website's
+                    Settings → General → "Hero Banner" carousel. */}
+                {showHeroBanner && (
+                  <HeroBanner
+                    slides={heroSlides}
+                    products={products}
+                    horizontalPadding={18}
+                    style={styles.heroBanner}
+                    onPress={() => navigation.navigate('Catalog')}
+                  />
+                )}
+
+                <CategoryStrip
+                  categories={categories}
+                  selected={category}
+                  onSelect={setCategory}
+                />
 
               <View style={styles.productGrid}>
                 {visibleProducts.map((p: any) => {
@@ -451,14 +480,11 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, fontFamily: FONTS.regular, marginTop: 2 },
 
   section: { marginTop: 22, paddingHorizontal: 18 },
+  heroBanner: { marginBottom: 22 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontFamily: FONTS.bold },
   viewAll: { fontSize: 13, fontFamily: FONTS.semiBold },
 
-  chipScroll: { flexGrow: 0 },
-  chipList: { paddingBottom: 12, gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
-  chipText: { fontSize: 13, fontFamily: FONTS.semiBold },
 
   emptyCard: {
     borderRadius: 16, borderWidth: 1, paddingVertical: 22, alignItems: 'center', justifyContent: 'center',

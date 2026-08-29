@@ -15,10 +15,20 @@
 //   3. Sync URL:       npm run sync-ngrok   (clientapp/)
 //   4. Reload app:     press R in Metro terminal
 //
-// For Android emulator (no ngrok needed):
-//   const SERVER_URL = 'http://10.0.2.2:4000'
+// Dev currently points at PRODUCTION, because the business codes actually used
+// for testing (#ADM0001 "DK Marketing", #ADM0002, #ADM0003) only exist in the
+// production database. A local server has its own unrelated data — there
+// #ADM0001 is a different business with a different registered mobile, so the
+// AdminSetup mobile check rejects the production credentials.
+//
+// To go back to a local server instead, swap SERVER_URL for one of:
+//   USB-connected device:  'http://localhost:4000'
+//                          + run `adb reverse tcp:4000 tcp:4000`
+//                          (re-run after every USB re-plug or device reboot)
+//   Android emulator:      'http://10.0.2.2:4000'
+//   ngrok tunnel:          `ngrok http 4000` then `npm run sync-ngrok`
 // ─────────────────────────────────────────────────────────────────────────────
-const SERVER_URL = 'http://192.168.29.228:4000';
+const SERVER_URL = 'https://rudra.digisysindiatech.com';
 
 // Same production GraphQL host the web admin panel (client/.env.production)
 // points to. Update here if the production domain ever changes.
