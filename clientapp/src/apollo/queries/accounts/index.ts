@@ -9,7 +9,7 @@ export const GET_PRODUCTS = gql`
       imageurl
       imageurls
       status
-      categoryid { id categoryname }
+      categoryid { id categoryname image }
       productvariants {
         id
         name
@@ -435,6 +435,20 @@ export const GET_ADMIN_SETTINGS = gql`
       supportWhatsapp
       privacyPolicyUrl
       termsConditionsUrl
+      heroBannerSlides {
+        image
+        title
+        subtitle
+        cta
+        link
+      }
+      promoBanners {
+        image
+        title
+        subtitle
+        cta
+        link
+      }
     }
   }
 `;

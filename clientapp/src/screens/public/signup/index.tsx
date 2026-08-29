@@ -76,7 +76,7 @@ export default function Signup({ navigation }: any) {
       />
 
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
-      <View style={[styles.glow, styles.glowOne]} />
+      <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
@@ -194,7 +194,6 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   glowOne: {
-    backgroundColor: COLORS.light.brandSoft,
     top: -72,
     right: -34,
     borderBottomLeftRadius: 120,

@@ -72,11 +72,16 @@ export const createNavigator = (config: any) => {
           }
 
           if (route.icon) {
-            const renderIcon = ({ focused, size }: any) => (
+            // `color` is whatever the bar rendering this icon decided on —
+            // CustomTabBar passes tabBarActive/tabBarInactive, which a business
+            // code can override (e.g. "#ADM0001" paints the bar black, so its
+            // icons must be white rather than the black `brand`). Falling back
+            // to brand/subText keeps any caller that passes no colour unchanged.
+            const renderIcon = ({ focused, size, color }: any) => (
               <Icon
                 name={focused ? route.icon.focused : route.icon.unfocused}
                 size={focused ? size + 2 : size}
-                color={focused ? colors.brand : colors.subText}
+                color={color ?? (focused ? colors.brand : colors.subText)}
               />
             );
 

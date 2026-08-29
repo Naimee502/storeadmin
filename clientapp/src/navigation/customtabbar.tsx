@@ -23,8 +23,8 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
     <View style={[
       styles.container,
       {
-        backgroundColor: colors.cardGlass,
-        borderColor:     colors.border,
+        backgroundColor: colors.tabBarBg,
+        borderColor:     colors.tabBarBorder,
         shadowColor:     COLORS.light.shadow,
       },
     ]}>
@@ -80,17 +80,17 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
             {/* Active pill background */}
             <View style={[
               styles.pillWrap,
-              isFocused && { backgroundColor: colors.brandSoft },
+              isFocused && { backgroundColor: colors.tabBarPill },
             ]}>
               {/* Indicator dot above icon */}
               {isFocused && (
-                <View style={[styles.indicator, { backgroundColor: colors.brand }]} />
+                <View style={[styles.indicator, { backgroundColor: colors.tabBarActive }]} />
               )}
 
               {/* Icon */}
               {options.tabBarIcon?.({
                 focused: isFocused,
-                color: isFocused ? colors.brand : colors.subText,
+                color: isFocused ? colors.tabBarActive : colors.tabBarInactive,
                 size: 22,
               })}
 
@@ -99,7 +99,7 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
                 numberOfLines={1}
                 style={[
                   styles.label,
-                  { color: isFocused ? colors.brand : colors.subText },
+                  { color: isFocused ? colors.tabBarActive : colors.tabBarInactive },
                   isFocused && styles.labelActive,
                 ]}
               >

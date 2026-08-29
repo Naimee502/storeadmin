@@ -90,7 +90,7 @@ const ROLE_MENUS: Record<string, DrawerMenuItem[]> = {
 export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { signOut } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
 
@@ -132,7 +132,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
 
         {/* Header */}
         <LinearGradient
-          colors={isDark ? [colors.brandSoft, colors.brandSoft] : [colors.brandSoft, '#f0fdf4']}
+          colors={[colors.brandSoft, colors.brandSoftAlt]}
           style={styles.header}
         >
           <View style={[styles.avatarWrap, { backgroundColor: colors.brand }]}>

@@ -125,7 +125,7 @@ export default function OTPVerification({ navigation, route }: any) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
-      <View style={[styles.glow, styles.glowOne]} />
+      <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
@@ -140,7 +140,7 @@ export default function OTPVerification({ navigation, route }: any) {
             <View style={[styles.iconContainer, { backgroundColor: colors.brandOverlay }]}>
               <Icon name="shield-check-outline" size={42} color={colors.brand} />
             </View>
-            <Text style={styles.eyebrow}>Secure verification</Text>
+            <Text style={[styles.eyebrow, { color: colors.brand }]}>Secure verification</Text>
             <Text style={[styles.title, { color: colors.text }]}>{sText.title}</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>
               {mobile
@@ -183,14 +183,14 @@ export default function OTPVerification({ navigation, route }: any) {
               ) : (
                 <TouchableOpacity onPress={handleResend} style={styles.resendButton}>
                   <Icon name="refresh" size={17} color={colors.brand} />
-                  <Text style={styles.resendText}>{sText.resend}</Text>
+                  <Text style={[styles.resendText, { color: colors.brand }]}>{sText.resend}</Text>
                 </TouchableOpacity>
               )}
             </View>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.duration(800).delay(600)} style={styles.buttonSection}>
-            <AppButton title={sText.verify} onPress={handleVerify} style={styles.verifyButton} textStyle={styles.verifyText} />
+            <AppButton title={sText.verify} onPress={handleVerify} style={[styles.verifyButton, { backgroundColor: colors.brand }]} textStyle={styles.verifyText} />
           </Animated.View>
         </View>
       </SafeAreaView>
@@ -203,12 +203,12 @@ const styles = StyleSheet.create({
   navBar: { paddingHorizontal: 20, height: 50, justifyContent: 'center' },
   backButton: { width: 44, height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
-  glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
+  glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
   glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
   content: { flex: 1, paddingHorizontal: 22, paddingBottom: 28 },
   header: { alignItems: 'center', marginTop: 14 },
   iconContainer: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
-  eyebrow: { color: COLORS.light.brand, fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', marginBottom: 8 },
+  eyebrow: { fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', marginBottom: 8 },
   title: { fontSize: 24, fontFamily: FONTS.bold, textAlign: 'center', marginBottom: 10 },
   subtitle: { fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 19, paddingHorizontal: 8 },
   otpSection: {
@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
   timerContainer: { alignItems: 'center' },
   timerText: { fontSize: 14, fontFamily: FONTS.regular },
   boldText: { fontFamily: FONTS.bold },
-  resendText: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.light.brand, marginLeft: 6 },
+  resendText: { fontSize: 15, fontFamily: FONTS.bold, marginLeft: 6 },
   resendButton: { flexDirection: 'row', alignItems: 'center' },
   buttonSection: { width: '100%', marginTop: 'auto' },
-  verifyButton: { backgroundColor: COLORS.light.brand, borderRadius: 14 },
+  verifyButton: { borderRadius: 14 },
   verifyText: { color: COLORS.light.onBrand },
 });

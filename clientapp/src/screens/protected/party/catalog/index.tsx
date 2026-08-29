@@ -13,7 +13,8 @@ import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
-import { AppHeader, AppTextInput, DynamicFlashList } from '../../../../components';
+import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
+import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
@@ -49,11 +50,11 @@ export default function Catalog() {
 
   const categories = useMemo(() => {
     const seen = new Set<string>();
-    const cats: { id: string; name: string }[] = [];
+    const cats: CategoryItem[] = [];
     products.forEach((p: any) => {
       if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
         seen.add(p.categoryid.id);
-        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname });
+        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname, image: p.categoryid.image });
       }
     });
     return cats;
@@ -239,34 +240,15 @@ export default function Catalog() {
         value={search}
         onChangeText={setSearch}
         autoCapitalize="none"
+        placeholderTextColor={colors.subText}
         containerStyle={{ marginBottom: 8, marginTop: 10 }}
       />
-      {categories.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipList}
-          style={styles.chipScroll}
-        >
-          {[{ id: null, name: 'All' }, ...categories].map((item: any) => {
-            const active = category === item.id;
-            return (
-              <TouchableOpacity
-                key={item.id ?? 'all'}
-                style={[styles.chip, active
-                  ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                  : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                ]}
-                onPress={() => setCategory(item.id)}
-              >
-                <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+      <CategoryStrip
+        categories={categories}
+        selected={category}
+        onSelect={setCategory}
+        contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
+      />
     </>
   );
 
@@ -313,10 +295,6 @@ export default function Catalog() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  chipScroll: { flexGrow: 0 },
-  chipList: { paddingTop: 0, paddingBottom: 8, gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
-  chipText: { fontSize: 13, fontFamily: FONTS.semiBold },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
   card: {
     flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
