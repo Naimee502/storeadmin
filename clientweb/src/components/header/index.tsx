@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Search,
   ShoppingCart,
@@ -22,6 +22,7 @@ import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
+import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
 
 export default function Header() {
@@ -33,6 +34,11 @@ export default function Header() {
   const { isLoggedIn, account, logout } = useAuth();
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail } = useTenant();
+  // Which category the shop is currently filtered by, so the nav can mark it.
+  // Same ?category=<id> param ShopPage reads, so the strip and the grid can
+  // never disagree about what's selected.
+  const [searchParams] = useSearchParams();
+  const activeCategory = searchParams.get("category");
   const brandName = companyName || siteConfig.name;
 
   // Close the account dropdown on an outside click, same as any standard
@@ -111,7 +117,7 @@ export default function Header() {
               <select className="appearance-none bg-transparent py-2.5 pl-3 pr-8 text-sm text-slate-600 outline-none">
                 <option>All Categories</option>
                 {visibleCategories.map((c) => (
-                  <option key={c.id}>{c.name}</option>
+                  <option key={c.id}>{titleCaseIfShouting(c.name)}</option>
                 ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -246,12 +252,36 @@ export default function Header() {
 
       {/* Category nav */}
       <nav className="hidden border-b border-slate-100 bg-white lg:block">
-        <div className="mx-auto flex max-w-7xl items-center gap-7 px-4 py-2.5 text-sm font-medium text-ink-700 sm:px-6 lg:px-8">
-          {visibleCategories.map((cat) => (
-            <Link key={cat.id} to={`/shop?category=${cat.id}`} className="flex items-center gap-1 py-1 hover:text-brand-700">
-              {cat.name}
-            </Link>
-          ))}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* The strip scrolls itself. Without this the flex row just grows
+              past the viewport and takes the whole page's horizontal scroll
+              with it, dragging the header, hero and footer sideways too. */}
+          <div className="no-scrollbar flex items-center gap-7 overflow-x-auto py-2.5 text-sm font-medium text-ink-700">
+          {visibleCategories.map((cat) => {
+            const active = cat.id === activeCategory;
+            return (
+              <Link
+                key={cat.id}
+                to={`/shop?category=${cat.id}`}
+                aria-current={active ? "page" : undefined}
+                // self-stretch so every link box is the full row height —
+                // two-line names like "MAGIC CAR" would otherwise sit the
+                // marker at a different offset than the one-line ones.
+                className={`relative flex shrink-0 items-center gap-1 self-stretch whitespace-nowrap py-1 transition-colors ${
+                  active ? "text-brand-700" : "hover:text-brand-700"
+                }`}
+              >
+                {titleCaseIfShouting(cat.name)}
+                {/* Sits on the nav's own bottom border (the row's py-2.5), so
+                    the marker reads as an underline of the whole strip rather
+                    than a bar floating under the word. */}
+                {active && (
+                  <span className="absolute inset-x-0 -bottom-2.5 h-0.5 rounded-full bg-brand-700" />
+                )}
+              </Link>
+            );
+          })}
+          </div>
         </div>
       </nav>
 
@@ -264,9 +294,12 @@ export default function Header() {
                 key={cat.id}
                 to={`/shop?category=${cat.id}`}
                 onClick={() => setMobileOpen(false)}
-                className="block border-b border-slate-100 py-2 text-sm font-semibold text-ink-900"
+                aria-current={cat.id === activeCategory ? "page" : undefined}
+                className={`block border-b border-slate-100 py-2 text-sm font-semibold ${
+                  cat.id === activeCategory ? "text-brand-700" : "text-ink-900"
+                }`}
               >
-                {cat.name}
+                {titleCaseIfShouting(cat.name)}
               </Link>
             ))}
           </div>

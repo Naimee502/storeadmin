@@ -23,6 +23,31 @@
   --color-accent-600: #ea580c;
 }
 
+/* #ADM0001 (storeslug "rkn") — the footer's default look is a *blue*
+   combination: an ink-900 navy ground (#0f172a) under slate-300/400/500 text,
+   all of which carry a blue cast. This business's brand is monochrome black,
+   so the same combination is restated in neutral greys of matching lightness —
+   the layout, hierarchy and contrast are identical, only the hue is dropped.
+
+   The same applies to the other dark blocks on the home page, painted by that
+   very same navy-and-slate pair: the newsletter/subscribe panel above the
+   footer (an ink-900 -> ink-800 gradient) and the stats bar above that.
+
+   Scoped to those two subtrees on purpose. These palette variables also paint
+   body copy, borders and the header strip across the rest of the site, and
+   redefining them here means the cascade rethemes only these blocks. The brand
+   ramp itself is swapped separately, on :root, from config/brandoverrides.ts. */
+[data-brand="adm0001"] footer,
+[data-brand="adm0001"] [data-newsletter],
+[data-brand="adm0001"] [data-statsbar] {
+  --color-ink-900: #000000;   /* was #0f172a — dark ground / gradient start */
+  --color-ink-800: #1a1a1a;   /* was #1e293b — gradient end, keeps the fade */
+  --color-slate-200: #e5e5e5; /* was #e2e8f0 — stat labels                  */
+  --color-slate-300: #d4d4d4; /* was #cbd5e1 — body text                    */
+  --color-slate-400: #a3a3a3; /* was #94a3b8 — links, meta, placeholder     */
+  --color-slate-500: #737373; /* was #64748b — muted/legal                  */
+}
+
 :root {
   color-scheme: light;
   -webkit-font-smoothing: antialiased;

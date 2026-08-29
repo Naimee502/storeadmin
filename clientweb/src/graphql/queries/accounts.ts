@@ -363,6 +363,7 @@ export const GET_ADMIN_BY_ID = gql`
   query GetAdminByIdForModules($id: ID!) {
     getAdminById(id: $id) {
       id
+      admincode
       allowedmodules
     }
   }

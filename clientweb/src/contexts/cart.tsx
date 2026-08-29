@@ -15,7 +15,11 @@ export interface CartLine {
   price: number;
   mrp: number;
   qty: number;
-  icon: SampleProduct["icon"];
+  // Optional on purpose: lines are persisted to localStorage with
+  // JSON.stringify, which silently drops function values — so a rehydrated
+  // line always comes back without its icon. Render sites must fall back to
+  // the same Package icon useCatalog assigns products in the first place.
+  icon?: SampleProduct["icon"];
   from: string;
   to: string;
   imageurl?: string;
@@ -45,10 +49,18 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({ storeSlug, children }: { storeSlug: string; children: ReactNode }) {
   const storageKey = `rkn_storefront_cart_${storeSlug}`;
 
+  // A lucide icon is a forwardRef *object*, not a function, so JSON.stringify
+  // doesn't drop it — it writes it out as `{}`. That empty object is truthy,
+  // so it sails past any `?? fallback` and reaches React as an invalid element
+  // type, blanking the whole Cart/Checkout page. Strip it on both sides of
+  // persistence: on the way out so it's never written, and on the way back in
+  // so carts already saved with an `{}` icon heal themselves on next load.
+  const stripIcon = (ls: CartLine[]) => ls.map(({ icon: _icon, ...line }) => line);
+
   const [lines, setLines] = useState<CartLine[]>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : [];
+      return raw ? stripIcon(JSON.parse(raw)) : [];
     } catch {
       return [];
     }
@@ -58,7 +70,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
 
   useEffect(() => {
     try {
-      if (lines.length > 0) localStorage.setItem(storageKey, JSON.stringify(lines));
+      if (lines.length > 0) localStorage.setItem(storageKey, JSON.stringify(stripIcon(lines)));
       else localStorage.removeItem(storageKey);
     } catch {
       // ignore storage errors (e.g. private browsing)
