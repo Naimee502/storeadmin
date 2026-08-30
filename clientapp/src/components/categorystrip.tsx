@@ -6,7 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { FONTS, useTheme } from '../config';
+import { FONTS, useTheme, resolveMediaUrl } from '../config';
 import { GET_CATEGORIES } from '../apollo/queries/categories';
 import type { RootState } from '../store/rootreducer';
 import { useIsEndUserParty } from '../utils/enduser';
@@ -111,7 +111,7 @@ export const CategoryStrip: React.FC<Props> = ({
               },
             ]}>
               {uri ? (
-                <Image source={{ uri }} style={styles.circleImg} resizeMode="cover" />
+                <Image source={{ uri: resolveMediaUrl(uri) }} style={styles.circleImg} resizeMode="cover" />
               ) : (
                 <Icon
                   name={item.id ? 'image-off-outline' : 'view-grid-outline'}

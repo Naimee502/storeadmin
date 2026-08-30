@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { COLORS, FONTS, useTheme } from '../../../../config';
+import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import {
   CONFIRM_SALES_ORDER, CONVERT_SALES_ORDER_TO_INVOICE,
@@ -346,7 +346,7 @@ export default function OrderDetail() {
               ]}>
                 <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
                   {item.productserviceid?.imageurl
-                    ? <Image source={{ uri: item.productserviceid.imageurl }} style={styles.itemImg} resizeMode="cover" />
+                    ? <Image source={{ uri: resolveMediaUrl(item.productserviceid.imageurl) }} style={styles.itemImg} resizeMode="cover" />
                     : <Icon name="package-variant-closed" size={16} color={colors.brand} />
                   }
                 </View>

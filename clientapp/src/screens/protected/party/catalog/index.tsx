@@ -8,7 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
@@ -153,7 +153,7 @@ export default function Catalog() {
         <View>
           <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
             {p.imageurl
-              ? <Image source={{ uri: p.imageurl }} style={styles.img} resizeMode="cover" />
+              ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.img} resizeMode="cover" />
               : <Icon name="package-variant-closed" size={30} color={colors.brand} />
             }
             {showStock && outOfStock && (

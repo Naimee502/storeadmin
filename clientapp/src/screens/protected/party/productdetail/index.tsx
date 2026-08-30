@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, useTheme } from '../../../../config';
+import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
@@ -239,7 +239,7 @@ export default function ProductDetail() {
             {mainImage
               ? (
                 <Image
-                  source={{ uri: mainImage }}
+                  source={{ uri: resolveMediaUrl(mainImage) }}
                   style={styles.img}
                   resizeMode="cover"
                   onLoad={(e) => {
@@ -272,7 +272,7 @@ export default function ProductDetail() {
                 ]}
                 activeOpacity={0.8}
               >
-                <Image source={{ uri }} style={styles.thumbImg} resizeMode="cover" />
+                <Image source={{ uri: resolveMediaUrl(uri) }} style={styles.thumbImg} resizeMode="cover" />
               </TouchableOpacity>
             ))}
           </Animated.View>

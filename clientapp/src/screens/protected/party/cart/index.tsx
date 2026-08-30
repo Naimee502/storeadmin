@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useApolloClient } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, useTheme } from '../../../../config';
+import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { formatINR } from '../../../../utils';
 import { AppHeader, DynamicFlashList, AddressForm } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
@@ -139,7 +139,7 @@ export default function CartScreen() {
         {/* Product image */}
         <View style={[styles.itemImg, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ? <Image source={{ uri: resolveMediaUrl(item.imageUrl) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={22} color={colors.brand} />
           }
         </View>

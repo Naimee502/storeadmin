@@ -10,7 +10,7 @@ import Animated, {
   FadeInUp, FadeInDown,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../config';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store/rootreducer';
 import { useAuth } from '../../../navigation';
@@ -239,7 +239,7 @@ const Introduction = () => {
         <View style={styles.header}>
           <View style={styles.brandRow}>
             {brandLogo ? (
-              <Image source={{ uri: brandLogo }} style={styles.brandLogo} resizeMode="contain" />
+              <Image source={{ uri: resolveMediaUrl(brandLogo) }} style={styles.brandLogo} resizeMode="contain" />
             ) : null}
             {businessName ? (
               <Text

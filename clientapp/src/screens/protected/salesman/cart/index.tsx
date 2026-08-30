@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
-import { COLORS, FONTS, useTheme } from '../../../../config';
+import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { ADD_VISIT } from '../../../../apollo/mutations/tracking';
@@ -151,7 +151,7 @@ export default function SalesmanCart() {
       <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <Image source={{ uri: item.imageUrl }} style={styles.itemImg} resizeMode="cover" />
+            ? <Image source={{ uri: resolveMediaUrl(item.imageUrl) }} style={styles.itemImg} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={20} color={colors.brand} />
           }
         </View>

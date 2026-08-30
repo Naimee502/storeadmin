@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, useTheme } from '../config';
+import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../config';
 
 /** One normalised slide, whatever fed it (hero slides, promo tiles, …). */
 export type BannerSlide = {
@@ -133,7 +133,7 @@ export const BannerCarousel: React.FC<Props> = ({
               <View style={[styles.card, { width, height, backgroundColor: s.bg ?? colors.softSurface }]}>
                 {s.image ? (
                   <>
-                    <Image source={{ uri: s.image }} style={styles.image} resizeMode="cover" />
+                    <Image source={{ uri: resolveMediaUrl(s.image) }} style={styles.image} resizeMode="cover" />
                     <View style={[styles.overlay, { backgroundColor: colors.heroOverlay }]} />
                   </>
                 ) : !s.bg ? (

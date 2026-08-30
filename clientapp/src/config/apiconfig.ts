@@ -28,7 +28,7 @@
 //   Android emulator:      'http://10.0.2.2:4000'
 //   ngrok tunnel:          `ngrok http 4000` then `npm run sync-ngrok`
 // ─────────────────────────────────────────────────────────────────────────────
-const SERVER_URL = 'https://rudra.digisysindiatech.com';
+const SERVER_URL = 'http://192.168.29.228:4000';
 
 // Same production GraphQL host the web admin panel (client/.env.production)
 // points to. Update here if the production domain ever changes.
@@ -39,4 +39,29 @@ const ACTIVE_SERVER_URL = __DEV__ ? SERVER_URL : SERVER_URL_PROD;
 export const API_CONFIG = {
   GRAPHQL_URL: `${ACTIVE_SERVER_URL}/graphql`,
   TIMEOUT: 30000,
+};
+
+/**
+ * Point an uploaded file's URL at the server this build actually talks to.
+ *
+ * uploadImage stores an absolute URL built from whichever host uploaded the
+ * file, so a logo picked in the admin panel on a laptop is saved as
+ * "http://localhost:4000/uploads/logo.jpg". That URL is correct in the browser
+ * that made it and meaningless on a phone, where localhost is the phone —
+ * right file, right path, wrong host. Nothing errors; the image is simply
+ * blank, which is what "the logo doesn't show in the app" was.
+ *
+ * So the path is kept and the origin is swapped for this build's server, which
+ * is the LAN address in dev and the production domain in a release build. A URL
+ * that is not one of our /uploads/ links — a CDN, a data: URI, an external
+ * image — is returned untouched. A path that is already relative
+ * ("/uploads/x.jpg") resolves too, so this keeps working if the server is ever
+ * changed to store relative paths, which is the better long-term shape.
+ */
+export const resolveMediaUrl = (url?: string | null): string => {
+  const raw = String(url ?? '').trim();
+  if (!raw) return '';
+  const at = raw.indexOf('/uploads/');
+  if (at === -1) return raw;
+  return `${ACTIVE_SERVER_URL}${raw.slice(at)}`;
 };

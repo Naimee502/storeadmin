@@ -8,7 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
 import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
@@ -363,7 +363,7 @@ export default function PartyHome() {
                       <View>
                         <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }]}>
                           {p.imageurl
-                            ? <Image source={{ uri: p.imageurl }} style={styles.productImg} resizeMode="cover" />
+                            ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.productImg} resizeMode="cover" />
                             : <Icon name="package-variant-closed" size={26} color={colors.brand} />
                           }
                           {showStock && outOfStock && (

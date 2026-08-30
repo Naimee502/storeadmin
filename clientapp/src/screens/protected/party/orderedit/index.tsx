@@ -8,7 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { FONTS, useTheme } from '../../../../config';
+import { FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { formatINR } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import { GET_SALES_ORDER_BY_ID, GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
@@ -253,7 +253,7 @@ export default function OrderEdit() {
           <View key={idx} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
               {l.imageUrl
-                ? <Image source={{ uri: l.imageUrl }} style={styles.thumbImg} resizeMode="cover" />
+                ? <Image source={{ uri: resolveMediaUrl(l.imageUrl) }} style={styles.thumbImg} resizeMode="cover" />
                 : <Icon name="package-variant-closed" size={20} color={colors.brand} />
               }
             </View>

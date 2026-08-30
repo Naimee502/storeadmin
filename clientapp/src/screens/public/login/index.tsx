@@ -6,7 +6,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp, FadeInDown, FadeInRight } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../config';
 import { useAuth } from '../../../navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, setBranch } from '../../../store/slices';
@@ -230,7 +230,7 @@ export default function Login({ navigation }: any) {
                   ]}
                 >
                   <Image
-                    source={{ uri: brandLogo }}
+                    source={{ uri: resolveMediaUrl(brandLogo) }}
                     style={{ width: logoWidth, height: LOGO_HEIGHT }}
                     resizeMode="contain"
                   />
