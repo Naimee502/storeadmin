@@ -19,6 +19,10 @@ export const VERIFY_OTP = gql`
         name
         mobile
         email
+        # Which Home the app shows is decided by the party's sales channel —
+        # see utils/enduser.ts.
+        type
+        channel { id channelName }
         admin { id }
       }
     }

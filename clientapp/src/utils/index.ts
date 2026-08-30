@@ -6,3 +6,4 @@ export { useInAppUpdate } from './inappupdatemanager';
 export * from './validators';
 export * from './formatters';
 export * from './chargerules';
+export * from './enduser';

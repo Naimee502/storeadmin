@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import { FONTS, useTheme } from '../config';
 import { GET_CATEGORIES } from '../apollo/queries/categories';
 import type { RootState } from '../store/rootreducer';
+import { useIsEndUserParty } from '../utils/enduser';
 
 export type CategoryItem = { id: string | null; name: string; image?: string | null };
 
@@ -21,9 +22,6 @@ type Props = {
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
-// Business codes that render the strip as image circles instead of text pills.
-// Anything not listed here keeps the original pill row untouched.
-const IMAGE_CIRCLE_CODES = ['#ADM0001'];
 
 /**
  * The horizontal category filter row shared by Home and Shop.
@@ -32,8 +30,10 @@ const IMAGE_CIRCLE_CODES = ['#ADM0001'];
  * cannot drift apart. Two visual variants:
  *
  *  - pills (default)  — text-only chips, exactly as before.
- *  - image circles    — round category image + name underneath, for the
- *                       business codes in IMAGE_CIRCLE_CODES.
+ *  - image circles    — round category image + name underneath, for shoppers
+ *                       (EndUser channel, or no channel yet), matching the
+ *                       storefront. Trade parties keep the pills, which fit a
+ *                       long ordering list better than a row of photos.
  *
  * Images are fetched here rather than taken from the products: the server
  * populates a product's categoryid with `select: "id categoryname"` only, so
@@ -45,9 +45,8 @@ export const CategoryStrip: React.FC<Props> = ({
   categories, selected, onSelect, contentContainerStyle,
 }) => {
   const { colors } = useTheme();
-  const businessCode = useSelector((s: RootState) => s.tenant.businessCode);
   const adminid = useSelector((s: RootState) => s.tenant.adminId ?? '');
-  const asCircles = !!businessCode && IMAGE_CIRCLE_CODES.includes(businessCode);
+  const asCircles = useIsEndUserParty();
 
   const { data: catData } = useQuery(GET_CATEGORIES, {
     variables: { adminId: adminid },

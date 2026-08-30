@@ -12,7 +12,7 @@ import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
-import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUserParty } from '../../../../utils';
 import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
@@ -65,13 +65,20 @@ export default function PartyHome() {
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = tenant.adminId ?? '';
 
-  // Home tweaks that apply to business code "#ADM0001" only. Every other
-  // business keeps Home exactly as it was.
-  const isAdm0001          = tenant.businessCode === '#ADM0001';
-  const hideStatsAndOrders = isAdm0001;   // Stats + Recent Orders hidden
-  const showSearchBar      = isAdm0001;   // same product search the Shop screen has
-  const showHeroBanner     = isAdm0001;   // website's Home page hero carousel
-  const hideCatalogHeader  = isAdm0001;   // "Products" / "Browse all" row hidden
+  // Two Homes, chosen by who is signed in rather than by which business they
+  // belong to. A shopper (EndUser channel, or no channel yet) gets the
+  // storefront layout — hero banner, search, no business figures. A trade party
+  // (Retailer / Wholesaler / Distributor) keeps the ordering view with their
+  // outstanding balance and recent orders.
+  //
+  // This used to be keyed off the business code, which meant one business had
+  // it and every one of its parties got it — including its distributors, who
+  // want the figures. See utils/enduser.ts.
+  const isEndUser          = useIsEndUserParty();
+  const hideStatsAndOrders = isEndUser;   // Stats + Recent Orders hidden
+  const showSearchBar      = isEndUser;   // same product search the Shop screen has
+  const showHeroBanner     = isEndUser;   // website's Home page hero carousel
+  const hideCatalogHeader  = isEndUser;   // "Products" / "Browse all" row hidden
 
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<string | null>(null); // null = "All"

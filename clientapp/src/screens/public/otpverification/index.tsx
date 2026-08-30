@@ -85,6 +85,8 @@ export default function OTPVerification({ navigation, route }: any) {
           role: 'party',
           adminId: account.admin?.id ?? adminId,
           email: account.email,
+          partyType: account.type,
+          channelName: account.channel?.channelName ?? null,
         },
         token: accessToken,
       }));

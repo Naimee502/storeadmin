@@ -10,6 +10,14 @@ export interface AppUser {
   adminId?: string;
   email?: string;
   avatarUrl?: string;
+  /** Account type — the app only ever signs in "customer" parties. */
+  partyType?: string;
+  /**
+   * The party's sales channel name ("EndUser", "Retailer", …), or null when
+   * the admin never assigned one. Decides which Home this party sees — see
+   * utils/enduser.ts.
+   */
+  channelName?: string | null;
 }
 
 interface AuthState {

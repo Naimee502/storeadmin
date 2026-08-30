@@ -97,7 +97,10 @@ export default function LoginPage() {
         setStep("register");
         return;
       }
-      setError("Couldn't send the OTP. Please try again.");
+      // The server says why it refused — a vendor or other non-customer
+      // account being the case that matters here. "Please try again" only
+      // made them try again, on a number that will never be let in.
+      setError(msg || "Couldn't send the OTP. Please try again.");
     }
   };
 
@@ -148,8 +151,10 @@ export default function LoginPage() {
         email: result.account.email,
       });
       setStep("success");
-    } catch {
-      setError("Invalid or expired code. Please try again.");
+    } catch (err: any) {
+      // Same reason as above: verifyOTP re-checks the account type, so this
+      // can fail for a reason that has nothing to do with the code typed in.
+      setError(err?.message || "Invalid or expired code. Please try again.");
     }
   };
 

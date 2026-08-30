@@ -81,6 +81,21 @@ const ledgerBalance = async (ledgerId: any): Promise<number> => {
   return bal;
 };
 
+/**
+ * Only customer accounts may sign in through the app or the storefront.
+ *
+ * Vendors, banks and expense parties exist in the same collection — they are
+ * book-keeping records the admin creates, not people with a login. A vendor
+ * whose mobile happened to be on file could previously request an OTP and get
+ * a party token, which put them inside the shopping app with a real session.
+ */
+const assertCustomerAccount = (account: any) => {
+  const type = String(account?.type || "").toLowerCase();
+  if (type !== "customer") {
+    throw new Error("This login is for customer accounts only.");
+  }
+};
+
 export const accountResolvers = {
   Query: {
     // Downline (sub-party) outstanding summary for a parent party's Ledger tab.
@@ -321,6 +336,7 @@ export const accountResolvers = {
     sendOTP: async (_: any, { adminId, mobile }: any) => {
       const account = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
+      assertCustomerAccount(account);
 
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
@@ -407,6 +423,10 @@ export const accountResolvers = {
     verifyOTP: async (_: any, { adminId, mobile, otp }: any, { res }: any) => {
       const account = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
+      // Checked again rather than trusting sendOTP: verifyOTP is a mutation of
+      // its own and can be called directly, and this is the step that hands out
+      // a token.
+      assertCustomerAccount(account);
 
       if (account.otp !== otp) throw new Error("Invalid OTP. Please try again.");
 
@@ -426,7 +446,13 @@ export const accountResolvers = {
 
       sendRefreshToken(res, refreshToken);
 
-      const populated = await Account.findById(account._id).populate("admin");
+      // `channel` is populated because the app reads channelName off it: an
+      // EndUser (or channel-less) party gets the storefront-style Home, while a
+      // Retailer/Wholesaler gets the ordering view. Without the populate the
+      // Channel field has only an ObjectId to resolve from.
+      const populated = await Account.findById(account._id)
+        .populate("admin")
+        .populate("channel");
       return { accessToken, account: populated };
     },
   },
