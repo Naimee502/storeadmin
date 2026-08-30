@@ -7,8 +7,8 @@ interface TenantState {
   primaryColor: string | null;
   tagline: string | null;
   branchId: string | null;
-  // Human-entered business code (e.g. "#ADM0001"). Drives the per-business-code
-  // brand override in useTheme (see BRAND_OVERRIDES in config/colors).
+  // Human-entered business code (e.g. "#ADM0001"). Identifies the business at
+  // activation; it no longer decides the theme — `primaryColor` does.
   businessCode: string | null;
 }
 
@@ -35,6 +35,16 @@ const tenantSlice = createSlice({
       state.branchId     = action.payload.branchId;
       state.businessCode = action.payload.businessCode ?? null;
     },
+    // Branding is read once at activation so the very first screen already
+    // wears it, but the admin can change it in the web panel afterwards. This
+    // lets the running app pick that up without re-activating.
+    setBranding: (
+      state,
+      action: PayloadAction<{ logoUrl?: string | null; primaryColor?: string | null }>
+    ) => {
+      if (action.payload.logoUrl !== undefined) state.logoUrl = action.payload.logoUrl;
+      if (action.payload.primaryColor !== undefined) state.primaryColor = action.payload.primaryColor;
+    },
     // Update just the active admin/branch (e.g. when a staff member logs in)
     // without wiping the rest of the tenant branding configured earlier.
     setBranch: (
@@ -48,5 +58,5 @@ const tenantSlice = createSlice({
   },
 });
 
-export const { setTenant, setBranch, clearTenant } = tenantSlice.actions;
+export const { setTenant, setBranding, setBranch, clearTenant } = tenantSlice.actions;
 export default tenantSlice.reducer;

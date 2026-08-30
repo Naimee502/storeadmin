@@ -128,55 +128,7 @@ type ColorKey =
   | 'tabBarBg' | 'tabBarBorder' | 'tabBarActive' | 'tabBarInactive' | 'tabBarPill'
   | 'categoryLabel';
 type GradientKey = 'appGradient' | 'darkGradient';
-type BrandOverride = {
-  light: Partial<Record<ColorKey, string> & Record<GradientKey, string[]>>;
-  dark: Partial<Record<ColorKey, string> & Record<GradientKey, string[]>>;
-};
-
-export const BRAND_OVERRIDES: Record<string, BrandOverride> = {
-  '#ADM0001': {
-    light: {
-      brand: '#000000',
-      brandDark: '#000000',
-      brandLight: '#000000',
-      brandSoft: '#EDEDED',
-      brandSoftAlt: '#F7F7F7',      // was #F0FDF4 (green tint)
-      brandOverlay: 'rgba(0,0,0,0.16)',
-      softSurface: '#F5F5F5',       // was #F4F8F2 (green tint)
-      appGradient: ['#F7F7F7', '#FAFAFA', '#FFFFFF'],   // was ['#F8FFF4', ...]
-      darkGradient: ['#0A0A0A', '#101010', '#000000'],  // was ['#07110C', ...]
-      heroOverlay: 'rgba(0,0,0,0.5)',      // was rgba(9,35,18,0.5)
-      modalOverlay: 'rgba(0,0,0,0.56)',    // was rgba(7,17,12,0.56)
-      // Solid black bottom bar. Its contents cannot use `brand` (black on
-      // black), so every icon and label is pure white — active AND inactive.
-      // With both states the same colour, the selected tab is told apart by
-      // the pill background, the indicator bar and the bolder label instead.
-      tabBarBg: '#000000',
-      tabBarBorder: 'rgba(255,255,255,0.12)',
-      tabBarActive: '#FFFFFF',
-      tabBarInactive: '#FFFFFF',
-      tabBarPill: 'rgba(255,255,255,0.14)',
-      // Category names read black rather than grey. Dark mode flips to white
-      // for the same reason the brand does — black on a black page is invisible.
-      categoryLabel: '#000000',
-    },
-    dark: {
-      brand: '#FFFFFF',
-      brandDark: '#000000',
-      brandLight: '#000000',
-      brandSoft: 'rgba(255,255,255,0.06)',
-      brandSoftAlt: 'rgba(255,255,255,0.06)',
-      brandOverlay: 'rgba(0,0,0,0.20)',
-      appGradient: ['#0A0A0A', '#101010', '#000000'],   // was ['#07110C', ...]
-      darkGradient: ['#0A0A0A', '#101010', '#000000'],
-      heroOverlay: 'rgba(0,0,0,0.5)',      // was rgba(9,35,18,0.5)
-      // Same solid black bar in dark mode, so the bar looks identical in both.
-      tabBarBg: '#000000',
-      tabBarBorder: 'rgba(255,255,255,0.12)',
-      tabBarActive: '#FFFFFF',
-      tabBarInactive: '#FFFFFF',
-      tabBarPill: 'rgba(255,255,255,0.14)',
-      categoryLabel: '#FFFFFF',
-    },
-  },
-};
+// Brand colours are no longer listed here. A business picks one colour in the
+// web panel (Settings → General → Theme Colour) and config/brandtheme.ts
+// derives every brand token from it — see useTheme. What is left in this file
+// is the default palette that a business with no colour set still gets.

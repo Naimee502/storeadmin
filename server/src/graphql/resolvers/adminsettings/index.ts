@@ -88,6 +88,7 @@ export const adminSettingsResolvers = {
         websiteTermsContent: settings.websiteTermsContent || "",
         websiteTagline: settings.websiteTagline || "",
         brandLogo: settings.brandLogo || "",
+        themeBrandColor: settings.themeBrandColor || "",
 
         socialFacebookUrl: settings.socialFacebookUrl || "",
         socialInstagramUrl: settings.socialInstagramUrl || "",

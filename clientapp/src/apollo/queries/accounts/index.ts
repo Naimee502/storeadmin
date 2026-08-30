@@ -436,6 +436,7 @@ export const GET_ADMIN_SETTINGS = gql`
       privacyPolicyUrl
       termsConditionsUrl
       brandLogo
+      themeBrandColor
       heroBannerSlides {
         image
         title

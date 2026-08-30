@@ -4,6 +4,7 @@ export { IMAGES } from './image';
 export { COLORS } from './colors';
 export { STRINGS } from './strings';
 export { useTheme } from './theme';
+export { buildBrandTokens } from './brandtheme';
 export * from './constants';
 export * from './skeletonlayouts';
 export * from './apiconfig';

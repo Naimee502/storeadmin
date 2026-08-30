@@ -261,6 +261,17 @@ const adminSettingsSchema = new mongoose.Schema(
     // a business that has not uploaded one.
     brandLogo: { type: String, default: "" },
 
+    // The business's primary brand colour, as a #rrggbb hex.
+    //
+    // One colour, not a palette: the website and the app each build their own
+    // full ramp from it (tints, hover states, gradients, the app's tab bar) so
+    // an admin picks once and every surface follows. This replaced a table of
+    // hand-written palettes keyed by business code, which meant a new business
+    // wanting its own colours needed a code change and a deploy.
+    //
+    // Blank = the built-in green/teal, exactly as before.
+    themeBrandColor: { type: String, default: "" },
+
     /* ============================================================
        SOCIAL LINKS — website footer only shows an icon for a network
        once its URL is filled in here. No dummy/placeholder icons.

@@ -87,6 +87,7 @@ export default function AdminSetup() {
       // has the business's logo, instead of drawing the generic badge for a
       // frame while its own settings query lands.
       let logoUrl: string | null = null;
+      let primaryColor: string | null = null;
       try {
         const { data: settingsData } = await apolloClient.query({
           query: GET_ADMIN_SETTINGS,
@@ -94,13 +95,14 @@ export default function AdminSetup() {
           fetchPolicy: 'network-only',
         });
         logoUrl = (settingsData as any)?.getAdminSettings?.brandLogo || null;
-      } catch { /* logo is decoration; activation must not fail over it */ }
+        primaryColor = (settingsData as any)?.getAdminSettings?.themeBrandColor || null;
+      } catch { /* branding is decoration; activation must not fail over it */ }
 
       dispatch(setTenant({
         adminId: admin.id,
         companyName,
         logoUrl,
-        primaryColor: null,
+        primaryColor,
         tagline: null,
         branchId,
         businessCode: normalized,

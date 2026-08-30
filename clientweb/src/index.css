@@ -36,16 +36,18 @@
    Scoped to those two subtrees on purpose. These palette variables also paint
    body copy, borders and the header strip across the rest of the site, and
    redefining them here means the cascade rethemes only these blocks. The brand
-   ramp itself is swapped separately, on :root, from config/brandoverrides.ts. */
-[data-brand="adm0001"] footer,
-[data-brand="adm0001"] [data-newsletter],
-[data-brand="adm0001"] [data-statsbar] {
-  --color-ink-900: #000000;   /* was #0f172a — dark ground / gradient start */
-  --color-ink-800: #1a1a1a;   /* was #1e293b — gradient end, keeps the fade */
-  --color-slate-200: #e5e5e5; /* was #e2e8f0 — stat labels                  */
-  --color-slate-300: #d4d4d4; /* was #cbd5e1 — body text                    */
-  --color-slate-400: #a3a3a3; /* was #94a3b8 — links, meta, placeholder     */
-  --color-slate-500: #737373; /* was #64748b — muted/legal                  */
+   ramp itself is swapped separately, on :root, by config/brandtheme.ts, which
+   also computes the six variables below from the admin's brand colour. With no
+   colour set the attribute is absent and none of this applies. */
+[data-brand="custom"] footer,
+[data-brand="custom"] [data-newsletter],
+[data-brand="custom"] [data-statsbar] {
+  --color-ink-900: var(--brand-ink-900);      /* dark ground / gradient start */
+  --color-ink-800: var(--brand-ink-800);      /* gradient end, keeps the fade */
+  --color-slate-200: var(--brand-slate-200);  /* stat labels                  */
+  --color-slate-300: var(--brand-slate-300);  /* body text                    */
+  --color-slate-400: var(--brand-slate-400);  /* links, meta, placeholder     */
+  --color-slate-500: var(--brand-slate-500);  /* muted / legal                */
 }
 
 :root {

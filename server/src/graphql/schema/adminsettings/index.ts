@@ -132,6 +132,10 @@ export const adminSettingsTypeDefs = gql`
     # Uploaded business logo. Blank = the surface draws its lettered avatar.
     brandLogo: String
 
+    # Primary brand colour (#rrggbb). The website and app each build their own
+    # full palette from it. Blank = the built-in green/teal.
+    themeBrandColor: String
+
     # Social links — footer only shows an icon once a URL is set here.
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -190,6 +194,7 @@ export const adminSettingsTypeDefs = gql`
     websiteTermsContent: String
     websiteTagline: String
     brandLogo: String
+    themeBrandColor: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -285,6 +290,7 @@ export const adminSettingsTypeDefs = gql`
     websiteTermsContent: String
     websiteTagline: String
     brandLogo: String
+    themeBrandColor: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String

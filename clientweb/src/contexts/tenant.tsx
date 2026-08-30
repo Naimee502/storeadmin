@@ -2,7 +2,7 @@ import { createContext, useContext, useLayoutEffect, type ReactNode } from "reac
 import { useQuery } from "@apollo/client";
 import { GET_STOREFRONT_BY_SLUG } from "../graphql/queries/storefront";
 import { GET_ADMIN_BY_ID } from "../graphql/queries/accounts";
-import { applyBrandOverride } from "../config/brandoverrides";
+import { applyBrandTheme } from "../config/brandtheme";
 
 interface TenantContextValue {
   storeSlug: string;
@@ -41,6 +41,9 @@ interface TenantContextValue {
    */
   brandLogo: string;
 
+  /** Primary brand colour (#rrggbb). Empty = the built-in green/teal. */
+  themeBrandColor: string;
+
   socialFacebookUrl: string;
   socialInstagramUrl: string;
   socialTwitterUrl: string;
@@ -76,19 +79,23 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
   const info = data?.getStorefrontByStoreSlug;
   const notFound = !loading && (!!error || !info);
 
-  // The storefront record has no business code on it, so resolve it from the
-  // admin the slug pointed at. Skipped until adminid is known; folded into
-  // `loading` below so MainLayout keeps the loader up until the brand colours
-  // are settled — otherwise a black-brand store flashes teal on first paint.
+  // The business code is still surfaced for callers that want it, but the brand
+  // no longer depends on it: colours come from the storefront record itself now
+  // (Settings → General → Theme Colour), so a new business picks its own
+  // without a code change.
   const { data: adminData, loading: adminLoading } = useQuery(GET_ADMIN_BY_ID, {
     variables: { id: info?.adminid },
     skip: !info?.adminid,
   });
   const adminCode: string | null = adminData?.getAdminById?.admincode ?? null;
 
+  // useLayoutEffect, not useEffect: this must land before the browser paints,
+  // or a black-brand store flashes teal for a frame. `loading` below keeps the
+  // loader up until the storefront record has arrived at all.
+  const themeBrandColor: string = info?.themeBrandColor ?? "";
   useLayoutEffect(() => {
-    applyBrandOverride(adminCode);
-  }, [adminCode]);
+    applyBrandTheme(themeBrandColor);
+  }, [themeBrandColor]);
 
   if (error) {
     // Surface the real cause in the console — "Store not found" on screen looks
@@ -122,6 +129,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     websiteTermsContent: info?.websiteTermsContent ?? "",
     websiteTagline: info?.websiteTagline ?? "",
     brandLogo: info?.brandLogo ?? "",
+    themeBrandColor: info?.themeBrandColor ?? "",
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",

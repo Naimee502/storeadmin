@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useQuery } from '@apollo/client/react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { GET_ADMIN_SETTINGS } from '../../queries/accounts';
+import { setBranding } from '../../../store/slices';
 import type { RootState } from '../../../store/rootreducer';
 
 // Whether product prices (price, MRP, discount, cart/order totals) should be
@@ -97,4 +99,36 @@ export function useBrandLogo(): string {
     fetchPolicy: 'cache-and-network',
   });
   return (data as any)?.getAdminSettings?.brandLogo || storedLogo || '';
+}
+
+/**
+ * Keeps the stored branding in step with the web panel.
+ *
+ * Logo and theme colour are read once when a business is activated, so the
+ * first screen is already wearing them rather than repainting a frame later.
+ * That snapshot then goes stale the moment the admin changes either one, so
+ * this runs high in the tree and writes any change back to the tenant slice —
+ * which is what useTheme reads.
+ */
+export function useBrandingSync() {
+  const dispatch = useDispatch();
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const storedLogo = useSelector((s: RootState) => s.tenant.logoUrl) ?? null;
+  const storedColor = useSelector((s: RootState) => s.tenant.primaryColor) ?? null;
+
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const settings = (data as any)?.getAdminSettings;
+
+  useEffect(() => {
+    if (!settings) return;
+    const logoUrl = settings.brandLogo || null;
+    const primaryColor = settings.themeBrandColor || null;
+    if (logoUrl === storedLogo && primaryColor === storedColor) return;
+    dispatch(setBranding({ logoUrl, primaryColor }));
+  }, [settings, storedLogo, storedColor, dispatch]);
 }

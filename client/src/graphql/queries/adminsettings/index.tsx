@@ -66,6 +66,7 @@ const SETTINGS_FIELDS = `
   websiteTermsContent
   websiteTagline
   brandLogo
+  themeBrandColor
   socialFacebookUrl
   socialInstagramUrl
   socialTwitterUrl

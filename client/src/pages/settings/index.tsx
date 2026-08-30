@@ -249,6 +249,9 @@ export default Settings;
    into the multi-tenant Business Settings screen.
    ===================================================================== */
 
+/** The built-in brand colour, shown as the placeholder when none is set. */
+const DEFAULT_BRAND_COLOR = "#0F766E";
+
 const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, dispatch }) => {
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
@@ -473,6 +476,40 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             onChange={(e: any) => set("socialLinkedinUrl", e.target.value)}
           />
 
+          {/* One colour, and the website and app each build their own full
+              palette from it — tints, hover states, gradients, the app's tab
+              bar. This replaced a table of palettes hand-written per business
+              code, which meant new colours needed a deploy. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">Theme Colour</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                aria-label="Theme colour"
+                value={draft.themeBrandColor || DEFAULT_BRAND_COLOR}
+                onChange={(e) => set("themeBrandColor", e.target.value.toUpperCase())}
+                className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-gray-300 bg-white p-0.5"
+              />
+              <input
+                type="text"
+                value={draft.themeBrandColor ?? ""}
+                onChange={(e) => set("themeBrandColor", e.target.value.toUpperCase())}
+                placeholder={`${DEFAULT_BRAND_COLOR} (default)`}
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              />
+              {draft.themeBrandColor ? (
+                <button
+                  type="button"
+                  title="Back to the default colour"
+                  onClick={() => set("themeBrandColor", "")}
+                  className="shrink-0 rounded-lg border border-gray-300 px-2 py-2 text-xs text-gray-500 hover:border-gray-400"
+                >
+                  Reset
+                </button>
+              ) : null}
+            </div>
+          </div>
+
           {/* Sits in the same grid as the fields above so it takes one cell,
               not a section of its own. The thumbnail is inline beside the
               picker rather than under a "Preview" label — at 32px it costs no
@@ -524,6 +561,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           Footer tagline: leave blank to keep the default line. Social links: the footer only shows an icon once a URL is filled in here.
           Business logo: shown on the website header, footer and login page, and on the app's login screen — leave it empty to keep the first letter of your business name.
           A wide or square PNG works; transparent backgrounds are fine, but avoid a logo that is entirely white, since it sits on a white plate.
+          Theme colour: one colour drives the whole palette on your website and app — leave it blank (or press Reset) to keep the default green.
         </p>
       </Section>
 

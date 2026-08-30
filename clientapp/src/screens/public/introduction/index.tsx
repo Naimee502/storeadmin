@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Dimensions,
+  View, Text, StyleSheet, FlatList, Dimensions, Image,
   TouchableOpacity, SafeAreaView, StatusBar, DimensionValue,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -11,6 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store/rootreducer';
 import { useAuth } from '../../../navigation';
 
 const { width, height } = Dimensions.get('window');
@@ -200,6 +202,13 @@ const Introduction = () => {
 
   const steps = STRINGS.onboarding.steps;
 
+  // The business is already activated by the time this screen runs, so the
+  // onboarding can say whose app this is instead of being anonymous.
+  const companyName = useSelector((s: RootState) => s.tenant.companyName);
+  const brandLogo = useSelector((s: RootState) => s.tenant.logoUrl);
+  // 'My Business' is the slice's placeholder for "nothing activated yet".
+  const businessName = companyName && companyName !== 'My Business' ? companyName : '';
+
   const handleNext = () => {
     if (currentIndex < steps.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
@@ -228,7 +237,19 @@ const Introduction = () => {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }} />
+          <View style={styles.brandRow}>
+            {brandLogo ? (
+              <Image source={{ uri: brandLogo }} style={styles.brandLogo} resizeMode="contain" />
+            ) : null}
+            {businessName ? (
+              <Text
+                numberOfLines={1}
+                style={[styles.brandName, { color: colors.text }]}
+              >
+                {businessName}
+              </Text>
+            ) : null}
+          </View>
           {currentIndex < steps.length - 1 && (
             <TouchableOpacity
               onPress={finishIntro}
@@ -316,6 +337,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   textContainer: { marginTop: 20, alignItems: 'center' },
+  brandRow:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
+  brandLogo:   { width: 28, height: 28, borderRadius: 8, backgroundColor: '#FFFFFF' },
+  brandName:   { flexShrink: 1, fontSize: 15, fontFamily: FONTS.bold },
   title:       { fontSize: 28, fontFamily: FONTS.bold, textAlign: 'center', marginBottom: 15, lineHeight: 34 },
   description: { fontSize: 16, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 24, paddingHorizontal: 10 },
   footer:      { paddingBottom: 30, paddingHorizontal: 25 },
