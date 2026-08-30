@@ -242,3 +242,20 @@ export const MASTER_LABELS: Record<MasterKey, string> = {
   units: "Unit",
   ledgers: "Account Ledger",
 };
+
+/**
+ * Field key (or permission id) → the header the user actually sees.
+ *
+ * Validators and the server name a field by its payload key ("baseunitid",
+ * "salesaccount"), but an error report has to point at "Base Unit" / "Sales
+ * Account" — that is what the column is called in the workbook, and what the
+ * corrected-file writer matches on to colour the offending cell. Without this
+ * the message lands in the _Errors column and the cell itself stays unmarked.
+ */
+export const headerForField = (sheet: SheetId, field: string): string | undefined => {
+  const columns = ALL_COLUMNS.filter((c) => c.sheet === sheet);
+  const match =
+    columns.find((c) => c.key === field) ??
+    columns.find((c) => c.permissionId === field);
+  return match?.header;
+};

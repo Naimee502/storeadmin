@@ -14,6 +14,14 @@ import { manageStock } from "../../../utils/stockmanager";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
 import { validateProductInput } from "../../../utils/productvalidation";
 
+/** Which tab of the import workbook each kind of issue belongs to. */
+const SHEET_FOR_SCOPE: Record<string, string> = {
+  product: "Products",
+  variant: "Variants",
+  unitconversion: "UnitConversions",
+  unitprice: "UnitPrices",
+};
+
 /** Hard ceiling per call, so this endpoint can't be used to hammer the database. */
 const MAX_IMPORT_ROWS = 2000;
 
@@ -98,7 +106,7 @@ const normaliseProduct = (
   adminid: Types.ObjectId,
   branchid: Types.ObjectId,
   owned: Record<string, Set<string>>,
-  issues: { field: string; message: string }[]
+  issues: { field: string; message: string; sheet: string }[]
 ) => {
   const normalised: any = { ...product };
 
@@ -115,7 +123,11 @@ const normaliseProduct = (
         continue;
       }
       if (!owned[setKey]?.has(String(id))) {
-        issues.push({ field: path, message: `${label} does not belong to this business.` });
+        issues.push({
+          field: path,
+          message: `${label} does not belong to this business.`,
+          sheet: "Products",
+        });
         normalised[path] = null;
         continue;
       }
@@ -125,7 +137,11 @@ const normaliseProduct = (
 
   const badUnit = collectUnitIds(product).find((id) => !owned.Unit.has(id));
   if (badUnit) {
-    issues.push({ field: "unitid", message: "A unit in this row does not belong to this business." });
+    issues.push({
+      field: "unitid",
+      message: "A unit in this row does not belong to this business.",
+      sheet: "Variants",
+    });
   }
 
   normalised.productvariants = (product?.productvariants || []).map((variant: any) => ({
@@ -241,12 +257,21 @@ export const productImportResolvers = {
 
       for (let i = 0; i < products.length; i++) {
         const ref = refs[i] || products[i]?.name || `Row ${i + 1}`;
-        const rowIssues: { field: string; message: string }[] = [];
+        // `sheet` travels with the issue so the review table and the
+        // corrected-file writer put it on the right tab. The server cannot
+        // know the spreadsheet ROW — it only ever sees assembled products —
+        // so it never guesses one; the client fills that in for the issues it
+        // found itself.
+        const rowIssues: { field: string; message: string; sheet: string }[] = [];
 
         const normalised = normaliseProduct(products[i], adminid, branchid, owned, rowIssues);
 
         for (const issue of validateProductInput(normalised, permissions)) {
-          rowIssues.push({ field: issue.field, message: issue.message });
+          rowIssues.push({
+            field: issue.field,
+            message: issue.message,
+            sheet: SHEET_FOR_SCOPE[issue.scope],
+          });
         }
 
         // Does this product already exist for this tenant?
@@ -268,12 +293,22 @@ export const productImportResolvers = {
           rowIssues.push({
             field: "productcode",
             message: `Product code ${productCode} already exists. Switch to "Update existing" to overwrite it.`,
+            sheet: "Variants",
           });
         }
 
         if (rowIssues.length) {
           rowIssues.forEach((issue) =>
-            errors.push({ ref, sheet: null, row: i + 1, field: issue.field, message: issue.message })
+            errors.push({
+              ref,
+              sheet: issue.sheet,
+              // `i` is the product's position in the payload, not a row in the
+              // user's file. Reporting it as a row sent them to an unrelated
+              // line and coloured the wrong cell in the corrected workbook.
+              row: null,
+              field: issue.field,
+              message: issue.message,
+            })
           );
           continue;
         }

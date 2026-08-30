@@ -4,6 +4,7 @@ import {
   MASTER_LABELS,
   META_SHEET,
   SHEET_ORDER,
+  headerForField,
   type ColumnDef,
   type MasterKey,
   type SheetId,
@@ -651,14 +652,19 @@ const mapIssueToRow = (
 ): RowError => {
   const base = { value: "", ref, message: issue.message };
 
+  // The validator names fields by payload key ("baseunitid"); the workbook
+  // calls that column "Base Unit". buildErrorWorkbook matches on the header,
+  // so without the translation the cell is never highlighted.
+  const columnFor = (sheet: SheetId) => headerForField(sheet, issue.field) ?? issue.field;
+
   if (issue.scope === "product") {
-    return { ...base, sheet: "Products", row: productRow.row, column: issue.field };
+    return { ...base, sheet: "Products", row: productRow.row, column: columnFor("Products") };
   }
 
   const variantRow = issue.variantIndex !== undefined ? variantRows[issue.variantIndex] : undefined;
 
   if (issue.scope === "variant") {
-    return { ...base, sheet: "Variants", row: variantRow?.row ?? null, column: issue.field };
+    return { ...base, sheet: "Variants", row: variantRow?.row ?? null, column: columnFor("Variants") };
   }
 
   const sheetId: SheetId = issue.scope === "unitprice" ? "UnitPrices" : "UnitConversions";
@@ -669,7 +675,7 @@ const mapIssueToRow = (
   );
   const target = issue.rowIndex !== undefined ? childRows[issue.rowIndex] : undefined;
 
-  return { ...base, sheet: sheetId, row: target?.row ?? null, column: issue.field };
+  return { ...base, sheet: sheetId, row: target?.row ?? null, column: columnFor(sheetId) };
 };
 
 /* ------------------------------------------------------------------ *

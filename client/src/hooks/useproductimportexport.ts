@@ -25,7 +25,7 @@ import {
   uploadImportImages,
   type UploadProgress,
 } from "../utils/excel/importimages";
-import { PRODUCT_FORM_FIELD_IDS } from "../utils/excel/productschema";
+import { PRODUCT_FORM_FIELD_IDS, headerForField, type SheetId } from "../utils/excel/productschema";
 import type { ImportMode, ImportStage, ImportSummary } from "../components/importdialog";
 
 /**
@@ -238,14 +238,22 @@ export const useProductImportExport = (products: any[]) => {
           dryRun: true,
         });
 
-        const serverErrors: RowError[] = (dry?.errors ?? []).map((e: any) => ({
-          sheet: (e.sheet as any) ?? "Products",
-          row: e.row ?? null,
-          column: e.field ?? null,
-          value: "",
-          ref: e.ref ?? undefined,
-          message: e.message,
-        }));
+        // The server knows which sheet an issue belongs to but not which row
+        // of it — it never sees the workbook, only the assembled products. So
+        // take its sheet, leave the row blank rather than guess (a guessed row
+        // number paints the wrong cell in the corrected file), and translate
+        // its field key into the header the user sees.
+        const serverErrors: RowError[] = (dry?.errors ?? []).map((e: any) => {
+          const sheet = ((e.sheet as SheetId) ?? "Products") as SheetId;
+          return {
+            sheet,
+            row: e.row ?? null,
+            column: e.field ? headerForField(sheet, e.field) ?? e.field : null,
+            value: "",
+            ref: e.ref ?? undefined,
+            message: e.message,
+          };
+        });
 
         // Client errors first — they carry the exact cell coordinates.
         const seen = new Set(parsed.errors.map((e) => `${e.ref}|${e.message}`));
