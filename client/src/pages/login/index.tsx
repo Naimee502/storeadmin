@@ -152,6 +152,31 @@ const Login = () => {
         navigate("/home");
       }
     } catch (err: any) {
+      // The server rejects an unsubscribed admin before returning any data, so
+      // the in-flow `navigate("/subscription")` above never runs. Route on the
+      // error code the resolver attaches instead.
+      const gqlError = err?.graphQLErrors?.[0];
+      const code = gqlError?.extensions?.code || err?.extensions?.code || "";
+      const message = (gqlError?.message || err?.message || "").toLowerCase();
+
+      // Message fallback: older server builds throw a plain Error with no
+      // extensions.code, so match on the text too.
+      const underReview =
+        code === "SUBSCRIPTION_UNDER_REVIEW" || message.includes("under review");
+      const rejected =
+        code === "SUBSCRIPTION_REJECTED" || message.includes("was rejected");
+      const needsSubscription =
+        code === "SUBSCRIPTION_REQUIRED" || message.includes("subscription required");
+
+      if (!underReview && (needsSubscription || rejected)) {
+        return navigate("/subscription", {
+          state: {
+            email: gqlError?.extensions?.email || email,
+            rejected,
+          },
+        });
+      }
+
       setInvalidCredentialError(err?.message || "Login failed. Try again.");
     }
   };

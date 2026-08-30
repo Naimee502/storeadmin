@@ -18,6 +18,7 @@ import {
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
+import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -83,6 +84,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const isModuleAllowed = (moduleId: string) => {
     const mid = moduleId.toLowerCase();
     const includes = (arr: string[]) => arr.map((m: any) => m.toString().toLowerCase()).includes(mid);
+
+    // 0. Default-on system modules (e.g. "branches") bypass the business-level
+    // allowedmodules gate: they are never offered in the Admin Register module
+    // checklist, so a freshly registered admin's allowedmodules can never
+    // contain them. Branch/staff level restrictions below still apply.
+    if (DEFAULT_ON_MODULE_IDS.map((m) => m.toLowerCase()).includes(mid)) return true;
 
     // 1. Business Level (SaaS) — Mandatory check for all roles.
     // The Business Settings "Allowed Modules" checklist is authoritative: a

@@ -1,6 +1,7 @@
 import { Admin } from "../../../models/admin";
 import { Channel } from "../../../models/channel";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { ApolloError } from "apollo-server-express";
 
 export const adminResolvers = {
   Query: {
@@ -162,13 +163,28 @@ export const adminResolvers = {
         throw new Error("Invalid credentials");
       }
 
+      // Carry a machine-readable code so the client can route the admin to the
+      // right screen (e.g. redirect to /subscription) instead of only printing
+      // the message on the login form.
       if (!admin.subscribed) {
         if (admin.needsReview) {
-          throw new Error("Subscription request is under review.");
+          throw new ApolloError(
+            "Subscription request is under review.",
+            "SUBSCRIPTION_UNDER_REVIEW",
+            { email: admin.email }
+          );
         } else if (admin.rejected) {
-          throw new Error("Subscription request was rejected.");
+          throw new ApolloError(
+            "Subscription request was rejected. Please resubmit.",
+            "SUBSCRIPTION_REJECTED",
+            { email: admin.email }
+          );
         }
-        throw new Error("Subscription required.");
+        throw new ApolloError(
+          "Subscription required.",
+          "SUBSCRIPTION_REQUIRED",
+          { email: admin.email }
+        );
       }
 
       const { accessToken, refreshToken } = generateTokens({

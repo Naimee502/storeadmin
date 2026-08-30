@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import LoginLayout from "../../layouts/login";
 import Button from "../../components/button";
 import FormField from "../../components/formfiled";
@@ -8,9 +8,14 @@ import { useConfirmSubscriptionMutation } from "../../graphql/hooks/admin";
 
 const Subscription = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [confirmSubscription] = useConfirmSubscriptionMutation();
 
-  const [email, setEmail] = useState("");
+  // Login redirects here with the admin's email (and whether an earlier request
+  // was rejected) when the account exists but has no active subscription.
+  const redirectState = (location.state || {}) as { email?: string; rejected?: boolean };
+
+  const [email, setEmail] = useState(redirectState.email || "");
   const [transactionId, setTransactionId] = useState("");
   const [subscriptionType, setSubscriptionType] = useState("monthly");
 
