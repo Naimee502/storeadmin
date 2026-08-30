@@ -57,6 +57,12 @@ interface TenantContextValue {
   dealOfDaySubtitle: string;
   dealOfDayItems: { productid: string; unitid: string | null }[];
 
+  /**
+   * Whether the two category tiles sit beside the Home page hero. False makes
+   * the hero span the full width instead.
+   */
+  heroBannerShowCategoryTiles: boolean;
+
   heroBannerSlides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
   promoBanners: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
 
@@ -144,6 +150,9 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     dealOfDaySubtitle: info?.dealOfDaySubtitle ?? "",
     dealOfDayItems: info?.dealOfDayItems ?? [],
 
+    // Defaults to on — the tiles are what every storefront showed before the
+    // switch existed, so an unset value has to keep meaning "show them".
+    heroBannerShowCategoryTiles: info?.heroBannerShowCategoryTiles !== false,
     heroBannerSlides: info?.heroBannerSlides ?? [],
     promoBanners: info?.promoBanners ?? [],
 

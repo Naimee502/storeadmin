@@ -154,6 +154,7 @@ export const adminSettingsTypeDefs = gql`
     dealOfDayItems: [ProductPickItem!]
 
     # Hero banner — admin-managed list of Home page carousel slides.
+    heroBannerShowCategoryTiles: Boolean
     heroBannerSlides: [HeroBannerSlide!]
 
     # Promo tiles between Featured Products and New Arrivals.
@@ -209,6 +210,7 @@ export const adminSettingsTypeDefs = gql`
     dealOfDaySubtitle: String
     dealOfDayItems: [ProductPickItem!]
 
+    heroBannerShowCategoryTiles: Boolean
     heroBannerSlides: [HeroBannerSlide!]
     promoBanners: [HeroBannerSlide!]
 
@@ -305,6 +307,7 @@ export const adminSettingsTypeDefs = gql`
     dealOfDaySubtitle: String
     dealOfDayItems: [ProductPickItemInput!]
 
+    heroBannerShowCategoryTiles: Boolean
     heroBannerSlides: [HeroBannerSlideInput!]
     promoBanners: [HeroBannerSlideInput!]
 

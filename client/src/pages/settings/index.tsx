@@ -651,6 +651,12 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         <div className="text-xs text-gray-400 mb-1 px-1">
           Manage your own Home page banner slides — add as many as you like, edit or remove any of them. Leave empty to keep the automatic banner built from your categories instead.
         </div>
+        <Toggle
+          label="Show the two category tiles beside the banner — turn this off and the banner takes the full width"
+          checked={draft.heroBannerShowCategoryTiles !== false}
+          onChange={(v: boolean) => set("heroBannerShowCategoryTiles", v)}
+        />
+        <div className="pt-2" />
         <HeroBannerSlidesEditor
           slides={draft.heroBannerSlides ?? []}
           onChange={(slides) => set("heroBannerSlides", slides)}

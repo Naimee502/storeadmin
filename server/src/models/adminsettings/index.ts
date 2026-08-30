@@ -329,6 +329,12 @@ const adminSettingsSchema = new mongoose.Schema(
        (image + copy, add/edit/remove any number of them). Empty list
        keeps the automatic catalog-driven slides instead.
        ============================================================ */
+    // The two category tiles beside the Home page hero. Off means the hero
+    // takes the full width instead — some businesses run one wide banner and
+    // do not want their catalogue advertised next to it. Default true, so
+    // nothing changes for anyone who never touches the switch.
+    heroBannerShowCategoryTiles: { type: Boolean, default: true },
+
     heroBannerSlides: {
       type: [
         {

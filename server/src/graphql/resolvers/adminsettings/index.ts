@@ -103,6 +103,7 @@ export const adminSettingsResolvers = {
         dealOfDaySubtitle: settings.dealOfDaySubtitle || "",
         dealOfDayItems: mapPickItems(settings.dealOfDayItems),
 
+        heroBannerShowCategoryTiles: settings.heroBannerShowCategoryTiles !== false,
         heroBannerSlides: mapSlides(settings.heroBannerSlides),
         promoBanners: mapSlides(settings.promoBanners),
 

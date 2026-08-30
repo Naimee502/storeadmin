@@ -22,7 +22,7 @@ export interface HeroSlideOverride {
 // from the admin panel, just like a normal ecommerce banner manager.
 // Leave it empty and the catalog-driven default slides below are used.
 export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSlideOverride[] }) {
-  const { companyName } = useTenant();
+  const { companyName, heroBannerShowCategoryTiles } = useTenant();
   const brandName = companyName || siteConfig.name;
   const { categories, products } = useCatalog();
   const [active, setActive] = useState(0);
@@ -101,14 +101,19 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
   }, [slides.length]);
 
   const slide = slides[active] ?? slides[0];
-  const promoTiles = categories.slice(0, 2);
+  // Admin panel → Settings → General → Hero Banner. Off means the banner runs
+  // edge to edge instead of leaving a third of the row to the catalogue.
+  const promoTiles = heroBannerShowCategoryTiles ? categories.slice(0, 2) : [];
+  const hasTiles = promoTiles.length > 0;
 
   return (
     <section className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className={`grid gap-4 ${hasTiles ? "lg:grid-cols-3" : ""}`}>
         {/* Main carousel */}
         <div
-          className={`relative col-span-2 flex min-h-[280px] flex-col justify-center overflow-hidden rounded-2xl p-8 text-white transition-colors duration-500 sm:min-h-[340px] sm:p-12 ${
+          className={`relative flex min-h-[280px] flex-col justify-center overflow-hidden rounded-2xl p-8 text-white transition-colors duration-500 sm:min-h-[340px] sm:p-12 ${
+            hasTiles ? "lg:col-span-2" : ""
+          } ${
             slide.image ? "bg-cover bg-center" : `bg-gradient-to-br ${slide.gradFrom} ${slide.gradTo}`
           }`}
           style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}

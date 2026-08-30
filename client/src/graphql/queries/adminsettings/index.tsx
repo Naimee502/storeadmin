@@ -86,6 +86,8 @@ const SETTINGS_FIELDS = `
     productid
     unitid
   }
+  heroBannerShowCategoryTiles
+  heroBannerShowCategoryTiles
   heroBannerSlides {
     image
     title
