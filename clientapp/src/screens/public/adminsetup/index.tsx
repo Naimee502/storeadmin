@@ -14,6 +14,7 @@ import { useAuth } from '../../../navigation';
 import { setTenant } from '../../../store/slices';
 import { GET_ADMIN_BY_CODE } from '../../../apollo/queries/admin';
 import { GET_BRANCHES } from '../../../apollo/queries/branches';
+import { GET_ADMIN_SETTINGS } from '../../../apollo/queries/accounts';
 import { AppLoader } from '../../../components';
 
 export default function AdminSetup() {
@@ -82,10 +83,23 @@ export default function AdminSetup() {
         branchId = (branches.find((b: any) => b.status !== false) ?? branches[0])?.id ?? null;
       } catch { /* branch fetch optional */ }
 
+      // Fetched here so the login screen — the very next thing shown — already
+      // has the business's logo, instead of drawing the generic badge for a
+      // frame while its own settings query lands.
+      let logoUrl: string | null = null;
+      try {
+        const { data: settingsData } = await apolloClient.query({
+          query: GET_ADMIN_SETTINGS,
+          variables: { adminid: admin.id },
+          fetchPolicy: 'network-only',
+        });
+        logoUrl = (settingsData as any)?.getAdminSettings?.brandLogo || null;
+      } catch { /* logo is decoration; activation must not fail over it */ }
+
       dispatch(setTenant({
         adminId: admin.id,
         companyName,
-        logoUrl: null,
+        logoUrl,
         primaryColor: null,
         tagline: null,
         branchId,

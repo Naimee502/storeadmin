@@ -33,7 +33,7 @@ export default function Header() {
   const { count } = useCart();
   const { isLoggedIn, account, logout } = useAuth();
   const navigate = useNavigate();
-  const { companyName, supportPhone, supportEmail } = useTenant();
+  const { companyName, supportPhone, supportEmail, brandLogo } = useTenant();
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.
@@ -97,9 +97,24 @@ export default function Header() {
           </button>
 
           <Link to="/" className="flex shrink-0 items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-700 font-bold text-white">
-              {brandName[0]?.toUpperCase() ?? "R"}
-            </span>
+            {/* The business's uploaded logo when there is one; the lettered
+                avatar is the fallback, not the default. */}
+            {/* Height is fixed and width is free, because most business logos
+                are wider than they are tall — forcing one into a 36px square
+                shrank it until the wordmark was unreadable. The hairline ring
+                marks where the logo ends, which matters when someone uploads
+                one on a white or transparent background. */}
+            {brandLogo ? (
+              <img
+                src={brandLogo}
+                alt={brandName}
+                className="h-9 w-auto max-w-[150px] shrink-0 rounded-lg bg-white object-contain ring-1 ring-black/10"
+              />
+            ) : (
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-700 font-bold text-white">
+                {brandName[0]?.toUpperCase() ?? "R"}
+              </span>
+            )}
             <span className="text-xl font-extrabold tracking-tight text-ink-900">
               {brandName}
             </span>

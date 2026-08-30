@@ -435,6 +435,7 @@ export const GET_ADMIN_SETTINGS = gql`
       supportWhatsapp
       privacyPolicyUrl
       termsConditionsUrl
+      brandLogo
       heroBannerSlides {
         image
         title

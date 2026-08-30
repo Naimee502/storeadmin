@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -98,12 +98,24 @@ const AddEditProductService = () => {
 
   const { data: productData } = useProductServiceByIDQuery(id || "");
   const { addProductServiceMutation, updateProductServiceMutation } = useProductServiceMutations();
-  const { uploadImageMutation } = useImageUpload();
+  const { uploadImageMutation, deleteImages } = useImageUpload();
   // Full image gallery — each item is either an already-uploaded URL (from
   // edit mode) or a freshly picked File (blob preview, uploaded on Save,
   // same upload-on-save pattern used by Hero Banner slides). imageurl is
   // kept in sync as galleryImages[0] for older single-image consumers.
   const [galleryImages, setGalleryImages] = useState<{ url: string; file?: File }[]>([]);
+
+  // Images the product already had when the form opened. Anything in here that
+  // is not in the saved payload has been removed or replaced by the user, and
+  // its file on the server is now unreachable — so it is deleted once the save
+  // succeeds. Held in a ref rather than state: it must not re-render anything,
+  // and it must survive every edit the user makes to the gallery.
+  const originalImageUrls = useRef<string[]>([]);
+
+  // Files uploaded during the current save attempt. If the save then fails,
+  // these are already on disk with nothing pointing at them, so they are
+  // cleaned up too — otherwise every failed save leaked its images.
+  const justUploadedUrls = useRef<string[]>([]);
 
   const [errors, setErrors] = useState<any>({});
   const [isFormValid, setIsFormValid] = useState(false);
@@ -400,6 +412,7 @@ const AddEditProductService = () => {
       ? p.imageurls
       : (p.imageurl ? [p.imageurl] : []);
     setGalleryImages(existingUrls.map((url: string) => ({ url })));
+    originalImageUrls.current = existingUrls;
   }
   }, [productData]);
 
@@ -793,17 +806,34 @@ const AddEditProductService = () => {
   };
 
   const removeGalleryImage = (idx: number) => {
-    setGalleryImages((prev) => prev.filter((_, i) => i !== idx));
+    setGalleryImages((prev) => {
+      const going = prev[idx];
+      // A preview of a file that was never uploaded holds a blob in memory
+      // until the tab is closed; nothing else will release it.
+      if (going?.file && going.url.startsWith("blob:")) URL.revokeObjectURL(going.url);
+      return prev.filter((_, i) => i !== idx);
+    });
+    // The file on the server (if this was an already-saved image) is deleted
+    // on Save, not now — cancelling out of the form must leave the product
+    // exactly as it was, pictures included.
   };
 
   const uploadGalleryImages = async (): Promise<string[]> => {
-    return Promise.all(
+    const uploaded: string[] = [];
+
+    const urls = await Promise.all(
       galleryImages.map(async (img) => {
         if (!img.file) return img.url;
         const { data } = await uploadImageMutation({ variables: { file: img.file } });
-        return data?.uploadImage?.url || img.url;
+        const url = data?.uploadImage?.url || img.url;
+        if (data?.uploadImage?.url) uploaded.push(data.uploadImage.url);
+        return url;
       })
     );
+
+    // Remembered so a failed save can take its own uploads back off the disk.
+    justUploadedUrls.current = uploaded;
+    return urls;
   };
 
   /**
@@ -1027,9 +1057,25 @@ const AddEditProductService = () => {
         });
         dispatch(showMessage({ message: "Added successfully", type: "success" }));
       }
+
+      // The product is saved and no longer points at these files, so the
+      // copies on disk are unreachable — bin them. Removing a photo used to
+      // change only the database row and leave the file behind forever.
+      const keptUrls: string[] = payload.imageurls || [];
+      const droppedUrls = originalImageUrls.current.filter((url) => !keptUrls.includes(url));
+      originalImageUrls.current = keptUrls;
+      justUploadedUrls.current = [];
+      void deleteImages(droppedUrls);
+
       navigate("/products");
     } catch (err: any) {
       console.error("❌ GraphQL Error:", err);
+
+      // The images went up before the mutation ran, so a failed save has just
+      // left them on disk with nothing referencing them. Take them back off.
+      const orphans = justUploadedUrls.current;
+      justUploadedUrls.current = [];
+      void deleteImages(orphans);
 
       // The server rejects an invalid product with BAD_USER_INPUT and a
       // fieldErrors list ([{ path, message }]) whose paths match this form's

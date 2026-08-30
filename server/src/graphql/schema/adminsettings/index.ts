@@ -129,6 +129,9 @@ export const adminSettingsTypeDefs = gql`
     # Short one-line footer/about tagline describing the business.
     websiteTagline: String
 
+    # Uploaded business logo. Blank = the surface draws its lettered avatar.
+    brandLogo: String
+
     # Social links — footer only shows an icon once a URL is set here.
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -186,6 +189,7 @@ export const adminSettingsTypeDefs = gql`
     websitePrivacyContent: String
     websiteTermsContent: String
     websiteTagline: String
+    brandLogo: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -280,6 +284,7 @@ export const adminSettingsTypeDefs = gql`
     websitePrivacyContent: String
     websiteTermsContent: String
     websiteTagline: String
+    brandLogo: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String

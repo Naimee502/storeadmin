@@ -12,6 +12,13 @@ export const uploadTypeDefs = gql`
 
   type Mutation {
     uploadImage(file: Upload!): File!
+
+    """
+    Remove uploaded files that nothing points at any more. Returns how many
+    were actually deleted — a url that is not ours, is still referenced by a
+    record, or is already gone is skipped rather than reported as an error.
+    """
+    deleteImages(urls: [String!]!): Int!
   }
 
   type Query {

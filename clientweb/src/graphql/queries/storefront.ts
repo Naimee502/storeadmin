@@ -23,6 +23,7 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       websitePrivacyContent
       websiteTermsContent
       websiteTagline
+      brandLogo
 
       socialFacebookUrl
       socialInstagramUrl

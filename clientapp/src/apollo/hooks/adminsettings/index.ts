@@ -76,3 +76,25 @@ export function useHeroBannerSlides(): HeroSlide[] {
   // an empty draft the admin hasn't filled in yet.
   return slides.filter(s => s?.title);
 }
+
+/**
+ * The activated business's own logo (admin panel → Settings → General →
+ * Business Logo), for the surfaces that would otherwise show the generic app
+ * mark — the login screen most of all, where the person is about to sign in to
+ * *their supplier's* app, not to a product called "Business Suite".
+ *
+ * Falls back to whatever was stored on the tenant when the business was
+ * activated, so the logo is on screen from the first frame rather than after
+ * the settings query lands. Empty string = no logo set; the caller keeps its
+ * own icon.
+ */
+export function useBrandLogo(): string {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const storedLogo = useSelector((s: RootState) => s.tenant.logoUrl) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.brandLogo || storedLogo || '';
+}

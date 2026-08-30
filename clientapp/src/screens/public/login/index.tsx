@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ScrollView, StatusBar, TextInput, KeyboardAvoidingView, Platform,
+  ScrollView, StatusBar, TextInput, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp, FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -14,6 +14,7 @@ import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
 import { SEND_OTP, REGISTER_ACCOUNT } from '../../../apollo/mutations/accounts';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
+import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../store/rootreducer';
 
 export default function Login({ navigation }: any) {
@@ -23,6 +24,33 @@ export default function Login({ navigation }: any) {
   const { showLoader, showToast } = useUI();
   const adminId = useSelector((s: RootState) => s.tenant.adminId) ?? '';
   const branchId = useSelector((s: RootState) => s.tenant.branchId);
+
+  // Once a business has been activated on this device, this screen belongs to
+  // that business — so it wears their logo and name rather than the product's
+  // own "Business Suite" mark. Before activation (or for a business that has
+  // not uploaded a logo) the generic badge and eyebrow are still what shows.
+  const brandLogo = useBrandLogo();
+  const companyName = useSelector((s: RootState) => s.tenant.companyName);
+  // 'My Business' is the slice's placeholder for "no business activated yet".
+  const businessName =
+    companyName && companyName !== 'My Business' ? companyName : '';
+
+  // Most business logos are wider than they are tall, and React Native will
+  // not size an <Image> from the file's own dimensions — a fixed square box
+  // squeezes a wordmark until it cannot be read. So measure the real aspect
+  // ratio and give the logo the width it actually needs, up to a cap.
+  const [logoRatio, setLogoRatio] = useState(1);
+  useEffect(() => {
+    if (!brandLogo) return;
+    Image.getSize(
+      brandLogo,
+      (w, h) => { if (h > 0) setLogoRatio(w / h); },
+      () => { /* unreachable url — the 1:1 default is a fine guess */ },
+    );
+  }, [brandLogo]);
+
+  const LOGO_HEIGHT = 60;
+  const logoWidth = Math.min(Math.max(LOGO_HEIGHT * logoRatio, LOGO_HEIGHT), 220);
 
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -191,14 +219,36 @@ export default function Login({ navigation }: any) {
           >
             {/* Hero */}
             <Animated.View entering={FadeInUp.duration(800).delay(80)} style={styles.hero}>
-              <LinearGradient
-                colors={[colors.raisedSurface, colors.brandSoft]}
-                style={[styles.iconBadge, { borderColor: colors.border, shadowColor: colors.brand }]}
-              >
-                <Icon name="store-outline" size={48} color={colors.brand} />
-              </LinearGradient>
-              <Text style={[styles.eyebrow, { color: colors.brand }]}>Business Suite</Text>
-              <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
+              {brandLogo ? (
+                /* A logo gets its own plate rather than the icon badge: a
+                   neutral background so a transparent or white logo still
+                   reads, and a hairline border marking where it ends. */
+                <View
+                  style={[
+                    styles.logoPlate,
+                    { borderColor: colors.border, shadowColor: colors.brand },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: brandLogo }}
+                    style={{ width: logoWidth, height: LOGO_HEIGHT }}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={[colors.raisedSurface, colors.brandSoft]}
+                  style={[styles.iconBadge, { borderColor: colors.border, shadowColor: colors.brand }]}
+                >
+                  <Icon name="store-outline" size={48} color={colors.brand} />
+                </LinearGradient>
+              )}
+              <Text style={[styles.eyebrow, { color: colors.brand }]}>
+                {businessName ? 'Welcome back' : 'Business Suite'}
+              </Text>
+              <Text style={[styles.title, { color: colors.text }]}>
+                {businessName || 'Welcome back'}
+              </Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>
                 {isRegisterMode
                   ? "This number isn't registered yet — tell us a bit about yourself to get set up."
@@ -410,7 +460,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6,
   },
   eyebrow: { fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 1 },
-  title: { fontSize: 32, fontFamily: FONTS.bold, marginTop: 6, marginBottom: 8 },
+  // A business name can run long where "Welcome back" never did, so this drops
+  // a size and is allowed to wrap rather than being clipped mid-word.
+  title: { fontSize: 28, fontFamily: FONTS.bold, marginTop: 6, marginBottom: 8, textAlign: 'center' },
+  logoPlate: {
+    backgroundColor: '#ffffff', borderRadius: 18, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 20, alignSelf: 'flex-start',
+    shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6,
+  },
   subtitle: { fontSize: 14, fontFamily: FONTS.regular, lineHeight: 21 },
 
   card: {

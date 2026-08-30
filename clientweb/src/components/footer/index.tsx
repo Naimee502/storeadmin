@@ -30,7 +30,7 @@ const paymentBadges = ["UPI", "RuPay", "Visa", "Mastercard", "Net Banking", "COD
 
 export default function Footer() {
   const tenant = useTenant();
-  const { companyName, address, supportPhone, supportEmail, socialFacebookUrl, socialInstagramUrl, socialTwitterUrl, socialLinkedinUrl, codOnly, websiteTagline } = tenant;
+  const { companyName, address, supportPhone, supportEmail, socialFacebookUrl, socialInstagramUrl, socialTwitterUrl, socialLinkedinUrl, codOnly, websiteTagline, brandLogo } = tenant;
   const brandName = companyName || siteConfig.name;
   const tagline =
     websiteTagline ||
@@ -56,9 +56,17 @@ export default function Footer() {
         <div className="grid grid-cols-2 gap-10 md:grid-cols-6">
           <div className="col-span-2">
             <div className="mb-3 flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 font-bold text-white">
-                {brandName[0]?.toUpperCase() ?? "R"}
-              </span>
+              {brandLogo ? (
+                <img
+                  src={brandLogo}
+                  alt={brandName}
+                  className="h-9 w-auto max-w-[150px] shrink-0 rounded-lg bg-white object-contain p-0.5 ring-1 ring-white/15"
+                />
+              ) : (
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 font-bold text-white">
+                  {brandName[0]?.toUpperCase() ?? "R"}
+                </span>
+              )}
               <span className="text-xl font-extrabold text-white">{brandName}</span>
             </div>
             <p className="mb-4 text-sm leading-relaxed text-slate-400">{tagline}</p>

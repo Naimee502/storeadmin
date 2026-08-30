@@ -26,7 +26,7 @@ const Categories = () => {
 
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } =
     useCategoryMutations();
-  const { uploadImageMutation } = useImageUpload();
+  const { uploadImageMutation, deleteImages } = useImageUpload();
 
   // Form state for add/edit
   const [formValues, setFormValues] = useState<{ categoryname: string; status: boolean; image: string }>({
@@ -35,6 +35,12 @@ const Categories = () => {
     image: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // The image this category had when editing started. If the save ends up
+  // storing something else — a replacement, or nothing at all — the old file
+  // is left on the server with no page able to show it, so it is deleted once
+  // the save succeeds.
+  const previousImageUrl = useRef<string>("");
   const [formErrors, setFormErrors] = useState<{ categoryname?: string }>({});
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,9 +51,24 @@ const Categories = () => {
   const handleFormChange = (name: string, value: string | boolean | File) => {
     if (value instanceof File) {
       setSelectedFile(value);
-      setFormValues((prev) => ({ ...prev, image: URL.createObjectURL(value) }));
+      setFormValues((prev) => {
+        if (prev.image.startsWith("blob:")) URL.revokeObjectURL(prev.image);
+        return { ...prev, image: URL.createObjectURL(value) };
+      });
       return;
     }
+
+    // The preview's ✕ clears the image. Whatever file was picked but not yet
+    // uploaded goes with it; the previously saved one is deleted on Save.
+    if (name === "image" && value === "") {
+      setSelectedFile(null);
+      setFormValues((prev) => {
+        if (prev.image.startsWith("blob:")) URL.revokeObjectURL(prev.image);
+        return { ...prev, image: "" };
+      });
+      return;
+    }
+
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -69,6 +90,7 @@ const Categories = () => {
       image: row.image || "",
     });
     setSelectedFile(null);
+    previousImageUrl.current = row.image || "";
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -126,6 +148,12 @@ const Categories = () => {
         });
         dispatch(showMessage({ message: "Category added successfully.", type: "success" }));
       }
+
+      // Saved, and the category now points at `uploadedUrl` — so if it used to
+      // point somewhere else, that file is unreachable and can go.
+      const replaced = previousImageUrl.current;
+      previousImageUrl.current = "";
+      if (replaced && replaced !== uploadedUrl) void deleteImages([replaced]);
 
       await refetch();
       setFormValues({ categoryname: "", status: true, image: "" });

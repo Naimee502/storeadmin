@@ -7,7 +7,7 @@
 //     tabs (General, Business Modules, Business Permissions) are also shown
 //     so the admin can manage everything from one page.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import FormSwitch from "../../components/formswitch";
@@ -252,14 +252,53 @@ export default Settings;
 const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, dispatch }) => {
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
-  const { uploadImageMutation } = useImageUpload();
+  const { uploadImageMutation, deleteImages } = useImageUpload();
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
+  // The logo picked but not yet uploaded. Like every other picker in this app,
+  // the file only goes up when Save is pressed.
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  // Images these settings were loaded with — banner slides and the logo. A
+  // slide that is removed, or a picture swapped for another, leaves its old
+  // file on the server with nothing able to show it, so anything here that the
+  // saved settings no longer mention is deleted once the save succeeds.
+  const originalImages = useRef<string[]>([]);
+
+  // Uploaded during the current save attempt, so a failed save can take its own
+  // uploads back off the disk instead of leaking one per attempt.
+  const justUploadedUrls = useRef<string[]>([]);
+
   useEffect(() => {
-    if (settings) setDraft({ ...settings });
+    if (!settings) return;
+    setDraft({ ...settings });
+    setLogoFile(null);
+    originalImages.current = [
+      ...[...(settings.heroBannerSlides ?? []), ...(settings.promoBanners ?? [])].map(
+        (slide: any) => slide?.image
+      ),
+      settings.brandLogo,
+    ].filter(Boolean);
   }, [settings]);
+
+  /** Preview the picked logo right away; it uploads on Save. */
+  const handleLogoPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (draft.brandLogo?.startsWith("blob:")) URL.revokeObjectURL(draft.brandLogo);
+    setLogoFile(file);
+    set("brandLogo", URL.createObjectURL(file));
+    e.target.value = "";
+  };
+
+  const clearLogo = () => {
+    if (draft.brandLogo?.startsWith("blob:")) URL.revokeObjectURL(draft.brandLogo);
+    setLogoFile(null);
+    // The file on the server goes when Save is pressed, not now.
+    set("brandLogo", "");
+  };
 
   if (!draft) return <div className="text-gray-500 text-sm">Loading…</div>;
 
@@ -272,14 +311,22 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
     try {
       // Any slide with a newly picked file (not yet uploaded) gets uploaded
       // now, same as the product form — upload only happens on Save.
+      const uploaded: string[] = [];
+
       const uploadSlides = (slides: any[]) =>
         Promise.all(
           (slides ?? []).map(async (s: any) => {
             let image = s.image ?? "";
             if (s._file) {
-              const { data: uploaded } = await uploadImageMutation({ variables: { file: s._file } });
-              image = uploaded?.uploadImage?.url || image;
+              const { data: uploadedFile } = await uploadImageMutation({ variables: { file: s._file } });
+              if (uploadedFile?.uploadImage?.url) {
+                image = uploadedFile.uploadImage.url;
+                uploaded.push(image);
+              }
             }
+            // A blob: url is a preview of a file that never made it up. Storing
+            // it would save a link that dies with the tab.
+            if (image.startsWith("blob:")) image = "";
             return { image, title: s.title ?? "", subtitle: s.subtitle ?? "", cta: s.cta ?? "", link: s.link ?? "" };
           })
         );
@@ -287,11 +334,44 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       const heroBannerSlides = await uploadSlides(rest.heroBannerSlides);
       const promoBanners = await uploadSlides(rest.promoBanners);
 
-      const input = deepStripTypename({ ...rest, heroBannerSlides, promoBanners });
+      let brandLogo: string = rest.brandLogo ?? "";
+      if (logoFile) {
+        const { data: uploadedLogo } = await uploadImageMutation({ variables: { file: logoFile } });
+        if (uploadedLogo?.uploadImage?.url) {
+          brandLogo = uploadedLogo.uploadImage.url;
+          uploaded.push(brandLogo);
+        }
+      }
+      // A blob: url is a preview whose file never went up — storing it would
+      // save a link that dies with the tab.
+      if (brandLogo.startsWith("blob:")) brandLogo = "";
+
+      justUploadedUrls.current = uploaded;
+
+      const input = deepStripTypename({ ...rest, heroBannerSlides, promoBanners, brandLogo });
       await updateAdminSettings({ variables: { adminid: adminId, input } });
+
+      // Saved. Whatever the settings used to point at and no longer do is now
+      // unreachable — removed slides, and pictures that were swapped out.
+      const keptUrls = [
+        ...[...heroBannerSlides, ...promoBanners].map((slide: any) => slide.image),
+        brandLogo,
+      ].filter(Boolean);
+      const droppedUrls = originalImages.current.filter((url) => !keptUrls.includes(url));
+      originalImages.current = keptUrls;
+      justUploadedUrls.current = [];
+      setLogoFile(null);
+      void deleteImages(droppedUrls);
+
       await refetch();
       dispatch(showMessage({ message: "Website settings saved.", type: "success" }));
     } catch (e: any) {
+      // The images went up before the settings mutation ran, so a failed save
+      // has just left them on disk with nothing referencing them.
+      const orphans = justUploadedUrls.current;
+      justUploadedUrls.current = [];
+      void deleteImages(orphans);
+
       dispatch(showMessage({ message: e?.message || "Save failed.", type: "error" }));
     } finally {
       setSaving(false);
@@ -392,9 +472,58 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             value={draft.socialLinkedinUrl ?? ""}
             onChange={(e: any) => set("socialLinkedinUrl", e.target.value)}
           />
+
+          {/* Sits in the same grid as the fields above so it takes one cell,
+              not a section of its own. The thumbnail is inline beside the
+              picker rather than under a "Preview" label — at 32px it costs no
+              extra height. */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">Business Logo</label>
+            <div className="flex items-center gap-2">
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-gray-400">
+                <span className="text-gray-400">🖼</span>
+                <span className="truncate">{draft.brandLogo ? "Change logo" : "Choose file"}</span>
+                <input type="file" accept="image/*" onChange={handleLogoPick} className="hidden" />
+              </label>
+              {draft.brandLogo && (
+                <div className="relative shrink-0">
+                  {/* Shown at the height the website header actually uses, and
+                      on a chequered tile — a white or transparent logo looks
+                      fine against a white panel here and then disappears on
+                      the site, which is exactly the surprise worth avoiding. */}
+                  <div
+                    className="flex h-9 items-center rounded-lg px-1 ring-1 ring-black/10"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(45deg,#e5e7eb 25%,transparent 25%),linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e5e7eb 75%),linear-gradient(-45deg,transparent 75%,#e5e7eb 75%)",
+                      backgroundSize: "10px 10px",
+                      backgroundPosition: "0 0,0 5px,5px -5px,-5px 0",
+                      backgroundColor: "#fff",
+                    }}
+                  >
+                    <img
+                      src={draft.brandLogo}
+                      alt="Business logo"
+                      className="h-7 w-auto max-w-[110px] object-contain"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    title="Remove logo"
+                    onClick={clearLogo}
+                    className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-red-600 text-[9px] font-bold leading-none text-white hover:bg-red-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <p className="mt-1.5 text-xs text-gray-400">
           Footer tagline: leave blank to keep the default line. Social links: the footer only shows an icon once a URL is filled in here.
+          Business logo: shown on the website header, footer and login page, and on the app's login screen — leave it empty to keep the first letter of your business name.
+          A wide or square PNG works; transparent backgrounds are fine, but avoid a logo that is entirely white, since it sits on a white plate.
         </p>
       </Section>
 
@@ -650,7 +779,20 @@ const HeroBannerSlidesEditor: React.FC<{
   };
 
   const removeSlide = (idx: number) => {
+    releasePreview(slides[idx]);
+    // The file on the server, if this slide had a saved image, is deleted when
+    // the settings are saved — not now, so backing out changes nothing.
     onChange(slides.filter((_, i) => i !== idx));
+  };
+
+  /** Drop a preview of a picked-but-never-uploaded file; nothing else frees it. */
+  const releasePreview = (slide?: { image?: string; _file?: File }) => {
+    if (slide?._file && slide.image?.startsWith("blob:")) URL.revokeObjectURL(slide.image);
+  };
+
+  const clearSlideImage = (idx: number) => {
+    releasePreview(slides[idx]);
+    onChange(slides.map((s, i) => (i === idx ? { ...s, image: "", _file: undefined } : s)));
   };
 
   const addSlide = () => {
@@ -662,6 +804,7 @@ const HeroBannerSlidesEditor: React.FC<{
     if (!file) return;
     // Preview immediately (like the product form) — the real upload only
     // happens when "Save Website Settings" is clicked.
+    releasePreview(slides[idx]);
     updateSlide(idx, { image: URL.createObjectURL(file), _file: file });
   };
 
@@ -688,11 +831,24 @@ const HeroBannerSlidesEditor: React.FC<{
             <div className="shrink-0">
               <label className="mb-1 block text-sm font-medium text-gray-700">Preview</label>
               {slide.image ? (
-                <img
-                  src={slide.image}
-                  alt={`Slide ${idx + 1} preview`}
-                  className="h-20 w-36 rounded-lg border border-gray-200 object-cover"
-                />
+                <div className="relative h-20 w-36">
+                  <img
+                    src={slide.image}
+                    alt={`Slide ${idx + 1} preview`}
+                    className="h-20 w-36 rounded-lg border border-gray-200 object-cover"
+                  />
+                  {/* Lets a slide keep its copy but lose its picture. Without
+                      this the only way to drop an image was to delete the whole
+                      slide and type it out again. */}
+                  <button
+                    type="button"
+                    title="Remove image"
+                    onClick={() => clearSlideImage(idx)}
+                    className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white hover:bg-red-700"
+                  >
+                    ✕
+                  </button>
+                </div>
               ) : (
                 <div className="flex h-20 w-36 items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-400">
                   No image

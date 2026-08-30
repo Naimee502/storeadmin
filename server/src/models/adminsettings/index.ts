@@ -254,6 +254,13 @@ const adminSettingsSchema = new mongoose.Schema(
     // Blank by default; clientweb falls back to a generic sentence when empty.
     websiteTagline: { type: String, default: "" },
 
+    // The business's own logo, uploaded from Settings → General. Shown in the
+    // website header, footer and login page, and on the app's login screen
+    // once a business has been activated there. Blank = each surface falls
+    // back to the lettered avatar it drew before, so nothing looks broken for
+    // a business that has not uploaded one.
+    brandLogo: { type: String, default: "" },
+
     /* ============================================================
        SOCIAL LINKS — website footer only shows an icon for a network
        once its URL is filled in here. No dummy/placeholder icons.

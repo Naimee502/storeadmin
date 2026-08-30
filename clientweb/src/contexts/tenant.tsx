@@ -34,6 +34,13 @@ interface TenantContextValue {
   websiteTermsContent: string;
   websiteTagline: string;
 
+  /**
+   * The business's own logo (Settings → General on the admin panel). Empty
+   * string means none was uploaded, and every surface that shows it falls back
+   * to the lettered avatar it drew before.
+   */
+  brandLogo: string;
+
   socialFacebookUrl: string;
   socialInstagramUrl: string;
   socialTwitterUrl: string;
@@ -114,6 +121,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     websitePrivacyContent: info?.websitePrivacyContent ?? "",
     websiteTermsContent: info?.websiteTermsContent ?? "",
     websiteTagline: info?.websiteTagline ?? "",
+    brandLogo: info?.brandLogo ?? "",
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",

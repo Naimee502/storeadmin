@@ -257,11 +257,24 @@ const DataTable: React.FC<DataTableProps> = ({
                             return (
                                 <div className="flex shrink-0 flex-col items-center gap-1">
                                     <span className="text-sm font-medium text-gray-700">Preview</span>
-                                    <img
-                                        src={previewUrl}
-                                        alt="Preview"
-                                        className="h-10 w-10 rounded-lg border border-gray-200 object-cover"
-                                    />
+                                    <div className="relative h-10 w-10">
+                                        <img
+                                            src={previewUrl}
+                                            alt="Preview"
+                                            className="h-10 w-10 rounded-lg border border-gray-200 object-cover"
+                                        />
+                                        {/* There was no way to take a picture off again — only to
+                                            replace it with another one. Clearing the value here is
+                                            what lets the page drop the old file on Save. */}
+                                        <button
+                                            type="button"
+                                            title="Remove image"
+                                            onClick={() => onFormChange(fileField!.name, "")}
+                                            className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-red-600 text-[9px] font-bold leading-none text-white hover:bg-red-700"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })()}

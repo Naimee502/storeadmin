@@ -17,7 +17,7 @@ type Step = "mobile" | "register" | "otp" | "success";
 // as an existing account would. No separate "New Customer" tab/toggle —
 // the mobile number itself is what decides which path this takes.
 export default function LoginPage() {
-  const { companyName, adminid } = useTenant();
+  const { companyName, adminid, brandLogo } = useTenant();
   const { setSession } = useAuth();
   const [searchParams] = useSearchParams();
   // Checkout (and anywhere else that requires login) links here with
@@ -186,9 +186,17 @@ export default function LoginPage() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-7xl items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-xl font-bold text-white">
-            {brandName[0]?.toUpperCase() ?? "R"}
-          </span>
+          {brandLogo ? (
+            <img
+              src={brandLogo}
+              alt={brandName}
+              className="mx-auto mb-3 h-12 w-auto max-w-[200px] rounded-xl bg-white object-contain ring-1 ring-black/10"
+            />
+          ) : (
+            <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-xl font-bold text-white">
+              {brandName[0]?.toUpperCase() ?? "R"}
+            </span>
+          )}
           <h1 className="text-xl font-bold text-ink-900">Welcome to {brandName}</h1>
           <p className="mt-1 text-sm text-slate-500">{siteConfig.tagline}</p>
         </div>
