@@ -8,18 +8,20 @@ const Message: React.FC = () => {
 
   useEffect(() => {
     if (message) {
+      // Errors now name every field that is wrong, which takes longer to
+      // read than a one-word "Saved".
       const timer = setTimeout(() => {
         dispatch(clearMessage());
-      }, 3000);
+      }, type === 'success' ? 3000 : 7000);
       return () => clearTimeout(timer);
     }
-  }, [message, dispatch]);
+  }, [message, type, dispatch]);
 
   if (!message) return null;
 
   return (
     <div
-      className={`fixed top-18 right-6 px-4 py-2 rounded-lg shadow-md text-white z-50 ${
+      className={`fixed top-18 right-6 px-4 py-2 rounded-lg shadow-md text-white z-50 max-w-sm text-sm whitespace-pre-line break-words ${
         type === 'success' ? 'bg-green-500' : 'bg-red-500'
       }`}
     >

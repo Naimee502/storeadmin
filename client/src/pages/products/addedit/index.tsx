@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
 import { ProductVariants } from "../../../components/productvariants";
 import { belowCostError } from "../../../utils/rates";
+import { validateProduct, type ValidationIssue, type ValidationResult } from "../../../utils/products/validateproduct";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 
@@ -805,88 +806,71 @@ const AddEditProductService = () => {
     );
   };
 
-  const validateForm = () => {
-    const newErrors: any = {};
+  /**
+   * Validation lives in utils/products/validateproduct so this form, the
+   * spreadsheet importer and the server all apply the same rules.
+   *
+   * The copy that used to sit here had two problems the shared version does
+   * not: it `push()`ed variant / conversion / price errors instead of writing
+   * them at their own index, so a problem in variant 2 was rendered under
+   * variant 1 (and variant 2 looked clean), and it ignored the Business
+   * Settings field permissions, demanding fields that are switched off.
+   */
+  const validateForm = (): ValidationResult => {
+    const result = validateProduct(formData, productFormPermissions);
+    setErrors(result.errors);
+    return result;
+  };
 
-    // === PRODUCT TOP LEVEL ===
-    if (!formData.name?.trim()) newErrors.name = "Product name is required";
-    if (!formData.categoryid) newErrors.categoryid = "Category is required";
-    if (!formData.salesaccountid) newErrors.salesaccountid = "Sales account is required";
-    if (!formData.purchaseaccountid) newErrors.purchaseaccountid = "Purchase account is required";
+  /** Human-readable label for where an issue is, e.g. " (Variant 2, row 1)". */
+  const issueLocation = (issue: ValidationIssue) => {
+    if (issue.variantIndex === undefined) return "";
+    const where = issue.scope === "unitprice"
+      ? "Unit Price"
+      : issue.scope === "unitconversion"
+        ? "Unit Conversion"
+        : "";
+    const row = issue.rowIndex === undefined ? "" : ` ${where} ${issue.rowIndex + 1}`;
+    return ` (Variant ${issue.variantIndex + 1}${row})`;
+  };
 
-    // === PRODUCT VARIANTS ===
-    if (!formData.isservice) {
-      if (!formData.productvariants || formData.productvariants.length === 0) {
-        newErrors.productvariants = "At least 1 product variant is required";
-      } else {
-        const variantErrorsArray: any[] = [];
+  /**
+   * The old toast said only "Please fix the errors before submitting.", which
+   * is useless when the offending field is three screens down. Name the
+   * problems instead, and take the user to the first one.
+   */
+  const describeIssues = (issues: ValidationIssue[]) => {
+    if (!issues.length) return "Please fix the errors before submitting.";
+    const lines = issues.map((i) => `${i.message}${issueLocation(i)}`);
+    const shown = lines.slice(0, 4).join(" • ");
+    return lines.length > 4 ? `${shown} • and ${lines.length - 4} more` : shown;
+  };
 
-        formData.productvariants.forEach((variant: any) => {
-          const variantErrors: any = {};
+  /**
+   * FormField renders id={name} on every control (react-select gets it via
+   * inputId), and a validation issue's `path` is exactly that name — so the
+   * offending field can be found without threading refs through the tree.
+   */
+  const focusField = (path?: string) => {
+    if (!path) return;
+    const el = document.getElementById(path);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Give the scroll a moment, otherwise focus() yanks the page back.
+    window.setTimeout(() => (el as HTMLElement).focus?.({ preventScroll: true }), 300);
+  };
 
-          // Base Unit
-          if (!variant.baseunitid) variantErrors.baseunitid = "Base unit is required";
-
-          // Purchase Unit
-          if (!variant.purchaseunitid) variantErrors.purchaseunitid = "Purchase unit is required";
-
-          // Purchase Rate
-          if (!variant.purchaserate || Number(variant.purchaserate) <= 0)
-            variantErrors.purchaserate = "Purchase rate must be greater than 0";
-
-          // Stock quantities / values must never be negative.
-          Object.entries(NON_NEGATIVE_FIELDS).forEach(([field, label]) => {
-            const raw = variant?.[field];
-            if (raw === "" || raw === null || raw === undefined) return;
-            if (Number(raw) < 0) variantErrors[field] = `${label} cannot be negative.`;
-          });
-
-          // Unit Conversions
-          if (!variant.unitconversions || variant.unitconversions.length === 0) {
-            variantErrors.unitconversions = "At least 1 unit conversion is required";
-          } else {
-            const unitConvErrors: any[] = [];
-            variant.unitconversions.forEach((conv: any) => {
-              const convErrors: any = {};
-              if (!conv.unitid) convErrors.unitid = "Unit is required";
-              if (!conv.factor || Number(conv.factor) <= 0)
-                convErrors.factor = "Factor must be greater than 0";
-              if (Object.keys(convErrors).length > 0) unitConvErrors.push(convErrors);
-            });
-            if (unitConvErrors.length > 0) variantErrors.unitconversions = unitConvErrors;
-          }
-
-          // Unit Prices
-          if (!variant.unitprices || variant.unitprices.length === 0) {
-            variantErrors.unitprices = "At least 1 unit price is required";
-          } else {
-            const unitPriceErrors: any[] = [];
-            variant.unitprices.forEach((up: any) => {
-              const upErrors: any = {};
-              if (!up.unitid) upErrors.unitid = "Unit is required";
-              if (!up.quantity || Number(up.quantity) <= 0)
-                upErrors.quantity = "Quantity must be greater than 0";
-              if (!up.salesrate || Number(up.salesrate) <= 0)
-                upErrors.salesrate = "Sales rate must be greater than 0";
-              else {
-                // Selling below cost is blocked (equal to cost is allowed).
-                const belowCost = belowCostError(variant, up.unitid, up.salesrate);
-                if (belowCost) upErrors.salesrate = belowCost;
-              }
-              if (Object.keys(upErrors).length > 0) unitPriceErrors.push(upErrors);
-            });
-            if (unitPriceErrors.length > 0) variantErrors.unitprices = unitPriceErrors;
-          }
-
-          if (Object.keys(variantErrors).length > 0) variantErrorsArray.push(variantErrors);
-        });
-
-        if (variantErrorsArray.length > 0) newErrors.productvariants = variantErrorsArray;
-      }
+  /** Writes "productvariants.0.unitprices.1.salesrate" into the errors tree. */
+  const setErrorAtPath = (tree: any, path: string, message: string) => {
+    const keys = path.split(".");
+    let curr: any = tree;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      const nextIsIndex = /^\d+$/.test(keys[i + 1]);
+      if (curr[key] === undefined || curr[key] === null) curr[key] = nextIsIndex ? [] : {};
+      curr = curr[key];
     }
-
-    setErrors(newErrors);
-    return isEmptyDeep(newErrors);
+    curr[keys[keys.length - 1]] = message;
   };
 
   const generatePayload = async (isUpdate = false): Promise<any> => {
@@ -1022,15 +1006,11 @@ const AddEditProductService = () => {
   
 
   const handleSubmit = async () => {
-    const isValid = validateForm(); 
+    const { valid, issues } = validateForm();
 
-    if (!isValid) {
-      dispatch(
-        showMessage({
-          message: "Please fix the errors before submitting.",
-          type: "error",
-        })
-      );
+    if (!valid) {
+      dispatch(showMessage({ message: describeIssues(issues), type: "error" }));
+      focusField(issues[0]?.path);
       return;
     }
 
@@ -1048,15 +1028,33 @@ const AddEditProductService = () => {
         dispatch(showMessage({ message: "Added successfully", type: "success" }));
       }
       navigate("/products");
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ GraphQL Error:", err);
-      if (err.graphQLErrors) {
-        console.error("GraphQL Errors:", JSON.stringify(err.graphQLErrors, null, 2));
+
+      // The server rejects an invalid product with BAD_USER_INPUT and a
+      // fieldErrors list ([{ path, message }]) whose paths match this form's
+      // field names, so a rule that only the server can check (a duplicate
+      // SKU, a category belonging to another business) lands under the field
+      // it is about instead of disappearing into a bare "Failed" toast.
+      const gqlError = err?.graphQLErrors?.[0];
+      const fieldErrors: { path: string; message: string }[] =
+        gqlError?.extensions?.fieldErrors || [];
+
+      if (fieldErrors.length) {
+        const tree: any = {};
+        fieldErrors.forEach((fe) => setErrorAtPath(tree, fe.path, fe.message));
+        setErrors(tree);
+        focusField(fieldErrors[0].path);
       }
-      if (err.networkError) {
-        console.error("Network Error:", JSON.stringify(err.networkError, null, 2));
-      }
-      dispatch(showMessage({ message: "Failed", type: "error" }));
+
+      const message =
+        (fieldErrors.length ? fieldErrors.map((f) => f.message).slice(0, 4).join(" • ") : "") ||
+        gqlError?.message ||
+        err?.networkError?.result?.errors?.[0]?.message ||
+        err?.message ||
+        (isEdit ? "Could not update the product." : "Could not add the product.");
+
+      dispatch(showMessage({ message, type: "error" }));
     }
   };
 

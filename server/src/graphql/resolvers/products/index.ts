@@ -8,6 +8,11 @@ import {
   requireBackofficeTenant,
   stripSensitiveForPublic,
 } from "../../../utils/tenant";
+import { Admin } from "../../../models/admin";
+import {
+  validateProductInput,
+  ProductInputError,
+} from "../../../utils/productvalidation";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -317,6 +322,27 @@ export const productServiceResolvers = {
         });
         if (!tenant.branchid) {
           throw new Error("Select a branch before adding a product.");
+        }
+
+        // The add/edit form checks these rules too, but that runs on the
+        // caller's machine and can be skipped — a direct GraphQL call, a stale
+        // tab, an old build. This is the gate that actually holds, and it uses
+        // the same rule set as the spreadsheet importer so a product rejected
+        // by one is not quietly accepted by the other.
+        //
+        // Field permissions live on Admin.defaultPermissions, so a field
+        // switched off in Business Settings is not demanded here either.
+        const adminDoc: any = await Admin.findById(tenant.adminid)
+          .select("defaultPermissions")
+          .lean();
+        const permissions: Record<string, boolean> =
+          adminDoc?.defaultPermissions?.formPermissions?.products || {};
+
+        const issues = validateProductInput(input, permissions);
+        if (issues.length) {
+          // Carries extensions.fieldErrors, so the client can put each message
+          // under the field it is about instead of showing a bare "Failed".
+          throw new ProductInputError(issues);
         }
 
         // Stamped from the verified token. Whatever the client sent for

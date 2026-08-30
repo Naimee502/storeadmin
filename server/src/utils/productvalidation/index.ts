@@ -203,3 +203,64 @@ export const validateProductInput = (
 
   return issues;
 };
+
+/* ------------------------------------------------------------------ *
+ * Reporting helpers
+ *
+ * A mutation that rejects a product needs to say which field was wrong, not
+ * just that something was. These turn issues into paths that match the
+ * add/edit form's field names ("productvariants.0.unitprices.1.salesrate"),
+ * so the client can drop each message under the field it belongs to.
+ * ------------------------------------------------------------------ */
+
+export interface FieldError {
+  /** Dotted path matching the add/edit form's field `name`. */
+  path: string;
+  /** Bare field id, for consumers that don't care about position. */
+  field: string;
+  message: string;
+}
+
+export const issuesToFieldErrors = (issues: ServerValidationIssue[]): FieldError[] =>
+  issues.map((issue) => {
+    // The permission ids for the account fields are shorter than the input
+    // fields they guard, so they are spelled out rather than derived.
+    const ACCOUNT_PATHS: Record<string, string> = {
+      salesaccount: "salesaccountid",
+      purchaseaccount: "purchaseaccountid",
+      serviceaccount: "serviceaccountid",
+    };
+
+    let path = ACCOUNT_PATHS[issue.field] || issue.field;
+
+    if (issue.variantIndex !== undefined) {
+      const base = `productvariants.${issue.variantIndex}`;
+      if (issue.rowIndex === undefined) {
+        path = `${base}.${issue.field}`;
+      } else {
+        const group = issue.scope === "unitprice" ? "unitprices" : "unitconversions";
+        path = `${base}.${group}.${issue.rowIndex}.${issue.field}`;
+      }
+    }
+
+    return { path, field: issue.field, message: issue.message };
+  });
+
+/**
+ * Thrown when a product mutation is handed something the rules reject.
+ *
+ * `extensions.code` is BAD_USER_INPUT so the client can tell "you sent
+ * something wrong" apart from "the server broke", and `extensions.fieldErrors`
+ * carries the per-field detail. Apollo copies `extensions` off the original
+ * error, which is the same route TenantError already takes.
+ */
+export class ProductInputError extends Error {
+  extensions: { code: string; fieldErrors: FieldError[] };
+
+  constructor(issues: ServerValidationIssue[]) {
+    const fieldErrors = issuesToFieldErrors(issues);
+    super(fieldErrors.map((f) => f.message).join(" • ") || "Invalid product input.");
+    this.name = "ProductInputError";
+    this.extensions = { code: "BAD_USER_INPUT", fieldErrors };
+  }
+}
