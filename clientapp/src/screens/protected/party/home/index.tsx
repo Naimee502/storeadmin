@@ -318,7 +318,7 @@ export default function PartyHome() {
                     onChangeText={setSearch}
                     autoCapitalize="none"
                     placeholderTextColor={colors.subText}
-                    containerStyle={{ marginBottom: 20 }}
+                    containerStyle={{ marginBottom: 12 }}
                   />
                 )}
 
@@ -486,9 +486,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 15, fontFamily: FONTS.bold },
   statLabel: { fontSize: 10, fontFamily: FONTS.regular, marginTop: 2 },
 
-  section: { marginTop: 22, paddingHorizontal: 18 },
-  heroBanner: { marginBottom: 22 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  // Tightened so the first row of products is reachable without scrolling.
+  // The shopper came to see stock, not chrome.
+  section: { marginTop: 12, paddingHorizontal: 18 },
+  heroBanner: { marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 16, fontFamily: FONTS.bold },
   viewAll: { fontSize: 13, fontFamily: FONTS.semiBold },
 

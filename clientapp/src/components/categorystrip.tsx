@@ -141,18 +141,18 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
 
   // pill variant — same metrics the two screens used before
-  chipList: { paddingBottom: 12, gap: 8 },
+  chipList: { paddingBottom: 8, gap: 8 },
   chip:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
   chipText: { fontSize: 13, fontFamily: FONTS.semiBold },
 
   // image-circle variant
-  circleList:  { paddingBottom: 12, gap: 14, paddingHorizontal: 2 },
-  circleItem:  { alignItems: 'center', width: 68 },
+  circleList:  { paddingBottom: 8, gap: 14, paddingHorizontal: 2 },
+  circleItem:  { alignItems: 'center', width: 62 },
   circle: {
-    width: 60, height: 60, borderRadius: 30,
+    width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   circleImg:         { width: '100%', height: '100%' },
-  circleLabel:       { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 6, textAlign: 'center' },
+  circleLabel:       { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 4, textAlign: 'center' },
   circleLabelActive: { fontFamily: FONTS.bold },
 });

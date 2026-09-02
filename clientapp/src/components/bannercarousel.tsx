@@ -54,7 +54,7 @@ const SLIDE_GAP = 12;
  * the user mid-drag.
  */
 export const BannerCarousel: React.FC<Props> = ({
-  slides, height = 176, horizontalPadding = 18, onPress, style,
+  slides, height = 158, horizontalPadding = 18, onPress, style,
 }) => {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   image: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   overlay: StyleSheet.absoluteFillObject,
   bgIcon: { position: 'absolute', right: -14, bottom: -18 },
-  content: { paddingHorizontal: 18, paddingVertical: 22, paddingRight: 96 },
+  content: { paddingHorizontal: 18, paddingVertical: 16, paddingRight: 96 },
   eyebrow: { fontSize: 10, fontFamily: FONTS.semiBold, letterSpacing: 0.8, marginBottom: 5 },
   title: { fontSize: 18, fontFamily: FONTS.bold, lineHeight: 24 },
   body: { fontSize: 11, fontFamily: FONTS.regular, lineHeight: 16, marginTop: 4 },
@@ -223,6 +223,6 @@ const styles = StyleSheet.create({
   },
   ctaText: { fontSize: 12, fontFamily: FONTS.bold },
 
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 6 },
   dot: { width: 6, height: 6, borderRadius: 3 },
 });
