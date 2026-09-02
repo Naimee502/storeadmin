@@ -59,7 +59,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -106,23 +106,13 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            // AndroidManifest.xml reads android:usesCleartextTraffic="${usesCleartextTraffic}"
-            // — this placeholder was never actually defined anywhere, so it was
-            // left unresolved and Android defaulted to blocking cleartext (plain
-            // http://) traffic. Debug builds hit the dev server over a LAN IP
-            // (http://192.168.29.173:4000, see apiconfig.ts), so images (and any
-            // other http:// resource) silently failed to load. Allow cleartext
-            // in debug only.
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // Signed with the Rudra ERP release keystore when the RUDRAERP_UPLOAD_*
-            // properties are present (see gradle.properties); falls back to debug
-            // signing otherwise so local dev builds still work.
             signingConfig project.hasProperty('RUDRAERP_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            // Production (SERVER_URL_PROD) is https, so no cleartext exception needed.
             manifestPlaceholders = [usesCleartextTraffic: "false"]
         }
     }

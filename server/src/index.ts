@@ -90,8 +90,20 @@ const startServer = async () => {
   // Serve uploads folder static files
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-  // Attach Apollo middleware to express app at /graphql route
-  server.applyMiddleware({ app: app as any });
+  // Attach Apollo middleware to express app at /graphql route.
+  //
+  // The JSON body limit is raised from body-parser's 100kb default on purpose:
+  // updateAdminSettings carries the About Us / Privacy / Terms rich text, the
+  // banner slide list and the product pick lists in one payload, and a business
+  // that writes a real policy page passes 100kb without trying. Past that the
+  // save fails with a 413 the client cannot explain.
+  //
+  // File uploads do not travel this path — graphqlUploadExpress above handles
+  // multipart before Apollo sees it, capped separately at 10 MB.
+  server.applyMiddleware({
+    app: app as any,
+    bodyParserConfig: { limit: '5mb' },
+  });
 
   const PORT = Number(process.env.PORT) || 4000;
   app.listen(PORT, '0.0.0.0', () => {
