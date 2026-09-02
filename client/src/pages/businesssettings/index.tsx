@@ -238,6 +238,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.enablePaymentDiscountCommission}
           onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}
         />
+        <Toggle
+          label="App Home browses a catalogue (Category → Sub-category → order sheet with quantity boxes) instead of the storefront"
+          checked={!!draft.appCatalogBrowseMode}
+          onChange={(v: boolean) => set("appCatalogBrowseMode", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          For businesses selling many near-identical items — sizes of the same part, say — where a
+          picture grid is useless and a typed quantity per line is the whole job. Party logins only;
+          salesman and staff are unaffected.
+        </p>
       </Section>
 
       <Section title="Invoice Print">

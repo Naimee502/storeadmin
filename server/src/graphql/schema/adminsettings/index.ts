@@ -136,6 +136,10 @@ export const adminSettingsTypeDefs = gql`
     # full palette from it. Blank = the built-in green/teal.
     themeBrandColor: String
 
+    # Party app Home browses a catalogue (category -> sub-category -> order
+    # sheet) instead of showing the storefront. Off by default.
+    appCatalogBrowseMode: Boolean
+
     # Social links — footer only shows an icon once a URL is set here.
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -293,6 +297,7 @@ export const adminSettingsTypeDefs = gql`
     websiteTagline: String
     brandLogo: String
     themeBrandColor: String
+    appCatalogBrowseMode: Boolean
 
     socialFacebookUrl: String
     socialInstagramUrl: String

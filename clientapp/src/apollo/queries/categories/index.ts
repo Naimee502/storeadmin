@@ -15,3 +15,18 @@ export const GET_CATEGORIES = gql`
     }
   }
 `;
+
+// Sub-categories for the catalogue browse mode (Business Settings → "App Home
+// browses a catalogue"). The old app this replaces had a picture per
+// sub-category; this one only stores images on categories and products, so a
+// sub-category tile shows its name over a plain brand-tinted panel.
+export const GET_SUBCATEGORIES = gql`
+  query GetSubCategories($adminId: ID!, $categoryId: ID) {
+    getSubCategories(adminId: $adminId, categoryId: $categoryId) {
+      id
+      subcategoryname
+      status
+      category { id }
+    }
+  }
+`;

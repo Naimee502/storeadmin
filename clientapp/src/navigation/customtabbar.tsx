@@ -19,6 +19,14 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
 
   const attendanceRoute = state.routes.find((r) => /attendance/i.test(r.name));
 
+  // The bar floats over the screen (position: absolute), so a screen with its
+  // own bottom action bar — the catalogue's order sheet and its Add to Cart —
+  // would have that bar covered. Such a screen asks to be left alone with
+  // navigation.setOptions({ tabBarStyle: { display: 'none' } }); honouring it
+  // here is what makes that request mean anything with a custom bar.
+  const activeOptions = descriptors[state.routes[state.index]?.key]?.options as any;
+  if (activeOptions?.tabBarStyle?.display === 'none') return null;
+
   return (
     <View style={[
       styles.container,

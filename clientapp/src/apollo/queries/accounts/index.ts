@@ -10,6 +10,7 @@ export const GET_PRODUCTS = gql`
       imageurls
       status
       categoryid { id categoryname image }
+      subcategoryid { id subcategoryname }
       productvariants {
         id
         name
@@ -437,6 +438,7 @@ export const GET_ADMIN_SETTINGS = gql`
       termsConditionsUrl
       brandLogo
       themeBrandColor
+      appCatalogBrowseMode
       heroBannerSlides {
         image
         title

@@ -7,3 +7,4 @@ export * from './validators';
 export * from './formatters';
 export * from './chargerules';
 export * from './enduser';
+export * from './catalogmode';

@@ -272,6 +272,20 @@ const adminSettingsSchema = new mongoose.Schema(
     // Blank = the built-in green/teal, exactly as before.
     themeBrandColor: { type: String, default: "" },
 
+    /**
+     * Party app Home shows a catalogue to browse rather than a storefront.
+     *
+     * Off (default): the shopper Home — hero banner, category circles, a grid
+     * of product cards with prices and Add buttons.
+     *
+     * On: Category tiles → sub-categories → an order sheet listing every
+     * product with a quantity box, the way a wholesale counter is worked. Some
+     * businesses sell hundreds of near-identical parts (sizes of the same
+     * nipple, say) where a picture grid is useless and a typed quantity per
+     * line is the whole job.
+     */
+    appCatalogBrowseMode: { type: Boolean, default: false },
+
     /* ============================================================
        SOCIAL LINKS — website footer only shows an icon for a network
        once its URL is filled in here. No dummy/placeholder icons.
