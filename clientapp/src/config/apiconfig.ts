@@ -51,17 +51,39 @@ export const API_CONFIG = {
  * right file, right path, wrong host. Nothing errors; the image is simply
  * blank, which is what "the logo doesn't show in the app" was.
  *
- * So the path is kept and the origin is swapped for this build's server, which
- * is the LAN address in dev and the production domain in a release build. A URL
- * that is not one of our /uploads/ links — a CDN, a data: URI, an external
- * image — is returned untouched. A path that is already relative
+ * So the path is kept and the origin is swapped for ACTIVE_SERVER_URL, which
+ * __DEV__ already resolves to the LAN address in a debug build and to the
+ * production domain in any release build. A release build therefore never
+ * asks a customer's phone for a developer's laptop, whatever host happened to
+ * be stored.
+ *
+ * Only origins we know to be ours are rewritten: the two configured server
+ * URLs, plus loopback and private LAN addresses, which is every shape a
+ * dev/staging upload can take. Anything else — a CDN, an external image, a
+ * data: URI — is left exactly as it is, because a URL we do not recognise is
+ * one we have no business redirecting. A path that is already relative
  * ("/uploads/x.jpg") resolves too, so this keeps working if the server is ever
  * changed to store relative paths, which is the better long-term shape.
  */
+const OURS = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/i;
+
+const isOurOrigin = (origin: string) =>
+  origin === SERVER_URL ||
+  origin === SERVER_URL_PROD ||
+  OURS.test(origin);
+
 export const resolveMediaUrl = (url?: string | null): string => {
   const raw = String(url ?? '').trim();
   if (!raw) return '';
+
   const at = raw.indexOf('/uploads/');
   if (at === -1) return raw;
+
+  // Already relative — just give it a host.
+  if (at === 0) return `${ACTIVE_SERVER_URL}${raw}`;
+
+  const origin = raw.slice(0, at);
+  if (!isOurOrigin(origin)) return raw;
+
   return `${ACTIVE_SERVER_URL}${raw.slice(at)}`;
 };

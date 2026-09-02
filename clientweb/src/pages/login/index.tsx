@@ -195,7 +195,7 @@ export default function LoginPage() {
             <img
               src={brandLogo}
               alt={brandName}
-              className="mx-auto mb-3 h-12 w-auto max-w-[200px] rounded-xl bg-white object-contain ring-1 ring-black/10"
+              className="mx-auto mb-3 h-16 w-auto max-w-[240px] rounded-xl bg-white object-contain p-1 ring-1 ring-black/10"
             />
           ) : (
             <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-xl font-bold text-white">

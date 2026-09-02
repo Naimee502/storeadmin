@@ -80,6 +80,14 @@ export const buildBrandTokens = (brandColor: string): { light: BrandTokens; dark
   const darker = veryDark ? mix(core, WHITE, 0.1) : mix(core, BLACK, 0.22);
   const lighter = mix(core, WHITE, veryDark ? 0.25 : 0.18);
 
+  // The tab bar is painted the brand colour, so everything sitting on it is
+  // read against the brand, not against the page. `core` is always dark enough
+  // to carry white (the pale-brand guard above sees to that), but this is
+  // computed rather than assumed so it stays correct if that guard is ever
+  // loosened.
+  const onBar: RGB = luminance(core) < 0.55 ? WHITE : [17, 17, 17];
+  const onBarHex = toHex(onBar);
+
   const light: BrandTokens = {
     brand: coreHex,
     brandDark: toHex(darker),
@@ -101,8 +109,16 @@ export const buildBrandTokens = (brandColor: string): { light: BrandTokens; dark
     heroOverlay: rgba(mix(core, BLACK, 0.72), 0.5),
     modalOverlay: rgba(mix(core, BLACK, 0.82), 0.56),
 
-    tabBarActive: coreHex,
-    tabBarPill: toHex(mix(core, WHITE, 0.9)),
+    // The whole bar, not just its active icon. Leaving the background on the
+    // default meant a business could set a black brand and still get a white
+    // bar, which is what "the bottom bar didn't take the theme colour" was.
+    tabBarBg: coreHex,
+    tabBarBorder: rgba(onBar, 0.14),
+    tabBarActive: onBarHex,
+    // Muted rather than a second colour: the selected tab is already told
+    // apart by the pill behind it, the indicator bar and the bolder label.
+    tabBarInactive: rgba(onBar, 0.62),
+    tabBarPill: rgba(onBar, 0.16),
     categoryLabel: veryDark ? coreHex : '#666666',
   };
 
@@ -129,8 +145,14 @@ export const buildBrandTokens = (brandColor: string): { light: BrandTokens; dark
     ],
     heroOverlay: rgba(mix(core, BLACK, 0.72), 0.5),
 
-    tabBarActive: darkBrand,
-    tabBarPill: rgba(mix(core, WHITE, 0.5), 0.14),
+    // Deliberately the same bar in both modes. The bar is a brand surface, not
+    // a page surface — flipping it with the OS theme would make the app look
+    // like two different products.
+    tabBarBg: coreHex,
+    tabBarBorder: rgba(onBar, 0.14),
+    tabBarActive: onBarHex,
+    tabBarInactive: rgba(onBar, 0.62),
+    tabBarPill: rgba(onBar, 0.16),
     categoryLabel: veryDark ? '#FFFFFF' : '#B8B8B8',
   };
 

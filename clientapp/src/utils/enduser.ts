@@ -28,3 +28,14 @@ export const useIsEndUserParty = (): boolean => {
   if (!user || user.role !== 'party') return false;
   return isEndUserChannel(user.channelName);
 };
+
+/**
+ * Strictly the EndUser channel, by name.
+ *
+ * Unlike isEndUserChannel above, a party with no channel is NOT counted here.
+ * The two questions are different: "which Home does this shopper get" treats an
+ * unclassified account as a shopper, while "should a salesman see this party"
+ * must not hide an account just because nobody has classified it yet.
+ */
+export const isNamedEndUserChannel = (channelName?: string | null) =>
+  !!channelName && channelName.trim().toLowerCase() === 'enduser';

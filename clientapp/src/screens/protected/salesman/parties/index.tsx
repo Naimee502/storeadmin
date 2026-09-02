@@ -14,6 +14,7 @@ import { BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_ACCOUNTS, GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import type { RootState } from '../../../../store/rootreducer';
+import { isNamedEndUserChannel } from '../../../../utils';
 
 type LatLng = { lat: number; lng: number };
 
@@ -37,19 +38,6 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 const fmtDist = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`);
-
-// Open maps by GPS coords when the party has them, else fall back to a text
-// search on the address — so the map always opens even without lat/lng.
-function openMapsForParty(item: any, from?: LatLng | null) {
-  if (item.latitude != null && item.longitude != null) {
-    openInMaps(item.latitude, item.longitude, item.name, from);
-    return;
-  }
-  const q = encodeURIComponent([item.name, item.address, item.city].filter(Boolean).join(', '));
-  if (!q) return;
-  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`)
-    .catch(() => Alert.alert('Maps Error', 'Could not open maps app.'));
-}
 
 // Direct (route-less) order flow: lists the salesman's parties with the same rich
 // detail as My Routes — address, live outstanding, visited/pending — and taps
@@ -175,22 +163,32 @@ export default function SalesmanParties() {
       ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, p.latitude, p.longitude)
       : Infinity;
 
+  // EndUser parties are self-registered shoppers from the app and website. They
+  // are nobody's route stop — a salesman does not visit them, collect from them
+  // or take their order in person — so they are dropped here rather than being
+  // filtered out at each use, which is what left an "EndUser" chip on screen
+  // that no salesman had a reason to press.
+  const tradeParties = useMemo(
+    () => parties.filter((p: any) => !isNamedEndUserChannel(p.channel?.channelName)),
+    [parties],
+  );
+
   // Distinct channels among this salesman's own parties → "All" + one chip
   // per channel actually in use (no point listing channels with 0 parties here).
   const channels = useMemo(() => {
     const seen = new Map<string, string>();
-    parties.forEach((p: any) => {
+    tradeParties.forEach((p: any) => {
       if (p.channel?.id && !seen.has(p.channel.id)) seen.set(p.channel.id, p.channel.channelName);
     });
     return Array.from(seen, ([id, channelName]) => ({ id, channelName }));
-  }, [parties]);
+  }, [tradeParties]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = q
-      ? parties.filter((p: any) =>
+      ? tradeParties.filter((p: any) =>
           (p.name || '').toLowerCase().includes(q) || (p.mobile || '').includes(q))
-      : parties;
+      : tradeParties;
     if (channelFilter) list = list.filter((p: any) => p.channel?.id === channelFilter);
     // Nearest party first (so the closest stop is on top, no scrolling). When we
     // have no GPS fix yet, fall back to pending-amount order.
@@ -199,7 +197,7 @@ export default function SalesmanParties() {
     }
     return [...list].sort((a: any, b: any) => distOf(a) - distOf(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parties, search, salesmanLoc, channelFilter]);
+  }, [tradeParties, search, salesmanLoc, channelFilter]);
 
   const openParty = (item: any) =>
     navigation.navigate('RoutePartyVisit', {
@@ -241,28 +239,34 @@ export default function SalesmanParties() {
             ) : null}
           </View>
 
-          {/* Phone + location share one row to keep the card compact. */}
-          <View style={styles.metaRow}>
-            {item.mobile ? (
+          {item.mobile ? (
+            <View style={styles.metaRow}>
               <View style={styles.metaItem}>
                 <Icon name="phone-outline" size={11} color={colors.subText} />
                 <Text style={[styles.locText, { color: colors.subText }]} numberOfLines={1}>{item.mobile}</Text>
               </View>
-            ) : null}
+            </View>
+          ) : null}
 
-            {hasLoc ? (
-              <TouchableOpacity
-                style={[styles.metaItem, { flex: 1 }]}
-                activeOpacity={0.7}
-                onPress={() => openMapsForParty(item, salesmanLoc)}
-              >
-                <Icon name="map-marker-outline" size={11} color={colors.brand} />
-                <Text style={[styles.locText, { color: colors.brand, flexShrink: 1 }]} numberOfLines={1}>
-                  {[item.address, item.city].filter(Boolean).join(', ') || 'View on map'}
+          {/* The address is read, not tapped. It used to open Maps, which meant
+              a salesman working down this list was thrown out to another app
+              every time a thumb landed slightly wrong — and the distance chip
+              on the right already opens Maps deliberately. Given its own row so
+              a full address is legible instead of being squeezed beside the
+              phone number. */}
+          {hasLoc ? (
+            <View style={styles.metaRow}>
+              <View style={[styles.metaItem, { flex: 1 }]}>
+                <Icon name="map-marker-outline" size={11} color={colors.subText} />
+                <Text style={[styles.locText, { color: colors.subText, flexShrink: 1 }]} numberOfLines={2}>
+                  {[item.address, item.city].filter(Boolean).join(', ') || 'Location saved'}
                 </Text>
-                <Icon name="open-in-new" size={10} color={colors.brand} />
-              </TouchableOpacity>
-            ) : (
+              </View>
+            </View>
+          ) : (
+            // Still a button: this one saves the salesman's current position as
+            // the party's location, which is the whole point of standing there.
+            <View style={styles.metaRow}>
               <TouchableOpacity
                 style={styles.metaItem}
                 activeOpacity={0.7}
@@ -274,8 +278,8 @@ export default function SalesmanParties() {
                   {savingLocId === item.id ? 'Saving location…' : 'Add location'}
                 </Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
 
           {bal > 0 ? (
             <Text style={styles.outstanding}>Pending: ₹{out.toLocaleString('en-IN')}</Text>
@@ -406,7 +410,7 @@ const styles = StyleSheet.create({
   channelPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   channelText: { fontSize: 10.5, fontFamily: FONTS.semiBold, flexShrink: 1 },
   // Phone + location live in the same row now, so the card needs one fewer line.
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 4 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   locText: { fontSize: 11.5, fontFamily: FONTS.regular, flexShrink: 1 },
   outstanding: { fontSize: 12, fontFamily: FONTS.semiBold, color: '#ef4444', marginTop: 4 },

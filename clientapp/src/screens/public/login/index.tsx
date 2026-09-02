@@ -39,15 +39,20 @@ export default function Login({ navigation }: any) {
   // not size an <Image> from the file's own dimensions — a fixed square box
   // squeezes a wordmark until it cannot be read. So measure the real aspect
   // ratio and give the logo the width it actually needs, up to a cap.
+  //
+  // Measured against the resolved url, not the stored one: the stored url can
+  // name a host this device cannot reach (see resolveMediaUrl), and getSize on
+  // that just fails silently, leaving every logo square.
+  const logoUri = resolveMediaUrl(brandLogo);
   const [logoRatio, setLogoRatio] = useState(1);
   useEffect(() => {
-    if (!brandLogo) return;
+    if (!logoUri) return;
     Image.getSize(
-      brandLogo,
+      logoUri,
       (w, h) => { if (h > 0) setLogoRatio(w / h); },
       () => { /* unreachable url — the 1:1 default is a fine guess */ },
     );
-  }, [brandLogo]);
+  }, [logoUri]);
 
   const LOGO_HEIGHT = 60;
   const logoWidth = Math.min(Math.max(LOGO_HEIGHT * logoRatio, LOGO_HEIGHT), 220);
@@ -230,9 +235,9 @@ export default function Login({ navigation }: any) {
                   ]}
                 >
                   <Image
-                    source={{ uri: resolveMediaUrl(brandLogo) }}
+                    source={{ uri: logoUri }}
                     style={{ width: logoWidth, height: LOGO_HEIGHT }}
-                    resizeMode="contain"
+                    resizeMode="cover"
                   />
                 </View>
               ) : (
@@ -253,8 +258,8 @@ export default function Login({ navigation }: any) {
                 {isRegisterMode
                   ? "This number isn't registered yet — tell us a bit about yourself to get set up."
                   : isStaffMode
-                  ? 'Enter your mobile number and password to sign in.'
-                  : 'Enter your mobile number to receive a one-time passcode.'}
+                    ? 'Enter your mobile number and password to sign in.'
+                    : 'Enter your mobile number to receive a one-time passcode.'}
               </Text>
             </Animated.View>
 
@@ -464,8 +469,8 @@ const styles = StyleSheet.create({
   // a size and is allowed to wrap rather than being clipped mid-word.
   title: { fontSize: 28, fontFamily: FONTS.bold, marginTop: 6, marginBottom: 8, textAlign: 'center' },
   logoPlate: {
-    backgroundColor: '#ffffff', borderRadius: 18, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 20, alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 6, paddingVertical: 6, marginBottom: 20, marginTop: 20, alignSelf: 'flex-start',
     shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6,
   },
   subtitle: { fontSize: 14, fontFamily: FONTS.regular, lineHeight: 21 },

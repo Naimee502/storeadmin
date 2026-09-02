@@ -100,15 +100,18 @@ export default function Header() {
             {/* The business's uploaded logo when there is one; the lettered
                 avatar is the fallback, not the default. */}
             {/* Height is fixed and width is free, because most business logos
-                are wider than they are tall — forcing one into a 36px square
-                shrank it until the wordmark was unreadable. The hairline ring
-                marks where the logo ends, which matters when someone uploads
-                one on a white or transparent background. */}
+                are wider than they are tall — forcing one into a square shrank
+                them until the wordmark was unreadable. Sized to match the app's
+                login screen rather than to match the lettered avatar it
+                replaced: a real logo carries detail a single letter does not,
+                and at 36px that detail was mush. The hairline ring marks where
+                the logo ends, which matters when someone uploads one on a white
+                or transparent background. */}
             {brandLogo ? (
               <img
                 src={brandLogo}
                 alt={brandName}
-                className="h-9 w-auto max-w-[150px] shrink-0 rounded-lg bg-white object-contain ring-1 ring-black/10"
+                className="h-10 w-auto max-w-[160px] shrink-0 rounded-lg bg-white object-contain p-0.5 ring-1 ring-black/10 sm:h-12 sm:max-w-[200px]"
               />
             ) : (
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-700 font-bold text-white">

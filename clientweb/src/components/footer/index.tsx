@@ -60,7 +60,7 @@ export default function Footer() {
                 <img
                   src={brandLogo}
                   alt={brandName}
-                  className="h-9 w-auto max-w-[150px] shrink-0 rounded-lg bg-white object-contain p-0.5 ring-1 ring-white/15"
+                  className="h-12 w-auto max-w-[200px] shrink-0 rounded-lg bg-white object-contain p-1 ring-1 ring-white/15"
                 />
               ) : (
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 font-bold text-white">

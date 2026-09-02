@@ -281,29 +281,36 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                         )}
                       </View>
 
-                      {/* Phone + location share one row to keep the card compact. */}
-                      <View style={styles.partyMetaRow}>
-                        {!!party.mobile && (
+                      {!!party.mobile && (
+                        <View style={styles.partyMetaRow}>
                           <View style={styles.partyMetaItem}>
                             <Icon name="phone-outline" size={11} color={colors.subText} />
                             <Text style={[styles.partyCity, { color: colors.subText }]} numberOfLines={1}>
                               {party.mobile}
                             </Text>
                           </View>
-                        )}
-                        {party.lat != null && party.lng != null ? (
-                          <TouchableOpacity
-                            style={[styles.partyMetaItem, { flex: 1 }]}
-                            onPress={() => onNavigate(party.lat, party.lng, party.name)}
-                            activeOpacity={0.7}
-                          >
-                            <Icon name="map-marker-outline" size={11} color={colors.brand} />
-                            <Text style={[styles.partyCity, { color: colors.brand, flexShrink: 1 }]} numberOfLines={1}>
-                              {[party.address, party.city].filter(Boolean).join(', ')}
+                        </View>
+                      )}
+
+                      {/* Same as My Parties: the address is read, not tapped.
+                          Working down a route meant a thumb landing slightly
+                          wrong threw the salesman out to Maps, and the distance
+                          chip on the right already opens it deliberately. Given
+                          its own row under the phone so a full address is
+                          legible rather than squeezed beside the number. */}
+                      {party.lat != null && party.lng != null ? (
+                        <View style={styles.partyMetaRow}>
+                          <View style={[styles.partyMetaItem, { flex: 1 }]}>
+                            <Icon name="map-marker-outline" size={11} color={colors.subText} />
+                            <Text style={[styles.partyCity, { color: colors.subText, flexShrink: 1 }]} numberOfLines={2}>
+                              {[party.address, party.city].filter(Boolean).join(', ') || 'Location saved'}
                             </Text>
-                            <Icon name="open-in-new" size={10} color={colors.brand} />
-                          </TouchableOpacity>
-                        ) : (
+                          </View>
+                        </View>
+                      ) : (
+                        // Still a button: this saves the salesman's current
+                        // position as the party's location.
+                        <View style={styles.partyMetaRow}>
                           <TouchableOpacity
                             style={styles.partyMetaItem}
                             onPress={() => onAddLocation(party)}
@@ -315,8 +322,8 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                               {savingLocId === party.id ? 'Saving location…' : 'Add location'}
                             </Text>
                           </TouchableOpacity>
-                        )}
-                      </View>
+                        </View>
+                      )}
                       {party.outstanding > 0 ? (
                         <Text style={[styles.outstanding, { color: '#ef4444' }]}>
                           Pending: ₹{Math.abs(party.outstanding).toLocaleString('en-IN')}
@@ -667,7 +674,7 @@ const styles = StyleSheet.create({
   channelPill:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   channelText:  { fontSize: 10, fontFamily: FONTS.semiBold, flexShrink: 1 },
   // Phone + location live in the same row now, so the card needs one fewer line.
-  partyMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
+  partyMetaRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 3 },
   partyMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   partyCity:    { fontSize: 11, fontFamily: FONTS.regular, flex: 1 },
   outstanding:  { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 2, color: '#ef4444' },
