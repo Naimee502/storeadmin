@@ -16,7 +16,7 @@ import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUse
 import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -85,6 +85,10 @@ export default function PartyHome() {
   const [search, setSearch] = useState('');
   const showPrice = useShowProductPrice();
   const showStock = useShowProductStock();
+  // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
+  // null = the admin hasn't picked one, so the card keeps its fixed image
+  // height as before.
+  const imgRatio = useProductImageRatio();
   // Admin-managed hero slides from the web panel — only queried/rendered for
   // the business codes that opt in above.
   const heroSlides = useHeroBannerSlides();
@@ -361,7 +365,7 @@ export default function PartyHome() {
                       activeOpacity={0.88}
                     >
                       <View>
-                        <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }]}>
+                        <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
                           {p.imageurl
                             ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.productImg} resizeMode="cover" />
                             : <Icon name="package-variant-closed" size={26} color={colors.brand} />

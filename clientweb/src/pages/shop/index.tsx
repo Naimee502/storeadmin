@@ -23,7 +23,7 @@ const DEFAULT_MAX_PRICE = 30000;
 
 export default function ShopPage() {
   const { categories, products, loading } = useCatalog();
-  const { displayProductPrice } = useTenant();
+  const { displayProductPrice, shopProductImageRatio } = useTenant();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -243,7 +243,7 @@ export default function ShopPage() {
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {paged.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+                  <ProductCard key={p.id} product={p} imageRatio={shopProductImageRatio} />
                 ))}
               </div>
             )}

@@ -44,6 +44,18 @@ interface TenantContextValue {
   /** Primary brand colour (#rrggbb). Empty = the built-in green/teal. */
   themeBrandColor: string;
 
+  /**
+   * Shape of the image box on product cards — "1:1" | "3:4" | "4:3" | "16:9",
+   * one per section because these grids are not the same size. Empty = the
+   * fixed height those cards used before the setting existed.
+   */
+  /** Deal of the Day carousel tiles. */
+  dealProductImageRatio: string;
+  /** Featured Products + New Arrivals, and every other card on the site. */
+  homeProductImageRatio: string;
+  /** The Shop / All Products grid. */
+  shopProductImageRatio: string;
+
   socialFacebookUrl: string;
   socialInstagramUrl: string;
   socialTwitterUrl: string;
@@ -136,6 +148,9 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     websiteTagline: info?.websiteTagline ?? "",
     brandLogo: info?.brandLogo ?? "",
     themeBrandColor: info?.themeBrandColor ?? "",
+    dealProductImageRatio: info?.websiteDealProductImageRatio ?? "",
+    homeProductImageRatio: info?.websiteHomeProductImageRatio ?? "",
+    shopProductImageRatio: info?.websiteShopProductImageRatio ?? "",
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",

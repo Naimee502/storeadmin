@@ -438,6 +438,7 @@ export const GET_ADMIN_SETTINGS = gql`
       termsConditionsUrl
       brandLogo
       themeBrandColor
+      appProductImageRatio
       appCatalogBrowseMode
       heroBannerSlides {
         image

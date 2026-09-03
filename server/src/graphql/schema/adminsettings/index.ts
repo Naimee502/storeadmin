@@ -136,6 +136,13 @@ export const adminSettingsTypeDefs = gql`
     # full palette from it. Blank = the built-in green/teal.
     themeBrandColor: String
 
+    # Aspect ratio of the product image box, one per surface — "1:1" | "3:4" |
+    # "4:3" | "16:9". Blank = that surface's previous fixed card image height.
+    appProductImageRatio: String
+    websiteDealProductImageRatio: String
+    websiteHomeProductImageRatio: String
+    websiteShopProductImageRatio: String
+
     # Party app Home browses a catalogue (category -> sub-category -> order
     # sheet) instead of showing the storefront. Off by default.
     appCatalogBrowseMode: Boolean
@@ -200,6 +207,9 @@ export const adminSettingsTypeDefs = gql`
     websiteTagline: String
     brandLogo: String
     themeBrandColor: String
+    websiteDealProductImageRatio: String
+    websiteHomeProductImageRatio: String
+    websiteShopProductImageRatio: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -297,6 +307,10 @@ export const adminSettingsTypeDefs = gql`
     websiteTagline: String
     brandLogo: String
     themeBrandColor: String
+    appProductImageRatio: String
+    websiteDealProductImageRatio: String
+    websiteHomeProductImageRatio: String
+    websiteShopProductImageRatio: String
     appCatalogBrowseMode: Boolean
 
     socialFacebookUrl: String

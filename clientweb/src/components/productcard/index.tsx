@@ -12,9 +12,20 @@ const badgeStyles: Record<string, string> = {
   BESTSELLER: "bg-amber-600",
 };
 
-export default function ProductCard({ product }: { product: SampleProduct }) {
+export default function ProductCard({
+  product,
+  // Which section's image ratio this card follows (Settings -> General ->
+  // Product Image Ratio). Left out, it takes the Home/Featured value — that
+  // covers the cards that aren't part of a named section, like related
+  // products on a product page or the account page's reorder grid.
+  imageRatio,
+}: {
+  product: SampleProduct;
+  imageRatio?: string;
+}) {
   const { lines, addToCart, updateQty, removeFromCart } = useCart();
-  const { displayProductPrice, displayStock } = useTenant();
+  const { displayProductPrice, displayStock, homeProductImageRatio } = useTenant();
+  const ratio = imageRatio ?? homeProductImageRatio;
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
 
@@ -28,6 +39,11 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
 
   // Out-of-stock is only enforced when we actually have a stock number —
   // sample/fallback products without one stay purchasable.
+  // Blank keeps the fixed h-36 every card used before the setting existed; a
+  // ratio swaps that for an aspect-ratio box, so a grid of differently
+  // proportioned uploads still lines up (the photo itself stays object-cover).
+  const imageBoxStyle = ratio ? { aspectRatio: ratio.replace(":", " / ") } : undefined;
+
   const outOfStock = typeof product.stock === "number" && product.stock <= 0;
   const lowStock = typeof product.stock === "number" && product.stock > 0 && product.stock <= 5;
 
@@ -62,8 +78,11 @@ export default function ProductCard({ product }: { product: SampleProduct }) {
     <div className="group flex h-full flex-col rounded-2xl border border-slate-100 bg-white p-3.5 transition hover:-translate-y-1 hover:shadow-lg">
       <Link
         to={`/product/${product.id}`}
-        className="relative mb-3 flex h-36 items-center justify-center overflow-hidden rounded-xl"
-        style={product.imageurl ? undefined : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
+        className={`relative mb-3 flex ${ratio ? "w-full" : "h-36"} items-center justify-center overflow-hidden rounded-xl`}
+        style={{
+          ...imageBoxStyle,
+          ...(product.imageurl ? {} : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }),
+        }}
       >
         {product.badge && (
           <span

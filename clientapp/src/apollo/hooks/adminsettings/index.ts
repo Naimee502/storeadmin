@@ -35,6 +35,27 @@ export function useShowProductStock(): boolean {
   return (data as any)?.getAdminSettings?.displayStockOnWebsite !== false;
 }
 
+// Shape of the product image box on the Home and Shop cards. Admin-controlled
+// via Settings -> General -> Product Image Ratio -> "App — Home & Shop"
+// (appProductImageRatio). The app has its own value rather than sharing the
+// website's: the phone card is small and two-up, so a ratio that suits the
+// site's wide Shop grid would leave a tall gap here. Returned as a number
+// ready for RN's `aspectRatio` style (e.g. "3:4" -> 0.75); null means the
+// admin hasn't picked one and the card keeps the fixed image height it
+// always had.
+export function useProductImageRatio(): number | null {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const raw = String((data as any)?.getAdminSettings?.appProductImageRatio ?? '');
+  const [w, h] = raw.split(':').map(Number);
+  if (!w || !h) return null;
+  return w / h;
+}
+
 // Promo banner tiles the admin manages from the web panel (Settings → General
 // → "Promo Banners"), the same list the website renders between Featured
 // Products and New Arrivals. Empty list = the admin hasn't configured any, in

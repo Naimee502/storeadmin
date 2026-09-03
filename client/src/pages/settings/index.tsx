@@ -252,6 +252,32 @@ export default Settings;
 /** The built-in brand colour, shown as the placeholder when none is set. */
 const DEFAULT_BRAND_COLOR = "#0F766E";
 
+// Shape of the product image box on product cards. One dropdown per surface
+// (see PRODUCT_IMAGE_RATIO_FIELDS) because these grids were never the same
+// size — the app's card, the Deal of the Day carousel tile and the Shop grid
+// each had their own height. Blank keeps whatever height that surface used
+// before this setting existed, so an untouched business sees no change.
+// FormField's native <select> already prepends its own blank "Select ..."
+// row, which is the "leave it at the default" choice — so this list holds
+// only the real ratios. The server validates the "w:h" shape rather than a
+// fixed list, so adding a ratio here is all it takes.
+const PRODUCT_IMAGE_RATIO_OPTIONS = [
+  { label: "Square (1:1)", value: "1:1" },
+  { label: "Portrait (3:4)", value: "3:4" },
+  { label: "Landscape (4:3)", value: "4:3" },
+  { label: "Wide (16:9)", value: "16:9" },
+];
+
+
+
+
+const PRODUCT_IMAGE_RATIO_FIELDS: { key: string; label: string; help: string }[] = [
+  { key: "appProductImageRatio", label: "App — Home & Shop", help: "The product cards in the mobile app." },
+  { key: "websiteDealProductImageRatio", label: "Website — Deal of the Day", help: "The carousel tiles in the Deal of the Day strip." },
+  { key: "websiteHomeProductImageRatio", label: "Website — Featured & New Arrivals", help: "Both Home page grids, and any other card on the site (related products, reorder grid)." },
+  { key: "websiteShopProductImageRatio", label: "Website — Shop", help: "The All Products grid on the Shop page." },
+];
+
 const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, dispatch }) => {
   const { data, refetch } = useAdminSettingsQuery(adminId);
   const { updateAdminSettings } = useAdminSettingsMutations();
@@ -563,6 +589,29 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           A wide or square PNG works; transparent backgrounds are fine, but avoid a logo that is entirely white, since it sits on a white plate.
           Theme colour: one colour drives the whole palette on your website and app — leave it blank (or press Reset) to keep the default green.
         </p>
+      </Section>
+
+      <Section title="Product Image Ratio (Home / Shop cards)">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          The shape of the picture box on product cards. The photo is cropped to fill it, so a catalogue of
+          differently sized uploads still lines up. Each surface is set on its own because these grids are not the
+          same size — leave one unselected to keep the card height it uses today.
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {PRODUCT_IMAGE_RATIO_FIELDS.map((f) => (
+            <div key={f.key} className="flex flex-col gap-1">
+              <FormField
+                label={f.label}
+                name={f.key}
+                type="select"
+                options={PRODUCT_IMAGE_RATIO_OPTIONS}
+                value={draft[f.key] ?? ""}
+                onChange={(e: any) => set(f.key, e.target.value)}
+              />
+              <p className="text-xs text-gray-400">{f.help}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="Website Content">

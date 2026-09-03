@@ -16,7 +16,7 @@ import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Catalog() {
@@ -30,6 +30,10 @@ export default function Catalog() {
   const adminid = tenant.adminId ?? '';
   const showPrice = useShowProductPrice();
   const showStock = useShowProductStock();
+  // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
+  // null = the admin hasn't picked one, so the card keeps its fixed image
+  // height as before.
+  const imgRatio = useProductImageRatio();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -151,7 +155,7 @@ export default function Catalog() {
         activeOpacity={0.88}
       >
         <View>
-          <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }]}>
+          <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
             {p.imageurl
               ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.img} resizeMode="cover" />
               : <Icon name="package-variant-closed" size={30} color={colors.brand} />

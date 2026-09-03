@@ -11,6 +11,16 @@
 
 import mongoose from "mongoose";
 
+// Every product-image-ratio field below is a "w:h" string ("1:1", "3:4",
+// "16:9", ...) or "" for "not picked, keep the previous fixed height".
+// Validated by shape rather than a fixed list on purpose: the admin panel
+// owns the menu of ratios, so adding one there never needs a server change.
+const PRODUCT_IMAGE_RATIO_RULE = {
+  type: String,
+  default: "",
+  match: [/^(\d{1,2}:\d{1,2})?$/, 'Ratio must look like "3:4"'],
+};
+
 const adminSettingsSchema = new mongoose.Schema(
   {
     adminid: {
@@ -271,6 +281,31 @@ const adminSettingsSchema = new mongoose.Schema(
     //
     // Blank = the built-in green/teal, exactly as before.
     themeBrandColor: { type: String, default: "" },
+
+    /* ============================================================
+       PRODUCT IMAGE RATIO — the shape of the picture box on product
+       cards. One value per surface, because these grids were never the
+       same size: the app's cards are small and square-ish, the website's
+       Deal of the Day strip is a narrow carousel tile, and the Shop grid
+       is wider again. A single shared ratio would have squashed one of
+       them to fit the others.
+
+       The photo itself still fills its box cropped (cover), so a
+       catalogue of differently proportioned uploads stays aligned.
+       Blank = the fixed height that surface used before this setting
+       existed, so nothing moves for a business that never touches it.
+       ============================================================ */
+    // App — Home and Shop product cards (one value for both; the phone
+    // grid is the same two-column card on either screen).
+    appProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
+    // Website — Deal of the Day carousel tiles.
+    websiteDealProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
+    // Website — Featured Products and New Arrivals on the Home page. Also
+    // the fallback for every other card on the site (related products on a
+    // product page, the account page's reorder grid).
+    websiteHomeProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
+    // Website — the Shop / All Products grid.
+    websiteShopProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
 
     /**
      * Party app Home shows a catalogue to browse rather than a storefront.

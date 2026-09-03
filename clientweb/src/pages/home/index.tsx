@@ -148,7 +148,7 @@ export default function HomePage() {
             <div className="no-scrollbar flex gap-4 overflow-x-auto">
               {dealProducts.map((p) => (
                 <div key={p.id} className="w-56 shrink-0 rounded-2xl bg-white/95 p-1">
-                  <ProductCard product={p} />
+                  <ProductCard product={p} imageRatio={tenant.dealProductImageRatio} />
                 </div>
               ))}
             </div>
