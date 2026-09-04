@@ -12,10 +12,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
-import { formatINR } from '../../../../utils';
 import { BackHeader } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCT = {
@@ -69,6 +68,10 @@ export default function ProductDetail() {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [selectedUnitIdx, setSelectedUnitIdx] = useState(0);
   const showPrice = useShowProductPrice();
+  // Display-only x2 markup on every price this screen prints — the headline
+  // price, the strike-through MRP, and the variant/unit chips. Add to Cart
+  // still sends the real unitprice, so the cart and the order are unaffected.
+  const { formatCatalogINR } = useCatalogPrice();
   const showStock = useShowProductStock();
   // Auto-fit the hero image to its own aspect ratio (no cropping) instead of
   // forcing every photo into one fixed box shape. Read the real pixel size
@@ -287,9 +290,9 @@ export default function ProductDetail() {
 
           {showPrice && (
             <View style={styles.priceRow}>
-              <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+              <Text style={[styles.price, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
               {hasMrp && (
-                <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+                <Text style={[styles.mrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>
               )}
               {hasDiscount && (
                 <View style={[styles.discountBadge, { backgroundColor: '#22c55e22' }]}>
@@ -336,7 +339,7 @@ export default function ProductDetail() {
                     <Text style={[styles.variantChipText, { color: active ? '#fff' : colors.text }]}>{v.name}</Text>
                     {showPrice && (
                       <Text style={[styles.variantPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.subText }]}>
-                        {formatINR(vPrice)}
+                        {formatCatalogINR(vPrice)}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -372,12 +375,12 @@ export default function ProductDetail() {
                     </Text>
                     {showPrice && (
                       <Text style={[styles.unitChipPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.brand }]}>
-                        {formatINR(uPrice)}
+                        {formatCatalogINR(uPrice)}
                       </Text>
                     )}
                     {showPrice && uHasDisc && (
                       <Text style={[styles.unitChipMrp, { color: active ? 'rgba(255,255,255,0.55)' : colors.subText }]}>
-                        {formatINR(uMrp)}
+                        {formatCatalogINR(uMrp)}
                       </Text>
                     )}
                   </TouchableOpacity>

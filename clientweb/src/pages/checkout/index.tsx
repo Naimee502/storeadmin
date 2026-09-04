@@ -57,15 +57,22 @@ export default function CheckoutPage() {
     if (codOnly) setPayment("cod");
   }, [codOnly]);
 
-  const totaldiscount = lines.reduce((sum, l) => sum + (l.mrp - l.price) * l.qty, 0);
-  const totalgst = lines.reduce((sum, l) => sum + (l.price * l.qty * (l.gst ?? 0)) / 100, 0);
+  // Same arithmetic as the POS cart and the app's party checkout — the unit's
+  // own rupee discount, not the MRP gap. The old MRP-derived figure was sent
+  // to the server as the line discount while the payable total was still the
+  // undiscounted rate, so a placed order disagreed with itself.
+  const totaldiscount = lines.reduce((sum, l) => sum + (l.discount ?? 0) * l.qty, 0);
+  const totalgst = lines.reduce(
+    (sum, l) => sum + ((l.price - (l.discount ?? 0)) * l.qty * (l.gst ?? 0)) / 100,
+    0
+  );
 
   // Real delivery/handling/COD charges — same Charge Rules module +
   // computeAutoCharges logic the app's party checkout uses, instead of a
   // fake flat delivery fee. Display-only preview; the server computes and
   // applies these itself when the order is created.
   const charges = useChargePreview(subtotal, "party", payment === "cod" ? "cash" : payment);
-  const total = subtotal + totalgst + charges.total;
+  const total = subtotal - totaldiscount + totalgst + charges.total;
 
   const handlePlaceOrder = async () => {
     if (!isLoggedIn || !account) {
@@ -116,8 +123,8 @@ export default function CheckoutPage() {
               qty: l.qty,
               unitqty: l.unitqty ?? l.qty,
               rate: l.price,
-              discount: l.mrp > l.price ? l.mrp - l.price : 0,
-              amount: l.price * l.qty,
+              discount: l.discount ?? 0,
+              amount: (l.price - (l.discount ?? 0)) * l.qty,
               gst: l.gst ?? 0,
             })),
           },
@@ -339,7 +346,9 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                       {displayProductPrice && (
-                        <p className="text-sm font-semibold text-ink-900">{formatPrice(line.price * line.qty)}</p>
+                        <p className="text-sm font-semibold text-ink-900">
+                          {formatPrice((line.price - (line.discount ?? 0)) * line.qty)}
+                        </p>
                       )}
                     </div>
                   );
@@ -352,6 +361,12 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-slate-600">
                       <span>Subtotal</span>
                       <span>{formatPrice(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Total Discount</span>
+                      <span className={totaldiscount > 0 ? "text-brand-600" : ""}>
+                        {totaldiscount > 0 ? `−${formatPrice(totaldiscount)}` : formatPrice(0)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>GST</span>

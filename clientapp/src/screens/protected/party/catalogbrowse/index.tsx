@@ -12,10 +12,9 @@ import { GET_CATEGORIES, GET_SUBCATEGORIES } from '../../../../apollo/queries/ca
 import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { AppHeader, AppTextInput, HeroBanner, useNotificationCenter } from '../../../../components';
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
-import { formatINR } from '../../../../utils';
 import { addToCart } from '../../../../store/slices';
 import { useUI } from '../../../../utils';
-import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 import { TileGrid, ImageViewer, type Tile } from './tiles';
 
@@ -42,6 +41,9 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
   const dispatch = useDispatch();
   const { showToast } = useUI();
   const showPrice = useShowProductPrice();
+  // Display-only x2 markup on the order sheet's rate column. The quantity
+  // boxes below still build the order off the real unitprice.
+  const { formatCatalogINR } = useCatalogPrice();
   const insets = useSafeAreaInsets();
   const { bellIcon, NotificationsModal } = useNotificationCenter();
   const heroSlides = useHeroBannerSlides();
@@ -361,9 +363,9 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                       )}
                       {showPrice && price > 0 && (
                         <View style={styles.rowPriceLine}>
-                          <Text style={[styles.rowRate, { color: colors.brand }]}>{formatINR(price)}</Text>
+                          <Text style={[styles.rowRate, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
                           {mrp > 0 && (
-                            <Text style={[styles.rowMrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+                            <Text style={[styles.rowMrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>
                           )}
                         </View>
                       )}

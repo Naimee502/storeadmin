@@ -80,7 +80,14 @@ export interface SampleProduct {
   // Per-unit price breakdown (e.g. Piece vs Dozen) — when present, ProductCard
   // and ProductDetail let the buyer switch units and show/add-to-cart the
   // price for whichever one is selected, same as the mobile app's catalog.
-  unitPrices?: { label: string; price: number; mrp: number; unitid?: string | null; unitQuantity?: number }[];
+  // `discount` is the admin's own per-unit rupee discount off the rate
+  // (Product -> unit price -> Discount), the exact field the POS and the app
+  // subtract. It is NOT derived from MRP: MRP is only ever a strike-through
+  // on the catalogue, while this is what actually reduces what the customer
+  // pays, so the two must never be confused.
+  unitPrices?: { label: string; price: number; mrp: number; discount?: number; unitid?: string | null; unitQuantity?: number }[];
+  /** Per-unit rupee discount for the default (first) unit. See unitPrices. */
+  discount?: number;
   createdAt?: string;
   // Needed to actually place a real order (SalesOrderProductServiceInput) —
   // both are variant-level on the server (single variant per product here),

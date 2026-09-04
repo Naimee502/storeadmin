@@ -14,6 +14,14 @@ export interface CartLine {
   unit: string;
   price: number;
   mrp: number;
+  /**
+   * Per-unit rupee discount off `price`, exactly as the POS and the app carry
+   * it. The line's payable amount is `(price - discount) * qty`; `mrp` plays
+   * no part in that and is a strike-through only. Optional because carts
+   * persisted to localStorage before this field existed rehydrate without it
+   * — every read must be `?? 0`.
+   */
+  discount?: number;
   qty: number;
   // Optional on purpose: lines are persisted to localStorage with
   // JSON.stringify, which silently drops function values — so a rehydrated
@@ -33,7 +41,10 @@ export interface CartLine {
 interface CartContextValue {
   lines: CartLine[];
   count: number;
+  /** Sum of rate x qty, before any discount — the app's "Subtotal" row. */
   subtotal: number;
+  /** Sum of the per-unit discounts x qty — the app's "Total Discount" row. */
+  totaldiscount: number;
   addToCart: (product: SampleProduct, qty?: number, unit?: string) => void;
   updateQty: (lineId: string, qty: number) => void;
   removeFromCart: (lineId: string) => void;
@@ -94,9 +105,13 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
     const matched = product.unitPrices?.find((u) => u.label === chosenUnit);
     const price = matched?.price ?? product.price;
     const mrp = matched?.mrp ?? product.mrp;
+    // The unit's own rupee discount. Kept as its own field rather than being
+    // folded into the price, so the cart can show "Rate (-Discount)" and send
+    // the server the same rate/discount pair the POS and the app send.
+    const baseDiscount = matched?.discount ?? product.discount ?? 0;
     const lineId = `${product.id}-${chosenUnit}`;
 
-    const pushLine = (finalPrice: number) => {
+    const pushLine = (finalPrice: number, finalDiscount: number) => {
       setLines((prev) => {
         const existing = prev.find((l) => l.lineId === lineId);
         if (existing) {
@@ -112,6 +127,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
             unit: chosenUnit,
             price: finalPrice,
             mrp,
+            discount: finalDiscount,
             qty,
             icon: product.icon,
             from: product.from,
@@ -149,18 +165,20 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
         .then(({ data }) => {
           const rp = data?.resolvePrice;
           if (!rp) {
-            pushLine(price);
+            pushLine(price, baseDiscount);
             return;
           }
           const rate = rp.rate != null ? rp.rate : price;
-          // Only apply a resolved discount when it's a real positive value —
-          // a null/zero result must not wipe the product's own unit price.
-          const discount = rp.discount != null && rp.discount > 0 ? rp.discount : 0;
-          pushLine(rate - discount);
+          // Only override the unit's own discount when the party/channel
+          // assignment returns a real positive one — a null/zero result must
+          // not wipe the product's own discount. Same rule as the app's
+          // Catalog screen and the POS.
+          const discount = rp.discount != null && rp.discount > 0 ? rp.discount : baseDiscount;
+          pushLine(rate, discount);
         })
-        .catch(() => pushLine(price));
+        .catch(() => pushLine(price, baseDiscount));
     } else {
-      pushLine(price);
+      pushLine(price, baseDiscount);
     }
   };
 
@@ -179,18 +197,20 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
 
   const count = lines.reduce((sum, l) => sum + l.qty, 0);
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+  const totaldiscount = lines.reduce((sum, l) => sum + (l.discount ?? 0) * l.qty, 0);
 
   const value = useMemo(
     () => ({
       lines,
       count,
       subtotal,
+      totaldiscount,
       addToCart,
       updateQty,
       removeFromCart,
       clearCart,
     }),
-    [lines, count, subtotal, account?.id, adminid, partyAccount]
+    [lines, count, subtotal, totaldiscount, account?.id, adminid, partyAccount]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

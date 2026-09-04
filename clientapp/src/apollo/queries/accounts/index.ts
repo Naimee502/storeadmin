@@ -431,6 +431,7 @@ export const GET_ADMIN_SETTINGS = gql`
       secureScreenApp
       displayProductPriceOnWebsite
       displayStockOnWebsite
+      doubleDisplayPrice
       supportEmail
       supportPhone
       supportWhatsapp

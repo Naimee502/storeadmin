@@ -10,19 +10,28 @@ export default function CartPage() {
   const { lines, updateQty, removeFromCart } = useCart();
   const { displayProductPrice } = useTenant();
 
-  const itemsTotal = lines.reduce((sum, l) => sum + l.mrp * l.qty, 0);
+  // Exactly the arithmetic the POS cart and the app's party cart use, so one
+  // product never shows three different totals across the three surfaces:
+  //   subtotal      = rate x qty                     (before discount)
+  //   totaldiscount = the unit's own rupee discount x qty
+  //   gst           = (rate - discount) x qty x gst%
+  //   total         = subtotal - discount + gst + charges
+  // MRP is deliberately absent: it is a strike-through on the catalogue, not
+  // a number anyone is billed on. Deriving the discount from the MRP gap (the
+  // old behaviour here) both overstated the saving and left the payable
+  // amount at the undiscounted rate.
   const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
-  const discount = itemsTotal - subtotal;
-  // Same GST calc the app's party cart uses: (rate - discount) * qty * gst%,
-  // here discount per-line is already baked into price vs mrp, so it's
-  // simply price * qty * gst / 100.
-  const totalgst = lines.reduce((sum, l) => sum + (l.price * l.qty * (l.gst ?? 0)) / 100, 0);
+  const discount = lines.reduce((sum, l) => sum + (l.discount ?? 0) * l.qty, 0);
+  const totalgst = lines.reduce(
+    (sum, l) => sum + ((l.price - (l.discount ?? 0)) * l.qty * (l.gst ?? 0)) / 100,
+    0
+  );
 
   // Real delivery/handling/COD charges from the admin's Charge Rules module
   // — exact same computeAutoCharges logic the mobile app's party cart uses,
   // instead of the old fake flat ₹49 delivery fee.
   const charges = useChargePreview(subtotal, "party");
-  const total = subtotal + totalgst + charges.total;
+  const total = subtotal - discount + totalgst + charges.total;
 
   if (lines.length === 0) {
     return (
@@ -104,10 +113,16 @@ export default function CartPage() {
 
                       {displayProductPrice && (
                         <div className="text-right">
-                          <p className="text-sm font-bold text-ink-900">{formatPrice(line.price * line.qty)}</p>
-                          {line.mrp > line.price && (
-                            <p className="text-xs text-slate-400 line-through">{formatPrice(line.mrp * line.qty)}</p>
-                          )}
+                          {/* Same line format as the POS and the app cart:
+                              the rate, the discount taken off it, and the GST
+                              rate — then the net the customer actually pays. */}
+                          <p className="text-[11px] text-slate-500">
+                            {formatPrice(line.price)}
+                            {(line.discount ?? 0) > 0 ? ` (−${formatPrice(line.discount ?? 0)})` : ""} · GST {line.gst ?? 0}%
+                          </p>
+                          <p className="text-sm font-bold text-ink-900">
+                            {formatPrice((line.price - (line.discount ?? 0)) * line.qty)}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -128,12 +143,14 @@ export default function CartPage() {
 
               <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
                 <div className="flex justify-between text-slate-600">
-                  <span>Price ({lines.length} items)</span>
-                  <span>{formatPrice(itemsTotal)}</span>
+                  <span>Subtotal ({lines.length} item{lines.length !== 1 ? "s" : ""})</span>
+                  <span>{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>Discount</span>
-                  <span className="text-brand-600">−{formatPrice(discount)}</span>
+                  <span>Total Discount</span>
+                  <span className={discount > 0 ? "text-brand-600" : ""}>
+                    {discount > 0 ? `−${formatPrice(discount)}` : formatPrice(0)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>GST</span>

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { GET_ADMIN_SETTINGS } from '../../queries/accounts';
 import { setBranding } from '../../../store/slices';
 import type { RootState } from '../../../store/rootreducer';
+import { formatINR } from '../../../utils/formatters';
 
 // Whether product prices (price, MRP, discount, cart/order totals) should be
 // shown. Admin-controlled via Business Settings → "Display Product Prices on
@@ -33,6 +34,41 @@ export function useShowProductStock(): boolean {
     fetchPolicy: 'cache-and-network',
   });
   return (data as any)?.getAdminSettings?.displayStockOnWebsite !== false;
+}
+
+/**
+ * Catalogue prices rendered at twice the stored rate. Admin-controlled via
+ * Business Settings -> "Show Double Price on App/Website".
+ *
+ * This is a *display* markup for businesses that quote a padded list price up
+ * front and settle at the real one. It touches only what the party reads on
+ * the catalogue — Home, Shop/Catalog, the catalogue browse sheet and Product
+ * Detail. Everything downstream keeps the admin's real rate: the cart lines,
+ * the cart total, the order that gets placed, the invoice and the ledger. That
+ * is why it is exposed as its own formatter rather than being folded into
+ * `formatINR` — doubling has to be opted into per call site, so a real
+ * transaction amount can never pick it up by accident.
+ *
+ *   const { formatCatalogINR } = useCatalogPrice();
+ *   formatCatalogINR(price)   // "\u20b9120.00" when on, "\u20b960.00" when off
+ */
+export function useCatalogPrice() {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const doubled = (data as any)?.getAdminSettings?.doubleDisplayPrice === true;
+  const multiplier = doubled ? 2 : 1;
+
+  /** Raw amount as the catalogue should show it. */
+  const catalogAmount = (n: number) => (Number(n) || 0) * multiplier;
+
+  /** Same thing, already run through the app's rupee formatter. */
+  const formatCatalogINR = (n: number) => formatINR(catalogAmount(n));
+
+  return { doubled, multiplier, catalogAmount, formatCatalogINR };
 }
 
 // Shape of the product image box on the Home and Shop cards. Admin-controlled

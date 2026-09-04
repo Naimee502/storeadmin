@@ -224,6 +224,17 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <Toggle label="Display Product Stock on App/Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />
         <Toggle label="Encrypt Invoice Prices (Mask actual amounts)" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
         <Toggle
+          label="Show Double Price on App/Website (display only)"
+          checked={!!draft.doubleDisplayPrice}
+          onChange={(v: boolean) => set("doubleDisplayPrice", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          Every catalogue price the customer sees — Home, Shop / Catalogue and Product Detail, on
+          both the app and the website — is rendered at twice the rate you entered (sales rate,
+          offer price and MRP alike). Display only: the cart lines, cart total, checkout and the
+          order that gets placed all use your real rate, so invoices and accounts are unaffected.
+        </p>
+        <Toggle
           label="Deliver orders via Delivery Boy (off = salesman delivers on route)"
           checked={draft.deliveryMode === "deliveryboy"}
           onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")}

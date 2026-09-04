@@ -12,6 +12,7 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       codOnly
       displayProductPriceOnWebsite
       displayStockOnWebsite
+      doubleDisplayPrice
       secureScreenWebsite
 
       supportEmail

@@ -8,6 +8,12 @@ const formatSettings = (s: any) =>
         ...s,
         id: s._id?.toString?.() ?? s.id,
         adminid: s.adminid?.toString?.() ?? s.adminid,
+        // Non-null in the schema, but the mutation path re-reads with
+        // .lean(), which skips mongoose defaults — so a settings row saved
+        // before this flag existed would come back with the field missing
+        // and fail the Boolean! check. Coerce it here rather than making
+        // the field nullable for every caller.
+        doubleDisplayPrice: !!s.doubleDisplayPrice,
       }
     : null;
 
@@ -73,6 +79,11 @@ export const adminSettingsResolvers = {
         codOnly: !!settings.websiteCodOnly,
         displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
         displayStockOnWebsite: settings.displayStockOnWebsite !== false,
+        // Display-only x2 markup on catalogue prices. Safe to expose to an
+        // anonymous visitor — the browser is what has to draw the doubled
+        // number, and the real rate still travels on every product/cart
+        // field, exactly as it did before this flag existed.
+        doubleDisplayPrice: !!settings.doubleDisplayPrice,
         // Tiled watermark on the storefront. Browsers expose no
         // screen-capture detection API, so this is traceability, not
         // prevention — see the AdminSettings model for the full note.

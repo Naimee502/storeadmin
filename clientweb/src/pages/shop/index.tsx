@@ -6,7 +6,7 @@ import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import { useCatalog } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
-import { formatPrice } from "../../utils/format";
+import { useCatalogPrice } from "../../utils/catalogprice";
 
 type SortKey = "popularity" | "price-asc" | "price-desc" | "rating" | "newest";
 
@@ -24,6 +24,10 @@ const DEFAULT_MAX_PRICE = 30000;
 export default function ShopPage() {
   const { categories, products, loading } = useCatalog();
   const { displayProductPrice, shopProductImageRatio } = useTenant();
+  // The slider still filters on the real stored rate — only its label is
+  // doubled, so the number the shopper drags to matches the prices printed on
+  // the cards beside it (which ProductCard doubles the same way).
+  const { formatCatalogPrice } = useCatalogPrice();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -148,7 +152,7 @@ export default function ShopPage() {
 
       {displayProductPrice && (
         <div className="border-t border-slate-100 pt-5">
-          <h4 className="mb-3 text-sm font-semibold text-ink-900">Max Price: {formatPrice(priceMax)}</h4>
+          <h4 className="mb-3 text-sm font-semibold text-ink-900">Max Price: {formatCatalogPrice(priceMax)}</h4>
           <input
             type="range"
             min={500}

@@ -4,7 +4,8 @@ import { Plus, Minus, Star } from "lucide-react";
 import type { SampleProduct } from "../../data/sampleData";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
-import { formatPrice, discountPercent } from "../../utils/format";
+import { discountPercent } from "../../utils/format";
+import { useCatalogPrice } from "../../utils/catalogprice";
 
 const badgeStyles: Record<string, string> = {
   NEW: "bg-blue-600",
@@ -25,6 +26,10 @@ export default function ProductCard({
 }) {
   const { lines, addToCart, updateQty, removeFromCart } = useCart();
   const { displayProductPrice, displayStock, homeProductImageRatio } = useTenant();
+  // Card prices follow the admin's "Show Double Price" display markup; the
+  // Add-to-cart handlers below pass the untouched product through to the cart,
+  // so the line and the total stay on the real rate.
+  const { formatCatalogPrice } = useCatalogPrice();
   const ratio = imageRatio ?? homeProductImageRatio;
   const [unitIdx, setUnitIdx] = useState(0);
   const Icon = product.icon;
@@ -151,9 +156,9 @@ export default function ProductCard({
         {displayProductPrice ? (
         <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-ink-900">{formatPrice(selected.price)}</span>
+            <span className="text-base font-bold text-ink-900">{formatCatalogPrice(selected.price)}</span>
             {selected.mrp > selected.price && (
-              <span className="text-xs text-slate-400 line-through">{formatPrice(selected.mrp)}</span>
+              <span className="text-xs text-slate-400 line-through">{formatCatalogPrice(selected.mrp)}</span>
             )}
           </div>
           <span className="block h-4 text-[11px] font-semibold text-brand-600">

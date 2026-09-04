@@ -12,11 +12,10 @@ import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../c
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
-import { formatINR } from '../../../../utils';
 import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useProductImageRatio } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function Catalog() {
@@ -29,6 +28,9 @@ export default function Catalog() {
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = tenant.adminId ?? '';
   const showPrice = useShowProductPrice();
+  // Display-only x2 markup on the card price. Add-to-cart still passes the
+  // real unitprice through, so the cart total and the order stay correct.
+  const { formatCatalogINR } = useCatalogPrice();
   const showStock = useShowProductStock();
   // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
   // null = the admin hasn't picked one, so the card keeps its fixed image
@@ -197,9 +199,9 @@ export default function Catalog() {
 
           {showPrice && (
             <View style={styles.priceRow}>
-              <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+              <Text style={[styles.price, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
               {hasMrp && (
-                <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>
+                <Text style={[styles.mrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>
               )}
             </View>
           )}

@@ -16,7 +16,7 @@ import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUse
 import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -84,6 +84,10 @@ export default function PartyHome() {
   const [category, setCategory] = useState<string | null>(null); // null = "All"
   const [search, setSearch] = useState('');
   const showPrice = useShowProductPrice();
+  // Display-only x2 markup on what the card prints. The add-to-cart handlers
+  // below still work off the real unitprice, so the cart and the placed order
+  // keep the admin's rate.
+  const { formatCatalogINR } = useCatalogPrice();
   const showStock = useShowProductStock();
   // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
   // null = the admin hasn't picked one, so the card keeps its fixed image
@@ -406,8 +410,8 @@ export default function PartyHome() {
 
                         {showPrice && (
                           <View style={styles.priceRow}>
-                            <Text style={[styles.productPrice, { color: colors.brand }]}>{formatINR(price)}</Text>
-                            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+                            <Text style={[styles.productPrice, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
+                            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>}
                           </View>
                         )}
                       </View>

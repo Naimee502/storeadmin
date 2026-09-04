@@ -39,16 +39,22 @@ function mapProduct(p: any): SampleProduct {
   // login will later override this per line via resolvePrice. Each unit
   // (Piece, Dozen, ...) gets its own price/mrp here, same as the app, so
   // switching units on the card actually changes the price shown/added.
-  const unitPrices: { label: string; price: number; mrp: number; unitid: string | null; unitQuantity: number }[] = rawUnitprices.map((u: any) => {
+  const unitPrices: { label: string; price: number; mrp: number; discount: number; unitid: string | null; unitQuantity: number }[] = rawUnitprices.map((u: any) => {
     const name = u.unitid?.unitname ?? "Unit";
     const label = u.quantity > 1 ? `${u.quantity} × ${name}` : name;
     const price = (u.offerprice ?? 0) > 0 ? u.offerprice : (u.salesrate ?? 0);
     const mrp = u.mrp && u.mrp > price ? u.mrp : price;
+    // The admin's own per-unit rupee discount off the rate — the same field
+    // the POS (`chosenUnit.discount`) and the app (`up.discount`) subtract to
+    // reach the payable amount. It was being dropped here, which is why the
+    // website's cart charged the full rate and then invented a "discount"
+    // out of the MRP gap instead. MRP stays a display-only strike-through.
+    const discount = Number(u.discount) || 0;
     const unitid = u.unitid?.id ?? null;
-    return { label, price, mrp, unitid, unitQuantity: u.quantity || 1 };
+    return { label, price, mrp, discount, unitid, unitQuantity: u.quantity || 1 };
   });
 
-  const first = unitPrices[0] ?? { label: "1 unit", price: 0, mrp: 0 };
+  const first = unitPrices[0] ?? { label: "1 unit", price: 0, mrp: 0, discount: 0 };
 
   // Total stock across all variants — shown on the card/detail page
   // instead of a brand name, same as the mobile app's catalog screen.
@@ -68,6 +74,7 @@ function mapProduct(p: any): SampleProduct {
     units: unitPrices.map((u) => u.label),
     price: first.price,
     mrp: first.mrp,
+    discount: first.discount ?? 0,
     unitPrices,
     rating: 0,
     ratingCount: 0,

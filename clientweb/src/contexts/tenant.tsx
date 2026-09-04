@@ -17,6 +17,15 @@ interface TenantContextValue {
   codOnly: boolean;
   displayProductPrice: boolean;
   displayStock: boolean;
+  /**
+   * Render every catalogue price at twice the stored rate (Business
+   * Settings -> "Show Double Price on App/Website"). Display only: the cart,
+   * the checkout summary and the order that gets placed all keep the real
+   * rate, so this never reaches an invoice. Read it through
+   * `useCatalogPrice()` in utils/catalogprice rather than reaching for the
+   * multiplier by hand, so every price on the site doubles the same way.
+   */
+  doubleDisplayPrice: boolean;
   /** Draw the tiled identity watermark over the storefront. */
   secureScreenWebsite: boolean;
 
@@ -135,6 +144,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     codOnly: info?.codOnly ?? false,
     displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
     displayStock: info?.displayStockOnWebsite ?? true,
+    doubleDisplayPrice: info?.doubleDisplayPrice ?? false,
     secureScreenWebsite: info?.secureScreenWebsite ?? false,
 
     supportEmail: info?.supportEmail ?? "",

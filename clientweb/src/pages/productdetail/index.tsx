@@ -7,7 +7,8 @@ import SectionHeader from "../../components/sectionheader";
 import { useCatalog } from "../../hooks/useCatalog";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
-import { formatPrice, discountPercent } from "../../utils/format";
+import { discountPercent } from "../../utils/format";
+import { useCatalogPrice } from "../../utils/catalogprice";
 
 const tabs = ["Description", "Highlights", "Reviews"] as const;
 
@@ -36,6 +37,9 @@ export default function ProductDetailPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const { lines, addToCart, updateQty, removeFromCart } = useCart();
   const { displayProductPrice, displayStock } = useTenant();
+  // Display-only x2 markup (Business Settings -> "Show Double Price"). The
+  // Add-to-cart button below is untouched — it hands the cart the real rate.
+  const { formatCatalogPrice } = useCatalogPrice();
 
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
@@ -170,9 +174,9 @@ export default function ProductDetailPage() {
             {displayProductPrice && (
               <>
                 <div className="mt-4 flex items-baseline gap-3">
-                  <span className="text-3xl font-bold text-ink-900">{formatPrice(selected.price)}</span>
+                  <span className="text-3xl font-bold text-ink-900">{formatCatalogPrice(selected.price)}</span>
                   {selected.mrp > selected.price && (
-                    <span className="text-base text-slate-400 line-through">{formatPrice(selected.mrp)}</span>
+                    <span className="text-base text-slate-400 line-through">{formatCatalogPrice(selected.mrp)}</span>
                   )}
                   {discount > 0 && <span className="text-sm font-semibold text-brand-600">{discount}% off</span>}
                 </div>

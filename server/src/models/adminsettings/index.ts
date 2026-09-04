@@ -89,6 +89,14 @@ const adminSettingsSchema = new mongoose.Schema(
     // still blocks ordering past what's on hand regardless of this flag.
     displayStockOnWebsite: { type: Boolean, default: true },
     encryptInvoicePrices: { type: Boolean, default: false },
+    // Show every catalogue price on the app/website at twice the stored
+    // rate. Display-only vanity markup for admins who quote a padded
+    // "list price" up front and settle at the real one: sales rate, offer
+    // price and MRP are all rendered x2 on Home, Shop/Catalog and Product
+    // Detail. Nothing downstream is touched — cart lines, cart totals,
+    // checkout and the placed order all use the real stored rate, so the
+    // invoice and the accounts stay correct.
+    doubleDisplayPrice: { type: Boolean, default: false },
     companyState: { type: String, default: "gujarat" }, // For IGST vs CGST/SGST detection
 
     /* ============================================================

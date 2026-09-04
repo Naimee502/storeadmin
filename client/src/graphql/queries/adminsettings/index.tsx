@@ -30,6 +30,7 @@ const SETTINGS_FIELDS = `
   displayProductPriceOnWebsite
   displayStockOnWebsite
   encryptInvoicePrices
+  doubleDisplayPrice
   deliveryMode
   partyManagesDownline
   enablePaymentDiscountCommission

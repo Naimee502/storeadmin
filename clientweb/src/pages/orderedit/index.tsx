@@ -109,7 +109,9 @@ export default function OrderEditPage() {
     if (!up) return;
 
     let rate = up.price;
-    let discount = up.mrp > up.price ? up.mrp - up.price : 0;
+    // The unit's own rupee discount, same as the POS and the app. Never the
+    // MRP gap — MRP is a strike-through, not a billed number.
+    let discount = up.discount ?? 0;
 
     // Party-specific / channel / region price assignment for whichever
     // party this order belongs to — same resolvePrice lookup clientapp's

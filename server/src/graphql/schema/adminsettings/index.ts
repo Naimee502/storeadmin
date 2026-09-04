@@ -76,6 +76,7 @@ export const adminSettingsTypeDefs = gql`
     displayProductPriceOnWebsite: Boolean!
     displayStockOnWebsite: Boolean!
     encryptInvoicePrices: Boolean!
+    doubleDisplayPrice: Boolean!
     deliveryMode: String
     partyManagesDownline: Boolean
     enablePaymentDiscountCommission: Boolean
@@ -191,6 +192,10 @@ export const adminSettingsTypeDefs = gql`
     displayProductPriceOnWebsite: Boolean!
     displayStockOnWebsite: Boolean!
 
+    # Render every catalogue price at twice the stored rate (display only —
+    # cart totals and the placed order still use the real rate).
+    doubleDisplayPrice: Boolean!
+
     # Whether the storefront should render the tiled watermark. Safe to
     # expose publicly — it reveals nothing about the business, and the
     # visitor's browser has to know in order to draw it.
@@ -265,6 +270,7 @@ export const adminSettingsTypeDefs = gql`
     displayProductPriceOnWebsite: Boolean
     displayStockOnWebsite: Boolean
     encryptInvoicePrices: Boolean
+    doubleDisplayPrice: Boolean
     deliveryMode: String
     partyManagesDownline: Boolean
     enablePaymentDiscountCommission: Boolean
