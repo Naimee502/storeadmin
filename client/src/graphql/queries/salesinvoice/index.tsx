@@ -69,6 +69,7 @@ export const GET_SALES_INVOICES = gql`
       orderedby_name
       orderedby_type
       sourceorderid
+      sourceorderno
       deliveryStatus
       deliveredAt
       deliveredByName
@@ -148,6 +149,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
       orderedby_name
       orderedby_type
       sourceorderid
+      sourceorderno
       deliveryStatus
       deliveredAt
       deliveredByName
@@ -240,6 +242,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       orderedby_name
       orderedby_type
       sourceorderid
+      sourceorderno
       deliveryStatus
       deliveredAt
       deliveredByName

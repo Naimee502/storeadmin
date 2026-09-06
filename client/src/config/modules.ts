@@ -49,8 +49,12 @@ export const ACTION_LABELS: Record<ModuleAction, string> = {
 const FULL_TXN_ACTIONS: ModuleAction[] = [
   "add", "edit", "delete", "print", "return", "whatsapp", "reset",
 ];
+// Orders carry print + whatsapp for the same reason invoices do: an
+// order-only business (invoicing module switched off) still has to hand the
+// customer a document and send it to them, so the order IS their bill.
+// Both are permissioned so an admin can hide either from the Actions column.
 const ORDER_ACTIONS: ModuleAction[] = [
-  "add", "edit", "delete", "cancel", "convert", "reset",
+  "add", "edit", "delete", "print", "whatsapp", "cancel", "convert", "reset",
 ];
 const CRUD_ACTIONS: ModuleAction[] = [
   "add", "edit", "delete", "reset",

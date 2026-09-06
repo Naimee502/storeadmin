@@ -55,6 +55,7 @@ const resolveCreatedBy = async (user: any, input: any) => {
   return { createdby_id: user?.id, createdby_name: name, createdby_type: type };
 };
 import { SalesOrder } from "../../../models/salesorder";
+import { refId } from "../../../utils/ordermode";
 
 // Sync the source Sales Order (the canonical lifecycle owner) when delivery is
 // updated on the invoice, so order + invoice always agree.
@@ -498,7 +499,12 @@ export const salesInvoiceResolvers = {
   },
 
   Mutation: {
-    addSalesInvoice: async (_: any, { input }: any, context: any) => {
+    // `autoPayment` is an INTERNAL arg (not in the schema). Passing false stops
+    // adjustStockAndTransactions from posting the automatic receipt, which it
+    // otherwise does for every non-credit payment type. The order-only flow
+    // needs that: the bill must stay open so the money can be collected on the
+    // Payments screen, exactly like a Sales Invoice raised by hand.
+    addSalesInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).
       const { user } = context;
@@ -514,7 +520,9 @@ export const salesInvoiceResolvers = {
       const autoCreateData = {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
-          payment: settings?.autoCreatePaymentOnSalesInvoice ?? true,
+          payment: autoPayment === false
+            ? false
+            : (settings?.autoCreatePaymentOnSalesInvoice ?? true),
           stock: settings?.autoCreateStockOnSalesInvoice ?? true,
         },
       };
@@ -758,7 +766,11 @@ export const salesInvoiceResolvers = {
     // One-tap convert (used by the mobile app, which has no invoice form).
     // Builds the invoice input from the source order and reuses addSalesInvoice
     // so all the auto-posting (ledger / stock / payment) runs exactly the same.
-    convertSalesOrderToInvoice: async (_: any, { id }: any, context: any) => {
+    // `autoPayment` is an INTERNAL arg (not in the schema): the order-only
+    // auto-conversion passes false so no receipt is posted and the bill stays
+    // open for collection. The invoice keeps the ORDER's own payment type —
+    // this is a plain mirror of the order, nothing is rewritten.
+    convertSalesOrderToInvoice: async (_: any, { id, autoPayment }: any, context: any) => {
       console.log("🔄 [convertSalesOrderToInvoice] id:", id, "| context.user:", JSON.stringify(context?.user));
       const order: any = await SalesOrder.findById(id).lean();
       if (!order) throw new Error("Sales Order not found");
@@ -821,7 +833,7 @@ export const salesInvoiceResolvers = {
         orderedby_type: order.createdby_type,
       };
 
-      return await (salesInvoiceResolvers as any).Mutation.addSalesInvoice(_, { input }, context);
+      return await (salesInvoiceResolvers as any).Mutation.addSalesInvoice(_, { input, autoPayment }, context);
     },
 
     editSalesInvoice: async (_: any, { id, input }: any, context: any) => {
@@ -914,18 +926,33 @@ export const salesInvoiceResolvers = {
   SalesInvoice: {
     outstanding: async (parent: any) =>
       getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "SalesInvoice" }),
+    // Number of the Sales Order this bill came from ("000009"). Order-only
+    // businesses never see an invoice number, so their receipt screen labels
+    // the bill with this instead — the same number they confirmed the order
+    // under. Null for a directly-created invoice.
+    sourceorderno: async (parent: any) => {
+      try {
+        const oid = refId(parent?.sourceorderid);
+        if (!oid) return null;
+        const order: any = await SalesOrder.findById(oid).select("billnumber").lean();
+        return order?.billnumber || null;
+      } catch (e) {
+        // A label is never worth failing the whole invoice list over.
+        return null;
+      }
+    },
     // "Previous Balance" = what the party owed on their OTHER unsettled
     // bills, before this one — this invoice is excluded from the sum
     // entirely, regardless of whether it's since been paid.
     partyPreviousBalance: async (parent: any) => {
-      const partyId = parent?.partyacc?.id || parent?.partyacc;
+      const partyId = refId(parent?.partyacc);
       return await partyBillOutstanding(partyId, parent?.id);
     },
     // "Current Balance" = Previous Balance + this bill's own Grand Total —
     // a running statement figure (like a physical bill), not net of whether
     // this particular bill has already been settled.
     partyCurrentBalance: async (parent: any) => {
-      const partyId = parent?.partyacc?.id || parent?.partyacc;
+      const partyId = refId(parent?.partyacc);
       const previous = await partyBillOutstanding(partyId, parent?.id);
       const total = Number(parent?.totalamount || 0);
       return parseFloat((previous + total).toFixed(2));

@@ -8,6 +8,10 @@ interface Product {
   productserviceid: { name: string };
   variantid?: { name: string };
   salesunitid?: { unitname: string };
+  // Purchase-side documents (Purchase Order / Purchase Invoice) carry the
+  // unit under `purchaseunitid` instead. Read whichever one is present so a
+  // purchase line never silently loses its unit suffix.
+  purchaseunitid?: { unitname: string };
   qty: number;
   rate: number;
   gst: number;
@@ -43,6 +47,22 @@ interface Invoice {
 
 interface PrintableInvoiceProps {
   invoice: Invoice;
+  /**
+   * Heading printed on the right of the title bar. Defaults to the tax
+   * invoice wording so every existing caller is unchanged; Sales Order and
+   * Purchase Order pass their own ("SALES ORDER", "PURCHASE ORDER"), because
+   * an order is not a tax invoice and must not be printed as one.
+   */
+  title?: string;
+  /**
+   * Label of the document-number cell in the meta grid. Defaults to
+   * "Invoice No."; orders pass "Order No.".
+   */
+  docNoLabel?: string;
+  /**
+   * Small left-hand caption in the title bar. Defaults to "Online Memo".
+   */
+  memoLabel?: string;
 }
 
 // Fallback shown if the admin hasn't customised Terms & Conditions yet
@@ -55,7 +75,7 @@ const DEFAULT_TERMS =
 
 /* ================= COMPONENT ================= */
 const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
-  ({ invoice }, ref) => {
+  ({ invoice, title = "TAX INVOICE", docNoLabel = "Invoice No.", memoLabel = "Online Memo" }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => localRef.current!);
 
@@ -345,8 +365,8 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
           )}
 
           <div className="inv-titlebar">
-            <span>Online Memo</span>
-            <span>TAX INVOICE &nbsp;|&nbsp; Original</span>
+            <span>{memoLabel}</span>
+            <span>{title} &nbsp;|&nbsp; Original</span>
           </div>
 
           {/* ---- Invoice meta ---- */}
@@ -354,7 +374,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
             {(() => {
               const cells = [
                 { label: "M/S.", value: invoice.partyname || "---" },
-                { label: "Invoice No.", value: invoice.billtype_billnumber },
+                { label: docNoLabel, value: invoice.billtype_billnumber },
                 { label: "Place of Supply", value: invoice.placeofsupply || "---" },
                 { label: "Transport / Vehicle No", value: `${invoice.transportname || "---"} / ${invoice.vehiclenumber || "---"}` },
               ];
@@ -419,8 +439,8 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                         <td>
                           {item.productserviceid.name}
                           {item.variantid?.name && ` - ${item.variantid.name}`}
-                          {item.salesunitid?.unitname &&
-                            ` (${item.salesunitid.unitname})`}
+                          {(item.salesunitid?.unitname || item.purchaseunitid?.unitname) &&
+                            ` (${item.salesunitid?.unitname || item.purchaseunitid?.unitname})`}
                         </td>
                         {showHsn && <td className="ctr">{item.hsn || "-"}</td>}
                         <td className="ctr">{item.qty}</td>

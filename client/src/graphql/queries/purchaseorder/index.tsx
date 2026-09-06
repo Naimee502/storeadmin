@@ -14,6 +14,10 @@ export const GET_PURCHASE_ORDERS = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate
@@ -63,6 +67,8 @@ export const GET_PURCHASE_ORDERS = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt
@@ -132,6 +138,8 @@ export const GET_DELETED_PURCHASE_ORDERS = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt
@@ -201,6 +209,8 @@ export const GET_PURCHASE_ORDER_BY_ID = gql`
       createdby_name
       createdby_type
       isConverted
+      orderStatus
+      cancelStatus
       status
       createdAt
       updatedAt

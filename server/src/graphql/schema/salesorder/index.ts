@@ -11,6 +11,11 @@ export const salesOrderTypeDefs = gql`
     ledgername: String
     address: String
     city: String
+    # Needed by the printable document: state builds Place of Supply and
+    # gstnumber fills the GSTIN cell, the same two fields the invoice
+    # modules already expose on their SimpleRef.
+    state: String
+    gstnumber: String
     latitude: Float
     longitude: Float
     imageurl: String

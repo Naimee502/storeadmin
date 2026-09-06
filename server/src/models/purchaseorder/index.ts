@@ -66,6 +66,21 @@ const purchaseOrderSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     isConverted: { type: Boolean, default: false },
+
+    // Canonical lifecycle status, mirroring SalesOrder.orderStatus. A purchase
+    // has no dispatch leg of its own — the goods simply arrive — so the middle
+    // step is "received" where sales has dispatched + delivered.
+    // pending → confirmed → received, plus cancelled / returned.
+    orderStatus: {
+      type: String,
+      enum: ["pending", "confirmed", "received", "cancelled", "returned"],
+      default: "pending",
+    },
+    receivedAt: { type: Date },
+    receivedById: { type: mongoose.Schema.Types.ObjectId },
+    receivedByName: { type: String },
+    receivedByType: { type: String },
+
     // Order lifecycle: "open" / "cancelled" / "converted".
     cancelStatus: { type: String, default: "open" },
     cancelReason: { type: String },
@@ -77,7 +92,15 @@ const purchaseOrderSchema = new mongoose.Schema(
 
 purchaseOrderSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const lastOrder = await mongoose.model("PurchaseOrder").findOne({ adminid: this.adminid }).sort({ createdAt: -1 });
+    // Use the HIGHEST existing billnumber (not the latest createdAt) so numbers
+    // never repeat even if docs were inserted out of order — the createdAt sort
+    // handed two orders the same PO number. Zero-padded strings sort correctly
+    // as strings. Same rule as SalesOrder.
+    const lastOrder = await mongoose.model("PurchaseOrder")
+      .findOne({ adminid: this.adminid, billnumber: { $ne: null } })
+      .sort({ billnumber: -1 })
+      .select("billnumber")
+      .lean() as any;
     let nextNum = 1;
     if (lastOrder && lastOrder.billnumber) {
       const lastNum = parseInt(lastOrder.billnumber, 10);

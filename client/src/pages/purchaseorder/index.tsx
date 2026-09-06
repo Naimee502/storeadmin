@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
+import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
@@ -11,16 +12,181 @@ import {
   usePurchaseOrderMutations,
 } from "../../graphql/hooks/purchaseorder";
 import { formatDateDMY } from "../../utils/helper";
+import PrintableInvoice from "../../components/printinvoice";
+import { useReactToPrint } from "react-to-print";
+import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { stateOptions } from "../../utils/constants";
+
+// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
+// proper display label for the printed document's Place of Supply.
+const stateLabel = (slug?: string) =>
+  stateOptions.find((s) => s.value === slug)?.label || "";
 
 const PurchaseOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
+  // When invoicing is enabled, an order is "confirmed" by converting it to an
+  // invoice — so the status dropdown offers "Convert to Invoice" instead of a
+  // separate "Confirmed". Order-only businesses keep plain "Confirmed".
+  // Business-level check (not staff-restricted) so every role at a branch sees
+  // the same order→invoice workflow the branch does.
+  const purchaseInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "purchaseinvoice"));
   const dispatch = useAppDispatch();
 
   const { data, refetch } = usePurchaseOrdersQuery();
-  const { deletePurchaseOrderMutation, cancelPurchaseOrderMutation } = usePurchaseOrderMutations();
+  const {
+    deletePurchaseOrderMutation,
+    cancelPurchaseOrderMutation,
+    reopenPurchaseOrderMutation,
+    confirmPurchaseOrderMutation,
+    receivePurchaseOrderMutation,
+  } = usePurchaseOrderMutations();
+
+  // Drive the order through its lifecycle from the listing dropdown. A purchase
+  // has no dispatch leg of its own — the goods just arrive — so "Received" is
+  // the single step where a sales order has Dispatched + Delivered.
+  const optionsFor = (order: any) => {
+    // "Pending" reopens a CANCELLED order. Once converted — which in order-only
+    // mode happens silently on Confirm — stock and the ledger have been posted
+    // and there is no safe way back, so don't offer a path that can only fail.
+    const opts: { label: string; value: string }[] = order.isConverted
+      ? []
+      : [{ label: "Pending", value: "pending" }];
+    if (purchaseInvoiceEnabled) {
+      if (!order.isConverted && actions.showConvert) opts.push({ label: "Convert to Invoice", value: "convert" });
+    } else {
+      if (actions.showConvert) opts.push({ label: "Confirmed", value: "confirmed" });
+    }
+    if (actions.showConvert) {
+      opts.push(
+        { label: "Received",  value: "received" },
+        { label: "Cancelled", value: "cancelled" },
+      );
+    }
+    return opts;
+  };
+
+  const handleStatusChange = async (row: any, status: string) => {
+    try {
+      if (status === "convert") {
+        if (row.isConverted) { dispatch(showMessage({ message: "Order is already converted to an invoice.", type: "error" })); return; }
+        navigate(`/purchaseinvoice/addedit?orderId=${row.id}`);
+        return;
+      }
+      if (status === "confirmed")     await confirmPurchaseOrderMutation({ variables: { id: row.id } });
+      else if (status === "received") await receivePurchaseOrderMutation({ variables: { id: row.id, byType: "admin" } });
+      else if (status === "cancelled") {
+        const reason = window.prompt(`Cancel PO-${row.billnumber}? Reason:`);
+        if (reason === null) return;
+        await cancelPurchaseOrderMutation({ variables: { id: row.id, reason } });
+      }
+      else if (status === "pending")  await reopenPurchaseOrderMutation({ variables: { id: row.id } });
+      await refetch();
+      dispatch(showMessage({ message: "Order status updated.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Failed to update status.", type: "error" }));
+    }
+  };
+
   const orderList = data?.getPurchaseOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  const { settings } = useAppSelector((state: any) => state.adminsettings);
+  const auth = useAppSelector((state) => state.auth);
+  const companyName =
+    auth.type === "admin"
+      ? auth.admin?.companyName
+      : auth.type === "branch"
+        ? auth.branch?.admin?.companyName
+        : auth.type === "staff"
+          ? auth.staff?.admin?.companyName
+          : "";
+
+  /* ---------- Print ----------
+     Same two-step mount-then-print dance the invoice pages use: the printable
+     node has to exist in the DOM before react-to-print can read it, so the row
+     is put into state first and the print is fired once the ref is populated. */
+  const componentRef = useRef<HTMLDivElement>(null);
+  const [printOrder, setPrintOrder] = useState<any>(null);
+  const [readyToPrint, setReadyToPrint] = useState(false);
+
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: "Purchase Order",
+    onAfterPrint: () => {
+      setPrintOrder(null);
+      setReadyToPrint(false);
+    },
+    onPrintError: (error) => console.error("Print error:", error),
+  });
+
+  useEffect(() => {
+    if (printOrder) setReadyToPrint(true);
+  }, [printOrder]);
+
+  useEffect(() => {
+    if (readyToPrint && componentRef.current) handlePrint?.();
+  }, [readyToPrint, handlePrint]);
+
+  /* ---------- WhatsApp share ----------
+     Shares the very same printable layout as a PDF, so what the supplier
+     receives on WhatsApp is byte-for-byte what Print produces. */
+  const waRef = useRef<HTMLDivElement>(null);
+  const [waOrder, setWaOrder] = useState<any>(null);
+  const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
+
+  const handleWhatsAppShare = (row: any) => {
+    const orig = orderList.find((o: any) => o.id === row.id);
+    if (!orig) return;
+
+    // Business Settings -> Invoice Print -> "Show company name in signature"
+    // governs the chat sign-off too, so the company name never leaks into a
+    // message when the admin has chosen to keep it off the document.
+    const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
+    const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
+    const message =
+      `*Purchase Order PO-${orig.billnumber}*\n` +
+      `Date: ${formatDateDMY(orig.billdate)}\n` +
+      `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
+      `${showSignatureCompanyName && companyName ? `— ${companyName}` : ""}`;
+
+    waMeta.current = {
+      phone: mobile,
+      message,
+      fileName: `Purchase-Order-PO-${orig.billnumber}.pdf`,
+    };
+    setWaOrder(row);
+  };
+
+  useEffect(() => {
+    if (!waOrder || !waRef.current || !waMeta.current) return;
+    const run = async () => {
+      dispatch(showLoading());
+      try {
+        const result = await shareElementAsPdfOnWhatsApp({
+          element: waRef.current!,
+          ...waMeta.current!,
+        });
+        if (result === "downloaded") {
+          dispatch(showMessage({
+            message: "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
+            // The message slice only types 'success' | 'error'; this is an
+            // informational note, and 'success' is the truthful one of the two
+            // (the PDF really was produced and downloaded).
+            type: "success",
+          }));
+        }
+      } catch (e) {
+        console.error("WhatsApp PDF share error:", e);
+        dispatch(showMessage({ message: "Failed to share order PDF.", type: "error" }));
+      } finally {
+        dispatch(hideLoading());
+        setWaOrder(null);
+        waMeta.current = null;
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waOrder]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -46,7 +212,8 @@ const PurchaseOrders = () => {
     { label: "Order No", key: "billtype_billnumber" },
     { label: "Total Amount", key: "totalamount" },
     { label: "Created By", key: "createdby_name" },
-    { label: "Status", key: "status" },
+    { label: "Order Status", key: "orderStatusCell" },
+    { label: "Status", key: "activeStatus" },
   ];
 
   const capitalizeFirst = (text: string) =>
@@ -61,6 +228,11 @@ const PurchaseOrders = () => {
     return {
       ...order,
       seqNo: index + 1,
+      // Flattened for the printable document — it expects these ready-made
+      // rather than digging into the partyacc object itself.
+      partyname: order.partyacc?.accountname || "",
+      gstin: order.partyacc?.gstnumber || "",
+      placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
@@ -69,9 +241,14 @@ const PurchaseOrders = () => {
       billtype_billnumber: `PO-${order.billnumber}`,
       paymenttype: capitalizeFirst(order.paymenttype),
       createdby_name: order.createdby_name || "N/A",
-      status: order.cancelStatus === "cancelled"
-        ? "Cancelled"
-        : (order.status ? "Active" : "Inactive"),
+      orderStatusCell: (
+        <StatusDropdown
+          current={order.orderStatus || (order.cancelStatus === "cancelled" ? "cancelled" : "pending")}
+          options={optionsFor(order)}
+          onSelect={(v) => handleStatusChange(order, v)}
+        />
+      ),
+      activeStatus: order.status ? "Active" : "Inactive",
       cancelStatus: order.cancelStatus,
       isConverted: order.isConverted,
     };
@@ -85,7 +262,10 @@ const PurchaseOrders = () => {
           title="Manage Purchase Orders"
           columns={columns}
           data={tableData}
-          showPrint={false}
+          showPrint={actions.showPrint}
+          onPrint={(row) => setPrintOrder(row)}
+          showWhatsApp={actions.showWhatsApp}
+          onWhatsApp={handleWhatsAppShare}
           onView={(row) => navigate(`/purchaseorder/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseorder/addedit/${row.id}`)}
           onDelete={async (row) => {
@@ -100,25 +280,41 @@ const PurchaseOrders = () => {
             }
           }}
           onAdd={() => navigate("/purchaseorder/addedit")}
-          showConvert={actions.showConvert}
+          showConvert={false}
           onConvert={(row) => navigate(`/purchaseinvoice/addedit?orderId=${row.id}`)}
-          showCancel={(row: any) => actions.showCancel && !row.isConverted && row.cancelStatus !== "cancelled"}
-          onCancel={async (row: any) => {
-            const reason = window.prompt(`Cancel Purchase Order ${row.billnumber}? Enter reason:`);
-            if (reason === null) return;
-            try {
-              await cancelPurchaseOrderMutation({ variables: { id: row.id, reason } });
-              await refetch();
-              dispatch(showMessage({ message: "Order cancelled.", type: "success" }));
-            } catch (e: any) {
-              dispatch(showMessage({ message: e?.message || "Failed to cancel.", type: "error" }));
-            }
-          }}
+          showCancel={false}
           onShowDeleted={() => navigate("/purchaseorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
         />
+
+        {/* Hidden printable copy, parked offscreen so it stays mounted while
+            react-to-print reads it. */}
+        {printOrder && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+            <PrintableInvoice
+              ref={componentRef}
+              invoice={printOrder}
+              title="PURCHASE ORDER"
+              docNoLabel="Order No."
+            />
+          </div>
+        )}
+
+        {/* Hidden copy rendered only while the WhatsApp PDF is generated. The
+            explicit width matters: html2canvas rasterises at the laid-out
+            width, and offscreen content would otherwise collapse. */}
+        {waOrder && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
+            <PrintableInvoice
+              ref={waRef}
+              invoice={waOrder}
+              title="PURCHASE ORDER"
+              docNoLabel="Order No."
+            />
+          </div>
+        )}
       </div>
     </HomeLayout>
   );

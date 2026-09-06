@@ -444,6 +444,7 @@ export const paymentResolvers = {
             invoicemodel: l.invoicemodel,
             billnumber: bill?.billnumber || "",
             billdate: bill?.billdate || "",
+            sourceref: bill?.sourceref || null,
             outstanding: bill?.outstanding || 0,
             settledamount: l.settledamount,
             fullysettled: (bill?.outstanding || 0) - l.settledamount <= 0.01,

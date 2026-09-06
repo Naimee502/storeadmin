@@ -35,7 +35,7 @@ function toDelivery(o: any, bucket: FilterKey) {
     id: o.id,
     partyId: o.partyacc?.id ?? null,
     // These are invoices → always show the INV- prefix.
-    orderNum: formatBillNumber({ billnumber: o.billnumber, isConverted: true }),
+    orderNum: formatBillNumber({ billnumber: o.billnumber, isConverted: true, invoicenumber: o.billnumber }),
     party: o.partyacc?.accountname ?? '—',
     mobile: o.partyacc?.mobile ?? '',
     address: o.partyacc?.address ?? '',

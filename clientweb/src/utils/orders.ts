@@ -21,9 +21,12 @@ export function orderStatus(order: any): FilterKey {
 // "SO-000123" for orders, "INV-000123" (the real invoice number) once
 // converted — mirrors formatBillNumber() in the app.
 export function formatBillNumber(order: any): string {
-  const raw = order.isConverted && order.invoicenumber ? order.invoicenumber : order.billnumber ?? "";
+  // Show INV- only when we actually hold an invoice number. An order-only
+  // business has no invoice its parties have ever seen, so orders stay SO-.
+  const invoiceNo = order.isConverted ? order.invoicenumber : null;
+  const raw = invoiceNo || order.billnumber || "";
   const num = raw ? String(parseInt(raw, 10) || raw).padStart(6, "0") : "000000";
-  return order.isConverted ? `INV-${num}` : `SO-${num}`;
+  return invoiceNo ? `INV-${num}` : `SO-${num}`;
 }
 
 export function formatDate(d: string | number | null | undefined): string {

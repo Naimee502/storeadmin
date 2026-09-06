@@ -5,8 +5,40 @@ import { Account } from "../../../models/accounts";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
+import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 
 // NOTE: local settled-amount helper removed — see utils/allocation.
+
+// Create the hidden Sales Invoice for an order-only admin. Runs before the
+// status is written so a failure surfaces as "confirm failed" rather than
+// leaving a confirmed order with no receivable behind it. No-op when invoicing
+// is enabled, when the order is already converted, or when it is cancelled.
+const autoInvoiceIfOrderOnly = async (order: any, context: any) => {
+  if (!order) return;
+  if (order.isConverted) {
+    console.log(`[order-only] SO-${order.billnumber}: already converted, nothing to do`);
+    return;
+  }
+  if (order.cancelStatus === "cancelled") return;
+  const orderOnly = await isSalesOrderOnlyMode(order.adminid);
+  console.log(
+    `[order-only] SO-${order.billnumber}: adminid=${order.adminid} orderOnlyMode=${orderOnly}` +
+    (orderOnly ? " → creating hidden Sales Invoice" : " → salesinvoice module is ON, no auto-invoice")
+  );
+  if (!orderOnly) return;
+  // Imported lazily: the sales-invoice resolver already imports the SalesOrder
+  // model, so a top-level import here would close a require cycle.
+  const { salesInvoiceResolvers } = await import("../salesinvoice");
+  // autoPayment:false — the invoice mirrors the order exactly (same payment
+  // type), but no receipt is posted. adjustStockAndTransactions would otherwise
+  // settle the bill in full the instant the order is confirmed for any
+  // non-credit type, leaving nothing to collect. The money is recorded when it
+  // actually arrives, on the Payments screen.
+  await (salesInvoiceResolvers as any).Mutation.convertSalesOrderToInvoice(
+    null, { id: String(order._id), autoPayment: false }, context
+  );
+};
+
 
 // Resolve who created a doc into a proper { name, type }: staff token →
 // real role (salesman/staff/deliveryboy) + name; party token → account name.
@@ -340,7 +372,7 @@ const formatOrder = (order: any) => ({
   id: order._id.toString(),
   salesmenid: toSimpleRef(order.salesmenid, ["name"]),
   partyacc: (() => {
-    const ref = toSimpleRef(order.partyacc, ["accountname", "mobile", "address", "city", "latitude", "longitude"]);
+    const ref = toSimpleRef(order.partyacc, ["accountname", "mobile", "address", "city", "state", "latitude", "longitude", "gstnumber"]);
     const ch = order.partyacc?.channel;
     if (ref && ch && typeof ch === "object") {
       ref.channelName = ch.channelName ?? null;
@@ -386,12 +418,23 @@ export const salesOrderResolvers = {
   Query: {
     getSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const query: any = { status: true };
+      const { user } = context;
+
+      // In order-only mode every confirmed order is converted behind the
+      // scenes, so the default "hide converted" filter would empty the list the
+      // admin actually works in. Keep them visible there — the invoice is an
+      // internal document, the order is the record they manage.
+      const orderOnly = await isSalesOrderOnlyMode(
+        filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
+      );
+
       // includeConverted: true → show all orders (pending + confirmed) for mobile app order history
       // otherwise default to showing only non-converted orders (admin sales order list)
-      if (!filter.includeConverted) {
-        query.isConverted = filter.isConverted !== undefined ? filter.isConverted : false;
+      if (filter.isConverted !== undefined) {
+        query.isConverted = filter.isConverted;
+      } else if (!filter.includeConverted && !orderOnly) {
+        query.isConverted = false;
       }
-      const { user } = context;
 
       // ✅ Role-based filtering
       if (user?.type === 'branch') {
@@ -737,7 +780,14 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.isConverted) {
-        throw new Error("Order already converted to invoice. Create a Sales Return against the invoice instead.");
+        // Order-only admins never see the invoice behind the order, so
+        // "convert to invoice" language would mean nothing to them — say what
+        // actually happened and what it costs to undo.
+        throw new Error(
+          (await isSalesOrderOnlyMode(existing.adminid))
+            ? "This order is already confirmed — stock and the party ledger have been posted, so it can no longer be cancelled. Record a Sales Return against it instead."
+            : "Order already converted to invoice. Create a Sales Return against the invoice instead."
+        );
       }
       if (existing.cancelStatus === "cancelled") {
         throw new Error("Order is already cancelled");
@@ -768,6 +818,12 @@ export const salesOrderResolvers = {
 
     // ── Fulfilment transitions (order = source of truth, syncs the invoice) ──
     confirmSalesOrder: async (_: any, { id }: any, context: any) => {
+      const existing = await SalesOrder.findById(id).lean() as any;
+      if (!existing) throw new Error("Sales Order not found");
+      if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      // Order-only admins get their invoice created here, silently, so the
+      // receivable exists and the receipt screen can settle against it.
+      await autoInvoiceIfOrderOnly(existing, context);
       const updated = await SalesOrder.findByIdAndUpdate(
         id, { orderStatus: "confirmed" }, { new: true }
       ).populate(populateFields).lean();
@@ -780,6 +836,7 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      await autoInvoiceIfOrderOnly(existing, context);
       const update: any = { deliveryStatus: "dispatched", orderStatus: "dispatched" };
       if (deliveryboyid) update.deliveryboyid = deliveryboyid;
       const updated = await SalesOrder.findByIdAndUpdate(id, update, { new: true })
@@ -793,6 +850,7 @@ export const salesOrderResolvers = {
       const existing = await SalesOrder.findById(id).lean() as any;
       if (!existing) throw new Error("Sales Order not found");
       if (existing.cancelStatus === "cancelled") throw new Error("Order is cancelled.");
+      await autoInvoiceIfOrderOnly(existing, context);
       const user = context?.user;
       const deliveredAt = new Date();
       const patch = {
@@ -828,23 +886,32 @@ export const salesOrderResolvers = {
   // sequence. Looked up via the invoice's sourceorderid back-link.
   SalesOrder: {
     invoicenumber: async (parent: any) => {
+      try {
       if (!parent?.isConverted) return null;
+      // Order-only businesses have an invoice behind every confirmed order, but
+      // it is an internal document their salesmen and parties never see. Handing
+      // its number to the app/website would relabel SO-000010 as INV-000012 for
+      // people who have no idea what that number is.
+      if (await isSalesOrderOnlyMode(adminIdOf(parent.adminid))) return null;
       const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
         .select("billnumber")
         .lean() as any;
       return inv?.billnumber ?? null;
+      } catch (e) { return null; }
     },
     // Due on the linked invoice (total − settled). 0 if not yet billed/paid.
     // What is still owed on the invoice this order became. Uses the shared
     // allocation util so the party portal and mobile app quote the same figure
     // as the admin panel — and, unlike the old local loop, net off returns.
     outstanding: async (parent: any) => {
-      if (!parent?.isConverted) return 0;
-      const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
-        .select("_id")
-        .lean() as any;
-      if (!inv) return 0;
-      return getInvoiceOutstanding({ invoiceid: inv._id, invoicemodel: "SalesInvoice" });
+      try {
+        if (!parent?.isConverted) return 0;
+        const inv = await SalesInvoice.findOne({ sourceorderid: parent.id })
+          .select("_id")
+          .lean() as any;
+        if (!inv) return 0;
+        return await getInvoiceOutstanding({ invoiceid: inv._id, invoicemodel: "SalesInvoice" });
+      } catch (e) { return 0; }
     },
   },
 };

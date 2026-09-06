@@ -3,6 +3,8 @@ import { AdminSettings } from "../../../models/adminsettings";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
 import { autoAdjustAdvances, getInvoiceOutstanding } from "../../../utils/allocation";
+import { PurchaseOrder } from "../../../models/purchaseorder";
+import { refId } from "../../../utils/ordermode";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -234,7 +236,10 @@ export const purchaseInvoiceResolvers = {
   },
 
   Mutation: {
-    addPurchaseInvoice: async (_: any, { input }: any, context: any) => {
+    // `autoPayment` is an INTERNAL arg (not in the schema). false stops the
+    // automatic payment posting, so the bill stays open for the supplier to be
+    // paid from the Payments screen. See the sales side for the full note.
+    addPurchaseInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
       try {
         console.log("\n");
         console.log("╔═══════════════════════════════════════════════════════╗");
@@ -288,7 +293,9 @@ export const purchaseInvoiceResolvers = {
         const autoCreateData = {
           autocreate: {
             ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
-            payment: settings?.autoCreatePaymentOnPurchaseInvoice ?? true,
+            payment: autoPayment === false
+              ? false
+              : (settings?.autoCreatePaymentOnPurchaseInvoice ?? true),
             stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
           },
         };
@@ -299,6 +306,16 @@ export const purchaseInvoiceResolvers = {
         console.log("   Creating with data keys:", Object.keys({...input, ...createdbyData, ...autoCreateData}));
 
         const created = await PurchaseInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
+
+        // Converting an order → invoice confirms the source order (canonical
+        // status), exactly as the sales side does.
+        if (input.sourceorderid) {
+          try {
+            await PurchaseOrder.findByIdAndUpdate(input.sourceorderid, {
+              $set: { isConverted: true, orderStatus: "confirmed" },
+            });
+          } catch (e) { /* best-effort */ }
+        }
         console.log("✅ Invoice created successfully");
         console.log("   Invoice ID:", created._id);
         console.log("   CreatedBy ID:", created.createdby_id);
@@ -460,10 +477,94 @@ export const purchaseInvoiceResolvers = {
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: true }, { new: true });
       return !!result;
     },
+
+    // Build the invoice from the order and hand it to addPurchaseInvoice, so
+    // all the auto-posting (ledger / stock / payment) runs exactly the same.
+    // Mirrors convertSalesOrderToInvoice.
+    //
+    // `autoPayment` is an INTERNAL arg (not in the schema): the
+    // purchase-order-only auto-conversion passes false so no payment is posted
+    // and the bill stays open. The invoice keeps the ORDER's own payment type —
+    // a plain mirror, nothing rewritten.
+    convertPurchaseOrderToInvoice: async (_: any, { id, autoPayment }: any, context: any) => {
+      const order: any = await PurchaseOrder.findById(id).lean();
+      if (!order) throw new Error("Purchase Order not found");
+      if (order.isConverted) throw new Error("This order is already converted to an invoice.");
+      if (order.cancelStatus === "cancelled") throw new Error("A cancelled order cannot be converted.");
+
+      const str = (v: any) => (v == null ? null : v.toString());
+      const input: any = {
+        adminid: str(order.adminid),
+        branchid: str(order.branchid),
+        paymenttype: order.paymenttype,
+        partyacc: str(order.partyacc),
+        taxorsupplytype: order.taxorsupplytype || "regular",
+        billdate: new Date().toISOString().slice(0, 10),
+        billtype: (order.billtype && order.billtype !== "order") ? order.billtype : "taxInvoice",
+        notes: order.notes,
+        // PurchaseInvoice requires invoicetype (the sales side has no such
+        // field). The add/edit form fills it from the order's ordertype and
+        // falls back to "retail" — do exactly the same here.
+        invoicetype: order.ordertype || "retail",
+        isservice: !!order.isservice,
+        subtotal: order.subtotal,
+        totaldiscount: order.totaldiscount,
+        totalgst: order.totalgst,
+        totalamount: order.totalamount,
+        invoicediscount: order.invoicediscount,
+        invoicediscounttype: order.invoicediscounttype,
+        roundoff: order.roundoff,
+        deliverydate: order.deliverydate,
+        duedate: order.duedate,
+        transportname: order.transportname,
+        vehiclenumber: order.vehiclenumber,
+        ewaybillno: order.ewaybillno,
+        distance: order.distance,
+        productservice: (order.productservice || []).map((p: any) => ({
+          productserviceid: str(p.productserviceid),
+          variantid: str(p.variantid),
+          purchaseunitid: str(p.purchaseunitid),
+          unitqty: p.unitqty ?? 1,
+          gst: p.gst ?? 0,
+          qty: p.qty ?? 0,
+          rate: p.rate ?? 0,
+          amount: p.amount ?? 0,
+          discount: p.discount ?? 0,
+          salesaccountid: str(p.salesaccountid),
+          purchaseaccountid: str(p.purchaseaccountid),
+          serviceaccountid: str(p.serviceaccountid),
+        })),
+        othercharges: (order.othercharges || []).map((c: any) => ({
+          ledgerid: str(c.ledgerid),
+          ledgername: c.ledgername,
+          amount: c.amount ?? 0,
+          gstpercent: c.gstpercent ?? 0,
+          gstamount: c.gstamount ?? 0,
+          totalamount: c.totalamount ?? 0,
+          remarks: c.remarks,
+        })),
+        sourceorderid: str(order._id),
+      };
+
+      return await (purchaseInvoiceResolvers as any).Mutation.addPurchaseInvoice(_, { input, autoPayment }, context);
+    },
   },
 
   PurchaseInvoice: {
     outstanding: async (parent: any) =>
       getInvoiceOutstanding({ invoiceid: parent?.id, invoicemodel: "PurchaseInvoice" }),
+    // Number of the Purchase Order this bill came from ("000001"). A
+    // purchase-order-only business never sees an invoice number, so the payment
+    // screen labels the bill with this instead.
+    sourceorderno: async (parent: any) => {
+      try {
+        const oid = refId(parent?.sourceorderid);
+        if (!oid) return null;
+        const order: any = await PurchaseOrder.findById(oid).select("billnumber").lean();
+        return order?.billnumber || null;
+      } catch (e) {
+        return null;
+      }
+    },
   },
 };

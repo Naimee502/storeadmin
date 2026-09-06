@@ -73,6 +73,11 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     invoicediscounttype: { type: String, default: "amount" },
 
     isservice: { type: Boolean, default: false },
+
+    // The Purchase Order this bill was raised from, when it came from one.
+    // Mirrors SalesInvoice.sourceorderid — it is what lets a purchase-order-only
+    // business label the bill with the PO number its user actually knows.
+    sourceorderid: { type: mongoose.Schema.Types.ObjectId, ref: "PurchaseOrder" },
     autocreate: {
       ledger: { type: Boolean, default: true },
       payment: { type: Boolean, default: true },
@@ -86,10 +91,15 @@ const purchaseInvoiceSchema = new mongoose.Schema(
 // 🔢 Auto-generate bill number when blank
 purchaseInvoiceSchema.pre("save", async function (next) {
   if (!this.billnumber) {
-    const lastInvoice = await mongoose
+    // Highest existing billnumber, not the latest createdAt — the createdAt
+    // sort hands two invoices the same number when docs land out of order.
+    // Zero-padded strings sort correctly as strings.
+    const lastInvoice: any = await mongoose
       .model("PurchaseInvoice")
-      .findOne({ adminid: this.adminid })
-      .sort({ createdAt: -1 });
+      .findOne({ adminid: this.adminid, billnumber: { $ne: null } })
+      .sort({ billnumber: -1 })
+      .select("billnumber")
+      .lean();
     let nextNum = 1;
     if (lastInvoice && lastInvoice.billnumber) {
       const lastNum = parseInt(lastInvoice.billnumber, 10);

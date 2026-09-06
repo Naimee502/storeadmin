@@ -197,6 +197,23 @@ export const REOPEN_PURCHASE_ORDER = gql`
     reopenPurchaseOrder(id: $id) {
       id
       cancelStatus
+      orderStatus
+    }
+  }
+`;
+
+export const CONFIRM_PURCHASE_ORDER = gql`
+  mutation ConfirmPurchaseOrder($id: ID!) {
+    confirmPurchaseOrder(id: $id) {
+      id orderStatus isConverted
+    }
+  }
+`;
+
+export const MARK_PURCHASE_ORDER_RECEIVED = gql`
+  mutation MarkPurchaseOrderReceived($id: ID!, $byId: ID, $byName: String, $byType: String) {
+    markPurchaseOrderReceived(id: $id, byId: $byId, byName: $byName, byType: $byType) {
+      id orderStatus receivedAt receivedByName
     }
   }
 `;

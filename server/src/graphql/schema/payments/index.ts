@@ -29,6 +29,9 @@ export const paymentTypeDefs = gql`
     totalamount: Float!
     outstanding: Float!
     invoicemodel: String!
+    # Source Sales Order number, when this invoice came from an order.
+    # Order-only businesses label the bill with this instead of the invoice no.
+    sourceref: String
   }
 
   # A proposed FIFO spread of an amount over those bills — shown to the user
@@ -41,6 +44,8 @@ export const paymentTypeDefs = gql`
     outstanding: Float!
     settledamount: Float!
     fullysettled: Boolean!
+    # Source Sales Order number — see OutstandingBill.sourceref.
+    sourceref: String
   }
 
   type AllocationProposal {

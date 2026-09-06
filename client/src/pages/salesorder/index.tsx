@@ -12,6 +12,15 @@ import {
   useSalesOrderMutations,
 } from "../../graphql/hooks/salesorder";
 import { formatDateDMY } from "../../utils/helper";
+import PrintableInvoice from "../../components/printinvoice";
+import { useReactToPrint } from "react-to-print";
+import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { stateOptions } from "../../utils/constants";
+
+// Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
+// proper display label for the printed document's Place of Supply.
+const stateLabel = (slug?: string) =>
+  stateOptions.find((s) => s.value === slug)?.label || "";
 
 const SalesOrders = () => {
   const navigate = useNavigate();
@@ -38,7 +47,13 @@ const SalesOrders = () => {
   // Options depend on whether invoicing is enabled, and whether THIS order is
   // already converted (a converted order is never re-offered "convert").
   const optionsFor = (order: any) => {
-    const opts: { label: string; value: string }[] = [{ label: "Pending", value: "pending" }];
+    // "Pending" reopens a CANCELLED order. Once an order is converted — which
+    // in order-only mode happens silently on Confirm — stock and the ledger
+    // have been posted and there is no safe way back, so don't offer a path
+    // that can only fail.
+    const opts: { label: string; value: string }[] = order.isConverted
+      ? []
+      : [{ label: "Pending", value: "pending" }];
     if (salesInvoiceEnabled) {
       if (!order.isConverted && actions.showConvert) opts.push({ label: "Convert to Invoice", value: "convert" });
     } else {
@@ -77,6 +92,103 @@ const SalesOrders = () => {
   };
   const orderList = data?.getSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
+  const { settings } = useAppSelector((state: any) => state.adminsettings);
+  const auth = useAppSelector((state) => state.auth);
+  const companyName =
+    auth.type === "admin"
+      ? auth.admin?.companyName
+      : auth.type === "branch"
+        ? auth.branch?.admin?.companyName
+        : auth.type === "staff"
+          ? auth.staff?.admin?.companyName
+          : "";
+
+  /* ---------- Print ----------
+     Same two-step mount-then-print dance the invoice pages use: the printable
+     node has to exist in the DOM before react-to-print can read it, so the row
+     is put into state first and the print is fired once the ref is populated. */
+  const componentRef = useRef<HTMLDivElement>(null);
+  const [printOrder, setPrintOrder] = useState<any>(null);
+  const [readyToPrint, setReadyToPrint] = useState(false);
+
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: "Sales Order",
+    onAfterPrint: () => {
+      setPrintOrder(null);
+      setReadyToPrint(false);
+    },
+    onPrintError: (error) => console.error("Print error:", error),
+  });
+
+  useEffect(() => {
+    if (printOrder) setReadyToPrint(true);
+  }, [printOrder]);
+
+  useEffect(() => {
+    if (readyToPrint && componentRef.current) handlePrint?.();
+  }, [readyToPrint, handlePrint]);
+
+  /* ---------- WhatsApp share ----------
+     Shares the very same printable layout as a PDF, so what the party receives
+     on WhatsApp is byte-for-byte what Print produces. */
+  const waRef = useRef<HTMLDivElement>(null);
+  const [waOrder, setWaOrder] = useState<any>(null);
+  const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
+
+  const handleWhatsAppShare = (row: any) => {
+    const orig = orderList.find((o: any) => o.id === row.id);
+    if (!orig) return;
+
+    // Business Settings -> Invoice Print -> "Show company name in signature"
+    // governs the chat sign-off too, so the company name never leaks into a
+    // message when the admin has chosen to keep it off the document.
+    const showSignatureCompanyName = settings?.printShowCompanyNameInSignature !== false;
+    const mobile = (orig.partyacc?.mobile || "").replace(/\D/g, "");
+    const message =
+      `*Sales Order SO-${orig.billnumber}*\n` +
+      `Date: ${formatDateDMY(orig.billdate)}\n` +
+      `Total: ₹ ${Number(orig.totalamount).toFixed(2)}\n\n` +
+      `${showSignatureCompanyName && companyName ? `— ${companyName}` : ""}`;
+
+    waMeta.current = {
+      phone: mobile,
+      message,
+      fileName: `Sales-Order-SO-${orig.billnumber}.pdf`,
+    };
+    setWaOrder(row);
+  };
+
+  useEffect(() => {
+    if (!waOrder || !waRef.current || !waMeta.current) return;
+    const run = async () => {
+      dispatch(showLoading());
+      try {
+        const result = await shareElementAsPdfOnWhatsApp({
+          element: waRef.current!,
+          ...waMeta.current!,
+        });
+        if (result === "downloaded") {
+          dispatch(showMessage({
+            message: "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
+            // The message slice only types 'success' | 'error'; this is an
+            // informational note, and 'success' is the truthful one of the two
+            // (the PDF really was produced and downloaded).
+            type: "success",
+          }));
+        }
+      } catch (e) {
+        console.error("WhatsApp PDF share error:", e);
+        dispatch(showMessage({ message: "Failed to share order PDF.", type: "error" }));
+      } finally {
+        dispatch(hideLoading());
+        setWaOrder(null);
+        waMeta.current = null;
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waOrder]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -125,6 +237,11 @@ const SalesOrders = () => {
     return {
       ...order,
       seqNo: index + 1,
+      // Flattened for the printable document — it expects these ready-made
+      // rather than digging into the partyacc object itself.
+      partyname: order.partyacc?.accountname || "",
+      gstin: order.partyacc?.gstnumber || "",
+      placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
       totalitem: order.productservice.length,
       totalqty,
@@ -154,7 +271,10 @@ const SalesOrders = () => {
           title="Manage Sales Orders"
           columns={columns}
           data={tableData}
-          showPrint={false}
+          showPrint={actions.showPrint}
+          onPrint={(row) => setPrintOrder(row)}
+          showWhatsApp={actions.showWhatsApp}
+          onWhatsApp={handleWhatsAppShare}
           onView={(row) => navigate(`/salesorder/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesorder/addedit/${row.id}`)}
           onDelete={async (row) => {
@@ -177,6 +297,33 @@ const SalesOrders = () => {
           defaultEntriesPerPage={10}
           isLoading={isLoading}
         />
+
+        {/* Hidden printable copy, parked offscreen so it stays mounted while
+            react-to-print reads it. */}
+        {printOrder && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+            <PrintableInvoice
+              ref={componentRef}
+              invoice={printOrder}
+              title="SALES ORDER"
+              docNoLabel="Order No."
+            />
+          </div>
+        )}
+
+        {/* Hidden copy rendered only while the WhatsApp PDF is generated. The
+            explicit width matters: html2canvas rasterises at the laid-out
+            width, and offscreen content would otherwise collapse. */}
+        {waOrder && (
+          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
+            <PrintableInvoice
+              ref={waRef}
+              invoice={waOrder}
+              title="SALES ORDER"
+              docNoLabel="Order No."
+            />
+          </div>
+        )}
       </div>
     </HomeLayout>
   );

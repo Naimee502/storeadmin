@@ -9,6 +9,8 @@ const STYLES: Record<string, { badge: string; dot: string }> = {
   confirmed:  { badge: "bg-blue-50 text-blue-700 ring-blue-200",     dot: "bg-blue-500" },
   dispatched: { badge: "bg-sky-50 text-sky-700 ring-sky-200",        dot: "bg-sky-500" },
   delivered:  { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },
+  // Purchase side: goods arrived. Terminal step, same weight as "delivered".
+  received:   { badge: "bg-green-50 text-green-700 ring-green-200",   dot: "bg-green-500" },
   cancelled:  { badge: "bg-rose-50 text-rose-700 ring-rose-200",      dot: "bg-rose-500" },
   returned:   { badge: "bg-purple-50 text-purple-700 ring-purple-200", dot: "bg-purple-500" },
 };

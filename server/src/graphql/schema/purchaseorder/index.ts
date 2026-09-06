@@ -11,6 +11,11 @@ export const purchaseOrderTypeDefs = gql`
     ledgername: String
     address: String
     city: String
+    # Needed by the printable document: state builds Place of Supply and
+    # gstnumber fills the GSTIN cell, the same two fields the invoice
+    # modules already expose on their SimpleRef.
+    state: String
+    gstnumber: String
     latitude: Float
     longitude: Float
   }
@@ -98,6 +103,15 @@ export const purchaseOrderTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     isConverted: Boolean
+    # Canonical lifecycle: pending → confirmed → received (+ cancelled/returned).
+    orderStatus: String
+    receivedAt: String
+    receivedByName: String
+    # Real invoice number once converted — null for a purchase-order-only
+    # business, which never shows its users an invoice number.
+    invoicenumber: String
+    # What is still payable on the invoice this order became. 0 if not billed.
+    outstanding: Float
     cancelStatus: String
     cancelReason: String
     cancelledAt: String
@@ -138,6 +152,7 @@ export const purchaseOrderTypeDefs = gql`
     createdby_name: String
     createdby_type: String
     isConverted: Boolean
+    orderStatus: String
     status: Boolean
   }
 
@@ -153,6 +168,7 @@ export const purchaseOrderTypeDefs = gql`
     billdateFrom: String
     billdateTo: String
     isConverted: Boolean
+    includeConverted: Boolean
     status: Boolean
   }
 
@@ -169,5 +185,7 @@ export const purchaseOrderTypeDefs = gql`
     resetPurchaseOrder(id: ID!): Boolean!
     cancelPurchaseOrder(id: ID!, reason: String): PurchaseOrder!
     reopenPurchaseOrder(id: ID!): PurchaseOrder!
+    confirmPurchaseOrder(id: ID!): PurchaseOrder!
+    markPurchaseOrderReceived(id: ID!, byId: ID, byName: String, byType: String): PurchaseOrder!
   }
 `;

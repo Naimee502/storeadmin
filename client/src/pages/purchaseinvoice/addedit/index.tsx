@@ -400,6 +400,13 @@ const AddEditPurchaseInvoice = () => {
       status,
     };
 
+    // Converting an order → invoice: keep the back-link so the bill can be
+    // labelled with the PO number a purchase-order-only business recognises,
+    // and so the server can confirm the source order.
+    if (orderId && orderData?.getPurchaseOrderById) {
+      (input as any).sourceorderid = orderId;
+    }
+
     console.log("Input Data:", JSON.stringify(input, null, 2));
 
     try {

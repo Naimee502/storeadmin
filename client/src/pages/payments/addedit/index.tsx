@@ -4,6 +4,7 @@ import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectIsModuleBusinessEnabled } from "../../../redux/slices/permissions";
 import { showMessage } from "../../../redux/slices/message";
 import {
   usePaymentMutations,
@@ -25,6 +26,8 @@ type SettledInvoice = {
   discount: number;
   commission: number;
   billnumber: string;
+  /** Source Sales Order number, when this bill was raised from an order. */
+  sourceref?: string | null;
   totalamount: number;
   othercharges: any[];
   subtotal: number;
@@ -38,6 +41,7 @@ type ProposalLine = {
   invoicemodel: string;
   billnumber: string;
   billdate: string;
+  sourceref?: string | null;
   outstanding: number;
   settledamount: number;
   fullysettled: boolean;
@@ -79,6 +83,28 @@ const AddEditPayment = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  // Order-only businesses run with the Sales Invoice module switched off: the
+  // invoice behind a confirmed order is created silently and they never see its
+  // number. Labelling their bills "INV-000012" would be a number they have
+  // never met, so we show the Sales Order number they actually confirmed.
+  const salesInvoiceEnabled = useAppSelector(state =>
+    selectIsModuleBusinessEnabled(state, "salesinvoice"));
+  const purchaseInvoiceEnabled = useAppSelector(state =>
+    selectIsModuleBusinessEnabled(state, "purchaseinvoice"));
+
+  /** How a bill is named on screen: expense notes carry their own number,
+   *  order-only sales bills show "SO-<order no>", everything else "INV-<no>". */
+  const billLabel = (b: { invoicemodel?: string; billnumber?: string; sourceref?: string | null; sourceorderno?: string | null }) => {
+    if (b?.invoicemodel === "ExpenseNote") return b.billnumber || "";
+    const orderNo = b?.sourceref || (b as any)?.sourceorderno;
+    if (orderNo) {
+      const isPurchase = b?.invoicemodel === "PurchaseInvoice";
+      if (isPurchase && !purchaseInvoiceEnabled) return `PO-${orderNo}`;
+      if (!isPurchase && !salesInvoiceEnabled) return `SO-${orderNo}`;
+    }
+    return `INV-${b?.billnumber || ""}`;
+  };
   const editLoaded = useRef(false);
 
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
@@ -448,6 +474,7 @@ const AddEditPayment = () => {
         discount: ei.discount || 0,
         commission: ei.commission || 0,
         billnumber: match?.billnumber || ei.invoiceid,
+        sourceref: match?.sourceref || match?.sourceorderno || null,
         totalamount: match?.totalamount || 0,
         othercharges: match?.othercharges || [],
         subtotal: match?.subtotal || 0,
@@ -553,6 +580,7 @@ const AddEditPayment = () => {
           discount: 0,
           commission: 0,
           billnumber: inv.billnumber,
+          sourceref: inv.sourceref || inv.sourceorderno || null,
           totalamount: inv.totalamount,
           othercharges: inv.othercharges || [],
           subtotal: inv.subtotal || 0,
@@ -691,6 +719,7 @@ const AddEditPayment = () => {
         discount: discounts[i] || 0,
         commission: commissions[i] || 0,
         billnumber: l.billnumber || inv?.billnumber || "",
+        sourceref: l.sourceref || inv?.sourceref || inv?.sourceorderno || null,
         totalamount: inv?.totalamount ?? l.outstanding,
         othercharges: inv?.othercharges || [],
         subtotal: inv?.subtotal || 0,
@@ -1427,7 +1456,7 @@ const AddEditPayment = () => {
                               />
                             </td>
                             <td className="px-3 py-2 font-medium">
-                              {inv.invoicemodel === "ExpenseNote" ? inv.billnumber : `INV-${inv.billnumber}`}
+                              {billLabel(inv)}
                               {inv.invoicemodel === "ExpenseNote" && inv.payablePartyName && (
                                 <div className="text-xs text-gray-500 font-normal">{inv.payablePartyName}</div>
                               )}
@@ -1729,7 +1758,7 @@ const AddEditPayment = () => {
                 </div>
                 {settledInvoices.map(s => (
                   <div key={s.invoiceid} className="flex justify-between text-gray-500 text-xs">
-                    <span>{s.invoicemodel === "ExpenseNote" ? s.billnumber : `INV-${s.billnumber}`}</span>
+                    <span>{billLabel(s)}</span>
                     <span>₹{fmt(s.settledamount)}</span>
                   </div>
                 ))}
@@ -1954,7 +1983,7 @@ const AddEditPayment = () => {
                   )}
                   {proposal.lines.map((l, li) => (
                     <tr key={l.invoiceid} className="border-t">
-                      <td className="px-3 py-2 font-medium">INV-{l.billnumber}</td>
+                      <td className="px-3 py-2 font-medium">{billLabel({ ...l, invoicemodel: l.invoicemodel })}</td>
                       <td className="px-3 py-2 text-gray-500">{l.billdate}</td>
                       <td className="px-3 py-2 text-right">₹{fmt(l.outstanding)}</td>
                       <td className="px-3 py-2 text-right font-medium">₹{fmt(l.settledamount)}</td>

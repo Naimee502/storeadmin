@@ -18,6 +18,10 @@ export const GET_SALES_ORDERS = gql`
         id
         accountname
         mobile
+        address
+        city
+        state
+        gstnumber
       }
       taxorsupplytype
       billdate

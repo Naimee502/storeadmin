@@ -6,6 +6,8 @@ import {
   RESET_PURCHASE_ORDER,
   CANCEL_PURCHASE_ORDER,
   REOPEN_PURCHASE_ORDER,
+  CONFIRM_PURCHASE_ORDER,
+  MARK_PURCHASE_ORDER_RECEIVED,
 } from '../../mutations/purchaseorder';
 
 import {
@@ -23,6 +25,8 @@ export const usePurchaseOrderMutations = () => {
   const [resetPurchaseOrderMutation] = useMutation(RESET_PURCHASE_ORDER);
   const [cancelPurchaseOrderMutation] = useMutation(CANCEL_PURCHASE_ORDER);
   const [reopenPurchaseOrderMutation] = useMutation(REOPEN_PURCHASE_ORDER);
+  const [confirmPurchaseOrderMutation] = useMutation(CONFIRM_PURCHASE_ORDER);
+  const [receivePurchaseOrderMutation] = useMutation(MARK_PURCHASE_ORDER_RECEIVED);
 
   return {
     addPurchaseOrderMutation,
@@ -31,6 +35,8 @@ export const usePurchaseOrderMutations = () => {
     resetPurchaseOrderMutation,
     cancelPurchaseOrderMutation,
     reopenPurchaseOrderMutation,
+    confirmPurchaseOrderMutation,
+    receivePurchaseOrderMutation,
   };
 };
 

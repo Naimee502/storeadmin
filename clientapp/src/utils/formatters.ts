@@ -53,9 +53,12 @@ export const formatBillNumber = (order: { billnumber?: string | null; isConverte
   // Converted orders show the REAL invoice number (same as the admin panel),
   // not the order's own sequence. Falls back to the order number if the invoice
   // link isn't available yet.
-  const raw = (order.isConverted && order.invoicenumber) ? order.invoicenumber : (order.billnumber ?? '');
+  // Show INV- only when we actually hold an invoice number. An order-only
+  // business has no invoice the user has ever seen, so its orders stay SO-.
+  const invoiceNo = order.isConverted ? order.invoicenumber : null;
+  const raw = invoiceNo || (order.billnumber ?? '');
   const num = raw ? String(parseInt(raw, 10) || raw).padStart(6, '0') : '000000';
-  return order.isConverted ? `INV-${num}` : `SO-${num}`;
+  return invoiceNo ? `INV-${num}` : `SO-${num}`;
 };
 
 /**

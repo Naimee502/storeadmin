@@ -172,6 +172,7 @@ export const GET_PARTY_OUTSTANDING_BILLS = gql`
       totalamount
       outstanding
       invoicemodel
+      sourceref
     }
   }
 `;
@@ -208,6 +209,7 @@ export const PREVIEW_ALLOCATION = gql`
         outstanding
         settledamount
         fullysettled
+        sourceref
       }
     }
   }

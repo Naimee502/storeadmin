@@ -86,7 +86,7 @@ export default function DeliveryDashboard() {
   }, [payData, today, user?.id]);
 
   const todaysDeliveries = useMemo(() => {
-    const fmt = (o: any) => formatBillNumber({ billnumber: o.billnumber, isConverted: true });
+    const fmt = (o: any) => formatBillNumber({ billnumber: o.billnumber, isConverted: true, invoicenumber: o.billnumber });
     const out = outOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'out' }));
     const avail = availableOrders.map((o: any) => ({ id: o.id, orderNum: fmt(o), party: o.partyacc?.accountname ?? '—', address: o.partyacc?.address ?? '', amount: o.totalamount ?? 0, status: 'available' }));
     return [...out, ...avail].slice(0, 3);

@@ -59,6 +59,8 @@ export const GET_PURCHASE_INVOICES = gql`
       invoicediscount
       invoicediscounttype
       isservice
+      sourceorderid
+      sourceorderno
       createdby_id
       createdby_name
       createdby_type
@@ -127,6 +129,8 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       invoicediscount
       invoicediscounttype
       isservice
+      sourceorderid
+      sourceorderno
       createdby_id
       createdby_name
       createdby_type
@@ -195,6 +199,8 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       invoicediscount
       invoicediscounttype
       isservice
+      sourceorderid
+      sourceorderno
       createdby_id
       createdby_name
       createdby_type

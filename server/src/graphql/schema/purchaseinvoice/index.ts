@@ -97,6 +97,10 @@ export const purchaseInvoiceTypeDefs = gql`
     invoicediscounttype: String
     isservice: Boolean!
     autocreate: Boolean!
+    sourceorderid: ID
+    # Source Purchase Order number ("000001"), resolved from sourceorderid.
+    # Purchase-order-only businesses label the bill with this instead.
+    sourceorderno: String
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -133,6 +137,7 @@ export const purchaseInvoiceTypeDefs = gql`
     invoicediscounttype: String
     isservice: Boolean
     autocreate: Boolean
+    sourceorderid: ID
     createdby_id: ID
     createdby_name: String
     createdby_type: String
@@ -164,5 +169,9 @@ export const purchaseInvoiceTypeDefs = gql`
     editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
     deletePurchaseInvoice(id: ID!): Boolean!
     resetPurchaseInvoice(id: ID!): Boolean!
+    # Build a Purchase Invoice from a Purchase Order in one call — mirrors
+    # convertSalesOrderToInvoice, so the server does the copying and all the
+    # auto-posting (ledger / stock / payment) runs exactly as normal.
+    convertPurchaseOrderToInvoice(id: ID!): PurchaseInvoice!
   }
 `;

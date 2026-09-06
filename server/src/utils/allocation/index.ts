@@ -38,6 +38,13 @@ export type OutstandingBill = {
    */
   excess: number;
   invoicemodel: InvoiceModel;
+  /**
+   * Number of the Sales Order this bill was raised from, e.g. "000009".
+   * Order-only businesses never see an invoice — the receipt screen labels the
+   * bill with this instead, so the number matches the order they confirmed.
+   * Null for a directly-created invoice.
+   */
+  sourceref?: string | null;
 };
 
 const round2 = (n: number) => parseFloat((Number(n) || 0).toFixed(2));
@@ -86,9 +93,27 @@ export async function getPartyBillPositions(opts: {
   if (excludeInvoiceId) invQuery._id = { $ne: excludeInvoiceId };
 
   const invoices: any[] = await Invoice.find(invQuery)
-    .select("_id billnumber billdate duedate totalamount")
+    .select("_id billnumber billdate duedate totalamount sourceorderid")
     .lean();
   if (!invoices.length) return [];
+
+  // Resolve source-order numbers in one round trip (sales side only — a
+  // purchase invoice has no sales order behind it).
+  const sourceRefs: Record<string, string> = {};
+  try {
+    const orderModel = invoicemodel === "SalesInvoice" ? "SalesOrder" : "PurchaseOrder";
+    const orderIds = invoices.map((i) => i.sourceorderid).filter(Boolean);
+    if (orderIds.length) {
+      const orders: any[] = await mongoose
+        .model(orderModel)
+        .find({ _id: { $in: orderIds } })
+        .select("_id billnumber")
+        .lean();
+      orders.forEach((o) => { sourceRefs[String(o._id)] = o.billnumber || ""; });
+    }
+  } catch (e) {
+    // Only affects the bill's label; the money must still be collectable.
+  }
 
   const invoiceIds = invoices.map((i) => i._id);
 
@@ -166,6 +191,7 @@ export async function getPartyBillPositions(opts: {
       outstanding: round2(Math.max(0, net)),
       excess: round2(Math.max(0, -net)),
       invoicemodel,
+      sourceref: inv.sourceorderid ? (sourceRefs[String(inv.sourceorderid)] || null) : null,
     };
   });
 
