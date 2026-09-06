@@ -45,7 +45,7 @@ export default function Catalog() {
 
   // One page at a time, with the search box and category chip applied on the
   // SERVER — see the hook for why that matters once a list is paginated.
-  const { products, loading, loadingMore, hasMore, loadMore } = useProductPage({
+  const { products, initialLoading, refreshing, loadingMore, loadMore } = useProductPage({
     adminid,
     search,
     categoryid: category,
@@ -281,7 +281,17 @@ export default function Catalog() {
         />
       </View>
 
-      {loading ? (
+      {/* A thin bar while a new category or search is fetched. The rows below
+          stay put — the skeleton is only for the very first load, when there is
+          genuinely nothing on screen yet. Rebuilding the whole grid every time a
+          category chip is tapped made the screen feel like it was reloading. */}
+      {refreshing && (
+        <View style={styles.refreshBar}>
+          <ActivityIndicator size="small" color={colors.brand} />
+        </View>
+      )}
+
+      {initialLoading ? (
         <ProductGridSkeleton />
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
@@ -303,10 +313,6 @@ export default function Catalog() {
               <View style={styles.footerLoader}>
                 <ActivityIndicator color={colors.brand} />
               </View>
-            ) : !hasMore && filtered.length > 0 ? (
-              <Text style={[styles.footerEnd, { color: colors.subText }]}>
-                {STRINGS.party.endOfCatalog}
-              </Text>
             ) : null
           }
         />
@@ -322,7 +328,7 @@ const styles = StyleSheet.create({
   // strip stay aligned with the grid now that they sit outside the list.
   headerWrap: { paddingHorizontal: 18 },
   footerLoader: { paddingVertical: 18, alignItems: 'center' },
-  footerEnd: { paddingVertical: 18, textAlign: 'center', fontSize: 12 },
+  refreshBar: { paddingVertical: 6, alignItems: 'center' },
   card: {
     flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
     justifyContent: 'space-between',

@@ -77,6 +77,7 @@ export default function Login({ navigation }: any) {
   const mobileRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const nameRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const validateMobile = () => {
     if (!mobile.trim() || mobile.replace(/\D/g, '').length < 10) {
@@ -133,6 +134,13 @@ export default function Login({ navigation }: any) {
           adminId,
           autoOtp: data.registerAccount.otp ?? '',
         });
+      } else {
+        // The server can decline without throwing. Without this the button
+        // simply did nothing and the customer had no idea why.
+        setErrors(e => ({
+          ...e,
+          mobile: (data as any)?.registerAccount?.message || 'Could not create your account. Try again.',
+        }));
       }
     } catch (err: any) {
       const msg = err?.message || 'Could not create your account. Try again.';
@@ -141,6 +149,14 @@ export default function Login({ navigation }: any) {
       showLoader(false);
     }
   };
+
+  useEffect(() => {
+    if (!isRegisterMode) return;
+    // A frame's delay: the fields must exist before there is anything to
+    // scroll to.
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    return () => clearTimeout(t);
+  }, [isRegisterMode]);
 
   const exitRegisterMode = () => {
     setIsRegisterMode(false);
@@ -216,11 +232,22 @@ export default function Login({ navigation }: any) {
       <View style={[styles.glow, styles.glowTwo]} />
 
       <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Android needs an explicit behavior now. targetSdk 36 means edge-to-edge
+            is forced, and with it the manifest's android:windowSoftInputMode
+            ="adjustResize" no longer resizes the window — so the ScrollView never
+            shrank, nothing overflowed, and there was nothing to scroll. "height"
+            shrinks this view by the keyboard's height instead, which gives the
+            ScrollView the overflow it needs. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Hero */}
             <Animated.View entering={FadeInUp.duration(800).delay(80)} style={styles.hero}>
@@ -453,7 +480,9 @@ export default function Login({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingHorizontal: 22, paddingBottom: 40, flexGrow: 1 },
+  // Generous bottom padding so the last field and the submit button can always
+  // be scrolled clear of the keyboard, however tall it is.
+  scroll: { paddingHorizontal: 22, paddingBottom: 140, flexGrow: 1 },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
   glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
   glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },

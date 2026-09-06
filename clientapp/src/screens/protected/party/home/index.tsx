@@ -113,7 +113,6 @@ export default function PartyHome() {
     initialLoading: productsInitialLoading,
     loading: productsLoading,
     loadingMore,
-    hasMore,
     loadMore,
   } = useProductPage({ adminid, search, categoryid: category });
   // Categories come from the category list itself, not from whichever products
@@ -480,10 +479,6 @@ export default function PartyHome() {
                 <View style={styles.footerLoader}>
                   <ActivityIndicator color={colors.brand} />
                 </View>
-              ) : !hasMore && visibleProducts.length > 0 ? (
-                <Text style={[styles.footerEnd, { color: colors.subText }]}>
-                  {STRINGS.party.endOfCatalog}
-                </Text>
               ) : null}
             </>
           </Animated.View>
@@ -521,7 +516,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: 110 },
   footerLoader: { paddingVertical: 18, alignItems: 'center' },
-  footerEnd: { paddingVertical: 18, textAlign: 'center', fontSize: 12 },
 
   statsRow: { flexDirection: 'row', paddingHorizontal: 18, gap: 10, marginTop: 14 },
   statCard: {

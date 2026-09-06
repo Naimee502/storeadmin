@@ -2,6 +2,7 @@ import { useMutation, useQuery, type WatchQueryFetchPolicy } from '@apollo/clien
 import {
   ADD_ACCOUNT,
   DELETE_ACCOUNT,
+  APPROVE_ACCOUNT,
   EDIT_ACCOUNT,
   RESET_ACCOUNT,
 } from '../../mutations/accounts';
@@ -15,12 +16,14 @@ export const useAccountMutations = () => {
   const [addAccountMutation] = useMutation(ADD_ACCOUNT);
   const [editAccountMutation] = useMutation(EDIT_ACCOUNT);
   const [deleteAccountMutation] = useMutation(DELETE_ACCOUNT);
+  const [approveAccountMutation] = useMutation(APPROVE_ACCOUNT);
   const [resetAccountMutation] = useMutation(RESET_ACCOUNT);
 
   return {
     addAccountMutation,
     editAccountMutation,
     deleteAccountMutation,
+    approveAccountMutation,
     resetAccountMutation,
   };
 };

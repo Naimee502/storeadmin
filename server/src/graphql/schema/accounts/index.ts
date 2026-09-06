@@ -37,6 +37,9 @@ export const accountTypeDefs = gql`
   type Account {
     id: ID!
     accountcode: String!
+    approvalstatus: String
+    approvedAt: String
+    mobileverified: Boolean
     name: String!
     type: String
     accountgroupid: AccountGroup
@@ -142,6 +145,11 @@ export const accountTypeDefs = gql`
     success: Boolean!
     message: String!
     otp: String
+    # True when the account exists but is waiting for an admin to approve it.
+    # success is false in that case too, so an older client that only checks
+    # success still shows the message instead of walking into an OTP screen
+    # that will never receive a code.
+    pendingApproval: Boolean
   }
 
   type VerifyOTPResponse {
@@ -176,5 +184,8 @@ export const accountTypeDefs = gql`
     # then sends an OTP exactly like sendOTP so the caller can go straight to
     # OTP verification afterwards.
     registerAccount(adminId: ID!, name: String!, mobile: String!, email: String): SendOTPResponse!
+    # Let a self-registered customer sign in. Back-office only — the party
+    # cannot approve itself.
+    approveAccount(id: ID!): Account!
   }
 `;

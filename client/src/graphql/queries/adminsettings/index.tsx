@@ -33,6 +33,7 @@ const SETTINGS_FIELDS = `
   doubleDisplayPrice
   deliveryMode
   partyManagesDownline
+  requirePartyApproval
   enablePaymentDiscountCommission
   paymentAutoSettlement
   paymentAllocationOrder

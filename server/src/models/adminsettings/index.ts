@@ -169,6 +169,10 @@ const adminSettingsSchema = new mongoose.Schema(
        on party add. Default off so existing tenants are unaffected.
        ============================================================ */
     partyManagesDownline: { type: Boolean, default: false },
+    // Self-registered customers land as "pending" and cannot sign in — on the
+    // app or the website — until an admin approves them from Party Accounts.
+    // Off by default: turning it on is a deliberate choice to gate signups.
+    requirePartyApproval: { type: Boolean, default: false },
 
     /* ============================================================
        PAYMENT DISCOUNT / COMMISSION — when true, the Add Payment screen

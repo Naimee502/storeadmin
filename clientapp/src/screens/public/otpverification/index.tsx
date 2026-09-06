@@ -94,7 +94,31 @@ export default function OTPVerification({ navigation, route }: any) {
       showToast(sText.success, 'success');
     } catch (err: any) {
       const msg = err?.message || sText.failed;
-      showToast(msg, 'danger');
+      // The OTP was correct — the store just hasn't approved this customer yet.
+      // Matched on the server's error code, not its wording.
+      // The code can arrive on the ApolloError, on one of its graphQLErrors, or
+      // (depending on the link chain) on networkError.result. The message check
+      // is a deliberate last resort: the redirect matters more than being
+      // purist about where the code surfaced.
+      const CODE = 'ACCOUNT_PENDING_APPROVAL';
+      const codes = [
+        err?.extensions?.code,
+        ...(err?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
+        ...(err?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
+      ];
+      const pending = codes.includes(CODE) || /waiting for approval/i.test(msg);
+      console.log('[otp] verify failed —', msg, '| codes:', codes.filter(Boolean));
+
+      showToast(msg, pending ? 'warning' : 'danger');
+      if (pending) {
+        // reset, not goBack: going back merely reveals the Login screen that is
+        // still sitting in the stack, and it kept its state — isRegisterMode
+        // true with the name and email still filled in — so the customer landed
+        // back on the "Create Account" form they had just completed. Resetting
+        // the stack remounts Login fresh, which is the plain "enter your mobile
+        // number" screen they should see while they wait for approval.
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
     } finally {
       showLoader(false);
     }

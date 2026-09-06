@@ -114,7 +114,6 @@ export const STRINGS = {
     browseAll:      'Browse all',
     noOrdersYet:    'No orders yet',
     noProducts:     'No products found',
-    endOfCatalog:   "That's everything",
     outOfStock:     'Out of stock',
     add:            'Add',
     loading:        'Loading…',

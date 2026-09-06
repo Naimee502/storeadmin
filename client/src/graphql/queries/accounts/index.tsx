@@ -6,6 +6,7 @@ export const GET_ACCOUNTS = gql`
     getAccounts(filter: $filter) {
       id
       accountcode
+      approvalstatus
       name
       type
       accountgroupid {
@@ -71,6 +72,7 @@ export const GET_ACCOUNT_BY_ID = gql`
     getAccountById(id: $id, adminId: $adminId) {
       id
       accountcode
+      approvalstatus
       name
       type
       accountgroupid {

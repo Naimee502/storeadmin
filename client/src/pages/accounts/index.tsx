@@ -22,7 +22,7 @@ const Accounts = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch } = useAccountsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
-  const { deleteAccountMutation } = useAccountMutations();
+  const { deleteAccountMutation, approveAccountMutation } = useAccountMutations();
   const accountList = data?.getAccounts || [];
   console.log("Fetched Accounts:", JSON.stringify(accountList));
   const ledgerList = ledgerData?.getAccountLedgers || [];
@@ -72,7 +72,9 @@ const Accounts = () => {
         typeof acc.channel === "object" && acc.channel
           ? acc.channel.channelName || "-"
           : "-",
-      status: acc.status ? "Active" : "Inactive",
+      status: acc.approvalstatus === "pending"
+        ? "Pending"
+        : (acc.status ? "Active" : "Inactive"),
     };
   });
 
@@ -156,6 +158,18 @@ const Accounts = () => {
               } catch (error) {
                 dispatch(showMessage({ message: "Failed to delete account.", type: "error" }));
               }
+            }
+          }}
+          showConfirm={(row: any) => row.approvalstatus === "pending"}
+          confirmTitle="Approve — let this customer sign in"
+          onConfirm={async (row: any) => {
+            if (!window.confirm(`Approve "${row.name}"? They will be able to sign in to the app and website.`)) return;
+            try {
+              await approveAccountMutation({ variables: { id: row.id } });
+              await refetch();
+              dispatch(showMessage({ message: `${row.name} approved — they can sign in now.`, type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to approve account.", type: "error" }));
             }
           }}
           onImport={handleImportClick}

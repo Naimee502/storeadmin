@@ -63,6 +63,8 @@ interface DataTableProps {
     showCancel?: boolean | ((row: any) => boolean);
     // Per-row fulfilment transitions (Sales Order lifecycle).
     showConfirm?: boolean | ((row: any) => boolean);
+    /** Tooltip for the confirm action — it is not always an order being confirmed. */
+    confirmTitle?: string;
     showDispatch?: boolean | ((row: any) => boolean);
     showDeliver?: boolean | ((row: any) => boolean);
     showDeleted?: boolean;
@@ -114,6 +116,7 @@ const DataTable: React.FC<DataTableProps> = ({
     showReturn = false,
     showCancel = false,
     showConfirm = false,
+    confirmTitle = "Confirm Order",
     showDispatch = false,
     showDeliver = false,
     showDeleted = true,
@@ -438,7 +441,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 </button>
                                             )}
                                             {(typeof showConfirm === "function" ? showConfirm(row) : showConfirm) && (
-                                                <button onClick={() => onConfirm?.(row)} title="Confirm Order" className="text-blue-600">
+                                                <button onClick={() => onConfirm?.(row)} title={confirmTitle} className="text-blue-600">
                                                     <FaCheckCircle />
                                                 </button>
                                             )}

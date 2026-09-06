@@ -155,6 +155,20 @@ export default function LoginPage() {
       // Same reason as above: verifyOTP re-checks the account type, so this
       // can fail for a reason that has nothing to do with the code typed in.
       setError(err?.message || "Invalid or expired code. Please try again.");
+      // Pending approval means the code WAS right — the store just hasn't let
+      // this customer in yet. Keeping them on the OTP step would invite them to
+      // retype a code that can never work, so send them back to the start.
+      // Matched on the server's error code rather than its wording.
+      // Both shapes: ApolloError carries graphQLErrors, but a bare GraphQL
+      // error surfaces its extensions directly.
+      const pending =
+        err?.graphQLErrors?.some(
+          (e: any) => e?.extensions?.code === "ACCOUNT_PENDING_APPROVAL",
+        ) || err?.extensions?.code === "ACCOUNT_PENDING_APPROVAL";
+      if (pending) {
+        setOtp(Array(4).fill(""));
+        setStep("mobile");
+      }
     }
   };
 

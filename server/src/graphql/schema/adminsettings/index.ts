@@ -79,6 +79,7 @@ export const adminSettingsTypeDefs = gql`
     doubleDisplayPrice: Boolean!
     deliveryMode: String
     partyManagesDownline: Boolean
+    requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String
@@ -273,6 +274,7 @@ export const adminSettingsTypeDefs = gql`
     doubleDisplayPrice: Boolean
     deliveryMode: String
     partyManagesDownline: Boolean
+    requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String

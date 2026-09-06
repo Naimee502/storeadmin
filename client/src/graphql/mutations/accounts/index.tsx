@@ -129,6 +129,16 @@ export const DELETE_ACCOUNT = gql`
   }
 `;
 
+export const APPROVE_ACCOUNT = gql`
+  mutation ApproveAccount($id: ID!) {
+    approveAccount(id: $id) {
+      id
+      approvalstatus
+      approvedAt
+    }
+  }
+`;
+
 export const RESET_ACCOUNT = gql`
   mutation ResetAccount($id: ID!) {
     resetAccount(id: $id)

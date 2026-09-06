@@ -121,7 +121,11 @@ export const CategoryStrip: React.FC<Props> = ({
               )}
             </View>
             <Text
-              numberOfLines={1}
+              // Two lines: real category names ("WITH HANDLE TRICYCLE",
+              // "BATTERY TRACTOR") never fit on one, and a strip of
+              // "MAGIC C…" / "WITH HA…" tells the customer nothing. Three
+              // would push the products themselves off the first screen.
+              numberOfLines={2}
               style={[
                 styles.circleLabel,
                 { color: active ? colors.brand : colors.categoryLabel },
@@ -147,12 +151,19 @@ const styles = StyleSheet.create({
 
   // image-circle variant
   circleList:  { paddingBottom: 8, gap: 14, paddingHorizontal: 2 },
-  circleItem:  { alignItems: 'center', width: 62 },
+  // Wider than the 54px circle so a two-line name has room to break sensibly
+  // instead of ellipsising after one word.
+  circleItem:  { alignItems: 'center', width: 76 },
   circle: {
     width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   circleImg:         { width: '100%', height: '100%' },
-  circleLabel:       { fontSize: 11, fontFamily: FONTS.semiBold, marginTop: 4, textAlign: 'center' },
+  // minHeight reserves both lines so one-word categories don't sit higher than
+  // their neighbours and leave the row looking ragged.
+  circleLabel: {
+    fontSize: 11, lineHeight: 14, minHeight: 28,
+    fontFamily: FONTS.semiBold, marginTop: 4, textAlign: 'center',
+  },
   circleLabelActive: { fontFamily: FONTS.bold },
 });

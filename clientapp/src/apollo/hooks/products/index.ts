@@ -68,7 +68,16 @@ export function useProductPage({
     skip: !adminid,
   });
 
-  const products: any[] = (data as any)?.getProductServices ?? [];
+  const fresh: any[] = (data as any)?.getProductServices ?? [];
+
+  // Hold the last rows that were actually on screen. Changing the search term
+  // or the category gives Apollo a variable set it has not cached, so `data`
+  // goes undefined and the list would empty out for a moment — long enough to
+  // flash "No products found" at someone who simply tapped a category. Showing
+  // the previous rows until the new ones land keeps the screen still.
+  const shown = useRef<any[]>([]);
+  if (!loading) shown.current = fresh;
+  const products: any[] = loading && shown.current.length ? shown.current : fresh;
 
   // True only until the FIRST page has ever arrived. Changing the search term
   // or the category also sets `loading`, but by then the screen is already
@@ -77,6 +86,9 @@ export function useProductPage({
   const settled = useRef(false);
   if (!loading && data) settled.current = true;
   const initialLoading = loading && !settled.current;
+
+  /** A filter change is being fetched while earlier rows are still on screen. */
+  const refreshing = loading && settled.current;
 
   // A new search term or category is a new result set, so paging starts over.
   useEffect(() => {
@@ -120,6 +132,7 @@ export function useProductPage({
     products,
     loading,
     initialLoading,
+    refreshing,
     loadingMore,
     /** False once a short page proves there is nothing left to fetch. */
     hasMore: !exhausted && products.length >= pageSize,

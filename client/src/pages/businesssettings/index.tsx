@@ -245,6 +245,17 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           onChange={(v: boolean) => set("partyManagesDownline", v)}
         />
         <Toggle
+          label="New customer signups need admin approval before they can log in"
+          checked={!!draft.requirePartyApproval}
+          onChange={(v: boolean) => set("requirePartyApproval", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          A customer who signs up on the app or the website is created as <b>Pending</b> and cannot
+          sign in until you approve them from Party Accounts. No OTP is sent while they wait, so they
+          are told to expect approval rather than left staring at an OTP screen. Only affects
+          self-registration — parties you or your salesmen create are approved straight away.
+        </p>
+        <Toggle
           label="Discount & Commission on Payment settlement (per invoice while collecting)"
           checked={!!draft.enablePaymentDiscountCommission}
           onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}

@@ -10,6 +10,9 @@ import { Branch } from "../../../models/branches";
 import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { AdminSettings } from "../../../models/adminsettings";
+import { resolveTenant } from "../../../utils/tenant";
+import { ApolloError } from "apollo-server-express";
 import { getPartyTotalDue } from "../../../utils/allocation";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
@@ -93,6 +96,36 @@ const assertCustomerAccount = (account: any) => {
   const type = String(account?.type || "").toLowerCase();
   if (type !== "customer") {
     throw new Error("This login is for customer accounts only.");
+  }
+};
+
+/**
+ * Refuse a customer who has signed up but not been approved yet.
+ *
+ * Enforced on BOTH otp steps rather than once: sendOTP and verifyOTP are
+ * separate mutations and either can be called directly, so checking only at the
+ * first would let a caller skip straight to the one that hands out a token.
+ * The same check therefore covers the app and the website equally — neither has
+ * a login path that avoids these two.
+ */
+/**
+ * A machine-readable code so the app and the website can react (send the
+ * customer back to the login screen) instead of string-matching the message,
+ * which would break the moment the wording changes or is translated.
+ *
+ * Must be ApolloError, not a plain Error with an `extensions` property: on
+ * apollo-server v3 a thrown Error is wrapped and its code is replaced with
+ * INTERNAL_SERVER_ERROR, so the custom code never reaches the client — the
+ * message got through and the code silently did not.
+ */
+export const ACCOUNT_PENDING_APPROVAL = "ACCOUNT_PENDING_APPROVAL";
+
+const assertApproved = (account: any) => {
+  if (String(account?.approvalstatus || "approved") === "pending") {
+    throw new ApolloError(
+      "Your number is verified. Your account is waiting for approval from the store — you will be able to sign in once it is approved.",
+      ACCOUNT_PENDING_APPROVAL,
+    );
   }
 };
 
@@ -337,6 +370,7 @@ export const accountResolvers = {
       const account = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
       assertCustomerAccount(account);
+      assertApproved(account);
 
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
@@ -385,6 +419,10 @@ export const accountResolvers = {
         });
       }
 
+      // Business Settings → "New customer signups need admin approval".
+      const settings: any = await AdminSettings.getOrCreateForAdmin(adminId);
+      const needsApproval = settings?.requirePartyApproval === true;
+
       const account = new Account({
         admin: adminId,
         name,
@@ -393,6 +431,8 @@ export const accountResolvers = {
         type: "customer",
         accountgroupid: group._id,
         channel: endUserChannel._id,
+        approvalstatus: needsApproval ? "pending" : "approved",
+        approvedAt: needsApproval ? undefined : new Date(),
         status: true,
       });
       await account.save();
@@ -402,7 +442,9 @@ export const accountResolvers = {
           adminid: adminId,
           targettype: "admin",
           ntype: "party",
-          title: `New customer "${name}" self-registered`,
+          title: needsApproval
+            ? `New customer "${name}" is waiting for approval`
+            : `New customer "${name}" self-registered`,
           message: mobile || "",
           webpath: "/accounts",
           docmodel: "Account",
@@ -410,6 +452,11 @@ export const accountResolvers = {
         });
       } catch (e) { /* notifications are best-effort */ }
 
+      // The OTP is sent even when approval is required. It proves the person
+      // owns the number BEFORE an admin is asked to approve them — without it
+      // anyone could register any number and fill the approval queue with junk.
+      // The token is what gets withheld: verifyOTP marks the number verified and
+      // then refuses to sign a pending account in.
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
       await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
@@ -417,7 +464,30 @@ export const accountResolvers = {
       // TODO: replace with SMS provider (Twilio, AWS SNS, etc.) and remove otp from response
       console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
 
-      return { success: true, message: "Registered successfully. OTP sent.", otp };
+      return {
+        success: true,
+        pendingApproval: needsApproval,
+        message: needsApproval
+          ? "Account created. Verify your number with the OTP — you can sign in once the store approves you."
+          : "Registered successfully. OTP sent.",
+        otp,
+      };
+    },
+
+    // Back-office only: resolveTenant with backofficeOnly rejects a party token,
+    // so a pending customer cannot approve itself by calling this directly.
+    approveAccount: async (_: any, { id }: { id: string }, context: any) => {
+      const tenant = await resolveTenant(context, { backofficeOnly: true });
+      const account: any = await Account.findOne({ _id: id, admin: tenant.adminid });
+      if (!account) throw new Error("Party account not found.");
+      if (account.approvalstatus !== "pending") return account;
+
+      const updated = await Account.findByIdAndUpdate(
+        id,
+        { approvalstatus: "approved", approvedAt: new Date() },
+        { new: true },
+      );
+      return updated;
     },
 
     verifyOTP: async (_: any, { adminId, mobile, otp }: any, { res }: any) => {
@@ -434,7 +504,18 @@ export const accountResolvers = {
         throw new Error("OTP has expired. Please request a new one.");
       }
 
-      await Account.findByIdAndUpdate(account._id, { otp: null, otpExpiry: null });
+      // Record the number as proven BEFORE the approval gate, so the admin
+      // reviewing the queue can tell a real signup from a typo'd number.
+      await Account.findByIdAndUpdate(account._id, {
+        otp: null,
+        otpExpiry: null,
+        mobileverified: true,
+      });
+
+      // Only now: the number is theirs, but the store has not let them in yet.
+      // Checked after the OTP so a pending signup still completes verification
+      // instead of being turned away at the door with nothing recorded.
+      assertApproved(account);
 
       const { accessToken, refreshToken } = generateTokens({
         id: account.id,

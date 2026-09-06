@@ -45,6 +45,28 @@ const accountSchema = new mongoose.Schema(
     },
 
     // Identity & Contact
+    /**
+     * Whether this party may sign in yet.
+     *
+     * Deliberately NOT `status`: that boolean already means "deleted" (the
+     * Party Accounts screen's "Deleted Entries" view is status:false, and every
+     * login query filters on status:true). Reusing it would bury pending
+     * customers under Deleted Entries and tell them "Mobile number not
+     * registered" when they try to log in.
+     *
+     * "approved" for everyone an admin/salesman creates and for every party
+     * that existed before this field — only self-registration can set
+     * "pending", and only when requirePartyApproval is on.
+     */
+    approvalstatus: {
+      type: String,
+      enum: ["approved", "pending"],
+      default: "approved",
+    },
+    approvedAt: { type: Date },
+    /** Set once the signup OTP has been entered correctly for this number. */
+    mobileverified: { type: Boolean, default: false },
+
     accountcode: { type: String },
     mobile: { type: String },
     email: { type: String },
