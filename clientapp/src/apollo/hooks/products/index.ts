@@ -58,13 +58,25 @@ export function useProductPage({
     categoryid: categoryid || undefined,
   };
 
+  // notifyOnNetworkStatusChange is deliberately OFF. With it on, `loading`
+  // flips true for fetchMore as well — and every screen that gates its skeleton
+  // on `loading` then blanked the entire page each time the user scrolled to
+  // the next 50 products. Appending a page must be invisible; `loadingMore`
+  // below is the only signal for it.
   const { data, loading, fetchMore, refetch } = useQuery(GET_PRODUCTS, {
     variables,
     skip: !adminid,
-    notifyOnNetworkStatusChange: true,
   });
 
   const products: any[] = (data as any)?.getProductServices ?? [];
+
+  // True only until the FIRST page has ever arrived. Changing the search term
+  // or the category also sets `loading`, but by then the screen is already
+  // built — reusing `loading` for the skeleton there would tear down the
+  // banner, the search box and the category chips on every keystroke.
+  const settled = useRef(false);
+  if (!loading && data) settled.current = true;
+  const initialLoading = loading && !settled.current;
 
   // A new search term or category is a new result set, so paging starts over.
   useEffect(() => {
@@ -107,6 +119,7 @@ export function useProductPage({
   return {
     products,
     loading,
+    initialLoading,
     loadingMore,
     /** False once a short page proves there is nothing left to fetch. */
     hasMore: !exhausted && products.length >= pageSize,

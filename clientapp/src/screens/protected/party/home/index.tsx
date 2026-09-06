@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar, ActivityIndicator,
 } from 'react-native';
@@ -110,6 +110,7 @@ export default function PartyHome() {
   // hard-coded 24 rows. Paging keeps it light without hiding anything.
   const {
     products: pagedProducts,
+    initialLoading: productsInitialLoading,
     loading: productsLoading,
     loadingMore,
     hasMore,
@@ -145,7 +146,7 @@ export default function PartyHome() {
   // the most recent 2 for the home screen preview.
   const recent = [...orders].reverse().slice(0, 2);
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;
-  const isLoading = adminid && (ordersLoading || productsLoading);
+  const isLoading = adminid && (ordersLoading || productsInitialLoading);
 
   // Every active category the business has → "All" + one chip each. Derived
   // from the category list so a category is never missing just because none of
@@ -161,6 +162,13 @@ export default function PartyHome() {
   // nothing is filtered again here — doing so would only hide rows the server
   // deliberately returned.
   const visibleProducts = products;
+
+  // The hero banner advertises the catalogue, so it must not follow the search
+  // box — otherwise typing a word empties the banner too. Remember the last
+  // unfiltered page and keep showing that.
+  const bannerRef = useRef<any[]>([]);
+  if (!search && !category && products.length) bannerRef.current = products;
+  const bannerProducts = bannerRef.current.length ? bannerRef.current : products;
 
   const getCartQty = (productId: string, variantId: string, unitId?: string) =>
     cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
@@ -327,10 +335,13 @@ export default function PartyHome() {
               </View>
             )}
 
-            {products.length === 0 ? (
-              <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
-            ) : (
-              <>
+            {/* Search, banner and category chips render ALWAYS. They used to sit
+                inside a `products.length === 0` branch, so a search that matched
+                nothing replaced the search box itself along with the banner and
+                the chips — the user was left with no way to correct the query,
+                and the input unmounting also dismissed the keyboard. Only the
+                grid below reacts to an empty result. */}
+            <>
                 {/* Product search — "#ADM0001" only; mirrors the Shop screen. */}
                 {showSearchBar && (
                   <AppTextInput
@@ -349,7 +360,7 @@ export default function PartyHome() {
                 {showHeroBanner && (
                   <HeroBanner
                     slides={heroSlides}
-                    products={products}
+                    products={bannerProducts}
                     horizontalPadding={18}
                     style={styles.heroBanner}
                     onPress={() => navigation.navigate('Catalog')}
@@ -362,6 +373,9 @@ export default function PartyHome() {
                   onSelect={setCategory}
                 />
 
+              {visibleProducts.length === 0 ? (
+                <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
+              ) : (
               <View style={styles.productGrid}>
                 {visibleProducts.map((p: any) => {
                   const v = p.productvariants?.[0];
@@ -461,6 +475,7 @@ export default function PartyHome() {
                   );
                 })}
               </View>
+              )}
               {loadingMore ? (
                 <View style={styles.footerLoader}>
                   <ActivityIndicator color={colors.brand} />
@@ -470,8 +485,7 @@ export default function PartyHome() {
                   {STRINGS.party.endOfCatalog}
                 </Text>
               ) : null}
-              </>
-            )}
+            </>
           </Animated.View>
 
         </ScrollView>
