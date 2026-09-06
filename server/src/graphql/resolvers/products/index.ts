@@ -156,7 +156,7 @@ export const productServiceResolvers = {
         const totalCount = await ProductService.countDocuments(query);
 
         let productsQuery = ProductService.find(query)
-          .populate({ path: "categoryid", select: "id categoryname" })
+          .populate({ path: "categoryid", select: "id categoryname image" })
           .populate({ path: "subcategoryid", select: "id subcategoryname" })
           .populate({ path: "groupid", select: "id productgroupname" })
           .populate({ path: "modelid", select: "id modelname" })
@@ -171,6 +171,15 @@ export const productServiceResolvers = {
           .populate({ path: "purchaseaccountid", select: "id ledgername" })
           .populate({ path: "serviceaccountid", select: "id ledgername" })
           .lean();
+
+        // Deterministic order is NOT optional here. Every caller pages this with
+        // its own limit (storefront 200, app shop 100, app home 24), and without
+        // a sort Mongo returns natural order — so "the first 100" was a
+        // different, unstable set each time. Products silently vanished from the
+        // website and the app's home screen showed a random slice of the
+        // catalogue that disagreed with its own shop screen.
+        // Newest first, tie-broken on _id so the order can never wobble.
+        productsQuery = productsQuery.sort({ createdAt: -1, _id: -1 });
 
         if (offset) productsQuery = productsQuery.skip(offset);
         if (limit) productsQuery = productsQuery.limit(limit);

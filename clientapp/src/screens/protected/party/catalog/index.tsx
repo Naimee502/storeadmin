@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, ScrollView,
+  StatusBar, Image, ScrollView, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,7 +10,9 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
+import { useProductPage } from '../../../../apollo/hooks/products';
 import { apolloClient } from '../../../../apollo/client';
 import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
@@ -41,8 +43,18 @@ export default function Catalog() {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
 
-  const { data, loading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid, limit: 100 },
+  // One page at a time, with the search box and category chip applied on the
+  // SERVER — see the hook for why that matters once a list is paginated.
+  const { products, loading, loadingMore, hasMore, loadMore } = useProductPage({
+    adminid,
+    search,
+    categoryid: category,
+  });
+
+  // Categories come from the category list, not from whichever products are on
+  // the current page — otherwise the chips would change as the user scrolls.
+  const { data: categoriesData } = useQuery(GET_CATEGORIES, {
+    variables: { adminId: adminid },
     skip: !adminid,
   });
 
@@ -52,25 +64,19 @@ export default function Catalog() {
   });
   const partyAccount = (accountData as any)?.getAccountById;
 
-  const products = (data as any)?.getProductServices ?? [];
+  const categories = useMemo<CategoryItem[]>(() => {
+    const list = ((categoriesData as any)?.getCategories ?? []) as any[];
+    return list
+      .filter((c: any) => c && c.status !== false)
+      .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image }));
+  }, [categoriesData]);
 
-  const categories = useMemo(() => {
-    const seen = new Set<string>();
-    const cats: CategoryItem[] = [];
-    products.forEach((p: any) => {
-      if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
-        seen.add(p.categoryid.id);
-        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname, image: p.categoryid.image });
-      }
-    });
-    return cats;
-  }, [products]);
-
-  const filtered = useMemo(() => products.filter((p: any) => {
-    const matchCat = !category || p.categoryid?.id === category;
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch && p.status !== false;
-  }), [products, category, search]);
+  // Search and category are already applied server-side; only the inactive
+  // guard is left, since the storefront must never show a disabled product.
+  const filtered = useMemo(
+    () => products.filter((p: any) => p.status !== false),
+    [products],
+  );
 
   const getCartQty = (productId: string, variantId: string, unitId?: string) =>
     cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
@@ -238,26 +244,6 @@ export default function Catalog() {
     );
   };
 
-  const ListHeader = () => (
-    <>
-      <AppTextInput
-        leftIcon="magnify"
-        placeholder={STRINGS.storefront.searchPlaceholder}
-        value={search}
-        onChangeText={setSearch}
-        autoCapitalize="none"
-        placeholderTextColor={colors.subText}
-        containerStyle={{ marginBottom: 8, marginTop: 10 }}
-      />
-      <CategoryStrip
-        categories={categories}
-        selected={category}
-        onSelect={setCategory}
-        contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
-      />
-    </>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -271,19 +257,37 @@ export default function Catalog() {
         }]}
       />
 
+      {/* Search + categories are rendered ONCE here, above the branch below.
+          They used to be a ListHeader component declared inside this component
+          and passed to the list — which gave React a new element type on every
+          render, remounting the TextInput and dismissing the keyboard after a
+          single character. Kept out here they never unmount, and they also stay
+          put while the grid scrolls. */}
+      <View style={styles.headerWrap}>
+        <AppTextInput
+          leftIcon="magnify"
+          placeholder={STRINGS.storefront.searchPlaceholder}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          placeholderTextColor={colors.subText}
+          containerStyle={{ marginBottom: 8, marginTop: 10 }}
+        />
+        <CategoryStrip
+          categories={categories}
+          selected={category}
+          onSelect={setCategory}
+          contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
+        />
+      </View>
+
       {loading ? (
-        <>
-          <ListHeader />
-          <ProductGridSkeleton />
-        </>
+        <ProductGridSkeleton />
       ) : filtered.length === 0 ? (
-        <>
-          <ListHeader />
-          <View style={styles.center}>
-            <Icon name="magnify-close" size={44} color={colors.border} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
-          </View>
-        </>
+        <View style={styles.center}>
+          <Icon name="magnify-close" size={44} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
+        </View>
       ) : (
         <DynamicFlashList
           data={filtered}
@@ -292,7 +296,19 @@ export default function Catalog() {
           estimatedItemSize={220}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={<ListHeader />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={colors.brand} />
+              </View>
+            ) : !hasMore && filtered.length > 0 ? (
+              <Text style={[styles.footerEnd, { color: colors.subText }]}>
+                {STRINGS.party.endOfCatalog}
+              </Text>
+            ) : null
+          }
         />
       )}
     </View>
@@ -302,6 +318,11 @@ export default function Catalog() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
+  // Matches listContent's horizontal padding so the search box and category
+  // strip stay aligned with the grid now that they sit outside the list.
+  headerWrap: { paddingHorizontal: 18 },
+  footerLoader: { paddingVertical: 18, alignItems: 'center' },
+  footerEnd: { paddingVertical: 18, textAlign: 'center', fontSize: 12 },
   card: {
     flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
     justifyContent: 'space-between',

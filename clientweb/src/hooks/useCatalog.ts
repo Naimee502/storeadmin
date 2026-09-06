@@ -103,8 +103,13 @@ export function useCatalog() {
     skip: !adminid,
   });
 
+  // No limit: the server treats limit=0 as "everything". The old cap of 200
+  // silently dropped products past that point — and because the resolver had no
+  // sort, WHICH 200 came back was up to Mongo, so a product could appear one day
+  // and vanish the next. The category counts on the home grid are derived from
+  // this same list, so a short list also made every count wrong.
   const { data: prodData, loading: prodLoading } = useQuery(GET_STORE_PRODUCTS, {
-    variables: { adminid, limit: 200 },
+    variables: { adminid },
     skip: !adminid,
   });
 

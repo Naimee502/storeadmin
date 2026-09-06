@@ -101,8 +101,10 @@ export default function ProductDetail() {
     }
   }
 
+  // Unlimited: this screen finds ONE product inside the list, so a capped page
+  // meant any product past the cap opened to an empty detail screen.
   const { data, loading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid, limit: 200 },
+    variables: { adminid },
     skip: !adminid,
   });
 

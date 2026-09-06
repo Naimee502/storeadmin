@@ -52,8 +52,11 @@ export default function StaffCatalog() {
   const [category,     setCategory]     = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
 
+  // No limit — the server reads limit=0 as "everything". A fixed page hid
+  // the rest of the catalogue (and, before the resolver was sorted, WHICH rows
+  // came back could change between loads).
   const { data, loading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid, limit: 100 },
+    variables: { adminid },
     skip: !adminid,
   });
 

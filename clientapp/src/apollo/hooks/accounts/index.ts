@@ -4,7 +4,9 @@ import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNTS, GET_ACCOUNT, GET_TRANSACT
 import { ADD_SALES_ORDER, CANCEL_SALES_ORDER } from '../../mutations/accounts';
 import type { RootState } from '../../../store/rootreducer';
 
-export const useProductsQuery = (limit = 100, offset = 0) => {
+// Default 0 = every product. A non-zero default is a trap: a caller that just
+// wants "the catalogue" silently gets a page of it.
+export const useProductsQuery = (limit = 0, offset = 0) => {
   const adminId = useSelector((s: RootState) => s.tenant.adminId);
   return useQuery(GET_PRODUCTS, {
     variables: { adminid: adminId, limit, offset },

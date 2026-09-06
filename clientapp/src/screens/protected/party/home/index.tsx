@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -10,7 +10,9 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
 import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_PRODUCTS, GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { useProductPage } from '../../../../apollo/hooks/products';
+import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUserParty } from '../../../../utils';
 import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
@@ -102,12 +104,22 @@ export default function PartyHome() {
     skip: !adminid || !user?.id,
     refetchPolicy: 'cache-and-network',
   });
-  // Fetch a bigger page than we display (6) so the category chip row has
-  // something real to filter across, same as the full Catalog/Shop screen.
-  const { data: productsData, loading: productsLoading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid, limit: 24 },
+  // One page at a time, search and category applied on the SERVER. This screen
+  // renders its grid inside a plain ScrollView with .map(), so loading the whole
+  // catalogue here mounted every card at once — the reason it used to ask for a
+  // hard-coded 24 rows. Paging keeps it light without hiding anything.
+  const {
+    products: pagedProducts,
+    loading: productsLoading,
+    loadingMore,
+    hasMore,
+    loadMore,
+  } = useProductPage({ adminid, search, categoryid: category });
+  // Categories come from the category list itself, not from whichever products
+  // happened to load. Same source the website's storefront uses.
+  const { data: categoriesData } = useQuery(GET_CATEGORIES, {
+    variables: { adminId: adminid },
     skip: !adminid,
-    refetchPolicy: 'cache-first',
   });
   const { data: accountData, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
     variables: { id: user?.id, adminId: adminid },
@@ -120,7 +132,7 @@ export default function PartyHome() {
   useFocusEffect(useCallback(() => { refetchOrders?.(); refetchAccount?.(); }, [refetchOrders, refetchAccount]));
 
   const rawOrders = (ordersData?.getSalesOrders ?? []) as any[];
-  const rawProducts = (productsData?.getProductServices ?? []) as any[];
+  const rawProducts = pagedProducts;
 
   // Use live data only — no dummy fallback (a fresh party has no orders/products).
   const orders = rawOrders;
@@ -135,28 +147,20 @@ export default function PartyHome() {
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;
   const isLoading = adminid && (ordersLoading || productsLoading);
 
-  // Distinct categories among the fetched products → "All" + one chip per
-  // category, same filter UX as the Shop/Catalog screen.
-  const categories = useMemo(() => {
-    const seen = new Set<string>();
-    const cats: CategoryItem[] = [];
-    products.forEach((p: any) => {
-      if (p.categoryid?.id && !seen.has(p.categoryid.id)) {
-        seen.add(p.categoryid.id);
-        cats.push({ id: p.categoryid.id, name: p.categoryid.categoryname, image: p.categoryid.image });
-      }
-    });
-    return cats;
-  }, [products]);
+  // Every active category the business has → "All" + one chip each. Derived
+  // from the category list so a category is never missing just because none of
+  // its products happened to be on the page that loaded.
+  const categories = useMemo<CategoryItem[]>(() => {
+    const list = ((categoriesData as any)?.getCategories ?? []) as any[];
+    return list
+      .filter((c: any) => c && c.status !== false)
+      .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image }));
+  }, [categoriesData]);
 
-  const visibleProducts = useMemo(() => {
-    let list = category ? products.filter((p: any) => p.categoryid?.id === category) : products;
-    // Same name-contains match the Shop screen uses. Scoped to the page already
-    // fetched, exactly like the category filter above it.
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter((p: any) => p.name?.toLowerCase().includes(q));
-    return list.slice(0, 6);
-  }, [products, category, search]);
+  // Search and category are already applied server-side by useProductPage, so
+  // nothing is filtered again here — doing so would only hide rows the server
+  // deliberately returned.
+  const visibleProducts = products;
 
   const getCartQty = (productId: string, variantId: string, unitId?: string) =>
     cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
@@ -237,7 +241,17 @@ export default function PartyHome() {
           <HomeScreenSkeleton />
         </ScrollView>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+          // Plain ScrollView has no onEndReached, so ask for the next page once
+          // the user is within a screenful of the bottom.
+          scrollEventThrottle={200}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 600) loadMore();
+          }}
+        >
 
           {/* Stats — hidden when logged in with business code "#ADM0001" */}
           {!hideStatsAndOrders && (
@@ -447,6 +461,15 @@ export default function PartyHome() {
                   );
                 })}
               </View>
+              {loadingMore ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator color={colors.brand} />
+                </View>
+              ) : !hasMore && visibleProducts.length > 0 ? (
+                <Text style={[styles.footerEnd, { color: colors.subText }]}>
+                  {STRINGS.party.endOfCatalog}
+                </Text>
+              ) : null}
               </>
             )}
           </Animated.View>
@@ -483,6 +506,8 @@ function EmptyCard({ icon, label, colors }: { icon: string; label: string; color
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: 110 },
+  footerLoader: { paddingVertical: 18, alignItems: 'center' },
+  footerEnd: { paddingVertical: 18, textAlign: 'center', fontSize: 12 },
 
   statsRow: { flexDirection: 'row', paddingHorizontal: 18, gap: 10, marginTop: 14 },
   statCard: {

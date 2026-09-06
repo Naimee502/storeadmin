@@ -46,7 +46,8 @@ export default function OrderEdit() {
 
   // Product catalog + the order's party account (for pricelist-correct rates).
   const { data: productsData } = useQuery(GET_PRODUCTS, {
-    variables: { adminid: tenant.adminId, limit: 200 }, skip: !tenant.adminId,
+    // Unlimited: a product missing from the page couldn't be added to the order.
+    variables: { adminid: tenant.adminId }, skip: !tenant.adminId,
   });
   const { data: accountData } = useQuery(GET_ACCOUNT, {
     variables: { id: partyId, adminId: tenant.adminId }, skip: !partyId || !tenant.adminId,
