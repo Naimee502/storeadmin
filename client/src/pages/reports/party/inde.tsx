@@ -228,11 +228,32 @@ const PartyReports: React.FC = () => {
       : -(ledger.openingbalance || 0);
   };
 
-  /** Opening balance still unpaid — what the party actually owes from before. */
+  /**
+   * Opening balance still unpaid — what the party actually owes from before.
+   *
+   * `getOpeningBalance` returns a DISPLAY sign: a customer's debit opening is
+   * positive, a vendor's credit opening negative. What `Payment.openingsettled`
+   * reduces, though, is the debt in that party's OWN direction — so a vendor's
+   * opening has to be flipped before the settled amount comes off it, and
+   * flipped back on the way out.
+   *
+   * Without the flip this returned early on every vendor ("a credit opening
+   * can't be settled") and their paid-off opening was never reduced: URBAN TOTS
+   * kept showing ₹10,38,058 payable after a ₹75,000 payment-out had cleared
+   * part of it, while the Party Statement and the party list both said
+   * ₹9,63,058. FIFO settles the opening before any bill, so for a vendor with
+   * no open bills that payment lands entirely here.
+   */
   const getOpeningDue = (account: any) => {
     const opening = getOpeningBalance(account);
-    if (opening <= 0) return opening; // a credit opening can't be "settled"
-    return parseFloat(Math.max(0, opening - (openingSettledByParty[account.id] || 0)).toFixed(2));
+    const isVendor = String(account.type || "").toLowerCase() === "vendor";
+
+    // The debt in this party's own direction — positive means it can be paid off.
+    const owed = isVendor ? -opening : opening;
+    if (owed <= 0) return opening; // nothing outstanding to settle against
+
+    const remaining = Math.max(0, owed - (openingSettledByParty[account.id] || 0));
+    return parseFloat((isVendor ? -remaining : remaining).toFixed(2));
   };
 
   // -----------------------------
@@ -466,7 +487,13 @@ const PartyReports: React.FC = () => {
         const outstanding = calculateOutstanding(a, invoices);
         const { aging, nextDue, maxOverdueDays } = getBillInfo(a, invoices);
         const creditLimit = Number(a.creditlimit || 0);
-        const used = Math.max(0, outstanding);
+        // Same rule the Customer/Vendor Outstanding rows use: credit used is
+        // the balance owed in this party's OWN direction. A vendor's balance
+        // is negative, so max(0, outstanding) scored every vendor at zero used
+        // and a permanently full limit — "Limit Crossed" could never fire for
+        // one.
+        const used =
+          a.type === "vendor" ? Math.max(0, -outstanding) : Math.max(0, outstanding);
         return {
           status:
             maxOverdueDays > 0

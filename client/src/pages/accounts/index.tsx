@@ -15,16 +15,15 @@ import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
-import { formatINR } from "../../utils/helper";
+import { formatINR, toTitleCase } from "../../utils/helper";
 
 const Accounts = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
   /**
-   * Businesses that don't sell through channels have an always-"-" Channel
-   * column taking up the widest part of the grid. For them it is dropped and
-   * City takes the slot instead. Outstanding is NOT part of that swap — what a
-   * party owes is worth seeing on every setup, so it stays on the grid whether
-   * Channels is on or off.
+   * City and Outstanding are on the grid for everyone — where a party is and
+   * what they owe are worth seeing on every setup. Channel is the only
+   * conditional column: without the module it would read "-" on every row, so
+   * it is dropped rather than shown empty.
    */
   const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
   const navigate = useNavigate();
@@ -61,14 +60,11 @@ const Accounts = () => {
     { label: "Account Code", key: "accountcode" },
     { label: "Name", key: "name" },
     { label: "Mobile", key: "mobile" },
-    { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
     { label: "Type", key: "type" },
-    // Channels on  → Channel (End User / Retailer / Wholesaler).
-    // Channels off → City in the same slot, since Channel would only ever read "-".
-    ...(channelsEnabled
-      ? [{ label: "Channel", key: "channelname" }]
-      : [{ label: "City", key: "city" }]),
+    // Channel (End User / Retailer / Wholesaler) only when the module is on.
+    ...(channelsEnabled ? [{ label: "Channel", key: "channelname" }] : []),
+    { label: "City", key: "city" },
     { label: "Outstanding", key: "outstandingLabel" },
     { label: "Status", key: "status" },
   ];
@@ -88,7 +84,8 @@ const Accounts = () => {
         typeof acc.channel === "object" && acc.channel
           ? acc.channel.channelName || "-"
           : "-",
-      city: acc.city || "-",
+      // Masters are often typed in ALL CAPS; the column reads better cased.
+      city: acc.city ? toTitleCase(acc.city) : "-",
       // Same basis as the payment screen and the party report: opening still
       // due + open bills − advances held. Blank until the figures land so the
       // column never flashes a wrong ₹0.00.
@@ -117,8 +114,13 @@ const Accounts = () => {
         Mobile: acc.mobile || "-",
         Email: acc.email || "-",
         Ledger: ledger ? ledger.ledgername : "-",
-        // The export mirrors what's on screen, so it carries the same swap.
-        ...(channelsEnabled ? {} : { City: acc.city || "-" }),
+        // The export mirrors the grid's one conditional column. Email stays in
+        // the export even though the grid no longer prints it — a spreadsheet
+        // of parties is exactly where you want the address.
+        ...(channelsEnabled
+          ? { Channel: typeof acc.channel === "object" && acc.channel ? acc.channel.channelName || "-" : "-" }
+          : {}),
+        City: acc.city ? toTitleCase(acc.city) : "-",
         Outstanding: outstandingById[acc.id] ?? 0,
         Status: acc.status ? "true" : "false",
       };

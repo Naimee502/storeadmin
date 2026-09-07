@@ -183,3 +183,16 @@ export const formatINR = (n: number | null | undefined): string =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+/**
+ * "BHIWADI" → "Bhiwadi", "new delhi" → "New Delhi".
+ *
+ * Party masters are typed in ALL CAPS as often as not, which makes a column of
+ * city names shout. Capitalising each word (rather than only the very first
+ * letter of the string) is what keeps two-word names like "New Delhi" reading
+ * correctly.
+ */
+export const toTitleCase = (value: string | null | undefined): string =>
+  String(value ?? "")
+    .toLowerCase()
+    .replace(/(^|[\s/-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
