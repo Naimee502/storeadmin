@@ -168,6 +168,10 @@ export const accountTypeDefs = gql`
     getAccounts(filter: AccountFilterInput): [Account!]!
     getAccountById(id: ID!, adminId: ID): Account
     getDownlinePartyBalances(partyid: ID!): [PartyBalance!]!
+    # Batched "what does each party still owe" for list screens. Same basis as
+    # the payment screen and the party report, computed for every matching
+    # party in a fixed number of queries instead of one round trip per row.
+    getPartyOutstandingSummary(filter: AccountFilterInput): [PartyBalance!]!
   }
 
   type Mutation {

@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { selectModuleActions } from "../../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../../redux/slices/permissions";
+import { formatINR } from "../../../utils/helper";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
 import {
   useAccountsQuery,
-  useAccountMutations
+  useAccountMutations,
+  usePartyOutstandingSummaryQuery,
 } from "../../../graphql/hooks/accounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 
@@ -15,10 +17,15 @@ const DeletedAccounts = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
   const dispatch = useAppDispatch();
+  // Same swap as the live list: Channel off → City in its slot. Outstanding
+  // shows either way — a deleted party can still be carrying a balance, which
+  // is exactly what you want to see before deciding whether to reset it.
+  const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
 
   // ✅ Use unified query with status = false
   const { data, refetch } = useAccountsQuery(false);
   const { data: ledgerData } = useAccountLedgersQuery();
+  const { outstandingById } = usePartyOutstandingSummaryQuery(false);
   const { resetAccountMutation } = useAccountMutations();
 
   const deletedAccounts = data?.getAccounts || [];
@@ -37,8 +44,11 @@ const DeletedAccounts = () => {
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
-    { label: "Type", key: "type" }, // ✅ Added type column
-    { label: "Channel", key: "channelname" }, // ✅ Channel (End User / Retailer / Wholesaler)
+    { label: "Type", key: "type" },
+    ...(channelsEnabled
+      ? [{ label: "Channel", key: "channelname" }]
+      : [{ label: "City", key: "city" }]),
+    { label: "Outstanding", key: "outstandingLabel" },
     { label: "Status", key: "status" },
   ];
 
@@ -59,6 +69,10 @@ const DeletedAccounts = () => {
         typeof account.channel === "object" && account.channel
           ? account.channel.channelName || "-"
           : "-",
+      city: account.city || "-",
+      // Blank until the figures land, so the column never flashes a wrong ₹0.00.
+      outstandingLabel:
+        outstandingById[account.id] != null ? formatINR(outstandingById[account.id]) : "-",
       status: account.status ? "Active" : "Inactive",
     };
   });

@@ -173,3 +173,13 @@ export const getInvoiceLineBaseQty = (line: InvoiceProduct, variant: any) => {
     variant
   );
 };
+
+/**
+ * Rupee amount with Indian digit grouping — 121192 → "₹1,21,192.00".
+ * Shared so the party list and its Deleted Entries twin print the same shape.
+ */
+export const formatINR = (n: number | null | undefined): string =>
+  `₹${(Number(n) || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;

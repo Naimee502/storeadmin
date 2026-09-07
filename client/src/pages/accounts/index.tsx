@@ -9,19 +9,30 @@ import HomeLayout from "../../layouts/home";
 import {
   useAccountsQuery,
   useAccountMutations,
+  usePartyOutstandingSummaryQuery,
 } from "../../graphql/hooks/accounts";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
-import { selectModuleActions } from "../../redux/slices/permissions";
+import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
+import { formatINR } from "../../utils/helper";
 
 const Accounts = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
+  /**
+   * Businesses that don't sell through channels have an always-"-" Channel
+   * column taking up the widest part of the grid. For them it is dropped and
+   * City takes the slot instead. Outstanding is NOT part of that swap — what a
+   * party owes is worth seeing on every setup, so it stays on the grid whether
+   * Channels is on or off.
+   */
+  const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data, refetch } = useAccountsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
+  const { outstandingById } = usePartyOutstandingSummaryQuery();
   const { deleteAccountMutation, approveAccountMutation } = useAccountMutations();
   const accountList = data?.getAccounts || [];
   console.log("Fetched Accounts:", JSON.stringify(accountList));
@@ -52,8 +63,13 @@ const Accounts = () => {
     { label: "Mobile", key: "mobile" },
     { label: "Email", key: "email" },
     { label: "Account Ledger", key: "ledgername" },
-    { label: "Type", key: "type" }, // ✅ Added type column
-    { label: "Channel", key: "channelname" }, // ✅ Channel (End User / Retailer / Wholesaler)
+    { label: "Type", key: "type" },
+    // Channels on  → Channel (End User / Retailer / Wholesaler).
+    // Channels off → City in the same slot, since Channel would only ever read "-".
+    ...(channelsEnabled
+      ? [{ label: "Channel", key: "channelname" }]
+      : [{ label: "City", key: "city" }]),
+    { label: "Outstanding", key: "outstandingLabel" },
     { label: "Status", key: "status" },
   ];
 
@@ -72,6 +88,12 @@ const Accounts = () => {
         typeof acc.channel === "object" && acc.channel
           ? acc.channel.channelName || "-"
           : "-",
+      city: acc.city || "-",
+      // Same basis as the payment screen and the party report: opening still
+      // due + open bills − advances held. Blank until the figures land so the
+      // column never flashes a wrong ₹0.00.
+      outstandingLabel:
+        outstandingById[acc.id] != null ? formatINR(outstandingById[acc.id]) : "-",
       status: acc.approvalstatus === "pending"
         ? "Pending"
         : (acc.status ? "Active" : "Inactive"),
@@ -94,7 +116,10 @@ const Accounts = () => {
         Name: acc.name || "-",
         Mobile: acc.mobile || "-",
         Email: acc.email || "-",
-        Ledger: ledger ? ledger.ledgername : "-", 
+        Ledger: ledger ? ledger.ledgername : "-",
+        // The export mirrors what's on screen, so it carries the same swap.
+        ...(channelsEnabled ? {} : { City: acc.city || "-" }),
+        Outstanding: outstandingById[acc.id] ?? 0,
         Status: acc.status ? "true" : "false",
       };
     });

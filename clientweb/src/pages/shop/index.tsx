@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Search } from "lucide-react";
-import { SlidersHorizontal, X, ChevronDown } from "lucide-react";
+import { SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -98,6 +98,39 @@ export default function ShopPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Filtering down while deep in the list used to leave `page` past the end,
+  // so a perfectly good result set rendered as "No products match your
+  // filters". Snap back to the first page whenever the list gets shorter.
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+
+  /**
+   * Which page numbers to actually print: first, last, and a small window
+   * around the current one, with "…" standing in for the runs we skip.
+   *
+   * This is not only cosmetic. The row is a non-wrapping flex, so the full
+   * catalog's 32 pages made it ~1400px wide — and because the page's layout
+   * column is `1fr` (whose automatic minimum is its content's minimum), that
+   * row stretched the whole product grid past the page and put a horizontal
+   * scrollbar on /shop. Arriving from Featured Products or New Arrivals lands
+   * on the unfiltered list, which is exactly when it showed; picking a
+   * category cut the list to one page and the row disappeared, which is why
+   * the same screen looked right that way round.
+   */
+  const pageItems = useMemo(() => {
+    const items: (number | "gap")[] = [];
+    let previous = 0;
+    for (let n = 1; n <= totalPages; n++) {
+      const near = n === 1 || n === totalPages || Math.abs(n - page) <= 1;
+      if (!near) continue;
+      if (previous && n - previous > 1) items.push("gap");
+      items.push(n);
+      previous = n;
+    }
+    return items;
+  }, [totalPages, page]);
 
   const clearFilters = () => {
     setSelectedCategories([]);
@@ -226,7 +259,11 @@ export default function ShopPage() {
         <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
           <aside className="hidden lg:block">{FiltersPanel}</aside>
 
-          <div>
+          {/* min-w-0: a `1fr` track's automatic minimum is its content's
+              minimum, so without this any wide child (the pager, a long
+              unbroken name) pushes the grid past the page instead of the
+              child having to fit. */}
+          <div className="min-w-0">
             {loading ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -253,18 +290,45 @@ export default function ShopPage() {
             )}
 
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-2">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setPage(n)}
-                    className={`h-9 w-9 rounded-lg text-sm font-semibold ${
-                      page === n ? "bg-brand-700 text-white" : "border border-slate-200 text-ink-900 hover:bg-slate-50"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => setPage((n) => Math.max(1, n - 1))}
+                  disabled={page === 1}
+                  aria-label="Previous page"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-ink-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {pageItems.map((item, i) =>
+                  item === "gap" ? (
+                    <span key={`gap-${i}`} className="px-1 text-sm text-slate-400">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setPage(item)}
+                      aria-current={page === item ? "page" : undefined}
+                      className={`h-9 min-w-9 rounded-lg px-2 text-sm font-semibold ${
+                        page === item
+                          ? "bg-brand-700 text-white"
+                          : "border border-slate-200 text-ink-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => setPage((n) => Math.min(totalPages, n + 1))}
+                  disabled={page === totalPages}
+                  aria-label="Next page"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-ink-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>

@@ -132,3 +132,19 @@ export const GET_ACCOUNT_BY_ID = gql`
     }
   }
 `;
+
+/**
+ * Party list "Outstanding" column. Kept out of GET_ACCOUNTS on purpose — the
+ * figure walks every invoice, payment, journal and return, so only the screen
+ * that shows the column pays for it.
+ */
+export const GET_PARTY_OUTSTANDING_SUMMARY = gql`
+  query GetPartyOutstandingSummary($filter: AccountFilterInput) {
+    getPartyOutstandingSummary(filter: $filter) {
+      id
+      name
+      mobile
+      outstanding
+    }
+  }
+`;

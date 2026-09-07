@@ -671,3 +671,191 @@ export async function allocateWithOpening(opts: {
     unallocated,
   };
 }
+
+/**
+ * `getPartyTotalDue` for a whole LIST of parties, in a fixed number of queries.
+ *
+ * The single-party version costs ~6 round trips. A party list with 300 accounts
+ * would therefore fire ~1,800 queries just to print one column, which is why
+ * the accounts grid gets this batched twin instead of a loop.
+ *
+ * Same formula, same sign convention, so the number printed next to a party in
+ * the list is the number the payment screen and the party report will show:
+ *
+ *     due = opening still due
+ *         + Σ open bill outstanding
+ *         − unallocated advances already held
+ *         − excess credit (returns that landed after the bill was settled)
+ *
+ * A vendor's bills are PURCHASE invoices and their advances are "payment"
+ * vouchers, so the two sides are computed separately and each party reads from
+ * the side that matches its own type.
+ */
+export async function getPartiesTotalDue(opts: {
+  partyids: any[];
+  adminid?: any;
+  branchid?: any;
+}): Promise<Record<string, number>> {
+  const { partyids, adminid, branchid } = opts;
+  const out: Record<string, number> = {};
+
+  const ids = Array.from(new Set((partyids || []).filter(Boolean).map(String)));
+  if (!ids.length) return out;
+  ids.forEach((id) => { out[id] = 0; });
+
+  const Payment = mongoose.model("Payment");
+  const Transaction = mongoose.model("Transaction");
+
+  const accounts: any[] = await mongoose
+    .model("Account")
+    .find({ _id: { $in: ids } })
+    .select("_id type ledgerid openingbalance openingbalancetype")
+    .lean();
+
+  // ── Opening balance: the ledger is authoritative, the account is fallback ──
+  const ledgerIds = accounts.map((a) => a.ledgerid).filter(Boolean);
+  const ledgers: any[] = ledgerIds.length
+    ? await mongoose
+        .model("AccountLedger")
+        .find({ _id: { $in: ledgerIds } })
+        .select("_id openingbalance openingbalancetype")
+        .lean()
+    : [];
+  const ledgerById: Record<string, any> = {};
+  ledgers.forEach((l) => { ledgerById[String(l._id)] = l; });
+
+  // ── Party-level payment figures: opening cleared + advances still held ────
+  const payQuery: any = { partyid: { $in: ids }, status: true };
+  if (adminid) payQuery.adminid = adminid;
+  const partyPayments: any[] = await Payment.find(payQuery)
+    .select("partyid type openingsettled unallocatedamount")
+    .lean();
+
+  const openingSettled: Record<string, number> = {};
+  const advanceIn: Record<string, number> = {};   // receipts held against a customer
+  const advanceOut: Record<string, number> = {};  // payments held against a vendor
+  partyPayments.forEach((p) => {
+    const k = String(p.partyid);
+    openingSettled[k] = (openingSettled[k] || 0) + (Number(p.openingsettled) || 0);
+    const adv = Number(p.unallocatedamount) || 0;
+    if (adv <= 0) return;
+    if (p.type === "receipt") advanceIn[k] = (advanceIn[k] || 0) + adv;
+    else if (p.type === "payment") advanceOut[k] = (advanceOut[k] || 0) + adv;
+  });
+
+  const openingDue: Record<string, number> = {};
+  const isVendor: Record<string, boolean> = {};
+  accounts.forEach((a) => {
+    const k = String(a._id);
+    const vendor = String(a.type || "").toLowerCase() === "vendor";
+    isVendor[k] = vendor;
+
+    const src = (a.ledgerid && ledgerById[String(a.ledgerid)]) || a;
+    let opening =
+      String(src.openingbalancetype).toLowerCase() === "debit"
+        ? Number(src.openingbalance) || 0
+        : -(Number(src.openingbalance) || 0);
+    if (vendor) opening = -opening;
+
+    // A credit opening means WE owe THEM — there is nothing to collect.
+    openingDue[k] = opening <= 0 ? 0 : round2(Math.max(0, opening - (openingSettled[k] || 0)));
+  });
+
+  /** Open-bill total and excess credit per party, for one invoice model. */
+  const billSideFor = async (invoicemodel: InvoiceModel, sideIds: string[]) => {
+    const bills: Record<string, number> = {};
+    const excess: Record<string, number> = {};
+    if (!sideIds.length) return { bills, excess };
+
+    const invQuery: any = { partyacc: { $in: sideIds }, status: true };
+    if (adminid) invQuery.adminid = adminid;
+    if (branchid) invQuery.branchid = branchid;
+    const invoices: any[] = await mongoose
+      .model(invoicemodel)
+      .find(invQuery)
+      .select("_id partyacc totalamount")
+      .lean();
+    if (!invoices.length) return { bills, excess };
+
+    const invoiceIds = invoices.map((i) => i._id);
+
+    // Payments + "Agst Ref" journal entries both settle a bill.
+    const settled: Record<string, number> = {};
+    const addLines = (docs: any[]) =>
+      docs.forEach((d) =>
+        (d.invoices || []).forEach((line: any) => {
+          if (!line?.invoiceid) return;
+          const k = String(line.invoiceid);
+          settled[k] = (settled[k] || 0) + (Number(line.settledamount) || 0);
+        })
+      );
+
+    const pq: any = { status: true, "invoices.invoiceid": { $in: invoiceIds } };
+    if (adminid) pq.adminid = adminid;
+    const tq: any = { status: { $ne: false }, "invoices.invoiceid": { $in: invoiceIds } };
+    if (adminid) tq.adminid = adminid;
+    const rq: any = { status: true, sourceInvoiceId: { $in: invoiceIds } };
+    if (adminid) rq.adminid = adminid;
+
+    const [pays, txns, returns] = await Promise.all([
+      Payment.find(pq).select("invoices").lean(),
+      Transaction.find(tq).select("invoices").lean(),
+      mongoose.model(RETURN_MODEL[invoicemodel]).find(rq)
+        .select("_id sourceInvoiceId totalamount").lean(),
+    ]);
+    addLines(pays as any[]);
+    addLines(txns as any[]);
+
+    // A return whose money was handed back in cash/bank leaves the bill's debt
+    // standing — the refund Payment is the proof, so look for it rather than
+    // re-deriving the rule from refundMode.
+    const refundedReturnIds = new Set<string>();
+    if ((returns as any[]).length) {
+      const rpq: any = {
+        status: true,
+        "invoices.invoiceid": { $in: (returns as any[]).map((r) => r._id) },
+        "invoices.invoicemodel": RETURN_MODEL[invoicemodel],
+      };
+      if (adminid) rpq.adminid = adminid;
+      const refundPays: any[] = await Payment.find(rpq).select("invoices").lean();
+      refundPays.forEach((p) =>
+        (p.invoices || []).forEach((l: any) => {
+          if (l?.invoiceid) refundedReturnIds.add(String(l.invoiceid));
+        })
+      );
+    }
+
+    const returned: Record<string, number> = {};
+    (returns as any[]).forEach((r) => {
+      if (refundedReturnIds.has(String(r._id))) return;
+      const k = String(r.sourceInvoiceId);
+      returned[k] = (returned[k] || 0) + (Number(r.totalamount) || 0);
+    });
+
+    invoices.forEach((inv) => {
+      const k = String(inv._id);
+      const party = String(inv.partyacc);
+      const net = (Number(inv.totalamount) || 0) - (settled[k] || 0) - (returned[k] || 0);
+      if (net > 0) bills[party] = (bills[party] || 0) + net;
+      else if (net < 0) excess[party] = (excess[party] || 0) + -net;
+    });
+
+    return { bills, excess };
+  };
+
+  const [saleSide, purchaseSide] = await Promise.all([
+    billSideFor("SalesInvoice", ids.filter((id) => !isVendor[id])),
+    billSideFor("PurchaseInvoice", ids.filter((id) => isVendor[id])),
+  ]);
+
+  ids.forEach((id) => {
+    const vendor = !!isVendor[id];
+    const side = vendor ? purchaseSide : saleSide;
+    const advance = vendor ? advanceOut[id] || 0 : advanceIn[id] || 0;
+    out[id] = round2(
+      Math.max(0, (openingDue[id] || 0) + (side.bills[id] || 0) - advance - (side.excess[id] || 0))
+    );
+  });
+
+  return out;
+}

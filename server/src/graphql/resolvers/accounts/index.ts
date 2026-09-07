@@ -13,7 +13,7 @@ import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { AdminSettings } from "../../../models/adminsettings";
 import { resolveTenant } from "../../../utils/tenant";
 import { ApolloError } from "apollo-server-express";
-import { getPartyTotalDue } from "../../../utils/allocation";
+import { getPartyTotalDue, getPartiesTotalDue } from "../../../utils/allocation";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -54,9 +54,14 @@ const resolveActor = async (user: any) => {
 //
 // Delegates to the shared allocation util so this agrees, to the rupee, with
 // the payment screen, the party report and the reminder.
-const partyBillOutstanding = async (accountId: any): Promise<number> => {
+const partyBillOutstanding = async (accountId: any, type?: string): Promise<number> => {
   if (!accountId) return 0;
-  return await getPartyTotalDue({ partyid: accountId, invoicemodel: "SalesInvoice" });
+  // A vendor's bills are PURCHASE invoices. Reading them off the sales side
+  // showed every vendor a flat 0 due, which is why the accounts list and the
+  // Vendor Outstanding report disagreed.
+  const invoicemodel =
+    String(type || "").toLowerCase() === "vendor" ? "PurchaseInvoice" : "SalesInvoice";
+  return await getPartyTotalDue({ partyid: accountId, invoicemodel });
 };
 
 // Collect downline party ids under a root party (assignaccountid chain).
@@ -149,6 +154,34 @@ export const accountResolvers = {
       }
       return result;
     },
+    // One row per party with what they still owe — the party list's Outstanding
+    // column. Deliberately a separate query from getAccounts: the figure needs
+    // every invoice, payment, journal and return, so screens that only want
+    // names and codes must not be made to pay for it.
+    getPartyOutstandingSummary: async (_: any, { filter }: { filter: any }) => {
+      const query: any = {};
+      if (filter?.admin) query.admin = filter.admin;
+      if (filter?.branchid) query.branchid = filter.branchid;
+      if (filter?.type) query.type = filter.type;
+      if (filter?.channel) query.channel = filter.channel;
+      query.status = typeof filter?.status === "boolean" ? filter.status : true;
+
+      const parties: any[] = await Account.find(query).select("_id name mobile").lean();
+      if (!parties.length) return [];
+
+      const due = await getPartiesTotalDue({
+        partyids: parties.map((p: any) => p._id),
+        adminid: filter?.admin,
+      });
+
+      return parties.map((p: any) => ({
+        id: String(p._id),
+        name: p.name || "",
+        mobile: p.mobile || null,
+        outstanding: due[String(p._id)] || 0,
+      }));
+    },
+
     getAccounts: async (_: any, { filter }: { filter: any }, context: any) => {
       const query: any = {};
 
@@ -258,7 +291,7 @@ export const accountResolvers = {
     // so advances don't mask which bills are still due.
     outstanding: async (parent: any) => {
       const id = parent?._id ?? parent?.id;
-      return await partyBillOutstanding(id);
+      return await partyBillOutstanding(id, parent?.type);
     },
   },
 
