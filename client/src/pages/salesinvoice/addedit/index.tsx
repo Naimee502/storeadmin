@@ -17,6 +17,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import { partyLabel } from "../../../utils/partylabel";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -111,7 +112,7 @@ const AddEditSalesInvoice = () => {
   console.log("Customer Party Account Data:", JSON.stringify(customerAccounts));
   const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,
-    label: `${acc.name} - ${acc.mobile}`,
+    label: partyLabel(acc),
   }));
 
   // All invoices — for the selected party's last 5 bills (Vyapar-style helper)

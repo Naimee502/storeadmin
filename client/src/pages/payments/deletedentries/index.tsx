@@ -41,6 +41,9 @@ const DeletedPayments = () => {
     { label: "Seq", key: "seqNo" },
     { label: "Code", key: "paymentcode" },
     { label: "Type", key: "type" },
+    // Who the money actually moved with. Without it two ₹720 receipts on the
+    // same day are indistinguishable in the list.
+    { label: "Party / Ledger", key: "partyDisplay" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },
    { label: "Leadger", key: "ledgername" },
@@ -60,13 +63,25 @@ const DeletedPayments = () => {
     const capitalizeFirstLetter = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 
-    const party = accountsData?.getAccounts.find(a => a.id === pay.partyid);
+    // A payment posts against EITHER a party — a customer or vendor whose bills
+    // it settles — OR a plain ledger (capital, a loan, rent, salary, a bank
+    // charge). Show whichever side this one used. The party's mobile is pulled
+    // from the accounts list because the payment itself only carries the name,
+    // and this business has parties that share one.
+    const partyAcc = pay.partyid?.id
+      ? accountsData?.getAccounts?.find((a: any) => a.id === pay.partyid.id)
+      : null;
+    const partyName = partyAcc?.name || pay.partyid?.name || "";
+    const partyDisplay = partyName
+      ? `${partyName}${partyAcc?.mobile ? ` - ${partyAcc.mobile}` : ""}`
+      : pay?.counterledgerid?.ledgername || "-";
 
     return {
       ...pay,
       seqNo: index + 1,
       paymentdate: formattedDate,
       type: capitalizeFirstLetter(pay.type),
+      partyDisplay,
       mode: capitalizeFirstLetter(pay.mode),
       ledgername: pay?.ledgerid?.ledgername || "-",
       amount: pay.amount?.toFixed(2) || "0.00",

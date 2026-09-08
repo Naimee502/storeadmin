@@ -79,8 +79,18 @@ async function buildPaymentEntries(input: any, partyAccount: any) {
   const partyName = partyAccount?.name || "Party";
   const invs = Array.isArray(input.invoices) ? input.invoices : [];
 
-  const totalDiscount = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0).toFixed(2));
-  const totalCommission = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0).toFixed(2));
+  // Concessions live on the bill lines, but a bill line is not the only thing a
+  // payment can reduce: the party's OPENING BALANCE is settled before any bill
+  // and has no line to carry a concession on (it is not an invoice). So the
+  // payment-level figure is the authoritative total and the lines are the
+  // per-bill attribution of whatever part of it landed on bills — take the
+  // larger of the two. Reading the lines alone dropped the discount on a receipt
+  // that only cleared an opening balance: the cash leg was short by it and the
+  // party's ledger was never relieved of the amount written off.
+  const lineDiscount = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0).toFixed(2));
+  const lineCommission = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0).toFixed(2));
+  const totalDiscount = Math.max(lineDiscount, parseFloat((Number(input.discount) || 0).toFixed(2)));
+  const totalCommission = Math.max(lineCommission, parseFloat((Number(input.commission) || 0).toFixed(2)));
 
   // Cash actually moved. This is the amount on the payment, full stop.
   const cashLeg = parseFloat((Number(input.amount) || 0).toFixed(2));
@@ -290,10 +300,15 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
   const lineCommission = parseFloat(
     lines.reduce((t: number, l: any) => t + (Number(l.commission) || 0), 0).toFixed(2)
   );
-  const discount = lines.length ? lineDiscount : parseFloat((Number(input.discount) || 0).toFixed(2));
-  const commission = lines.length
-    ? lineCommission
-    : parseFloat((Number(input.commission) || 0).toFixed(2));
+  // The lines carry only the part of the concession that landed on BILLS. The
+  // opening balance is settled by the same receipt and has no line to sit on, so
+  // when the client says the concession was larger than the lines account for,
+  // that difference is the opening leg's share — keep the larger figure or the
+  // written-off amount silently disappears from the payment and the journal.
+  const clientDiscount = parseFloat((Number(input.discount) || 0).toFixed(2));
+  const clientCommission = parseFloat((Number(input.commission) || 0).toFixed(2));
+  const discount = Math.max(lineDiscount, clientDiscount);
+  const commission = Math.max(lineCommission, clientCommission);
   const openingsettled = parseFloat((Number(input.openingsettled) || 0).toFixed(2));
   // No bill lines at all → the money went on account and/or straight onto the
   // opening balance. Neither is an "Invoice-wise" settlement, so it must never

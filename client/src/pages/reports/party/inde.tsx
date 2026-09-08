@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 
 import { FaUserClock, FaStoreSlash, FaHistory, FaBell, FaFileAlt } from "react-icons/fa";
+import { partyLabel as sharedPartyLabel } from "../../../utils/partylabel";
 
 const reportTabsObj = [
   { id: "Customer Outstanding", label: "Customer Outstanding", icon: <FaUserClock className="text-blue-600" /> },
@@ -27,7 +28,7 @@ const reportTabsObj = [
 const fmtAmt = (n: number) =>
   n >= 0 ? n.toFixed(2) : `(${Math.abs(n).toFixed(2)})`;
 
-// "Party Name - Mobile"
+// "Party Name - Mobile" — the report's own rows and columns, kept narrow.
 const partyLabelOf = (a: any) =>
   `${a.name || "-"}${a.mobile ? ` - ${a.mobile}` : ""}`;
 
@@ -524,7 +525,7 @@ const PartyReports: React.FC = () => {
     () =>
       accounts
         .filter((a: any) => a.type === "customer" || a.type === "vendor")
-        .map((a: any) => ({ label: partyLabelOf(a), value: a.id })),
+        .map((a: any) => ({ label: sharedPartyLabel(a) || partyLabelOf(a), value: a.id })),
     [accounts]
   );
 

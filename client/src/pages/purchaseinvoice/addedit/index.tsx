@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import { partyLabel } from "../../../utils/partylabel";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -112,7 +113,7 @@ const AddEditPurchaseInvoice = () => {
   console.log("Vendor Account Data:", JSON.stringify(vendorAccounts));
   const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,
-    label: `${acc.name} - ${acc.mobile}`,
+    label: partyLabel(acc),
   }));
 
   // Vendor's last 5 purchase invoices — powers dropdown history

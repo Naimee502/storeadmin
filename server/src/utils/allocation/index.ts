@@ -395,8 +395,18 @@ export async function assertAllocationsFit(opts: {
 export function computeUnallocated(input: any): number {
   const lines = Array.isArray(input?.invoices) ? input.invoices : [];
   const settled = lines.reduce((s: number, i: any) => s + (Number(i.settledamount) || 0), 0);
-  const discount = lines.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0);
-  const commission = lines.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0);
+  // A concession can also be given on the OPENING BALANCE, which has no bill
+  // line to store it on — so the payment-level figure is the total and the lines
+  // are only the part attributed to bills. Reading the lines alone made a
+  // commission on an opening-balance receipt look like money left on account.
+  const discount = Math.max(
+    lines.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0),
+    Number(input?.discount) || 0
+  );
+  const commission = Math.max(
+    lines.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0),
+    Number(input?.commission) || 0
+  );
   const cashApplied = settled - discount + commission + (Number(input?.openingsettled) || 0);
   return round2(Math.max(0, (Number(input?.amount) || 0) - cashApplied));
 }

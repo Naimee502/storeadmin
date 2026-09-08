@@ -8,7 +8,11 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import { setAllowedModules } from "../../redux/slices/auth";
 import { setAdminSettings } from "../../redux/slices/adminsettings";
-import { setPermissions as setReduxPermissions } from "../../redux/slices/permissions";
+import {
+  setPermissions as setReduxPermissions,
+  findSectionPerms,
+  resolveAction,
+} from "../../redux/slices/permissions";
 import {
   useAdminSettingsQuery,
   useAdminSettingsMutations,
@@ -553,8 +557,29 @@ const PermissionsTab: React.FC<{
     if (scopeid) load({ variables: { scope, scopeid } });
   }, [scope, scopeid, load]);
 
+  // Draw the matrix from the SAME rule the app enforces (resolveAction), not
+  // from the raw record. A module with no record at all is unconfigured and
+  // therefore allowed, so its boxes must start ticked; a module that HAS a
+  // record shows exactly what that record grants, and any action missing from
+  // it — a capability added in a later release — starts unticked because that
+  // is how it now behaves. Saving then writes every box explicitly, so the
+  // record can never fall behind the module definition again.
+  const seedDraft = (saved: Record<string, any>) => {
+    const next: Record<string, any> = { ...(saved || {}) };
+    MODULES.forEach((m) => {
+      const rec = findSectionPerms(saved || {}, m.id);
+      next[m.id] = {};
+      m.actions.forEach((a) => {
+        next[m.id][a] = resolveAction(rec, a);
+      });
+    });
+    return next;
+  };
+
   useEffect(() => {
-    if (data?.getPermissions) setDraft(data.getPermissions.permissions || {});
+    if (!data?.getPermissions) return;
+    const saved = data.getPermissions.permissions || {};
+    setDraft(seedDraft(saved));
   }, [data]);
 
   const visibleModules = useMemo(() => {
@@ -574,10 +599,17 @@ const PermissionsTab: React.FC<{
 
   const handleSave = async () => {
     try {
-      // CRITICAL: Build a complete permissions object with explicit true/false
-      // for every visible module's every action. This prevents the backend from
-      // cascading parent defaults (true) for missing/undefined actions.
-      const completePerms: Record<string, Record<string, boolean>> = {};
+      // CRITICAL: write an explicit true/false for every visible module's every
+      // action. A key left out is a key that behaves differently from the box
+      // that was drawn for it, which is how Print / WhatsApp ended up showing on
+      // orders nobody had granted them to.
+      //
+      // Start from what is already stored so this save only rewrites the matrix
+      // on screen: the same document also holds `formPermissions` and any module
+      // hidden by the business's allowed-modules list, and building a fresh
+      // object from scratch silently wiped both.
+      const stored = data?.getPermissions?.permissions || {};
+      const completePerms: Record<string, any> = { ...stored };
       visibleModules.forEach((m) => {
         completePerms[m.id] = {};
         m.actions.forEach((a) => {

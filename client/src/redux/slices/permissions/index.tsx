@@ -95,6 +95,47 @@ export const selectIsModuleBusinessEnabled = (state: any, moduleId: string): boo
   return true;
 };
 
+/**
+ * Find a module's saved permission record, whatever case it was stored under.
+ * `undefined` means the module has no record at all — nothing was ever
+ * configured for it — which is different from a record that simply does not
+ * grant a particular action.
+ */
+export const findSectionPerms = (
+  permissions: Record<string, any>,
+  moduleId: string
+): Record<string, boolean> | undefined => {
+  const targetId = moduleId.toLowerCase();
+  return Object.entries(permissions || {}).find(([k]) => k.toLowerCase() === targetId)?.[1] as any;
+};
+
+/**
+ * The ONE rule for "is this action allowed", used by both the runtime gate here
+ * and the Business Permissions matrix, so a checkbox can never disagree with
+ * what the app actually does.
+ *
+ *   • explicit true / false        → obey it.
+ *   • module saved, action MISSING → deny. The admin has configured this
+ *     module; an action absent from that record was never granted to it.
+ *   • no record for the module     → allow (nothing configured yet).
+ *
+ * The middle case is the one that shipped a bug: when a new action is added to
+ * a module (Print and WhatsApp on Sales / Purchase Orders), every tenant whose
+ * permissions were saved BEFORE that release has a record without the new key.
+ * The matrix drew those boxes unchecked — `!!draft?.[id]?.[action]` — while the
+ * old rule here read the same missing key as "allow", so the buttons appeared
+ * in the Actions column of a business that had never been given them. A new
+ * capability now stays off until someone ticks it, which is also what the
+ * server's own permissions resolver documents ("missing = deny by default").
+ */
+export const resolveAction = (
+  sectionPerms: Record<string, boolean> | undefined,
+  action: string
+): boolean => {
+  if (!sectionPerms) return true;
+  return sectionPerms[action] === true;
+};
+
 // Selectors for slice-based access
 export const selectModuleActions = (state: any, moduleId: string) => {
   const role = state.auth.type?.toString().toLowerCase();
@@ -115,17 +156,7 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     if (isAdminBypass) return true;
     if (!mod || !mod.actions.includes(action)) return false;
 
-    // Use normalized moduleId for lookup
-    const targetId = moduleId.toLowerCase();
-    const sectionPerms = Object.entries(permissions).find(([k]) => k.toLowerCase() === targetId)?.[1] as any;
-
-    const userPerm = sectionPerms?.[action];
-    if (userPerm === false) return false;
-    if (userPerm === true) return true;
-
-    // If undefined: module is already in allowedmodules (checked above),
-    // so allow the action for all roles. Admin can explicitly deny via false.
-    return true;
+    return resolveAction(findSectionPerms(permissions, moduleId), action);
   };
 
   return {

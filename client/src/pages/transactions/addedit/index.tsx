@@ -12,6 +12,7 @@ import { useTransactionMutations, useTransactionByIDQuery, usePreviewInvoiceJour
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
+import { partyLabel } from "../../../utils/partylabel";
 
 
 const AddEditTransaction = () => {
@@ -84,7 +85,7 @@ const AddEditTransaction = () => {
       )
       .map((a: any) => ({
         value: a.id,
-        label: `${a.name}${a.mobile ? ` - ${a.mobile}` : ""}`,
+        label: partyLabel(a),
       }));
   }, [accountsData, settleSide]);
 

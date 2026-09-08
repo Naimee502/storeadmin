@@ -40,6 +40,7 @@ import {
   getNextBillNumber,
 } from "../../utils/helper";
 import { showMessage } from "../../redux/slices/message";
+import { partyLabel } from "../../utils/partylabel";
 
 /* ---------------- Helpers ---------------- */
 function getPriceFromUnitPrice(u: any) {
@@ -1089,7 +1090,7 @@ export default function POSDashboard() {
                 onChange={(e: any) => onPickCustomer(e.target.value)}
                 options={customerOptions.map((c: any) => ({
                   value: c.id,
-                  label: `${c.name}${c.mobile ? ` • ${c.mobile}` : ""}`,
+                  label: partyLabel(c, "•"),
                 }))}
                 searchable
                 addable

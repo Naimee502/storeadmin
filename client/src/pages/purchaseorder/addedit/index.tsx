@@ -17,6 +17,7 @@ import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import { partyLabel } from "../../../utils/partylabel";
 
 const AddEditPurchaseOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -105,7 +106,7 @@ const AddEditPurchaseOrder = () => {
     accountData?.getAccounts?.filter((acc: any) => acc.type === "vendor") || [];
   const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,
-    label: `${acc.name} - ${acc.mobile}`,
+    label: partyLabel(acc),
   }));
 
   const { data: producData } = useProductServicesQuery();

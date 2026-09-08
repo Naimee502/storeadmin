@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
+import { partyLabel } from "../../../utils/partylabel";
 
 const AddEditSalesOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -81,7 +82,7 @@ const AddEditSalesOrder = () => {
   const customerAccounts = accountData?.getAccounts?.filter((acc: any) => acc.type === "customer") || [];
   const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,
-    label: `${acc.name} - ${acc.mobile}`,
+    label: partyLabel(acc),
   }));
 
   const { data: producData } = useProductServicesQuery();

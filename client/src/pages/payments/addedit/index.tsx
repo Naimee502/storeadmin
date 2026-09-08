@@ -18,6 +18,7 @@ import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
+import { partyLabel } from "../../../utils/partylabel";
 
 type SettledInvoice = {
   invoiceid: string;
@@ -61,22 +62,17 @@ type Proposal = {
 const fmt = (n: number) => n.toFixed(2);
 
 /**
- * A concession is stored ON a bill line, so it needs one. Say where the money
- * actually went instead of a generic "no bill" — the opening balance is cleared
- * before any bill and is invisible on this screen otherwise, which made this
- * message look wrong when the party clearly had an open bill.
+ * A concession has to reduce a DEBT. Open bills and the carried-forward opening
+ * balance both qualify — the opening balance is money this party owes just the
+ * same, and a receipt clears it before any bill. Money left On Account does not:
+ * it is sitting with us against nothing, so there is nothing to discount yet.
  */
-const noBillForConcession = (openingsettled = 0, onaccount = 0) => {
-  const went = [
-    openingsettled > 0 ? `₹${fmt(openingsettled)} cleared the opening balance` : "",
-    onaccount > 0 ? `₹${fmt(onaccount)} stayed on account` : "",
-  ]
-    .filter(Boolean)
-    .join(" and ");
-  return `${
-    went ? `${went[0].toUpperCase()}${went.slice(1)} — no` : "No"
-  } bill is being reduced, so a discount or commission has nowhere to sit. Clear the concession, raise the amount so it reaches the bills, or settle invoice-wise.`;
-};
+const noBillForConcession = (onaccount = 0) =>
+  `${
+    onaccount > 0
+      ? `₹${fmt(onaccount)} stayed on account, so nothing`
+      : "Nothing"
+  } is being settled — a discount or commission has nowhere to sit. Clear the concession, or raise the amount so it reaches the opening balance or the bills.`;
 
 const AddEditPayment = () => {
   const { id } = useParams();
@@ -294,11 +290,25 @@ const AddEditPayment = () => {
 
   const isDirectSettle =
     !isLedgerMode && settlementMode === "direct" && payType !== "expense" && !!partyid;
+  /** Open bills on screen — the rows of the Invoice-wise table. */
+  const hasOpenBills = outstandingInvoices.length > 0;
+  /**
+   * Opening balance the party carried in and still owes, as the server last
+   * reported it. It is not an invoice, so it never shows up in
+   * outstandingInvoices — but it IS a debt this receipt settles (before any
+   * bill), so a discount or commission can ride on it exactly like on a bill.
+   * A party whose whole balance is an opening figure used to get no concession
+   * fields at all.
+   */
+  const openingDueValue = Math.max(0, openingDue || 0);
+  /** Is there actually a debt for the money — and a concession — to reduce? */
+  const hasSomethingToSettle = hasOpenBills || openingDueValue > 0;
+
   // Concessions can be captured in Direct mode too, but only when there is an
   // allocation to attach them to — with auto-settlement off the money just sits
-  // On Account and a discount would have no bill to reduce.
+  // On Account and a discount would have nothing to reduce.
   const directConcessionsAllowed =
-    dcEnabled && isDirectSettle && autoSettlement !== "off" && outstandingInvoices.length > 0;
+    dcEnabled && isDirectSettle && autoSettlement !== "off" && hasSomethingToSettle;
   /**
    * Ledger mode takes the same pair. Settling a running ledger — the angadia,
    * a transporter, a labour contractor — works exactly like settling a party:
@@ -361,17 +371,52 @@ const AddEditPayment = () => {
   const settlementModeAvailable =
     !isLedgerMode && payType !== "expense" && !!partyid;
 
-  /** Is there actually something for a concession to reduce? */
-  const hasSomethingToSettle = outstandingInvoices.length > 0;
-
-  // A party with nothing open has no bills to tick, so Invoice-wise would show
+  // A party with no open BILLS has nothing to tick, so Invoice-wise would show
   // an empty table and no way to enter the amount. Drop straight into Direct /
-  // On Account — the one panel that takes an amount for a party.
+  // On Account — the one panel that takes an amount for a party. (An opening
+  // balance is settled from that panel too, so it does not change this.)
   useEffect(() => {
     if (isEdit || isLedgerMode || payType === "expense") return;
-    if (partyid && !hasSomethingToSettle) setSettlementMode("direct");
+    if (partyid && !hasOpenBills) setSettlementMode("direct");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partyid, hasSomethingToSettle, isLedgerMode, payType]);
+  }, [partyid, hasOpenBills, isLedgerMode, payType]);
+
+  // The opening balance is cleared BEFORE any bill, so a party with no open
+  // invoices can still have a large amount to collect. Ask the server for it as
+  // soon as a party is picked, instead of waiting for the preview that only runs
+  // on save — otherwise the panel tells a party who owes ₹1,46,095 of brought
+  // forward balance that nothing is open, and hides the concession fields with it.
+  useEffect(() => {
+    if (!partyid || isLedgerMode || payType === "expense") {
+      setOpeningDue(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await runPreview({
+          variables: {
+            partyid,
+            invoicemodel: payType === "receipt" ? "SalesInvoice" : "PurchaseInvoice",
+            adminid: adminId,
+            branchid: branchId,
+            // Nothing is being allocated — we only want what is carried forward.
+            amount: 0,
+            // Editing: what this payment already cleared must not count as paid,
+            // or its own opening leg would vanish from the screen.
+            excludePaymentId: id || undefined,
+          },
+        });
+        if (!cancelled) setOpeningDue(Number(res?.data?.previewAllocation?.openingdue) || 0);
+      } catch {
+        if (!cancelled) setOpeningDue(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyid, payType, isLedgerMode, adminId, branchId, id]);
 
   // ── Load existing payment for edit ─────────────────────────────────────
   useEffect(() => {
@@ -509,7 +554,7 @@ const AddEditPayment = () => {
         .filter((a: any) => a.ledgerid?.id && expenseLedgerIds.has(a.ledgerid.id))
         .map((a: any) => ({
           value: a.id,
-          label: `${a.name}${a.mobile ? ` - ${a.mobile}` : ""}`,
+          label: partyLabel(a),
         }));
     }
 
@@ -521,7 +566,7 @@ const AddEditPayment = () => {
       )
       .map((a: any) => ({
         value: a.id,
-        label: `${a.name}${a.mobile ? ` - ${a.mobile}` : ""}`,
+        label: partyLabel(a),
       }));
   }, [accountsData, payType, expenseNotesData]);
 
@@ -678,10 +723,17 @@ const AddEditPayment = () => {
     return src.filter((inv: any) => inv.partyacc?.id === partyid && inv.status).length;
   }, [partyid, payType, salesInvData, purchaseInvData]);
 
-  /** Total still owed by this party across the bills shown. */
-  const totalOutstanding = parseFloat(
+  /** Still owed on the BILLS shown. */
+  const billsOutstanding = parseFloat(
     outstandingInvoices.reduce((t: number, i: any) => t + (i.outstanding || 0), 0).toFixed(2)
   );
+  /**
+   * Everything this party still owes, on the same basis the money is applied:
+   * the brought-forward opening balance is cleared first, then the bills. This
+   * is what a concession is measured against — the bills alone would reject a
+   * discount on a party whose whole balance is an opening figure.
+   */
+  const totalOutstanding = parseFloat((billsOutstanding + openingDueValue).toFixed(2));
 
   /**
    * Split one figure across the proposal lines in proportion to what each line
@@ -708,8 +760,9 @@ const AddEditPayment = () => {
    * stores and journalises concessions per line, exactly as invoice-wise does.
    */
   const linesFromProposal = (p: Proposal, withConcessions = false): SettledInvoice[] => {
-    const discounts = withConcessions ? spread(totalDiscount, p.lines) : [];
-    const commissions = withConcessions ? spread(totalCommission, p.lines) : [];
+    const split = withConcessions ? concessionSplit(p) : null;
+    const discounts = split ? split.discounts : [];
+    const commissions = split ? split.commissions : [];
     return p.lines.map((l, i) => {
       const inv = outstandingInvoices.find((o: any) => o.id === l.invoiceid);
       return {
@@ -734,20 +787,48 @@ const AddEditPayment = () => {
     parseFloat(((p.allocated || 0) - (p.openingsettled || 0)).toFixed(2));
 
   /**
-   * A discount / commission has to sit on a bill line — the opening balance and
-   * the On Account remainder are not bills and have nowhere to carry it. Returns
-   * an error message when the concession cannot be placed, else "".
+   * How the receipt's single discount / commission figure is divided.
+   *
+   * Both the opening balance and the bills are debts this money clears, so both
+   * can carry a concession — but only a bill has a line to store it on. Split it
+   * in proportion to what each leg clears: the bills' share is spread across the
+   * bill lines, and the opening leg's share rides on the payment itself (the
+   * server keeps the payment-level total, so the journal is complete either way).
+   *
+   * Without this, a ₹300 discount on a receipt that mostly cleared an opening
+   * balance was dumped onto whichever small bill happened to be open.
+   */
+  const concessionSplit = (p: Proposal) => {
+    const onBills = billsAllocated(p);
+    const cleared = parseFloat((onBills + (p.openingsettled || 0)).toFixed(2));
+    const billShare = (total: number) =>
+      cleared > 0 ? parseFloat(((total * onBills) / cleared).toFixed(2)) : 0;
+    const billDiscount = billShare(totalDiscount);
+    const billCommission = billShare(totalCommission);
+    return {
+      discounts: spread(billDiscount, p.lines),
+      commissions: spread(billCommission, p.lines),
+      openingDiscount: parseFloat((totalDiscount - billDiscount).toFixed(2)),
+      openingCommission: parseFloat((totalCommission - billCommission).toFixed(2)),
+    };
+  };
+
+  /**
+   * A concession reduces a DEBT, so this receipt has to be clearing one. The
+   * open bills and the brought-forward opening balance both count — only the On
+   * Account remainder does not, because it settles nothing. Returns an error
+   * message when the concession has nowhere to sit, else "".
    */
   const checkConcessionFits = (p: Proposal): string => {
     if (totalDiscount <= 0 && totalCommission <= 0) return "";
-    const onBills = billsAllocated(p);
-    if (onBills <= 0) {
-      return noBillForConcession(p.openingsettled || 0, p.unallocated || 0);
+    const cleared = parseFloat((billsAllocated(p) + (p.openingsettled || 0)).toFixed(2));
+    if (cleared <= 0) {
+      return noBillForConcession(p.unallocated || 0);
     }
-    if (totalDiscount > onBills + 0.01) {
+    if (totalDiscount > cleared + 0.01) {
       return `Discount ₹${fmt(totalDiscount)} is more than the ₹${fmt(
-        onBills
-      )} of bills this clears. Lower the discount or raise the amount.`;
+        cleared
+      )} this payment clears. Lower the discount or raise the amount.`;
     }
     return "";
   };
@@ -930,7 +1011,7 @@ const AddEditPayment = () => {
     // No open bills, but the opening balance may still soak up part of it.
     if (!p || (!p.lines.length && !p.openingsettled)) {
       if (totalDiscount > 0 || totalCommission > 0) {
-        setErrors({ amount: noBillForConcession(0, totalAmount) });
+        setErrors({ amount: noBillForConcession(totalAmount) });
         return;
       }
       return persist([], totalAmount, 0);
@@ -960,8 +1041,9 @@ const AddEditPayment = () => {
     proposalIntent === "save" &&
     directConcessionsAllowed &&
     (totalDiscount > 0 || totalCommission > 0);
-  const proposalDiscounts = showConcessionSplit ? spread(totalDiscount, proposal!.lines) : [];
-  const proposalCommissions = showConcessionSplit ? spread(totalCommission, proposal!.lines) : [];
+  const proposalSplit = showConcessionSplit ? concessionSplit(proposal!) : null;
+  const proposalDiscounts = proposalSplit ? proposalSplit.discounts : [];
+  const proposalCommissions = proposalSplit ? proposalSplit.commissions : [];
 
   return (
     <HomeLayout>
@@ -1259,14 +1341,18 @@ const AddEditPayment = () => {
                       <span>Open bills</span>
                       <span className="font-medium">{outstandingInvoices.length}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Total Outstanding</span>
-                      <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
-                    </div>
+                    {hasOpenBills && (
+                      <div className="flex justify-between">
+                        <span>Bills Outstanding</span>
+                        <span className="font-medium">₹{fmt(billsOutstanding)}</span>
+                      </div>
+                    )}
                     {/* Cleared BEFORE any bill, so it has to be on screen —
                         otherwise an amount smaller than this never reaches a
-                        bill and there is nothing to explain why. */}
-                    {openingDue !== null && openingDue > 0 && (
+                        bill and there is nothing to explain why. It is a debt
+                        like any other: the money settles it, and a discount or
+                        commission can be given on it. */}
+                    {openingDueValue > 0 && (
                       <div className="flex justify-between">
                         <span>
                           Opening Balance
@@ -1274,9 +1360,13 @@ const AddEditPayment = () => {
                             Carried forward — cleared before any bill.
                           </span>
                         </span>
-                        <span className="font-semibold text-orange-600">₹{fmt(openingDue)}</span>
+                        <span className="font-medium">₹{fmt(openingDueValue)}</span>
                       </div>
                     )}
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="font-medium">Total Outstanding</span>
+                      <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
+                    </div>
                   </div>
 
                   {/* The three inputs stack in the order the entry is made —
@@ -1294,8 +1384,12 @@ const AddEditPayment = () => {
                             {!hasSomethingToSettle
                               ? "Nothing open — this is recorded On Account and goes onto their next invoice."
                               : directConcessionsAllowed
-                              ? "Bill value to clear — same as Settle Now on a bill row."
-                              : "Cleared against the oldest bills first."}
+                              ? hasOpenBills
+                                ? "Balance to clear — opening balance first, then the oldest bills."
+                                : "Opening balance to clear — same as Settle Now on a bill row."
+                              : hasOpenBills
+                              ? "Cleared against the opening balance first, then the oldest bills."
+                              : "Cleared against the carried-forward opening balance."}
                           </span>
                         </span>
                         <input
@@ -1324,6 +1418,9 @@ const AddEditPayment = () => {
                               {payType === "receipt"
                                 ? "Concession you allowed — comes off the cash received."
                                 : "Discount the vendor allowed — comes off the cash paid."}
+                              {!hasOpenBills && openingDueValue > 0
+                                ? " Given on the opening balance."
+                                : ""}
                             </span>
                           </span>
                           <input
@@ -1391,17 +1488,21 @@ const AddEditPayment = () => {
 
                   {hasSomethingToSettle ? (
                     <p className="text-xs text-gray-500">
-                      Oldest bills are cleared first, and you will see exactly which ones
+                      {openingDueValue > 0
+                        ? "The opening balance is cleared first, then the oldest bills"
+                        : "Oldest bills are cleared first"}
+                      , and you will see exactly what it clears
                       {directConcessionsAllowed
-                        ? " — and how the discount / commission is split across them —"
+                        ? " — and how the discount / commission is split —"
                         : ""}{" "}
                       before it saves.
                     </p>
                   ) : (
                     dcEnabled && (
                       <p className="text-xs text-gray-500">
-                        No discount or commission — this isn't clearing a bill yet. Give the
-                        concession on the bill it belongs to, once one exists.
+                        No discount or commission — this party has nothing outstanding, so the
+                        money is an advance and there is no balance to reduce. Give the
+                        concession once there is an opening balance or a bill to put it on.
                       </p>
                     )
                   )}
@@ -1920,8 +2021,11 @@ const AddEditPayment = () => {
                   when only ₹100 reaches that bill reads as a mistake. */}
               <p className="text-xs text-gray-500 mt-1">
                 ₹{fmt(proposal.allocated)} will be applied
-                {proposal.openingsettled > 0 ? " to the opening balance first, then" : ""} to{" "}
-                {proposal.lines.length} {proposal.lines.length === 1 ? "bill" : "bills"}, oldest first
+                {proposal.openingsettled > 0 ? " to the opening balance" : ""}
+                {proposal.openingsettled > 0 && proposal.lines.length > 0 ? " first, then" : ""}
+                {proposal.lines.length > 0
+                  ? ` to ${proposal.lines.length} ${proposal.lines.length === 1 ? "bill" : "bills"}, oldest first`
+                  : ""}
                 {proposal.unallocated > 0
                   ? `, and ₹${fmt(proposal.unallocated)} stays on account`
                   : ""}
@@ -1965,10 +2069,14 @@ const AddEditPayment = () => {
                         ₹{fmt(proposal.openingsettled)}
                       </td>
                       {showConcessionSplit && totalDiscount > 0 && (
-                        <td className="px-3 py-2 text-right text-gray-400">—</td>
+                        <td className="px-3 py-2 text-right">
+                          ₹{fmt(proposalSplit?.openingDiscount || 0)}
+                        </td>
                       )}
                       {showConcessionSplit && totalCommission > 0 && (
-                        <td className="px-3 py-2 text-right text-gray-400">—</td>
+                        <td className="px-3 py-2 text-right">
+                          ₹{fmt(proposalSplit?.openingCommission || 0)}
+                        </td>
                       )}
                       <td className="px-3 py-2">
                         {proposal.openingdue - proposal.openingsettled <= 0.01 ? (
@@ -2046,10 +2154,15 @@ const AddEditPayment = () => {
                     <>
                       The {totalDiscount > 0 ? "discount" : ""}
                       {totalDiscount > 0 && totalCommission > 0 ? " and " : ""}
-                      {totalCommission > 0 ? "commission" : ""} is split across the bills
-                      above in proportion to what each one clears
-                      {proposal.openingsettled > 0 ? " (the opening balance gets none)" : ""}.
-                      Use &ldquo;Change Manually&rdquo; to set it bill by bill instead.
+                      {totalCommission > 0 ? "commission" : ""}{" "}
+                      {proposal.lines.length === 0
+                        ? "is given on the opening balance, which is all this clears."
+                        : proposal.openingsettled > 0
+                        ? "is split across the opening balance and the bills above, in proportion to what each one clears."
+                        : "is split across the bills above in proportion to what each one clears."}{" "}
+                      {proposal.lines.length > 0
+                        ? "Use \u201CChange Manually\u201D to set it bill by bill instead."
+                        : ""}
                     </>
                   ) : (
                     <>
