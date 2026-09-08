@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Line } from "react-chartjs-2";
+import { normalizeToYMD } from "../../../utils/helper";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -39,7 +40,8 @@ const DailySalesChart: React.FC<DailySalesChartProps> = ({ salesInvoices }) => {
 
     salesInvoices.forEach((invoice) => {
       if (!invoice.billdate) return;
-      const date = new Date(invoice.billdate).toISOString().split("T")[0];
+      // Group by the LOCAL day, or a late-evening sale lands on tomorrow's bar.
+      const date = normalizeToYMD(invoice.billdate) || "";
       dailySalesMap[date] = (dailySalesMap[date] || 0) + (invoice.totalamount ?? 0);
     });
 

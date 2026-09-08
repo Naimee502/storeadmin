@@ -11,7 +11,7 @@ import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import PrintableInvoice from "../../../components/printinvoice";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
-import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 
 const reportTabs = [
@@ -66,10 +66,8 @@ const PurchaseReports: React.FC = () => {
 
   // Default last 30 days
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString().slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);

@@ -13,6 +13,7 @@ import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { FaTrash } from "react-icons/fa";
+import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
     : (selectedBranchId || storedBranchId || firstBranchId);
 
   // ── Header state ──────────────────────────────────────────────────────────
-  const [adjDate, setAdjDate] = useState(new Date().toISOString().split("T")[0]);
+  const [adjDate, setAdjDate] = useState(todayYMD());
   const [adjType, setAdjType] = useState<"Shortage" | "Excess">("Shortage");
   const [reason, setReason] = useState("");
 
@@ -116,8 +117,8 @@ const StockAdjustmentAddEdit: React.FC = () => {
 
     setAdjDate(
       adj.adjustmentdate
-        ? new Date(adj.adjustmentdate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0]
+        ? normalizeToYMD(adj.adjustmentdate) || todayYMD()
+        : todayYMD()
     );
     setAdjType(adj.type as "Shortage" | "Excess");
     setReason(adj.reason || "");

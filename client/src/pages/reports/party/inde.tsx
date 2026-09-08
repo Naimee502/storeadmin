@@ -9,7 +9,7 @@ import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
-import { formatDateDMY } from "../../../utils/helper";
+import { formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { useMutation } from "@apollo/client";
 import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -166,11 +166,8 @@ const PartyReports: React.FC = () => {
   // Reset button — only the initial load used the financial-year start, so the
   // range silently changed the first time anyone hit Reset.
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString()
-      .slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
     // eslint-disable-next-line react-hooks/exhaustive-deps

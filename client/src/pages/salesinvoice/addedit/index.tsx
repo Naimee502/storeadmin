@@ -9,7 +9,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { formatDateDMY } from "../../../utils/helper";
+import { formatDateDMY, todayYMD } from "../../../utils/helper";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -250,7 +250,7 @@ const AddEditSalesInvoice = () => {
         mobile: order.partyacc?.mobile || "",
       });
       setTaxOrSupplyType(order.taxorsupplytype || "");
-      setBillDate(order.billdate || new Date().toISOString().slice(0, 10));
+      setBillDate(order.billdate || todayYMD());
       setBillType(order.billtype || "");
       setInvoiceType(order.ordertype || "retail");
       setNotes(order.notes || "");

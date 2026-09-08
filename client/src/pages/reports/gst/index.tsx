@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { formatDateDMY } from "../../../utils/helper";
+import { formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaCalculator, FaMoneyCheckAlt, FaFileInvoiceDollar, FaBoxes, FaFileAlt, FaFileContract } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
@@ -37,15 +37,8 @@ const GSTReports: React.FC = () => {
 
   // Default Date Range
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() - 30
-    )
-      .toISOString()
-      .slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
 
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });

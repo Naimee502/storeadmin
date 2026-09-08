@@ -33,6 +33,7 @@ import {
 
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 
 const CATEGORY_OPTIONS = [
   { label: "General Expense", value: "general" },
@@ -96,7 +97,7 @@ const AddEditExpenseNote = () => {
   );
 
   const [formValues, setFormValues] = useState({
-    expensedate: new Date().toISOString().slice(0, 10),
+    expensedate: todayYMD(),
     paymenttype: "cash",
     ledgerid: "",            // party ledger (credit side, for "credit" paymenttype)
     category: "general",     // general | tada | salary | other
@@ -166,11 +167,7 @@ const AddEditExpenseNote = () => {
 
   const formatDate = (date: any) => {
     if (!date) return "";
-    const timestamp =
-      typeof date === "string" && /^\d+$/.test(date) ? Number(date) : date;
-    const d = new Date(timestamp);
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().slice(0, 10);
+    return normalizeToYMD(date) || "";
   };
 
   /* =========================

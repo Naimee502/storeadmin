@@ -10,7 +10,7 @@ import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 
 const reportTabsObj = [
     { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-blue-600" /> },
@@ -50,11 +50,8 @@ const AccountingFinanceReports: React.FC = () => {
     // Default date filter = last 30 days
     // -----------------------------
     useEffect(() => {
-        const today = new Date();
-        const to = today.toISOString().slice(0, 10);
-        const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-            .toISOString()
-            .slice(0, 10);
+        const to = todayYMD();
+        const from = shiftDaysYMD(-30);
 
         setFilters({ fromDate: from, toDate: to });
         setAppliedFilters({ fromDate: from, toDate: to });

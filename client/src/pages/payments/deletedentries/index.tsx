@@ -10,6 +10,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { formatDateDMY } from "../../../utils/helper";
+import { paymentPartyLabel } from "../../../utils/partylabel";
 
 const DeletedPayments = () => {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ const DeletedPayments = () => {
     { label: "Party / Ledger", key: "partyDisplay" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },
-   { label: "Leadger", key: "ledgername" },
+   { label: "Ledger", key: "ledgername" },
     { label: "Amount", key: "amount" },
     { label: "Created By", key: "createdByDisplay" },
     { label: "Status", key: "status" },
@@ -63,18 +64,7 @@ const DeletedPayments = () => {
     const capitalizeFirstLetter = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 
-    // A payment posts against EITHER a party — a customer or vendor whose bills
-    // it settles — OR a plain ledger (capital, a loan, rent, salary, a bank
-    // charge). Show whichever side this one used. The party's mobile is pulled
-    // from the accounts list because the payment itself only carries the name,
-    // and this business has parties that share one.
-    const partyAcc = pay.partyid?.id
-      ? accountsData?.getAccounts?.find((a: any) => a.id === pay.partyid.id)
-      : null;
-    const partyName = partyAcc?.name || pay.partyid?.name || "";
-    const partyDisplay = partyName
-      ? `${partyName}${partyAcc?.mobile ? ` - ${partyAcc.mobile}` : ""}`
-      : pay?.counterledgerid?.ledgername || "-";
+    const partyDisplay = paymentPartyLabel(pay, accountsData?.getAccounts);
 
     return {
       ...pay,

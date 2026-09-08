@@ -4,7 +4,7 @@ import ReportTable, { type ReportFilterField } from "../../../components/reportt
 import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
-import { normalizeToYMD, formatDateDMY } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -35,11 +35,8 @@ const StockReports: React.FC = () => {
   // Initialize date filter
   // -----------------------------
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString()
-      .slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);

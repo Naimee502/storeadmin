@@ -35,3 +35,30 @@ export const partyLabel = (
     .filter(Boolean)
     .join(` ${separator} `);
 };
+
+/**
+ * The "Party / Ledger" cell of a payment row.
+ *
+ * A payment posts against EITHER a party — a customer or vendor whose bills it
+ * settles — OR a plain ledger (capital, a loan, rent, salary, a bank charge).
+ * Show whichever side this one used, so two same-day receipts for the same
+ * amount are not indistinguishable in a list.
+ *
+ * The payment record itself stores only the party's NAME, so the mobile is
+ * looked up from the accounts list when one is available; if that account was
+ * later deleted, the payment's own stored name still shows. Shared by the
+ * Payments module, its Deleted Entries page and the Home activity table so the
+ * three can never drift into showing different things.
+ */
+export const paymentPartyLabel = (
+  payment: any,
+  accounts: PartyLike[] | null | undefined = []
+): string => {
+  const acc = payment?.partyid?.id
+    ? (accounts || []).find((a: any) => a?.id === payment.partyid.id)
+    : null;
+  const name = (acc?.name || payment?.partyid?.name || "").trim();
+  if (!name) return payment?.counterledgerid?.ledgername || "-";
+  const mobile = ((acc as any)?.mobile || "").trim();
+  return mobile ? `${name} - ${mobile}` : name;
+};

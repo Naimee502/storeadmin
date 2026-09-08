@@ -3,7 +3,7 @@ import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { normalizeToYMD } from "../../../utils/helper";
+import { normalizeToYMD, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 
 const SalesmanReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
@@ -24,11 +24,8 @@ const SalesmanReports: React.FC = () => {
 
   // Default last 30 days
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString()
-      .slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);

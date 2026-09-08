@@ -9,7 +9,7 @@ import { useSalesRoutesQuery } from "../../../graphql/hooks/salesroutes";
 import { useLatestLocationsQuery, useLocationPingsQuery } from "../../../graphql/hooks/locationping";
 import LiveTrackingMap from "../../../components/livetrackingmap";
 import { useAppSelector } from "../../../redux/hooks";
-import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaRoute, FaMapMarkedAlt } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -96,16 +96,15 @@ const SalesmanFieldReport: React.FC = () => {
 
   // Default last 30 days (Summary / Day-wise)
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30).toISOString().slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
   // Live Tracking defaults to today's date.
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayYMD();
     setTrackingFilters({ date: today, salesmanid: "" });
     setTrackingAppliedFilters({ date: today, salesmanid: "" });
   }, []);

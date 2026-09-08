@@ -11,6 +11,7 @@ import DataTable from "../datatable";
 import { useAppSelector } from "../../redux/hooks";
 import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
+import { paymentPartyLabel } from "../../utils/partylabel";
 
 interface RecentOrdersProps {
   salesInvoiceData?: any;
@@ -30,6 +31,7 @@ interface RecentOrdersProps {
 
 const RecentOrders: React.FC<RecentOrdersProps> = ({
   salesInvoiceData,
+  customerData,
   purchaseInvoiceData,
   salesOrders = [],
   purchaseOrders = [],
@@ -52,6 +54,10 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   const transferStocks = Array.isArray(transferStockData?.getTransferStocks) ? transferStockData.getTransferStocks : [];
   const branches = Array.isArray(branchesData?.getBranches) ? branchesData.getBranches : [];
   const allProducts = Array.isArray(productData?.getProductServices) ? productData.getProductServices : [];
+  // Party accounts, for the Payments tab's "Party / Ledger" column: a payment
+  // stores only the party's name, and the mobile that tells two same-named
+  // parties apart lives on the account.
+  const accounts = Array.isArray(customerData?.getAccounts) ? customerData.getAccounts : [];
 
   // Same resolution used by the Transfer Stock module list — the transfer
   // query only returns raw branch/product ids, not populated names, and
@@ -552,14 +558,19 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
       }
 
       case "payments": {
+        // Same columns in the same order as the Payments module list — only
+        // the Actions column is dropped, since Home is read-only.
         const columns = [
           { label: "Seq", key: "seqNo" },
           { label: "Code", key: "paymentcode" },
           { label: "Type", key: "type" },
+          { label: "Party / Ledger", key: "partyDisplay" },
           { label: "Mode", key: "mode" },
           { label: "Date", key: "paymentdate" },
           { label: "Ledger", key: "ledgername" },
           { label: "Amount", key: "amountFormatted" },
+          { label: "Unallocated", key: "unallocatedDisplay" },
+          { label: "Settlement", key: "settlementDisplay" },
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "status" },
         ];
@@ -576,9 +587,18 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
             paymentcode: pay.paymentcode || pay.billnumber || "-",
             paymentdate: formattedDate,
             type: capitalizeFirst(pay.type),
+            partyDisplay: paymentPartyLabel(pay, accounts),
             mode: capitalizeFirst(pay.mode),
             ledgername: pay.ledgerid?.ledgername || "-",
             amountFormatted: `₹${Number(pay.amount || pay.totalamount || 0).toFixed(2)}`,
+            unallocatedDisplay:
+              Number(pay.unallocatedamount) > 0
+                ? Number(pay.unallocatedamount).toFixed(2)
+                : "-",
+            settlementDisplay:
+              pay.allocationmode === "auto_fifo" || pay.allocationmode === "on_account"
+                ? "Direct / On Account"
+                : "Invoice-wise",
             createdby_name: pay.createdby_name || "N/A",
             status: pay.status ? "Active" : "Inactive",
           };

@@ -25,7 +25,7 @@ import { useSizesQuery } from "../../graphql/hooks/sizes";
 import { useProductGroupsQuery } from "../../graphql/hooks/productgroups";
 import { useProductServicesQuery } from "../../graphql/hooks/products";
 import { useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../graphql/hooks/salesinvoice";
-import { getLastPartyDocRows } from "../../utils/helper";
+import { getLastPartyDocRows, todayYMD } from "../../utils/helper";
 import { useSalesOrderMutations, useSalesOrdersQuery } from "../../graphql/hooks/salesorder";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
@@ -629,7 +629,7 @@ export default function POSDashboard() {
       paymenttype: paymentType,
       partyacc: selectedParty.id,
       taxorsupplytype: "taxInvoice",
-      billdate: new Date().toISOString().slice(0, 10),
+      billdate: todayYMD(),
       billtype: "taxInvoice",
       notes: "",
       subtotal: Number(subtotal.toFixed(2)),

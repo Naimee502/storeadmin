@@ -19,6 +19,7 @@ import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { partyLabel } from "../../../utils/partylabel";
+import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 
 type SettledInvoice = {
   invoiceid: string;
@@ -183,7 +184,7 @@ const AddEditPayment = () => {
   const runPreview = usePreviewAllocationLazy();
 
   // ── Form state ─────────────────────────────────────────────────────────
-  const [paymentdate, setPaymentdate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentdate, setPaymentdate] = useState(todayYMD());
   const [payType, setPayType] = useState<"receipt" | "payment" | "expense">("receipt");
   const [mode, setMode] = useState("cash");
   const [ledgerid, setLedgerid] = useState("");
@@ -531,12 +532,10 @@ const AddEditPayment = () => {
     editLoaded.current = true;
   }, [isEdit, existingData, outstandingInvoices, salesInvData, purchaseInvData, expenseNotesData]);
 
-  const formatDate = (date: any) => {
-    if (!date) return new Date().toISOString().slice(0, 10);
-    const ts = Number(date);
-    if (!isNaN(ts)) return new Date(ts).toISOString().slice(0, 10);
-    return new Date(date).toISOString().slice(0, 10);
-  };
+  // normalizeToYMD already handles a Date, an ISO string and the epoch-ms
+  // string GraphQL sends for Mongo dates — and reads the LOCAL calendar day,
+  // which toISOString() did not.
+  const formatDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
   // ── Dropdown options ───────────────────────────────────────────────────
   const partyOptions = useMemo(() => {

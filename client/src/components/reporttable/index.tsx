@@ -12,7 +12,7 @@ import Loader from "../loader";
 import FormField from "../formfiled";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { getFinancialYear, formatDateDMY } from "../../utils/helper";
+import { getFinancialYear, formatDateDMY, todayYMD, shiftDaysYMD } from "../../utils/helper";
 import { useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 
@@ -193,10 +193,8 @@ const ReportTable: React.FC<ReportTableProps> = ({
   };
 
   const handleReset = () => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString().slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     const resetValues: Record<string, any> = {};
     filterFields.forEach((field) => {
       if (field.type === "date") {

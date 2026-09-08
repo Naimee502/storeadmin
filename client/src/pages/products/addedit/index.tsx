@@ -27,6 +27,7 @@ import { belowCostError } from "../../../utils/rates";
 import { validateProduct, type ValidationIssue, type ValidationResult } from "../../../utils/products/validateproduct";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
+import { normalizeToYMD } from "../../../utils/helper";
 
 
 const AddEditProductService = () => {
@@ -789,11 +790,8 @@ const AddEditProductService = () => {
     });
   };
 
-  const formatDateForInput = (date: string | Date | null | undefined) => {
-    if (!date) return "";
-    const d = new Date(date);
-    return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
-  };
+  const formatDateForInput = (date: string | Date | null | undefined) =>
+    normalizeToYMD(date as any) || "";
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

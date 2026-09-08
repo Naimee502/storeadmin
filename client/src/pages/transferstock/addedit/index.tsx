@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { todayYMD } from "../../../utils/helper";
 import {
   useTransferStockMutations,
   useTransferStockByIDQuery,
@@ -101,7 +102,7 @@ const TransferStockAddEdit: React.FC = () => {
 
   // ── Header state ──────────────────────────────────────────────────────────
   const [tobranchid, setTobranchid] = useState("");
-  const [transferdate, setTransferdate] = useState(new Date().toISOString().slice(0, 10));
+  const [transferdate, setTransferdate] = useState(todayYMD());
   const [narration, setNarration] = useState("");
 
   // ── Items state ───────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ const TransferStockAddEdit: React.FC = () => {
     const doc = editData.getTransferStockById;
 
     setTobranchid(doc.tobranchid || "");
-    setTransferdate(doc.transferdate || new Date().toISOString().slice(0, 10));
+    setTransferdate(doc.transferdate || todayYMD());
     setNarration(doc.narration || "");
 
     const mapped: TransferItem[] = (doc.items || []).map((item: any) => {

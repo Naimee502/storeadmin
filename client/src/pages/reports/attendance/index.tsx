@@ -16,7 +16,7 @@ import {
   GET_LEAVE_REQUESTS,
 } from "../../../graphql/queries/attendance";
 import { useAppSelector } from "../../../redux/hooks";
-import { normalizeToYMD, formatDateDMY, formatDateTimeDMY } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaCalendarDay, FaUserClock, FaCalendarCheck, FaUserTimes } from "react-icons/fa";
 
 const reportTabsObj = [
@@ -69,10 +69,8 @@ const AttendanceReports: React.FC = () => {
 
   // Default range = last 30 days
   useEffect(() => {
-    const today = new Date();
-    const to = today.toISOString().slice(0, 10);
-    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
-      .toISOString().slice(0, 10);
+    const to = todayYMD();
+    const from = shiftDaysYMD(-30);
     setFilters({ fromDate: from, toDate: to });
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);

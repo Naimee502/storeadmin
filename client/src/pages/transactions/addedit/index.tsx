@@ -13,6 +13,7 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { partyLabel } from "../../../utils/partylabel";
+import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 
 
 const AddEditTransaction = () => {
@@ -153,7 +154,7 @@ const AddEditTransaction = () => {
   }, [settleSide, expenseNoteId]);
 
   const [formValues, setFormValues] = useState({
-    transactiondate: new Date().toISOString().slice(0, 10),
+    transactiondate: todayYMD(),
     narration: "",
     entrytype: "manual",
     entries: [
@@ -202,16 +203,9 @@ const AddEditTransaction = () => {
   }
 }, [isEdit, existingData]);
 
-const formatTransactionDate = (date: any) => {
-  if (!date) return new Date().toISOString().slice(0, 10);
-  const ts = Number(date);
-  if (!isNaN(ts)) {
-    const dt = new Date(ts);
-    return dt.toISOString().slice(0, 10);
-  }
-  // fallback for ISO string
-  return new Date(date).toISOString().slice(0, 10);
-};
+// normalizeToYMD covers Date / ISO string / epoch-ms and reads the LOCAL
+// calendar day, so a voucher opened after midnight keeps its own date.
+const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
   // Handlers
   const handleChange = (name: string, value: any) => {

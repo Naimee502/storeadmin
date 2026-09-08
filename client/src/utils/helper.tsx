@@ -26,6 +26,26 @@ export const normalizeToYMD = (date: Date | string | null | undefined): string |
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+/**
+ * Today, as the user's calendar sees it — "YYYY-MM-DD" for a date input or a
+ * date-range filter.
+ *
+ * NEVER use `new Date().toISOString().slice(0, 10)` for this. toISOString()
+ * converts to UTC, and India runs at UTC+5:30, so between midnight and 5:30am
+ * it hands back YESTERDAY. That is what made a report default its "To Date" to
+ * the previous day and hide an order entered just after midnight, and what made
+ * a payment entered at 1am get stamped with yesterday's date and post into the
+ * wrong day's books. This builds the string from the LOCAL date parts, exactly
+ * the way normalizeToYMD reads a stored date back, so the two always agree.
+ */
+export const todayYMD = (): string => normalizeToYMD(new Date())!;
+
+/** Today shifted by N days (negative = past), still on the local calendar. */
+export const shiftDaysYMD = (days: number, from: Date = new Date()): string =>
+  normalizeToYMD(
+    new Date(from.getFullYear(), from.getMonth(), from.getDate() + days)
+  )!;
+
 // ✅ converts Date or string to DD-MM-YYYY (display format used in listings & prints)
 // Also safely accepts an already-formatted "DD-MM-YYYY" string (returned as-is).
 export const formatDateDMY = (date: Date | string | number | null | undefined): string => {

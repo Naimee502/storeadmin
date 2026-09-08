@@ -13,6 +13,7 @@ import { showMessage } from "../../redux/slices/message";
 import { useAccountsQuery } from "../../graphql/hooks/accounts";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
+import { paymentPartyLabel } from "../../utils/partylabel";
 
 const Payment = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "payments"));
@@ -49,7 +50,7 @@ const Payment = () => {
     { label: "Party / Ledger", key: "partyDisplay" },
     { label: "Mode", key: "mode" },
     { label: "Date", key: "paymentdate" },
-    { label: "Leadger", key: "ledgername" },
+    { label: "Ledger", key: "ledgername" },
     { label: "Amount", key: "amount" },
     // How much of this payment is still floating (Tally's "On Account"), and
     // whether the bills were picked by hand or proposed by FIFO. Both exist so
@@ -73,18 +74,7 @@ const Payment = () => {
     const capitalizeFirstLetter = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 
-    // A payment posts against EITHER a party — a customer or vendor whose bills
-    // it settles — OR a plain ledger (capital, a loan, rent, salary, a bank
-    // charge). Show whichever side this one used. The party's mobile is pulled
-    // from the accounts list because the payment itself only carries the name,
-    // and this business has parties that share one.
-    const partyAcc = pay.partyid?.id
-      ? accountsData?.getAccounts?.find((a: any) => a.id === pay.partyid.id)
-      : null;
-    const partyName = partyAcc?.name || pay.partyid?.name || "";
-    const partyDisplay = partyName
-      ? `${partyName}${partyAcc?.mobile ? ` - ${partyAcc.mobile}` : ""}`
-      : pay?.counterledgerid?.ledgername || "-";
+    const partyDisplay = paymentPartyLabel(pay, accountsData?.getAccounts);
 
     return {
       ...pay,
