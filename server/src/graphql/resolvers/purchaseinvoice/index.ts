@@ -2,7 +2,7 @@ import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
-import { autoAdjustAdvances, getInvoiceOutstanding } from "../../../utils/allocation";
+import { autoAdjustAdvances, getInvoiceOutstanding, getPartyTotalDue } from "../../../utils/allocation";
 import { PurchaseOrder } from "../../../models/purchaseorder";
 import { refId } from "../../../utils/ordermode";
 
@@ -10,6 +10,22 @@ import { refId } from "../../../utils/ordermode";
 // now comes from utils/allocation, so the admin panel, the mobile app, the
 // party report and the WhatsApp reminder all quote the same figure — and all
 // of them net off sales returns, which this helper never did.
+
+// Party "outstanding" on the PURCHASE side = sum of our UNSETTLED purchase
+// bills for this vendor (each bill's total − settled, only positive), plus
+// their opening balance and net of advances we already paid them — the same
+// basis the payment screen and Account.outstanding use, so the printed
+// "Previous Balance" matches what we actually owe. `excludeInvoiceId`, when
+// given, leaves that one bill out entirely (the printed "Previous Balance"
+// must reflect what stood BEFORE this bill, paid or not).
+const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Promise<number> => {
+  if (!accountId) return 0;
+  return await getPartyTotalDue({
+    partyid: accountId,
+    invoicemodel: "PurchaseInvoice",
+    excludeInvoiceId,
+  });
+};
 
 // ✅ Helper to convert populated Mongoose docs to simple ref objects
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
@@ -565,6 +581,22 @@ export const purchaseInvoiceResolvers = {
       } catch (e) {
         return null;
       }
+    },
+    // "Previous Balance" = what we owed this vendor on their OTHER unsettled
+    // bills, before this one — this bill is excluded from the sum entirely,
+    // regardless of whether it has since been paid. Mirrors SalesInvoice.
+    partyPreviousBalance: async (parent: any) => {
+      const partyId = refId(parent?.partyacc);
+      return await partyBillOutstanding(partyId, parent?.id);
+    },
+    // "Current Balance" = Previous Balance + this bill's own Grand Total — a
+    // running statement figure (like a physical bill), not net of whether
+    // this particular bill has already been settled.
+    partyCurrentBalance: async (parent: any) => {
+      const partyId = refId(parent?.partyacc);
+      const previous = await partyBillOutstanding(partyId, parent?.id);
+      const total = Number(parent?.totalamount || 0);
+      return parseFloat((previous + total).toFixed(2));
     },
   },
 };

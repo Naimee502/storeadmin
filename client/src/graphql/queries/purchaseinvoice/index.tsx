@@ -141,6 +141,19 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
   }
 `;
 
+// Lightweight, print-only lookup — the party's running balance is expensive
+// to compute (sums every unsettled bill for the party), so it's fetched only
+// when the user actually clicks Print / WhatsApp, not as part of the list query.
+export const GET_PURCHASE_INVOICE_BALANCE = gql`
+  query GetPurchaseInvoiceBalance($id: ID!, $adminid: ID) {
+    getPurchaseInvoiceById(id: $id, adminid: $adminid) {
+      id
+      partyPreviousBalance
+      partyCurrentBalance
+    }
+  }
+`;
+
 export const GET_PURCHASE_INVOICE_BY_ID = gql`
   query GetPurchaseInvoiceById($id: ID!, $adminid: ID) {
     getPurchaseInvoiceById(id: $id, adminid: $adminid) {

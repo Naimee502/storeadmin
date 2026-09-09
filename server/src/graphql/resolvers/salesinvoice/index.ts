@@ -10,6 +10,7 @@ import {
   getInvoiceOutstanding,
   getPartyTotalDue,
 } from "../../../utils/allocation";
+import { assertSalesStockAvailable } from "../../../utils/stockguard";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -529,6 +530,19 @@ export const salesInvoiceResolvers = {
 
       console.log("✅ AutoCreate data being saved:", autoCreateData);
 
+      // Stock guard — the panel's Add Products box checks quantity against
+      // available stock, but lines that arrive pre-filled (Convert to Invoice
+      // from an app/website order, where the catalogue only gates on in/out of
+      // stock) never pass through it. Checked here, before anything is written,
+      // so a short invoice fails cleanly instead of leaving negative stock.
+      await assertSalesStockAvailable({
+        adminid: input.adminid,
+        branchid: input.branchid,
+        productservice: input.productservice || [],
+        isservice: input.isservice,
+        wantsStock: autoCreateData.autocreate.stock,
+      });
+
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
       console.log("✅ Created invoice autocreate:", created.autocreate);
 
@@ -856,6 +870,18 @@ export const salesInvoiceResolvers = {
           stock: settings?.autoCreateStockOnSalesInvoice ?? true,
         },
       };
+
+      // Same guard as create, but netting off what this invoice already held —
+      // the stock hook restores the old lines before deducting the new ones, so
+      // only the increase has to be available.
+      await assertSalesStockAvailable({
+        adminid: oldInv.adminid,
+        branchid: input.branchid || oldInv.branchid,
+        productservice: input.productservice || oldInv.productservice || [],
+        isservice: input.isservice ?? oldInv.isservice,
+        oldInv,
+        wantsStock: autoCreateData.autocreate.stock,
+      });
 
       const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
 

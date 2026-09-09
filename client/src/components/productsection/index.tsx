@@ -5,6 +5,7 @@ import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../uti
 import { belowCostError } from "../../utils/rates";
 import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
+import { getStockShortfalls } from "../../utils/products/stockcheck";
 
 /** ✅ Invoice line type */
 export type InvoiceProduct = {
@@ -83,6 +84,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   permissionModuleId,
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
+
+  // Short-stock flags for lines that never passed through the Add box — an
+  // order punched on the app/website is pre-filled straight into the list, and
+  // its catalogue only gates on "in stock", not on the number. Shown inline on
+  // the row itself rather than as a banner, so a 100-line invoice stays
+  // readable and each problem sits next to the quantity that caused it.
+  const shortfallByLine = useMemo(() => {
+    const map = new Map<number, { required: number; available: number }>();
+    if (type !== "sales" || iservice) return map;
+    getStockShortfalls(products, normalizedProducts, { isService: iservice }).forEach((s) => {
+      s.lineIndexes.forEach((i) => map.set(i, { required: s.required, available: s.available }));
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, productData, type, iservice]);
 
   const defaultModuleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const moduleId = permissionModuleId || defaultModuleId;
@@ -587,6 +603,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 );
                 const variant = product?.productvariants.find((v: any) => v.id === p.variantid);
 
+                const shortfall = shortfallByLine.get(i);
+
                 const price = variant?.unitprices
                 ?.find(
                   (up: any) =>
@@ -596,8 +614,25 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                 return (
                   <tr key={i}>
-                    <td className="border p-2">
+                    <td
+                      className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                      // An inset ring, not a border: with the table's collapsed
+                      // borders the header cell above wins the shared edge, so a
+                      // red `border-top` on this cell would still paint black.
+                      style={
+                        shortfall
+                          ? { boxShadow: "inset 0 0 0 2px #ef4444" }
+                          : undefined
+                      }
+                    >
                       {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                      {shortfall && (
+                        <div className="text-xs font-medium text-red-600">
+                          Not enough stock — ordered {shortfall.required}, available{" "}
+                          {shortfall.available} (base units), short by{" "}
+                          {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                        </div>
+                      )}
                     </td>
                     {type === "sales" && (
                     <td className="border p-2">

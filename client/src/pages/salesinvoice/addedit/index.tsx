@@ -18,6 +18,7 @@ import { selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
+import { getStockShortfalls } from "../../../utils/products/stockcheck";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -154,6 +155,16 @@ const AddEditSalesInvoice = () => {
   const { data: producData, refetch } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
   console.log("Sales Product Data:", JSON.stringify(salesProductData));
+
+  // Lines pre-filled from a Sales Order (app/website orders in particular,
+  // where the catalogue never caps quantity at the stock on hand) skip the Add
+  // Products box and its stock check. Re-run the check over the finished list
+  // so the shortfall is visible here instead of surfacing as a server error —
+  // or, worse, as silently negative stock.
+  const stockShortfalls = useMemo(
+    () => getStockShortfalls(products, salesProductData, { isService }),
+    [products, salesProductData, isService]
+  );
 
   useEffect(() => {
     if (accountData?.getAccounts) {
@@ -386,6 +397,32 @@ const AddEditSalesInvoice = () => {
       return;
     }
 
+    // Hard stop on short stock — the server refuses the same invoice, so
+    // failing here keeps the message specific and the form editable.
+    if (stockShortfalls.length > 0) {
+      // Name the first few and count the rest — a 100-line invoice would
+      // otherwise produce a toast nobody can read. The red lines in the
+      // Products List carry the per-item detail.
+      const named = stockShortfalls
+        .slice(0, 3)
+        .map(
+          (s) =>
+            `${s.productname}${s.variantname ? ` - ${s.variantname}` : ""} ` +
+            `(need ${s.required}, have ${s.available})`
+        )
+        .join(", ");
+      const rest = stockShortfalls.length - 3;
+      dispatch(
+        showMessage({
+          message:
+            `Not enough stock: ${named}${rest > 0 ? ` and ${rest} more item${rest > 1 ? "s" : ""}` : ""}. ` +
+            "Reduce the quantity or add stock first.",
+          type: "error",
+        })
+      );
+      return;
+    }
+
     const input = {
       branchid: branchId,
       adminid: adminId,
@@ -496,7 +533,11 @@ const AddEditSalesInvoice = () => {
       navigate(-1);
     } catch (error: any) {
       console.error("Error:", error);
-      dispatch(showMessage({ message: "An error occurred", type: "error" }));
+      // Show what the server actually said — the stock guard's message names
+      // the product and the shortfall, which "An error occurred" threw away.
+      const serverMessage =
+        error?.graphQLErrors?.[0]?.message || error?.message || "An error occurred";
+      dispatch(showMessage({ message: serverMessage, type: "error" }));
     }
   };
 
@@ -648,7 +689,9 @@ const AddEditSalesInvoice = () => {
           </fieldset>
           )}
 
-          {/* Product Section */}
+          {/* Product Section — short-stock lines flag themselves inside the
+              Products List (see components/productsection), so there is no
+              separate banner to scroll past on a long invoice. */}
           <ProductSection
             products={products}
             setProducts={setProducts}
@@ -778,7 +821,18 @@ const AddEditSalesInvoice = () => {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" variant="outline" disabled={products.length === 0}>
+            {/* Held shut while any line is short on stock — the red cell in the
+                Products List says which one, and the server refuses it anyway. */}
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={products.length === 0 || stockShortfalls.length > 0}
+              title={
+                stockShortfalls.length > 0
+                  ? "Not enough stock on one or more lines — fix the quantity marked in red above."
+                  : undefined
+              }
+            >
               {isEdit ? "Update Invoice" : "Save Invoice"}
             </Button>
           </div>

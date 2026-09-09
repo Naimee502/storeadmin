@@ -293,7 +293,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           onChange={(v: boolean) => set("printShowTermsAndConditions", v)}
         />
         <Toggle
-          label="Show party's Previous Balance / Current Balance on Sales Invoice print"
+          label="Show party's Previous Balance / Current Balance on Sales & Purchase Invoice print"
           checked={!!draft.printShowPartyBalance}
           onChange={(v: boolean) => set("printShowPartyBalance", v)}
         />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useApolloClient } from "@apollo/client";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addPurchaseInvoices } from "../../redux/slices/purchaseinvoice";
 import { selectModuleActions } from "../../redux/slices/permissions";
@@ -11,6 +12,7 @@ import {
   usePurchaseInvoicesQuery,
   usePurchaseInvoiceMutations,
 } from "../../graphql/hooks/purchaseinvoice";
+import { GET_PURCHASE_INVOICE_BALANCE } from "../../graphql/queries/purchaseinvoice";
 import { usePurchaseReturnsQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
@@ -45,6 +47,16 @@ const PurchaseInvoices = () => {
 
   // Resolve company name to sign off the WhatsApp share message.
   const auth = useAppSelector((state) => state.auth);
+  const apolloClient = useApolloClient();
+  const { settings } = useAppSelector((state: any) => state.adminsettings);
+  const adminid =
+    auth.type === "admin"
+      ? auth.admin?.id
+      : auth.type === "branch"
+        ? auth.branch?.admin?.id
+        : auth.type === "staff"
+          ? auth.staff?.admin?.id
+          : undefined;
   const companyName =
     auth.type === "admin"
       ? auth.admin?.companyName
@@ -60,7 +72,35 @@ const PurchaseInvoices = () => {
   const [waInvoice, setWaInvoice] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
-  const handleWhatsAppShare = (row: any) => {
+  // Party's Previous/Current Balance (Business Settings → Invoice Print) is
+  // expensive to compute, so it's fetched only when the row is actually
+  // printed/shared — never as part of the list query. Returns the row
+  // untouched when the setting is off or the lookup fails, so print still
+  // works exactly as before.
+  const withPartyBalance = async (row: any) => {
+    if (!settings?.printShowPartyBalance) return row;
+    dispatch(showLoading());
+    try {
+      const { data } = await apolloClient.query({
+        query: GET_PURCHASE_INVOICE_BALANCE,
+        variables: { id: row.id, adminid },
+        fetchPolicy: "network-only",
+      });
+      const bal = data?.getPurchaseInvoiceById;
+      return {
+        ...row,
+        partyPreviousBalance: bal?.partyPreviousBalance,
+        partyCurrentBalance: bal?.partyCurrentBalance,
+      };
+    } catch (e) {
+      console.error("Failed to fetch party balance for purchase invoice print:", e);
+      return row;
+    } finally {
+      dispatch(hideLoading());
+    }
+  };
+
+  const handleWhatsAppShare = async (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
@@ -76,7 +116,9 @@ const PurchaseInvoices = () => {
       message,
       fileName: `Purchase-Invoice-INV-${orig.billnumber}.pdf`,
     };
-    setWaInvoice(row);
+    // Same lazy fetch as Print, so the shared PDF matches what's printed
+    // instead of silently dropping the balance rows.
+    setWaInvoice(await withPartyBalance(row));
   };
 
   useEffect(() => {
@@ -246,7 +288,7 @@ const PurchaseInvoices = () => {
           }}
           onAdd={() => navigate("/purchaseinvoice/addedit")}
           onShowDeleted={() => navigate("/purchaseinvoice/deletedentries")}
-          onPrint={(row) => setPrintInvoice(row)}
+          onPrint={async (row) => setPrintInvoice(await withPartyBalance(row))}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
