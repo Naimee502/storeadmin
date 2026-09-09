@@ -278,7 +278,8 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
             currentstock: newCurrentStock,
             currentstockamount: newCurrentStockAmount,
             closingstock,
-            closingstockamount
+            closingstockamount,
+            adminid: newInv.adminid
           }
         }
       );
@@ -334,6 +335,8 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
     const closingstock = newCurrentStock;
     const closingstockamount = newCurrentStockAmount;
 
+    // adminid is written too — a row created by an upsert without it is
+    // invisible to getStockDetails, which matches on adminid.
     await ProductBranchStock.updateOne(
       { productid: item.productserviceid, variantid: item.variantid, branchid },
       {
@@ -342,7 +345,8 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
           currentstockamount: newCurrentStockAmount,
           averagecost: avgCost,
           closingstock,
-          closingstockamount
+          closingstockamount,
+          adminid: newInv.adminid
         }
       },
       { upsert: true }

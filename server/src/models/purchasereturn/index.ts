@@ -90,7 +90,10 @@ const purchaseReturnSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     autocreate: {
-      ledger: { type: Boolean, default: true }
+      ledger: { type: Boolean, default: true },
+      // Own switch, like the invoice side — journals and stock are separate
+      // decisions (Business Settings -> Auto-posting -> Returns).
+      stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true },
   },
@@ -124,14 +127,14 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
     : newRet.branchid;
   if (!branchid) return;
 
-  // autocreate is stored as { ledger: bool } — check the nested .ledger property
-  if (newRet.autocreate?.ledger === false) {
-    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Purchase Return.");
-    return;
-  }
+  // NOTE: the ledger switch used to sit here and `return`ed, taking the STOCK
+  // adjustment down with it — goods went back to the vendor on paper while the
+  // branch still counted them on the shelf. Stock is physical: it moves either
+  // way, and only the journal below is gated by the accounting flag.
 
   // ===== STOCK ADJUSTMENT — purchase return REMOVES stock =====
-  if (!newRet.isservice) {
+  const wantsStock = newRet.autocreate?.stock !== false;
+  if (wantsStock && !newRet.isservice) {
     if (oldRet) {
       // Reverse old return: add back what was removed
       for (const item of oldRet.productservice) {
@@ -149,7 +152,7 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
         const newAmt = newStock * stock.averagecost;
         await ProductBranchStock.updateOne(
           { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } }
+          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } }
         );
       }
     }
@@ -171,12 +174,21 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
         newStock = stock.currentstock - qtyBase;
         newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
       }
+      // adminid is written too: an upserted row without it is invisible to
+      // getStockDetails (which matches on adminid), so the movement would
+      // never show up in any stock listing.
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } },
+        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } },
         { upsert: true }
       );
     }
+  }
+
+  // autocreate is stored as { ledger: bool } — check the nested .ledger property
+  if (newRet.autocreate?.ledger === false) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Purchase Return.");
+    return;
   }
 
   // ===== JOURNAL ENTRIES =====

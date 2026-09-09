@@ -14,6 +14,12 @@ const formatSettings = (s: any) =>
         // and fail the Boolean! check. Coerce it here rather than making
         // the field nullable for every caller.
         doubleDisplayPrice: !!s.doubleDisplayPrice,
+        // Same reason, and these two default to TRUE: a row written before the
+        // return-stock switches existed must read as "yes, move stock", not as
+        // a missing field that trips Boolean! (or, worse, silently reads false
+        // and stops returns from restoring stock all over again).
+        autoCreateStockOnSalesReturn: s.autoCreateStockOnSalesReturn !== false,
+        autoCreateStockOnPurchaseReturn: s.autoCreateStockOnPurchaseReturn !== false,
       }
     : null;
 

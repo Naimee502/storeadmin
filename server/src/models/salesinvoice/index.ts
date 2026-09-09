@@ -413,7 +413,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
 
         await ProductBranchStock.updateOne(
           { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } }
+          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newInv.adminid } }
         );
       }
     }
@@ -444,9 +444,11 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         newAmt = stock.currentstockamount - qtyBase * stock.averagecost;
       }
 
+      // adminid is written too — a row created by an upsert without it is
+      // invisible to getStockDetails, which matches on adminid.
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } },
+        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newInv.adminid } },
         { upsert: true }
       );
     }

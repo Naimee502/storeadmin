@@ -181,6 +181,13 @@ export const salesReturnResolvers = {
           input.sourceBillNumber = sourceInv.billnumber;
         }
 
+        // The goods go back to the branch that shipped them, never to whichever
+        // branch happens to be selected in the header when the credit note is
+        // written. Sending them elsewhere left the selling branch permanently
+        // short (its stock was deducted by the invoice and restored to another
+        // branch's row), so the source invoice decides.
+        if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
+
         // ✅ Extract user info from context and populate createdby fields
         const { user } = context;
         const createdbyData = {
@@ -194,6 +201,7 @@ export const salesReturnResolvers = {
         const autoCreateData = {
           autocreate: {
             ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
+            stock: settings?.autoCreateStockOnSalesReturn ?? true,
           },
         };
 
@@ -218,9 +226,12 @@ export const salesReturnResolvers = {
     },
 
     editSalesReturn: async (_: any, { id, input }: any, context: any) => {
-      await validateReturnQuantities(input, id);
+      const sourceInv: any = await validateReturnQuantities(input, id);
       const oldRet = await SalesReturn.findById(id);
       if (!oldRet) throw new Error("Sales Return not found");
+
+      // Stock goes back to the invoice's branch — same reason as on create.
+      if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
 
       // ✅ Extract user context for adjustStockAndTransactions
       const { user } = context;
@@ -235,10 +246,12 @@ export const salesReturnResolvers = {
       const autoCreateData = input.autocreate !== undefined ? {
         autocreate: {
           ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
+          stock: settings?.autoCreateStockOnSalesReturn ?? true,
         },
       } : {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
+          stock: settings?.autoCreateStockOnSalesReturn ?? true,
         },
       };
 

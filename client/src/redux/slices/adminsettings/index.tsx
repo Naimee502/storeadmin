@@ -10,6 +10,8 @@ interface AdminSettings {
   autoCreateLedgerOnExpense: boolean;
   autoCreateLedgerOnSalesReturn: boolean;
   autoCreateLedgerOnPurchaseReturn: boolean;
+  autoCreateStockOnSalesReturn: boolean;
+  autoCreateStockOnPurchaseReturn: boolean;
   allowNegativeStock: boolean;
   preventDuplicateInvoiceNumbers: boolean;
   defaultGstPercent: number;

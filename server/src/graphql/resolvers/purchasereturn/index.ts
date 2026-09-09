@@ -168,6 +168,11 @@ export const purchaseReturnResolvers = {
         const sourceInv = await validateReturnQuantities(input);
         console.log("🟢 SERVER: validateReturnQuantities passed");
 
+        // The goods leave the branch that received them, never whichever branch
+        // is selected in the header when the debit note is written — otherwise
+        // one branch keeps stock it has sent back and another goes negative.
+        if ((sourceInv as any)?.branchid) input.branchid = (sourceInv as any).branchid;
+
         if (sourceInv?.billnumber && !input.sourceBillNumber) {
           input.sourceBillNumber = sourceInv.billnumber;
         }
@@ -185,6 +190,7 @@ export const purchaseReturnResolvers = {
         const autoCreateData = {
           autocreate: {
             ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+            stock: settings?.autoCreateStockOnPurchaseReturn ?? true,
           },
         };
 
@@ -214,9 +220,12 @@ export const purchaseReturnResolvers = {
     },
 
     editPurchaseReturn: async (_: any, { id, input }: any, context: any) => {
-      await validateReturnQuantities(input, id);
+      const sourceInv: any = await validateReturnQuantities(input, id);
       const oldRet = await PurchaseReturn.findById(id);
       if (!oldRet) throw new Error("Purchase Return not found");
+
+      // Stock leaves the invoice's branch — same reason as on create.
+      if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
 
       // ✅ Extract user context for adjustStockAndTransactions
       const { user } = context;
@@ -231,10 +240,12 @@ export const purchaseReturnResolvers = {
       const autoCreateData = input.autocreate !== undefined ? {
         autocreate: {
           ledger: input.autocreate ?? settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+          stock: settings?.autoCreateStockOnPurchaseReturn ?? true,
         },
       } : {
         autocreate: {
           ledger: settings?.autoCreateLedgerOnPurchaseReturn ?? true,
+          stock: settings?.autoCreateStockOnPurchaseReturn ?? true,
         },
       };
 

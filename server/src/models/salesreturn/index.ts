@@ -98,7 +98,10 @@ const salesReturnSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     autocreate: {
-      ledger: { type: Boolean, default: true }
+      ledger: { type: Boolean, default: true },
+      // Own switch, like the invoice side — journals and stock are separate
+      // decisions (Business Settings -> Auto-posting -> Returns).
+      stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true },          // soft-delete flag
   },
@@ -134,16 +137,16 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
 
   if (!branchid) return console.log("Branch ID missing on Sales Return");
 
-  // autocreate is stored as { ledger: bool } — check the nested .ledger property
-  if (newRet.autocreate?.ledger === false) {
-    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Sales Return.");
-    return;
-  }
+  // NOTE: the ledger switch used to sit here and `return`ed, which silently
+  // took the STOCK restore down with it — a credit note would refund the party
+  // but never put the goods back. Stock is physical: it is restored whichever
+  // way the accounting flag is set, and only the journal below is gated.
 
   // ========================= STOCK ADJUSTMENT =========================
   // Sales Return ADDS stock back. If editing an existing return, first
   // remove the previously-restored qty, then add the new qty.
-  if (!newRet.isservice) {
+  const wantsStock = newRet.autocreate?.stock !== false;
+  if (wantsStock && !newRet.isservice) {
     if (oldRet) {
       for (const item of oldRet.productservice) {
         const product = await ProductService.findById(item.productserviceid);
@@ -165,7 +168,7 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
 
         await ProductBranchStock.updateOne(
           { productid: item.productserviceid, variantid: item.variantid, branchid },
-          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } }
+          { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } }
         );
       }
     }
@@ -193,12 +196,21 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
         newAmt = stock.currentstockamount + qtyBase * stock.averagecost;
       }
 
+      // adminid is written too: a row created by an upsert without it is
+      // invisible to getStockDetails (which matches on adminid), so the
+      // restored quantity would never show up in any stock listing.
       await ProductBranchStock.updateOne(
         { productid: item.productserviceid, variantid: item.variantid, branchid },
-        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt } },
+        { $set: { currentstock: newStock, currentstockamount: newAmt, closingstock: newStock, closingstockamount: newAmt, adminid: newRet.adminid } },
         { upsert: true }
       );
     }
+  }
+
+  // autocreate is stored as { ledger: bool } — check the nested .ledger property
+  if (newRet.autocreate?.ledger === false) {
+    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Sales Return.");
+    return;
   }
 
   // ========================= JOURNAL ENTRIES =========================

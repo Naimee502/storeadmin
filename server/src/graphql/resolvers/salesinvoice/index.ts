@@ -540,7 +540,9 @@ export const salesInvoiceResolvers = {
         branchid: input.branchid,
         productservice: input.productservice || [],
         isservice: input.isservice,
-        wantsStock: autoCreateData.autocreate.stock,
+        // Business Settings -> "Allow negative stock" is the escape hatch for
+        // businesses that bill first and enter purchases later.
+        wantsStock: autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
 
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
@@ -880,7 +882,7 @@ export const salesInvoiceResolvers = {
         productservice: input.productservice || oldInv.productservice || [],
         isservice: input.isservice ?? oldInv.isservice,
         oldInv,
-        wantsStock: autoCreateData.autocreate.stock,
+        wantsStock: autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
 
       const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });

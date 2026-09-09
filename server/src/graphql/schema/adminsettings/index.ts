@@ -55,6 +55,8 @@ export const adminSettingsTypeDefs = gql`
     autoCreatePaymentOnExpense: Boolean!
     autoCreateLedgerOnSalesReturn: Boolean!
     autoCreateLedgerOnPurchaseReturn: Boolean!
+    autoCreateStockOnSalesReturn: Boolean!
+    autoCreateStockOnPurchaseReturn: Boolean!
 
     allowNegativeStock: Boolean!
     preventDuplicateInvoiceNumbers: Boolean!
@@ -250,6 +252,8 @@ export const adminSettingsTypeDefs = gql`
     autoCreatePaymentOnExpense: Boolean
     autoCreateLedgerOnSalesReturn: Boolean
     autoCreateLedgerOnPurchaseReturn: Boolean
+    autoCreateStockOnSalesReturn: Boolean
+    autoCreateStockOnPurchaseReturn: Boolean
 
     allowNegativeStock: Boolean
     preventDuplicateInvoiceNumbers: Boolean

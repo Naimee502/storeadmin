@@ -13,6 +13,8 @@ const SETTINGS_FIELDS = `
   autoCreatePaymentOnExpense
   autoCreateLedgerOnSalesReturn
   autoCreateLedgerOnPurchaseReturn
+  autoCreateStockOnSalesReturn
+  autoCreateStockOnPurchaseReturn
   allowNegativeStock
   preventDuplicateInvoiceNumbers
   defaultGstPercent

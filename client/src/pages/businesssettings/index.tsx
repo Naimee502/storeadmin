@@ -219,10 +219,19 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
         <div className="text-xs text-gray-400 mt-3 mb-1 px-1">Returns</div>
         <Toggle label="Auto-post journal on Sales Returns" checked={draft.autoCreateLedgerOnSalesReturn} onChange={(v) => set("autoCreateLedgerOnSalesReturn", v)} />
+        <Toggle label="Auto-add stock back on Sales Returns" checked={draft.autoCreateStockOnSalesReturn !== false} onChange={(v) => set("autoCreateStockOnSalesReturn", v)} />
         <Toggle label="Auto-post journal on Purchase Returns" checked={draft.autoCreateLedgerOnPurchaseReturn} onChange={(v) => set("autoCreateLedgerOnPurchaseReturn", v)} />
+        <Toggle label="Auto-deduct stock on Purchase Returns" checked={draft.autoCreateStockOnPurchaseReturn !== false} onChange={(v) => set("autoCreateStockOnPurchaseReturn", v)} />
       </Section>
 
       <Section title="Feature Toggles">
+        <Toggle label="Allow negative stock (bill more than what is on hand)" checked={!!draft.allowNegativeStock} onChange={(v) => set("allowNegativeStock", v)} />
+        <p className="text-xs text-gray-500 -mt-1 mb-2 px-1">
+          Off (recommended): a Sales Invoice whose quantity exceeds the branch's stock is refused,
+          in the panel, the POS and on Convert to Invoice. On: the short lines are still flagged in
+          red, but the bill saves and stock can go below zero — for businesses that bill first and
+          enter their purchases later.
+        </p>
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
         <Toggle label="Display Product Stock on App/Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />

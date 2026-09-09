@@ -156,6 +156,8 @@ const AddEditSalesInvoice = () => {
   const salesProductData = producData?.getProductServices ?? [];
   console.log("Sales Product Data:", JSON.stringify(salesProductData));
 
+  const { settings } = useAppSelector((state: any) => state.adminsettings);
+
   // Lines pre-filled from a Sales Order (app/website orders in particular,
   // where the catalogue never caps quantity at the stock on hand) skip the Add
   // Products box and its stock check. Re-run the check over the finished list
@@ -165,6 +167,11 @@ const AddEditSalesInvoice = () => {
     () => getStockShortfalls(products, salesProductData, { isService }),
     [products, salesProductData, isService]
   );
+  // Business Settings -> "Allow negative stock": when it's on, short lines are
+  // still flagged in red but the bill is allowed through — the server takes the
+  // same view, so the two never disagree.
+  const blockOnShortStock =
+    stockShortfalls.length > 0 && !settings?.allowNegativeStock;
 
   useEffect(() => {
     if (accountData?.getAccounts) {
@@ -399,7 +406,7 @@ const AddEditSalesInvoice = () => {
 
     // Hard stop on short stock — the server refuses the same invoice, so
     // failing here keeps the message specific and the form editable.
-    if (stockShortfalls.length > 0) {
+    if (blockOnShortStock) {
       // Name the first few and count the rest — a 100-line invoice would
       // otherwise produce a toast nobody can read. The red lines in the
       // Products List carry the per-item detail.
@@ -826,9 +833,9 @@ const AddEditSalesInvoice = () => {
             <Button
               type="submit"
               variant="outline"
-              disabled={products.length === 0 || stockShortfalls.length > 0}
+              disabled={products.length === 0 || blockOnShortStock}
               title={
-                stockShortfalls.length > 0
+                blockOnShortStock
                   ? "Not enough stock on one or more lines — fix the quantity marked in red above."
                   : undefined
               }

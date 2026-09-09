@@ -45,6 +45,11 @@ const adminSettingsSchema = new mongoose.Schema(
     autoCreatePaymentOnExpense: { type: Boolean, default: true },
     autoCreateLedgerOnSalesReturn: { type: Boolean, default: true },
     autoCreateLedgerOnPurchaseReturn: { type: Boolean, default: true },
+    // Stock movement on returns is its own switch, exactly like the invoice
+    // side. It used to ride on the ledger flag, so switching journals off also
+    // stopped returned goods from coming back on the shelf.
+    autoCreateStockOnSalesReturn: { type: Boolean, default: true },
+    autoCreateStockOnPurchaseReturn: { type: Boolean, default: true },
 
     /* ============================================================
        INVENTORY POLICIES
