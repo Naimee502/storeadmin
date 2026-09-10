@@ -10,6 +10,7 @@ import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 
 const reportTabsObj = [
@@ -38,6 +39,7 @@ const AccountingFinanceReports: React.FC = () => {
     const { data: paymentsData } = usePaymentsQuery();
     const { data: expenseData } = useExpenseNotesQuery();
     const { data: staffData } = useStaffQuery();
+    const { data: adminSettingsData } = useAdminSettingsQuery();
 
     const accounts = accountsData?.getAccounts || [];
     const accountsGroup = accountsGroupData?.getAccountGroups || [];
@@ -46,6 +48,12 @@ const AccountingFinanceReports: React.FC = () => {
     const payments = [...(paymentsData?.getPayments || [])].reverse();
     const expenseNotes = expenseData?.getExpenseNotes || [];
     const staff = staffData?.getStaffAccounts || [];
+
+    // Per-business feature flag: "Discount & Commission on Payment settlement".
+    // Off means the business never collects a concession, so the four-column
+    // Settled / Discount / Commission / Cash split is noise -- the sheet goes
+    // back to the single Amount column it always had.
+    const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
 
     // -----------------------------
     // Default date filter = last 30 days
@@ -463,35 +471,118 @@ const AccountingFinanceReports: React.FC = () => {
     // -------------------------------
     // Payments Report
     // -------------------------------
+    const paymentsLedger = useMemo(
+        () => ledgers.find((l: any) => l.id === appliedFilters.paymentledger) || null,
+        [ledgers, appliedFilters.paymentledger]
+    );
+
+    // Filtered by LEDGER, not by party. A payment keeps its counter leg in one
+    // of two places -- partyid (party mode) or counterledgerid (ledger mode) --
+    // and a party filter can only ever see the first, so every ledger-mode
+    // receipt fell out of this report entirely. The ledger is what both modes
+    // have in common: a party posts to its own ledger anyway.
+    //
+    // Concessions are broken out too. The party's own statement can never show
+    // them (a discount / commission posts to its own income ledger, not to the
+    // party), so this is the one sheet that answers "how much commission did we
+    // charge this party, and how much discount did we allow".
     const paymentsDataReport = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+        const r2 = (n: any) => parseFloat((Number(n) || 0).toFixed(2));
 
         // Helper: Capitalize only first letter
         const capitalize = (str: string = "") =>
             str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
+        // paymentdate arrives as an epoch string OR an ISO date. Number() turns
+        // the ISO form into NaN and then every date comparison below silently
+        // passes, which is why a wrong date range never looked wrong.
+        const timeOf = (d: any) => {
+            if (!d) return NaN;
+            const str = String(d).trim();
+            return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
+        };
+
+        // Party account -> the ledger it actually posts to, so a party-mode
+        // receipt is still found by picking that party's ledger in the filter.
+        const partyLedgerOf: Record<string, { id?: string; name: string }> = {};
+        accounts.forEach((a: any) => {
+            if (a.id)
+                partyLedgerOf[a.id] = {
+                    id: a.ledgerid?.id,
+                    name: a.ledgerid?.ledgername || a.name || "-",
+                };
+        });
+
         return payments
-            .filter(p => {
-                const d = Number(p.paymentdate);
-                if (fromTimestamp && d < fromTimestamp) return false;
-                if (toTimestamp && d > toTimestamp) return false;
-                if (appliedFilters.party && p.partyid?.id !== appliedFilters.party) return false;
+            .filter((p: any) => p.status !== false)
+            .map((p: any) => {
+                const invs = Array.isArray(p.invoices) ? p.invoices : [];
+
+                // Same rule the server and the Ledger Statement use: a
+                // concession can sit on the bill lines or on the payment itself
+                // (an opening-balance-only receipt has no line to hang it on).
+                const lineDiscount = r2(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0));
+                const lineCommission = r2(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0));
+                const discount = Math.max(lineDiscount, r2(p.discount));
+                const commission = Math.max(lineCommission, r2(p.commission));
+
+                // Cash is what moved; settled is what came off the balance.
+                const cash = r2(p.amount);
+                const settled = r2(cash + discount - commission);
+
+                const counter = p.partyid?.id
+                    ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
+                    : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
+
+                return {
+                    t: timeOf(p.paymentdate),
+                    // Both legs, so the sheet answers either question: "what did
+                    // this party pay" and "what came through the cash ledger".
+                    ledgerIds: [counter.id, p.ledgerid?.id].filter(Boolean),
+
+                    paymentCode: p.paymentcode,
+                    paymentDate: formatDateDMY(p.paymentdate),
+                    ledgerName: counter.name,
+
+                    // Only First Letter Uppercase
+                    type: capitalize(p.type),
+                    mode: capitalize(p.mode),
+
+                    settled: settled.toFixed(2),
+                    discount: discount.toFixed(2),
+                    commission: commission.toFixed(2),
+                    amount: cash.toFixed(2),
+                    remarks: p.remarks || "-",
+                };
+            })
+            .filter((row: any) => {
+                if (!isNaN(row.t)) {
+                    if (fromTimestamp && row.t < fromTimestamp) return false;
+                    if (toTimestamp && row.t > toTimestamp) return false;
+                }
+                if (
+                    appliedFilters.paymentledger &&
+                    !row.ledgerIds.includes(appliedFilters.paymentledger)
+                )
+                    return false;
                 return true;
             })
-            .map(p => ({
-                paymentCode: p.paymentcode,
-                paymentDate: formatDateDMY(p.paymentdate),
-
-                partyName: p.partyid?.name || "-",
-
-                // 👇 Only First Letter Uppercase
-                type: capitalize(p.type),
-                mode: capitalize(p.mode),
-
-                amount: p.amount?.toFixed(2) || "0.00",
-                remarks: p.remarks || "-",
+            // Keep the row down to what the table shows; t / ledgerIds are join
+            // keys for the filter above and nothing else.
+            .map((row: any) => ({
+                paymentCode: row.paymentCode,
+                paymentDate: row.paymentDate,
+                ledgerName: row.ledgerName,
+                type: row.type,
+                mode: row.mode,
+                settled: row.settled,
+                discount: row.discount,
+                commission: row.commission,
+                amount: row.amount,
+                remarks: row.remarks,
             }));
-    }, [payments, appliedFilters]);
+    }, [payments, accounts, appliedFilters]);
 
     // -------------------------------
     // Filters + Table Setup (FIXED)
@@ -499,11 +590,6 @@ const AccountingFinanceReports: React.FC = () => {
     const ledgerOptions = ledgers.map(l => ({
         label: l.ledgername,
         value: l.id,
-    }));
-
-    const partyOptions = accounts.map(a => ({
-        label: a.name,
-        value: a.id,
     }));
 
     const staffOptions = staff.map((s: any) => ({
@@ -581,20 +667,37 @@ const AccountingFinanceReports: React.FC = () => {
             tableData = paymentsDataReport;
             title = "Payments & Receipts Report";
             exportFileName = "PaymentsReceiptsReport";
+            // Same header the Ledger Statement PDF carries -- which ledger this
+            // sheet is for, and over what period.
+            pdfSubtitle = [
+                `Ledger name: ${paymentsLedger?.ledgername || "All Ledgers"}`,
+                `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`,
+            ];
             columns = [
                 { label: "Payment Code", key: "paymentCode" },
                 { label: "Date", key: "paymentDate" },
-                { label: "Party", key: "partyName" },
+                { label: "Ledger", key: "ledgerName" },
                 { label: "Type", key: "type" },
                 { label: "Mode", key: "mode" },
-                { label: "Amount (₹)", key: "amount", numeric: true },
+                // With concessions switched on, Settled is what came off the
+                // balance and Cash is what actually moved -- the gap between the
+                // two IS the discount / commission. With the flag off the two are
+                // always equal, so one Amount column says everything.
+                ...(dcEnabled
+                    ? [
+                        { label: "Settled (₹)", key: "settled", numeric: true },
+                        { label: "Discount (₹)", key: "discount", numeric: true },
+                        { label: "Commission (₹)", key: "commission", numeric: true },
+                        { label: "Cash (₹)", key: "amount", numeric: true },
+                    ]
+                    : [{ label: "Amount (₹)", key: "amount", numeric: true }]),
                 { label: "Remarks", key: "remarks" },
             ];
             filterFields.push({
-                name: "party",
-                label: "Party",
+                name: "paymentledger",
+                label: "Ledger",
                 type: "select",
-                options: partyOptions,
+                options: ledgerOptions,
                 searchable: true,
             });
             break;
