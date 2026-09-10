@@ -462,6 +462,69 @@ const AddEditProductService = () => {
 
   const hasBelowCostError = Object.keys(belowCostErrors).length > 0;
 
+  // Stock amounts are derived, never typed. The server's manageStock() always
+  // stores `stock x purchase rate`, and the three amount fields are disabled on
+  // an edit, so they are recomputed here the moment a stock figure or the
+  // purchase rate changes.
+  //
+  // Without this a product whose stock had gone negative could never be fixed
+  // from this screen: correcting Current Stock left the old negative AMOUNT
+  // untouched, the non-negative rule below kept the Update button disabled, and
+  // the only field that would have cleared it was one the form does not let the
+  // user edit.
+  useEffect(() => {
+    if (formData.isservice) return;
+
+    // Mirrors the server's getPurchaseRate(): when the purchase unit converts
+    // to the base unit, stock is valued per BASE unit.
+    const baseRateOf = (v: any) => {
+      const rate = Number(v?.purchaserate) || 0;
+      const purchaseUnitId = v?.purchaseunitid ? String(v.purchaseunitid) : "";
+      const baseUnitId = v?.baseunitid ? String(v.baseunitid) : "";
+      if (!purchaseUnitId || !baseUnitId) return rate;
+      const conv = (v?.unitconversions || []).find(
+        (u: any) => u?.unitid && String(u.unitid) === purchaseUnitId
+      );
+      const factor = Number(conv?.factor) || 0;
+      return factor > 0 ? rate / factor : rate;
+    };
+
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const PAIRS: [string, string][] = [
+      ["openingstock", "openingstockamount"],
+      ["currentstock", "currentstockamount"],
+      ["closingstock", "closingstockamount"],
+    ];
+
+    setFormData((prev: any) => {
+      if (prev?.isservice) return prev;
+
+      let changed = false;
+      const variants = (prev.productvariants || []).map((v: any) => {
+        const rate = baseRateOf(v);
+        let next = v;
+
+        PAIRS.forEach(([qtyKey, amtKey]) => {
+          const raw = v?.[qtyKey];
+          // A blank stock box means "not entered yet", not zero -- leave its
+          // amount blank too rather than writing a 0 the user never typed.
+          if (raw === "" || raw === null || raw === undefined) return;
+          const amount = round2((Number(raw) || 0) * rate);
+          if (Number(next?.[amtKey]) === amount) return;
+          next = { ...next, [amtKey]: amount };
+        });
+
+        if (next !== v) changed = true;
+        return next;
+      });
+
+      // Same object back when nothing moved: React bails out, so this effect
+      // cannot loop on the state it just set.
+      if (!changed) return prev;
+      return { ...prev, productvariants: variants };
+    });
+  }, [formData]);
+
   // Stock quantities and their values can never be negative. The number
   // inputs happily accepted "-1" (a product did end up with -200 in stock),
   // so this is checked live like the rate rule above — same reason for
