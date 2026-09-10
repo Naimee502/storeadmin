@@ -79,6 +79,20 @@ const AccountingFinanceReports: React.FC = () => {
             if (acc.ledgerid?.id) ledgerMap[acc.ledgerid.id] = acc;
         });
 
+        // Remarks column ma user e jate lakhelu remark j dekhavu joie.
+        // Payment / Expense Note mathi bane te journal na entry remarks auto
+        // generate thay che ("Receipt from X"), etle source document nu asal
+        // remark map kari ne pehla e batavie; na hoy to j auto text.
+        const sourceRemarkMap: Record<string, string> = {};
+        payments.forEach((p: any) => {
+            const r = (p.remarks || "").trim();
+            if (p.id && r) sourceRemarkMap[p.id] = r;
+        });
+        expenseNotes.forEach((e: any) => {
+            const r = (e.notes || e.narration || "").trim();
+            if (e.id && r) sourceRemarkMap[e.id] = r;
+        });
+
         return transactions
             .filter(t => {
                 const date = Number(t.transactiondate);
@@ -90,8 +104,11 @@ const AccountingFinanceReports: React.FC = () => {
 
                 return true;
             })
-            .flatMap(t =>
-                t.entries?.map(e => {
+            .flatMap(t => {
+                const docId = (t as any).source?.docid;
+                const sourceRemark = docId ? sourceRemarkMap[docId] : "";
+
+                return t.entries?.map(e => {
                     const ledgerId = e.ledgerid?.id;
                     const acc = ledgerMap[ledgerId];
 
@@ -101,11 +118,11 @@ const AccountingFinanceReports: React.FC = () => {
                         accountName: e.ledgerid?.ledgername || "-",
                         debit: e.debit?.toFixed(2) || "0.00",
                         credit: e.credit?.toFixed(2) || "0.00",
-                        remarks: e.remarks || t.narration || "-",
+                        remarks: sourceRemark || e.remarks || t.narration || "-",
                     };
-                }) || []
-            );
-    }, [transactions, accounts, appliedFilters]);
+                }) || [];
+            });
+    }, [transactions, accounts, payments, expenseNotes, appliedFilters]);
 
     // -------------------------------
     // Profit & Loss
@@ -354,6 +371,7 @@ const AccountingFinanceReports: React.FC = () => {
     ];
     let title = "Accounting & Finance Reports";
     let exportFileName = "AccountingReport";
+    let netTotal: { debitKey: string; creditKey: string; showInKey?: string } | undefined;
 
     switch (activeTab) {
         case "Ledger":
@@ -368,6 +386,8 @@ const AccountingFinanceReports: React.FC = () => {
                 { label: "Credit (₹)", key: "credit", numeric: true },
                 { label: "Remarks", key: "remarks" },
             ];
+            // Totals row ma Remarks column ni niche net (Debit - Credit) batavo
+            netTotal = { debitKey: "debit", creditKey: "credit", showInKey: "remarks" };
             filterFields.push({
                 name: "ledger",
                 label: "Select Ledger",
@@ -513,6 +533,7 @@ const AccountingFinanceReports: React.FC = () => {
                     showPdf
                     exportFileName={exportFileName}
                     showTotals
+                    netTotal={netTotal}
                 />
             </div>
         </HomeLayout>

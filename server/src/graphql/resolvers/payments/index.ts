@@ -61,6 +61,15 @@ async function getDownlinePartyIds(rootId: any): Promise<string[]> {
   return out;
 }
 
+// The journal legs carry auto-generated text ("Receipt from X"). When the user
+// typed a remark on the payment itself, that is what they expect to see in the
+// Account Ledger report — so it wins over the generated text on every leg.
+function applyUserRemark(built: { entries: any[]; totaldebit: number; totalcredit: number } | null, input: any) {
+  const userRemark = String(input?.remarks || "").trim();
+  if (!built || !userRemark) return built;
+  return { ...built, entries: built.entries.map((e: any) => ({ ...e, remarks: userRemark })) };
+}
+
 // Build balanced journal entries for a payment/receipt.
 //
 // Plain payment (no concessions): Dr Cash · Cr Party (receipt) or reverse.
@@ -527,6 +536,7 @@ export const paymentResolvers = {
       if (!built) {
         built = await buildLedgerEntries(input);
       }
+      built = applyUserRemark(built, input);
       if (built) {
         const trx = await Transaction.create({
           adminid: input.adminid,
@@ -658,6 +668,7 @@ export const paymentResolvers = {
       if (!built) {
         built = await buildLedgerEntries(input);
       }
+      built = applyUserRemark(built, input);
       if (built) {
         if (existing.transactionid) {
           // Update existing transaction

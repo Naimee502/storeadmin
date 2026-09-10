@@ -69,6 +69,12 @@ interface ReportTableProps {
   showTotals?: boolean;
   exportFileName?: string;
   pdfSubtitle?: string[];
+  /**
+   * Show the net (debit - credit) inside the Totals row. Pass the two numeric
+   * column keys that should net out; showInKey picks the column the net is
+   * printed in (defaults to the last column).
+   */
+  netTotal?: { debitKey: string; creditKey: string; showInKey?: string };
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -98,7 +104,13 @@ const buildExportRow = (row: any, columns: ReportColumn[]) => {
 /* ──────────────────────────────────────────────────────────────────
    PDF via print window  (Tally-style)
 ────────────────────────────────────────────────────────────────── */
-const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[], pdfSubtitle?: string[]) => {
+const printReportAsPDF = (
+  title: string,
+  columns: ReportColumn[],
+  data: any[],
+  pdfSubtitle?: string[],
+  netTotal?: { debitKey: string; creditKey: string; showInKey?: string },
+) => {
   const today = formatDateDMY(new Date());
 
   const thRow = columns.map((c) => `<th>${c.label}</th>`).join("");
@@ -112,13 +124,27 @@ const printReportAsPDF = (title: string, columns: ReportColumn[], data: any[], p
       return `<tr class="${i % 2 === 0 ? "even" : ""}">${cells}</tr>`;
     }).join("");
 
-  // Totals row
+  // Totals row. When netTotal is given, the net (debit - credit) is printed in
+  // that report's chosen column of the same Totals row (last column by default).
+  const sumKey = (key: string) =>
+    data.reduce((a, r) => a + (toNumericVal(r[key]) ?? 0), 0);
+  const netKey = netTotal
+    ? netTotal.showInKey || columns[columns.length - 1]?.key
+    : undefined;
+  const netValue =
+    netTotal && data.length > 0
+      ? (sumKey(netTotal.debitKey) - sumKey(netTotal.creditKey)).toFixed(2)
+      : null;
+
   const hasTotals = columns.some((col) => col.numeric && data.some((r) => isNumericVal(r[col.key])));
   const totalRow = hasTotals
     ? `<tr>${columns.map((col, idx) => {
         if (col.numeric) {
           const s = data.reduce((a, r) => a + (toNumericVal(r[col.key]) ?? 0), 0);
           return `<td style="text-align:right;font-weight:bold;border-top:2px solid #333;">${Number.isInteger(s) ? s : s.toFixed(2)}</td>`;
+        }
+        if (netValue !== null && col.key === netKey) {
+          return `<td style="text-align:right;font-weight:bold;border-top:2px solid #333;">${netValue}</td>`;
         }
         return `<td style="font-weight:bold;border-top:2px solid #333;">${idx === 0 ? "Total" : ""}</td>`;
       }).join("")}</tr>`
@@ -175,6 +201,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
   exportFileName = "Report",
   moduleId,
   pdfSubtitle,
+  netTotal,
 }) => {
   const actions = useAppSelector(state => moduleId ? selectModuleActions(state, moduleId) : null);
   const finalShowExport = moduleId ? actions?.showExportExcel : showExport;
@@ -259,6 +286,19 @@ const ReportTable: React.FC<ReportTableProps> = ({
     });
   }, [filteredData, columns, showTotals]);
 
+  /* ── Net total (Debit - Credit), shown inside the Totals row ── */
+  const netTotalInfo = useMemo(() => {
+    if (!netTotal || !showTotals || filteredData.length === 0) return null;
+    const key = netTotal.showInKey || columns[columns.length - 1]?.key;
+    if (!key) return null;
+    const sumKey = (k: string) =>
+      filteredData.reduce((acc, row) => acc + (toNumericVal(row[k]) ?? 0), 0);
+    return {
+      key,
+      value: (sumKey(netTotal.debitKey) - sumKey(netTotal.creditKey)).toFixed(2),
+    };
+  }, [filteredData, columns, showTotals, netTotal]);
+
   /* ── Built-in exports ── */
   // Action-only columns (the reminder bell, etc.) hold no row data, so they
   // are dropped from every export rather than shipping an empty column.
@@ -315,7 +355,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
   const handlePdfExport = () => {
     if (onPdfExport) { onPdfExport(); return; }
-    printReportAsPDF(title, exportColumns, filteredData, pdfSubtitle);
+    printReportAsPDF(title, exportColumns, filteredData, pdfSubtitle, netTotal);
   };
 
   /* ── Render ── */
@@ -511,16 +551,24 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   {/* Tally-style totals row */}
                   {totalsRow && (
                     <tr className="border-t-2 border-gray-500 bg-blue-50 font-bold text-gray-800">
-                      {columns.map((col, idx) => (
-                        <td
-                          key={col.key}
-                          className={`px-3 py-2 whitespace-nowrap ${col.numeric ? "text-right font-mono" : ""}`}
-                        >
-                          {totalsRow[idx] !== null
-                            ? totalsRow[idx]
-                            : idx === 0 ? "Total" : ""}
-                        </td>
-                      ))}
+                      {columns.map((col, idx) => {
+                        const isNetCell =
+                          netTotalInfo != null && col.key === netTotalInfo.key;
+                        return (
+                          <td
+                            key={col.key}
+                            className={`px-3 py-2 whitespace-nowrap ${
+                              col.numeric || isNetCell ? "text-right font-mono" : ""
+                            }`}
+                          >
+                            {totalsRow[idx] !== null
+                              ? totalsRow[idx]
+                              : isNetCell
+                                ? netTotalInfo!.value
+                                : idx === 0 ? "Total" : ""}
+                          </td>
+                        );
+                      })}
                     </tr>
                   )}
                 </>
