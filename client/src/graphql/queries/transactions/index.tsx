@@ -145,3 +145,25 @@ export const GET_TRANSACTION_BY_ID = gql`
     }
   }
 `;
+
+// Every journal that touches ONE ledger, trimmed to the fields needed to total
+// its balance. `ledgerid` is filtered server-side, so this is a handful of rows
+// rather than the whole book — but each row still carries its counter-leg, so
+// the caller must sum only the entries whose ledgerid matches.
+export const GET_LEDGER_MOVEMENTS = gql`
+  query GetLedgerMovements($filter: TransactionFilterInput) {
+    getTransactions(filter: $filter) {
+      id
+      source {
+        docid
+      }
+      entries {
+        ledgerid {
+          id
+        }
+        debit
+        credit
+      }
+    }
+  }
+`;

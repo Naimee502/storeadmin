@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { FaBookOpen, FaChartPie, FaBalanceScale, FaWater, FaListUl, FaHandHoldingUsd, FaReceipt } from "react-icons/fa";
+import { FaBookOpen, FaChartPie, FaBalanceScale, FaWater, FaListUl, FaHandHoldingUsd, FaReceipt, FaFileInvoiceDollar } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
@@ -20,6 +20,7 @@ const reportTabsObj = [
     { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-amber-600" /> },
     { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-rose-600" /> },
     { id: "Expense Notes", label: "Expense Notes", icon: <FaReceipt className="text-rose-600" /> },
+    { id: "Ledger Statement", label: "Ledger Statement", icon: <FaFileInvoiceDollar className="text-indigo-600" /> },
 ];
 
 const AccountingFinanceReports: React.FC = () => {
@@ -123,6 +124,184 @@ const AccountingFinanceReports: React.FC = () => {
                 }) || [];
             });
     }, [transactions, accounts, payments, expenseNotes, appliedFilters]);
+
+    // -----------------------------
+    // Ledger Statement  (built from PAYMENTS, not Transactions)
+    // -----------------------------
+    // One LEDGER read as a running statement — the same shape as the Party
+    // Statement, but for any ledger at all (Cash, Bank, Discount Allowed,
+    // Commission Received, a party's own ledger) and sourced from the payment
+    // documents rather than the posted Transactions.
+    //
+    // Each payment is expanded into its journal legs exactly as the server
+    // posts them (resolvers/payments — buildPaymentEntries / buildLedgerEntries):
+    //
+    //   Receipt : Dr Cash + Dr Discount Allowed
+    //               Cr Party/Ledger + Cr Commission Received
+    //   Payment : Dr Party/Ledger + Dr Commission
+    //               Cr Cash + Cr Discount Received
+    //
+    //   party leg = cash + discount - commission
+    //
+    // A discount lowers the cash without lowering the bill and a commission is
+    // charged on top of it, so the party leg is NOT the cash amount. Treating
+    // it as the cash amount is exactly what makes Customer Outstanding drift.
+
+    /** Every ledger that can have a statement, for the picker. */
+    const statementLedgerOptions = useMemo(
+        () => ledgers.map((l: any) => ({ label: l.ledgername, value: l.id })),
+        [ledgers]
+    );
+
+    // Pick the first ledger by default so the tab is never a blank screen.
+    useEffect(() => {
+        if (activeTab !== "Ledger Statement" || !statementLedgerOptions.length) return;
+        if (appliedFilters.statementledger) return;
+        const first = statementLedgerOptions[0].value;
+        setFilters((f) => ({ ...f, statementledger: first }));
+        setAppliedFilters((f) => ({ ...f, statementledger: first }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, statementLedgerOptions]);
+
+    const statementLedger = useMemo(
+        () => ledgers.find((l: any) => l.id === appliedFilters.statementledger) || null,
+        [ledgers, appliedFilters.statementledger]
+    );
+
+    const ledgerStatementData = useMemo(() => {
+        const target = statementLedger;
+        if (!target) return [];
+
+        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+        const r2 = (n: any) => parseFloat((Number(n) || 0).toFixed(2));
+
+        // Party account -> the ledger it posts to. The party leg of a payment
+        // names the ACCOUNT, but the statement is keyed by LEDGER, so the two
+        // have to be joined before a party receipt can land on this sheet.
+        const partyLedgerOf: Record<string, { id?: string; name: string }> = {};
+        accounts.forEach((a: any) => {
+            if (a.id) partyLedgerOf[a.id] = { id: a.ledgerid?.id, name: a.ledgerid?.ledgername || a.name || "-" };
+        });
+
+        // Discount / Commission ledgers are created on the server the first time
+        // they are needed, so the payment document never carries their ids.
+        // Resolve them by name or those legs can never be selected here.
+        const ledgerIdByName: Record<string, string> = {};
+        ledgers.forEach((l: any) => {
+            if (l.ledgername) ledgerIdByName[String(l.ledgername).toLowerCase()] = l.id;
+        });
+        const namedLedger = (name: string) => ({ id: ledgerIdByName[name.toLowerCase()], name });
+
+        const timeOf = (d: any) => {
+            if (!d) return NaN;
+            const str = String(d).trim();
+            return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
+        };
+
+        type Row = { t: number; type: string; ref: string; debit: number; credit: number };
+        const rows: Row[] = [];
+
+        payments
+            .filter((p: any) => p.status !== false)
+            .forEach((p: any) => {
+                const invs = Array.isArray(p.invoices) ? p.invoices : [];
+
+                // Concessions can sit on the bill lines OR on the payment itself
+                // (an opening-balance-only receipt has no line to hang them on),
+                // so take the larger of the two — the same rule the server uses.
+                const lineDiscount = r2(invs.reduce((sum: number, i: any) => sum + (Number(i.discount) || 0), 0));
+                const lineCommission = r2(invs.reduce((sum: number, i: any) => sum + (Number(i.commission) || 0), 0));
+                const discount = Math.max(lineDiscount, r2(p.discount));
+                const commission = Math.max(lineCommission, r2(p.commission));
+
+                const cash = r2(p.amount);
+                const settled = r2(cash + discount - commission);
+
+                const isReceipt = String(p.type || "").toLowerCase() === "receipt";
+                const viaParty = !!p.partyid?.id;
+
+                const cashLeg = { id: p.ledgerid?.id, name: p.ledgerid?.ledgername || "-" };
+                const counterLeg = viaParty
+                    ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
+                    : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
+
+                const legs: any[] = isReceipt
+                    ? [
+                        { ...cashLeg, debit: cash, credit: 0 },
+                        ...(discount > 0 ? [{ ...namedLedger("Discount Allowed"), debit: discount, credit: 0 }] : []),
+                        { ...counterLeg, debit: 0, credit: settled },
+                        ...(commission > 0 ? [{ ...namedLedger("Commission Received"), debit: 0, credit: commission }] : []),
+                    ]
+                    : [
+                        { ...counterLeg, debit: settled, credit: 0 },
+                        ...(commission > 0 ? [{ ...namedLedger("Commission"), debit: commission, credit: 0 }] : []),
+                        { ...cashLeg, debit: 0, credit: cash },
+                        ...(discount > 0 ? [{ ...namedLedger("Discount Received"), debit: 0, credit: discount }] : []),
+                    ];
+
+                // Only this ledger's own legs belong on its statement. A payment
+                // can touch it more than once (paying a party out of that same
+                // party's ledger), so every matching leg is kept, not the first.
+                legs
+                    .filter((l: any) => l.id === target.id)
+                    .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005)
+                    .forEach((l: any) => {
+                        rows.push({
+                            t: timeOf(p.paymentdate),
+                            type: isReceipt ? "Payment-In" : "Payment-Out",
+                            ref: String(p.paymentcode ?? "-"),
+                            debit: r2(l.debit),
+                            credit: r2(l.credit),
+                        });
+                    });
+            });
+
+        const valid = rows.filter((r) => !isNaN(r.t)).sort((x, y) => x.t - y.t);
+
+        // Everything before the period is folded into one beginning balance, so
+        // the statement opens with what the ledger carried in, not from zero.
+        let balance =
+            target.openingbalancetype === "credit"
+                ? -(Number(target.openingbalance) || 0)
+                : Number(target.openingbalance) || 0;
+        valid
+            .filter((r) => fromTimestamp && r.t < fromTimestamp)
+            .forEach((r) => { balance += r.debit - r.credit; });
+
+        const label = (n: number) => `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
+
+        const out: any[] = [
+            {
+                date: appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-",
+                txnType: "Opening Beginning Balance",
+                ref: "",
+                debit: balance > 0 ? balance.toFixed(2) : "0.00",
+                credit: balance < 0 ? Math.abs(balance).toFixed(2) : "0.00",
+                runningBalance: label(balance),
+            },
+        ];
+
+        valid
+            .filter(
+                (r) =>
+                    (!fromTimestamp || r.t >= fromTimestamp) &&
+                    (!toTimestamp || r.t <= toTimestamp)
+            )
+            .forEach((r) => {
+                balance += r.debit - r.credit;
+                out.push({
+                    date: formatDateDMY(r.t),
+                    txnType: r.type,
+                    ref: r.ref,
+                    debit: r.debit ? r.debit.toFixed(2) : "",
+                    credit: r.credit ? r.credit.toFixed(2) : "",
+                    runningBalance: label(balance),
+                });
+            });
+
+        return out;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statementLedger, payments, accounts, ledgers, appliedFilters]);
 
     // -------------------------------
     // Profit & Loss
@@ -372,6 +551,7 @@ const AccountingFinanceReports: React.FC = () => {
     let title = "Accounting & Finance Reports";
     let exportFileName = "AccountingReport";
     let netTotal: { debitKey: string; creditKey: string; showInKey?: string } | undefined;
+    let pdfSubtitle: string[] | undefined;
 
     switch (activeTab) {
         case "Ledger":
@@ -492,6 +672,47 @@ const AccountingFinanceReports: React.FC = () => {
             ];
             break;
 
+        case "Ledger Statement":
+            tableData = ledgerStatementData;
+            title = "Ledger Statement";
+            exportFileName = "LedgerStatement";
+            if (statementLedger) {
+                pdfSubtitle = [
+                    `Ledger name: ${statementLedger.ledgername || ""}`,
+                    `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`,
+                ];
+            }
+            columns = [
+                { label: "Date", key: "date" },
+                { label: "Txn Type", key: "txnType" },
+                { label: "Ref No.", key: "ref" },
+                { label: "Debit (₹)", key: "debit", numeric: true },
+                { label: "Credit (₹)", key: "credit", numeric: true },
+                {
+                    // Deliberately not `numeric`: a running balance is a position
+                    // at a point in time, and summing every row of it is
+                    // meaningless. Right-align by hand so it still reads as money.
+                    label: "Running Balance",
+                    key: "runningBalance",
+                    render: (row: any) => (
+                        <span className="block text-right whitespace-nowrap">{row.runningBalance}</span>
+                    ),
+                },
+            ];
+            // A statement is always ONE ledger, so that choice leads the filter
+            // bar rather than trailing the dates.
+            filterFields = [
+                {
+                    name: "statementledger",
+                    label: "Ledger",
+                    type: "select",
+                    options: statementLedgerOptions,
+                    searchable: true,
+                },
+                ...filterFields,
+            ];
+            break;
+
         default:
             break;
     }
@@ -534,6 +755,7 @@ const AccountingFinanceReports: React.FC = () => {
                     exportFileName={exportFileName}
                     showTotals
                     netTotal={netTotal}
+                    pdfSubtitle={pdfSubtitle}
                 />
             </div>
         </HomeLayout>

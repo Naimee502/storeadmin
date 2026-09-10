@@ -33,6 +33,12 @@ export const GET_PAYMENTS = gql`
         allocatedat
       }
       amount
+      # Payment-level concession totals. The Ledger Statement report rebuilds
+      # the journal legs (Cash / Discount Allowed / Party / Commission) from the
+      # payment itself, and an OPENING-balance-only receipt carries its
+      # discount / commission here and nowhere else.
+      discount
+      commission
       openingsettled
       unallocatedamount
       allocationmode
@@ -83,6 +89,12 @@ export const GET_DELETED_PAYMENTS = gql`
         allocatedat
       }
       amount
+      # Payment-level concession totals. The Ledger Statement report rebuilds
+      # the journal legs (Cash / Discount Allowed / Party / Commission) from the
+      # payment itself, and an OPENING-balance-only receipt carries its
+      # discount / commission here and nowhere else.
+      discount
+      commission
       openingsettled
       unallocatedamount
       allocationmode
@@ -132,6 +144,13 @@ export const GET_PAYMENT_BY_ID = gql`
         allocatedat
       }
       amount
+      # Payment-level concession totals. A concession given on the party's
+      # OPENING balance has no invoice line to sit on (see concessionSplit in
+      # payments/addedit), so these are the only copy of it — without them the
+      # edit screen re-opened such a payment with empty Discount / Commission
+      # boxes and a journal preview missing both legs.
+      discount
+      commission
       openingsettled
       unallocatedamount
       allocationmode

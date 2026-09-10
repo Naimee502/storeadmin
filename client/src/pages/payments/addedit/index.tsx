@@ -11,6 +11,7 @@ import {
   usePaymentByIDQuery,
   usePreviewAllocationLazy,
 } from "../../../graphql/hooks/payments";
+import { useLedgerMovementsLazy } from "../../../graphql/hooks/transactions";
 import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
@@ -61,6 +62,7 @@ type Proposal = {
 };
 
 const fmt = (n: number) => n.toFixed(2);
+const round2 = (n: number) => parseFloat((Number(n) || 0).toFixed(2));
 
 /**
  * A concession has to reduce a DEBT. Open bills and the carried-forward opening
@@ -182,6 +184,7 @@ const AddEditPayment = () => {
   const autoSettlement: "off" | "ask" | "always" =
     adminSettingsData?.getAdminSettings?.paymentAutoSettlement || "ask";
   const runPreview = usePreviewAllocationLazy();
+  const runLedgerMovements = useLedgerMovementsLazy();
 
   // ── Form state ─────────────────────────────────────────────────────────
   const [paymentdate, setPaymentdate] = useState(todayYMD());
@@ -217,6 +220,17 @@ const AddEditPayment = () => {
   // Opening balance this party still carries, as the server last reported it.
   // Null until a preview has run — we never guess it client-side.
   const [openingDue, setOpeningDue] = useState<number | null>(null);
+  /**
+   * Ledger mode's equivalent: what the SELECTED ledger currently carries, as
+   * the server last totalled it. A ledger has no bills, so this one figure is
+   * its whole outstanding — the counterpart of openingDue above.
+   */
+  const [ledgerDue, setLedgerDue] = useState<{
+    openingbalance: number;
+    movement: number;
+    balance: number;
+    outstanding: number;
+  } | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   // What the confirm dialog should do on approval: create/update the payment,
   // or just re-spread an existing one (which never touches the journal).
@@ -304,6 +318,13 @@ const AddEditPayment = () => {
   const openingDueValue = Math.max(0, openingDue || 0);
   /** Is there actually a debt for the money — and a concession — to reduce? */
   const hasSomethingToSettle = hasOpenBills || openingDueValue > 0;
+  /**
+   * Ledger mode's equivalent of openingDueValue: what the selected ledger still
+   * carries in the direction THIS voucher settles. A receipt collects a debit
+   * balance, a payment clears a credit one; the other direction is 0, because
+   * there is nothing for this voucher to settle.
+   */
+  const ledgerDueValue = Math.max(0, ledgerDue?.outstanding || 0);
 
   // Concessions can be captured in Direct mode too, but only when there is an
   // allocation to attach them to — with auto-settlement off the money just sits
@@ -418,6 +439,75 @@ const AddEditPayment = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyid, payType, isLedgerMode, adminId, branchId, id]);
+
+  // Ledger mode gets the same treatment as a party: work out what the selected
+  // ledger carries the moment it is picked. Without this the panel showed only
+  // an empty amount box, so a ledger with a ₹5,000 opening balance looked like
+  // it had nothing to settle — the party side has shown its opening balance all
+  // along, and this is that same figure for a ledger.
+  //
+  // A ledger has no bills, so its balance is just the opening figure plus every
+  // journal posted to it since. The opening comes from the ledger list this
+  // page already loads; the movements are asked for with the ledger filtered
+  // server-side, so this is a few rows and not the whole book.
+  useEffect(() => {
+    const led = ledgerData?.getAccountLedgers?.find((l: any) => l.id === counterledgerid);
+    if (!isLedgerMode || !counterledgerid || !adminId || !led) {
+      setLedgerDue(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // Same sign convention as the party report and getPartyOpeningDue: a
+      // DEBIT balance means they owe us, a credit one that we owe them.
+      const openingbalance = round2(
+        String(led.openingbalancetype).toLowerCase() === "credit"
+          ? -(Number(led.openingbalance) || 0)
+          : Number(led.openingbalance) || 0
+      );
+      let movement = 0;
+      try {
+        const res = await runLedgerMovements({
+          variables: { filter: { adminid: adminId, ledgerid: counterledgerid } },
+        });
+        const txs = res?.data?.getTransactions || [];
+        movement = round2(
+          txs.reduce((sum: number, t: any) => {
+            // Editing: this payment's own journal is about to be rewritten, so
+            // counting it would hide the balance it has already settled.
+            if (id && String(t?.source?.docid || "") === String(id)) return sum;
+            // Each journal carries its counter-leg too — only this ledger's
+            // own entries move its balance.
+            return (
+              sum +
+              (t.entries || []).reduce(
+                (legs: number, e: any) =>
+                  e?.ledgerid?.id === counterledgerid
+                    ? legs + (Number(e.debit) || 0) - (Number(e.credit) || 0)
+                    : legs,
+                0
+              )
+            );
+          }, 0)
+        );
+      } catch {
+        // The opening balance alone is still worth showing — it is the figure
+        // the user just entered on the party, and the reason they are here.
+        movement = 0;
+      }
+      if (cancelled) return;
+      const balance = round2(openingbalance + movement);
+      // Money in collects a debit balance; money out clears a credit one. The
+      // other direction has nothing for THIS voucher to settle.
+      const outstanding =
+        payType === "payment" ? Math.max(0, round2(-balance)) : Math.max(0, balance);
+      setLedgerDue({ openingbalance, movement, balance, outstanding });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counterledgerid, isLedgerMode, payType, adminId, id, ledgerData]);
 
   // ── Load existing payment for edit ─────────────────────────────────────
   useEffect(() => {
@@ -733,6 +823,60 @@ const AddEditPayment = () => {
    * discount on a party whose whole balance is an opening figure.
    */
   const totalOutstanding = parseFloat((billsOutstanding + openingDueValue).toFixed(2));
+
+  /**
+   * The selected ledger's balance, laid out with the same rows, divider and
+   * orange total as the party panel's outstanding block — so a Ledger-mode
+   * receipt reads exactly the way a party receipt already does. Null until the
+   * server has reported a balance, and for a ledger that carries nothing.
+   */
+  const ledgerBalanceRows =
+    ledgerDue && (ledgerDue.openingbalance !== 0 || ledgerDue.movement !== 0) ? (
+      <div className="space-y-1">
+        {ledgerDue.openingbalance !== 0 && (
+          <div className="flex justify-between">
+            <span>
+              Opening Balance
+              <span className="block text-[11px] text-gray-500">
+                Carried forward — what this ledger opened with.
+              </span>
+            </span>
+            <span className="font-medium">
+              ₹{fmt(Math.abs(ledgerDue.openingbalance))}{" "}
+              {ledgerDue.openingbalance > 0 ? "Dr" : "Cr"}
+            </span>
+          </div>
+        )}
+        {ledgerDue.movement !== 0 && (
+          <div className="flex justify-between">
+            <span>
+              Posted Since
+              <span className="block text-[11px] text-gray-500">
+                Vouchers already posted to this ledger.
+              </span>
+            </span>
+            <span className="font-medium">
+              ₹{fmt(Math.abs(ledgerDue.movement))} {ledgerDue.movement > 0 ? "Dr" : "Cr"}
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between border-t pt-1">
+          <span className="font-medium">Total Outstanding</span>
+          <span className="font-semibold text-orange-600">₹{fmt(ledgerDueValue)}</span>
+        </div>
+        {/* A balance running the other way is not a bug and not zero — it is
+            simply not collectable by THIS voucher, and saying so beats an
+            unexplained ₹0.00 under a ledger the user knows carries money. */}
+        {ledgerDueValue === 0 && ledgerDue.balance !== 0 && (
+          <p className="text-[11px] text-gray-500">
+            This ledger carries ₹{fmt(Math.abs(ledgerDue.balance))}{" "}
+            {ledgerDue.balance > 0 ? "Dr" : "Cr"} — nothing for a{" "}
+            {payType === "payment" ? "payment" : "receipt"} to settle, so this amount
+            goes on account.
+          </p>
+        )}
+      </div>
+    ) : null;
 
   /**
    * Split one figure across the proposal lines in proportion to what each line
@@ -1742,7 +1886,10 @@ const AddEditPayment = () => {
                    knock ₹500 off what they carry, allow ₹20, ₹480 leaves the
                    drawer. Same three rows, same order, same wording as the
                    Direct / On Account panel. */
-                <div className="space-y-3 text-sm">
+                <div className="rounded-lg bg-gray-50 border p-4 space-y-4 text-sm">
+                  {ledgerBalanceRows}
+
+                  <div className={`space-y-3 ${ledgerBalanceRows ? "pt-3 border-t" : ""}`}>
                   {isFieldEnabled("amount") && (
                     <label className="flex items-start justify-between gap-4">
                       <span className="pt-1.5">
@@ -1831,18 +1978,29 @@ const AddEditPayment = () => {
                   {errors.amount && (
                     <div className="text-red-600 text-xs">{errors.amount}</div>
                   )}
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {isFieldEnabled("amount") && (<FormField
-                    label="Amount (₹)"
-                    name="amount"
-                    type="number"
-                    value={manualAmount}
-                    onChange={e => setManualAmount(e.target.value)}
-                    placeholder="0.00"
-                    error={errors.amount}
-                  />)}
+                /* Discount / Commission turned off for this business — the
+                   ledger's balance is still the figure the amount is being
+                   typed against, so it stays on screen. */
+                <div className="space-y-4">
+                  {ledgerBalanceRows && (
+                    <div className="rounded-lg bg-gray-50 border p-4 text-sm">
+                      {ledgerBalanceRows}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {isFieldEnabled("amount") && (<FormField
+                      label={ledgerDueValue > 0 ? "Settle Amount (₹)" : "Amount (₹)"}
+                      name="amount"
+                      type="number"
+                      value={manualAmount}
+                      onChange={e => setManualAmount(e.target.value)}
+                      placeholder="0.00"
+                      error={errors.amount}
+                    />)}
+                  </div>
                 </div>
               )}
             </fieldset>

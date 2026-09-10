@@ -12,6 +12,7 @@ import {
   GET_TRANSACTION_BY_ID,
   GET_DELETED_TRANSACTIONS,
   PREVIEW_INVOICE_JOURNAL,
+  GET_LEDGER_MOVEMENTS,
 } from "../../queries/transactions";
 
 import { useAppSelector } from "../../../redux/hooks";
@@ -37,6 +38,14 @@ export const usePreviewInvoiceJournalLazy = () => {
     fetchPolicy: "network-only",
   });
   return fetchPreview;
+};
+
+// ----------------- Ledger movements (lazy) -----------------
+// "network-only": the balance is a running journal total, so a cached one is
+// stale the moment any other voucher touches the ledger.
+export const useLedgerMovementsLazy = () => {
+  const [run] = useLazyQuery(GET_LEDGER_MOVEMENTS, { fetchPolicy: "network-only" });
+  return run;
 };
 
 // ----------------- Transactions Query -----------------
