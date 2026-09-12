@@ -756,7 +756,6 @@ const AppRoutes = () => {
         }
       />
       <Route
-      <Route
         path="/reports/product"
         element={
           <ProtectedRoutes>
@@ -764,6 +763,7 @@ const AppRoutes = () => {
           </ProtectedRoutes>
         }
       />
+      <Route
         path="/reports/accounting"
         element={
           <ProtectedRoutes>
