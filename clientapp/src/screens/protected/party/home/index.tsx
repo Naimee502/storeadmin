@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar, ActivityIndicator,
-  Dimensions,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator, Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -9,14 +8,14 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../../config';
 import { HomeScreenSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { useProductPage } from '../../../../apollo/hooks/products';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUserParty } from '../../../../utils';
-import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList, HeroBanner, useNotificationCenter } from '../../../../components';
+import { AppHeader, AppImage, AppTextInput, CategoryStrip, DynamicFlashList, HeroBanner, useNotificationCenter, usePreloadMedia } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
@@ -107,7 +106,7 @@ const ProductCard = React.memo(function ProductCard({
       <View>
         <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
           {p.imageurl
-            ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.productImg} resizeMode="cover" />
+            ? <AppImage uri={p.imageurl} width={IMG.card} style={styles.productImg} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={26} color={colors.brand} />
           }
           {showStock && outOfStock && (
@@ -257,6 +256,14 @@ export default function PartyHome() {
     loadingMore,
     loadMore,
   } = useProductPage({ adminid, search, categoryid: category });
+  // Pull this page's pictures down before any card asks for one.
+  //
+  // A card only starts its download when its cell mounts, which on a fast
+  // scroll is the same moment it becomes visible — too late to be there
+  // already. Warming the whole page up front costs about a megabyte at card
+  // size and happens while the user is still reading the first two rows, so
+  // by the time they scroll, the images are simply drawn from cache.
+  usePreloadMedia(pagedProducts.map((p: any) => p.imageurl), IMG.card);
   // Categories come from the category list itself, not from whichever products
   // happened to load. Same source the website's storefront uses.
   const { data: categoriesData } = useQuery(GET_CATEGORIES, {

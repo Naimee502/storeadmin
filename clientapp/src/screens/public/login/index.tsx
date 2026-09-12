@@ -6,7 +6,8 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp, FadeInDown, FadeInRight } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl, IMG } from '../../../config';
+import { AppImage } from '../../../components';
 import { useAuth } from '../../../navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, setBranch } from '../../../store/slices';
@@ -43,7 +44,7 @@ export default function Login({ navigation }: any) {
   // Measured against the resolved url, not the stored one: the stored url can
   // name a host this device cannot reach (see resolveMediaUrl), and getSize on
   // that just fails silently, leaving every logo square.
-  const logoUri = resolveMediaUrl(brandLogo);
+  const logoUri = resolveMediaUrl(brandLogo, IMG.logo);
   const [logoRatio, setLogoRatio] = useState(1);
   useEffect(() => {
     if (!logoUri) return;
@@ -260,10 +261,12 @@ export default function Login({ navigation }: any) {
                     { borderColor: colors.border, shadowColor: colors.brand },
                   ]}
                 >
-                  <Image
-                    source={{ uri: logoUri }}
+                  <AppImage
+                    uri={brandLogo}
+                    width={IMG.logo}
                     style={{ width: logoWidth, height: LOGO_HEIGHT }}
                     resizeMode="cover"
+                    instant
                   />
                 </View>
               ) : (

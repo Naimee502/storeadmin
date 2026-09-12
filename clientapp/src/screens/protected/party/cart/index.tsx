@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, Alert, Modal, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Modal, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -9,9 +8,9 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useApolloClient } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
+import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { formatINR } from '../../../../utils';
-import { AppHeader, DynamicFlashList, AddressForm } from '../../../../components';
+import { AppHeader, AppImage, DynamicFlashList, AddressForm } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { GET_SALES_ORDERS, GET_ACCOUNT } from '../../../../apollo/queries/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
@@ -139,7 +138,7 @@ export default function CartScreen() {
         {/* Product image */}
         <View style={[styles.itemImg, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <Image source={{ uri: resolveMediaUrl(item.imageUrl) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ? <AppImage uri={item.imageUrl} width={IMG.thumb} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={22} color={colors.brand} />
           }
         </View>

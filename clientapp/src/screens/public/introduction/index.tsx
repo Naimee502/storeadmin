@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Dimensions, Image,
-  TouchableOpacity, SafeAreaView, StatusBar, DimensionValue,
+  View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, SafeAreaView, StatusBar, DimensionValue,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -10,7 +9,8 @@ import Animated, {
   FadeInUp, FadeInDown,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../config';
+import { AppImage } from '../../../components';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store/rootreducer';
 import { useAuth } from '../../../navigation';
@@ -243,7 +243,7 @@ const Introduction = () => {
         <View style={styles.header}>
           <View style={styles.brandRow}>
             {brandLogo ? (
-              <Image source={{ uri: resolveMediaUrl(brandLogo) }} style={styles.brandLogo} resizeMode="contain" />
+              <AppImage uri={brandLogo} width={IMG.logo} style={styles.brandLogo} resizeMode="contain" instant />
             ) : null}
             {businessName ? (
               <Text

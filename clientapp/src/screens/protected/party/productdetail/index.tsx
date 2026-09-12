@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, ScrollView, Dimensions,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -9,10 +8,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
+import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
-import { BackHeader } from '../../../../components';
+import { BackHeader, AppImage } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
@@ -243,14 +242,12 @@ export default function ProductDetail() {
           >
             {mainImage
               ? (
-                <Image
-                  source={{ uri: resolveMediaUrl(mainImage) }}
+                <AppImage
+                  uri={mainImage}
+                  width={IMG.full}
                   style={styles.img}
                   resizeMode="cover"
-                  onLoad={(e) => {
-                    const { width, height } = e.nativeEvent?.source ?? {};
-                    if (width && height) setImgRatio(width / height);
-                  }}
+                  onAspectRatio={setImgRatio}
                 />
               )
               : <Icon name="package-variant-closed" size={72} color={colors.brand} />
@@ -277,7 +274,7 @@ export default function ProductDetail() {
                 ]}
                 activeOpacity={0.8}
               >
-                <Image source={{ uri: resolveMediaUrl(uri) }} style={styles.thumbImg} resizeMode="cover" />
+                <AppImage uri={uri} width={IMG.thumb} style={styles.thumbImg} resizeMode="cover" />
               </TouchableOpacity>
             ))}
           </Animated.View>

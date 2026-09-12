@@ -72,18 +72,74 @@ const isOurOrigin = (origin: string) =>
   origin === SERVER_URL_PROD ||
   OURS.test(origin);
 
-export const resolveMediaUrl = (url?: string | null): string => {
+/**
+ * The widths the server is willing to render, and the only ones worth asking
+ * for. Anything else is snapped up to the next rung server-side, so asking for
+ * an off-ladder size just means two screens never share a cached file.
+ */
+const WIDTH_LADDER = [96, 160, 240, 320, 400, 480, 640, 800, 1080, 1280, 1600];
+
+/**
+ * Named sizes, so no call site has to think in pixels.
+ *
+ * Each number is the widest that kind of image is ever drawn, taken up the
+ * ladder far enough to stay sharp on a 3x screen. They are deliberately
+ * nowhere near the size of the stored original: a product card is 170dp wide,
+ * and the file behind it is routinely a 3 MB photo straight off a phone.
+ * Downloading all of that to fill a thumbnail is what left the grids sitting
+ * on grey placeholders.
+ */
+export const IMG = {
+  /** Cart rows, order lines, list thumbnails, category circles (60-80dp). */
+  thumb: 240,
+  /** Brand logo, wherever it appears. */
+  logo: 320,
+  /** Product grid cards (~170dp, two columns). */
+  card: 480,
+  /** Full-bleed banners and hero slides. */
+  banner: 1080,
+  /** Product detail hero and the full-screen viewer. */
+  full: 1280,
+} as const;
+
+export type ImageWidth = number;
+
+export const resolveMediaUrl = (url?: string | null, width?: ImageWidth): string => {
   const raw = String(url ?? '').trim();
   if (!raw) return '';
 
   const at = raw.indexOf('/uploads/');
   if (at === -1) return raw;
 
+  let resolved: string;
+
   // Already relative — just give it a host.
-  if (at === 0) return `${ACTIVE_SERVER_URL}${raw}`;
+  if (at === 0) {
+    resolved = `${ACTIVE_SERVER_URL}${raw}`;
+  } else {
+    const origin = raw.slice(0, at);
+    if (!isOurOrigin(origin)) return raw;
+    resolved = `${ACTIVE_SERVER_URL}${raw.slice(at)}`;
+  }
 
-  const origin = raw.slice(0, at);
-  if (!isOurOrigin(origin)) return raw;
+  return width ? withWidth(resolved, width) : resolved;
+};
 
-  return `${ACTIVE_SERVER_URL}${raw.slice(at)}`;
+/**
+ * Ask our own server for a resized copy of a file it is already storing.
+ *
+ * The server answers "?w=480" with a WebP re-encode of the same upload —
+ * roughly 25 KB where the original is megabytes — generated once and then
+ * cached on disk. Nothing has to be re-uploaded for this to work on images
+ * that are already there, and a URL without "?w=" still returns the original,
+ * so nothing that predates this changes behaviour.
+ *
+ * Only URLs pointing at our own server get the parameter. A CDN or an external
+ * image would either ignore it or, worse, treat it as part of a cache key we
+ * do not control.
+ */
+const withWidth = (resolved: string, width: number): string => {
+  if (resolved.includes('?w=') || resolved.includes('&w=')) return resolved;
+  const snapped = WIDTH_LADDER.find(w => w >= width) ?? WIDTH_LADDER[WIDTH_LADDER.length - 1];
+  return `${resolved}${resolved.includes('?') ? '&' : '?'}w=${snapped}`;
 };

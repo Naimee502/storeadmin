@@ -11,11 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
-import FastImage from 'react-native-fast-image';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { AppTextInput, AppButton } from '../../../components';
-import { COLORS, STRINGS, FONTS, useTheme } from '../../../config';
+import { AppTextInput, AppButton, AppImage } from '../../../components';
+import { COLORS, STRINGS, FONTS, useTheme, IMG } from '../../../config';
 import { PermissionHelper } from '../../../utils';
 
 export default function Signup({ navigation }: any) {
@@ -97,7 +96,7 @@ export default function Signup({ navigation }: any) {
               style={[styles.imagePickerContainer, { borderColor: colors.brand, backgroundColor: colors.raisedSurface }]}
             >
               {profileImage ? (
-                <FastImage source={{ uri: profileImage }} style={styles.profilePic} />
+                <AppImage uri={profileImage} width={IMG.thumb} style={styles.profilePic} />
               ) : (
                 <View style={styles.placeholderPic}>
                   <Icon name="camera-plus-outline" size={32} color={colors.brand} />

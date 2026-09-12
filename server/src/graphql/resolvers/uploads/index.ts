@@ -6,6 +6,7 @@ import { requireBackofficeTenant } from '../../../utils/tenant';
 import { ProductService } from '../../../models/products';
 import { Category } from '../../../models/categories';
 import { AdminSettings } from '../../../models/adminsettings';
+import { purgeImageCache } from '../../../utils/imagecache';
 
 /** Where uploadImage writes, and what express serves at /uploads. */
 const uploadDir = () => path.join(__dirname, '../../../uploads');
@@ -157,6 +158,9 @@ export const uploadResolvers = {
 
         try {
           await fs.promises.unlink(filepath);
+          // The resized renders this file produced are now orphans — nothing
+          // will ever request them again, so they would sit in .cache forever.
+          await purgeImageCache(uploadDir(), path.basename(filepath));
           removed++;
         } catch (err: any) {
           // ENOENT: already gone, which is the state we were asked for.

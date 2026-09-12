@@ -348,7 +348,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           (slides ?? []).map(async (s: any) => {
             let image = s.image ?? "";
             if (s._file) {
-              const { data: uploadedFile } = await uploadImageMutation({ variables: { file: s._file } });
+              const { data: uploadedFile } = await uploadImageMutation({ variables: { file: s._file } }, 'banner');
               if (uploadedFile?.uploadImage?.url) {
                 image = uploadedFile.uploadImage.url;
                 uploaded.push(image);
@@ -366,7 +366,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
 
       let brandLogo: string = rest.brandLogo ?? "";
       if (logoFile) {
-        const { data: uploadedLogo } = await uploadImageMutation({ variables: { file: logoFile } });
+        const { data: uploadedLogo } = await uploadImageMutation({ variables: { file: logoFile } }, 'logo');
         if (uploadedLogo?.uploadImage?.url) {
           brandLogo = uploadedLogo.uploadImage.url;
           uploaded.push(brandLogo);

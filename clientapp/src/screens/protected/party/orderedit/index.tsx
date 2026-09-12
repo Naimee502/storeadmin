@@ -1,16 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator,
-  Modal, FlatList, TextInput, ScrollView, Image,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator, Modal, FlatList, TextInput, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { FONTS, useTheme, resolveMediaUrl } from '../../../../config';
+import { FONTS, useTheme, IMG } from '../../../../config';
 import { formatINR } from '../../../../utils';
-import { BackHeader } from '../../../../components';
+import { BackHeader, AppImage } from '../../../../components';
 import { GET_SALES_ORDER_BY_ID, GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { EDIT_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { apolloClient } from '../../../../apollo/client';
@@ -254,7 +253,7 @@ export default function OrderEdit() {
           <View key={idx} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
               {l.imageUrl
-                ? <Image source={{ uri: resolveMediaUrl(l.imageUrl) }} style={styles.thumbImg} resizeMode="cover" />
+                ? <AppImage uri={l.imageUrl} width={IMG.thumb} style={styles.thumbImg} resizeMode="cover" />
                 : <Icon name="package-variant-closed" size={20} color={colors.brand} />
               }
             </View>

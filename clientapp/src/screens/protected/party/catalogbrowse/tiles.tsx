@@ -1,9 +1,10 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Image, Modal, Dimensions, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions, StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { FONTS, useTheme, resolveMediaUrl } from '../../../../config';
+import { FONTS, useTheme, IMG } from '../../../../config';
+import { AppImage } from '../../../../components';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 // EDGE matches the hero banner's own horizontal inset, so the grid's outer
@@ -50,7 +51,6 @@ export const TileGrid: React.FC<{
   return (
     <View style={styles.grid}>
       {tiles.map((t) => {
-        const uri = resolveMediaUrl(t.image);
         return (
           <TouchableOpacity
             key={t.id}
@@ -62,8 +62,8 @@ export const TileGrid: React.FC<{
             onPress={() => onPress(t)}
           >
             <View style={[styles.tileImgWrap, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-              {uri ? (
-                <Image source={{ uri }} style={styles.tileImg} resizeMode="contain" />
+              {t.image ? (
+                <AppImage uri={t.image} width={IMG.thumb} style={styles.tileImg} resizeMode="contain" />
               ) : (
                 <Icon name="shape-outline" size={30} color={colors.placeholder} />
               )}
@@ -101,7 +101,7 @@ export const ImageViewer: React.FC<{
           <Icon name="close" size={22} color={colors.onBrand} />
         </TouchableOpacity>
         {uri ? (
-          <Image source={{ uri: resolveMediaUrl(uri) }} style={styles.viewerImg} resizeMode="contain" />
+          <AppImage uri={uri} width={IMG.full} style={styles.viewerImg} resizeMode="contain" />
         ) : null}
       </View>
     </Modal>

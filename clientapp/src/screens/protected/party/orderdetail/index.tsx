@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
+import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
 import {
   CONFIRM_SALES_ORDER, CONVERT_SALES_ORDER_TO_INVOICE,
@@ -16,7 +16,7 @@ import {
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { useModuleEnabled } from '../../../../apollo/hooks/admin';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
-import { BackHeader } from '../../../../components';
+import { BackHeader, AppImage } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -346,7 +346,7 @@ export default function OrderDetail() {
               ]}>
                 <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
                   {item.productserviceid?.imageurl
-                    ? <Image source={{ uri: resolveMediaUrl(item.productserviceid.imageurl) }} style={styles.itemImg} resizeMode="cover" />
+                    ? <AppImage uri={item.productserviceid.imageurl} width={IMG.thumb} style={styles.itemImg} resizeMode="cover" />
                     : <Icon name="package-variant-closed" size={16} color={colors.brand} />
                   }
                 </View>

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
-import { BackHeader, DynamicFlashList } from '../../../../components';
+import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
+import { BackHeader, AppImage, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { formatINR } from '../../../../utils';
 import { clearCart, updateQty } from '../../../../store/slices';
@@ -131,7 +131,7 @@ export default function StaffCart() {
       <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <Image source={{ uri: resolveMediaUrl(item.imageUrl) }} style={styles.itemImg} resizeMode="cover" />
+            ? <AppImage uri={item.imageUrl} width={IMG.thumb} style={styles.itemImg} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={20} color={colors.brand} />
           }
         </View>

@@ -13,6 +13,7 @@ import jwt from 'jsonwebtoken';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
+import { imageResizer } from './utils/imagecache';
 
 dotenv.config();
 
@@ -87,8 +88,30 @@ const startServer = async () => {
     graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 })
   );
 
-  // Serve uploads folder static files
-  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+  // Serve uploads folder static files.
+  //
+  // Two layers, in this order:
+  //
+  //   imageResizer  answers "?w=480" with a WebP re-encode of the stored file
+  //                 at that width, generated once and cached on disk. This is
+  //                 what makes the app's product grids paint immediately: the
+  //                 originals are untouched phone photos of several megabytes,
+  //                 and a card only ever needed about 25 KB of that. Nothing
+  //                 has to be re-uploaded — it reads the files already here.
+  //
+  //   express.static serves the original for every URL without "?w=", which is
+  //                 every URL stored in the database and every older build.
+  //
+  // The long, immutable Cache-Control matters as much as the resizing. Upload
+  // names carry Date.now(), so a given URL's bytes never change; with the
+  // previous default (max-age=0) every image was re-validated over the network
+  // on every app launch before anything could be drawn.
+  const uploadsPath = path.join(__dirname, 'uploads');
+  app.use(
+    '/uploads',
+    imageResizer(uploadsPath),
+    express.static(uploadsPath, { maxAge: '365d', immutable: true }),
+  );
 
   // Attach Apollo middleware to express app at /graphql route.
   //

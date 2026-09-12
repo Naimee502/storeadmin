@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../../../../config';
-import { BackHeader, AppTextInput, DynamicFlashList } from '../../../../components';
+import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
+import { BackHeader, AppImage, AppTextInput, DynamicFlashList, usePreloadMedia } from '../../../../components';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
@@ -45,6 +45,14 @@ export default function SalesmanCatalog() {
   const partyAccount = (accountData as any)?.getAccountById;
 
   const products = (data as any)?.getProductServices ?? [];
+  // Pull this page's pictures down before any card asks for one.
+  //
+  // A card only starts its download when its cell mounts, which on a fast
+  // scroll is the same moment it becomes visible — too late to be there
+  // already. Warming the whole page up front costs about a megabyte at card
+  // size and happens while the user is still reading the first two rows, so
+  // by the time they scroll, the images are simply drawn from cache.
+  usePreloadMedia(products.map((p: any) => p.imageurl), IMG.thumb);
 
   // Party-specific price list resolution. The base unit price on each product is
   // overridden by the price list assigned to this party's channel / region /
@@ -196,7 +204,7 @@ export default function SalesmanCatalog() {
         {/* Thumbnail */}
         <View style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}>
           {p.imageurl
-            ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.img} resizeMode="cover" />
+            ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
           {showStock && outOfStock && (

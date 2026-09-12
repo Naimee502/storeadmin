@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
-  NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, useTheme, resolveMediaUrl } from '../config';
+import { COLORS, FONTS, useTheme, IMG } from '../config';
+import { AppImage } from './appimage';
 
 /** One normalised slide, whatever fed it (hero slides, promo tiles, …). */
 export type BannerSlide = {
@@ -133,7 +133,7 @@ export const BannerCarousel: React.FC<Props> = ({
               <View style={[styles.card, { width, height, backgroundColor: s.bg ?? colors.softSurface }]}>
                 {s.image ? (
                   <>
-                    <Image source={{ uri: resolveMediaUrl(s.image) }} style={styles.image} resizeMode="cover" />
+                    <AppImage uri={s.image} width={IMG.banner} style={styles.image} resizeMode="cover" />
                     <View style={[styles.overlay, { backgroundColor: colors.heroOverlay }]} />
                   </>
                 ) : !s.bg ? (

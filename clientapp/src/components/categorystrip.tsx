@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Image, StyleSheet,
-  StyleProp, ViewStyle,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, StyleProp, ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
-import { FONTS, useTheme, resolveMediaUrl } from '../config';
+import { FONTS, useTheme, IMG } from '../config';
+import { AppImage } from './appimage';
 import { GET_CATEGORIES } from '../apollo/queries/categories';
 import type { RootState } from '../store/rootreducer';
 import { useIsEndUserParty } from '../utils/enduser';
@@ -117,7 +117,7 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
               },
             ]}>
               {uri ? (
-                <Image source={{ uri: resolveMediaUrl(uri) }} style={styles.circleImg} resizeMode="cover" />
+                <AppImage uri={uri} width={IMG.thumb} style={styles.circleImg} resizeMode="cover" />
               ) : (
                 <Icon
                   name={item.id ? 'image-off-outline' : 'view-grid-outline'}

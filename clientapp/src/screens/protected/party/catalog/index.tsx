@@ -1,20 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Image, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, STRINGS, useTheme, resolveMediaUrl } from '../../../../config';
+import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../../config';
 import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { useProductPage } from '../../../../apollo/hooks/products';
 import { apolloClient } from '../../../../apollo/client';
-import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
+import { AppHeader, AppImage, AppTextInput, CategoryStrip, DynamicFlashList, usePreloadMedia } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
@@ -50,6 +49,14 @@ export default function Catalog() {
     search,
     categoryid: category,
   });
+  // Pull this page's pictures down before any card asks for one.
+  //
+  // A card only starts its download when its cell mounts, which on a fast
+  // scroll is the same moment it becomes visible — too late to be there
+  // already. Warming the whole page up front costs about a megabyte at card
+  // size and happens while the user is still reading the first two rows, so
+  // by the time they scroll, the images are simply drawn from cache.
+  usePreloadMedia(products.map((p: any) => p.imageurl), IMG.card);
 
   // Categories come from the category list, not from whichever products are on
   // the current page — otherwise the chips would change as the user scrolls.
@@ -163,7 +170,7 @@ export default function Catalog() {
         <View>
           <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
             {p.imageurl
-              ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.img} resizeMode="cover" />
+              ? <AppImage uri={p.imageurl} width={IMG.card} style={styles.img} resizeMode="cover" />
               : <Icon name="package-variant-closed" size={30} color={colors.brand} />
             }
             {showStock && outOfStock && (
