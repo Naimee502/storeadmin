@@ -24,7 +24,6 @@ class FirebaseManager {
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
       if (enabled) {
-        console.log('Authorization status:', authStatus);
         await this.getToken();
       }
     } catch (error) {
@@ -36,7 +35,6 @@ class FirebaseManager {
   async getToken() {
     try {
       const token = await messaging().getToken();
-      console.log('FCM Token:', token);
       return token;
     } catch (error) {
       console.error('[FirebaseManager] Failed to get FCM token:', error);
@@ -46,12 +44,10 @@ class FirebaseManager {
   private createNotificationListeners() {
     try {
       messaging().onMessage(async (remoteMessage) => {
-        console.log('Foreground Message:', remoteMessage);
         this.displayLocalNotification(remoteMessage);
       });
 
       messaging().onNotificationOpenedApp((remoteMessage) => {
-        console.log('Notification caused app to open from background:', remoteMessage);
         this.handleNotificationNavigation(remoteMessage);
       });
 
@@ -59,7 +55,6 @@ class FirebaseManager {
         .getInitialNotification()
         .then((remoteMessage) => {
           if (remoteMessage) {
-            console.log('Notification caused app to open from quit state:', remoteMessage);
             setTimeout(() => {
               this.handleNotificationNavigation(remoteMessage);
             }, 1000);
@@ -76,7 +71,6 @@ class FirebaseManager {
   private setupNotifeeListeners() {
     notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.PRESS && detail.notification) {
-        console.log('Notifee Foreground Press:', detail.notification);
         const remoteMessage = detail.notification.data;
         if (remoteMessage) {
           this.handleNotificationNavigation({ data: remoteMessage } as any);
@@ -86,7 +80,6 @@ class FirebaseManager {
 
     notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (type === EventType.PRESS && detail.notification) {
-        console.log('Notifee Background Event Press:', detail.notification);
       }
     });
   }

@@ -209,11 +209,15 @@ const Introduction = () => {
   // 'My Business' is the slice's placeholder for "nothing activated yet".
   const businessName = companyName && companyName !== 'My Business' ? companyName : '';
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentIndex < steps.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     } else {
-      finishIntro();
+      try {
+        await finishIntro();
+      } catch (error) {
+        console.error('Error finishing intro:', error);
+      }
     }
   };
 
@@ -252,7 +256,13 @@ const Introduction = () => {
           </View>
           {currentIndex < steps.length - 1 && (
             <TouchableOpacity
-              onPress={finishIntro}
+              onPress={async () => {
+                try {
+                  await finishIntro();
+                } catch (error) {
+                  console.error('Error finishing intro:', error);
+                }
+              }}
               activeOpacity={0.7}
               style={[styles.skipButton, { borderColor: colors.border, backgroundColor: colors.raisedSurface }]}
             >

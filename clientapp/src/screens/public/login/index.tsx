@@ -179,7 +179,6 @@ export default function Login({ navigation }: any) {
       });
 
       const { accessToken, staff } = data.loginStaffByMobile;
-      console.log('Staff login:', staff);
 
       dispatch(setCredentials({
         user: {

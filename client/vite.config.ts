@@ -16,9 +16,25 @@ export default defineConfig(({ mode }) => ({
   // @types/node just to type-check.
   base: mode === 'production' ? '/admin/' : '/',
   server: {
+    // `npm run dev` has no .env.development, so VITE_GRAPHQL_ENDPOINT is
+    // undefined and Apollo falls back to same-origin '/graphql' — i.e. these
+    // proxy rules decide which server the dev client actually talks to.
+    // Pointed at the live server so no local server has to be running; the
+    // old http://13.220.211.75:4000 target is dead and every request failed.
+    // Going through the proxy (instead of setting VITE_GRAPHQL_ENDPOINT to the
+    // live URL) keeps requests same-origin, so the live host needs no CORS
+    // entry for localhost:5173.
+    //
+    // To use a local server instead, swap the target for 'http://localhost:4000'.
     proxy: {
       '/graphql': {
-        target: 'http://13.220.211.75:4000', // or 'http://localhost:4000' if running locally
+        target: 'https://rudra.digisysindiatech.com',
+        changeOrigin: true,
+      },
+      // Uploaded images that were stored as a relative '/uploads/...' path
+      // would otherwise be requested from the dev server and 404.
+      '/uploads': {
+        target: 'https://rudra.digisysindiatech.com',
         changeOrigin: true,
       },
     },

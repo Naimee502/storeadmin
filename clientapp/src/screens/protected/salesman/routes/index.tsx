@@ -466,13 +466,6 @@ export default function SalesmanRoutes() {
     [data, visitedSet, myPartyIds],
   );
 
-  React.useEffect(() => {
-    const total = ((data as any)?.getSalesRoutes ?? [])
-      .reduce((s: number, r: any) => s + (r.dayWiseAccounts ?? []).reduce((d: number, dw: any) => d + (dw.accounts ?? []).length, 0), 0);
-    const shown = routes.reduce((s: number, r: any) => s + r.dayWiseAccounts.reduce((d: number, dw: any) => d + dw.accounts.length, 0), 0);
-    console.log('🗺️ [MyRoutes] myPartyIds:', myPartyIds.size, '| route parties total:', total, '| shown after filter:', shown);
-  }, [data, routes, myPartyIds]);
-
   // Refresh whenever the screen regains focus (e.g. after add / manage party / new order).
   useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));
 

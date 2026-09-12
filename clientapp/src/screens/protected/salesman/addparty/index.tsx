@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -42,7 +42,7 @@ export default function AddPartyToRoute() {
   const [selectedDay,  setSelectedDay]  = useState<string>(dayKey(preselectedDay));
   const [adding,       setAdding]       = useState<string | null>(null);
 
-  const { data, loading, error } = useQuery(GET_ACCOUNTS, {
+  const { data, loading } = useQuery(GET_ACCOUNTS, {
     variables: { admin: adminid, salesmanid: user?.id },
     skip: !adminid || !user?.id,
     fetchPolicy: 'cache-and-network',
@@ -66,20 +66,6 @@ export default function AddPartyToRoute() {
     }),
     [accounts, search, existingAccountIds, user?.id]
   );
-
-  // ── TEMP DIAGNOSTIC ────────────────────────────────────────────────
-  useEffect(() => {
-    console.log('🛣️ [AddPartyToRoute] user.id:', user?.id,
-      '| loading:', loading,
-      '| error:', error?.message ?? null,
-      '| accounts from server:', accounts.length,
-      JSON.stringify(accounts.map((a: any) => ({
-        name: a.name,
-        salesmanid: a.salesmanid?.id ?? a.salesmanid ?? null,
-      }))),
-      '| existingAccountIds:', JSON.stringify(existingAccountIds),
-      '| after filter:', filtered.length);
-  }, [accounts, filtered, loading, error, user?.id]);
 
   const handleAdd = (party: any) => {
     if (!selectedDay) {

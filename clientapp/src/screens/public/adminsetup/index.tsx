@@ -55,7 +55,6 @@ export default function AdminSetup() {
       });
 
       const admin = (data as any)?.getAdminByCode;
-      console.log('Business Detail:', JSON.stringify(admin));
 
       if (!admin) {
         setErrors({ code: 'Business code not found. Please check and try again.' });

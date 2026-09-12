@@ -104,14 +104,12 @@ export default function Catalog() {
           channelid: partyAccount?.channel?.id ?? null,
           region: partyAccount?.region ?? null,
         };
-        console.log('[resolvePrice] calling with:', JSON.stringify(vars));
         const { data: pd } = await apolloClient.query({
           query: RESOLVE_PRICE,
           variables: vars,
           fetchPolicy: 'network-only',
         });
         const rp = (pd as any)?.resolvePrice;
-        console.log('[resolvePrice] result:', JSON.stringify(rp));
         if (rp) {
           if (rp.rate != null) rate = rp.rate;
           // Only override the base unit discount when resolvePrice returns a

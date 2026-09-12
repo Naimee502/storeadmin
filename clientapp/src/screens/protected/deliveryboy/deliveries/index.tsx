@@ -105,13 +105,6 @@ export default function DeliveryList() {
     fetchPolicy: 'cache-and-network',
   });
 
-  // TEMP diagnostic — see what the app actually receives.
-  console.log('[DELIV-APP] adminId=', adminId, 'user=', user?.id,
-    '| pool=', (poolData as any)?.getSalesInvoices?.length,
-    '| mine=', (mineData as any)?.getSalesInvoices?.length,
-    '| poolError=', poolError?.message,
-    '| mineError=', mineError?.message);
-
   const [assignToMe]   = useMutation(ASSIGN_INVOICE_DELIVERY_BOY);
   const { blocked: punchBlocked } = usePunchGate();
   const [markDelivered] = useMutation(MARK_SALES_INVOICE_DELIVERED);

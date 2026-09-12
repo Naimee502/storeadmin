@@ -41,7 +41,13 @@ type Props = {
  * entirely for the pill variant so no other business pays for the request.
  * `item.image` still wins when present, in case that projection is widened.
  */
-export const CategoryStrip: React.FC<Props> = ({
+/**
+ * Memoised: this sits in Home's list header, which re-renders on every
+ * keystroke in the search box and every tap on a card's +. Without memo the
+ * whole category row — and its images — was rebuilt each time, for props that
+ * had not changed.
+ */
+export const CategoryStrip: React.FC<Props> = React.memo(({
   categories, selected, onSelect, contentContainerStyle,
 }) => {
   const { colors } = useTheme();
@@ -139,7 +145,7 @@ export const CategoryStrip: React.FC<Props> = ({
       })}
     </ScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },

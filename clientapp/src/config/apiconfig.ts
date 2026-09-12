@@ -28,7 +28,7 @@
 //   Android emulator:      'http://10.0.2.2:4000'
 //   ngrok tunnel:          `ngrok http 4000` then `npm run sync-ngrok`
 // ─────────────────────────────────────────────────────────────────────────────
-const SERVER_URL = 'http://192.168.29.228:4000';
+const SERVER_URL = 'https://rudra.digisysindiatech.com';
 
 // Same production GraphQL host the web admin panel (client/.env.production)
 // points to. Update here if the production domain ever changes.

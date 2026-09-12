@@ -1097,6 +1097,18 @@ const AddEditProductService = () => {
   
 
   const handleSubmit = async () => {
+    // Never save an edit form that has not received the product yet.
+    //
+    // Everything below writes the form's CURRENT state over the record, and
+    // until the query lands that state is the blank default — so a save in
+    // that window replaces the product's images (and everything else) with
+    // empty. Validation catches most of it, because a blank name fails, but
+    // the picture fields have no such rule and would go quietly.
+    if (isEdit && !productData) {
+      dispatch(showMessage({ message: "Still loading this product — try again in a moment.", type: "error" }));
+      return;
+    }
+
     const { valid, issues } = validateForm();
 
     if (!valid) {

@@ -75,7 +75,6 @@ export default function OTPVerification({ navigation, route }: any) {
       });
 
       const { accessToken, account } = data.verifyOTP;
-      console.log('Party login:', account);
 
       dispatch(setCredentials({
         user: {
@@ -107,7 +106,6 @@ export default function OTPVerification({ navigation, route }: any) {
         ...(err?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
       ];
       const pending = codes.includes(CODE) || /waiting for approval/i.test(msg);
-      console.log('[otp] verify failed —', msg, '| codes:', codes.filter(Boolean));
 
       showToast(msg, pending ? 'warning' : 'danger');
       if (pending) {

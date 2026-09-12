@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, StatusBar, ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -15,7 +16,7 @@ import { useProductPage } from '../../../../apollo/hooks/products';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUserParty } from '../../../../utils';
-import { AppHeader, AppTextInput, CategoryStrip, HeroBanner, useNotificationCenter } from '../../../../components';
+import { AppHeader, AppTextInput, CategoryStrip, DynamicFlashList, HeroBanner, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
@@ -29,6 +30,9 @@ const STATUS_COLOR: Record<string, string> = {
   Delivered: '#22c55e',
 };
 
+
+
+
 const DUMMY_ORDERS = [
   { id: 'd1', billnumber: '000001', billdate: '2024-11-15', totalamount: 4788, isConverted: true, cancelStatus: null, salesmenid: { name: 'Rahul S.' } },
   { id: 'd2', billnumber: '000002', billdate: '2024-11-10', totalamount: 1260, isConverted: false, cancelStatus: null, salesmenid: null },
@@ -41,6 +45,143 @@ const DUMMY_PRODUCTS = [
   { id: 'dp3', name: 'Refined Sunflower Oil', imageurl: null, categoryid: { id: 'c3', categoryname: 'Oils' }, productvariants: [{ id: 'dv3', name: '1 L', gst: 0, currentstock: 200, unitprices: [{ salesrate: 170, offerprice: 0, mrp: 195, discount: 0, unitid: null, quantity: 1 }] }] },
   { id: 'dp4', name: 'Whole Wheat Atta', imageurl: null, categoryid: { id: 'c1', categoryname: 'Grains' }, productvariants: [{ id: 'dv4', name: '5 kg', gst: 0, currentstock: 0, unitprices: [{ salesrate: 275, offerprice: 0, mrp: 310, discount: 0, unitid: null, quantity: 1 }] }] },
 ];
+
+/**
+ * One product card, memoised.
+ *
+ * Pulled out of the grid's .map() so that adding something to the cart
+ * re-renders the one card whose quantity changed instead of all fifty. The
+ * screen subscribes to `cart.items`, so every tap on + used to produce a new
+ * render of the entire list — cheap per card, very much not cheap fifty times
+ * while a finger is still on the screen.
+ *
+ * For React.memo to actually hold, everything crossing this boundary has to be
+ * stable between renders: `product` is the object Apollo hands back (same
+ * reference until the query result really changes), the callbacks are
+ * useCallback'd by the parent, and the values that DO change per card are
+ * passed as primitives. That is also why the price multiplier comes in rather
+ * than useCatalogPrice's formatCatalogINR — the hook builds a new function on
+ * every render, so passing it would make every card look changed, every time.
+ */
+interface ProductCardProps {
+  product: any;
+  colors: any;
+  imgRatio: number | null;
+  showPrice: boolean;
+  showStock: boolean;
+  /** Catalogue price multiplier (2 when "double display price" is on). */
+  multiplier: number;
+  unitIdx: number;
+  cartQty: number;
+  onOpen: (productId: string) => void;
+  onAdd: (product: any) => void;
+  onQty: (productId: string, variantId: string, unitId: string | undefined, qty: number) => void;
+  onSelectUnit: (productId: string, unitIndex: number) => void;
+}
+
+const ProductCard = React.memo(function ProductCard({
+  product: p, colors, imgRatio, showPrice, showStock, multiplier,
+  unitIdx, cartQty, onOpen, onAdd, onQty, onSelectUnit,
+}: ProductCardProps) {
+  const v = p.productvariants?.[0];
+  const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
+  const unitId = up?.unitid?.id;
+  const price = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+  const mrp = up?.mrp ?? 0;
+  const hasMrp = mrp > 0;
+  const outOfStock = v?.currentstock === 0;
+  const multiUnit = (v?.unitprices?.length ?? 0) > 1;
+
+  const unitLabel = (u: any) => {
+    const name = u?.unitid?.unitname ?? 'Unit';
+    const qty = u?.quantity ?? 1;
+    return qty > 1 ? `${qty} × ${name}` : name;
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.productCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+      onPress={() => onOpen(p.id)}
+      activeOpacity={0.88}
+    >
+      <View>
+        <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
+          {p.imageurl
+            ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.productImg} resizeMode="cover" />
+            : <Icon name="package-variant-closed" size={26} color={colors.brand} />
+          }
+          {showStock && outOfStock && (
+            <View style={styles.oosTag}>
+              <Text style={styles.oosText}>Out of Stock</Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
+        {p.categoryid?.categoryname && (
+          <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
+        )}
+
+        {multiUnit && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+            {v.unitprices.map((u: any, ui: number) => {
+              const active = unitIdx === ui;
+              return (
+                <TouchableOpacity
+                  key={`${u.unitid?.id ?? ui}`}
+                  style={[styles.unitChip, active
+                    ? { backgroundColor: colors.brand, borderColor: colors.brand }
+                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
+                  ]}
+                  onPress={() => onSelectUnit(p.id, ui)}
+                >
+                  <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                    {unitLabel(u)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {showPrice && (
+          <View style={styles.priceRow}>
+            <Text style={[styles.productPrice, { color: colors.brand }]}>{formatINR(price * multiplier)}</Text>
+            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp * multiplier)}</Text>}
+          </View>
+        )}
+      </View>
+
+      {v && !outOfStock && (
+        cartQty === 0 ? (
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: colors.brand }]}
+            onPress={() => onAdd(p)}
+          >
+            <Icon name="plus" size={14} color="#fff" />
+            <Text style={styles.addBtnText}>Add</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
+            <TouchableOpacity
+              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+              onPress={() => onQty(p.id, v.id, unitId, cartQty - 1)}
+            >
+              <Icon name="minus" size={13} color={colors.brand} />
+            </TouchableOpacity>
+            <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
+            <TouchableOpacity
+              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+              onPress={() => onQty(p.id, v.id, unitId, cartQty + 1)}
+            >
+              <Icon name="plus" size={13} color={colors.brand} />
+            </TouchableOpacity>
+          </View>
+        )
+      )}
+    </TouchableOpacity>
+  );
+});
 
 // Mirrors displayStatus() in MyOrders (orders/index.tsx) so the home screen's
 // "Recent Orders" preview matches the real status shown on the full list —
@@ -89,7 +230,8 @@ export default function PartyHome() {
   // Display-only x2 markup on what the card prints. The add-to-cart handlers
   // below still work off the real unitprice, so the cart and the placed order
   // keep the admin's rate.
-  const { formatCatalogINR } = useCatalogPrice();
+  // The multiplier, not the formatter: see the note on ProductCard above.
+  const { multiplier } = useCatalogPrice();
   const showStock = useShowProductStock();
   // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
   // null = the admin hasn't picked one, so the card keeps its fixed image
@@ -145,7 +287,24 @@ export default function PartyHome() {
   // the most recent 2 for the home screen preview.
   const recent = [...orders].reverse().slice(0, 2);
   const pending = orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length;
-  const isLoading = adminid && (ordersLoading || productsInitialLoading);
+  /**
+   * Only the products hold the screen back.
+   *
+   * This used to be `ordersLoading || productsInitialLoading`, which put the
+   * whole Home screen — the grid included — behind GET_SALES_ORDERS. Two costs,
+   * both avoidable:
+   *
+   * - That query runs `cache-and-network`, so `loading` goes true on EVERY
+   *   mount even when the answer is already cached. Coming back to Home from
+   *   anywhere therefore threw away a grid that was ready to draw and showed
+   *   the skeleton again while a network round-trip completed.
+   * - A shopper (isEndUser) does not even get a Recent Orders section — for
+   *   them the products were waiting on a query whose result is never shown.
+   *
+   * The products query is cache-first, so a return visit now paints the grid
+   * from cache immediately and the orders section fills itself in behind.
+   */
+  const isLoading = !!adminid && productsInitialLoading;
 
   // Every active category the business has → "All" + one chip each. Derived
   // from the category list so a category is never missing just because none of
@@ -169,14 +328,25 @@ export default function PartyHome() {
   if (!search && !category && products.length) bannerRef.current = products;
   const bannerProducts = bannerRef.current.length ? bannerRef.current : products;
 
-  const getCartQty = (productId: string, variantId: string, unitId?: string) =>
-    cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
+  /**
+   * Cart quantities as a lookup, built once per cart change.
+   *
+   * This used to be a `cartItems.find(...)` called once per card, which is a
+   * linear scan of the cart for every product on screen, repeated on every
+   * render of the list — the work grew with the cart AND the catalogue at the
+   * same time, right while the user was scrolling. A Map makes each card's
+   * lookup a single hash hit, and rebuilds only when the cart actually changes.
+   */
+  const cartQtyByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    // `undefined` unitId is a real case (a product with no unit), and it has to
+    // key differently from a unit literally named "undefined" — hence the ?? ''.
+    for (const i of cartItems) m.set(`${i.productId}|${i.variantId}|${i.unitId ?? ''}`, i.qty);
+    return m;
+  }, [cartItems]);
 
-  const getUnitLabel = (up: any) => {
-    const name = up?.unitid?.unitname ?? 'Unit';
-    const qty = up?.quantity ?? 1;
-    return qty > 1 ? `${qty} × ${name}` : name;
-  };
+  const getCartQty = (productId: string, variantId: string, unitId?: string) =>
+    cartQtyByKey.get(`${productId}|${variantId}|${unitId ?? ''}`) ?? 0;
 
   const handleAdd = async (p: any) => {
     const v = p.productvariants?.[0];
@@ -223,8 +393,65 @@ export default function PartyHome() {
     }));
   };
 
-  const handleQty = (productId: string, variantId: string, unitId: string | undefined, qty: number) =>
-    dispatch(updateQty({ productId, variantId, unitId, qty }));
+  // Stable identities for everything handed to a memoised card. Without these
+  // each render builds new function objects, every card sees changed props, and
+  // React.memo stops doing anything at all.
+  //
+  // handleAdd is deliberately read through a ref rather than wrapped: it closes
+  // over selectedUnits, adminid, user and partyAccount, so a useCallback would
+  // need all four as dependencies and would be rebuilt almost every render —
+  // exactly what this is avoiding. The ref always holds the latest version, so
+  // the callback below can stay identical for the life of the screen.
+  const handleAddRef = useRef(handleAdd);
+  handleAddRef.current = handleAdd;
+
+  const onAdd        = useCallback((p: any) => handleAddRef.current(p), []);
+  const onQty        = useCallback(
+    (productId: string, variantId: string, unitId: string | undefined, qty: number) =>
+      dispatch(updateQty({ productId, variantId, unitId, qty })),
+    [dispatch],
+  );
+  const onOpen       = useCallback(
+    (productId: string) => navigation.navigate('ProductDetail', { productId }),
+    [navigation],
+  );
+  const onSelectUnit = useCallback(
+    (productId: string, unitIndex: number) =>
+      setSelectedUnits(prev => ({ ...prev, [productId]: unitIndex })),
+    [],
+  );
+
+  const renderProduct = useCallback(({ item: p, index }: any) => {
+    const v = p.productvariants?.[0];
+    const unitIdx = selectedUnits[p.id] ?? 0;
+    const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
+    // The grid used to be a flex-wrap row with `gap: 12` inside a section
+    // padded 18 a side. FlashList lays the columns out itself, so those two
+    // spacings are rebuilt here: 18 on the outer edge of each column, 6 on the
+    // inner, which meets in the middle as the same 12pt gutter as before.
+    const isLeft = index % 2 === 0;
+    return (
+      <View style={[
+        styles.productCell,
+        isLeft ? { paddingLeft: 18, paddingRight: 6 } : { paddingLeft: 6, paddingRight: 18 },
+      ]}>
+      <ProductCard
+        product={p}
+        colors={colors}
+        imgRatio={imgRatio}
+        showPrice={showPrice}
+        showStock={showStock}
+        multiplier={multiplier}
+        unitIdx={unitIdx}
+        cartQty={v ? getCartQty(p.id, v.id, up?.unitid?.id) : 0}
+        onOpen={onOpen}
+        onAdd={onAdd}
+        onQty={onQty}
+        onSelectUnit={onSelectUnit}
+      />
+      </View>
+    );
+  }, [selectedUnits, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, onOpen, onAdd, onQty, onSelectUnit]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -248,17 +475,41 @@ export default function PartyHome() {
           <HomeScreenSkeleton />
         </ScrollView>
       ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
+        // A virtualised list, not a ScrollView with .map().
+        //
+        // Every product card used to be mounted at once — 50 on the first page,
+        // 100 after one scroll to the bottom, and each one carrying an image,
+        // a horizontal unit strip and its own buttons. That is what made
+        // scrolling stutter: the work was not the pictures arriving, it was
+        // hundreds of live views the list had to keep laid out. FlashList keeps
+        // roughly a screenful mounted and recycles the rest, so the cost of
+        // scrolling stops growing with the size of the catalogue.
+        //
+        // Everything above the grid moves into ListHeaderComponent so it still
+        // scrolls away with the content exactly as before.
+        <DynamicFlashList
+          data={visibleProducts}
+          renderItem={renderProduct}
+          numColumns={2}
+          keyExtractor={(p: any) => String(p.id)}
           contentContainerStyle={styles.scroll}
-          // Plain ScrollView has no onEndReached, so ask for the next page once
-          // the user is within a screenful of the bottom.
-          scrollEventThrottle={200}
-          onScroll={({ nativeEvent }) => {
-            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-            if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 600) loadMore();
-          }}
-        >
+          showsVerticalScrollIndicator={false}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.6}
+          // Build cells about a screen ahead of the scroll instead of the
+          // default 250px. A card's picture only starts downloading when its
+          // cell mounts, so mounting earlier is what buys the image time to
+          // arrive before the user reaches it — the difference between a photo
+          // fading in under the thumb and one that is simply already there.
+          // Roughly one extra row of two cards; far cheaper than the 50 the
+          // screen used to hold, and it makes the scroll feel pre-loaded.
+          drawDistance={600}
+          // renderProduct is rebuilt when the cart or the selected units
+          // change; without this the list would keep showing the rows it had
+          // already recycled with the previous one.
+          extraData={renderProduct}
+          ListHeaderComponent={(
+            <>
 
           {/* Stats — hidden when logged in with business code "#ADM0001" */}
           {!hideStatsAndOrders && (
@@ -290,7 +541,13 @@ export default function PartyHome() {
             </View>
 
             {recent.length === 0 ? (
-              <EmptyCard icon="clipboard-outline" label={STRINGS.party.noOrdersYet} colors={colors} />
+              // "No orders yet" is a real answer, so it must not be shown while
+              // the question is still being asked — this section no longer
+              // holds up the rest of the screen, so it now has a moment of its
+              // own to fill in.
+              ordersLoading
+                ? <View style={styles.footerLoader}><ActivityIndicator color={colors.brand} /></View>
+                : <EmptyCard icon="clipboard-outline" label={STRINGS.party.noOrdersYet} colors={colors} />
             ) : (
               recent.map((order: any) => {
                 const label = orderStatus(order);
@@ -372,118 +629,21 @@ export default function PartyHome() {
                   onSelect={setCategory}
                 />
 
-              {visibleProducts.length === 0 ? (
-                <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
-              ) : (
-              <View style={styles.productGrid}>
-                {visibleProducts.map((p: any) => {
-                  const v = p.productvariants?.[0];
-                  const unitIdx = selectedUnits[p.id] ?? 0;
-                  const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
-                  const unitId = up?.unitid?.id;
-                  const price = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
-                  const mrp = up?.mrp ?? 0;
-                  const hasMrp = mrp > 0;
-                  const cartQty = v ? getCartQty(p.id, v.id, unitId) : 0;
-                  const outOfStock = v?.currentstock === 0;
-                  const multiUnit = (v?.unitprices?.length ?? 0) > 1;
-
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[styles.productCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-                      onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
-                      activeOpacity={0.88}
-                    >
-                      <View>
-                        <View style={[styles.productImgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
-                          {p.imageurl
-                            ? <Image source={{ uri: resolveMediaUrl(p.imageurl) }} style={styles.productImg} resizeMode="cover" />
-                            : <Icon name="package-variant-closed" size={26} color={colors.brand} />
-                          }
-                          {showStock && outOfStock && (
-                            <View style={styles.oosTag}>
-                              <Text style={styles.oosText}>Out of Stock</Text>
-                            </View>
-                          )}
-                        </View>
-
-                        <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
-                        {p.categoryid?.categoryname && (
-                          <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
-                        )}
-
-                        {multiUnit && (
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-                            {v.unitprices.map((u: any, ui: number) => {
-                              const active = (selectedUnits[p.id] ?? 0) === ui;
-                              return (
-                                <TouchableOpacity
-                                  key={`${u.unitid?.id ?? ui}`}
-                                  style={[styles.unitChip, active
-                                    ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                                    : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                                  ]}
-                                  onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
-                                >
-                                  <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
-                                    {getUnitLabel(u)}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </ScrollView>
-                        )}
-
-                        {showPrice && (
-                          <View style={styles.priceRow}>
-                            <Text style={[styles.productPrice, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
-                            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>}
-                          </View>
-                        )}
-                      </View>
-
-                      {v && !outOfStock && (
-                        cartQty === 0 ? (
-                          <TouchableOpacity
-                            style={[styles.addBtn, { backgroundColor: colors.brand }]}
-                            onPress={() => handleAdd(p)}
-                          >
-                            <Icon name="plus" size={14} color="#fff" />
-                            <Text style={styles.addBtnText}>Add</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-                            <TouchableOpacity
-                              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                              onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}
-                            >
-                              <Icon name="minus" size={13} color={colors.brand} />
-                            </TouchableOpacity>
-                            <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
-                            <TouchableOpacity
-                              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                              onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}
-                            >
-                              <Icon name="plus" size={13} color={colors.brand} />
-                            </TouchableOpacity>
-                          </View>
-                        )
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              )}
-              {loadingMore ? (
-                <View style={styles.footerLoader}>
-                  <ActivityIndicator color={colors.brand} />
-                </View>
-              ) : null}
             </>
           </Animated.View>
-
-        </ScrollView>
+            </>
+          )}
+          ListEmptyComponent={(
+            <View style={styles.section}>
+              <EmptyCard icon="package-variant-closed" label={STRINGS.party.noProducts} colors={colors} />
+            </View>
+          )}
+          ListFooterComponent={loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={colors.brand} />
+            </View>
+          ) : null}
+        />
       )}
 
       {cartCount > 0 && (
@@ -554,9 +714,11 @@ const styles = StyleSheet.create({
 
   // Compact list row — image left, details middle, Add/qty right. Matches
   // the salesman app's Products list.
-  productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  // One column cell of the grid. The horizontal padding is applied per item in
+  // renderProduct, since it differs between the left and right column.
+  productCell: { flex: 1, marginBottom: 12 },
   productCard: {
-    width: '47%', minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12,
+    flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12,
     justifyContent: 'space-between',
     shadowColor: COLORS.light.shadow,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,

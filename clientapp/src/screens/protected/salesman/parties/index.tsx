@@ -132,13 +132,6 @@ export default function SalesmanParties() {
   });
   const parties = (data as any)?.getAccounts ?? [];
 
-  useEffect(() => {
-    console.log('🧑‍🤝‍🧑 [MyParties] salesmanLoc:', salesmanLoc,
-      '| parties:', parties.map((p: any) => ({
-        name: p.name, outstanding: p.outstanding, lat: p.latitude, lng: p.longitude,
-      })));
-  }, [parties, salesmanLoc]);
-
   // Today's orders by this salesman → mark which parties are "visited" today.
   const { data: ordersData, refetch: refetchOrders } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid, salesmenid: user?.id },

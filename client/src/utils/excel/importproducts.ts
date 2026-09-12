@@ -566,11 +566,30 @@ const assembleProducts = (
       return { ...variantFields, unitconversions, unitprices };
     });
 
+    // Pictures are only written when the sheet actually carries some.
+    //
+    // This used to send `imageurls: fields.imageurls ?? []` unconditionally,
+    // which meant a sheet WITHOUT an "Image URLs" column — the ordinary case,
+    // since the export fills it but nobody maintains it by hand — set every
+    // imported product's images to empty. Re-importing a price list to update
+    // rates therefore silently stripped the photos off every product it
+    // touched, and the app then drew a placeholder box for a product that had
+    // a perfectly good picture the day before.
+    //
+    // Leaving the keys out entirely is what restores it: updateProductService
+    // applies the input with Mongoose's `.set()`, which only writes the keys
+    // it is given, so an absent imageurl keeps whatever is already stored. A
+    // spreadsheet has no way to say "remove the picture" anyway — a blank cell
+    // means "not specified here", never "delete it".
+    const hasImages = Array.isArray(fields.imageurls) && fields.imageurls.length > 0;
+
     const product: any = {
       name: fields.name,
       description: fields.description,
-      imageurls: fields.imageurls ?? [],
-      imageurl: (fields.imageurls ?? [])[0] ?? "",
+      ...(hasImages ? {
+        imageurls: fields.imageurls,
+        imageurl: fields.imageurls[0],
+      } : {}),
       categoryid: fields.categoryid,
       subcategoryid: fields.subcategoryid,
       brandid: fields.brandid,

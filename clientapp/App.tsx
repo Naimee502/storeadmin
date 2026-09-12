@@ -13,10 +13,10 @@ import { Provider, useSelector } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store/store';
 import { apolloClient, setTokenGetter } from './src/apollo/client';
-import AdminSetup from './src/screens/public/adminsetup';
 import { useBrandingSync } from './src/apollo/hooks/adminsettings';
 import FieldServices from './src/hooks/fieldservices';
 import useScreenGuard from './src/hooks/usescreenguard';
+import { useAutoActivateBusiness } from './src/hooks/useAutoActivateBusiness';
 import type { RootState } from './src/store/rootreducer';
 
 const RootStack      = createNativeStackNavigator();
@@ -73,6 +73,10 @@ function RootNavigator() {
   // this device was activated. Same reason useScreenGuard lives here: highest
   // point that has Apollo + Redux and covers every screen.
   useBrandingSync();
+  // Auto-activate business using hardcoded admin code from build config
+  // This eliminates the need for the AdminSetup screen
+  useAutoActivateBusiness();
+  
   const { isAuthenticated, isSplashDone, isIntroDone, isActivated, isLoading } = useAuth();
   const token = useSelector((state: RootState) => state.auth.token);
 
@@ -84,16 +88,14 @@ function RootNavigator() {
 
   return (
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Activation comes before the introduction on purpose. Until a business
-          code is entered the app has no idea whose app it is, so the intro used
-          to run in the default green and then the whole app changed colour once
-          the code was typed — which read as a glitch rather than as branding.
-          Activating first means every screen after the splash is already the
-          business's own colours and name. */}
+      {/* Splash screen shown first */}
       {!isSplashDone ? (
         <RootStack.Screen name="Splash" component={getScreenComponent('Splash')!} />
       ) : !isActivated ? (
-        <RootStack.Screen name="AdminSetup" component={AdminSetup} />
+        /* Auto-activation is in progress via useAutoActivateBusiness hook
+           This state is brief - just the loading period while business code is being verified
+           Once business is activated, we move to intro/login */
+        <RootStack.Screen name="Splash" component={getScreenComponent('Splash')!} />
       ) : !isIntroDone ? (
         <RootStack.Screen name="Introduction" component={getScreenComponent('Introduction')!} />
       ) : isAuthenticated ? (
