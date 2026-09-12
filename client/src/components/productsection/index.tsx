@@ -625,19 +625,20 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             No {iservice ? "services" : "products"} added.
           </div>
         ) : (
-          <table className="w-full border mt-2">
-            <thead>
-              <tr>
-                <th className="border p-2">Name</th>
-                {type === "sales" && (<th className="border p-2">Unit</th>)}
-                <th className="border p-2">Qty</th>
-                <th className="border p-2">Rate</th>
-                <th className="border p-2">Disc</th>
-                <th className="border p-2">GST%</th>
-                <th className="border p-2">Total</th>
-                <th className="border p-2">Action</th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full border mt-2" style={{ tableLayout: "fixed" }}>
+              <thead>
+                <tr>
+                  <th className="border p-2">Name</th>
+                  {type === "sales" && (<th className="border p-2 w-20">Unit</th>)}
+                  <th className="border p-2 w-16">Qty</th>
+                  <th className="border p-2 w-24">Rate</th>
+                  <th className="border p-2 w-20">Disc</th>
+                  <th className="border p-2 w-16">GST%</th>
+                  <th className="border p-2 w-24">Total</th>
+                  <th className="border p-2 w-32">Action</th>
+                </tr>
+              </thead>
 
             <tbody>
               {products.map((p, i) => {
@@ -678,7 +679,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Unit (Sales only) */}
                     {type === "sales" && (
-                      <td className="border p-2">
+                      <td className="border p-2 w-20 truncate">
                         {price?.quantity} {price?.unitname}
                       </td>
                     )}
@@ -686,7 +687,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Quantity - Double-click to edit */}
                     {isFieldEnabled("quantity") && (
                       <td
-                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "quantity" });
                           setEditingValue(String(p.quantity));
@@ -718,7 +719,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Rate - Double-click to edit */}
                     {isFieldEnabled("rate") && (
                       <td
-                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        className="border p-2 w-24 cursor-pointer hover:bg-gray-100 text-right"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "rate" });
                           setEditingValue(String(p.rate));
@@ -750,7 +751,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Discount - Double-click to edit */}
                     {isFieldEnabled("discount") && (
                       <td
-                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        className="border p-2 w-20 cursor-pointer hover:bg-gray-100 text-right"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "discount" });
                           setEditingValue(String(p.discount ?? 0));
@@ -782,7 +783,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* GST - Double-click to edit */}
                     {isFieldEnabled("gst") && (
                       <td
-                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-right"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "gst" });
                           setEditingValue(String(p.gst ?? 0));
@@ -812,30 +813,33 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     )}
 
                     {/* Total - Auto-calculated, read-only */}
-                    <td className="border p-2">{p.total.toFixed(2)}</td>
+                    <td className="border p-2 w-24 text-right font-medium">{p.total.toFixed(2)}</td>
 
                     {/* Action Buttons */}
-                    <td className="border p-2 space-x-2">
-                      <button
-                        type="button"
-                        className="text-blue-500 hover:text-blue-700 font-medium"
-                        onClick={() => editProduct(i)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-red-500 hover:text-red-700 font-medium"
-                        onClick={() => removeProduct(i)}
-                      >
-                        Remove
-                      </button>
+                    <td className="border p-2 w-32">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:text-blue-700 font-medium text-sm whitespace-nowrap"
+                          onClick={() => editProduct(i)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 font-medium text-sm whitespace-nowrap"
+                          onClick={() => removeProduct(i)}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </fieldset>
     </fieldset>
