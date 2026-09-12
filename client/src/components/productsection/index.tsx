@@ -657,11 +657,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             No {iservice ? "services" : "products"} added.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border mt-2" style={{ tableLayout: "fixed" }}>
+          <div className="overflow-x-auto border-collapse">
+            <table className="w-full border mt-2 border-collapse" style={{ tableLayout: "fixed", overflow: "visible" }}>
               <thead>
                 <tr>
-                  <th className="border p-2 w-40">Name</th>
+                  <th className="border p-2 w-80">Name</th>
                   {type === "sales" && (<th className="border p-2 w-20">Unit</th>)}
                   <th className="border p-2 w-16">Qty</th>
                   <th className="border p-2 w-24">Rate</th>
@@ -692,11 +692,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                   <tr key={i}>
                     {/* Product Name */}
                     <td
-                      className={`border p-2 w-40 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                      className={`border p-2 w-80 align-top ${shortfall ? "bg-red-50 text-red-600" : ""}`}
                       style={
                         shortfall
-                          ? { boxShadow: "inset 0 0 0 2px #ef4444" }
-                          : undefined
+                          ? { boxShadow: "inset 0 0 0 2px #ef4444", overflow: "visible" }
+                          : { overflow: "visible" }
                       }
                     >
                       {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
@@ -849,17 +849,24 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Action Buttons */}
                     <td className="border p-2 w-32">
-                      <div className="flex gap-2 justify-center">
+                      <div className="flex gap-1 justify-center flex-wrap">
                         <button
                           type="button"
-                          className="text-blue-500 hover:text-blue-700 font-medium text-sm whitespace-nowrap"
+                          className="text-blue-500 hover:text-blue-700 font-medium text-xs whitespace-nowrap"
                           onClick={() => editProduct(i)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="text-red-500 hover:text-red-700 font-medium text-sm whitespace-nowrap"
+                          className="text-purple-500 hover:text-purple-700 font-medium text-xs whitespace-nowrap"
+                          onClick={() => setExpandedHistoryIndex(expandedHistoryIndex === i ? null : i)}
+                        >
+                          {expandedHistoryIndex === i ? "Hide" : "History"}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 font-medium text-xs whitespace-nowrap"
                           onClick={() => removeProduct(i)}
                         >
                           Remove
@@ -867,6 +874,49 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                       </div>
                     </td>
                   </tr>
+
+                  {/* History Row - Expandable */}
+                  {expandedHistoryIndex === i && (
+                    <tr key={`${i}-history`} className="bg-gray-50">
+                      <td colSpan={type === "sales" ? 9 : 8} className="border p-4">
+                        <div>
+                          <h4 className="font-semibold text-sm mb-3">
+                            {type === "purchase" ? "Purchase History" : "Sale History"}
+                          </h4>
+                          {(() => {
+                            const history = getProductHistory(p.productserviceid, p.variantid ?? undefined);
+                            if (!history || history.length === 0) {
+                              return <p className="text-gray-500 text-sm">No history available for this product.</p>;
+                            }
+                            return (
+                              <table className="w-full text-sm border">
+                                <thead>
+                                  <tr className="bg-gray-100">
+                                    <th className="border p-2 text-left">Date</th>
+                                    <th className="border p-2 text-left">Party</th>
+                                    <th className="border p-2 text-center">Qty</th>
+                                    <th className="border p-2 text-center">Rate (₹)</th>
+                                    <th className="border p-2 text-center">Disc (₹)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {history.map((row, idx) => (
+                                    <tr key={idx}>
+                                      <td className="border p-2">{row[0]}</td>
+                                      <td className="border p-2">{row[1]}</td>
+                                      <td className="border p-2 text-center">{row[2]}</td>
+                                      <td className="border p-2 text-center">{row[3]}</td>
+                                      <td className="border p-2 text-center">{row[4]}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            );
+                          })()}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 );
               })}
             </tbody>
