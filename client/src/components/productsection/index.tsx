@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import Select, { components } from "react-select";
+import { FaHistory } from "react-icons/fa";
 import FormField from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
@@ -149,8 +152,16 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const getProductHistory = useMemo(() => {
     return (productId: string, variantId?: string) => {
       if (!productId || !invoiceHistory.length) return [];
+      // Same rule as the Add-Products panel: with a party selected, only that
+      // party's past bills count — otherwise the row panel would quote rates
+      // from a different supplier/customer than the invoice being written.
+      const selectedPartyId = partyAccount?.id;
       const rows: { time: number; cells: string[] }[] = [];
       invoiceHistory.forEach((inv: any) => {
+        if (selectedPartyId) {
+          const invPartyId = inv.partyacc?.id || inv.partyaccountid;
+          if (invPartyId !== selectedPartyId) return;
+        }
         (inv.productservice || []).forEach((line: any) => {
           const linePid = line.productserviceid?.id || line.productserviceid;
           const lineVid = line.variantid?.id || line.variantid;
@@ -173,7 +184,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         .slice(0, 5)
         .map((r) => r.cells);
     };
-  }, [invoiceHistory]);
+  }, [invoiceHistory, partyAccount?.id]);
 
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
@@ -266,6 +277,116 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     setEditingValue("");
   };
 
+  // History icon component for inline product select
+  const IndicatorsWithHistory = (props: any) => {
+    const { historyTitle, onHistoryToggle, menuIsOpen } = props.selectProps as {
+      historyTitle?: string;
+      onHistoryToggle?: (e: React.MouseEvent) => void;
+      menuIsOpen?: boolean;
+    };
+    return (
+      <components.IndicatorsContainer {...props}>
+        {historyTitle && onHistoryToggle && !menuIsOpen && (
+          <div
+            title={historyTitle}
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onHistoryToggle(e); }}
+            className="px-2 flex items-center cursor-pointer text-indigo-400 hover:text-indigo-600"
+          >
+            <FaHistory size={14} />
+          </div>
+        )}
+        {props.children}
+      </components.IndicatorsContainer>
+    );
+  };
+
+  // Standalone history panel state for inline product editing
+  const [inlineHistoryOpen, setInlineHistoryOpen] = useState(false);
+  const [historyProductInfo, setHistoryProductInfo] = useState<{ productId: string; variantId?: string; rowIndex: number } | null>(null);
+  // Screen position of the select control the panel hangs under. The Products
+  // List scrolls inside an overflow-x-auto wrapper, which would clip a plain
+  // absolute panel — so it is portalled to <body> and pinned to that rect,
+  // which looks identical to the panel under the Add-Products select.
+  const [historyAnchor, setHistoryAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+  const inlineHistoryRef = React.useRef<HTMLDivElement>(null);
+
+  const closeInlineHistory = React.useCallback(() => {
+    setInlineHistoryOpen(false);
+    setHistoryProductInfo(null);
+    setHistoryAnchor(null);
+  }, []);
+
+  /** Open the panel under whichever select control the clock icon was clicked in. */
+  const openInlineHistory = (e: React.MouseEvent, rowIndex: number, productId: string, variantId?: string | null) => {
+    const control = (e.currentTarget as HTMLElement).closest(".inline-product-select") as HTMLElement | null;
+    const rect = control?.getBoundingClientRect();
+    if (rect) setHistoryAnchor({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setHistoryProductInfo({ productId, variantId: variantId ?? undefined, rowIndex });
+    setInlineHistoryOpen(true);
+  };
+
+  // Close on outside click, and on scroll/resize (the pinned rect goes stale).
+  useEffect(() => {
+    if (!inlineHistoryOpen) return;
+    const onDown = (ev: MouseEvent) => {
+      const t = ev.target as Node;
+      if (inlineHistoryRef.current?.contains(t)) return;
+      if ((t as HTMLElement)?.closest?.(".inline-product-select")) return;
+      closeInlineHistory();
+    };
+    // Scrolling the panel's own list must not dismiss it — only scrolling
+    // something behind it, which would leave the pinned rect stale.
+    const onScroll = (ev: Event) => {
+      if (inlineHistoryRef.current?.contains(ev.target as Node)) return;
+      closeInlineHistory();
+    };
+    const onResize = () => closeInlineHistory();
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [inlineHistoryOpen, closeInlineHistory]);
+
+  /** ✅ Handle inline product change in Products List table */
+  const handleProductChange = (rowIndex: number, newValue: string) => {
+    if (!newValue) {
+      setEditingCell(null);
+      setEditingValue("");
+      return;
+    }
+
+    const [pid, vid] = newValue.split("--");
+    const product = normalizedProducts.find((p) => p.id === pid);
+    const variant = product?.productvariants.find((v: any) => v.id === vid);
+
+    if (!product || !variant) return;
+
+    // Update the product in the products list with the new variant
+    setProducts((prev) =>
+      prev.map((p, i) => {
+        if (i !== rowIndex) return p;
+
+        return {
+          ...p,
+          productserviceid: pid,
+          variantid: vid,
+          productname: product.name || "",
+          gst: Number(variant.gst ?? 0),
+          rate: type === "sales" ? p.rate : Number(variant.purchaserate ?? 0),
+          // Keep quantity as is, or reset to 1
+          quantity: p.quantity || 1,
+        };
+      })
+    );
+
+    closeInlineHistory();
+    setEditingCell(null);
+    setEditingValue("");
+  };
 
   /** ✅ Add or update product line */
   const handleAddOrUpdateProduct = () => {
@@ -691,7 +812,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 return (
                   <React.Fragment key={i}>
                     <tr>
-                      {/* Product Name with Timer Icon */}
+                      {/* Product Name */}
                     <td
                       className={`border p-2 w-80 align-top ${shortfall ? "bg-red-50 text-red-600" : ""}`}
                       style={
@@ -700,25 +821,79 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                           : { overflow: "visible" }
                       }
                     >
-                      <div className="flex items-start gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedHistoryIndex(expandedHistoryIndex === i ? null : i)}
-                          className="text-lg hover:opacity-70 flex-shrink-0 mt-0.5"
-                          title="Click to view history"
-                        >
-                          ⏱️
-                        </button>
-                        <div>
-                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
-                          {shortfall && (
-                            <div className="text-xs font-medium text-red-600 mt-1">
-                              Not enough stock — ordered {shortfall.required}, available{" "}
-                              {shortfall.available} (base units), short by{" "}
-                              {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex items-start gap-2 relative">
+                        {editingCell?.rowIndex === i && editingCell?.field === "product" ? (
+                          // Inline Select dropdown for product editing with history icon
+                          <>
+                            <Select
+                              inputId={`product-select-${i}`}
+                              options={normalizedProducts.flatMap((prod) =>
+                                prod.productvariants.map((v: any) => ({
+                                  value: `${prod.id}--${v.id}`,
+                                  label: `${prod.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+                                }))
+                              )}
+                              value={normalizedProducts.flatMap((prod) =>
+                                prod.productvariants.map((v: any) => ({
+                                  value: `${prod.id}--${v.id}`,
+                                  label: `${prod.name} - ${v.name} - (Stock: ${v.currentstock ?? 0})`,
+                                }))
+                              ).find((opt) => opt.value === `${p.productserviceid}--${p.variantid}`) || null}
+                              onChange={(selected: any) => {
+                                if (selected) {
+                                  handleProductChange(i, selected.value);
+                                } else {
+                                  setEditingCell(null);
+                                  setEditingValue("");
+                                }
+                              }}
+                              onBlur={() => {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }}
+                              autoFocus
+                              isClearable
+                              isSearchable
+                              menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+                              menuPosition="fixed"
+                              menuShouldScrollIntoView={false}
+                              styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
+                              components={{ IndicatorsContainer: IndicatorsWithHistory }}
+                              historyTitle={
+                                invoiceHistory.length && p.productserviceid
+                                  ? `Last 5 ${type === "purchase" ? "Purchase" : "Sale"} Rates of this Product`
+                                  : undefined
+                              }
+                              onHistoryToggle={(e: React.MouseEvent) => {
+                                if (inlineHistoryOpen && historyProductInfo?.rowIndex === i) {
+                                  closeInlineHistory();
+                                } else {
+                                  openInlineHistory(e, i, p.productserviceid, p.variantid);
+                                }
+                              }}
+                              onMenuOpen={closeInlineHistory}
+                              className="w-full inline-product-select"
+                            />
+                          </>
+                        ) : (
+                          <div
+                            onDoubleClick={() => {
+                              setEditingCell({ rowIndex: i, field: "product" });
+                              setEditingValue(`${p.productserviceid}--${p.variantid}`);
+                              setInlineHistoryOpen(false);
+                            }}
+                            style={{ cursor: "pointer" }}
+                          >
+                            {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                            {shortfall && (
+                              <div className="text-xs font-medium text-red-600 mt-1">
+                                Not enough stock — ordered {shortfall.required}, available{" "}
+                                {shortfall.available} (base units), short by{" "}
+                                {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -881,48 +1056,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     </td>
                     </tr>
 
-                    {/* History Row - Expandable */}
-                    {expandedHistoryIndex === i && (
-                      <tr className="bg-gray-50">
-                        <td colSpan={type === "sales" ? 9 : 8} className="border p-4">
-                          <div>
-                            <h4 className="font-semibold text-sm mb-3">
-                              {type === "purchase" ? "Purchase History" : "Sale History"}
-                            </h4>
-                            {(() => {
-                              const history = getProductHistory(p.productserviceid, p.variantid ?? undefined);
-                              if (!history || history.length === 0) {
-                                return <p className="text-gray-500 text-sm">No history available for this product.</p>;
-                              }
-                              return (
-                                <table className="w-full text-sm border">
-                                  <thead>
-                                    <tr className="bg-gray-100">
-                                      <th className="border p-2 text-left">Date</th>
-                                      <th className="border p-2 text-left">Party</th>
-                                      <th className="border p-2 text-center">Qty</th>
-                                      <th className="border p-2 text-center">Rate (₹)</th>
-                                      <th className="border p-2 text-center">Disc (₹)</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {history.map((row, idx) => (
-                                      <tr key={idx}>
-                                        <td className="border p-2">{row[0]}</td>
-                                        <td className="border p-2">{row[1]}</td>
-                                        <td className="border p-2 text-center">{row[2]}</td>
-                                        <td className="border p-2 text-center">{row[3]}</td>
-                                        <td className="border p-2 text-center">{row[4]}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </React.Fragment>
                 );
               })}
@@ -930,7 +1063,72 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             </table>
           </div>
         )}
-      </fieldset>
+
+        {/* Last 5 rates — hangs under the row's select, same panel as Add Products.
+            Portalled to <body> only so the table's overflow-x-auto cannot clip it. */}
+        {inlineHistoryOpen && historyProductInfo && historyAnchor && typeof document !== "undefined" &&
+          createPortal(
+            (() => {
+              const rows = getProductHistory(historyProductInfo.productId, historyProductInfo.variantId);
+              return (
+                <div
+                  ref={inlineHistoryRef}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="fixed z-[9998] bg-white border border-indigo-200 rounded-lg shadow-lg overflow-hidden"
+                  style={{
+                    top: historyAnchor.top,
+                    left: historyAnchor.left,
+                    width: historyAnchor.width,
+                    maxWidth: historyAnchor.width,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div className="flex items-center justify-between px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+                    <span className="flex items-center gap-2 text-xs font-bold text-indigo-700">
+                      <FaHistory size={12} /> Last 5 {type === "purchase" ? "Purchase" : "Sale"} Rates of this Product
+                    </span>
+                    <span
+                      onClick={closeInlineHistory}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer text-sm leading-none px-1"
+                    >
+                      ✕
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-auto">
+                    {rows.length > 0 ? (
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-indigo-50 text-gray-600 sticky top-0">
+                          <tr>
+                            <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap text-left">Date</th>
+                            <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap text-right">Party</th>
+                            <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap text-right">Qty</th>
+                            <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap text-right">Rate (₹)</th>
+                            <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap text-right">Disc (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, ri) => (
+                            <tr key={ri} className="border-t border-gray-100">
+                              {row.map((cell, ci) => (
+                                <td key={ci} className={`px-2.5 py-1.5 whitespace-nowrap ${ci === 0 ? "text-left font-medium" : "text-right"}`}>{cell}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="px-3 py-2.5 text-xs text-gray-400">
+                        This product has no {type === "purchase" ? "purchase" : "sale"} history yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })(),
+            document.body
+          )}
+
+</fieldset>
     </fieldset>
   );
 };

@@ -184,6 +184,8 @@ const FormField: React.FC<FormFieldProps> = ({
 }) => {
   // Standalone history panel (opened via the clock icon in the select control)
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Close history when value changes (e.g., dropdown selection)
   React.useEffect(() => { setHistoryOpen(false); }, [value]);
 
   const isCheckbox = type === 'checkbox';

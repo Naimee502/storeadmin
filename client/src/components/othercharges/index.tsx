@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Select from "react-select";
 import FormField from "../formfiled";
 import Button from "../button";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
@@ -32,6 +33,9 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
     totalamount: 0,
   });
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  // Double-click inline editing in the charges table, same as the Products List
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
 
   const moduleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const formPermissions = useAppSelector((state) => state.permissions.permissions?.formPermissions?.[moduleId] || {});
@@ -91,6 +95,60 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
   const removeCharge = (i: number) => {
     setOtherCharges((prev) => prev.filter((_, idx) => idx !== i));
     if (editIndex === i) setEditIndex(null);
+  };
+
+  const ledgerOptions = chargeLedgers.map((l: any) => ({ value: l.id, label: l.ledgername }));
+
+  const cancelEdit = () => {
+    setEditingCell(null);
+    setEditingValue("");
+  };
+
+  /** Only open the inline editor for columns this role is allowed to edit. */
+  const startEdit = (rowIndex: number, field: string, value: string, permissionId: string) => {
+    if (!isFieldEnabled(permissionId)) return;
+    setEditingCell({ rowIndex, field });
+    setEditingValue(value);
+  };
+
+  /** Auto-save an inline cell on blur / Enter. GST Amt and Total are derived,
+      so editing either Amount or GST % recalculates both. */
+  const handleCellBlur = (rowIndex: number, field: string, newValue: string) => {
+    if (field !== "remarks") {
+      const num = parseFloat(newValue);
+      if (isNaN(num)) return cancelEdit();
+    }
+
+    setOtherCharges((prev) =>
+      prev.map((c, i) => {
+        if (i !== rowIndex) return c;
+        const updated = { ...c };
+
+        if (field === "remarks") updated.remarks = newValue;
+        else if (field === "amount") updated.amount = parseFloat(newValue);
+        else if (field === "gstpercent") updated.gstpercent = parseFloat(newValue);
+
+        const computed = handleCalculateGst(updated.amount || 0, updated.gstpercent || 0);
+        updated.gstamount = computed.gstamount;
+        updated.totalamount = computed.totalamount;
+        return updated;
+      })
+    );
+
+    cancelEdit();
+  };
+
+  /** Inline ledger change from the table row's dropdown. */
+  const handleLedgerChange = (rowIndex: number, ledgerId: string) => {
+    const ledger = chargeLedgers.find((l: any) => l.id === ledgerId);
+    if (!ledger) return cancelEdit();
+
+    setOtherCharges((prev) =>
+      prev.map((c, i) =>
+        i === rowIndex ? { ...c, ledgerid: ledger.id, ledgername: ledger.ledgername || "" } : c
+      )
+    );
+    cancelEdit();
   };
 
   return (
@@ -201,29 +259,130 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
         )}
       </div>
 
-      {/* Table */}
+      {/* Table — tableLayout:"fixed" + per-column widths, same as the Products
+          List. Without it the columns re-measure and jump the moment an inline
+          editor replaces the text in a cell. */}
       {otherCharges.length > 0 && (
-        <table className="w-full border mt-4">
+        <table className="w-full border mt-4" style={{ tableLayout: "fixed" }}>
           <thead>
             <tr>
               <th className="border p-2 text-left">Ledger</th>
-              <th className="border p-2 text-right">Amount</th>
-              <th className="border p-2 text-right">GST %</th>
-              <th className="border p-2 text-right">GST Amt</th>
-              <th className="border p-2 text-right">Total</th>
-              <th className="border p-2 text-left">Remarks</th>
-              <th className="border p-2 text-center">Action</th>
+              <th className="border p-2 text-right w-28">Amount</th>
+              <th className="border p-2 text-right w-20">GST %</th>
+              <th className="border p-2 text-right w-24">GST Amt</th>
+              <th className="border p-2 text-right w-24">Total</th>
+              <th className="border p-2 text-left w-48">Remarks</th>
+              <th className="border p-2 text-center w-32">Action</th>
             </tr>
           </thead>
           <tbody>
             {otherCharges.map((c, i) => (
               <tr key={i}>
-                <td className="border p-2">{c.ledgername}</td>
-                <td className="border p-2 text-right">{c.amount.toFixed(2)}</td>
-                <td className="border p-2 text-right">{c.gstpercent}%</td>
+                {/* Ledger — double-click for the searchable dropdown */}
+                <td className="border p-2 align-top" style={{ overflow: "visible" }}>
+                  {editingCell?.rowIndex === i && editingCell?.field === "ledger" ? (
+                    <Select
+                      inputId={`charge-ledger-${i}`}
+                      options={ledgerOptions}
+                      value={ledgerOptions.find((o) => o.value === c.ledgerid) || null}
+                      onChange={(selected: any) => {
+                        if (selected) handleLedgerChange(i, selected.value);
+                        else cancelEdit();
+                      }}
+                      onBlur={cancelEdit}
+                      autoFocus
+                      isClearable
+                      isSearchable
+                      menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                      menuPosition="fixed"
+                      menuShouldScrollIntoView={false}
+                      styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
+                      className="w-full"
+                    />
+                  ) : (
+                    <div
+                      onDoubleClick={() => startEdit(i, "ledger", c.ledgerid, "ledgeraccount")}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {c.ledgername}
+                    </div>
+                  )}
+                </td>
+
+                {/* Amount */}
+                <td
+                  className="border p-2 text-right cursor-pointer hover:bg-gray-100"
+                  onDoubleClick={() => startEdit(i, "amount", String(c.amount), "amount")}
+                >
+                  {editingCell?.rowIndex === i && editingCell?.field === "amount" ? (
+                    <input
+                      type="number"
+                      autoFocus
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => handleCellBlur(i, "amount", editingValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCellBlur(i, "amount", editingValue);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700 text-right"
+                      step="0.01"
+                    />
+                  ) : (
+                    c.amount.toFixed(2)
+                  )}
+                </td>
+
+                {/* GST % */}
+                <td
+                  className="border p-2 text-right cursor-pointer hover:bg-gray-100"
+                  onDoubleClick={() => startEdit(i, "gstpercent", String(c.gstpercent), "other_gst")}
+                >
+                  {editingCell?.rowIndex === i && editingCell?.field === "gstpercent" ? (
+                    <input
+                      type="number"
+                      autoFocus
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => handleCellBlur(i, "gstpercent", editingValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCellBlur(i, "gstpercent", editingValue);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700 text-right"
+                      step="0.01"
+                    />
+                  ) : (
+                    `${c.gstpercent}%`
+                  )}
+                </td>
+
+                {/* GST Amt + Total — derived from Amount and GST %, so read-only */}
                 <td className="border p-2 text-right">{c.gstamount.toFixed(2)}</td>
                 <td className="border p-2 text-right">{c.totalamount.toFixed(2)}</td>
-                <td className="border p-2">{c.remarks}</td>
+
+                {/* Remarks */}
+                <td
+                  className="border p-2 cursor-pointer hover:bg-gray-100"
+                  onDoubleClick={() => startEdit(i, "remarks", c.remarks ?? "", "remarks")}
+                >
+                  {editingCell?.rowIndex === i && editingCell?.field === "remarks" ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={() => handleCellBlur(i, "remarks", editingValue)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCellBlur(i, "remarks", editingValue);
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                    />
+                  ) : (
+                    c.remarks
+                  )}
+                </td>
                 <td className="border p-2 text-center space-x-2">
                   <button
                     type="button"
