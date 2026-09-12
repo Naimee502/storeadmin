@@ -144,9 +144,41 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       .slice(0, 5)
       .map((r) => r.cells);
   }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid, partyAccount?.id]);
+
+  /** Get purchase/sale history for a specific product in the table */
+  const getProductHistory = useMemo(() => {
+    return (productId: string, variantId?: string) => {
+      if (!productId || !invoiceHistory.length) return [];
+      const rows: { time: number; cells: string[] }[] = [];
+      invoiceHistory.forEach((inv: any) => {
+        (inv.productservice || []).forEach((line: any) => {
+          const linePid = line.productserviceid?.id || line.productserviceid;
+          const lineVid = line.variantid?.id || line.variantid;
+          if (linePid !== productId) return;
+          if (variantId && lineVid && lineVid !== variantId) return;
+          rows.push({
+            time: new Date(inv.billdate).getTime() || Number(inv.createdAt) || 0,
+            cells: [
+              formatDateDMY(inv.billdate),
+              inv.partyacc?.accountname || "-",
+              String(line.qty ?? 0),
+              Number(line.rate || 0).toFixed(2),
+              Number(line.discount || 0).toFixed(2),
+            ],
+          });
+        });
+      });
+      return rows
+        .sort((a, b) => b.time - a.time)
+        .slice(0, 5)
+        .map((r) => r.cells);
+    };
+  }, [invoiceHistory]);
+
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
+  const [expandedHistoryIndex, setExpandedHistoryIndex] = useState<number | null>(null);
 
   const [qtyError, setQtyError] = useState<string | null>(null);
 
@@ -629,7 +661,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             <table className="w-full border mt-2" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th className="border p-2">Name</th>
+                  <th className="border p-2 w-40">Name</th>
                   {type === "sales" && (<th className="border p-2 w-20">Unit</th>)}
                   <th className="border p-2 w-16">Qty</th>
                   <th className="border p-2 w-24">Rate</th>
@@ -660,7 +692,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                   <tr key={i}>
                     {/* Product Name */}
                     <td
-                      className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                      className={`border p-2 w-40 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
                       style={
                         shortfall
                           ? { boxShadow: "inset 0 0 0 2px #ef4444" }
@@ -679,7 +711,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Unit (Sales only) */}
                     {type === "sales" && (
-                      <td className="border p-2 w-20 truncate">
+                      <td className="border p-2 w-20 truncate text-center">
                         {price?.quantity} {price?.unitname}
                       </td>
                     )}
@@ -719,7 +751,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Rate - Double-click to edit */}
                     {isFieldEnabled("rate") && (
                       <td
-                        className="border p-2 w-24 cursor-pointer hover:bg-gray-100 text-right"
+                        className="border p-2 w-24 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "rate" });
                           setEditingValue(String(p.rate));
@@ -751,7 +783,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Discount - Double-click to edit */}
                     {isFieldEnabled("discount") && (
                       <td
-                        className="border p-2 w-20 cursor-pointer hover:bg-gray-100 text-right"
+                        className="border p-2 w-20 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "discount" });
                           setEditingValue(String(p.discount ?? 0));
@@ -783,7 +815,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* GST - Double-click to edit */}
                     {isFieldEnabled("gst") && (
                       <td
-                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-right"
+                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "gst" });
                           setEditingValue(String(p.gst ?? 0));
@@ -813,7 +845,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     )}
 
                     {/* Total - Auto-calculated, read-only */}
-                    <td className="border p-2 w-24 text-right font-medium">{p.total.toFixed(2)}</td>
+                    <td className="border p-2 w-24 text-center font-medium">{p.total.toFixed(2)}</td>
 
                     {/* Action Buttons */}
                     <td className="border p-2 w-32">
