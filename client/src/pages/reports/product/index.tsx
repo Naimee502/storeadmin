@@ -18,7 +18,7 @@ import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice
 import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
 import { useTransferStocksQuery } from "../../../graphql/hooks/transferstock";
-import { useStockAdjustmentsQuery } from "../../../graphql/hooks/stockadjustments";
+import { useActiveStockAdjustments } from "../../../graphql/hooks/stockadjustments";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 
 const reportTabsObj = [
@@ -42,7 +42,7 @@ const ProductStatementReport: React.FC = () => {
   const { data: salesReturnData } = useSalesReturnsQuery();
   const { data: purchaseReturnData } = usePurchaseReturnsQuery();
   const { data: transferData } = useTransferStocksQuery();
-  const { data: adjustmentData } = useStockAdjustmentsQuery();
+  const { data: adjustmentData } = useActiveStockAdjustments();
   const { data: accountsData } = useAccountsQuery();
 
   const products = productData?.getProductServices || [];
