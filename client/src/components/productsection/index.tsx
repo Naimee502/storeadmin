@@ -784,10 +784,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 <tr>
                   <th className="border p-2 w-80">Name</th>
                   {type === "sales" && (<th className="border p-2 w-20">Unit</th>)}
-                  <th className="border p-2 w-16">Qty</th>
-                  <th className="border p-2 w-24">Rate</th>
-                  <th className="border p-2 w-20">Disc</th>
-                  <th className="border p-2 w-16">GST%</th>
+                  {isFieldEnabled("quantity") && (<th className="border p-2 w-16">Qty</th>)}
+                  {isFieldEnabled("rate") && (<th className="border p-2 w-24">Rate</th>)}
+                  {isFieldEnabled("discount") && (<th className="border p-2 w-20">Disc</th>)}
+                  {isFieldEnabled("gst") && (<th className="border p-2 w-16">GST%</th>)}
                   <th className="border p-2 w-24">Total</th>
                   <th className="border p-2 w-32">Action</th>
                 </tr>
