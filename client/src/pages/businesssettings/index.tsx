@@ -232,6 +232,17 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           red, but the bill saves and stock can go below zero — for businesses that bill first and
           enter their purchases later.
         </p>
+        <Toggle
+          label="Restrict quantity by stock (customer cannot order more than what is on hand)"
+          checked={draft.restrictQuantityByStock !== false}
+          onChange={(v) => set("restrictQuantityByStock", v)}
+        />
+        <p className="text-xs text-gray-500 -mt-1 mb-2 px-1">
+          On (recommended): a customer ordering from the website or the app cannot put more of a
+          product in their cart than the branch has on hand. Off: they can order past it, and the
+          shortfall is yours to sort out at fulfilment. Applies to customer-placed orders only —
+          your own billing is governed by Allow negative stock above.
+        </p>
         <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
         <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
         <Toggle label="Display Product Stock on App/Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />

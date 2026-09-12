@@ -13,6 +13,7 @@ interface AdminSettings {
   autoCreateStockOnSalesReturn: boolean;
   autoCreateStockOnPurchaseReturn: boolean;
   allowNegativeStock: boolean;
+  restrictQuantityByStock: boolean;
   preventDuplicateInvoiceNumbers: boolean;
   defaultGstPercent: number;
   defaultPaymentType: string;

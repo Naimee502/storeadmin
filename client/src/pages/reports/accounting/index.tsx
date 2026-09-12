@@ -206,7 +206,7 @@ const AccountingFinanceReports: React.FC = () => {
             return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
         };
 
-        type Row = { t: number; type: string; ref: string; debit: number; credit: number };
+        type Row = { t: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number };
         const rows: Row[] = [];
 
         payments
@@ -260,6 +260,9 @@ const AccountingFinanceReports: React.FC = () => {
                             ref: String(p.paymentcode ?? "-"),
                             debit: r2(l.debit),
                             credit: r2(l.credit),
+                            remarks: (p.remarks || "").trim() || "-",
+                            discount: r2(discount),
+                            commission: r2(commission),
                         });
                     });
             });
@@ -286,6 +289,9 @@ const AccountingFinanceReports: React.FC = () => {
                 debit: balance > 0 ? balance.toFixed(2) : "0.00",
                 credit: balance < 0 ? Math.abs(balance).toFixed(2) : "0.00",
                 runningBalance: label(balance),
+                remarks: "-",
+                discount: "-",
+                commission: "-",
             },
         ];
 
@@ -304,6 +310,9 @@ const AccountingFinanceReports: React.FC = () => {
                     debit: r.debit ? r.debit.toFixed(2) : "",
                     credit: r.credit ? r.credit.toFixed(2) : "",
                     runningBalance: label(balance),
+                    remarks: r.remarks,
+                    discount: r.discount ? r.discount.toFixed(2) : "-",
+                    commission: r.commission ? r.commission.toFixed(2) : "-",
                 });
             });
 
@@ -636,7 +645,9 @@ const AccountingFinanceReports: React.FC = () => {
     ];
     let title = "Accounting & Finance Reports";
     let exportFileName = "AccountingReport";
-    let netTotal: { debitKey: string; creditKey: string; showInKey?: string } | undefined;
+    let netTotal:
+        | { debitKey: string; creditKey: string; showInKey?: string; minusKeys?: string[]; plusKeys?: string[] }
+        | undefined;
     let pdfSubtitle: string[] | undefined;
 
     switch (activeTab) {
@@ -791,6 +802,10 @@ const AccountingFinanceReports: React.FC = () => {
                 { label: "Ref No.", key: "ref" },
                 { label: "Debit (₹)", key: "debit", numeric: true },
                 { label: "Credit (₹)", key: "credit", numeric: true },
+                ...(dcEnabled ? [
+                    { label: "Discount (₹)", key: "discount", numeric: true },
+                    { label: "Commission (₹)", key: "commission", numeric: true },
+                ] : []),
                 {
                     // Deliberately not `numeric`: a running balance is a position
                     // at a point in time, and summing every row of it is
@@ -801,7 +816,18 @@ const AccountingFinanceReports: React.FC = () => {
                         <span className="block text-right whitespace-nowrap">{row.runningBalance}</span>
                     ),
                 },
+                { label: "Remarks", key: "remarks" },
             ];
+            // Totals row: the net prints under Remarks. Debit - Credit is this
+            // ledger's own movement; with concessions on, the discount and
+            // commission legs are exactly what make the cash differ from that
+            // movement, so they fold in here too -- discount out, commission in.
+            netTotal = {
+                debitKey: "debit",
+                creditKey: "credit",
+                showInKey: "remarks",
+                ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
+            };
             // A statement is always ONE ledger, so that choice leads the filter
             // bar rather than trailing the dates.
             filterFields = [

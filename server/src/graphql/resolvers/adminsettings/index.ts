@@ -20,6 +20,10 @@ const formatSettings = (s: any) =>
         // and stops returns from restoring stock all over again).
         autoCreateStockOnSalesReturn: s.autoCreateStockOnSalesReturn !== false,
         autoCreateStockOnPurchaseReturn: s.autoCreateStockOnPurchaseReturn !== false,
+        // Same again, and it also defaults to TRUE: a settings row written
+        // before this flag existed must read as "yes, cap at stock" rather
+        // than as a missing field that trips Boolean!.
+        restrictQuantityByStock: s.restrictQuantityByStock !== false,
       }
     : null;
 
@@ -85,6 +89,8 @@ export const adminSettingsResolvers = {
         codOnly: !!settings.websiteCodOnly,
         displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
         displayStockOnWebsite: settings.displayStockOnWebsite !== false,
+        // Defaults to true for rows predating the flag -- see the model.
+        restrictQuantityByStock: settings.restrictQuantityByStock !== false,
         // Display-only x2 markup on catalogue prices. Safe to expose to an
         // anonymous visitor — the browser is what has to draw the doubled
         // number, and the real rate still travels on every product/cart

@@ -16,6 +16,7 @@ const SETTINGS_FIELDS = `
   autoCreateStockOnSalesReturn
   autoCreateStockOnPurchaseReturn
   allowNegativeStock
+  restrictQuantityByStock
   preventDuplicateInvoiceNumbers
   defaultGstPercent
   defaultPaymentType

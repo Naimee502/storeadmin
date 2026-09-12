@@ -74,7 +74,14 @@ interface ReportTableProps {
    * column keys that should net out; showInKey picks the column the net is
    * printed in (defaults to the last column).
    */
-  netTotal?: { debitKey: string; creditKey: string; showInKey?: string };
+  netTotal?: {
+    debitKey: string;
+    creditKey: string;
+    showInKey?: string;
+    /** Extra numeric columns folded into the same net. */
+    minusKeys?: string[];
+    plusKeys?: string[];
+  };
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -95,6 +102,19 @@ const toNumericVal = (v: any): number | null => {
 
 const isNumericVal = (v: any) => toNumericVal(v) !== null;
 
+// The Totals-row net. Debit - Credit is the spine; minusKeys / plusKeys let a
+// report fold its own extra columns into that same figure -- a ledger statement
+// nets its discount out and its commission in, so the number reconciles to the
+// cash that actually moved and not to the balance movement alone.
+const netTotalOf = (
+  spec: { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[] },
+  sumKey: (k: string) => number,
+) =>
+  sumKey(spec.debitKey) -
+  sumKey(spec.creditKey) -
+  (spec.minusKeys ?? []).reduce((a, k) => a + sumKey(k), 0) +
+  (spec.plusKeys ?? []).reduce((a, k) => a + sumKey(k), 0);
+
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
   columns.forEach((col) => { obj[col.label] = row[col.key] ?? ""; });
@@ -109,7 +129,13 @@ const printReportAsPDF = (
   columns: ReportColumn[],
   data: any[],
   pdfSubtitle?: string[],
-  netTotal?: { debitKey: string; creditKey: string; showInKey?: string },
+  netTotal?: {
+    debitKey: string;
+    creditKey: string;
+    showInKey?: string;
+    minusKeys?: string[];
+    plusKeys?: string[];
+  },
 ) => {
   const today = formatDateDMY(new Date());
 
@@ -133,7 +159,7 @@ const printReportAsPDF = (
     : undefined;
   const netValue =
     netTotal && data.length > 0
-      ? (sumKey(netTotal.debitKey) - sumKey(netTotal.creditKey)).toFixed(2)
+      ? netTotalOf(netTotal, sumKey).toFixed(2)
       : null;
 
   const hasTotals = columns.some((col) => col.numeric && data.some((r) => isNumericVal(r[col.key])));
@@ -286,17 +312,14 @@ const ReportTable: React.FC<ReportTableProps> = ({
     });
   }, [filteredData, columns, showTotals]);
 
-  /* ── Net total (Debit - Credit), shown inside the Totals row ── */
+  /* ── Net total, shown inside the Totals row ── */
   const netTotalInfo = useMemo(() => {
     if (!netTotal || !showTotals || filteredData.length === 0) return null;
     const key = netTotal.showInKey || columns[columns.length - 1]?.key;
     if (!key) return null;
     const sumKey = (k: string) =>
       filteredData.reduce((acc, row) => acc + (toNumericVal(row[k]) ?? 0), 0);
-    return {
-      key,
-      value: (sumKey(netTotal.debitKey) - sumKey(netTotal.creditKey)).toFixed(2),
-    };
+    return { key, value: netTotalOf(netTotal, sumKey).toFixed(2) };
   }, [filteredData, columns, showTotals, netTotal]);
 
   /* ── Built-in exports ── */

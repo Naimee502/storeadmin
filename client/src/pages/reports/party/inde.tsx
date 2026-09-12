@@ -9,6 +9,7 @@ import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
+import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { useMutation } from "@apollo/client";
 import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
@@ -148,6 +149,12 @@ const PartyReports: React.FC = () => {
   // Returns show on a statement as Credit / Debit Notes.
   const { data: salesRetData } = useSalesReturnsQuery();
   const { data: purchaseRetData } = usePurchaseReturnsQuery();
+  const { data: adminSettingsData } = useAdminSettingsQuery();
+
+  // Per-business feature flag: "Discount & Commission on Payment settlement".
+  // Off means the business never collects a concession, so the statement stays
+  // the plain Debit / Credit sheet it has always been.
+  const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
   const payments = paymentsData?.getPayments || [];
@@ -565,7 +572,11 @@ const PartyReports: React.FC = () => {
       return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
     };
 
-    type Row = { t: number; type: string; ref: string; debit: number; credit: number };
+    type Row = {
+      t: number; type: string; ref: string; debit: number; credit: number; remarks: string;
+      // Only payments carry concessions; invoice / return rows leave these unset.
+      discount?: number; commission?: number;
+    };
     const rows: Row[] = [];
 
     const mine = (list: any[]) => list.filter((x: any) => x.partyacc?.id === a.id);
@@ -584,12 +595,14 @@ const PartyReports: React.FC = () => {
         rows.push({
           t: timeOf(inv.billdate), type: "Purchase", ref: refNo("INV-", inv.billnumber),
           debit: 0, credit: Number(inv.totalamount || 0),
+          remarks: (inv.notes || inv.narration || "").trim() || "-",
         })
       );
       mine(purchaseReturns).forEach((r: any) =>
         rows.push({
           t: timeOf(r.returndate), type: "Debit Note", ref: refNo("DN-", r.billnumber),
           debit: Number(r.totalamount || 0), credit: 0,
+          remarks: (r.notes || r.narration || "").trim() || "-",
         })
       );
     } else {
@@ -597,12 +610,14 @@ const PartyReports: React.FC = () => {
         rows.push({
           t: timeOf(inv.billdate), type: "Sale", ref: refNo("INV-", inv.billnumber),
           debit: Number(inv.totalamount || 0), credit: 0,
+          remarks: (inv.notes || inv.narration || "").trim() || "-",
         })
       );
       mine(salesReturns).forEach((r: any) =>
         rows.push({
           t: timeOf(r.returndate), type: "Credit Note", ref: refNo("CN-", r.billnumber),
           debit: 0, credit: Number(r.totalamount || 0),
+          remarks: (r.notes || r.narration || "").trim() || "-",
         })
       );
     }
@@ -610,14 +625,40 @@ const PartyReports: React.FC = () => {
     payments
       .filter((p: any) => p.partyid?.id === a.id && p.status !== false)
       .forEach((p: any) => {
-        const amt = Number(p.amount || 0);
+        const r2 = (n: any) => parseFloat((Number(n) || 0).toFixed(2));
+        const invs = Array.isArray(p.invoices) ? p.invoices : [];
+
+        // Concessions can sit on the bill lines OR on the payment itself (an
+        // opening-balance-only receipt has no line to hang them on), so take the
+        // larger of the two -- the same rule the server and the Ledger Statement
+        // use.
+        const discount = Math.max(
+          r2(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0)),
+          r2(p.discount)
+        );
+        const commission = Math.max(
+          r2(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0)),
+          r2(p.commission)
+        );
+
+        // The party leg is the SETTLED amount, not the cash. A discount lowers
+        // the cash without lowering the bill and a commission is charged on top
+        // of it, so posting p.amount here made this sheet drift from the party's
+        // own ledger by exactly the concession. With the flag off the two are
+        // equal, so nothing moves.
+        const cash = r2(p.amount);
+        const settled = r2(cash + discount - commission);
+
         const inward = p.type === "receipt";
         rows.push({
           t: timeOf(p.paymentdate),
           type: inward ? "Payment-In" : "Payment-Out",
           ref: String(p.paymentcode ?? "-"),
-          debit: inward ? 0 : amt,
-          credit: inward ? amt : 0,
+          debit: inward ? 0 : settled,
+          credit: inward ? settled : 0,
+          remarks: (p.remarks || "").trim() || "-",
+          discount,
+          commission,
         });
       });
 
@@ -640,6 +681,9 @@ const PartyReports: React.FC = () => {
         debit: balance > 0 ? balance.toFixed(2) : "0.00",
         credit: balance < 0 ? Math.abs(balance).toFixed(2) : "0.00",
         runningBalance: label(balance),
+        remarks: "-",
+        discount: "-",
+        commission: "-",
       },
     ];
 
@@ -658,6 +702,9 @@ const PartyReports: React.FC = () => {
           debit: r.debit ? r.debit.toFixed(2) : "",
           credit: r.credit ? r.credit.toFixed(2) : "",
           runningBalance: label(balance),
+          remarks: r.remarks,
+          discount: r.discount ? r.discount.toFixed(2) : "-",
+          commission: r.commission ? r.commission.toFixed(2) : "-",
         });
       });
 
@@ -737,6 +784,9 @@ const PartyReports: React.FC = () => {
   ];
 
   let pdfSubtitle: string[] | undefined;
+  let netTotal:
+    | { debitKey: string; creditKey: string; showInKey?: string; minusKeys?: string[]; plusKeys?: string[] }
+    | undefined;
 
   switch (activeTab) {
     case "Customer Outstanding":
@@ -777,6 +827,10 @@ const PartyReports: React.FC = () => {
         { label: "Ref No.", key: "ref" },
         { label: "Debit (₹)", key: "debit", numeric: true },
         { label: "Credit (₹)", key: "credit", numeric: true },
+        ...(dcEnabled ? [
+          { label: "Discount (₹)", key: "discount", numeric: true },
+          { label: "Commission (₹)", key: "commission", numeric: true },
+        ] : []),
         {
           // Deliberately not `numeric`: a running balance is a position at a
           // point in time, and adding every row of it together is meaningless.
@@ -787,7 +841,18 @@ const PartyReports: React.FC = () => {
             <span className="block text-right whitespace-nowrap">{row.runningBalance}</span>
           ),
         },
+        { label: "Remarks", key: "remarks" },
       ];
+      // Totals row: the net prints under Remarks. Debit - Credit is the party's
+      // own movement; with concessions on, the discount and commission legs are
+      // exactly what make the cash differ from that movement, so they fold in
+      // here too -- discount out, commission in.
+      netTotal = {
+        debitKey: "debit",
+        creditKey: "credit",
+        showInKey: "remarks",
+        ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
+      };
       break;
   }
 
@@ -828,6 +893,7 @@ const PartyReports: React.FC = () => {
           showPdf
           exportFileName={activeTab === "Party Statement" ? "PartyStatement" : "PartyReport"}
           showTotals
+          netTotal={netTotal}
           pdfSubtitle={pdfSubtitle}
         />
       </div>

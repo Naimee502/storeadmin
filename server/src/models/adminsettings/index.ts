@@ -55,6 +55,16 @@ const adminSettingsSchema = new mongoose.Schema(
        INVENTORY POLICIES
        ============================================================ */
     allowNegativeStock: { type: Boolean, default: false },
+    // Storefront quantity cap. On (the default, and what the website has
+    // always done in practice): a customer cannot put more of a product in
+    // the cart than there is stock on hand. Off: they may order past it and
+    // the shortfall is sorted out at fulfilment.
+    //
+    // NOTE: nothing reads this yet -- the storefronts are wired up
+    // separately. The agreed cap rule for whoever does that: compare
+    // qty x unitqty against the product's stock (a "12 x Piece" line eats
+    // 12), and pool one product's stock across every cart line using it.
+    restrictQuantityByStock: { type: Boolean, default: true },
     preventDuplicateInvoiceNumbers: { type: Boolean, default: true },
 
     /* ============================================================

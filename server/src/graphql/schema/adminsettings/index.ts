@@ -59,6 +59,7 @@ export const adminSettingsTypeDefs = gql`
     autoCreateStockOnPurchaseReturn: Boolean!
 
     allowNegativeStock: Boolean!
+    restrictQuantityByStock: Boolean!
     preventDuplicateInvoiceNumbers: Boolean!
 
     defaultGstPercent: Float!
@@ -195,6 +196,10 @@ export const adminSettingsTypeDefs = gql`
     displayProductPriceOnWebsite: Boolean!
     displayStockOnWebsite: Boolean!
 
+    # Whether the storefront must cap cart quantity at the stock on hand.
+    # Exposed here so wiring the website up later is a client-only change.
+    restrictQuantityByStock: Boolean!
+
     # Render every catalogue price at twice the stored rate (display only —
     # cart totals and the placed order still use the real rate).
     doubleDisplayPrice: Boolean!
@@ -256,6 +261,7 @@ export const adminSettingsTypeDefs = gql`
     autoCreateStockOnPurchaseReturn: Boolean
 
     allowNegativeStock: Boolean
+    restrictQuantityByStock: Boolean
     preventDuplicateInvoiceNumbers: Boolean
 
     defaultGstPercent: Float
