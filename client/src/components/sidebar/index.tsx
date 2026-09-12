@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, type JSX } from 'react';
 import {
-  FaBalanceScale, FaBoxOpen, FaCodeBranch, FaHome,
+  FaBalanceScale, FaBoxOpen, FaBoxes, FaCodeBranch, FaHome,
   FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags,
   FaUser, FaUsers, FaUserTie, FaFileInvoiceDollar,
   FaReceipt, FaExchangeAlt, FaWallet,
@@ -187,6 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/reports/purchase', label: 'Purchase Reports', icon: <FaFileAlt className="text-violet-400 text-xl flex-shrink-0" />, moduleId: "reports.purchase", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/stock', label: 'Stock Reports', icon: <FaClipboardList className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "reports.stock", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/gst', label: 'GST Reports', icon: <FaFileInvoiceDollar className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.gst", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/product', label: 'Product Statement', icon: <FaBoxes className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "reports.product", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/accounting', label: 'Accounting / Finance', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.accounting", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/party', label: 'Party / Vendor', icon: <FaUsers className="text-teal-400 text-xl flex-shrink-0" />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
     { to: '/reports/salesmen', label: 'Staff Reports', icon: <FaUserTie className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },

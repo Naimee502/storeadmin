@@ -64,6 +64,7 @@ import SalesReports from "../pages/reports/sales";
 import PurchaseReports from "../pages/reports/purchase";
 import StockReports from "../pages/reports/stock";
 import GSTReports from "../pages/reports/gst";
+import ProductStatementReport from "../pages/reports/product";
 import AccountingFinanceReports from "../pages/reports/accounting";
 import PartyReports from "../pages/reports/party/inde";
 import SalesmanReports from "../pages/reports/salesman";
@@ -755,6 +756,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+      <Route
+        path="/reports/product"
+        element={
+          <ProtectedRoutes>
+            <ProductStatementReport />
+          </ProtectedRoutes>
+        }
+      />
         path="/reports/accounting"
         element={
           <ProtectedRoutes>

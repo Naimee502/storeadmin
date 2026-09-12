@@ -150,6 +150,7 @@ export const MODULES: ModuleDef[] = [
   { id: "reports.purchase",   label: "Purchase Reports",    section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.stock",      label: "Stock Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.gst",        label: "GST Reports",         section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
+  { id: "reports.product",    label: "Product Statement", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.accounting", label: "Accounting / Finance", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.party",      label: "Party / Vendor Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.salesmen",   label: "Salesmen Reports",    section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
