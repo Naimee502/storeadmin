@@ -139,6 +139,14 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       .map((r) => r.cells);
   }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [inlineEditIndex, setInlineEditIndex] = useState<number | null>(null);
+  const [inlineEditValues, setInlineEditValues] = useState<{
+    quantity?: number;
+    rate?: number;
+    discount?: number;
+    gst?: number;
+  }>({});
+
   const [qtyError, setQtyError] = useState<string | null>(null);
 
   // Selling below cost is blocked on sales lines. Purchase lines are exempt —
@@ -191,6 +199,54 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
     return subtotal + gstAmount;
   };
+
+  // ✅ Handle inline save
+  const handleInlineSave = (index: number) => {
+    setProducts((prev) =>
+      prev.map((p, i) => {
+        if (i !== index) return p;
+        
+        const updatedProduct = {
+          ...p,
+          quantity: inlineEditValues.quantity ?? p.quantity,
+          rate: inlineEditValues.rate ?? p.rate,
+          discount: inlineEditValues.discount ?? p.discount,
+          gst: inlineEditValues.gst ?? p.gst,
+        };
+
+        // Recalculate total
+        const qty = updatedProduct.quantity || 0;
+        const rate = updatedProduct.rate || 0;
+        const discount = updatedProduct.discount || 0;
+        const gst = updatedProduct.gst || 0;
+        const subtotal = qty * (rate - discount);
+        const gstAmount = (subtotal * gst) / 100;
+        updatedProduct.total = subtotal + gstAmount;
+
+        return updatedProduct;
+      })
+    );
+    setInlineEditIndex(null);
+    setInlineEditValues({});
+  };
+
+  // ✅ Handle inline cancel
+  const handleInlineCancel = () => {
+    setInlineEditIndex(null);
+    setInlineEditValues({});
+  };
+
+  // ✅ Start inline edit
+  const startInlineEdit = (index: number, product: InvoiceProduct) => {
+    setInlineEditIndex(index);
+    setInlineEditValues({
+      quantity: product.quantity,
+      rate: product.rate,
+      discount: product.discount,
+      gst: product.gst,
+    });
+  };
+
 
   /** ✅ Add or update product line */
   const handleAddOrUpdateProduct = () => {
@@ -614,52 +670,162 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                 return (
                   <tr key={i}>
-                    <td
-                      className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
-                      // An inset ring, not a border: with the table's collapsed
-                      // borders the header cell above wins the shared edge, so a
-                      // red `border-top` on this cell would still paint black.
-                      style={
-                        shortfall
-                          ? { boxShadow: "inset 0 0 0 2px #ef4444" }
-                          : undefined
-                      }
-                    >
-                      {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
-                      {shortfall && (
-                        <div className="text-xs font-medium text-red-600">
-                          Not enough stock — ordered {shortfall.required}, available{" "}
-                          {shortfall.available} (base units), short by{" "}
-                          {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
-                        </div>
-                      )}
-                    </td>
-                    {type === "sales" && (
-                    <td className="border p-2">
-                      {price?.quantity} {price?.unitname}
-                    </td>)}
-                    <td className="border p-2">{p.quantity}</td>
-                    <td className="border p-2">{p.rate.toFixed(2)}</td>
-                    <td className="border p-2">{(p.discount ?? 0).toFixed(2)}</td>
-                    <td className="border p-2">{(p.gst ?? 0).toFixed(2)}</td>
-                    <td className="border p-2">{p.total.toFixed(2)}</td>
-                    <td className="border p-2 space-x-2">
-                      <button
-                        type="button"
-                        className="text-blue-500"
-                        onClick={() => editProduct(i)}
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        className="text-red-500"
-                        onClick={() => removeProduct(i)}
-                      >
-                        Remove
-                      </button>
-                    </td>
+                    {inlineEditIndex === i ? (
+                      <>
+                        {/* Name - readonly in inline edit */}
+                        <td className="border p-2">
+                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                        </td>
+                        {type === "sales" && (
+                          <td className="border p-2">
+                            {price?.quantity} {price?.unitname}
+                          </td>
+                        )}
+                        {/* Quantity - Editable */}
+                        {isFieldEnabled("quantity") && (
+                          <td className="border p-2">
+                            <input
+                              type="number"
+                              value={inlineEditValues.quantity ?? ""}
+                              onChange={(e) =>
+                                setInlineEditValues({
+                                  ...inlineEditValues,
+                                  quantity: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                              step="0.01"
+                            />
+                          </td>
+                        )}
+                        {/* Rate - Editable */}
+                        {isFieldEnabled("rate") && (
+                          <td className="border p-2">
+                            <input
+                              type="number"
+                              value={inlineEditValues.rate ?? ""}
+                              onChange={(e) =>
+                                setInlineEditValues({
+                                  ...inlineEditValues,
+                                  rate: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                              step="0.01"
+                            />
+                          </td>
+                        )}
+                        {/* Discount - Editable */}
+                        {isFieldEnabled("discount") && (
+                          <td className="border p-2">
+                            <input
+                              type="number"
+                              value={inlineEditValues.discount ?? ""}
+                              onChange={(e) =>
+                                setInlineEditValues({
+                                  ...inlineEditValues,
+                                  discount: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                              step="0.01"
+                            />
+                          </td>
+                        )}
+                        {/* GST - Editable */}
+                        {isFieldEnabled("gst") && (
+                          <td className="border p-2">
+                            <input
+                              type="number"
+                              value={inlineEditValues.gst ?? ""}
+                              onChange={(e) =>
+                                setInlineEditValues({
+                                  ...inlineEditValues,
+                                  gst: parseFloat(e.target.value) || 0,
+                                })
+                              }
+                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                              step="0.01"
+                            />
+                          </td>
+                        )}
+                        {/* Total - readonly during edit */}
+                        <td className="border p-2">
+                          {(() => {
+                            const qty = inlineEditValues.quantity ?? p.quantity;
+                            const rate = inlineEditValues.rate ?? p.rate;
+                            const disc = inlineEditValues.discount ?? p.discount;
+                            const gst = inlineEditValues.gst ?? p.gst;
+                            const subtotal = qty * (rate - disc);
+                            const gstAmount = (subtotal * gst) / 100;
+                            return (subtotal + gstAmount).toFixed(2);
+                          })()}
+                        </td>
+                        {/* Save/Cancel buttons */}
+                        <td className="border p-2 space-x-1">
+                          <button
+                            type="button"
+                            className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm"
+                            onClick={() => handleInlineSave(i)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="bg-gray-400 hover:bg-gray-500 text-white px-2 py-1 rounded text-sm"
+                            onClick={handleInlineCancel}
+                          >
+                            Cancel
+                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td
+                          className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                          style={
+                            shortfall
+                              ? { boxShadow: "inset 0 0 0 2px #ef4444" }
+                              : undefined
+                          }
+                        >
+                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                          {shortfall && (
+                            <div className="text-xs font-medium text-red-600">
+                              Not enough stock — ordered {shortfall.required}, available{" "}
+                              {shortfall.available} (base units), short by{" "}
+                              {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                            </div>
+                          )}
+                        </td>
+                        {type === "sales" && (
+                          <td className="border p-2">
+                            {price?.quantity} {price?.unitname}
+                          </td>
+                        )}
+                        <td className="border p-2">{p.quantity}</td>
+                        <td className="border p-2">{p.rate.toFixed(2)}</td>
+                        <td className="border p-2">{(p.discount ?? 0).toFixed(2)}</td>
+                        <td className="border p-2">{(p.gst ?? 0).toFixed(2)}</td>
+                        <td className="border p-2">{p.total.toFixed(2)}</td>
+                        <td className="border p-2 space-x-2">
+                          <button
+                            type="button"
+                            className="text-blue-500 hover:text-blue-700 font-medium"
+                            onClick={() => startInlineEdit(i, p)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700 font-medium"
+                            onClick={() => removeProduct(i)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}
