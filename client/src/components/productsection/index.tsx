@@ -109,13 +109,19 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
 
-  /** Last 5 times the selected product was sold — date, party, qty, rate, disc */
+  /** Last 5 times the selected product was sold/purchased — date, party, qty, rate, disc */
   const productSaleHistory = useMemo(() => {
     const pid = selectedProduct.productserviceid;
     if (!pid || !invoiceHistory.length) return [];
     const vid = selectedProduct.variantid;
+    const selectedPartyId = partyAccount?.id;
     const rows: { time: number; cells: string[] }[] = [];
     invoiceHistory.forEach((inv: any) => {
+      // If a party is selected, only show history for that party
+      if (selectedPartyId) {
+        const invPartyId = inv.partyacc?.id || inv.partyaccountid;
+        if (invPartyId !== selectedPartyId) return;
+      }
       (inv.productservice || []).forEach((line: any) => {
         const linePid = line.productserviceid?.id || line.productserviceid;
         const lineVid = line.variantid?.id || line.variantid;
@@ -137,15 +143,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       .sort((a, b) => b.time - a.time)
       .slice(0, 5)
       .map((r) => r.cells);
-  }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid]);
+  }, [invoiceHistory, selectedProduct.productserviceid, selectedProduct.variantid, partyAccount?.id]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [inlineEditIndex, setInlineEditIndex] = useState<number | null>(null);
-  const [inlineEditValues, setInlineEditValues] = useState<{
-    quantity?: number;
-    rate?: number;
-    discount?: number;
-    gst?: number;
-  }>({});
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
 
   const [qtyError, setQtyError] = useState<string | null>(null);
 
@@ -200,19 +201,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     return subtotal + gstAmount;
   };
 
-  // ✅ Handle inline save
-  const handleInlineSave = (index: number) => {
+  // ✅ Handle auto-save on blur for inline editing
+  const handleCellBlur = (rowIndex: number, field: string, newValue: string) => {
+    const numValue = parseFloat(newValue);
+    if (isNaN(numValue)) return;
+
     setProducts((prev) =>
       prev.map((p, i) => {
-        if (i !== index) return p;
-        
-        const updatedProduct = {
-          ...p,
-          quantity: inlineEditValues.quantity ?? p.quantity,
-          rate: inlineEditValues.rate ?? p.rate,
-          discount: inlineEditValues.discount ?? p.discount,
-          gst: inlineEditValues.gst ?? p.gst,
-        };
+        if (i !== rowIndex) return p;
+
+        const updatedProduct = { ...p };
+
+        if (field === "quantity") updatedProduct.quantity = numValue;
+        else if (field === "rate") updatedProduct.rate = numValue;
+        else if (field === "discount") updatedProduct.discount = numValue;
+        else if (field === "gst") updatedProduct.gst = numValue;
 
         // Recalculate total
         const qty = updatedProduct.quantity || 0;
@@ -226,25 +229,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         return updatedProduct;
       })
     );
-    setInlineEditIndex(null);
-    setInlineEditValues({});
-  };
 
-  // ✅ Handle inline cancel
-  const handleInlineCancel = () => {
-    setInlineEditIndex(null);
-    setInlineEditValues({});
-  };
-
-  // ✅ Start inline edit
-  const startInlineEdit = (index: number, product: InvoiceProduct) => {
-    setInlineEditIndex(index);
-    setInlineEditValues({
-      quantity: product.quantity,
-      rate: product.rate,
-      discount: product.discount,
-      gst: product.gst,
-    });
+    setEditingCell(null);
+    setEditingValue("");
   };
 
 
@@ -670,162 +657,180 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                 return (
                   <tr key={i}>
-                    {inlineEditIndex === i ? (
-                      <>
-                        {/* Name - readonly in inline edit */}
-                        <td className="border p-2">
-                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
-                        </td>
-                        {type === "sales" && (
-                          <td className="border p-2">
-                            {price?.quantity} {price?.unitname}
-                          </td>
-                        )}
-                        {/* Quantity - Editable */}
-                        {isFieldEnabled("quantity") && (
-                          <td className="border p-2">
-                            <input
-                              type="number"
-                              value={inlineEditValues.quantity ?? ""}
-                              onChange={(e) =>
-                                setInlineEditValues({
-                                  ...inlineEditValues,
-                                  quantity: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
-                              step="0.01"
-                            />
-                          </td>
-                        )}
-                        {/* Rate - Editable */}
-                        {isFieldEnabled("rate") && (
-                          <td className="border p-2">
-                            <input
-                              type="number"
-                              value={inlineEditValues.rate ?? ""}
-                              onChange={(e) =>
-                                setInlineEditValues({
-                                  ...inlineEditValues,
-                                  rate: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
-                              step="0.01"
-                            />
-                          </td>
-                        )}
-                        {/* Discount - Editable */}
-                        {isFieldEnabled("discount") && (
-                          <td className="border p-2">
-                            <input
-                              type="number"
-                              value={inlineEditValues.discount ?? ""}
-                              onChange={(e) =>
-                                setInlineEditValues({
-                                  ...inlineEditValues,
-                                  discount: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
-                              step="0.01"
-                            />
-                          </td>
-                        )}
-                        {/* GST - Editable */}
-                        {isFieldEnabled("gst") && (
-                          <td className="border p-2">
-                            <input
-                              type="number"
-                              value={inlineEditValues.gst ?? ""}
-                              onChange={(e) =>
-                                setInlineEditValues({
-                                  ...inlineEditValues,
-                                  gst: parseFloat(e.target.value) || 0,
-                                })
-                              }
-                              className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
-                              step="0.01"
-                            />
-                          </td>
-                        )}
-                        {/* Total - readonly during edit */}
-                        <td className="border p-2">
-                          {(() => {
-                            const qty = inlineEditValues.quantity ?? p.quantity;
-                            const rate = inlineEditValues.rate ?? p.rate;
-                            const disc = inlineEditValues.discount ?? p.discount;
-                            const gst = inlineEditValues.gst ?? p.gst;
-                            const subtotal = qty * (rate - disc);
-                            const gstAmount = (subtotal * gst) / 100;
-                            return (subtotal + gstAmount).toFixed(2);
-                          })()}
-                        </td>
-                        {/* Save/Cancel buttons */}
-                        <td className="border p-2 space-x-1">
-                          <button
-                            type="button"
-                            className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm"
-                            onClick={() => handleInlineSave(i)}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            className="bg-gray-400 hover:bg-gray-500 text-white px-2 py-1 rounded text-sm"
-                            onClick={handleInlineCancel}
-                          >
-                            Cancel
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td
-                          className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
-                          style={
-                            shortfall
-                              ? { boxShadow: "inset 0 0 0 2px #ef4444" }
-                              : undefined
-                          }
-                        >
-                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
-                          {shortfall && (
-                            <div className="text-xs font-medium text-red-600">
-                              Not enough stock — ordered {shortfall.required}, available{" "}
-                              {shortfall.available} (base units), short by{" "}
-                              {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
-                            </div>
-                          )}
-                        </td>
-                        {type === "sales" && (
-                          <td className="border p-2">
-                            {price?.quantity} {price?.unitname}
-                          </td>
-                        )}
-                        <td className="border p-2">{p.quantity}</td>
-                        <td className="border p-2">{p.rate.toFixed(2)}</td>
-                        <td className="border p-2">{(p.discount ?? 0).toFixed(2)}</td>
-                        <td className="border p-2">{(p.gst ?? 0).toFixed(2)}</td>
-                        <td className="border p-2">{p.total.toFixed(2)}</td>
-                        <td className="border p-2 space-x-2">
-                          <button
-                            type="button"
-                            className="text-blue-500 hover:text-blue-700 font-medium"
-                            onClick={() => startInlineEdit(i, p)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="text-red-500 hover:text-red-700 font-medium"
-                            onClick={() => removeProduct(i)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </>
+                    {/* Product Name */}
+                    <td
+                      className={`border p-2 ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                      style={
+                        shortfall
+                          ? { boxShadow: "inset 0 0 0 2px #ef4444" }
+                          : undefined
+                      }
+                    >
+                      {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                      {shortfall && (
+                        <div className="text-xs font-medium text-red-600">
+                          Not enough stock — ordered {shortfall.required}, available{" "}
+                          {shortfall.available} (base units), short by{" "}
+                          {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Unit (Sales only) */}
+                    {type === "sales" && (
+                      <td className="border p-2">
+                        {price?.quantity} {price?.unitname}
+                      </td>
                     )}
+
+                    {/* Quantity - Double-click to edit */}
+                    {isFieldEnabled("quantity") && (
+                      <td
+                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: i, field: "quantity" });
+                          setEditingValue(String(p.quantity));
+                        }}
+                      >
+                        {editingCell?.rowIndex === i && editingCell?.field === "quantity" ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleCellBlur(i, "quantity", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellBlur(i, "quantity", editingValue);
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                            step="0.01"
+                          />
+                        ) : (
+                          p.quantity
+                        )}
+                      </td>
+                    )}
+
+                    {/* Rate - Double-click to edit */}
+                    {isFieldEnabled("rate") && (
+                      <td
+                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: i, field: "rate" });
+                          setEditingValue(String(p.rate));
+                        }}
+                      >
+                        {editingCell?.rowIndex === i && editingCell?.field === "rate" ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleCellBlur(i, "rate", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellBlur(i, "rate", editingValue);
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                            step="0.01"
+                          />
+                        ) : (
+                          p.rate.toFixed(2)
+                        )}
+                      </td>
+                    )}
+
+                    {/* Discount - Double-click to edit */}
+                    {isFieldEnabled("discount") && (
+                      <td
+                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: i, field: "discount" });
+                          setEditingValue(String(p.discount ?? 0));
+                        }}
+                      >
+                        {editingCell?.rowIndex === i && editingCell?.field === "discount" ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleCellBlur(i, "discount", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellBlur(i, "discount", editingValue);
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                            step="0.01"
+                          />
+                        ) : (
+                          (p.discount ?? 0).toFixed(2)
+                        )}
+                      </td>
+                    )}
+
+                    {/* GST - Double-click to edit */}
+                    {isFieldEnabled("gst") && (
+                      <td
+                        className="border p-2 cursor-pointer hover:bg-gray-100"
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: i, field: "gst" });
+                          setEditingValue(String(p.gst ?? 0));
+                        }}
+                      >
+                        {editingCell?.rowIndex === i && editingCell?.field === "gst" ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleCellBlur(i, "gst", editingValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellBlur(i, "gst", editingValue);
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                            step="0.01"
+                          />
+                        ) : (
+                          (p.gst ?? 0).toFixed(2)
+                        )}
+                      </td>
+                    )}
+
+                    {/* Total - Auto-calculated, read-only */}
+                    <td className="border p-2">{p.total.toFixed(2)}</td>
+
+                    {/* Action Buttons */}
+                    <td className="border p-2 space-x-2">
+                      <button
+                        type="button"
+                        className="text-blue-500 hover:text-blue-700 font-medium"
+                        onClick={() => editProduct(i)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 font-medium"
+                        onClick={() => removeProduct(i)}
+                      >
+                        Remove
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
