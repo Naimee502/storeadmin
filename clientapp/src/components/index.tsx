@@ -1,5 +1,5 @@
 export { AppHeader, BackHeader } from './header';
-export { AppImage, preloadMedia, usePreloadMedia } from './appimage';
+export { AppImage } from './appimage';
 export type { AppImageProps } from './appimage';
 
 export { AppButton } from './button';

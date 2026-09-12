@@ -15,7 +15,7 @@ import { useProductPage } from '../../../../apollo/hooks/products';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals, useIsEndUserParty } from '../../../../utils';
-import { AppHeader, AppImage, AppTextInput, CategoryStrip, DynamicFlashList, HeroBanner, useNotificationCenter, usePreloadMedia } from '../../../../components';
+import { AppHeader, AppImage, AppTextInput, CategoryStrip, DynamicFlashList, HeroBanner, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
 import { useShowProductPrice, useShowProductStock, useHeroBannerSlides, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
@@ -256,14 +256,6 @@ export default function PartyHome() {
     loadingMore,
     loadMore,
   } = useProductPage({ adminid, search, categoryid: category });
-  // Pull this page's pictures down before any card asks for one.
-  //
-  // A card only starts its download when its cell mounts, which on a fast
-  // scroll is the same moment it becomes visible — too late to be there
-  // already. Warming the whole page up front costs about a megabyte at card
-  // size and happens while the user is still reading the first two rows, so
-  // by the time they scroll, the images are simply drawn from cache.
-  usePreloadMedia(pagedProducts.map((p: any) => p.imageurl), IMG.card);
   // Categories come from the category list itself, not from whichever products
   // happened to load. Same source the website's storefront uses.
   const { data: categoriesData } = useQuery(GET_CATEGORIES, {

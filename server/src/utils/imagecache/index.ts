@@ -50,10 +50,10 @@ try {
  * and 401 never share a cached file. A fixed ladder caps the cache at
  * (files x 11) and makes a hit the normal case.
  */
-const WIDTHS = [96, 160, 240, 320, 400, 480, 640, 800, 1080, 1280, 1600];
+export const WIDTHS = [96, 160, 240, 320, 400, 480, 640, 800, 1080, 1280, 1600];
 
 /** Formats sharp can usefully re-encode. SVG and GIF are passed through. */
-const RESIZABLE = /\.(jpe?g|png|webp|avif|tiff?|heic|heif)$/i;
+export const RESIZABLE = /\.(jpe?g|png|webp|avif|tiff?|heic|heif)$/i;
 
 const snapWidth = (n: number): number =>
   WIDTHS.find(w => w >= n) ?? WIDTHS[WIDTHS.length - 1];
@@ -137,7 +137,10 @@ export const imageResizer = (uploadsDir: string) =>
       const buf = await job;
       setImageHeaders(res);
       res.type('image/webp');
-      res.setHeader('Content-Length', String(buf.length));
+      // Content-Length is deliberately left to express. Setting it by hand is
+      // a quiet way to corrupt the response if anything in front of this
+      // process (a proxy, a compression middleware) re-encodes the body: the
+      // header would still claim the pre-encoding length.
       if (req.method === 'HEAD') return res.end();
       return res.end(buf);
     } catch {
@@ -147,13 +150,20 @@ export const imageResizer = (uploadsDir: string) =>
     }
   };
 
-const render = async (
+export const render = async (
   src: string,
   out: string,
   outDir: string,
   width: number,
   quality: number,
 ): Promise<Buffer> => {
+  if (!sharp) {
+    // The middleware treats any throw here as "serve the original", which is
+    // the right answer for a request. A message is still worth having for the
+    // warm-up script, where a missing sharp means the whole run is pointless.
+    throw new Error('sharp is not installed — run `npm install` in server/');
+  }
+
   const buf: Buffer = await sharp(src, { failOn: 'none' })
     // Phone photos carry their orientation in EXIF; resizing without this
     // silently turns portrait shots on their side.

@@ -6,7 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
-import { BackHeader, AppImage, AppTextInput, DynamicFlashList, usePreloadMedia } from '../../../../components';
+import { BackHeader, AppImage, AppTextInput, DynamicFlashList } from '../../../../components';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
@@ -67,14 +67,6 @@ export default function StaffCatalog() {
   const partyAccount = (accountData as any)?.getAccountById;
 
   const products = (data as any)?.getProductServices ?? [];
-  // Pull this page's pictures down before any card asks for one.
-  //
-  // A card only starts its download when its cell mounts, which on a fast
-  // scroll is the same moment it becomes visible — too late to be there
-  // already. Warming the whole page up front costs about a megabyte at card
-  // size and happens while the user is still reading the first two rows, so
-  // by the time they scroll, the images are simply drawn from cache.
-  usePreloadMedia(products.map((p: any) => p.imageurl), IMG.thumb);
 
   // Party-specific price list resolution — mirror the card price to the price
   // list assigned to this party's channel / region / customer.

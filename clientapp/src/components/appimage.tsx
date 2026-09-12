@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   Image, ImageResizeMode, StyleProp, ImageStyle,
   NativeSyntheticEvent, ImageLoadEventData,
@@ -83,108 +83,26 @@ function AppImageBase({
 export const AppImage = memo(AppImageBase);
 
 /* ────────────────────────────────────────────────────────────────────────────
- * Prefetch
+ * A note on prefetching, since it will be tempting to add it back
  * ──────────────────────────────────────────────────────────────────────────*/
 
 /**
- * Warm the cache for a page of images — but ONLY once the server has proven it
- * will send small ones.
+ * There is deliberately no prefetching here.
  *
- * This guard is the important part. Prefetching is what makes a scroll feel
- * like the pictures were always there, and it is also the single worst thing
- * you can do to an app talking to a server that has not been updated yet: a
- * page of 50 products whose originals are three megabytes each is 150 MB of
- * eager downloads, competing with the very GraphQL queries that fill the list.
- * That looks exactly like the app being broken — empty grids, rows appearing
- * only as you scroll onto them — when nothing is broken at all, only starved.
+ * It was tried, and it broke the app twice in ways that looked nothing like an
+ * image problem. Android pulls every image — prefetched or on screen — through
+ * one small pool of network connections, and a visible card gets no priority
+ * over a warming one. Warming a whole page of products therefore puts the four
+ * cards the customer is looking at behind forty-six they cannot see. Do it on
+ * two screens and change category a few times and there are hundreds of
+ * downloads queued against the same connection the GraphQL queries need, so
+ * the product list itself stops arriving. The screen goes blank and nothing in
+ * the symptom points back at the cause.
  *
- * So before any prefetching happens, one HEAD request asks the server for a
- * 96px copy of a real image. A server with the resizer answers image/webp; one
- * without it answers with the original's own type. Only the first enables
- * prefetching, and the probe runs once per app launch. Nothing has to be
- * toggled by hand at deploy time — it turns itself on when the server is ready.
+ * It is not needed either. The server now answers with a ~25 KB WebP instead of
+ * a three megabyte original, and FlashList already builds about a screen beyond
+ * the scroll, so a card's picture starts downloading well before it is looked
+ * at. The one thing prefetching genuinely bought — never paying for the very
+ * first resize — belongs on the server, where `npm run warm-images` renders
+ * every upload once, offline, at no cost to anybody's phone.
  */
-type ResizerSupport = 'unknown' | 'checking' | 'yes' | 'no';
-let resizerSupport: ResizerSupport = 'unknown';
-
-/** Urls already handed to Image.prefetch this session — never asked twice. */
-const warmed = new Set<string>();
-
-/** Downloads in flight. Four keeps the pipe busy without crowding out queries. */
-const PREFETCH_CONCURRENCY = 4;
-
-const probeResizer = async (sampleStoredUrl: string): Promise<void> => {
-  if (resizerSupport !== 'unknown') return;
-  resizerSupport = 'checking';
-
-  const probeUrl = resolveMediaUrl(sampleStoredUrl, 96);
-  if (!probeUrl || !probeUrl.includes('?w=')) {
-    // Not one of our uploads (a CDN, an external image) — nothing to probe.
-    resizerSupport = 'no';
-    return;
-  }
-
-  try {
-    const res = await fetch(probeUrl, { method: 'HEAD' });
-    const type = (res.headers.get('content-type') || '').toLowerCase();
-    resizerSupport = res.ok && type.includes('webp') ? 'yes' : 'no';
-  } catch {
-    resizerSupport = 'no';
-  }
-};
-
-export const preloadMedia = (
-  urls: (string | null | undefined)[],
-  width?: number,
-): void => {
-  const stored = urls.filter((u): u is string => Boolean(u));
-  if (!stored.length) return;
-
-  if (resizerSupport === 'unknown') {
-    // Fire the probe and stop here. The next page of products (or the next
-    // time this screen's list changes) will find the answer already settled.
-    void probeResizer(stored[0]);
-    return;
-  }
-  if (resizerSupport !== 'yes') return;
-
-  const queue = Array.from(
-    new Set(
-      stored
-        .map(u => resolveMediaUrl(u, width))
-        .filter(u => Boolean(u) && !warmed.has(u)),
-    ),
-  );
-  if (!queue.length) return;
-  queue.forEach(u => warmed.add(u));
-
-  let cursor = 0;
-  const pump = (): void => {
-    const next = queue[cursor++];
-    if (next === undefined) return;
-    Image.prefetch(next)
-      .catch(() => {
-        // A 404 or a dead host is not worth reporting: the card falls back to
-        // its placeholder icon exactly as it would have anyway.
-        warmed.delete(next);
-      })
-      .finally(pump);
-  };
-
-  for (let i = 0; i < Math.min(PREFETCH_CONCURRENCY, queue.length); i++) pump();
-};
-
-/**
- * Prefetch a list whenever it changes. `urls` may be rebuilt on every render —
- * the join below is what decides whether anything actually needs doing.
- */
-export const usePreloadMedia = (
-  urls: (string | null | undefined)[],
-  width?: number,
-): void => {
-  const key = urls.filter(Boolean).join('|');
-  useEffect(() => {
-    if (!key) return;
-    preloadMedia(key.split('|'), width);
-  }, [key, width]);
-};
