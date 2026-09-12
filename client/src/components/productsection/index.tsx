@@ -689,8 +689,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 );
 
                 return (
-                  <tr key={i}>
-                    {/* Product Name */}
+                  <React.Fragment key={i}>
+                    <tr>
+                      {/* Product Name with Timer Icon */}
                     <td
                       className={`border p-2 w-80 align-top ${shortfall ? "bg-red-50 text-red-600" : ""}`}
                       style={
@@ -699,14 +700,26 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                           : { overflow: "visible" }
                       }
                     >
-                      {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
-                      {shortfall && (
-                        <div className="text-xs font-medium text-red-600">
-                          Not enough stock — ordered {shortfall.required}, available{" "}
-                          {shortfall.available} (base units), short by{" "}
-                          {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                      <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedHistoryIndex(expandedHistoryIndex === i ? null : i)}
+                          className="text-lg hover:opacity-70 flex-shrink-0 mt-0.5"
+                          title="Click to view history"
+                        >
+                          ⏱️
+                        </button>
+                        <div>
+                          {product?.name} - {variant?.name} - (Stock: {variant?.currentstock ?? 0})
+                          {shortfall && (
+                            <div className="text-xs font-medium text-red-600 mt-1">
+                              Not enough stock — ordered {shortfall.required}, available{" "}
+                              {shortfall.available} (base units), short by{" "}
+                              {parseFloat((shortfall.required - shortfall.available).toFixed(2))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </td>
 
                     {/* Unit (Sales only) */}
@@ -849,74 +862,68 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Action Buttons */}
                     <td className="border p-2 w-32">
-                      <div className="flex gap-1 justify-center flex-wrap">
+                      <div className="flex gap-2 justify-center">
                         <button
                           type="button"
-                          className="text-blue-500 hover:text-blue-700 font-medium text-xs whitespace-nowrap"
+                          className="text-blue-500 hover:text-blue-700 font-medium text-sm whitespace-nowrap"
                           onClick={() => editProduct(i)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="text-purple-500 hover:text-purple-700 font-medium text-xs whitespace-nowrap"
-                          onClick={() => setExpandedHistoryIndex(expandedHistoryIndex === i ? null : i)}
-                        >
-                          {expandedHistoryIndex === i ? "Hide" : "History"}
-                        </button>
-                        <button
-                          type="button"
-                          className="text-red-500 hover:text-red-700 font-medium text-xs whitespace-nowrap"
+                          className="text-red-500 hover:text-red-700 font-medium text-sm whitespace-nowrap"
                           onClick={() => removeProduct(i)}
                         >
                           Remove
                         </button>
                       </div>
                     </td>
-                  </tr>
-
-                  {/* History Row - Expandable */}
-                  {expandedHistoryIndex === i && (
-                    <tr key={`${i}-history`} className="bg-gray-50">
-                      <td colSpan={type === "sales" ? 9 : 8} className="border p-4">
-                        <div>
-                          <h4 className="font-semibold text-sm mb-3">
-                            {type === "purchase" ? "Purchase History" : "Sale History"}
-                          </h4>
-                          {(() => {
-                            const history = getProductHistory(p.productserviceid, p.variantid ?? undefined);
-                            if (!history || history.length === 0) {
-                              return <p className="text-gray-500 text-sm">No history available for this product.</p>;
-                            }
-                            return (
-                              <table className="w-full text-sm border">
-                                <thead>
-                                  <tr className="bg-gray-100">
-                                    <th className="border p-2 text-left">Date</th>
-                                    <th className="border p-2 text-left">Party</th>
-                                    <th className="border p-2 text-center">Qty</th>
-                                    <th className="border p-2 text-center">Rate (₹)</th>
-                                    <th className="border p-2 text-center">Disc (₹)</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {history.map((row, idx) => (
-                                    <tr key={idx}>
-                                      <td className="border p-2">{row[0]}</td>
-                                      <td className="border p-2">{row[1]}</td>
-                                      <td className="border p-2 text-center">{row[2]}</td>
-                                      <td className="border p-2 text-center">{row[3]}</td>
-                                      <td className="border p-2 text-center">{row[4]}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            );
-                          })()}
-                        </div>
-                      </td>
                     </tr>
-                  )}
+
+                    {/* History Row - Expandable */}
+                    {expandedHistoryIndex === i && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={type === "sales" ? 9 : 8} className="border p-4">
+                          <div>
+                            <h4 className="font-semibold text-sm mb-3">
+                              {type === "purchase" ? "Purchase History" : "Sale History"}
+                            </h4>
+                            {(() => {
+                              const history = getProductHistory(p.productserviceid, p.variantid ?? undefined);
+                              if (!history || history.length === 0) {
+                                return <p className="text-gray-500 text-sm">No history available for this product.</p>;
+                              }
+                              return (
+                                <table className="w-full text-sm border">
+                                  <thead>
+                                    <tr className="bg-gray-100">
+                                      <th className="border p-2 text-left">Date</th>
+                                      <th className="border p-2 text-left">Party</th>
+                                      <th className="border p-2 text-center">Qty</th>
+                                      <th className="border p-2 text-center">Rate (₹)</th>
+                                      <th className="border p-2 text-center">Disc (₹)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {history.map((row, idx) => (
+                                      <tr key={idx}>
+                                        <td className="border p-2">{row[0]}</td>
+                                        <td className="border p-2">{row[1]}</td>
+                                        <td className="border p-2 text-center">{row[2]}</td>
+                                        <td className="border p-2 text-center">{row[3]}</td>
+                                        <td className="border p-2 text-center">{row[4]}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              );
+                            })()}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
