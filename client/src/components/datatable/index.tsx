@@ -83,7 +83,8 @@ interface DataTableProps {
     columns: Column[];
     data: any[];
     showView?: boolean;
-    showEdit?: boolean;
+    /** Per-row when a screen needs to withhold it (e.g. a cancelled bill). */
+    showEdit?: boolean | ((row: any) => boolean);
     showDelete?: boolean;
     showAdd?: boolean;
     showReset?: boolean | ((row: any) => boolean);
@@ -98,6 +99,10 @@ interface DataTableProps {
     showReturn?: boolean | ((row: any) => boolean);
     // Per-row action: cancel an order (Sales Order / Purchase Order).
     showCancel?: boolean | ((row: any) => boolean);
+    /** Tooltip on the cancel button — "Cancel Order" unless a screen says otherwise. */
+    cancelTitle?: string;
+    /** Undo a cancellation. Its own button, so the two acts never share a tooltip. */
+    showReopen?: boolean | ((row: any) => boolean);
     // Per-row fulfilment transitions (Sales Order lifecycle).
     showConfirm?: boolean | ((row: any) => boolean);
     /** Tooltip for the confirm action — it is not always an order being confirmed. */
@@ -120,6 +125,7 @@ interface DataTableProps {
     onConvert?: (row: any) => void;
     onReturn?: (row: any) => void;
     onCancel?: (row: any) => void;
+    onReopen?: (row: any) => void;
     onConfirm?: (row: any) => void;
     onDispatch?: (row: any) => void;
     onDeliver?: (row: any) => void;
@@ -152,6 +158,8 @@ const DataTable: React.FC<DataTableProps> = ({
     showConvert = false,
     showReturn = false,
     showCancel = false,
+    cancelTitle = "Cancel Order",
+    showReopen = false,
     showConfirm = false,
     confirmTitle = "Confirm Order",
     showDispatch = false,
@@ -172,6 +180,7 @@ const DataTable: React.FC<DataTableProps> = ({
     onConvert,
     onReturn,
     onCancel,
+    onReopen,
     onConfirm,
     onDispatch,
     onDeliver,
@@ -444,7 +453,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                     <FaEye />
                                                 </button>
                                             )}
-                                            {showEdit && (
+                                            {(typeof showEdit === "function" ? showEdit(row) : showEdit) && (
                                                 <button onClick={() => onEdit?.(row)} title="Edit">
                                                     <FaEdit />
                                                 </button>
@@ -505,8 +514,13 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 </button>
                                             )}
                                             {(typeof showCancel === "function" ? showCancel(row) : showCancel) && (
-                                                <button onClick={() => onCancel?.(row)} title="Cancel Order" className="text-rose-600">
+                                                <button onClick={() => onCancel?.(row)} title={cancelTitle} className="text-rose-600">
                                                     <FaBan />
+                                                </button>
+                                            )}
+                                            {(typeof showReopen === "function" ? showReopen(row) : showReopen) && (
+                                                <button onClick={() => onReopen?.(row)} title="Re-open" className="text-emerald-600">
+                                                    <FaTrashRestore />
                                                 </button>
                                             )}
                                         </td>

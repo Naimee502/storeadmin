@@ -34,18 +34,34 @@ const SalesInvoices = () => {
   const M = "salesinvoice";
   const actions = useAppSelector(state => selectModuleActions(state, M));
   
-  const { data, refetch } = useSalesInvoicesQuery();
+  const { data, refetch } = useSalesInvoicesQuery(undefined, { includeCancelled: true });
   const {
     deleteSalesInvoiceMutation,
+    cancelSalesInvoiceMutation,
+    reopenSalesInvoiceMutation,
     dispatchSalesInvoiceMutation,
     deliverSalesInvoiceMutation,
   } = useSalesInvoiceMutations();
 
-  const DELIVERY_OPTIONS = [
-    { label: "Dispatched", value: "dispatched" },
-    { label: "Delivered",  value: "delivered" },
-  ];
+  // Everything that can happen to a bill from the list sits in one dropdown:
+  // where it is in delivery, and whether it stands at all. Cancelling is not a
+  // separate little icon — it is a state this bill is in, so it belongs on the
+  // same control that shows the state.
+  const statusOptionsFor = (invoice: any, canEdit: boolean) => {
+    if (invoice.cancelStatus === "cancelled") {
+      return canEdit ? [{ label: "Re-open", value: "reopen" }] : [];
+    }
+    const opts = [];
+    // No going back to "dispatched" once it is delivered.
+    if (invoice.deliveryStatus !== "delivered") opts.push({ label: "Dispatched", value: "dispatched" });
+    opts.push({ label: "Delivered", value: "delivered" });
+    if (canEdit) opts.push({ label: "Cancel Invoice", value: "cancelled" });
+    return opts;
+  };
+
   const handleDeliveryChange = async (row: any, status: string) => {
+    if (status === "cancelled") return handleCancel(row);
+    if (status === "reopen") return handleReopen(row);
     try {
       if (status === "dispatched") await dispatchSalesInvoiceMutation({ variables: { id: row.id } });
       else if (status === "delivered") await deliverSalesInvoiceMutation({ variables: { id: row.id, byType: "admin" } });
@@ -53,6 +69,35 @@ const SalesInvoices = () => {
       dispatch(showMessage({ message: "Delivery status updated.", type: "success" }));
     } catch (e: any) {
       dispatch(showMessage({ message: e?.message || "Failed to update.", type: "error" }));
+    }
+  };
+
+  const handleCancel = async (row: any) => {
+    const reason = window.prompt(
+      `Cancel invoice INV-${row.billnumber}?\n\n` +
+        `Its stock goes back, and its journal and counter receipt are removed.\n` +
+        `Reason (optional):`
+    );
+    if (reason === null) return; // dismissed the prompt — do nothing
+    try {
+      await cancelSalesInvoiceMutation({ variables: { id: row.id, reason } });
+      await refetch();
+      dispatch(showMessage({ message: "Invoice cancelled. Stock has been returned.", type: "success" }));
+    } catch (e: any) {
+      // The server refuses with a specific reason (a return exists, a payment is
+      // allocated) — show that, never a generic failure.
+      dispatch(showMessage({ message: e?.message || "Failed to cancel invoice.", type: "error" }));
+    }
+  };
+
+  const handleReopen = async (row: any) => {
+    if (!window.confirm(`Re-open invoice INV-${row.billnumber}? The stock will be taken out again and the bill will post to the books.`)) return;
+    try {
+      await reopenSalesInvoiceMutation({ variables: { id: row.id } });
+      await refetch();
+      dispatch(showMessage({ message: "Invoice re-opened.", type: "success" }));
+    } catch (e: any) {
+      dispatch(showMessage({ message: e?.message || "Failed to re-open invoice.", type: "error" }));
     }
   };
   const invoiceList = data?.getSalesInvoices || [];
@@ -287,15 +332,28 @@ const SalesInvoices = () => {
           // An invoice is already a CONFIRMED sale; its delivery lifecycle is
           // confirmed → dispatched → delivered. So show "Confirmed" until it's
           // actually dispatched/delivered (instead of a bare "Pending").
-          current={(invoice.deliveryStatus === "dispatched" || invoice.deliveryStatus === "delivered")
-            ? invoice.deliveryStatus
-            : "confirmed"}
-          options={DELIVERY_OPTIONS}
+          // A cancelled bill outranks all of that — it was never delivered to
+          // anyone in any meaningful sense.
+          current={
+            invoice.cancelStatus === "cancelled"
+              ? "cancelled"
+              : (invoice.deliveryStatus === "dispatched" || invoice.deliveryStatus === "delivered")
+                ? invoice.deliveryStatus
+                : "confirmed"
+          }
+          options={statusOptionsFor(invoice, Boolean(actions.showEdit))}
           onSelect={(v) => handleDeliveryChange(invoice, v)}
-          disabled={invoice.deliveryStatus === "delivered"}
+          // Locked only when there is nothing left to choose — a delivered bill
+          // can still be cancelled, so it must not be frozen outright.
+          disabled={statusOptionsFor(invoice, Boolean(actions.showEdit)).length === 0}
         />
       ),
-      status: invoice.status ? "Active" : "Inactive",
+      isCancelled: invoice.cancelStatus === "cancelled",
+      // A cancelled bill still says "Active" in the old sense — it has not been
+      // deleted — so the cancellation has to be what the eye lands on.
+      status: invoice.cancelStatus === "cancelled"
+        ? "Cancelled"
+        : invoice.status ? "Active" : "Inactive",
     };
   });
 
@@ -312,7 +370,7 @@ const SalesInvoices = () => {
           // Combine the "no duplicate return" rule with the user's
           // permission to perform a return at all.
           showReturn={(row: any) =>
-            actions.showReturn && !returnedInvoiceIds.has(String(row.id))
+            actions.showReturn && !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled
           }
           onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}

@@ -88,7 +88,9 @@ export async function getPartyBillPositions(opts: {
   const Transaction = mongoose.model("Transaction");
   const Return = mongoose.model(RETURN_MODEL[invoicemodel]);
 
-  const invQuery: any = { partyacc: partyid, adminid, status: true };
+  // A cancelled bill was reversed out of the books entirely — it owes nothing
+  // and must never appear as an open bill to settle.
+  const invQuery: any = { partyacc: partyid, adminid, status: true, cancelStatus: { $ne: "cancelled" } };
   if (branchid) invQuery.branchid = branchid;
   if (excludeInvoiceId) invQuery._id = { $ne: excludeInvoiceId };
 
@@ -235,8 +237,12 @@ export async function getInvoiceOutstanding(opts: {
   if (!invoiceid) return 0;
 
   const Invoice = mongoose.model(invoicemodel);
-  const inv: any = await Invoice.findById(invoiceid).select("totalamount").lean();
+  const inv: any = await Invoice.findById(invoiceid).select("totalamount cancelStatus").lean();
   if (!inv) return 0;
+  // Cancelled: the journal and any counter receipt are gone, so there is no
+  // debt left to quote — and quoting one would let a payment be allocated to a
+  // bill that no longer exists in the books.
+  if (String(inv.cancelStatus || "") === "cancelled") return 0;
 
   const payQuery: any = { status: true, "invoices.invoiceid": invoiceid };
   if (excludePaymentId) payQuery._id = { $ne: excludePaymentId };
@@ -777,7 +783,8 @@ export async function getPartiesTotalDue(opts: {
     const excess: Record<string, number> = {};
     if (!sideIds.length) return { bills, excess };
 
-    const invQuery: any = { partyacc: { $in: sideIds }, status: true };
+    // Cancelled bills are reversed out of the books — never an open bill.
+    const invQuery: any = { partyacc: { $in: sideIds }, status: true, cancelStatus: { $ne: "cancelled" } };
     if (adminid) invQuery.adminid = adminid;
     if (branchid) invQuery.branchid = branchid;
     const invoices: any[] = await mongoose

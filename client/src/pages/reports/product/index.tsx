@@ -37,8 +37,12 @@ const ProductStatementReport: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState({} as any);
 
   const { data: productData } = useProductServicesQuery();
-  const { data: salesData } = useSalesInvoicesQuery();
-  const { data: purchaseData } = usePurchaseInvoicesQuery();
+  // Cancelled bills are wanted HERE, unlike everywhere else: this report is
+  // the product's movement history, and a cancellation is a movement — the
+  // goods came back. Leaving it out would show a sale with no matching
+  // return and a stock figure nobody could reconcile.
+  const { data: salesData } = useSalesInvoicesQuery(undefined, { includeCancelled: true });
+  const { data: purchaseData } = usePurchaseInvoicesQuery(undefined, { includeCancelled: true });
   const { data: salesReturnData } = useSalesReturnsQuery();
   const { data: purchaseReturnData } = usePurchaseReturnsQuery();
   const { data: transferData } = useTransferStocksQuery();
@@ -76,7 +80,8 @@ const ProductStatementReport: React.FC = () => {
       .flatMap((inv: any) => {
         const productItem = (inv.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
         if (!productItem) return [];
-        return [{
+        const cancelled = inv.cancelStatus === "cancelled";
+        const rows = [{
           transactionType: "Sales Invoice",
           invoiceNo: inv.billnumber,
           date: formatDateDMY(inv.billdate),
@@ -86,8 +91,30 @@ const ProductStatementReport: React.FC = () => {
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
           variant: productItem.variantid?.name || "-",
-          remarks: "-",
+          remarks: cancelled ? "Cancelled — see reversal below" : "-",
         }];
+        // The sale row stays, and the stock coming back gets a row of its own,
+        // dated when the cancellation happened rather than when the bill was
+        // written. Two rows, because that is what actually happened to the goods.
+        if (cancelled) {
+          // Negative, not positive: the column totals at the foot of this table
+          // add every row up, so a positive reversal would count the cancelled
+          // bill twice and inflate both qty and value. Signed, the pair nets to
+          // zero — which is exactly what the shelf and the books say.
+          rows.push({
+            transactionType: "Sales Invoice Cancelled",
+            invoiceNo: inv.billnumber,
+            date: formatDateDMY(inv.cancelledAt || inv.billdate),
+            dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+            party: inv.partyacc?.accountname || "-",
+            quantity: -(productItem.qty || 0),
+            rate: productItem.rate || 0,
+            amount: -(productItem.amount || 0),
+            variant: productItem.variantid?.name || "-",
+            remarks: `Stock returned${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
+          });
+        }
+        return rows;
       });
   }, [salesInvoices, appliedFilters.product]);
 
@@ -101,7 +128,8 @@ const ProductStatementReport: React.FC = () => {
       .flatMap((inv: any) => {
         const productItem = (inv.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
         if (!productItem) return [];
-        return [{
+        const cancelled = inv.cancelStatus === "cancelled";
+        const rows = [{
           transactionType: "Purchase Invoice",
           invoiceNo: inv.billnumber,
           date: formatDateDMY(inv.billdate),
@@ -111,8 +139,27 @@ const ProductStatementReport: React.FC = () => {
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
           variant: productItem.variantid?.name || "-",
-          remarks: "-",
+          remarks: cancelled ? "Cancelled — see reversal below" : "-",
         }];
+        // Same as the sales side, in the other direction: the goods that came in
+        // on this bill went back out when it was cancelled.
+        if (cancelled) {
+          // Signed for the same reason as the sales side — the pair must net to
+          // zero in the column totals.
+          rows.push({
+            transactionType: "Purchase Invoice Cancelled",
+            invoiceNo: inv.billnumber,
+            date: formatDateDMY(inv.cancelledAt || inv.billdate),
+            dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+            party: inv.partyacc?.accountname || "-",
+            quantity: -(productItem.qty || 0),
+            rate: productItem.rate || 0,
+            amount: -(productItem.amount || 0),
+            variant: productItem.variantid?.name || "-",
+            remarks: `Stock reversed${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
+          });
+        }
+        return rows;
       });
   }, [purchaseInvoices, appliedFilters.product]);
 

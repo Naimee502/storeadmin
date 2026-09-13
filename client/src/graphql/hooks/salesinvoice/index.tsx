@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, type WatchQueryFetchPolicy } from '@apollo/client';
 import {
   ADD_SALES_INVOICE,
   EDIT_SALES_INVOICE,
   DELETE_SALES_INVOICE,
   RESET_SALES_INVOICE,
+  CANCEL_SALES_INVOICE,
+  REOPEN_SALES_INVOICE,
   MARK_SALES_INVOICE_DISPATCHED,
   MARK_SALES_INVOICE_DELIVERED,
 } from '../../mutations/salesinvoice';
@@ -33,6 +36,14 @@ export const useSalesInvoiceMutations = () => {
   const [resetSalesInvoiceMutation] = useMutation(RESET_SALES_INVOICE, {
     refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
   });
+  // Cancelling moves stock and removes a journal and a receipt, so the same
+  // caches have to be refreshed as a save does.
+  const [cancelSalesInvoiceMutation] = useMutation(CANCEL_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
+  const [reopenSalesInvoiceMutation] = useMutation(REOPEN_SALES_INVOICE, {
+    refetchQueries: PAYMENT_SIDE_EFFECT_QUERIES,
+  });
   const [dispatchSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DISPATCHED);
   const [deliverSalesInvoiceMutation] = useMutation(MARK_SALES_INVOICE_DELIVERED);
 
@@ -41,23 +52,44 @@ export const useSalesInvoiceMutations = () => {
     editSalesInvoiceMutation,
     deleteSalesInvoiceMutation,
     resetSalesInvoiceMutation,
+    cancelSalesInvoiceMutation,
+    reopenSalesInvoiceMutation,
     dispatchSalesInvoiceMutation,
     deliverSalesInvoiceMutation,
   };
 };
 
 // ----------------- Sales Invoices Query -----------------
-export const useSalesInvoicesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
+/**
+ * Active salesinvoices.
+ *
+ * Cancelled bills are left out by DEFAULT. A cancelled bill has been reversed
+ * out of the books entirely — no stock, no journal, no receipt — so counting it
+ * in a report, a dashboard total, a GST return or a payment selection would be
+ * quoting a sale that never happened. Only the management listing wants to see
+ * them, and it asks for them explicitly with { includeCancelled: true }.
+ */
+export const useSalesInvoicesQuery = (
+  fetchPolicy?: WatchQueryFetchPolicy,
+  opts?: { includeCancelled?: boolean }
+) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
 
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
   const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
-  const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
+  const { data: raw, loading, error, refetch } = useQuery(GET_SALES_INVOICES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrap inside filter
     fetchPolicy,
   });
+
+  const showCancelled = opts?.includeCancelled === true;
+  const data = useMemo(() => {
+    const list = raw?.getSalesInvoices;
+    if (!list || showCancelled) return raw;
+    return { ...raw, getSalesInvoices: list.filter((i: any) => i?.cancelStatus !== "cancelled") };
+  }, [raw, showCancelled]);
 
   return { data, loading, error, refetch };
 };

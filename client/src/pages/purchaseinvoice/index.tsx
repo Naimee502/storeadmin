@@ -31,8 +31,12 @@ const PurchaseInvoices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseinvoice"));
   const dispatch = useAppDispatch();
 
-  const { data, refetch } = usePurchaseInvoicesQuery();
-  const { deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
+  const { data, refetch } = usePurchaseInvoicesQuery(undefined, { includeCancelled: true });
+  const {
+    deletePurchaseInvoiceMutation,
+    cancelPurchaseInvoiceMutation,
+    reopenPurchaseInvoiceMutation,
+  } = usePurchaseInvoiceMutations();
   const invoiceList = data?.getPurchaseInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -240,7 +244,12 @@ const PurchaseInvoices = () => {
       billtype_billnumber: `INV-${invoice.billnumber}`,
       paymenttype: capitalizeFirst(invoice.paymenttype),
       createdByDisplay: invoice.createdby_name || "N/A",
-      status: invoice.status ? "Active" : "Inactive",
+      isCancelled: invoice.cancelStatus === "cancelled",
+      // A cancelled bill is still "Active" in the not-deleted sense, so the
+      // cancellation has to be what the eye lands on.
+      status: invoice.cancelStatus === "cancelled"
+        ? "Cancelled"
+        : invoice.status ? "Active" : "Inactive",
     };
   });
 
@@ -255,7 +264,37 @@ const PurchaseInvoices = () => {
           showPrint={true}
           showWhatsApp={true}
           onWhatsApp={handleWhatsAppShare}
-          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id))}
+          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled}
+          showCancel={(row: any) => !row.isCancelled}
+          showReopen={(row: any) => Boolean(row.isCancelled)}
+          cancelTitle="Cancel Invoice"
+          onCancel={async (row: any) => {
+            const reason = window.prompt(
+              `Cancel purchase invoice ${row.billtype_billnumber}?\n\n` +
+                `Its stock goes back out, and its journal and counter payment are removed.\n` +
+                `Reason (optional):`
+            );
+            if (reason === null) return;
+            try {
+              await cancelPurchaseInvoiceMutation({ variables: { id: row.id, reason } });
+              await refetch();
+              dispatch(showMessage({ message: "Purchase invoice cancelled. Stock has been reversed.", type: "success" }));
+            } catch (e: any) {
+              // The server refuses with a specific reason — show that, never a
+              // generic failure.
+              dispatch(showMessage({ message: e?.message || "Failed to cancel invoice.", type: "error" }));
+            }
+          }}
+          onReopen={async (row: any) => {
+            if (!window.confirm(`Re-open purchase invoice ${row.billtype_billnumber}? The stock comes back in and the bill posts to the books again.`)) return;
+            try {
+              await reopenPurchaseInvoiceMutation({ variables: { id: row.id } });
+              await refetch();
+              dispatch(showMessage({ message: "Purchase invoice re-opened.", type: "success" }));
+            } catch (e: any) {
+              dispatch(showMessage({ message: e?.message || "Failed to re-open invoice.", type: "error" }));
+            }
+          }}
           onReturn={(row) => navigate(`/purchasereturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/purchaseinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/purchaseinvoice/addedit/${row.id}`)}

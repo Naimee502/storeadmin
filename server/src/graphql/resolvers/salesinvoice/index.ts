@@ -11,6 +11,8 @@ import {
   getPartyTotalDue,
 } from "../../../utils/allocation";
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
+import { SalesReturn } from "../../../models/salesreturn";
+import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -876,6 +878,12 @@ export const salesInvoiceResolvers = {
 
       const oldInv = await SalesInvoice.findById(id);
       if (!oldInv) throw new Error("Invoice not found");
+      // Editing a cancelled bill would post stock and a journal for a document
+      // that is supposed to have none. Re-open it first — that is the deliberate
+      // act that puts it back in the books.
+      if (String(oldInv.cancelStatus || "") === "cancelled") {
+        throw new Error("This invoice is cancelled. Re-open it before editing.");
+      }
 
       // ✅ Always use AdminSettings for autocreate (ignore user input)
       const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
@@ -909,6 +917,76 @@ export const salesInvoiceResolvers = {
 
     deleteSalesInvoice: async (_: any, { id }: { id: string }) => {
       return !!(await SalesInvoice.findByIdAndUpdate(id, { status: false }));
+    },
+
+    // ── Cancel / re-open ──────────────────────────────────────────────────
+    // The bill stays on record with its number; what is reversed is everything
+    // it did to the books. Both directions go through the same hook the normal
+    // save uses, so stock, journal and receipt can never be handled one way on
+    // the way out and another on the way back.
+    cancelSalesInvoice: async (_: any, { id, reason }: any, context: any) => {
+      const oldInv = await SalesInvoice.findById(id);
+      if (!oldInv) throw new Error("Invoice not found");
+
+      await assertInvoiceCancellable({
+        inv: oldInv,
+        docmodel: "SalesInvoice",
+        ReturnModel: SalesReturn,
+        returnLabel: "Sales Return",
+      });
+
+      const user = context?.user;
+      const updated = await SalesInvoice.findByIdAndUpdate(
+        id,
+        {
+          cancelStatus: "cancelled",
+          cancelReason: reason || "",
+          cancelledAt: new Date(),
+          cancelledByName: user?.name || user?.email || null,
+        },
+        { new: true }
+      );
+      if (updated) await SalesInvoice.adjustStockAndTransactions(oldInv, updated, null);
+
+      const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
+      return inv ? formatInvoice(inv) : null;
+    },
+
+    reopenSalesInvoice: async (_: any, { id }: { id: string }, context: any) => {
+      const oldInv = await SalesInvoice.findById(id);
+      if (!oldInv) throw new Error("Invoice not found");
+      assertInvoiceReopenable(oldInv, "SalesInvoice");
+
+      // The goods went back on the shelf at cancel time, so re-opening takes
+      // them out again — and has to be checked against today's stock, not
+      // against what was there when the bill was written.
+      const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
+      await assertSalesStockAvailable({
+        adminid: oldInv.adminid,
+        branchid: oldInv.branchid,
+        productservice: oldInv.productservice || [],
+        isservice: oldInv.isservice,
+        oldInv: null, // a cancelled bill holds no stock to net off
+        wantsStock:
+          (oldInv.autocreate?.stock ?? settings?.autoCreateStockOnSalesInvoice ?? true) &&
+          settings?.allowNegativeStock !== true,
+      });
+
+      const user = context?.user;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || "admin",
+      };
+      const updated = await SalesInvoice.findByIdAndUpdate(
+        id,
+        { cancelStatus: "open", cancelReason: null, cancelledAt: null, cancelledByName: null },
+        { new: true }
+      );
+      if (updated) await SalesInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
+
+      const inv = await SalesInvoice.findById(id).populate(populateFields).lean();
+      return inv ? formatInvoice(inv) : null;
     },
 
     resetSalesInvoice: async (_: any, { id }: { id: string }) => {

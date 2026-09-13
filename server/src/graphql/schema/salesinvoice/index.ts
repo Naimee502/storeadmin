@@ -120,6 +120,10 @@ export const salesInvoiceTypeDefs = gql`
     deliveredByName: String
     deliveredByType: String
     deliveryboyid: ID
+    cancelStatus: String
+    cancelReason: String
+    cancelledAt: String
+    cancelledByName: String
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -194,6 +198,8 @@ export const salesInvoiceTypeDefs = gql`
     editSalesInvoice(id: ID!, input: SalesInvoiceInput!): SalesInvoice!
     deleteSalesInvoice(id: ID!): Boolean!
     resetSalesInvoice(id: ID!): Boolean!
+    cancelSalesInvoice(id: ID!, reason: String): SalesInvoice
+    reopenSalesInvoice(id: ID!): SalesInvoice
     markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID): SalesInvoice!
     markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesInvoice!
     assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesInvoice!

@@ -5,6 +5,8 @@ import { Transaction } from "../../../models/transactions";
 import { autoAdjustAdvances, getInvoiceOutstanding, getPartyTotalDue } from "../../../utils/allocation";
 import { PurchaseOrder } from "../../../models/purchaseorder";
 import { refId } from "../../../utils/ordermode";
+import { PurchaseReturn } from "../../../models/purchasereturn";
+import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -446,6 +448,11 @@ export const purchaseInvoiceResolvers = {
           throw new Error("❌ Purchase invoice not found with ID: " + id);
         }
         console.log("✅ Old invoice found");
+        // A cancelled bill has no stock and no journal by design; editing it
+        // would post both. Re-open it first — that is the deliberate act.
+        if (String(oldInv.cancelStatus || "") === "cancelled") {
+          throw new Error("This purchase invoice is cancelled. Re-open it before editing.");
+        }
 
         // ✅ Always use AdminSettings for autocreate (ignore user input)
         const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
@@ -495,6 +502,59 @@ export const purchaseInvoiceResolvers = {
     deletePurchaseInvoice: async (_: any, { id }: { id: string }) => {
       const result = await PurchaseInvoice.findByIdAndUpdate(id, { status: false }, { new: true });
       return !!result;
+    },
+
+    // ── Cancel / re-open ──────────────────────────────────────────────────
+    // Mirror of the sales side. Cancelling takes the purchased stock back OUT
+    // and reverses the vendor's credit and any counter payment.
+    cancelPurchaseInvoice: async (_: any, { id, reason }: any, context: any) => {
+      const oldInv = await PurchaseInvoice.findById(id);
+      if (!oldInv) throw new Error("Purchase Invoice not found");
+
+      await assertInvoiceCancellable({
+        inv: oldInv,
+        docmodel: "PurchaseInvoice",
+        ReturnModel: PurchaseReturn,
+        returnLabel: "Purchase Return",
+      });
+
+      const user = context?.user;
+      const updated = await PurchaseInvoice.findByIdAndUpdate(
+        id,
+        {
+          cancelStatus: "cancelled",
+          cancelReason: reason || "",
+          cancelledAt: new Date(),
+          cancelledByName: user?.name || user?.email || null,
+        },
+        { new: true }
+      );
+      if (updated) await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, null);
+
+      const inv = await PurchaseInvoice.findById(id).populate(populateFields).lean();
+      return inv ? formatInvoice(inv) : null;
+    },
+
+    reopenPurchaseInvoice: async (_: any, { id }: { id: string }, context: any) => {
+      const oldInv = await PurchaseInvoice.findById(id);
+      if (!oldInv) throw new Error("Purchase Invoice not found");
+      assertInvoiceReopenable(oldInv, "PurchaseInvoice");
+
+      const user = context?.user;
+      const userContext = {
+        createdby_id: user?.id,
+        createdby_name: user?.name || user?.email,
+        createdby_type: user?.type || "admin",
+      };
+      const updated = await PurchaseInvoice.findByIdAndUpdate(
+        id,
+        { cancelStatus: "open", cancelReason: null, cancelledAt: null, cancelledByName: null },
+        { new: true }
+      );
+      if (updated) await PurchaseInvoice.adjustStockAndTransactions(oldInv, updated, userContext);
+
+      const inv = await PurchaseInvoice.findById(id).populate(populateFields).lean();
+      return inv ? formatInvoice(inv) : null;
     },
 
     resetPurchaseInvoice: async (_: any, { id }: { id: string }) => {

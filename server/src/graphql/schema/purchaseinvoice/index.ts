@@ -110,6 +110,10 @@ export const purchaseInvoiceTypeDefs = gql`
     createdby_id: ID
     createdby_name: String
     createdby_type: String
+    cancelStatus: String
+    cancelReason: String
+    cancelledAt: String
+    cancelledByName: String
     status: Boolean!
     createdAt: String
     updatedAt: String
@@ -176,6 +180,8 @@ export const purchaseInvoiceTypeDefs = gql`
     editPurchaseInvoice(id: ID!, input: PurchaseInvoiceInput!): PurchaseInvoice!
     deletePurchaseInvoice(id: ID!): Boolean!
     resetPurchaseInvoice(id: ID!): Boolean!
+    cancelPurchaseInvoice(id: ID!, reason: String): PurchaseInvoice
+    reopenPurchaseInvoice(id: ID!): PurchaseInvoice
     # Build a Purchase Invoice from a Purchase Order in one call — mirrors
     # convertSalesOrderToInvoice, so the server does the copying and all the
     # auto-posting (ledger / stock / payment) runs exactly as normal.

@@ -62,6 +62,11 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
   const sourceInv: any = await PurchaseInvoice.findById(input.sourceInvoiceId).lean();
   if (!sourceInv) throw new Error("Source Purchase Invoice not found");
   if (sourceInv.status === false) throw new Error("Source Purchase Invoice has been deleted");
+  // A cancelled bill was reversed out of the books, so there is nothing to
+  // return against it. Re-open the bill first if the cancellation was wrong.
+  if (String(sourceInv.cancelStatus || "") === "cancelled") {
+    throw new Error("Source Purchase Invoice is cancelled — re-open it before booking a return against it.");
+  }
   if (String(sourceInv.adminid) !== String(input.adminid)) {
     throw new Error("Source invoice does not belong to this admin");
   }

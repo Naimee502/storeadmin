@@ -128,6 +128,14 @@ const purchaseInvoiceSchema = new mongoose.Schema(
       // are not optional -- a document IS an accounting event.
       stock: { type: Boolean, default: true }
     },
+    // Cancellation — see the Sales Invoice model for the reasoning. A purchase
+    // cancelled here puts back what it took in: the stock goes OUT again and the
+    // vendor's credit and any counter payment are reversed.
+    cancelStatus: { type: String, enum: ["open", "cancelled"], default: "open" },
+    cancelReason: { type: String },
+    cancelledAt: { type: Date },
+    cancelledByName: { type: String },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
@@ -374,6 +382,14 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
     newInv.autocreate?.stock ??
     settings?.autoCreateStockOnPurchaseInvoice ?? true;
 
+  // Cancel and reopen both run through here, so one place decides what a bill
+  // does to the books. Only which halves run changes: cancelling reverts the
+  // stock this bill brought in and drops its journal and counter payment;
+  // reopening applies them again, without reverting first — the cancel already
+  // did that, and doing it twice would wipe stock that is really on the shelf.
+  const isCancelled = String(newInv.cancelStatus || "") === "cancelled";
+  const wasCancelled = String(oldInv?.cancelStatus || "") === "cancelled";
+
   // A note typed on the bill is what the user expects to see against it — in the
   // Transactions list and on the receipt it raises. The generated line is only a
   // fallback for when they left the box empty.
@@ -393,7 +409,9 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   // ============================
   // 1️⃣ Revert Old Invoice Stock
   // ============================
-  if (oldInv) {
+  // Skipped when the previous state was already cancelled — that stock went out
+  // at cancel time and must not be taken out twice.
+  if (oldInv && !wasCancelled) {
     for (const item of oldInv.productservice) {
 
       const product = await ProductService.findById(item.productserviceid);
@@ -441,7 +459,8 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   // ============================
   // 2️⃣ Apply New Invoice Stock
   // ============================
-  for (const item of newInv.productservice) {
+  // A cancelled bill buys nothing, so it brings nothing in.
+  for (const item of isCancelled ? [] : newInv.productservice) {
 
     const product = await ProductService.findById(item.productserviceid);
     if (!product) continue;
@@ -506,6 +525,27 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
   }
 }
 
+
+// A cancelled bill must leave nothing in the books: no journal, so it drops out
+// of the P&L and the vendor's balance, and no payment, so money it never paid
+// stops showing in the Cash Book. Removed rather than contra-posted — the
+// document itself records the cancellation.
+if (isCancelled) {
+  await Transaction.deleteOne({
+    "source.docmodel": "PurchaseInvoice",
+    "source.docid": newInv._id,
+  });
+  const autoPayment = await Payment.findOne({
+    "autosource.docmodel": "PurchaseInvoice",
+    "autosource.docid": newInv._id,
+  });
+  if (autoPayment) {
+    await Transaction.deleteOne({ _id: autoPayment.transactionid });
+    await Payment.deleteOne({ _id: autoPayment._id });
+  }
+  console.log(`Purchase Invoice ${newInv.billnumber} cancelled — journal and counter payment removed.`);
+  return;
+}
 
 // ============================
 // 🧾 PURCHASE LEDGER ENTRIES (WITH REMARKS)

@@ -148,6 +148,12 @@ const AddEditPurchaseInvoice = () => {
     }
   }, [accountData, refetch]);
 
+  // A cancelled bill is still worth opening — it is the only way to see what was
+  // on it — but nothing about it may be changed until it is re-opened from the
+  // list. So the form loads normally and is sealed instead of being withheld.
+  const isCancelledBill = data?.getPurchaseInvoiceById?.cancelStatus === "cancelled";
+  const cancelledInfo = data?.getPurchaseInvoiceById;
+
   useEffect(() => {
     if (isEdit && data?.getPurchaseInvoiceById) {
       // --- EDIT MODE
@@ -482,10 +488,25 @@ const AddEditPurchaseInvoice = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
         <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Purchase Invoice" : "Add Purchase Invoice"}
+          {isCancelledBill ? "Cancelled Purchase Invoice" : isEdit ? "Edit Purchase Invoice" : "Add Purchase Invoice"}
         </h2>
 
+        {isCancelledBill && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <div className="font-semibold">This purchase invoice is cancelled — you are viewing it read-only.</div>
+            <div className="mt-1">
+              Its stock was reversed and its journal and payment were removed.
+              {cancelledInfo?.cancelReason ? <> Reason: <span className="font-medium">{cancelledInfo.cancelReason}</span>.</> : null}
+              {cancelledInfo?.cancelledByName ? <> Cancelled by {cancelledInfo.cancelledByName}.</> : null}
+            </div>
+            <div className="mt-1">To change anything, re-open it from the Purchase Invoices list first.</div>
+          </div>
+        )}
+
+        {/* fieldset disabled seals every input at once — no field can be missed,
+            and no edit can be typed that the server would then refuse. */}
         <form onSubmit={handleSubmit} className="space-y-6">
+        <fieldset disabled={isCancelledBill} className={isCancelledBill ? "opacity-90" : ""}>
           {/* ===== Main Details ===== */}
           {(isFieldEnabled("party") || isFieldEnabled("billdate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("notes") || isFieldEnabled("status")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
@@ -754,15 +775,17 @@ const AddEditPurchaseInvoice = () => {
           </fieldset>
           )}
 
+          </fieldset>
+
           {/* ===== Action Buttons ===== */}
           <div className="mt-6 flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              Cancel
+              {isCancelledBill ? "Back" : "Cancel"}
             </Button>
             <Button
               type="submit"
               variant="outline"
-              disabled={isEdit ? products.length === 0 : Object.keys(validate()).length > 0}
+              disabled={isCancelledBill || (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)}
               title={
                 !isEdit && Object.keys(validate()).length > 0
                   ? `Still needed: ${Object.values(validate()).join(", ")}`

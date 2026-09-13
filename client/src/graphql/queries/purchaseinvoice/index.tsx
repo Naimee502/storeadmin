@@ -65,6 +65,10 @@ export const GET_PURCHASE_INVOICES = gql`
       createdby_id
       createdby_name
       createdby_type
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt
@@ -136,6 +140,10 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       createdby_id
       createdby_name
       createdby_type
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt
@@ -220,6 +228,10 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       createdby_id
       createdby_name
       createdby_type
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt

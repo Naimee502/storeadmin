@@ -193,6 +193,12 @@ const AddEditSalesInvoice = () => {
     }
   }, [accountData, refetch]);
 
+  // A cancelled bill is still worth opening — it is the only way to see what was
+  // on it — but nothing about it may be changed until it is re-opened from the
+  // list. So the form loads normally and is sealed instead of being withheld.
+  const isCancelledBill = data?.getSalesInvoiceById?.cancelStatus === "cancelled";
+  const cancelledInfo = data?.getSalesInvoiceById;
+
   useEffect(() => {
     if (isEdit && data?.getSalesInvoiceById) {
       // --- EDIT MODE
@@ -568,10 +574,25 @@ const AddEditSalesInvoice = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
         <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Sales Invoice" : "Add Sales Invoice"}
+          {isCancelledBill ? "Cancelled Sales Invoice" : isEdit ? "Edit Sales Invoice" : "Add Sales Invoice"}
         </h2>
 
+        {isCancelledBill && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <div className="font-semibold">This invoice is cancelled — you are viewing it read-only.</div>
+            <div className="mt-1">
+              Its stock was returned and its journal and receipt were removed.
+              {cancelledInfo?.cancelReason ? <> Reason: <span className="font-medium">{cancelledInfo.cancelReason}</span>.</> : null}
+              {cancelledInfo?.cancelledByName ? <> Cancelled by {cancelledInfo.cancelledByName}.</> : null}
+            </div>
+            <div className="mt-1">To change anything, re-open it from the Sales Invoices list first.</div>
+          </div>
+        )}
+
+        {/* fieldset disabled seals every input at once — no field can be missed,
+            and no edit can be typed that the server would then refuse. */}
         <form onSubmit={handleSubmit} className="space-y-6">
+        <fieldset disabled={isCancelledBill} className={isCancelledBill ? "opacity-90" : ""}>
           {/* Main Details */}
           {(isFieldEnabled("party") || isFieldEnabled("invoicedate") || isFieldEnabled("billnumber") || isFieldEnabled("duedays") || isFieldEnabled("salesman") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("shipto") || isFieldEnabled("notes")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
@@ -858,9 +879,11 @@ const AddEditSalesInvoice = () => {
           </fieldset>
           )}
 
+          </fieldset>
+
           <div className="mt-6 flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              Cancel
+              {isCancelledBill ? "Back" : "Cancel"}
             </Button>
             {/* Held shut while any line is short on stock — the red cell in the
                 Products List says which one, and the server refuses it anyway. */}
@@ -868,6 +891,7 @@ const AddEditSalesInvoice = () => {
               type="submit"
               variant="outline"
               disabled={
+                isCancelledBill ||
                 blockOnShortStock ||
                 (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)
               }

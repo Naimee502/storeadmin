@@ -75,6 +75,10 @@ export const GET_SALES_INVOICES = gql`
       deliveredAt
       deliveredByName
       deliveryboyid
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt
@@ -156,6 +160,10 @@ export const GET_DELETED_SALES_INVOICES = gql`
       deliveredAt
       deliveredByName
       deliveryboyid
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt
@@ -250,6 +258,10 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       deliveredAt
       deliveredByName
       deliveryboyid
+      cancelStatus
+      cancelReason
+      cancelledAt
+      cancelledByName
       status
       createdAt
       updatedAt
