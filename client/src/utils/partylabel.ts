@@ -59,6 +59,11 @@ export const paymentPartyLabel = (
     : null;
   const name = (acc?.name || payment?.partyid?.name || "").trim();
   if (!name) return payment?.counterledgerid?.ledgername || "-";
-  const mobile = ((acc as any)?.mobile || "").trim();
-  return mobile ? `${name} - ${mobile}` : name;
+  // Same three parts as partyLabel, built from the account when it still
+  // exists — the payment itself only ever stored the name.
+  return partyLabel({
+    name,
+    mobile: (acc as any)?.mobile || null,
+    city: (acc as any)?.city || null,
+  });
 };

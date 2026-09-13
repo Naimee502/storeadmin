@@ -11,6 +11,7 @@ import {
   useSalesReturnMutations,
 } from "../../graphql/hooks/salesreturn";
 import { formatDateDMY } from "../../utils/helper";
+import { partyLabel } from "../../utils/partylabel";
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
 
@@ -57,7 +58,7 @@ const SalesReturns = () => {
     seqNo: i + 1,
     returndate: formatDateDMY(r.returndate),
     returndateRaw: r.returndate,
-    partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+    partyacc: partyLabel(r.partyacc) || "N/A",
     totalitem: r.productservice?.length || 0,
     totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
     refundLabel: cap(r.refundMode),

@@ -19,6 +19,7 @@ import { useReactToPrint } from "react-to-print";
 import { formatDateDMY } from "../../utils/helper";
 import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
 import { stateOptions } from "../../utils/constants";
+import { partyLabel } from "../../utils/partylabel";
 
 // Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
 // proper display label (e.g. "Gujarat") for the printed invoice.
@@ -228,7 +229,7 @@ const PurchaseInvoices = () => {
       partyname: invoice.partyacc?.accountname || "",
       gstin: invoice.partyacc?.gstnumber || "",
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
-      partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
+      partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: invoice.productservice?.length || 0,
       totalqty,
       billdate: formatDateDMY(invoice.billdate),

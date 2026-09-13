@@ -166,7 +166,7 @@ export const accountResolvers = {
       if (filter?.channel) query.channel = filter.channel;
       query.status = typeof filter?.status === "boolean" ? filter.status : true;
 
-      const parties: any[] = await Account.find(query).select("_id name mobile").lean();
+      const parties: any[] = await Account.find(query).select("_id name mobile city").lean();
       if (!parties.length) return [];
 
       const due = await getPartiesTotalDue({
@@ -178,6 +178,7 @@ export const accountResolvers = {
         id: String(p._id),
         name: p.name || "",
         mobile: p.mobile || null,
+        city: p.city || null,
         outstanding: due[String(p._id)] || 0,
       }));
     },

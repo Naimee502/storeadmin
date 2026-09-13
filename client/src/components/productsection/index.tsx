@@ -996,12 +996,18 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                               const unique = Array.from(
                                 new Map(opts.map((o: any) => [o.value, o])).values()
                               ) as any[];
-                              // The line's own unit may not be among the variant's current
-                              // price rows — an older bill, or a price row since removed.
-                              // Without an option to match it the browser silently snaps to
-                              // the first one, which reads as the cell reverting on its own.
                               const current = `${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`;
-                              if (p.salesunitid && !unique.some((o) => o.value === current)) {
+                              if (!p.salesunitid) {
+                                // Bills saved before the unit was compulsory have no unit at
+                                // all. With nothing matching, the browser shows the first
+                                // option as if it were chosen — and picking that same option
+                                // fires no change, so the line could never be repaired and
+                                // the save stayed blocked. A real empty option keeps the box
+                                // honest and lets any pick register.
+                                unique.unshift({ value: "--", label: "— Select unit —" });
+                              } else if (!unique.some((o) => o.value === current)) {
+                                // The line's unit may not be among the variant's current
+                                // price rows — an older bill, or a price row since removed.
                                 unique.unshift({
                                   value: current,
                                   label: `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim(),
@@ -1023,9 +1029,13 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                               setEditingValue(`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`);
                             }}
                           >
-                            {price
-                              ? `${price.quantity} ${price.unitname ?? ""}`.trim()
-                              : `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim()}
+                            {!p.salesunitid ? (
+                              <span className="text-red-600 font-medium">Select unit</span>
+                            ) : price ? (
+                              `${price.quantity} ${price.unitname ?? ""}`.trim()
+                            ) : (
+                              `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim()
+                            )}
                           </div>
                         )}
                       </td>

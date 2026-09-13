@@ -11,6 +11,7 @@ import {
   usePurchaseReturnMutations,
 } from "../../../graphql/hooks/purchasereturn";
 import { formatDateDMY } from "../../../utils/helper";
+import { partyLabel } from "../../../utils/partylabel";
 
 const DeletedPurchaseReturns = () => {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ const DeletedPurchaseReturns = () => {
     ...r,
     seqNo: i + 1,
     returndate: formatDateDMY(r.returndate),
-    partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+    partyacc: partyLabel(r.partyacc) || "N/A",
     createdByDisplay: r.createdby_name || "N/A",
   }));
 

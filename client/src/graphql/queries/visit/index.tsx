@@ -5,7 +5,7 @@ const VISIT_FIELDS = `
   adminid
   branchid
   salesmanid { id name }
-  partyacc { id name mobile }
+  partyacc { id name mobile city }
   routeid { id routename }
   visitdate
   day

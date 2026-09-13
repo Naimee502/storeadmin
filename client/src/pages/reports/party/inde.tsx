@@ -29,9 +29,9 @@ const reportTabsObj = [
 const fmtAmt = (n: number) =>
   n >= 0 ? n.toFixed(2) : `(${Math.abs(n).toFixed(2)})`;
 
-// "Party Name - Mobile" — the report's own rows and columns, kept narrow.
-const partyLabelOf = (a: any) =>
-  `${a.name || "-"}${a.mobile ? ` - ${a.mobile}` : ""}`;
+// "Party Name - Mobile - City" — same label the pickers use, so a party reads
+// the same here as on the screen the person came from.
+const partyLabelOf = (a: any) => sharedPartyLabel(a) || "-";
 
 const PartyReports: React.FC = () => {
   const dispatch = useAppDispatch();

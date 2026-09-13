@@ -6,7 +6,7 @@ const SALES_RETURN_FIELDS = `
   sourceBillNumber
   salesmenid { id name }
   paymenttype
-  partyacc { id accountname mobile }
+  partyacc { id accountname mobile city }
   taxorsupplytype
   returndate
   billtype

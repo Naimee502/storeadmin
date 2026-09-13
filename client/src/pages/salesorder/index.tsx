@@ -16,6 +16,7 @@ import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
 import { stateOptions } from "../../utils/constants";
+import { partyLabel } from "../../utils/partylabel";
 
 // Party's `state` is stored as a slug (e.g. "gujarat") — map it to the
 // proper display label for the printed document's Place of Supply.
@@ -242,7 +243,7 @@ const SalesOrders = () => {
       partyname: order.partyacc?.accountname || "",
       gstin: order.partyacc?.gstnumber || "",
       placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
-      partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
+      partyacc: partyLabel(order.partyacc) || "N/A",
       totalitem: order.productservice.length,
       totalqty,
       billdate: formatDateDMY(order.billdate),

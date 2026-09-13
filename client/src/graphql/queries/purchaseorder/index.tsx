@@ -89,6 +89,7 @@ export const GET_DELETED_PURCHASE_ORDERS = gql`
         id
         accountname
         mobile
+        city
       }
       taxorsupplytype
       billdate
@@ -160,6 +161,7 @@ export const GET_PURCHASE_ORDER_BY_ID = gql`
         id
         accountname
         mobile
+        city
       }
       taxorsupplytype
       billdate

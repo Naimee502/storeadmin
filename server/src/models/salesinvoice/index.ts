@@ -106,6 +106,16 @@ const salesInvoiceSchema = new mongoose.Schema(
     deliveredByType: { type: String },
     deliveryboyid: { type: mongoose.Schema.Types.ObjectId, ref: "StaffAccount" },
 
+    // Cancellation. A bill entered by mistake is cancelled rather than deleted:
+    // the document stays on record with its number intact (a gap in a bill
+    // series is itself a question an auditor asks), while its stock, journal and
+    // counter receipt are all reversed. Cancelling is refused once anything else
+    // has been built on the bill -- a return, or a payment collected against it.
+    cancelStatus: { type: String, enum: ["open", "cancelled"], default: "open" },
+    cancelReason: { type: String },
+    cancelledAt: { type: Date },
+    cancelledByName: { type: String },
+
     status: { type: Boolean, default: true }
   },
   { timestamps: true }
@@ -401,6 +411,18 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     newInv.autocreate?.stock ??
     settings?.autoCreateStockOnSalesInvoice ?? true;
 
+  // Cancelling and re-opening run through this same function, so that one place
+  // decides what a bill does to the books and the two directions can never
+  // drift apart. What changes is only which halves run:
+  //
+  //   cancel  (open -> cancelled): put the stock back, then drop the journal and
+  //           the counter receipt. Nothing is re-posted.
+  //   reopen  (cancelled -> open): take the stock out again and post everything
+  //           afresh -- but do NOT "restore old stock" first, because the cancel
+  //           already gave it back; doing it twice would invent inventory.
+  const isCancelled = String(newInv.cancelStatus || "") === "cancelled";
+  const wasCancelled = String(oldInv?.cancelStatus || "") === "cancelled";
+
   // A note typed on the bill is what the user expects to see against it — in the
   // Transactions list and on the receipt it raises. The generated line is only a
   // fallback for when they left the box empty.
@@ -424,8 +446,9 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   
   // ========================= STOCK ADJUSTMENT =========================
   if (wantsStock && !newInv.isservice) {
-    // Restore old stock if invoice updated
-    if (oldInv) {
+    // Restore old stock if invoice updated. Skipped when the previous state was
+    // already cancelled — that stock came back at cancel time.
+    if (oldInv && !wasCancelled) {
       for (const item of oldInv.productservice) {
         const product = await ProductService.findById(item.productserviceid);
         if (!product) {
@@ -453,8 +476,8 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
       }
     }
 
-    // Deduct new stock
-    for (const item of newInv.productservice) {
+    // Deduct new stock. A cancelled bill sells nothing, so it takes nothing out.
+    for (const item of isCancelled ? [] : newInv.productservice) {
       const product = await ProductService.findById(item.productserviceid);
       if (!product) {
         console.log("New product not found:", item.productserviceid);
@@ -487,6 +510,28 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         { upsert: true }
       );
     }
+  }
+
+  // A cancelled bill must leave nothing behind in the books: no journal, so it
+  // drops out of the P&L and the party's balance, and no receipt, so the cash
+  // it never took stops showing in the Cash Book. Both are removed rather than
+  // contra-posted — the document itself carries the cancellation, and a pair of
+  // equal-and-opposite entries would only make the statement harder to read.
+  if (isCancelled) {
+    await Transaction.deleteOne({
+      "source.docmodel": "SalesInvoice",
+      "source.docid": newInv._id,
+    });
+    const autoReceipt = await Payment.findOne({
+      "autosource.docmodel": "SalesInvoice",
+      "autosource.docid": newInv._id,
+    });
+    if (autoReceipt) {
+      await Transaction.deleteOne({ _id: autoReceipt.transactionid });
+      await Payment.deleteOne({ _id: autoReceipt._id });
+    }
+    console.log(`Invoice ${newInv.billnumber} cancelled — journal and counter receipt removed.`);
+    return;
   }
 
   console.log("===== PROCESSING JOURNAL ENTRIES START =====");

@@ -12,6 +12,7 @@ import { useAppSelector } from "../../redux/hooks";
 import { selectIsModuleAllowed } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { paymentPartyLabel } from "../../utils/partylabel";
+import { partyLabel } from "../../utils/partylabel";
 
 interface RecentOrdersProps {
   salesInvoiceData?: any;
@@ -153,7 +154,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           return {
             ...item,
             seqNo: idx + 1,
-            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            partyacc: partyLabel(item.partyacc) || "N/A",
             totalitem: (item.productservice || []).length,
             totalqty,
             billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
@@ -208,7 +209,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           return {
             ...item,
             seqNo: idx + 1,
-            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            partyacc: partyLabel(item.partyacc) || "N/A",
             totalitem: (item.productservice || []).length,
             totalqty,
             billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
@@ -260,7 +261,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           return {
             ...item,
             seqNo: idx + 1,
-            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            partyacc: partyLabel(item.partyacc) || "N/A",
             totalitem: (item.productservice || []).length,
             totalqty,
             billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
@@ -312,7 +313,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           return {
             ...item,
             seqNo: idx + 1,
-            partyacc: `${item.partyacc?.accountname ?? "N/A"} - ${item.partyacc?.mobile ?? "N/A"}`,
+            partyacc: partyLabel(item.partyacc) || "N/A",
             totalitem: (item.productservice || []).length,
             totalqty,
             billdate: item.billdate ? formatDateDMY(item.billdate) : "-",
@@ -363,7 +364,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           cnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
           returndate: formatDateDMY(r.returndate || r.createdAt) || "-",
-          partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+          partyacc: partyLabel(r.partyacc) || "N/A",
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
           totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
@@ -411,7 +412,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           dnNo: `${r.billnumber}`,
           sourceBillNumber: r.sourceBillNumber || "N/A",
           returndate: formatDateDMY(r.returndate || r.createdAt) || "-",
-          partyacc: `${r.partyacc?.accountname ?? "N/A"} - ${r.partyacc?.mobile ?? ""}`,
+          partyacc: partyLabel(r.partyacc) || "N/A",
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
           totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,  

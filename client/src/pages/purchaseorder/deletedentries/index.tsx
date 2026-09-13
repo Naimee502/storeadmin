@@ -11,6 +11,7 @@ import {
   usePurchaseOrderMutations,
 } from "../../../graphql/hooks/purchaseorder";
 import { formatDateDMY } from "../../../utils/helper";
+import { partyLabel } from "../../../utils/partylabel";
 
 const DeletedPurchaseOrders = () => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const DeletedPurchaseOrders = () => {
       ...order,
       seqNo: index + 1,
       billdate: formatDateDMY(order.billdate),
-      partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
+      partyacc: partyLabel(order.partyacc) || "N/A",
       totalitem: order.productservice.length,
       totalqty,
       billtype_billnumber: `PO-${order.billnumber}`,

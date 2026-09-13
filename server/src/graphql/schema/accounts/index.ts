@@ -161,6 +161,7 @@ export const accountTypeDefs = gql`
     id: ID!
     name: String
     mobile: String
+    city: String
     outstanding: Float
   }
 

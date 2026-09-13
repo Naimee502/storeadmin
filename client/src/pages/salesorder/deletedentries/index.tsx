@@ -11,6 +11,7 @@ import {
   useSalesOrderMutations,
 } from "../../../graphql/hooks/salesorder";
 import { formatDateDMY } from "../../../utils/helper";
+import { partyLabel } from "../../../utils/partylabel";
 
 const DeletedSalesOrders = () => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const DeletedSalesOrders = () => {
       ...order,
       seqNo: index + 1,
       billdate: formatDateDMY(order.billdate),
-      partyacc: `${order.partyacc?.accountname ?? "N/A"} - ${order.partyacc?.mobile ?? "N/A"}`,
+      partyacc: partyLabel(order.partyacc) || "N/A",
       totalitem: order.productservice.length,
       totalqty,
       billtype_billnumber: `SO-${order.billnumber}`,

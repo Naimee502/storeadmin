@@ -144,6 +144,7 @@ export const GET_PARTY_OUTSTANDING_SUMMARY = gql`
       id
       name
       mobile
+      city
       outstanding
     }
   }

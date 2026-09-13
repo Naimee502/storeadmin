@@ -13,6 +13,7 @@ import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
+import { partyLabel } from "../../../utils/partylabel";
 
 const reportTabs = [
   { id: "Sales Order", label: "Sales Order", icon: <FaClipboardList className="text-amber-600" /> },
@@ -106,7 +107,7 @@ const SalesReports: React.FC = () => {
         const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
         const partyAccObj = inv.partyacc;
         const partyaccStr = partyAccObj
-          ? `${partyAccObj.accountname || partyAccObj.name} - ${partyAccObj.mobile || ""}`
+          ? partyLabel(partyAccObj) || "Unknown"
           : "Unknown";
         const productNames = (inv.productservice ?? [])
           .map((p: any) => {
@@ -176,7 +177,7 @@ const SalesReports: React.FC = () => {
           orderNo: `SO-${o.billnumber}`,
           orderDate: formatDateDMY(o.billdate),
           partyName: o.partyacc
-            ? `${o.partyacc.accountname || "-"}${o.partyacc.mobile ? ` - ${o.partyacc.mobile}` : ""}`
+            ? partyLabel(o.partyacc) || "-"
             : "-",
           products: productNamesOf(o.productservice),
           paymentType: cap(o.paymenttype),
@@ -208,7 +209,7 @@ const SalesReports: React.FC = () => {
           returnDate: formatDateDMY(r.returndate),
           sourceInvoice: r.sourceBillNumber || "-",
           partyName: r.partyacc
-            ? `${r.partyacc.accountname || "-"}${r.partyacc.mobile ? ` - ${r.partyacc.mobile}` : ""}`
+            ? partyLabel(r.partyacc) || "-"
             : "-",
           paymentType: cap(r.paymenttype),
           products: productNamesOf(r.productservice),

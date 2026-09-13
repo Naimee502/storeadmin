@@ -19,11 +19,48 @@ import {
     FaTruck,
     FaBoxOpen,
 } from "react-icons/fa";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Loader from "../loader";
 import FormField from "../formfiled";
 import FormSwitch from "../formswitch";
 import Button from "../button";
+
+/**
+ * Listing state that survives leaving the page.
+ *
+ * Going into an edit form unmounts the table, so search, column filters, page
+ * size and page number were gone by the time the user came back and had to be
+ * re-entered every single time. They are kept per listing in sessionStorage:
+ * per tab, so a fresh tab starts clean, and per table, so two listings never
+ * read each other's filters.
+ */
+const tableStateKey = (title: string) =>
+  `datatable:${typeof window !== "undefined" ? window.location.pathname : ""}:${title}`;
+
+function useStickyTableState<T>(title: string, field: string, initial: T) {
+  const key = `${tableStateKey(title)}:${field}`;
+
+  const [value, setValue] = useState<T>(() => {
+    // Storage can be unavailable (private mode, blocked site data) and the
+    // stored shape can be stale after a release — neither is worth a crash.
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* nothing to do — the table still works, it just won't remember */
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
 
 interface Column {
     label: string;
@@ -151,10 +188,10 @@ const DataTable: React.FC<DataTableProps> = ({
     showActionsColumn = true,
     requireBranchForAdd,
 }) => {
-    const [entriesPerPage, setEntriesPerPage] = useState(defaultEntriesPerPage);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [globalSearch, setGlobalSearch] = useState("");
-    const [filters, setFilters] = useState<{ [key: string]: string }>({});
+    const [entriesPerPage, setEntriesPerPage] = useStickyTableState(title, "entriesPerPage", defaultEntriesPerPage);
+    const [currentPage, setCurrentPage] = useStickyTableState(title, "currentPage", 1);
+    const [globalSearch, setGlobalSearch] = useStickyTableState(title, "globalSearch", "");
+    const [filters, setFilters] = useStickyTableState<{ [key: string]: string }>(title, "filters", {});
 
     const handleFilterChange = (key: string, value: string) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
@@ -179,6 +216,13 @@ const DataTable: React.FC<DataTableProps> = ({
         (currentPage - 1) * entriesPerPage,
         currentPage * entriesPerPage
     );
+
+    // A remembered page can point past the end of a list that has since shrunk —
+    // deleted rows, or a filter typed before leaving. Showing an empty table in
+    // that case looks like the data is gone, so fall back to the last real page.
+    useEffect(() => {
+        if (totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
+    }, [totalPages, currentPage, setCurrentPage]);
 
     const changePage = (direction: "prev" | "next") => {
         setCurrentPage((prev) => {

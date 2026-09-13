@@ -5,7 +5,7 @@ const PURCHASE_RETURN_FIELDS = `
   sourceInvoiceId
   sourceBillNumber
   paymenttype
-  partyacc { id accountname mobile }
+  partyacc { id accountname mobile city }
   taxorsupplytype
   returndate
   billtype

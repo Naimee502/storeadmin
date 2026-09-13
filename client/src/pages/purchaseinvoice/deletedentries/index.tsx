@@ -10,6 +10,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
 import { formatDateDMY } from "../../../utils/helper";
+import { partyLabel } from "../../../utils/partylabel";
 
 const DeletedPurchaseInvoices = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const DeletedPurchaseInvoices = () => {
       ...invoice,
       seqNo: index + 1,
       billdate: formatDateDMY(invoice.billdate),
-      partyacc: `${invoice.partyacc?.accountname ?? "N/A"} - ${invoice.partyacc?.mobile ?? "N/A"}`,
+      partyacc: partyLabel(invoice.partyacc) || "N/A",
       totalitem: invoice.productservice.length,
       totalqty,
       // Same "INV-000001" style as Sales Invoice / the active Purchase

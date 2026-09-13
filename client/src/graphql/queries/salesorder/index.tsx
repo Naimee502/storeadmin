@@ -94,6 +94,7 @@ export const GET_DELETED_SALES_ORDERS = gql`
         id
         accountname
         mobile
+        city
       }
       taxorsupplytype
       billdate
@@ -166,6 +167,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
         id
         accountname
         mobile
+        city
       }
       taxorsupplytype
       billdate

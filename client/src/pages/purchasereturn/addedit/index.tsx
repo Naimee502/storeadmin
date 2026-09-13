@@ -18,6 +18,7 @@ import {
   usePurchaseInvoiceByIDQuery,
 } from "../../../graphql/hooks/purchaseinvoice";
 import OtherChargesSection from "../../../components/othercharges";
+import { partyLabel } from "../../../utils/partylabel";
 
 type Line = {
   productserviceid: string;
@@ -605,7 +606,7 @@ const AddEditPurchaseReturn: React.FC = () => {
               {partyacc && (
                 <div className="col-span-1 md:col-span-3 text-sm text-gray-600 bg-gray-50 p-3 rounded">
                   <span className="font-medium">Vendor:</span>{" "}
-                  {partyacc.accountname} {partyacc.mobile ? `· ${partyacc.mobile}` : ""}
+                  {partyLabel(partyacc, "·")}
                 </div>
               )}
             </div>
