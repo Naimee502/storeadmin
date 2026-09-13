@@ -29,8 +29,9 @@ const formatReturn = (r: any) => ({
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
   salesmenid: toSimpleRef(r.salesmenid, ["name"]),
   partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
-  // Convert autocreate object to boolean for GraphQL (DB stores as { ledger: true }, but schema expects Boolean)
-  autocreate: r.autocreate?.ledger ?? r.autocreate ?? true,
+  // Journals are no longer optional, so this is always true. Kept in the schema
+  // so existing clients querying the field keep working.
+  autocreate: true,
 
   othercharges: r.othercharges?.map((oc: any) => ({
     ...oc,
@@ -200,7 +201,6 @@ export const salesReturnResolvers = {
         const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
         const autoCreateData = {
           autocreate: {
-            ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
             stock: settings?.autoCreateStockOnSalesReturn ?? true,
           },
         };
@@ -245,12 +245,10 @@ export const salesReturnResolvers = {
       const settings = await AdminSettings.getOrCreateForAdmin(oldRet.adminid);
       const autoCreateData = input.autocreate !== undefined ? {
         autocreate: {
-          ledger: input.autocreate ?? settings?.autoCreateLedgerOnSalesReturn ?? true,
           stock: settings?.autoCreateStockOnSalesReturn ?? true,
         },
       } : {
         autocreate: {
-          ledger: settings?.autoCreateLedgerOnSalesReturn ?? true,
           stock: settings?.autoCreateStockOnSalesReturn ?? true,
         },
       };

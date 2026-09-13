@@ -3,16 +3,8 @@ import { gql } from "@apollo/client";
 const SETTINGS_FIELDS = `
   id
   adminid
-  autoCreateLedgerOnSalesInvoice
-  autoCreatePaymentOnSalesInvoice
   autoCreateStockOnSalesInvoice
-  autoCreateLedgerOnPurchaseInvoice
-  autoCreatePaymentOnPurchaseInvoice
   autoCreateStockOnPurchaseInvoice
-  autoCreateLedgerOnExpense
-  autoCreatePaymentOnExpense
-  autoCreateLedgerOnSalesReturn
-  autoCreateLedgerOnPurchaseReturn
   autoCreateStockOnSalesReturn
   autoCreateStockOnPurchaseReturn
   allowNegativeStock

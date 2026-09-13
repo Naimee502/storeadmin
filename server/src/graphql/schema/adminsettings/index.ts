@@ -45,16 +45,8 @@ export const adminSettingsTypeDefs = gql`
     id: ID!
     adminid: ID!
 
-    autoCreateLedgerOnSalesInvoice: Boolean!
-    autoCreatePaymentOnSalesInvoice: Boolean!
     autoCreateStockOnSalesInvoice: Boolean!
-    autoCreateLedgerOnPurchaseInvoice: Boolean!
-    autoCreatePaymentOnPurchaseInvoice: Boolean!
     autoCreateStockOnPurchaseInvoice: Boolean!
-    autoCreateLedgerOnExpense: Boolean!
-    autoCreatePaymentOnExpense: Boolean!
-    autoCreateLedgerOnSalesReturn: Boolean!
-    autoCreateLedgerOnPurchaseReturn: Boolean!
     autoCreateStockOnSalesReturn: Boolean!
     autoCreateStockOnPurchaseReturn: Boolean!
 
@@ -247,16 +239,8 @@ export const adminSettingsTypeDefs = gql`
   # Partial input — only sends fields that changed. Server merges over the
   # existing document so toggling one switch doesn't reset the rest.
   input AdminSettingsInput {
-    autoCreateLedgerOnSalesInvoice: Boolean
-    autoCreatePaymentOnSalesInvoice: Boolean
     autoCreateStockOnSalesInvoice: Boolean
-    autoCreateLedgerOnPurchaseInvoice: Boolean
-    autoCreatePaymentOnPurchaseInvoice: Boolean
     autoCreateStockOnPurchaseInvoice: Boolean
-    autoCreateLedgerOnExpense: Boolean
-    autoCreatePaymentOnExpense: Boolean
-    autoCreateLedgerOnSalesReturn: Boolean
-    autoCreateLedgerOnPurchaseReturn: Boolean
     autoCreateStockOnSalesReturn: Boolean
     autoCreateStockOnPurchaseReturn: Boolean
 

@@ -84,6 +84,20 @@ const AddEditSalesInvoice = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+
+  // How much of this bill was settled on the spot. 0 is a pure credit bill, the
+  // full grand total is a fully settled one, and anything between leaves the
+  // remainder outstanding for a later Payment-In. Payment Type only says HOW the
+  // money moved, never how much.
+  const [received, setReceived] = useState<string | number>("");
+
+  // "Credit" is just received = 0 said in words, so the box locks there. Clamping
+  // here as well as on the server keeps the Balance line honest while typing.
+  const isCreditBill = String(paymentType).toLowerCase() === "credit";
+  const receivedNum = isCreditBill
+    ? 0
+    : Math.min(Math.max(Number(received) || 0, 0), grandTotal);
+  const balanceDue = parseFloat((grandTotal - receivedNum).toFixed(2));
   const salesInvoices = useAppSelector(
     (state) => state.salesinvoice.invoices
   );
@@ -186,6 +200,7 @@ const AddEditSalesInvoice = () => {
 
       // --- Header fields
       setPaymentType(invoice.paymenttype || "");
+      setReceived(invoice.received ? String(invoice.received) : "");
       setPartyAccount({
         id: invoice.partyacc?.id || "",
         state: invoice.partyacc?.state || "",
@@ -448,6 +463,7 @@ const AddEditSalesInvoice = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
+      received: receivedNum,
       othercharges: otherCharges.map(c => ({
         ledgerid: c.ledgerid,
         amount: c.amount,
@@ -782,7 +798,7 @@ const AddEditSalesInvoice = () => {
           />
 
           {/* Summary */}
-          {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal")) && (
+          {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal") || isFieldEnabled("received")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -820,6 +836,24 @@ const AddEditSalesInvoice = () => {
               />}
 
               {isFieldEnabled("grandtotal") && <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />}
+
+              {isFieldEnabled("received") && <FormField
+                label="Received (₹)"
+                name="received"
+                type="number"
+                value={isCreditBill ? "" : received}
+                disabled={isCreditBill}
+                onChange={(e) => setReceived(e.target.value)}
+              />}
+
+              {isFieldEnabled("received") && <FormField
+                label="Balance Due"
+                name="balanceDue"
+                type="text"
+                value={balanceDue.toFixed(2)}
+                onChange={() => ""}
+                disabled
+              />}
             </div>
           </fieldset>
           )}
@@ -833,10 +867,15 @@ const AddEditSalesInvoice = () => {
             <Button
               type="submit"
               variant="outline"
-              disabled={products.length === 0 || blockOnShortStock}
+              disabled={
+                blockOnShortStock ||
+                (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)
+              }
               title={
                 blockOnShortStock
                   ? "Not enough stock on one or more lines — fix the quantity marked in red above."
+                  : !isEdit && Object.keys(validate()).length > 0
+                  ? `Still needed: ${Object.values(validate()).join(", ")}`
                   : undefined
               }
             >

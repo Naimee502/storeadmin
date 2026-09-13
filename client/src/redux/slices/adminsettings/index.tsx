@@ -3,13 +3,8 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 interface AdminSettings {
   id: string;
   adminid: string;
-  autoCreateLedgerOnSalesInvoice: boolean;
   autoCreateStockOnSalesInvoice: boolean;
-  autoCreateLedgerOnPurchaseInvoice: boolean;
   autoCreateStockOnPurchaseInvoice: boolean;
-  autoCreateLedgerOnExpense: boolean;
-  autoCreateLedgerOnSalesReturn: boolean;
-  autoCreateLedgerOnPurchaseReturn: boolean;
   autoCreateStockOnSalesReturn: boolean;
   autoCreateStockOnPurchaseReturn: boolean;
   allowNegativeStock: boolean;

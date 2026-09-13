@@ -90,9 +90,9 @@ const purchaseReturnSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     autocreate: {
-      ledger: { type: Boolean, default: true },
-      // Own switch, like the invoice side — journals and stock are separate
-      // decisions (Business Settings -> Auto-posting -> Returns).
+      // Stock is the only thing still worth a switch: a service line moves none,
+      // and some businesses bill first and enter their purchases later. Journals
+      // are not optional -- a document IS an accounting event.
       stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true },
@@ -186,11 +186,6 @@ purchaseReturnSchema.statics.adjustStockAndTransactions = async function (oldRet
   }
 
   // autocreate is stored as { ledger: bool } — check the nested .ledger property
-  if (newRet.autocreate?.ledger === false) {
-    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Purchase Return.");
-    return;
-  }
-
   // ===== JOURNAL ENTRIES =====
   // Original PI: Dr Purchase / Dr Input GST / Cr Vendor
   // Return PR:   Cr Purchase Return / Cr Input GST / Dr Vendor

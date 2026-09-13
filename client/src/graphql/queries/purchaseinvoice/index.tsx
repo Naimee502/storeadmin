@@ -27,6 +27,7 @@ export const GET_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
+      paid
       productservice {
         productserviceid { id name }
         variantid { id name }
@@ -97,6 +98,7 @@ export const GET_DELETED_PURCHASE_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
+      paid
       productservice {
         productserviceid { id name }
         variantid { id name }
@@ -180,6 +182,7 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
       totaldiscount
       totalgst
       totalamount
+      paid
       productservice {
         productserviceid { id name }
         variantid { id name }

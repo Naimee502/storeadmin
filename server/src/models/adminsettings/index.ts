@@ -35,16 +35,8 @@ const adminSettingsSchema = new mongoose.Schema(
        AUTO-POSTING FLAGS — invoices/vouchers consult these instead
        of asking the user "autocreate yes/no?" on every save.
        ============================================================ */
-    autoCreateLedgerOnSalesInvoice: { type: Boolean, default: true },
-    autoCreatePaymentOnSalesInvoice: { type: Boolean, default: true },
     autoCreateStockOnSalesInvoice: { type: Boolean, default: true },
-    autoCreateLedgerOnPurchaseInvoice: { type: Boolean, default: true },
-    autoCreatePaymentOnPurchaseInvoice: { type: Boolean, default: true },
     autoCreateStockOnPurchaseInvoice: { type: Boolean, default: true },
-    autoCreateLedgerOnExpense: { type: Boolean, default: true },
-    autoCreatePaymentOnExpense: { type: Boolean, default: true },
-    autoCreateLedgerOnSalesReturn: { type: Boolean, default: true },
-    autoCreateLedgerOnPurchaseReturn: { type: Boolean, default: true },
     // Stock movement on returns is its own switch, exactly like the invoice
     // side. It used to ride on the ledger flag, so switching journals off also
     // stopped returned goods from coming back on the shelf.

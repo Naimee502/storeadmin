@@ -102,6 +102,7 @@ export const salesInvoiceTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    received: Float
     isservice: Boolean!
     autocreate: Boolean!
     createdby_id: ID
@@ -151,6 +152,7 @@ export const salesInvoiceTypeDefs = gql`
     roundoff: Float
     invoicediscount: Float
     invoicediscounttype: String
+    received: Float
     isservice: Boolean
     autocreate: Boolean
     createdby_id: ID

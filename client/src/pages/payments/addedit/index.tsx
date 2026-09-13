@@ -374,8 +374,25 @@ const AddEditPayment = () => {
   //                         bill re-allocates it; it does not mean the party handed
   //                         over less money. Deriving it from rows here rewrote a
   //                         ₹250 receipt as ₹100 the moment you opened it invoice-wise.
+  /**
+   * Invoice-wise, with the mode radios on screen: the ticked bills ARE the
+   * amount — when adding AND when editing.
+   *
+   * `isEdit` used to short-circuit straight to the manual box on the reasoning
+   * that a saved amount is a fact. True for Direct and Ledger mode, where that
+   * box is what was typed. Wrong here: an invoice-wise receipt never seeds the
+   * box (the rows carry the figure), so reopening the ₹65 receipt an invoice
+   * created read the EMPTY box instead of the row — the summary printed
+   * "Total: ₹0.00" beside a ₹65 line, and saving failed the "amount must be
+   * greater than zero" check on a receipt that plainly had one.
+   */
+  const rowsDriveAmount =
+    !isLedgerMode && payType !== "expense" && !!partyid && settlementMode === "invoice";
+
   const totalAmount = singleConcession
     ? parseFloat((directBillValue - totalDiscount + totalCommission).toFixed(2))
+    : rowsDriveAmount
+    ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
     : isEdit
     ? parseFloat(manualAmount) || 0
     : settledInvoices.length > 0
@@ -1880,8 +1897,10 @@ const AddEditPayment = () => {
                 • No party picked at all → no box either. An amount typed there
                   had no second leg, so it saved without ever reaching the
                   ledger; a hint now points at the two real choices.
-                • Editing → always, because the amount is a fact. */}
-          {!isDirectSettle && (isEdit || isLedgerMode) && (
+                • Editing → still not on an invoice-wise screen. The amount is
+                  a fact there too, but the ROWS are where that fact lives; a
+                  second empty box beside them only contradicted it. */}
+          {!isDirectSettle && !rowsDriveAmount && (isEdit || isLedgerMode) && (
             <fieldset className="border rounded-xl p-4">
               <legend className="text-sm font-medium px-2">Amount</legend>
 

@@ -83,6 +83,20 @@ const AddEditPurchaseInvoice = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+
+  // How much of this bill was settled on the spot. 0 is a pure credit bill, the
+  // full grand total is a fully settled one, and anything between leaves the
+  // remainder outstanding for a later Payment-Out. Payment Type only says HOW the
+  // money moved, never how much.
+  const [paid, setPaid] = useState<string | number>("");
+
+  // "Credit" is just paid = 0 said in words, so the box locks there. Clamping
+  // here as well as on the server keeps the Balance line honest while typing.
+  const isCreditBill = String(paymentType).toLowerCase() === "credit";
+  const paidNum = isCreditBill
+    ? 0
+    : Math.min(Math.max(Number(paid) || 0, 0), grandTotal);
+  const balanceDue = parseFloat((grandTotal - paidNum).toFixed(2));
   const purchaseInvoices = useAppSelector(
     (state) => state.purchaseinvoice.invoices
   );
@@ -141,6 +155,7 @@ const AddEditPurchaseInvoice = () => {
 
       // --- Header fields
       setPaymentType(invoice.paymenttype || "");
+      setPaid(invoice.paid ? String(invoice.paid) : "");
       setPartyAccount({
         id: invoice.partyacc?.id || "",
         state: invoice.partyacc?.state || "",
@@ -366,6 +381,7 @@ const AddEditPurchaseInvoice = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
+      paid: paidNum,
       othercharges: otherCharges.map(c => ({
         ledgerid: c.ledgerid,
         amount: c.amount,
@@ -678,7 +694,7 @@ const AddEditPurchaseInvoice = () => {
           />
 
           {/* ===== SECTION 5: Summary (EXACT SAME FORMAT AS SALES INVOICE) ===== */}
-          {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal")) && (
+          {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal") || isFieldEnabled("paid")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -716,6 +732,24 @@ const AddEditPurchaseInvoice = () => {
               />}
 
               {isFieldEnabled("grandtotal") && <FormField label="Grand Total" name="grandTotal" onChange={() => ""} type="text" value={grandTotal.toFixed(2)} disabled />}
+
+              {isFieldEnabled("paid") && <FormField
+                label="Paid (₹)"
+                name="paid"
+                type="number"
+                value={isCreditBill ? "" : paid}
+                disabled={isCreditBill}
+                onChange={(e) => setPaid(e.target.value)}
+              />}
+
+              {isFieldEnabled("paid") && <FormField
+                label="Balance Payable"
+                name="balanceDue"
+                type="text"
+                value={balanceDue.toFixed(2)}
+                onChange={() => ""}
+                disabled
+              />}
             </div>
           </fieldset>
           )}
@@ -725,7 +759,16 @@ const AddEditPurchaseInvoice = () => {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" variant="outline" disabled={products.length === 0}>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={isEdit ? products.length === 0 : Object.keys(validate()).length > 0}
+              title={
+                !isEdit && Object.keys(validate()).length > 0
+                  ? `Still needed: ${Object.values(validate()).join(", ")}`
+                  : undefined
+              }
+            >
               {isEdit ? "Update Invoice" : "Save Invoice"}
             </Button>
           </div>

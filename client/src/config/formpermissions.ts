@@ -228,6 +228,7 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
           { id: "invoicediscount", label: "Invoice Discount" },
           { id: "roundoff", label: "Round Off" },
           { id: "grandtotal", label: "Grand Total" },
+          { id: "received", label: "Received / Balance" },
         ],
       }
     ],
@@ -296,6 +297,7 @@ export const FORM_PERMISSIONS_CONFIG: FormConfig[] = [
           { id: "invoicediscount", label: "Invoice Discount" },
           { id: "roundoff", label: "Round Off" },
           { id: "grandtotal", label: "Grand Total" },
+          { id: "paid", label: "Paid / Balance" },
         ],
       }
     ],

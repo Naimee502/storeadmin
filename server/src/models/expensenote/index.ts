@@ -90,10 +90,10 @@ const expenseNoteSchema = new mongoose.Schema(
     createdby_name: { type: String },
     createdby_type: { type: String },
 
-    autocreate: {
-      ledger: { type: Boolean, default: true },
-      payment: { type: Boolean, default: true },
-    },
+    // Nothing left to switch here: an expense note always posts its journal and,
+    // when it is not on credit, its payment. Kept only so old documents that
+    // carry the field still load.
+    autocreate: {},
 
     /* ======================
        EXPENSE LINES
@@ -246,7 +246,7 @@ export async function buildExpenseNoteJournal(doc: any) {
         entries.push({ ledgerid: sgst._id, debit: split, credit: 0, remarks: `Input SGST on ${expenseName}` });
       } else {
         const gstLedger = await getOrCreateAccount("Input GST", "gst", doc.adminid, doc.branchid);
-        entries.push({ ledgerid: gstLedger._id, debit: gstAmt, credit: 0, remarks: `Input GST on ${expenseName}` });
+        entries.push({ ledgerid: gstLedger.ledgerid || gstLedger._id, debit: gstAmt, credit: 0, remarks: `Input GST on ${expenseName}` });
       }
       totalDebit += gstAmt;
     }
@@ -333,7 +333,7 @@ expenseNoteSchema.statics.createJournalAndPayment = async function (doc: any, us
         );
 
         entries.push({
-          ledgerid: gstLedger._id,
+          ledgerid: gstLedger.ledgerid || gstLedger._id,
           debit: gstAmt,
           credit: 0,
           remarks: `Input GST on ${expenseName}`,

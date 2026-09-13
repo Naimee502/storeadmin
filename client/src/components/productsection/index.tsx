@@ -245,6 +245,43 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   };
 
   // ✅ Handle auto-save on blur for inline editing
+  // Changing a row's unit re-prices that row: a different pack size carries its
+  // own rate and discount, so keeping the old ones would leave the line showing
+  // a price that belongs to a unit it no longer uses.
+  //
+  // This reads the product's embedded unitprices, the same fallback the Add
+  // Products panel uses when no price list applies.
+  const handleUnitChange = (rowIndex: number, value: string, variant: any) => {
+    const [unitid, rawQty] = String(value).split("--");
+    const unitQty = Number(rawQty);
+    if (!unitid || !Number.isFinite(unitQty)) return;
+
+    const price =
+      variant?.unitprices?.find(
+        (up: any) => (up.unitid?.id ?? up.unitid) === unitid && Number(up.quantity) === unitQty
+      ) ?? variant?.unitprices?.[0];
+
+    const rate = price?.offerprice && price.offerprice > 0 ? price.offerprice : price?.salesrate ?? 0;
+    const discount = price?.discount ?? 0;
+
+    setProducts((prev) =>
+      prev.map((p, i) => {
+        if (i !== rowIndex) return p;
+        const qty = Number(p.quantity) || 0;
+        const subtotal = qty * (Number(rate) - Number(discount));
+        const gst = Number(p.gst) || 0;
+        return {
+          ...p,
+          salesunitid: unitid,
+          unitquantity: unitQty,
+          rate: Number(rate),
+          discount: Number(discount),
+          total: subtotal + (subtotal * gst) / 100,
+        };
+      })
+    );
+  };
+
   const handleCellBlur = (rowIndex: number, field: string, newValue: string) => {
     const numValue = parseFloat(newValue);
     if (isNaN(numValue)) return;
@@ -255,7 +292,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
         const updatedProduct = { ...p };
 
-        if (field === "quantity") updatedProduct.quantity = numValue;
+        // Quantities are whole units — the spinner, a paste or a stray
+        // keystroke can still deliver a fraction, so it is cut here too.
+        if (field === "quantity") updatedProduct.quantity = Math.max(1, Math.floor(numValue));
         else if (field === "rate") updatedProduct.rate = numValue;
         else if (field === "discount") updatedProduct.discount = numValue;
         else if (field === "gst") updatedProduct.gst = numValue;
@@ -391,6 +430,15 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   /** ✅ Add or update product line */
   const handleAddOrUpdateProduct = () => {
     if (!selectedProduct.productserviceid) return alert("Please select a product");
+    // A line without a unit cannot be priced or converted to base quantity, so
+    // it must be picked before the row is allowed in. Sales lines carry the unit
+    // in selectedUnitValue ("<unitId>--<qty>"); purchase lines use their own.
+    if (type === "sales" && !selectedProduct.selectedUnitValue) {
+      return alert("Please select a unit for this product");
+    }
+    if (type === "purchase" && !selectedProduct.purchaseunitid) {
+      return alert("Please select a unit for this product");
+    }
     if (!selectedProduct.quantity || !selectedProduct.rate) return alert("Enter qty & rate");
     // The button is already disabled in this case; this guards any other path
     // into the handler (keyboard submit, future callers).
@@ -663,7 +711,10 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             type="number"
             value={selectedProduct.quantity ?? ""}
             onChange={(e) => {
-              const qty = parseFloat(e.target.value);
+              // Whole units only, enforced as it is typed so "1.5" can never
+              // reach the row in the first place.
+              const raw = parseFloat(e.target.value);
+              const qty = isNaN(raw) ? NaN : Math.max(0, Math.floor(raw));
 
               const product = normalizedProducts.find(
                 (p) => p.id === selectedProduct.productserviceid
@@ -897,10 +948,49 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                       </div>
                     </td>
 
-                    {/* Unit (Sales only) */}
+                    {/* Unit (Sales only) - Double-click to edit */}
                     {type === "sales" && (
-                      <td className="border p-2 w-20 truncate text-center">
-                        {price?.quantity} {price?.unitname}
+                      <td
+                        className="border p-2 w-20 truncate text-center cursor-pointer hover:bg-gray-100"
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: i, field: "unit" });
+                          setEditingValue(`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`);
+                        }}
+                      >
+                        {editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
+                          <select
+                            autoFocus
+                            value={editingValue}
+                            onChange={(e) => {
+                              setEditingValue(e.target.value);
+                              handleUnitChange(i, e.target.value, variant);
+                            }}
+                            onBlur={() => {
+                              setEditingCell(null);
+                              setEditingValue("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            className="w-full border border-gray-300 px-1 py-1 rounded text-gray-700 text-sm"
+                          >
+                            {(() => {
+                              const opts = (variant?.unitprices ?? []).map((up: any) => ({
+                                value: `${up.unitid?.id ?? up.unitid}--${up.quantity}`,
+                                label: `${up.quantity} ${up.unitname || up.unitid?.unitname || "Unit"}`,
+                              }));
+                              const unique = Array.from(new Map(opts.map((o: any) => [o.value, o])).values());
+                              return (unique as any[]).map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                              ));
+                            })()}
+                          </select>
+                        ) : (
+                          <>{price?.quantity} {price?.unitname}</>
+                        )}
                       </td>
                     )}
 
@@ -928,7 +1018,19 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                               }
                             }}
                             className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
-                            step="0.01"
+                            step="1"
+                            min="1"
+                            onKeyDown={(e) => {
+                              // Block the decimal point outright rather than
+                              // rounding after the fact — a silently changed
+                              // quantity is worse than a key that does nothing.
+                              if ([".", ",", "e", "E", "+", "-"].includes(e.key)) e.preventDefault();
+                              if (e.key === "Enter") handleCellBlur(i, "quantity", editingValue);
+                              if (e.key === "Escape") {
+                                setEditingCell(null);
+                                setEditingValue("");
+                              }
+                            }}
                           />
                         ) : (
                           p.quantity
@@ -1060,6 +1162,37 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 );
               })}
             </tbody>
+
+            {/* Totals. Quantity, rate, discount and line totals add up; GST% does
+                not — a sum of percentages means nothing, so it stays a dash. */}
+            {products.length > 0 && (
+              <tfoot>
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="border p-2 w-80 text-right">Total</td>
+                  {type === "sales" && <td className="border p-2 w-20 text-center">—</td>}
+                  {isFieldEnabled("quantity") && (
+                    <td className="border p-2 w-16 text-center">
+                      {products.reduce((t, x) => t + (Number(x.quantity) || 0), 0).toFixed(2)}
+                    </td>
+                  )}
+                  {isFieldEnabled("rate") && (
+                    <td className="border p-2 w-24 text-center">
+                      {products.reduce((t, x) => t + (Number(x.rate) || 0), 0).toFixed(2)}
+                    </td>
+                  )}
+                  {isFieldEnabled("discount") && (
+                    <td className="border p-2 w-20 text-center">
+                      {products.reduce((t, x) => t + (Number(x.discount) || 0), 0).toFixed(2)}
+                    </td>
+                  )}
+                  {isFieldEnabled("gst") && <td className="border p-2 w-16 text-center">—</td>}
+                  <td className="border p-2 w-24 text-center">
+                    {products.reduce((t, x) => t + (Number(x.total) || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="border p-2 w-32" />
+                </tr>
+              </tfoot>
+            )}
             </table>
           </div>
         )}

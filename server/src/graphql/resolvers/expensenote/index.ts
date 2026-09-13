@@ -204,21 +204,11 @@ export const expenseNoteResolvers = {
       };
 
       // ✅ Set autocreate flags from AdminSettings
-      const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-      const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnExpense ?? true,
-          payment: settings?.autoCreatePaymentOnExpense ?? true,
-        },
-      };
-
-      const created = await ExpenseNote.create({ ...input, ...createdbyData, ...autoCreateData });
+      const created = await ExpenseNote.create({ ...input, ...createdbyData });
 
       // ✅ Explicitly call createJournalAndPayment WITH userContext
       // (ensures Transaction/Payment Created By is never N/A)
-      if (created.autocreate?.ledger) {
-        await ExpenseNote.createJournalAndPayment(created, createdbyData);
-      }
+      await ExpenseNote.createJournalAndPayment(created, createdbyData);
 
       const populated = (await ExpenseNote.findById(created._id)
         .populate(populatePaths)
@@ -239,21 +229,12 @@ export const expenseNoteResolvers = {
         createdby_type: user?.type || input.createdby_type || 'admin',
       };
 
-      // ✅ Always use AdminSettings for autocreate flags on edit
-      const settings = await AdminSettings.getOrCreateForAdmin(oldExp.adminid);
-      const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnExpense ?? true,
-          payment: settings?.autoCreatePaymentOnExpense ?? true,
-        },
-      };
-
-      const updated = (await ExpenseNote.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true })
+      const updated = (await ExpenseNote.findByIdAndUpdate(id, input, { new: true })
         .populate(populatePaths)
         .lean()) as any;
 
-      // ✅ Call createJournalAndPayment with userContext if autocreate is enabled
-      if (updated && updated.autocreate?.ledger) {
+      // The journal always reposts on edit -- there is no switch for it any more.
+      if (updated) {
         await ExpenseNote.createJournalAndPayment(updated, userContext);
       }
 

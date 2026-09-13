@@ -98,9 +98,9 @@ const salesReturnSchema = new mongoose.Schema(
 
     isservice: { type: Boolean, default: false },
     autocreate: {
-      ledger: { type: Boolean, default: true },
-      // Own switch, like the invoice side — journals and stock are separate
-      // decisions (Business Settings -> Auto-posting -> Returns).
+      // Stock is the only thing still worth a switch: a service line moves none,
+      // and some businesses bill first and enter their purchases later. Journals
+      // are not optional -- a document IS an accounting event.
       stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true },          // soft-delete flag
@@ -208,11 +208,6 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   }
 
   // autocreate is stored as { ledger: bool } — check the nested .ledger property
-  if (newRet.autocreate?.ledger === false) {
-    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal for Sales Return.");
-    return;
-  }
-
   // ========================= JOURNAL ENTRIES =========================
   // Mirror sales invoice but flip debit/credit:
   //   Original: Cr Sales / Cr Output GST / Dr Customer
@@ -330,7 +325,7 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
             } else {
               const gstAcc = await getOrCreateAccount("Output GST", "other", newRet.adminid, newRet.branchid);
               if (gstAcc?._id || gstAcc?.ledgerid) {
-                entries.push({ ledgerid: gstAcc._id || gstAcc.ledgerid, debit: charge.gstamount, credit: 0, remarks: `Reversal of GST on ${charge.ledgername || "Other Charge"}` });
+                entries.push({ ledgerid: gstAcc.ledgerid || gstAcc._id, debit: charge.gstamount, credit: 0, remarks: `Reversal of GST on ${charge.ledgername || "Other Charge"}` });
               }
             }
           }

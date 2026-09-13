@@ -312,6 +312,25 @@ const formatInvoice = (inv: any) => ({
 });
 
 // ✅ GraphQL resolvers
+// Every line needs a unit. Without one the quantity cannot be converted to the
+// product's base unit, so stock moves by the wrong amount and the rate belongs
+// to a pack size nobody chose. The form blocks this, but the API is reachable
+// without the form — a saved line missing its unit is silently wrong rather
+// than loudly rejected, so reject it here.
+function assertLineUnits(input: any) {
+  const lines = Array.isArray(input?.productservice) ? input.productservice : [];
+  const missing: number[] = [];
+  lines.forEach((line: any, i: number) => {
+    if (!line?.salesunitid) missing.push(i + 1);
+  });
+  if (missing.length) {
+    const which = missing.length === 1 ? `line ${missing[0]}` : `lines ${missing.join(", ")}`;
+    throw new Error(
+      `Select a unit for ${which} before saving this Sales Invoice.`
+    );
+  }
+}
+
 export const salesInvoiceResolvers = {
   Query: {
     getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -506,29 +525,23 @@ export const salesInvoiceResolvers = {
     // needs that: the bill must stay open so the money can be collected on the
     // Payments screen, exactly like a Sales Invoice raised by hand.
     addSalesInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
+      assertLineUnits(input);
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).
       const { user } = context;
       const createdbyData = await resolveCreatedBy(user, input);
 
-      // ✅ Always use AdminSettings for autocreate (ignore user input)
+      // Stock is the only auto-posting switch left; the journal always posts.
       const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-      console.log("📋 AdminSettings fetched:", {
-        autoCreateLedgerOnSalesInvoice: settings?.autoCreateLedgerOnSalesInvoice,
-        autoCreateStockOnSalesInvoice: settings?.autoCreateStockOnSalesInvoice,
-      });
-
       const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
-          payment: autoPayment === false
-            ? false
-            : (settings?.autoCreatePaymentOnSalesInvoice ?? true),
-          stock: settings?.autoCreateStockOnSalesInvoice ?? true,
-        },
+        autocreate: { stock: settings?.autoCreateStockOnSalesInvoice ?? true },
       };
 
-      console.log("✅ AutoCreate data being saved:", autoCreateData);
+      // `autoPayment: false` means the caller already collected the money
+      // elsewhere (an order converted to an invoice), so this bill must not
+      // raise a second receipt. In the received-amount model that is simply
+      // nothing received here.
+      if (autoPayment === false) input.received = 0;
 
       // Stock guard — the panel's Add Products box checks quantity against
       // available stock, but lines that arrive pre-filled (Convert to Invoice
@@ -853,6 +866,7 @@ export const salesInvoiceResolvers = {
     },
 
     editSalesInvoice: async (_: any, { id, input }: any, context: any) => {
+      assertLineUnits(input);
       const { user } = context;
       const userContext = {
         createdby_id: user?.id,
@@ -866,11 +880,7 @@ export const salesInvoiceResolvers = {
       // ✅ Always use AdminSettings for autocreate (ignore user input)
       const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
       const autoCreateData = {
-        autocreate: {
-          ledger: settings?.autoCreateLedgerOnSalesInvoice ?? true,
-          payment: settings?.autoCreatePaymentOnSalesInvoice ?? true,
-          stock: settings?.autoCreateStockOnSalesInvoice ?? true,
-        },
+        autocreate: { stock: settings?.autoCreateStockOnSalesInvoice ?? true },
       };
 
       // Same guard as create, but netting off what this invoice already held —

@@ -403,7 +403,13 @@ const FormField: React.FC<FormFieldProps> = ({
             onChange={onChange}
             disabled={disabled}
             required={required}
-            className={`w-full text-sm bg-transparent outline-none text-transparent ${className}`}
+            // text-transparent alone is not enough: when a segment is focused the
+            // browser paints its own highlight and forces a contrasting colour,
+            // so the native "2026" showed THROUGH the overlay and the year read
+            // as doubled-up digits. Zeroing the edit region's opacity hides the
+            // glyphs and the highlight together, while the calendar button,
+            // keyboard entry and the value all keep working.
+            className={`w-full text-sm bg-transparent outline-none text-transparent [&::-webkit-datetime-edit]:opacity-0 ${className}`}
           />
         </span>
       );

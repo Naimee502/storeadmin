@@ -7,8 +7,47 @@ import { Transaction } from "../transactions";
 import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
 import { AccountLedger } from "../accountledgers";
+import { AccountGroup } from "../accountgroups";
 import { Account } from "../accounts";
 import { AdminSettings } from "../adminsettings";
+
+// Default "Purchase" cost ledger. Needed in two places a line-level account
+// cannot cover: a product line saved without a purchase account (whose cost used
+// to be dropped from the journal entirely), and an "other charge" folded into
+// cost rather than posted to its own ledger.
+async function getDefaultPurchaseLedgerId(adminid: any, _branchid: any): Promise<any> {
+  // The seeded chart of accounts already carries a "Purchase Account" ledger.
+  // Prefer it — minting our own would put a second cost head in the P&L beside
+  // the one every other purchase already posts to.
+  for (const name of ["Purchase Account", "Purchase"]) {
+    const led: any = await AccountLedger.findOne({ ledgername: name, admin: adminid }).select("_id").lean();
+    if (led?._id) return led._id;
+  }
+
+  // Nothing seeded, so make one — but under the right group, and directly as a
+  // ledger. getOrCreateAccount() defaults to the "GST Account" group with
+  // category "liabilities", which files a cost head on the balance sheet as a
+  // liability instead of in the P&L.
+  let group: any = await AccountGroup.findOne({ accountgroupname: "Purchase Account", admin: adminid });
+  if (!group) {
+    group = await AccountGroup.create({
+      admin: adminid,
+      accountgroupname: "Purchase Account",
+      category: "expenses",
+      status: true,
+    });
+  }
+  const created: any = await AccountLedger.create({
+    admin: adminid,
+    accountgroupid: group._id,
+    ledgername: "Purchase",
+    openingbalance: 0,
+    openingbalancetype: "debit",
+    status: true,
+  });
+  return created._id;
+}
+
 
 const purchaseInvoiceSchema = new mongoose.Schema(
   {
@@ -72,6 +111,11 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     invoicediscount: { type: Number, default: 0 },
     invoicediscounttype: { type: String, default: "amount" },
 
+    // Money handed over when the bill was entered. Mirror of SalesInvoice.received:
+    // 0 = pure credit, totalamount = fully paid, anything between = part paid and
+    // the rest stays outstanding for a later Payment-Out.
+    paid: { type: Number, default: 0 },
+
     isservice: { type: Boolean, default: false },
 
     // The Purchase Order this bill was raised from, when it came from one.
@@ -79,8 +123,9 @@ const purchaseInvoiceSchema = new mongoose.Schema(
     // business label the bill with the PO number its user actually knows.
     sourceorderid: { type: mongoose.Schema.Types.ObjectId, ref: "PurchaseOrder" },
     autocreate: {
-      ledger: { type: Boolean, default: true },
-      payment: { type: Boolean, default: true },
+      // Stock is the only thing still worth a switch: a service line moves none,
+      // and some businesses bill first and enter their purchases later. Journals
+      // are not optional -- a document IS an accounting event.
       stock: { type: Boolean, default: true }
     },
     status: { type: Boolean, default: true }
@@ -127,6 +172,29 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
   const entries: any[] = [];
   let totalDebit = 0;
 
+  // Other charges, the invoice discount and the round-off are all inside
+  // `totalamount`, but none of them had a leg. The vendor was credited only
+  // products + GST and the balance adjustment below quietly absorbed the rest
+  // into that same leg -- so any bill carrying a freight line left the vendor
+  // short by exactly that freight.
+  //
+  // With the concession feature on for this admin they fold into Purchase, so
+  // they land on the vendor's balance instead of standing as their own lines;
+  // off, each keeps its own ledger. GST never folds -- it is claimable input
+  // tax, not a cost.
+  const foldSettings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const foldIntoPurchase = !!foldSettings?.enablePaymentDiscountCommission;
+  // Resolved lazily and remembered: most bills have a purchase account on every
+  // line and no charge to fold, so they never need this at all. Calling it
+  // eagerly minted a ledger nobody used on the first save for an admin.
+  let _defaultCostLedger: any;
+  const defaultCostLedgerId = async () => {
+    if (_defaultCostLedger === undefined) {
+      _defaultCostLedger = await getDefaultPurchaseLedgerId(newInv.adminid, newInv.branchid);
+    }
+    return _defaultCostLedger;
+  };
+
   for (const item of newInv.productservice) {
     const qty = Number(item.qty);
     const rate = Number(item.rate);
@@ -148,7 +216,9 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
       ? `Purchase of ${productName} (${variantName})`
       : `Purchase of ${productName}`;
 
-    const purchaseLedgerId = ledgerId(item.purchaseaccountid);
+    // Falling back to the default Purchase ledger: a line saved without an
+    // account used to be skipped, leaving its cost out of the journal entirely.
+    const purchaseLedgerId = ledgerId(item.purchaseaccountid) || (await defaultCostLedgerId());
     if (purchaseLedgerId && taxable > 0) {
       entries.push({ ledgerid: purchaseLedgerId, debit: taxable, credit: 0, remarks: purchaseRemark });
       totalDebit += taxable;
@@ -165,19 +235,102 @@ export async function buildPurchaseInvoiceJournal(newInv: any) {
         totalDebit += gstAmt;
       } else {
         const gstAcc = await getOrCreateAccount("Input GST", "other", newInv.adminid, newInv.branchid);
-        entries.push({ ledgerid: gstAcc._id, debit: gstAmt, credit: 0, remarks: `GST on ${productName}` });
+        entries.push({ ledgerid: gstAcc.ledgerid || gstAcc._id, debit: gstAmt, credit: 0, remarks: `GST on ${productName}` });
         totalDebit += gstAmt;
       }
+    }
+  }
+
+
+  if (newInv.othercharges && newInv.othercharges.length > 0) {
+    for (const charge of newInv.othercharges) {
+      const amt = parseFloat((Number(charge.amount) || 0).toFixed(2));
+      const chargeName = charge.ledgername || "Other Charge";
+      if (amt > 0) {
+        entries.push({
+          ledgerid: foldIntoPurchase
+            ? await defaultCostLedgerId()
+            : charge.ledgerid || (await defaultCostLedgerId()),
+          debit: amt,
+          credit: 0,
+          remarks: charge.remarks || chargeName,
+        });
+      }
+      const gst = parseFloat((Number(charge.gstamount) || 0).toFixed(2));
+      if (gst > 0) {
+        const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
+        const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
+        if (cgst && sgst) {
+          const c = parseFloat((gst / 2).toFixed(2));
+          entries.push({ ledgerid: cgst._id, debit: c, credit: 0, remarks: `CGST on ${chargeName}` });
+          entries.push({ ledgerid: sgst._id, debit: parseFloat((gst - c).toFixed(2)), credit: 0, remarks: `SGST on ${chargeName}` });
+        } else {
+          const acc: any = await getOrCreateAccount("Input GST", "other", newInv.adminid, newInv.branchid);
+          entries.push({ ledgerid: acc.ledgerid || acc._id, debit: gst, credit: 0, remarks: `GST on ${chargeName}` });
+        }
+      }
+    }
+  }
+
+  if (newInv.invoicediscount && Number(newInv.invoicediscount) !== 0) {
+    let discountAmount = Number(newInv.invoicediscount) || 0;
+    if (newInv.invoicediscounttype === "percent") {
+      const taxableSubtotal = (newInv.productservice || []).reduce(
+        (sum: number, item: any) => sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty),
+        0
+      );
+      discountAmount = (taxableSubtotal * Number(newInv.invoicediscount)) / 100;
+    }
+    discountAmount = parseFloat(discountAmount.toFixed(2));
+    if (discountAmount > 0) {
+      // A discount the vendor allowed lowers our cost, so it credits.
+      let discLedgerId: any = foldIntoPurchase ? await defaultCostLedgerId() : null;
+      if (!foldIntoPurchase) {
+        let disc: any = await AccountLedger.findOne({ ledgername: "Discount Received", admin: newInv.adminid }).select("_id").lean();
+        if (!disc?._id) {
+          const created: any = await getOrCreateAccount("Discount Received", "other", newInv.adminid, newInv.branchid);
+          disc = { _id: created?.ledgerid || created?._id };
+        }
+        discLedgerId = disc?._id;
+      }
+      if (discLedgerId) {
+        entries.push({
+          ledgerid: discLedgerId,
+          debit: 0,
+          credit: discountAmount,
+          remarks: foldIntoPurchase ? "Invoice Discount (netted into Purchase)" : "Invoice Discount",
+        });
+      }
+    }
+  }
+
+  if (newInv.roundoff && Number(newInv.roundoff) !== 0) {
+    let round: any = await AccountLedger.findOne({ ledgername: "Round Off", admin: newInv.adminid }).select("_id").lean();
+    if (!round?._id) {
+      const created: any = await getOrCreateAccount("Round Off", "other", newInv.adminid, newInv.branchid);
+      round = { _id: created?.ledgerid || created?._id };
+    }
+    const ro = parseFloat(Number(newInv.roundoff).toFixed(2));
+    if (round?._id) {
+      entries.push(
+        ro > 0
+          ? { ledgerid: round._id, debit: ro, credit: 0, remarks: "Round Off" }
+          : { ledgerid: round._id, debit: 0, credit: Math.abs(ro), remarks: "Round Off" }
+      );
     }
   }
 
   const vendor = await Account.findById(newInv.partyacc).select("ledgerid");
   if (!vendor?.ledgerid) throw new Error("Vendor ledger missing");
 
+  // Credited the bill total outright. It used to be left at 0 for the balance
+  // adjustment to fill in, which meant the vendor got whatever made the journal
+  // balance rather than what the bill actually said. The adjustment below is now
+  // only a paisa-level rounding net.
   entries.push({
     ledgerid: vendor.ledgerid,
     debit: 0,
-    credit: 0, // set by balance adjustment below
+    credit: parseFloat((Number(newInv.totalamount) || 0).toFixed(2)),
     remarks: `Purchase Invoice #${newInv.billnumber}`,
   });
 
@@ -213,26 +366,25 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
       : newInv.branchid;
     if (!branchid) return;
     
-  // Resolve auto-posting flags. Per-invoice `autocreate` overrides; if it's
-  // not provided we fall back to AdminSettings so accounting doesn't depend
-  // on the user remembering to toggle the checkbox.
+  // A bill IS an accounting event, so its journal always posts. What was handed
+  // over is carried by `paid` instead -- a number, not a yes/no. Stock stays a
+  // choice: a service bill moves none.
   const settings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
-  // autocreate is stored as { ledger: bool, stock: bool } — must read .ledger/.stock,
-  // not the object itself (a non-null object is always truthy with ??).
-  const wantsLedger =
-    newInv.autocreate?.ledger ??
-    settings?.autoCreateLedgerOnPurchaseInvoice ?? true;
-  const wantsPayment =
-    newInv.autocreate?.payment ??
-    settings?.autoCreatePaymentOnPurchaseInvoice ?? true;
   const wantsStock =
     newInv.autocreate?.stock ??
     settings?.autoCreateStockOnPurchaseInvoice ?? true;
 
-  if (!wantsLedger && !wantsStock) {
-    console.log("Auto-create disabled (AdminSettings). Skipping all journal & stock.");
-    return;
-  }
+  // A note typed on the bill is what the user expects to see against it — in the
+  // Transactions list and on the receipt it raises. The generated line is only a
+  // fallback for when they left the box empty.
+  const billNote = String(newInv.notes || "").trim();
+
+  // The Account Ledger statement prints each LEG's remark, never the voucher's
+  // narration — so a note typed on the bill has to land on the legs to be seen
+  // there at all. Same treatment a hand-entered payment already gets
+  // (applyUserRemark in the payments resolver).
+  const withBillNote = (legs: any[]) =>
+    billNote ? legs.map((e: any) => ({ ...e, remarks: billNote })) : legs;
   // ============================
   // 📦 STOCK ADJUSTMENT
   // ============================
@@ -355,16 +507,34 @@ purchaseInvoiceSchema.statics.adjustStockAndTransactions = async function (oldIn
 }
 
 
-  if (!wantsLedger) {
-    console.log("Auto-create ledger disabled (AdminSettings). Skipping journal & payment entries.");
-    return;
-  }
-
 // ============================
 // 🧾 PURCHASE LEDGER ENTRIES (WITH REMARKS)
 // ============================
 const entries: any[] = [];
 let totalDebit = 0;
+
+  // Other charges, the invoice discount and the round-off are all inside
+  // `totalamount`, but none of them had a leg. The vendor was credited only
+  // products + GST and the balance adjustment below quietly absorbed the rest
+  // into that same leg -- so any bill carrying a freight line left the vendor
+  // short by exactly that freight.
+  //
+  // With the concession feature on for this admin they fold into Purchase, so
+  // they land on the vendor's balance instead of standing as their own lines;
+  // off, each keeps its own ledger. GST never folds -- it is claimable input
+  // tax, not a cost.
+  const foldSettings: any = await AdminSettings.getOrCreateForAdmin(newInv.adminid);
+  const foldIntoPurchase = !!foldSettings?.enablePaymentDiscountCommission;
+  // Resolved lazily and remembered: most bills have a purchase account on every
+  // line and no charge to fold, so they never need this at all. Calling it
+  // eagerly minted a ledger nobody used on the first save for an admin.
+  let _defaultCostLedger: any;
+  const defaultCostLedgerId = async () => {
+    if (_defaultCostLedger === undefined) {
+      _defaultCostLedger = await getDefaultPurchaseLedgerId(newInv.adminid, newInv.branchid);
+    }
+    return _defaultCostLedger;
+  };
 
 for (const item of newInv.productservice) {
   const qty = Number(item.qty);
@@ -391,7 +561,8 @@ for (const item of newInv.productservice) {
     : `Purchase of ${productName}`;
 
   // ===================== PURCHASE LEDGER =====================
-  const purchaseLedgerId = ledgerId(item.purchaseaccountid);
+  // Same fallback as the builder above: never drop a line's cost.
+  const purchaseLedgerId = ledgerId(item.purchaseaccountid) || (await defaultCostLedgerId());
   if (purchaseLedgerId && taxable > 0) {
     entries.push({
       ledgerid: purchaseLedgerId,
@@ -442,7 +613,7 @@ for (const item of newInv.productservice) {
       );
 
       entries.push({
-        ledgerid: gstAcc._id,
+        ledgerid: gstAcc.ledgerid || gstAcc._id,
         debit: gstAmt,
         credit: 0,
         remarks: `GST on ${productName}`,
@@ -453,13 +624,93 @@ for (const item of newInv.productservice) {
   }
 }
 
+
+  if (newInv.othercharges && newInv.othercharges.length > 0) {
+    for (const charge of newInv.othercharges) {
+      const amt = parseFloat((Number(charge.amount) || 0).toFixed(2));
+      const chargeName = charge.ledgername || "Other Charge";
+      if (amt > 0) {
+        entries.push({
+          ledgerid: foldIntoPurchase
+            ? await defaultCostLedgerId()
+            : charge.ledgerid || (await defaultCostLedgerId()),
+          debit: amt,
+          credit: 0,
+          remarks: charge.remarks || chargeName,
+        });
+      }
+      const gst = parseFloat((Number(charge.gstamount) || 0).toFixed(2));
+      if (gst > 0) {
+        const cgst = await AccountLedger.findOne({ ledgername: "Input CGST", admin: newInv.adminid });
+        const sgst = await AccountLedger.findOne({ ledgername: "Input SGST", admin: newInv.adminid });
+        if (cgst && sgst) {
+          const c = parseFloat((gst / 2).toFixed(2));
+          entries.push({ ledgerid: cgst._id, debit: c, credit: 0, remarks: `CGST on ${chargeName}` });
+          entries.push({ ledgerid: sgst._id, debit: parseFloat((gst - c).toFixed(2)), credit: 0, remarks: `SGST on ${chargeName}` });
+        } else {
+          const acc: any = await getOrCreateAccount("Input GST", "other", newInv.adminid, newInv.branchid);
+          entries.push({ ledgerid: acc.ledgerid || acc._id, debit: gst, credit: 0, remarks: `GST on ${chargeName}` });
+        }
+      }
+    }
+  }
+
+  if (newInv.invoicediscount && Number(newInv.invoicediscount) !== 0) {
+    let discountAmount = Number(newInv.invoicediscount) || 0;
+    if (newInv.invoicediscounttype === "percent") {
+      const taxableSubtotal = (newInv.productservice || []).reduce(
+        (sum: number, item: any) => sum + (Number(item.rate) - Number(item.discount)) * Number(item.qty),
+        0
+      );
+      discountAmount = (taxableSubtotal * Number(newInv.invoicediscount)) / 100;
+    }
+    discountAmount = parseFloat(discountAmount.toFixed(2));
+    if (discountAmount > 0) {
+      // A discount the vendor allowed lowers our cost, so it credits.
+      let discLedgerId: any = foldIntoPurchase ? await defaultCostLedgerId() : null;
+      if (!foldIntoPurchase) {
+        let disc: any = await AccountLedger.findOne({ ledgername: "Discount Received", admin: newInv.adminid }).select("_id").lean();
+        if (!disc?._id) {
+          const created: any = await getOrCreateAccount("Discount Received", "other", newInv.adminid, newInv.branchid);
+          disc = { _id: created?.ledgerid || created?._id };
+        }
+        discLedgerId = disc?._id;
+      }
+      if (discLedgerId) {
+        entries.push({
+          ledgerid: discLedgerId,
+          debit: 0,
+          credit: discountAmount,
+          remarks: foldIntoPurchase ? "Invoice Discount (netted into Purchase)" : "Invoice Discount",
+        });
+      }
+    }
+  }
+
+  if (newInv.roundoff && Number(newInv.roundoff) !== 0) {
+    let round: any = await AccountLedger.findOne({ ledgername: "Round Off", admin: newInv.adminid }).select("_id").lean();
+    if (!round?._id) {
+      const created: any = await getOrCreateAccount("Round Off", "other", newInv.adminid, newInv.branchid);
+      round = { _id: created?.ledgerid || created?._id };
+    }
+    const ro = parseFloat(Number(newInv.roundoff).toFixed(2));
+    if (round?._id) {
+      entries.push(
+        ro > 0
+          ? { ledgerid: round._id, debit: ro, credit: 0, remarks: "Round Off" }
+          : { ledgerid: round._id, debit: 0, credit: Math.abs(ro), remarks: "Round Off" }
+      );
+    }
+  }
+
   const vendor = await Account.findById(newInv.partyacc).select("ledgerid");
   if (!vendor?.ledgerid) throw new Error("Vendor ledger missing");
 
+  // The bill total outright — see the note in the builder above.
   entries.push({
     ledgerid: vendor.ledgerid,
     debit: 0,
-    credit: 0, // Will be set below
+    credit: parseFloat((Number(newInv.totalamount) || 0).toFixed(2)),
     remarks: `Purchase Invoice #${newInv.billnumber}`
   });
 
@@ -525,7 +776,7 @@ for (const item of newInv.productservice) {
       source: { docmodel: "PurchaseInvoice", docid: newInv._id },
       transactiondate: newInv.billdate,
       narration: `Purchase Invoice #${newInv.billnumber}`,
-      entries,
+      entries: withBillNote(entries),
       totaldebit: totalDebit,
       totalcredit: totalDebit,
       createdby_id: txCreatedById,
@@ -539,93 +790,148 @@ for (const item of newInv.productservice) {
   // ============================
   // 💰 PAYMENT LOGIC
   // ============================
-  // Skip entirely when autoCreatePaymentOnPurchaseInvoice is disabled.
-  if (!wantsPayment) {
-    console.log("Auto-create payment disabled (AdminSettings). Skipping payment record.");
-    return;
-  }
-
-  const payType = String(newInv.paymenttype).toLowerCase();
-  const isCredit = payType === "credit";
-  const isCash = payType === "cash";
-  const isBank = payType === "bank";
-
+  // `paid` is the whole story: 0 is a pure credit purchase, the full total is a
+  // cash purchase, and anything between leaves the rest outstanding for a later
+  // Payment-Out. `paymenttype` only says HOW the money went, never how much --
+  // except "credit", which is just paid = 0 said in words.
   const invId =
     typeof newInv._id === "string"
       ? new mongoose.Types.ObjectId(newInv._id)
       : newInv._id;
 
+  // Only ever touch the payment THIS bill created, never a manual Payment-Out
+  // the user entered against the same bill later.
   const oldPayment = await Payment.findOne({
-    "invoices.invoiceid": invId,
-    "invoices.invoicemodel": "PurchaseInvoice"
+    "autosource.docmodel": "PurchaseInvoice",
+    "autosource.docid": invId,
   });
 
-  if (isCredit) {
+  const grandTotal = parseFloat(Number(newInv.totalamount || 0).toFixed(2));
+  const payType = String(newInv.paymenttype || "").toLowerCase();
+
+  let payAmount =
+    payType === "credit" ? 0 : parseFloat(Number(newInv.paid || 0).toFixed(2));
+  if (!(payAmount > 0)) payAmount = 0;
+  if (payAmount > grandTotal) payAmount = grandTotal;
+
+  // ...and cap again at what is actually still OPEN on this bill. If a separate
+  // Payment-Out already collected part of it, "Paid" must not claim that amount a
+  // second time -- the bill would end up over-settled and the party would show
+  // a phantom debit that never existed.
+  const otherPays: any[] = await Payment.find({
+    status: true,
+    "invoices.invoiceid": invId,
+    ...(oldPayment ? { _id: { $ne: oldPayment._id } } : {}),
+  })
+    .select("invoices")
+    .lean();
+  let settledElsewhere = 0;
+  otherPays.forEach((d: any) =>
+    (d.invoices || []).forEach((l: any) => {
+      if (String(l.invoiceid) === String(invId)) settledElsewhere += Number(l.settledamount) || 0;
+    })
+  );
+  const room = parseFloat((grandTotal - parseFloat(settledElsewhere.toFixed(2))).toFixed(2));
+  if (payAmount > room) payAmount = room > 0 ? room : 0;
+
+  if (payAmount <= 0) {
     if (oldPayment) {
       await Transaction.deleteOne({ _id: oldPayment.transactionid });
       await Payment.deleteOne({ _id: oldPayment._id });
+      console.log("Paid is 0 — removed the payment a previous save created.");
     }
     return;
   }
 
-  const payLedgerName = isCash ? "Cash" : "Bank Account";
-  let payLedger = await AccountLedger.findOne({ ledgername: payLedgerName, admin: newInv.adminid });
+  // Every mode mapped explicitly. It used to be `isCash ? "Cash" : "Bank
+  // Account"`, so UPI, Card, Cheque AND Other all silently became Bank Account.
+  const LEDGER_BY_MODE: Record<string, string> = {
+    cash: "Cash",
+    bank: "Bank Account",
+    upi: "Bank Account",
+    card: "Bank Account",
+    cheque: "Bank Account",
+    other: "Cash",
+  };
+  const payLedgerName = LEDGER_BY_MODE[payType] || "Cash";
 
+  let payLedger = await AccountLedger.findOne({
+    ledgername: payLedgerName,
+    admin: newInv.adminid,
+  });
   if (!payLedger) {
     const created = await getOrCreateAccount(payLedgerName, "other", newInv.adminid, newInv.branchid);
-    // getOrCreateAccount returns an Account — the posting ledger is created.ledgerid.
-    // Using created._id here put an Account id where an AccountLedger id was
-    // expected, leaving the cash leg pointing at a non-existent ledger.
     payLedger = { _id: created.ledgerid } as any;
   }
 
-  // The cash/bank leg of the auto-created payment. Resolve it once and fail
-  // loudly if it's missing — writing the wrong ledger here (or undefined)
-  // silently corrupts the Cash Book, which is exactly the bug this replaced.
   const cashBankLedgerId: any = payLedger?._id;
   if (!cashBankLedgerId) {
     throw new Error(`Cash/Bank ledger "${payLedgerName}" could not be resolved for admin ${newInv.adminid}`);
   }
 
-  const paymentEntries = [
-    { ledgerid: vendor.ledgerid, debit: newInv.totalamount, credit: 0 },
-    { ledgerid: cashBankLedgerId, debit: 0, credit: newInv.totalamount }
-  ];
+  // Money out: Dr Vendor (we owe them less) / Cr Cash. Two legs, balanced by
+  // construction.
+  const paymentEntries = withBillNote([
+    {
+      ledgerid: vendor.ledgerid,
+      debit: payAmount,
+      credit: 0,
+      remarks: `Payment made (Invoice ${newInv.billnumber})`,
+    },
+    {
+      ledgerid: cashBankLedgerId,
+      debit: 0,
+      credit: payAmount,
+      remarks: `Vendor payment (Invoice ${newInv.billnumber})`,
+    },
+  ]);
+
+  const payCreatedById = userContext?.createdby_id || newInv.createdby_id;
+  const payCreatedByName = userContext?.createdby_name || newInv.createdby_name;
+  const payCreatedByType = userContext?.createdby_type || newInv.createdby_type;
 
   if (oldPayment) {
     oldPayment.mode = newInv.paymenttype;
-    // Payment.ledgerid is the CASH/BANK ledger (that's how the UI labels it and
-    // how buildPaymentEntries() reads it) — never the vendor's own ledger.
-    // Storing the vendor ledger here made a re-save of this auto-payment post
-    // "Dr Vendor / Cr Vendor", i.e. a net-zero journal that never touched Cash.
+    // Same as the sales side: the payment follows the bill's date.
+    oldPayment.paymentdate = newInv.billdate;
+    // ...and its remarks follow the bill's note. The create branch already did
+    // this; the update branch only ever touched the money fields, so a note
+    // typed (or changed) on an existing bill reached the Transaction's narration
+    // but never the receipt sitting beside it.
+    oldPayment.remarks = billNote || `Payment for Purchase Invoice #${newInv.billnumber}`;
     oldPayment.ledgerid = cashBankLedgerId;
-    oldPayment.amount = newInv.totalamount;
-    oldPayment.invoices[0].settledamount = newInv.totalamount;
+    oldPayment.amount = payAmount;
+    if (oldPayment.invoices?.length) {
+      oldPayment.invoices[0].settledamount = payAmount;
+    } else {
+      oldPayment.invoices = [
+        { invoiceid: invId, invoicemodel: "PurchaseInvoice", settledamount: payAmount } as any,
+      ];
+    }
+    if (userContext) {
+      oldPayment.createdby_id = payCreatedById;
+      oldPayment.createdby_name = payCreatedByName;
+      oldPayment.createdby_type = payCreatedByType;
+    }
     await oldPayment.save();
 
-    await Transaction.updateOne(
-      { _id: oldPayment.transactionid },
-      {
-        $set: {
-          entries: paymentEntries,
-          totaldebit: newInv.totalamount,
-          totalcredit: newInv.totalamount,
-          transactiondate: newInv.billdate,
-          narration: `Payment for Purchase Invoice #${newInv.billnumber}`
-        }
-      }
-    );
+    const updateData: any = {
+      $set: {
+        entries: paymentEntries,
+        totaldebit: payAmount,
+        totalcredit: payAmount,
+        transactiondate: newInv.billdate,
+        narration: `Payment for Purchase Invoice #${newInv.billnumber}`,
+      },
+    };
+    if (userContext) {
+      updateData.$set.createdby_id = payCreatedById;
+      updateData.$set.createdby_name = payCreatedByName;
+      updateData.$set.createdby_type = payCreatedByType;
+    }
+    await Transaction.updateOne({ _id: oldPayment.transactionid }, updateData);
     return;
   }
-
-  const payTxCreatedById = userContext?.createdby_id || newInv.createdby_id;
-  const payTxCreatedByName = userContext?.createdby_name || newInv.createdby_name;
-  const payTxCreatedByType = userContext?.createdby_type || newInv.createdby_type;
-
-  console.log("✅ Creating Payment Transaction:");
-  console.log("   createdby_id:", payTxCreatedById);
-  console.log("   createdby_name:", payTxCreatedByName);
-  console.log("   createdby_type:", payTxCreatedByType);
 
   const payTrx = await Transaction.create({
     adminid: newInv.adminid,
@@ -635,44 +941,36 @@ for (const item of newInv.productservice) {
     transactiondate: newInv.billdate,
     narration: `Payment for Purchase Invoice #${newInv.billnumber}`,
     entries: paymentEntries,
-    totaldebit: newInv.totalamount,
-    totalcredit: newInv.totalamount,
-    createdby_id: payTxCreatedById,
-    createdby_name: payTxCreatedByName,
-    createdby_type: payTxCreatedByType,
+    totaldebit: payAmount,
+    totalcredit: payAmount,
+    createdby_id: payCreatedById,
+    createdby_name: payCreatedByName,
+    createdby_type: payCreatedByType,
   });
 
-  console.log("   Created Payment Transaction ID:", payTrx._id);
-
-  const payRecCreatedById = userContext?.createdby_id || newInv.createdby_id;
-  const payRecCreatedByName = userContext?.createdby_name || newInv.createdby_name;
-  const payRecCreatedByType = userContext?.createdby_type || newInv.createdby_type;
-
-  console.log("✅ Creating Payment Record:");
-  console.log("   createdby_id:", payRecCreatedById);
-  console.log("   createdby_name:", payRecCreatedByName);
-  console.log("   createdby_type:", payRecCreatedByType);
-
-  const paymentRecord = await Payment.create({
+  await Payment.create({
     adminid: newInv.adminid,
     branchid: newInv.branchid,
     type: "payment",
     mode: newInv.paymenttype,
-    partyid: vendor._id,
-    // Cash/Bank ledger — NOT the vendor ledger (see note in the update branch).
+    paymentdate: newInv.billdate,
+    partyid: newInv.partyacc,
     ledgerid: cashBankLedgerId,
     invoices: [
-      { invoiceid: invId, invoicemodel: "PurchaseInvoice", settledamount: newInv.totalamount }
+      {
+        invoiceid: invId,
+        invoicemodel: "PurchaseInvoice",
+        settledamount: payAmount,
+      },
     ],
-    amount: newInv.totalamount,
-    remarks: `Payment for Purchase Invoice #${newInv.billnumber}`,
+    amount: payAmount,
+    remarks: billNote || `Payment for Purchase Invoice #${newInv.billnumber}`,
     transactionid: payTrx._id,
-    createdby_id: payRecCreatedById,
-    createdby_name: payRecCreatedByName,
-    createdby_type: payRecCreatedByType,
+    autosource: { docmodel: "PurchaseInvoice", docid: invId },
+    createdby_id: payCreatedById,
+    createdby_name: payCreatedByName,
+    createdby_type: payCreatedByType,
   });
-
-  console.log("   Created Payment Record ID:", paymentRecord._id);
 };
 
 // ============================

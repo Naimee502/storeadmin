@@ -29,6 +29,7 @@ export const GET_SALES_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
+      received
       adminid
       branchid
       productservice {
@@ -109,6 +110,7 @@ export const GET_DELETED_SALES_INVOICES = gql`
       totaldiscount
       totalgst
       totalamount
+      received
       adminid
       branchid
       productservice {
@@ -202,6 +204,7 @@ export const GET_SALES_INVOICE_BY_ID = gql`
       totaldiscount
       totalgst
       totalamount
+      received
       adminid
       branchid
       productservice {

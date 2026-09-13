@@ -87,6 +87,25 @@ const formatInvoice = (inv: any) => ({
 });
 
 // ✅ GraphQL resolvers
+// Every line needs a unit. Without one the quantity cannot be converted to the
+// product's base unit, so stock moves by the wrong amount and the rate belongs
+// to a pack size nobody chose. The form blocks this, but the API is reachable
+// without the form — a saved line missing its unit is silently wrong rather
+// than loudly rejected, so reject it here.
+function assertLineUnits(input: any) {
+  const lines = Array.isArray(input?.productservice) ? input.productservice : [];
+  const missing: number[] = [];
+  lines.forEach((line: any, i: number) => {
+    if (!line?.purchaseunitid) missing.push(i + 1);
+  });
+  if (missing.length) {
+    const which = missing.length === 1 ? `line ${missing[0]}` : `lines ${missing.join(", ")}`;
+    throw new Error(
+      `Select a unit for ${which} before saving this Purchase Invoice.`
+    );
+  }
+}
+
 export const purchaseInvoiceResolvers = {
   Query: {
     getPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -256,6 +275,7 @@ export const purchaseInvoiceResolvers = {
     // automatic payment posting, so the bill stays open for the supplier to be
     // paid from the Payments screen. See the sales side for the full note.
     addPurchaseInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
+      assertLineUnits(input);
       try {
         console.log("\n");
         console.log("╔═══════════════════════════════════════════════════════╗");
@@ -300,22 +320,14 @@ export const purchaseInvoiceResolvers = {
         // ✅ Step 3: Fetch AdminSettings
         console.log("\n📌 Step 3: Fetch AdminSettings");
         const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-        console.log("📋 AdminSettings found:", {
-          id: settings?._id,
-          autoCreateLedgerOnPurchaseInvoice: settings?.autoCreateLedgerOnPurchaseInvoice,
-          autoCreateStockOnPurchaseInvoice: settings?.autoCreateStockOnPurchaseInvoice,
-        });
-
+        // Stock is the only auto-posting switch left; the journal always posts.
         const autoCreateData = {
-          autocreate: {
-            ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
-            payment: autoPayment === false
-              ? false
-              : (settings?.autoCreatePaymentOnPurchaseInvoice ?? true),
-            stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
-          },
+          autocreate: { stock: settings?.autoCreateStockOnPurchaseInvoice ?? true },
         };
-        console.log("✅ AutoCreate data prepared:", JSON.stringify(autoCreateData, null, 2));
+
+        // `autoPayment: false` means the money was already handled elsewhere,
+        // so this bill must not raise a second payment -- i.e. nothing paid here.
+        if (autoPayment === false) input.paid = 0;
 
         // ✅ Step 4: Create Purchase Invoice in Database
         console.log("\n📌 Step 4: Create Purchase Invoice in Database");
@@ -412,6 +424,7 @@ export const purchaseInvoiceResolvers = {
     },
 
     editPurchaseInvoice: async (_: any, { id, input }: any, context: any) => {
+      assertLineUnits(input);
       try {
         console.log("\n");
         console.log("╔═══════════════════════════════════════════════════════╗");
@@ -437,13 +450,8 @@ export const purchaseInvoiceResolvers = {
         // ✅ Always use AdminSettings for autocreate (ignore user input)
         const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
         const autoCreateData = {
-          autocreate: {
-            ledger: settings?.autoCreateLedgerOnPurchaseInvoice ?? true,
-            payment: settings?.autoCreatePaymentOnPurchaseInvoice ?? true,
-            stock: settings?.autoCreateStockOnPurchaseInvoice ?? true,
-          },
+          autocreate: { stock: settings?.autoCreateStockOnPurchaseInvoice ?? true },
         };
-        console.log("✅ AdminSettings fetched, AutoCreate data:", JSON.stringify(autoCreateData, null, 2));
 
         const updated = await PurchaseInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
         if (!updated) {

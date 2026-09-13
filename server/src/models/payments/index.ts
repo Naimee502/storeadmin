@@ -81,6 +81,17 @@ const paymentSchema = new mongoose.Schema(
 
     transactionid: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" },
 
+    // Set when this receipt was created automatically from an invoice's
+    // "Received" box rather than typed into the Payments screen. Re-saving an
+    // invoice used to look up "any payment touching this bill", which could
+    // grab -- and overwrite -- a manual collection entered later. Harmless while
+    // a bill was all-or-nothing; corrupting now that one bill can carry both a
+    // counter receipt and a later Payment-In.
+    autosource: {
+      docmodel: { type: String, enum: ["SalesInvoice", "PurchaseInvoice", "ExpenseNote"], default: undefined },
+      docid: { type: mongoose.Schema.Types.ObjectId, default: undefined },
+    },
+
     createdby_id: { type: mongoose.Schema.Types.ObjectId },
     createdby_name: { type: String },
     createdby_type: { type: String },
