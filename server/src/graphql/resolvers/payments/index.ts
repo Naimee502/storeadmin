@@ -3,7 +3,6 @@ import { Payment } from "../../../models/payments";
 import { Account } from "../../../models/accounts";
 import { AccountLedger } from "../../../models/accountledgers";
 import { Transaction } from "../../../models/transactions";
-import { AccountGroup } from "../../../models/accountgroups";
 import { ExpenseNote } from "../../../models/expensenote";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { pushNotification } from "../../../models/notifications";
@@ -15,34 +14,6 @@ import {
   computeUnallocated,
   type InvoiceModel,
 } from "../../../utils/allocation";
-
-// Find (or auto-create) a posting LEDGER by name under a given account group.
-// Used for the optional Discount / Commission concessions on a payment. Creates
-// the AccountLedger (and its group) directly — never an Account — so we don't hit
-// the Account.type enum.
-async function getOrCreateLedgerId(
-  name: string,
-  groupName: string,
-  category: "expenses" | "income",
-  adminid: any
-): Promise<any> {
-  const existing = await AccountLedger.findOne({ ledgername: name, admin: adminid });
-  if (existing) return existing._id;
-
-  let group: any = await AccountGroup.findOne({ accountgroupname: groupName, admin: adminid });
-  if (!group) {
-    group = await AccountGroup.create({ admin: adminid, accountgroupname: groupName, category, status: true });
-  }
-  const led: any = await AccountLedger.create({
-    admin: adminid,
-    accountgroupid: group._id,
-    ledgername: name,
-    openingbalance: 0,
-    openingbalancetype: category === "income" ? "credit" : "debit",
-    status: true,
-  });
-  return led._id;
-}
 
 // Recursively collect party ids under a root party (assignaccountid chain),
 // for channel downline payment visibility.
@@ -86,69 +57,30 @@ async function buildPaymentEntries(input: any, partyAccount: any) {
   if (!partyLedgerId || !cashBankLedgerId) return null;
 
   const partyName = partyAccount?.name || "Party";
-  const invs = Array.isArray(input.invoices) ? input.invoices : [];
 
-  // Concessions live on the bill lines, but a bill line is not the only thing a
-  // payment can reduce: the party's OPENING BALANCE is settled before any bill
-  // and has no line to carry a concession on (it is not an invoice). So the
-  // payment-level figure is the authoritative total and the lines are the
-  // per-bill attribution of whatever part of it landed on bills — take the
-  // larger of the two. Reading the lines alone dropped the discount on a receipt
-  // that only cleared an opening balance: the cash leg was short by it and the
-  // party's ledger was never relieved of the amount written off.
-  const lineDiscount = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0).toFixed(2));
-  const lineCommission = parseFloat(invs.reduce((s: number, i: any) => s + (Number(i.commission) || 0), 0).toFixed(2));
-  const totalDiscount = Math.max(lineDiscount, parseFloat((Number(input.discount) || 0).toFixed(2)));
-  const totalCommission = Math.max(lineCommission, parseFloat((Number(input.commission) || 0).toFixed(2)));
-
-  // Cash actually moved. This is the amount on the payment, full stop.
+  // The party's balance moves by the CASH, and the cash is already the net the
+  // form worked out: settle - discount + commission. So the concessions ARE in
+  // this number -- a discount the party got makes it smaller, a commission
+  // charged to them makes it bigger -- which is the whole point: their balance
+  // reflects both directly instead of being knocked off at face value while the
+  // concession sat somewhere else.
+  //
+  // They are therefore not journalised as separate legs. They stay on the
+  // payment record, and the statements print them in their own Discount /
+  // Commission columns beside the row.
+  //
+  //   Dr Cash    amount        receipt
+  //     Cr Party   amount
   const cashLeg = parseFloat((Number(input.amount) || 0).toFixed(2));
-
-  // Party leg = the WHOLE reduction in what the party owes.
-  //
-  // It used to be the sum of settledamount whenever any bill was selected. That
-  // held only while the amount was always equal to what got allocated. Once a
-  // receipt could clear the opening balance or leave money on account, a ₹250
-  // receipt allocating ₹100 to one bill posted only "Dr Cash 100 / Cr Party 100"
-  // — ₹150 of real cash never reached the books, and the ledger drifted from the
-  // payment record.
-  //
-  // Cash lowers the balance by its full value wherever it lands (bill, opening,
-  // or on account). A discount lowers it further (we absorbed part of the bill);
-  // a commission raises what they owe, so it comes back off.
-  //
-  //   Dr Cash      amount
-  //   Dr Discount  discount
-  //     Cr Party     amount + discount − commission
-  //     Cr Commission            commission
-  const settledTotal = parseFloat((cashLeg + totalDiscount - totalCommission).toFixed(2));
 
   const entries: any[] = [];
 
   if (input.type === "receipt") {
-    // Money in: Dr Cash + Dr Discount Allowed · Cr Customer + Cr Commission Received
     entries.push({ ledgerid: cashBankLedgerId, debit: cashLeg, credit: 0, remarks: `Receipt from ${partyName}` });
-    if (totalDiscount > 0) {
-      const lid = await getOrCreateLedgerId("Discount Allowed", "Indirect Expenses", "expenses", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: totalDiscount, credit: 0, remarks: `Discount allowed to ${partyName}` });
-    }
-    entries.push({ ledgerid: partyLedgerId, debit: 0, credit: settledTotal, remarks: `Settlement by ${partyName}` });
-    if (totalCommission > 0) {
-      const lid = await getOrCreateLedgerId("Commission Received", "Indirect Income", "income", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: totalCommission, remarks: `Commission charged to ${partyName}` });
-    }
+    entries.push({ ledgerid: partyLedgerId, debit: 0, credit: cashLeg, remarks: `Settlement by ${partyName}` });
   } else {
-    // Money out: Dr Vendor + Dr Commission · Cr Cash + Cr Discount Received
-    entries.push({ ledgerid: partyLedgerId, debit: settledTotal, credit: 0, remarks: `Payment to ${partyName}` });
-    if (totalCommission > 0) {
-      const lid = await getOrCreateLedgerId("Commission", "Commission Expense", "expenses", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: totalCommission, credit: 0, remarks: `Commission on payment to ${partyName}` });
-    }
+    entries.push({ ledgerid: partyLedgerId, debit: cashLeg, credit: 0, remarks: `Payment to ${partyName}` });
     entries.push({ ledgerid: cashBankLedgerId, debit: 0, credit: cashLeg, remarks: `Payment to ${partyName}` });
-    if (totalDiscount > 0) {
-      const lid = await getOrCreateLedgerId("Discount Received", "Indirect Income", "income", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: totalDiscount, remarks: `Discount received from ${partyName}` });
-    }
   }
 
   const totaldebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));
@@ -217,42 +149,17 @@ async function buildLedgerEntries(input: any) {
   const led: any = await AccountLedger.findById(counterLedgerId).select("ledgername").lean();
   const name = led?.ledgername || "Ledger";
 
-  // Same arithmetic as a party settlement, with this ledger standing in for the
-  // party: the balance knocked off is the cash PLUS any discount allowed, LESS
-  // any commission charged on top.
-  //
-  //   Dr Cash      amount
-  //   Dr Discount  discount
-  //     Cr Ledger    amount + discount − commission
-  //     Cr Commission            commission
-  const discount = parseFloat((Number(input.discount) || 0).toFixed(2));
-  const commission = parseFloat((Number(input.commission) || 0).toFixed(2));
-  const settledTotal = parseFloat((cashLeg + discount - commission).toFixed(2));
-
+  // Same shape as a party settlement, with this ledger standing in for the
+  // party: the cash is the net of settle - discount + commission, so the
+  // concessions are already inside the amount its balance moves by.
   const entries: any[] = [];
 
   if (input.type === "receipt") {
     entries.push({ ledgerid: cashBankLedgerId, debit: cashLeg, credit: 0, remarks: `Receipt — ${name}` });
-    if (discount > 0) {
-      const lid = await getOrCreateLedgerId("Discount Allowed", "Indirect Expenses", "expenses", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: discount, credit: 0, remarks: `Discount allowed — ${name}` });
-    }
-    entries.push({ ledgerid: counterLedgerId, debit: 0, credit: settledTotal, remarks: `Receipt — ${name}` });
-    if (commission > 0) {
-      const lid = await getOrCreateLedgerId("Commission Received", "Indirect Income", "income", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: commission, remarks: `Commission — ${name}` });
-    }
+    entries.push({ ledgerid: counterLedgerId, debit: 0, credit: cashLeg, remarks: `Receipt — ${name}` });
   } else {
-    entries.push({ ledgerid: counterLedgerId, debit: settledTotal, credit: 0, remarks: `Payment — ${name}` });
-    if (commission > 0) {
-      const lid = await getOrCreateLedgerId("Commission", "Commission Expense", "expenses", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: commission, credit: 0, remarks: `Commission — ${name}` });
-    }
+    entries.push({ ledgerid: counterLedgerId, debit: cashLeg, credit: 0, remarks: `Payment — ${name}` });
     entries.push({ ledgerid: cashBankLedgerId, debit: 0, credit: cashLeg, remarks: `Payment — ${name}` });
-    if (discount > 0) {
-      const lid = await getOrCreateLedgerId("Discount Received", "Indirect Income", "income", input.adminid);
-      if (lid) entries.push({ ledgerid: lid, debit: 0, credit: discount, remarks: `Discount received — ${name}` });
-    }
   }
 
   const totaldebit = parseFloat(entries.reduce((t, e) => t + (e.debit || 0), 0).toFixed(2));

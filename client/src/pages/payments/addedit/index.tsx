@@ -1559,8 +1559,8 @@ const AddEditPayment = () => {
                             <span className="font-medium text-gray-700">Discount (₹)</span>
                             <span className="block text-[11px] text-gray-500">
                               {payType === "receipt"
-                                ? "Concession you allowed — comes off the cash received."
-                                : "Discount the vendor allowed — comes off the cash paid."}
+                                ? "Concession you allowed — comes off the cash and the balance."
+                                : "Discount the vendor allowed — comes off the cash and the balance."}
                               {!hasOpenBills && openingDueValue > 0
                                 ? " Given on the opening balance."
                                 : ""}
@@ -1621,6 +1621,10 @@ const AddEditPayment = () => {
                       <div className="flex justify-between font-semibold border-t pt-1">
                         <span>{payType === "receipt" ? "Cash Received:" : "Cash Paid:"}</span>
                         <span>₹{fmt(totalAmount)}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500 pt-0.5">
+                        This is also what comes off the balance — the discount and
+                        commission move it, not just the cash.
                       </div>
                     </div>
                   )}
@@ -1895,7 +1899,7 @@ const AddEditPayment = () => {
                       <span className="pt-1.5">
                         <span className="font-medium text-gray-700">Settle Amount (₹)</span>
                         <span className="block text-[11px] text-gray-500">
-                          Knocked off this ledger's balance.
+                          The base figure, before the two adjustments below.
                         </span>
                       </span>
                       <input
@@ -1917,8 +1921,8 @@ const AddEditPayment = () => {
                       <span className="font-medium text-gray-700">Discount (₹)</span>
                       <span className="block text-[11px] text-gray-500">
                         {payType === "receipt"
-                          ? "Concession you allowed — comes off the cash received."
-                          : "Concession they allowed — comes off the cash paid."}
+                          ? "Concession you allowed — comes off the cash and the balance."
+                          : "Concession they allowed — comes off the cash and the balance."}
                       </span>
                     </span>
                     <input
@@ -1936,7 +1940,7 @@ const AddEditPayment = () => {
                     <span className="pt-1.5">
                       <span className="font-medium text-gray-700">Commission (₹)</span>
                       <span className="block text-[11px] text-gray-500">
-                        Charged on top — adds to the cash, not to the balance.
+                        Charged on top — adds to the cash and the balance.
                       </span>
                     </span>
                     <input
@@ -1953,7 +1957,7 @@ const AddEditPayment = () => {
                   {directBillValue > 0 && (totalDiscount > 0 || totalCommission > 0) && (
                     <div className="rounded-md bg-gray-50 border px-3 py-2 space-y-1">
                       <div className="flex justify-between text-gray-600">
-                        <span>Balance Settled:</span>
+                        <span>Base Amount:</span>
                         <span>₹{fmt(directBillValue)}</span>
                       </div>
                       {totalDiscount > 0 && (
@@ -1971,6 +1975,10 @@ const AddEditPayment = () => {
                       <div className="flex justify-between font-semibold border-t pt-1">
                         <span>{payType === "receipt" ? "Cash Received:" : "Cash Paid:"}</span>
                         <span>₹{fmt(totalAmount)}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500 pt-0.5">
+                        This is also what comes off the balance — the discount and
+                        commission move it, not just the cash.
                       </div>
                     </div>
                   )}
@@ -2065,76 +2073,26 @@ const AddEditPayment = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    // The party leg is the FULL reduction in what they owe —
-                    // never just the bills ticked. Cash of ₹250 lowers the party
-                    // balance by ₹250 whether it lands on one bill, the opening
-                    // balance, or sits on account. Using the ticked total here
-                    // produced an unbalanced entry (Dr Cash 250 / Cr Party 100)
-                    // the moment an amount carried an on-account remainder.
-                    //
-                    //   Dr Cash      amount
-                    //   Dr Discount  discount            (concession we absorbed)
-                    //     Cr Party     amount + discount − commission
-                    //     Cr Commission            commission
-                    const partyLeg = parseFloat(
-                      (totalAmount + totalDiscount - totalCommission).toFixed(2)
+                    // The counter account moves by the CASH, and the cash is
+                    // already settle − discount + commission — so a concession
+                    // is inside that number rather than posted beside it. That
+                    // is what puts it on the party's own balance.
+                    const row = (label: string, dr: boolean) => (
+                      <tr>
+                        <td className="py-1">{label}</td>
+                        <td className="text-right">{dr ? fmt(totalAmount) : "—"}</td>
+                        <td className="text-right">{dr ? "—" : fmt(totalAmount)}</td>
+                      </tr>
                     );
-                    if (payType === "receipt") {
-                      return (
-                        <>
-                          <tr>
-                            <td className="py-1">{selectedLedgerName}</td>
-                            <td className="text-right">{fmt(totalAmount)}</td>
-                            <td className="text-right">—</td>
-                          </tr>
-                          {dcEnabled && totalDiscount > 0 && (
-                            <tr>
-                              <td className="py-1">Discount Allowed</td>
-                              <td className="text-right">{fmt(totalDiscount)}</td>
-                              <td className="text-right">—</td>
-                            </tr>
-                          )}
-                          <tr>
-                            <td className="py-1">{counterLegName}</td>
-                            <td className="text-right">—</td>
-                            <td className="text-right">{fmt(partyLeg)}</td>
-                          </tr>
-                          {dcEnabled && totalCommission > 0 && (
-                            <tr>
-                              <td className="py-1">Commission Received</td>
-                              <td className="text-right">—</td>
-                              <td className="text-right">{fmt(totalCommission)}</td>
-                            </tr>
-                          )}
-                        </>
-                      );
-                    }
-                    return (
+                    return payType === "receipt" ? (
                       <>
-                        <tr>
-                          <td className="py-1">{counterLegName}</td>
-                          <td className="text-right">{fmt(partyLeg)}</td>
-                          <td className="text-right">—</td>
-                        </tr>
-                        {dcEnabled && totalCommission > 0 && (
-                          <tr>
-                            <td className="py-1">Commission</td>
-                            <td className="text-right">{fmt(totalCommission)}</td>
-                            <td className="text-right">—</td>
-                          </tr>
-                        )}
-                        <tr>
-                          <td className="py-1">{selectedLedgerName}</td>
-                          <td className="text-right">—</td>
-                          <td className="text-right">{fmt(totalAmount)}</td>
-                        </tr>
-                        {dcEnabled && totalDiscount > 0 && (
-                          <tr>
-                            <td className="py-1">Discount Received</td>
-                            <td className="text-right">—</td>
-                            <td className="text-right">{fmt(totalDiscount)}</td>
-                          </tr>
-                        )}
+                        {row(selectedLedgerName, true)}
+                        {row(counterLegName, false)}
+                      </>
+                    ) : (
+                      <>
+                        {row(counterLegName, true)}
+                        {row(selectedLedgerName, false)}
                       </>
                     );
                   })()}

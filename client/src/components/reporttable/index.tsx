@@ -78,9 +78,6 @@ interface ReportTableProps {
     debitKey: string;
     creditKey: string;
     showInKey?: string;
-    /** Extra numeric columns folded into the same net. */
-    minusKeys?: string[];
-    plusKeys?: string[];
   };
 }
 
@@ -102,18 +99,24 @@ const toNumericVal = (v: any): number | null => {
 
 const isNumericVal = (v: any) => toNumericVal(v) !== null;
 
-// The Totals-row net. Debit - Credit is the spine; minusKeys / plusKeys let a
-// report fold its own extra columns into that same figure -- a ledger statement
-// nets its discount out and its commission in, so the number reconciles to the
-// cash that actually moved and not to the balance movement alone.
+// The Totals-row net: total debits less total credits. Because the opening row
+// carries the opening balance in those same two columns, this lands on exactly
+// the CLOSING balance -- so the net always agrees with the last Running Balance
+// on screen and with what the Balance Sheet reads off the posted transactions.
+//
+// It deliberately does NOT fold in a statement's discount / commission columns.
+// That fold used to live here, meant to make the net reconcile to the cash that
+// actually moved, but a single column-wide sign can only be right for one
+// direction: a receipt puts the ledger leg on the credit side and a payment-out
+// on the debit side, and the same concession moves the cash opposite ways in
+// each case. A 5000 receipt with 10 discount and 20 commission netted to 4990
+// when the cash was 5010, and the figure agreed with neither the balance nor
+// the cash. The balance now moves by the cash itself -- the concessions are
+// already inside that net -- so debit minus credit means one thing only.
 const netTotalOf = (
-  spec: { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[] },
+  spec: { debitKey: string; creditKey: string },
   sumKey: (k: string) => number,
-) =>
-  sumKey(spec.debitKey) -
-  sumKey(spec.creditKey) -
-  (spec.minusKeys ?? []).reduce((a, k) => a + sumKey(k), 0) +
-  (spec.plusKeys ?? []).reduce((a, k) => a + sumKey(k), 0);
+) => sumKey(spec.debitKey) - sumKey(spec.creditKey);
 
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
@@ -133,8 +136,6 @@ const printReportAsPDF = (
     debitKey: string;
     creditKey: string;
     showInKey?: string;
-    minusKeys?: string[];
-    plusKeys?: string[];
   },
 ) => {
   const today = formatDateDMY(new Date());

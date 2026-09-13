@@ -641,21 +641,20 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // The party leg is the SETTLED amount, not the cash. A discount lowers
-        // the cash without lowering the bill and a commission is charged on top
-        // of it, so posting p.amount here made this sheet drift from the party's
-        // own ledger by exactly the concession. With the flag off the two are
-        // equal, so nothing moves.
+        // The party's balance moves by the CASH -- which is already
+        // settle - discount + commission, so a discount they got makes it
+        // smaller and a commission charged to them makes it bigger. That is what
+        // puts both on their balance instead of beside it. The columns below
+        // still print each figure so the row shows how the net was reached.
         const cash = r2(p.amount);
-        const settled = r2(cash + discount - commission);
-
         const inward = p.type === "receipt";
+
         rows.push({
           t: timeOf(p.paymentdate),
           type: inward ? "Payment-In" : "Payment-Out",
           ref: String(p.paymentcode ?? "-"),
-          debit: inward ? 0 : settled,
-          credit: inward ? settled : 0,
+          debit: inward ? 0 : cash,
+          credit: inward ? cash : 0,
           remarks: (p.remarks || "").trim() || "-",
           discount,
           commission,
@@ -785,7 +784,7 @@ const PartyReports: React.FC = () => {
 
   let pdfSubtitle: string[] | undefined;
   let netTotal:
-    | { debitKey: string; creditKey: string; showInKey?: string; minusKeys?: string[]; plusKeys?: string[] }
+    | { debitKey: string; creditKey: string; showInKey?: string }
     | undefined;
 
   switch (activeTab) {
@@ -843,15 +842,15 @@ const PartyReports: React.FC = () => {
         },
         { label: "Remarks", key: "remarks" },
       ];
-      // Totals row: the net prints under Remarks. Debit - Credit is the party's
-      // own movement; with concessions on, the discount and commission legs are
-      // exactly what make the cash differ from that movement, so they fold in
-      // here too -- discount out, commission in.
+      // Totals row: the net prints under Remarks. Debit - Credit, with the
+      // opening row folded in, is this party's CLOSING balance -- so it agrees
+      // with the last Running Balance above it and with the party's own ledger.
+      // Concessions are rows in their own right now, so they are already
+      // inside that net rather than sitting beside it.
       netTotal = {
         debitKey: "debit",
         creditKey: "credit",
         showInKey: "remarks",
-        ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
       };
       break;
   }

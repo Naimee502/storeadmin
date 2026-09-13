@@ -194,18 +194,16 @@ const AccountingFinanceReports: React.FC = () => {
         // Discount / Commission ledgers are created on the server the first time
         // they are needed, so the payment document never carries their ids.
         // Resolve them by name or those legs can never be selected here.
-        const ledgerIdByName: Record<string, string> = {};
-        ledgers.forEach((l: any) => {
-            if (l.ledgername) ledgerIdByName[String(l.ledgername).toLowerCase()] = l.id;
-        });
-        const namedLedger = (name: string) => ({ id: ledgerIdByName[name.toLowerCase()], name });
-
         const timeOf = (d: any) => {
             if (!d) return NaN;
             const str = String(d).trim();
             return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
         };
 
+        // One row per payment. Debit / Credit carry the cash, which is already
+        // net of the concessions (settle - discount + commission), so the
+        // running balance reflects them; the Discount / Commission columns
+        // beside it show how that net was arrived at.
         type Row = { t: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number };
         const rows: Row[] = [];
 
@@ -223,7 +221,6 @@ const AccountingFinanceReports: React.FC = () => {
                 const commission = Math.max(lineCommission, r2(p.commission));
 
                 const cash = r2(p.amount);
-                const settled = r2(cash + discount - commission);
 
                 const isReceipt = String(p.type || "").toLowerCase() === "receipt";
                 const viaParty = !!p.partyid?.id;
@@ -233,18 +230,16 @@ const AccountingFinanceReports: React.FC = () => {
                     ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
                     : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
 
+                // Mirrors the server's journal: cash in one leg, the counter
+                // account in the other, both at the cash amount.
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        ...(discount > 0 ? [{ ...namedLedger("Discount Allowed"), debit: discount, credit: 0 }] : []),
-                        { ...counterLeg, debit: 0, credit: settled },
-                        ...(commission > 0 ? [{ ...namedLedger("Commission Received"), debit: 0, credit: commission }] : []),
+                        { ...counterLeg, debit: 0, credit: cash },
                     ]
                     : [
-                        { ...counterLeg, debit: settled, credit: 0 },
-                        ...(commission > 0 ? [{ ...namedLedger("Commission"), debit: commission, credit: 0 }] : []),
+                        { ...counterLeg, debit: cash, credit: 0 },
                         { ...cashLeg, debit: 0, credit: cash },
-                        ...(discount > 0 ? [{ ...namedLedger("Discount Received"), debit: 0, credit: discount }] : []),
                     ];
 
                 // Only this ledger's own legs belong on its statement. A payment
@@ -646,7 +641,7 @@ const AccountingFinanceReports: React.FC = () => {
     let title = "Accounting & Finance Reports";
     let exportFileName = "AccountingReport";
     let netTotal:
-        | { debitKey: string; creditKey: string; showInKey?: string; minusKeys?: string[]; plusKeys?: string[] }
+        | { debitKey: string; creditKey: string; showInKey?: string }
         | undefined;
     let pdfSubtitle: string[] | undefined;
 
@@ -818,15 +813,15 @@ const AccountingFinanceReports: React.FC = () => {
                 },
                 { label: "Remarks", key: "remarks" },
             ];
-            // Totals row: the net prints under Remarks. Debit - Credit is this
-            // ledger's own movement; with concessions on, the discount and
-            // commission legs are exactly what make the cash differ from that
-            // movement, so they fold in here too -- discount out, commission in.
+            // Totals row: the net prints under Remarks. Debit - Credit, with the
+            // opening row folded in, is this ledger's CLOSING balance -- so it
+            // agrees with the last Running Balance above it and with the Balance
+            // Sheet. Concessions are rows in their own right now, so they are
+            // already inside that net rather than sitting beside it.
             netTotal = {
                 debitKey: "debit",
                 creditKey: "credit",
                 showInKey: "remarks",
-                ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
             };
             // A statement is always ONE ledger, so that choice leads the filter
             // bar rather than trailing the dates.

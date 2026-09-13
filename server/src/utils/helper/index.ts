@@ -152,6 +152,7 @@ export const defaultLedgers = [
   { name: "Salesman Commission Expense", group: "Commission Expense" },
   { name: "Staff Expenses", group: "Direct Expenses" },
   { name: "Staff Salary", group: "Direct Expenses" },
+  { name: "Other Charges", group: "Indirect Expenses" },
 
   // Income
   { name: "Interest Received", group: "Indirect Income" },
