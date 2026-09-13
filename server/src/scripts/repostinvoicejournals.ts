@@ -61,7 +61,17 @@ const SPECS = [
 
 async function main() {
   const uri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DB_URI;
-  if (!uri) throw new Error("Set MONGO_URI in server/.env before running this script.");
+  if (!uri) {
+    // On a dev box MONGO_URI comes from server/.env. On the VPS it lives inside
+    // ecosystem.config.js, which pm2 injects into the app process only — a
+    // script run by hand never sees it. Hence the second form.
+    throw new Error(
+      "MONGO_URI not set.\n" +
+        "  Local : add it to server/.env\n" +
+        "  VPS   : pass it inline, e.g.\n" +
+        "          MONGO_URI=\"mongodb://127.0.0.1:27017/pos_billing_erp\" node dist/scripts/<script>.js"
+    );
+  }
   await mongoose.connect(uri);
   console.log(`Connected. Mode: ${APPLY ? "APPLY (writing)" : "DRY RUN (no writes)"}\n`);
 

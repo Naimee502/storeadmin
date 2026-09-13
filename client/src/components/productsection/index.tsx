@@ -1010,13 +1010,6 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
                             onBlur={() => handleCellBlur(i, "quantity", editingValue)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleCellBlur(i, "quantity", editingValue);
-                              if (e.key === "Escape") {
-                                setEditingCell(null);
-                                setEditingValue("");
-                              }
-                            }}
                             className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
                             step="1"
                             min="1"
