@@ -18,7 +18,9 @@ const accountSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ['customer', 'vendor', 'expense', 'bank', 'other'],
+      // 'both' = a firm we buy from AND sell to. One ledger, not two, so the
+      // two sides net into a single "who owes whom" figure.
+      enum: ['customer', 'vendor', 'both', 'expense', 'bank', 'other'],
       required: true,
       default: 'customer',
     },

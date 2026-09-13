@@ -12,6 +12,7 @@ import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
+import { isCustomerParty } from "../../../utils/partytype";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ const SalesRouteAddEdit: React.FC = () => {
     [staffData]
   );
   const allAccounts = useMemo(
-    () => (accountsData?.getAccounts || []).filter((a: any) => a.type === "customer"),
+    () => (accountsData?.getAccounts || []).filter((a: any) => isCustomerParty(a.type)),
     [accountsData]
   );
 

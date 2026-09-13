@@ -19,6 +19,7 @@ import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { getStockShortfalls } from "../../../utils/products/stockcheck";
+import { isCustomerParty } from "../../../utils/partytype";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -123,7 +124,7 @@ const AddEditSalesInvoice = () => {
   // Party Accounts
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
-  const customerAccounts = accountsList.filter((acc: any) => acc.type === "customer");
+  const customerAccounts = accountsList.filter((acc: any) => isCustomerParty(acc.type));
   console.log("Customer Party Account Data:", JSON.stringify(customerAccounts));
   const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,

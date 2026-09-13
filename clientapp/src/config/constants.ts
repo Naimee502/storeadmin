@@ -6,6 +6,8 @@ export interface Option { value: string; label: string }
 export const partyTypeOptions: Option[] = [
   { value: 'customer', label: 'Customer' },
   { value: 'vendor',   label: 'Vendor / Supplier' },
+  // A firm we buy from AND sell to. One ledger, both sides, netted.
+  { value: 'both',     label: 'Customer & Vendor' },
   { value: 'expense',  label: 'Expense Account' },
   { value: 'bank',     label: 'Bank / Cash' },
   { value: 'other',    label: 'Other' },
@@ -16,6 +18,8 @@ export const partyTypeOptions: Option[] = [
 export const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
   customer: { names: ['sundry debtor', 'debtor', 'trade receivable', 'receivable'], category: 'assets' },
   vendor:   { names: ['sundry creditor', 'creditor', 'trade payable', 'payable'],   category: 'liabilities' },
+  // Filed with the debtors; which way the balance leans is decided by the bills.
+  both:     { names: ['sundry debtor', 'debtor', 'trade receivable', 'receivable'], category: 'assets' },
   bank:     { names: ['bank account', 'bank', 'cash'],                               category: 'assets' },
   expense:  { names: ['direct expense', 'indirect expense', 'expense'],              category: 'expenses' },
   other:    { names: ['miscellaneous', 'suspense', 'other'],                         category: 'liabilities' },

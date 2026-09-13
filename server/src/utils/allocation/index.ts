@@ -20,6 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import mongoose from "mongoose";
+import { isBothParty } from "../partytype";
 
 export type InvoiceModel = "SalesInvoice" | "PurchaseInvoice";
 
@@ -506,6 +507,15 @@ export async function autoAdjustAdvances(opts: {
 export async function getPartyOpeningDue(opts: {
   partyid: any;
   excludePaymentId?: any;
+  /**
+   * Which side is asking. Only matters for a party that is BOTH customer and
+   * vendor: their opening belongs to exactly one side — a debit opening is
+   * money they owe us (receivable, so the sales side) and a credit opening is
+   * money we owe them (payable, the purchase side). Without this the same
+   * opening was offered for settlement on both screens, so paying a supplier
+   * could wipe out a balance they owed US.
+   */
+  invoicemodel?: InvoiceModel;
 }): Promise<number> {
   const { partyid, excludePaymentId } = opts;
   if (!partyid) return 0;
@@ -533,6 +543,12 @@ export async function getPartyOpeningDue(opts: {
       ? Number(src.openingbalance) || 0
       : -(Number(src.openingbalance) || 0);
   if (String(acc.type).toLowerCase() === "vendor") opening = -opening;
+
+  if (isBothParty(acc.type)) {
+    // Signed, and handed to whichever side it actually belongs to.
+    const wantPayable = opts.invoicemodel === "PurchaseInvoice";
+    opening = wantPayable ? -opening : opening;
+  }
 
   // A credit opening means WE owe THEM — there is nothing to collect.
   if (opening <= 0) return 0;
@@ -585,7 +601,7 @@ export async function getPartyTotalDue(opts: {
 
   const [positions, openingdue] = await Promise.all([
     getPartyBillPositions({ partyid, invoicemodel, adminid, branchid, excludePaymentId, excludeInvoiceId }),
-    getPartyOpeningDue({ partyid, excludePaymentId }),
+    getPartyOpeningDue({ partyid, excludePaymentId, invoicemodel }),
   ]);
 
   const bills = round2(positions.reduce((t, b) => t + b.outstanding, 0));
@@ -670,7 +686,7 @@ export async function allocateWithOpening(opts: {
     }
   }
 
-  const openingdue = await getPartyOpeningDue({ partyid, excludePaymentId });
+  const openingdue = await getPartyOpeningDue({ partyid, excludePaymentId, invoicemodel });
   const openingsettled = round2(Math.min(left, openingdue));
   left = round2(left - openingsettled);
 
@@ -761,9 +777,14 @@ export async function getPartiesTotalDue(opts: {
 
   const openingDue: Record<string, number> = {};
   const isVendor: Record<string, boolean> = {};
+  // A party we both sell to and buy from has bills on BOTH sides, so it cannot
+  // be classified onto one of them. It is carried separately and netted below.
+  const isBoth: Record<string, boolean> = {};
   accounts.forEach((a) => {
     const k = String(a._id);
+    const both = isBothParty(a.type);
     const vendor = String(a.type || "").toLowerCase() === "vendor";
+    isBoth[k] = both;
     isVendor[k] = vendor;
 
     const src = (a.ledgerid && ledgerById[String(a.ledgerid)]) || a;
@@ -772,6 +793,14 @@ export async function getPartiesTotalDue(opts: {
         ? Number(src.openingbalance) || 0
         : -(Number(src.openingbalance) || 0);
     if (vendor) opening = -opening;
+
+    if (both) {
+      // Kept SIGNED. A both-party's net is one subtraction, and clamping the
+      // opening to zero first would silently drop a credit opening — money we
+      // owe them that has every right to reduce what they owe us.
+      openingDue[k] = round2(opening - (openingSettled[k] || 0));
+      return;
+    }
 
     // A credit opening means WE owe THEM — there is nothing to collect.
     openingDue[k] = opening <= 0 ? 0 : round2(Math.max(0, opening - (openingSettled[k] || 0)));
@@ -860,18 +889,32 @@ export async function getPartiesTotalDue(opts: {
     return { bills, excess };
   };
 
+  // Both-parties are asked for on BOTH passes, so each side is computed for them.
   const [saleSide, purchaseSide] = await Promise.all([
-    billSideFor("SalesInvoice", ids.filter((id) => !isVendor[id])),
-    billSideFor("PurchaseInvoice", ids.filter((id) => isVendor[id])),
+    billSideFor("SalesInvoice", ids.filter((id) => !isVendor[id] || isBoth[id])),
+    billSideFor("PurchaseInvoice", ids.filter((id) => isVendor[id] || isBoth[id])),
   ]);
 
+  /** What one side of the books leaves standing for this party. */
+  const sideDue = (id: string, side: typeof saleSide, advance: number) =>
+    (side.bills[id] || 0) - advance - (side.excess[id] || 0);
+
   ids.forEach((id) => {
+    if (isBoth[id]) {
+      // Net the two: what they owe us on our sales, less what we owe them on
+      // their bills. Clamped at zero like every other party — a negative here
+      // means WE are the debtor, which is not something to collect.
+      const net =
+        (openingDue[id] || 0) +
+        sideDue(id, saleSide, advanceIn[id] || 0) -
+        sideDue(id, purchaseSide, advanceOut[id] || 0);
+      out[id] = round2(Math.max(0, net));
+      return;
+    }
     const vendor = !!isVendor[id];
     const side = vendor ? purchaseSide : saleSide;
     const advance = vendor ? advanceOut[id] || 0 : advanceIn[id] || 0;
-    out[id] = round2(
-      Math.max(0, (openingDue[id] || 0) + (side.bills[id] || 0) - advance - (side.excess[id] || 0))
-    );
+    out[id] = round2(Math.max(0, (openingDue[id] || 0) + sideDue(id, side, advance)));
   });
 
   return out;

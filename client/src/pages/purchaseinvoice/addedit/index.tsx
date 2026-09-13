@@ -17,6 +17,7 @@ import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
+import { isVendorParty } from "../../../utils/partytype";
 
 const AddEditPurchaseInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -123,7 +124,7 @@ const AddEditPurchaseInvoice = () => {
   // Vendor Accounts
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   const accountsList = accountData?.getAccounts || [];
-  const vendorAccounts = accountsList.filter((acc: any) => acc.type === "vendor");
+  const vendorAccounts = accountsList.filter((acc: any) => isVendorParty(acc.type));
   console.log("Vendor Account Data:", JSON.stringify(vendorAccounts));
   const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,

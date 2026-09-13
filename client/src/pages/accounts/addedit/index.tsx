@@ -23,6 +23,10 @@ import { selectIsModuleAllowed, selectIsFormFieldEnabled } from "../../../redux/
 const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
   customer: { names: ["sundry debtor", "debtor", "trade receivable", "receivable"], category: "assets" },
   vendor:   { names: ["sundry creditor", "creditor", "trade payable", "payable"],   category: "liabilities" },
+  // Both sides on ONE ledger, filed with the debtors. The group only decides
+  // where the party is listed; which way the balance actually leans is decided
+  // by the bills, and a both-party can end up on either side.
+  both:     { names: ["sundry debtor", "debtor", "trade receivable", "receivable"], category: "assets" },
   bank:     { names: ["bank account", "bank", "cash"],                               category: "assets" },
   expense:  { names: ["direct expense", "indirect expense", "expense"],              category: "expenses" },
   other:    { names: ["miscellaneous", "suspense", "other"],                         category: "liabilities" },
@@ -197,8 +201,15 @@ const AddEditAccount = () => {
   const handleTypeChange = (value: string) => {
     const resolved = resolveAccountGroup(value);
     // Accounting convention: customer = receivable (debit), vendor = payable (credit).
+    // A both-party starts on the debit side, but it is only a starting point —
+    // which way they actually stand is whatever their bills add up to, and the
+    // user can flip it here if the opening balance says otherwise.
     const autoBalType =
-      value === "customer" ? "debit" : value === "vendor" ? "credit" : undefined;
+      value === "customer" || value === "both"
+        ? "debit"
+        : value === "vendor"
+        ? "credit"
+        : undefined;
     setFormValues(prev => ({
       ...prev,
       type: value,
@@ -344,6 +355,7 @@ const AddEditAccount = () => {
                     options={[
                       { label: "Customer",          value: "customer" },
                       { label: "Vendor / Supplier", value: "vendor" },
+                      { label: "Customer & Vendor",  value: "both" },
                       { label: "Expense Account",   value: "expense" },
                       { label: "Bank / Cash",        value: "bank" },
                       { label: "Other",              value: "other" },

@@ -23,7 +23,7 @@ export interface Account {
   upiid: string;
   billingcycle: "daily" | "weekly" | "monthly";
   duedays: number;
-  type: "customer" | "vendor" | "expense" | "bank" | "other";
+  type: "customer" | "vendor" | "both" | "expense" | "bank" | "other";
   isposcustomer: boolean;
   status: boolean;
   adminid: string;

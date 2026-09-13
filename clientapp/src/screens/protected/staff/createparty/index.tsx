@@ -317,8 +317,10 @@ export default function StaffCreateParty() {
                   onPress={() => {
                     setType(t.value);
                     // Accounting convention: customer = receivable (debit),
-                    // vendor = payable (credit). Auto-set, user can override.
-                    if (t.value === 'customer') setOpeningbalancetype('debit');
+                    // vendor = payable (credit). A both-party starts on the
+                    // debit side; which way they really stand is whatever their
+                    // bills add up to. Auto-set, user can override.
+                    if (t.value === 'customer' || t.value === 'both') setOpeningbalancetype('debit');
                     else if (t.value === 'vendor') setOpeningbalancetype('credit');
                   }}
                 >

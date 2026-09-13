@@ -21,6 +21,7 @@ import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
+import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 
 type SettledInvoice = {
   invoiceid: string;
@@ -665,10 +666,12 @@ const AddEditPayment = () => {
     }
 
     return accounts
+      // A party we both sell to and buy from belongs on BOTH lists — money can
+      // come in from them and go out to them.
       .filter((a: any) =>
         payType === "receipt"
-          ? a.type === "customer"
-          : a.type === "vendor" || a.type === "other"
+          ? isCustomerParty(a.type)
+          : isVendorParty(a.type) || a.type === "other"
       )
       .map((a: any) => ({
         value: a.id,

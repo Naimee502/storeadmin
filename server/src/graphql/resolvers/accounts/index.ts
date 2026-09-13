@@ -14,6 +14,7 @@ import { AdminSettings } from "../../../models/adminsettings";
 import { resolveTenant } from "../../../utils/tenant";
 import { ApolloError } from "apollo-server-express";
 import { getPartyTotalDue, getPartiesTotalDue } from "../../../utils/allocation";
+import { isCustomerParty, isVendorParty, isBothParty, partyTypeQuery } from "../../../utils/partytype";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -59,6 +60,19 @@ const partyBillOutstanding = async (accountId: any, type?: string): Promise<numb
   // A vendor's bills are PURCHASE invoices. Reading them off the sales side
   // showed every vendor a flat 0 due, which is why the accounts list and the
   // Vendor Outstanding report disagreed.
+  // A party that is both sides has bills of both kinds. What the list column
+  // means is "what is still collectible from them", so the two are netted: what
+  // they owe us, less what we owe them. Never negative — a party we owe money to
+  // has nothing outstanding to collect, and that is what the other side's own
+  // Payment Out screen is for.
+  if (isBothParty(type)) {
+    // getPartiesTotalDue already nets the two sides and counts the opening
+    // exactly once. Subtracting two getPartyTotalDue() calls would not: each
+    // adds the opening and each clamps at zero, so the opening cancels itself
+    // out and a party's carried-forward balance quietly disappears.
+    const due = await getPartiesTotalDue({ partyids: [accountId] });
+    return due[String(accountId)] || 0;
+  }
   const invoicemodel =
     String(type || "").toLowerCase() === "vendor" ? "PurchaseInvoice" : "SalesInvoice";
   return await getPartyTotalDue({ partyid: accountId, invoicemodel });
@@ -98,8 +112,10 @@ const ledgerBalance = async (ledgerId: any): Promise<number> => {
  * a party token, which put them inside the shopping app with a real session.
  */
 const assertCustomerAccount = (account: any) => {
-  const type = String(account?.type || "").toLowerCase();
-  if (type !== "customer") {
+  // A both-party IS a customer — they just happen to supply us as well — so the
+  // guard has to admit them. Checking `=== "customer"` locked a real customer
+  // out of the app for a reason they could never have guessed.
+  if (!isCustomerParty(account?.type)) {
     throw new Error("This login is for customer accounts only.");
   }
 };
@@ -162,7 +178,12 @@ export const accountResolvers = {
       const query: any = {};
       if (filter?.admin) query.admin = filter.admin;
       if (filter?.branchid) query.branchid = filter.branchid;
-      if (filter?.type) query.type = filter.type;
+      // "customer" means anyone we can sell to, which includes a both-party.
+      if (filter?.type) {
+        const want = String(filter.type).toLowerCase();
+        query.type =
+          want === "customer" || want === "vendor" ? partyTypeQuery(want as any) : filter.type;
+      }
       if (filter?.channel) query.channel = filter.channel;
       query.status = typeof filter?.status === "boolean" ? filter.status : true;
 
@@ -188,7 +209,12 @@ export const accountResolvers = {
 
       if (filter?.admin) query.admin = filter.admin;
       if (filter?.branchid) query.branchid = filter.branchid;
-      if (filter?.type) query.type = filter.type;
+      // "customer" means anyone we can sell to, which includes a both-party.
+      if (filter?.type) {
+        const want = String(filter.type).toLowerCase();
+        query.type =
+          want === "customer" || want === "vendor" ? partyTypeQuery(want as any) : filter.type;
+      }
       if (filter?.channel) query.channel = filter.channel;
       if (filter?.region) query.region = { $regex: filter.region, $options: "i" };
 

@@ -9,6 +9,7 @@ import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
+import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 
 const reportTabsObj = [
   { id: "GST Summary", label: "GST Summary", icon: <FaCalculator className="text-blue-600" /> },
@@ -248,14 +249,14 @@ const GSTReports: React.FC = () => {
   // Filter Dropdown Options (FIXED)
   // --------------------------------------------
   const customerOptions = accounts
-    .filter((a) => a.type === "customer")
+    .filter((a) => isCustomerParty(a.type))
     .map((a) => ({
       label: a.name,
       value: a.name,
     }));
 
   const vendorOptions = accounts
-    .filter((a) => a.type === "vendor")
+    .filter((a) => isVendorParty(a.type))
     .map((a) => ({
       label: a.name,
       value: a.name,

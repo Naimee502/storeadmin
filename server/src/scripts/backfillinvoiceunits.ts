@@ -8,7 +8,8 @@
 // an explicit "— Select unit —" so a line CAN be repaired by hand; this script
 // is for not doing that hundreds of times.
 //
-// What it fills in: the variant's own base unit, with unitqty 1.
+// What it fills in: the variant's own base unit — and ONLY that. unitqty is left
+// exactly as it is, so the script cannot change what any line means.
 //
 // Why that is safe rather than a guess. Every quantity is converted with
 // convertToBaseUnit(qty * unitqty, unitid, variant), and that function returns
@@ -83,6 +84,7 @@ async function main() {
     let lines = 0;
     const repairable: Array<{ inv: any; idx: number[]; units: string[] }> = [];
     const stuck: string[] = [];
+    const odd: string[] = [];
 
     for (const inv of invoices) {
       const idx: number[] = [];
@@ -97,6 +99,11 @@ async function main() {
         }
         idx.push(i);
         units.push(base);
+        if (!(Number(line?.unitqty) > 0)) {
+          odd.push(
+            `#${inv.billnumber || inv._id} line ${i + 1}: unitqty is ${line?.unitqty} — this line moves no stock`
+          );
+        }
       });
       if (idx.length) {
         repairable.push({ inv, idx, units });
@@ -115,6 +122,13 @@ async function main() {
     );
     if (repairable.length > 20) console.log(`    ... and ${repairable.length - 20} more invoice(s)`);
 
+    if (odd.length) {
+      console.log(`  ${odd.length} line(s) carry a unitqty of 0 or less — the unit is filled in,`);
+      console.log(`  but the quantity they move stays 0. Worth a look:`);
+      odd.slice(0, 20).forEach((x) => console.log(`    ? ${x}`));
+      if (odd.length > 20) console.log(`    ... and ${odd.length - 20} more`);
+    }
+
     // Never swallow these — they stay unsaveable until someone opens the bill.
     if (stuck.length) {
       console.log(`  ${stuck.length} line(s) need a human (no base unit to fall back on):`);
@@ -130,8 +144,11 @@ async function main() {
           const set: any = {};
           idx.forEach((i, n) => {
             set[`productservice.${i}.${spec.field}`] = new mongoose.Types.ObjectId(units[n]);
-            // unitqty of 1 is what the missing-unit path was already assuming.
-            set[`productservice.${i}.unitqty`] = 1;
+            // unitqty is deliberately NOT touched. Every quantity is computed as
+            // qty * unitqty, so rewriting it would change what the line means —
+            // and a line sitting at 0 moved no stock at all, so "correcting" it
+            // to 1 would make a later edit hand back inventory that never left.
+            // This script fills in the missing unit and nothing else.
           });
           // updateOne, not save(): the invoice hooks repost journals and move
           // stock, and this repair must move neither.

@@ -41,6 +41,7 @@ import {
 } from "../../utils/helper";
 import { showMessage } from "../../redux/slices/message";
 import { partyLabel } from "../../utils/partylabel";
+import { isCustomerParty } from "../../utils/partytype";
 
 /* ---------------- Helpers ---------------- */
 function getPriceFromUnitPrice(u: any) {
@@ -163,7 +164,7 @@ export default function POSDashboard() {
   /* ---------- Customer / accounts ---------- */
   const { data: accountData, refetch: refetchAccounts } = useAccountsQuery();
   const accounts = accountData?.getAccounts || [];
-  const customerOptions = accounts.filter((a: any) => a.type === "customer");
+  const customerOptions = accounts.filter((a: any) => isCustomerParty(a.type));
 
   /* ---------- Auth context ---------- */
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);

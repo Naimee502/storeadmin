@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
+import { isVendorParty } from "../../../utils/partytype";
 
 const AddEditPurchaseOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -103,7 +104,7 @@ const AddEditPurchaseOrder = () => {
   const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
   // For Purchase Order, the party is a vendor / supplier
   const vendorAccounts =
-    accountData?.getAccounts?.filter((acc: any) => acc.type === "vendor") || [];
+    accountData?.getAccounts?.filter((acc: any) => isVendorParty(acc.type)) || [];
   const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),

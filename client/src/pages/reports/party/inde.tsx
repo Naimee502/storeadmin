@@ -18,6 +18,7 @@ import { showMessage } from "../../../redux/slices/message";
 
 import { FaUserClock, FaStoreSlash, FaHistory, FaBell, FaFileAlt } from "react-icons/fa";
 import { partyLabel as sharedPartyLabel } from "../../../utils/partylabel";
+import { isCustomerParty, isVendorParty, isBothParty } from "../../../utils/partytype";
 
 const reportTabsObj = [
   { id: "Customer Outstanding", label: "Customer Outstanding", icon: <FaUserClock className="text-blue-600" /> },
@@ -469,14 +470,17 @@ const PartyReports: React.FC = () => {
   // -----------------------------
   const customerOutstandingData = useMemo(() => {
     return accounts
-      .filter((a: any) => a.type === "customer")
+      // A both-party appears on this list for its SALES side and on the vendor
+      // list for its purchases — the two are different questions and each needs
+      // its own row. The netted figure lives on the party's statement.
+      .filter((a: any) => isCustomerParty(a.type))
       .map((a: any) => buildOutstandingRow(a, salesInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, salesInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   const vendorOutstandingData = useMemo(() => {
     return accounts
-      .filter((a: any) => a.type === "vendor")
+      .filter((a: any) => isVendorParty(a.type))
       .map((a: any) => buildOutstandingRow(a, purchaseInvoices));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
@@ -486,9 +490,12 @@ const PartyReports: React.FC = () => {
   // -----------------------------
   const agingData = useMemo(() => {
     return accounts
-      .filter((a: any) => a.type === "customer" || a.type === "vendor")
+      .filter((a: any) => isCustomerParty(a.type) || isVendorParty(a.type))
       .map((a: any) => {
-        const invoices = a.type === "customer" ? salesInvoices : purchaseInvoices;
+        // Aging answers "what is overdue FROM them", so a party that is both
+        // ages on its receivable side. Their payable side is watched on the
+        // Vendor Outstanding tab instead.
+        const invoices = isCustomerParty(a.type) ? salesInvoices : purchaseInvoices;
         const outstanding = calculateOutstanding(a, invoices);
         const { aging, nextDue, maxOverdueDays } = getBillInfo(a, invoices);
         const creditLimit = Number(a.creditlimit || 0);
@@ -528,7 +535,7 @@ const PartyReports: React.FC = () => {
   const statementPartyOptions = useMemo(
     () =>
       accounts
-        .filter((a: any) => a.type === "customer" || a.type === "vendor")
+        .filter((a: any) => isCustomerParty(a.type) || isVendorParty(a.type))
         .map((a: any) => ({ label: sharedPartyLabel(a) || partyLabelOf(a), value: a.id })),
     [accounts]
   );
@@ -590,7 +597,16 @@ const PartyReports: React.FC = () => {
       return raw.toUpperCase().startsWith(prefix) ? raw : `${prefix}${raw}`;
     };
 
-    if (isVendor) {
+    // Which documents belong on this ledger. A party that is both gets both, on
+    // ONE running balance — that is the whole point of the type: a purchase
+    // credits them, a sale debits them, and the closing figure is the single
+    // answer to "who owes whom".
+    const showPurchase = isVendorParty(a.type);
+    // Anything that is not specifically a vendor reads as a customer, which is
+    // how this statement behaved before the type existed.
+    const showSales = isCustomerParty(a.type) || !showPurchase;
+
+    if (showPurchase) {
       mine(purchaseInvoices).forEach((inv: any) =>
         rows.push({
           t: timeOf(inv.billdate), type: "Purchase", ref: refNo("INV-", inv.billnumber),
@@ -605,7 +621,9 @@ const PartyReports: React.FC = () => {
           remarks: (r.notes || r.narration || "").trim() || "-",
         })
       );
-    } else {
+    }
+
+    if (showSales) {
       mine(salesInvoices).forEach((inv: any) =>
         rows.push({
           t: timeOf(inv.billdate), type: "Sale", ref: refNo("INV-", inv.billnumber),
@@ -675,7 +693,11 @@ const PartyReports: React.FC = () => {
     const out: any[] = [
       {
         date: appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-",
-        txnType: isVendor ? "Payable Beginning Balance" : "Receivable Beginning Balance",
+        txnType: isBothParty(a.type)
+          ? "Beginning Balance"
+          : isVendor
+          ? "Payable Beginning Balance"
+          : "Receivable Beginning Balance",
         ref: "",
         debit: balance > 0 ? balance.toFixed(2) : "0.00",
         credit: balance < 0 ? Math.abs(balance).toFixed(2) : "0.00",

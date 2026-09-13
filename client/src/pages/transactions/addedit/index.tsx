@@ -14,6 +14,7 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
+import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 
 
 const AddEditTransaction = () => {
@@ -81,8 +82,8 @@ const AddEditTransaction = () => {
     return (accountsData?.getAccounts || [])
       .filter((a: any) =>
         settleSide === "SalesInvoice"
-          ? a.type === "customer"
-          : a.type === "vendor" || a.type === "other"
+          ? isCustomerParty(a.type)
+          : isVendorParty(a.type) || a.type === "other"
       )
       .map((a: any) => ({
         value: a.id,

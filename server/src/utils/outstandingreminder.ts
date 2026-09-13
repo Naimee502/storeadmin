@@ -6,6 +6,7 @@ import { SalesInvoice } from "../models/salesinvoice";
 import { Transaction } from "../models/transactions";
 import { pushNotification } from "../models/notifications";
 import { getPartyOutstandingBills, getPartyTotalDue } from "./allocation";
+import { partyTypeQuery } from "./partytype";
 
 // ---------------------------------------------------------------------------
 // Shared outstanding-reminder logic.
@@ -163,7 +164,8 @@ export const sendMonthEndRemindersForAdmin = async (adminid: any): Promise<numbe
   // NOTE: the ownership field on Account is `admin`, not `adminid`.
   const customers: any[] = await Account.find({
     admin: adminid,
-    type: "customer",
+    // A firm we also buy from is still a customer with bills to chase.
+    type: partyTypeQuery("customer"),
     status: true,
   })
     .select("_id branchid")
