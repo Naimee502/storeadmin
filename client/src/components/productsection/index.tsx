@@ -52,6 +52,19 @@ const getUnitId = (value: any): string | null => {
   return null;
 };
 
+/** Unit name for an id, looked up wherever the variant happens to carry it. */
+const unitNameFor = (variant: any, unitid?: string | null): string => {
+  if (!unitid) return "";
+  const fromPrice = variant?.unitprices?.find(
+    (up: any) => (up.unitid?.id ?? up.unitid) === unitid
+  );
+  if (fromPrice?.unitname) return fromPrice.unitname;
+  const fromConv = variant?.unitconversions?.find(
+    (uc: any) => (uc.unitid?.id ?? uc.unitid) === unitid
+  );
+  return fromConv?.unitname || "";
+};
+
 /** ✅ Normalize backend product */
 const normalizeProduct = (product: any) => ({
   ...product,
@@ -950,20 +963,18 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Unit (Sales only) - Double-click to edit */}
                     {type === "sales" && (
-                      <td
-                        className="border p-2 w-20 truncate text-center cursor-pointer hover:bg-gray-100"
-                        onDoubleClick={() => {
-                          setEditingCell({ rowIndex: i, field: "unit" });
-                          setEditingValue(`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`);
-                        }}
-                      >
+                      <td className="border p-2 w-20 truncate text-center">
                         {editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
                           <select
                             autoFocus
-                            value={editingValue}
+                            // Driven by the row itself rather than by editingValue. The
+                            // row is what gets saved, so the box can never show one unit
+                            // while the line carries another.
+                            value={`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`}
                             onChange={(e) => {
-                              setEditingValue(e.target.value);
                               handleUnitChange(i, e.target.value, variant);
+                              setEditingCell(null);
+                              setEditingValue("");
                             }}
                             onBlur={() => {
                               setEditingCell(null);
@@ -982,14 +993,40 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                                 value: `${up.unitid?.id ?? up.unitid}--${up.quantity}`,
                                 label: `${up.quantity} ${up.unitname || up.unitid?.unitname || "Unit"}`,
                               }));
-                              const unique = Array.from(new Map(opts.map((o: any) => [o.value, o])).values());
-                              return (unique as any[]).map((o) => (
+                              const unique = Array.from(
+                                new Map(opts.map((o: any) => [o.value, o])).values()
+                              ) as any[];
+                              // The line's own unit may not be among the variant's current
+                              // price rows — an older bill, or a price row since removed.
+                              // Without an option to match it the browser silently snaps to
+                              // the first one, which reads as the cell reverting on its own.
+                              const current = `${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`;
+                              if (p.salesunitid && !unique.some((o) => o.value === current)) {
+                                unique.unshift({
+                                  value: current,
+                                  label: `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim(),
+                                });
+                              }
+                              return unique.map((o) => (
                                 <option key={o.value} value={o.value}>{o.label}</option>
                               ));
                             })()}
                           </select>
                         ) : (
-                          <>{price?.quantity} {price?.unitname}</>
+                          // The handler sits on the content, not on the <td>: on the cell
+                          // it stayed live underneath the open select, and any further
+                          // click inside the cell reset the editor to the row's old value.
+                          <div
+                            className="cursor-pointer hover:bg-gray-100"
+                            onDoubleClick={() => {
+                              setEditingCell({ rowIndex: i, field: "unit" });
+                              setEditingValue(`${p.salesunitid ?? ""}--${p.unitquantity ?? ""}`);
+                            }}
+                          >
+                            {price
+                              ? `${price.quantity} ${price.unitname ?? ""}`.trim()
+                              : `${p.unitquantity ?? ""} ${unitNameFor(variant, p.salesunitid)}`.trim()}
+                          </div>
                         )}
                       </td>
                     )}
