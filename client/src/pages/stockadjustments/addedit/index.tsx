@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
+import { BRANCH_REQUIRED } from "../../../utils/branch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,12 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const storedBranchId = localStorage.getItem("branchid") || "";
   const storedAdminId = localStorage.getItem("adminid") || "";
   const { data: branchesData } = useBranchesQuery();
+  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // that is all it was ever meant for. It used to sit on the admin arm too,
+  // which meant an admin on "All Branches" silently filed the document under
+  // whichever branch happened to come back first: no error, wrong branch, and
+  // nothing on screen to say so. Admin now resolves to the chosen branch or to
+  // nothing, and the save path says so out loud.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId =
@@ -76,10 +83,10 @@ const StockAdjustmentAddEdit: React.FC = () => {
     : (admin?.id || storedAdminId);
 
   const branchId =
-    type === "admin" ? (selectedBranchId || firstBranchId)
+    type === "admin" ? selectedBranchId
     : type === "branch" ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
     : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
-    : (selectedBranchId || storedBranchId || firstBranchId);
+    : (selectedBranchId || storedBranchId);
 
   // ── Header state ──────────────────────────────────────────────────────────
   const [adjDate, setAdjDate] = useState(todayYMD());
@@ -213,6 +220,15 @@ const StockAdjustmentAddEdit: React.FC = () => {
       dispatch(
         showMessage({ message: "Add at least one item with quantity > 0.", type: "error" })
       );
+      return;
+    }
+
+    // The header can sit on "All Branches" (value ""), but this document must
+    // belong to one real branch — the server requires it. Said as a toast so
+    // the form stays usable; sealing the button would only leave the user
+    // staring at a dead control.
+    if (!branchId) {
+      dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
       return;
     }
 

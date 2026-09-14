@@ -22,6 +22,8 @@ import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
+import { BRANCH_REQUIRED } from "../../../utils/branch";
+
 
 type SettledInvoice = {
   invoiceid: string;
@@ -997,6 +999,12 @@ const AddEditPayment = () => {
   };
 
   const persist = async (lines: SettledInvoice[], amount: number, openingsettled = 0) => {
+    // Every save path (plain, auto-settle, re-allocate) funnels through here,
+    // so one check covers them all.
+    if (!branchId) {
+      dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
+      return;
+    }
     const input: any = {
       adminid: adminId,
       branchid: branchId,

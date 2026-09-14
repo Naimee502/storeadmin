@@ -42,6 +42,15 @@ type ProductSectionProps = {
   invoiceHistory?: any[];
   /** Optional override for which module's permissions to check (e.g., salesorder instead of salesinvoice) */
   permissionModuleId?: string;
+  /**
+   * The SAVED lines of the invoice being edited, on an edit screen.
+   *
+   * Their stock is already out of the branch, and the stock hook puts it back
+   * before re-deducting, so those units still belong to this bill: a bill that
+   * took the last 3 pieces must stay editable even though stock now reads 0.
+   * Left undefined on a new invoice, where nothing is reserved yet.
+   */
+  originalProducts?: InvoiceProduct[];
 };
 
 /** ✅ Safely convert unit value (string | object | null) → string | null */
@@ -98,6 +107,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   iservice = false,
   invoiceHistory = [],
   permissionModuleId,
+  originalProducts,
 }) => {
   const normalizedProducts = productData.map(normalizeProduct);
 
@@ -109,12 +119,15 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const shortfallByLine = useMemo(() => {
     const map = new Map<number, { required: number; available: number }>();
     if (type !== "sales" || iservice) return map;
-    getStockShortfalls(products, normalizedProducts, { isService: iservice }).forEach((s) => {
+    getStockShortfalls(products, normalizedProducts, {
+      isService: iservice,
+      originalProducts,
+    }).forEach((s) => {
       s.lineIndexes.forEach((i) => map.set(i, { required: s.required, available: s.available }));
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, productData, type, iservice]);
+  }, [products, productData, type, iservice, originalProducts]);
 
   const defaultModuleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const moduleId = permissionModuleId || defaultModuleId;
@@ -124,6 +137,26 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   };
 
   const [selectedProduct, setSelectedProduct] = useState<Partial<InvoiceProduct>>({});
+
+  /**
+   * Base units of the product currently in the Add box that the SAVED version
+   * of this invoice already holds.
+   *
+   * Added to the branch stock before every sales quantity check below, so
+   * re-opening a bill to change a rate does not hit "exceeds available stock"
+   * on stock the bill itself took out. Uses the same arithmetic as usedBaseQty
+   * so the two can be compared. Always 0 on a new invoice.
+   */
+  const reservedBaseQtyFor = (variant: any): number => {
+    if (type !== "sales" || !originalProducts?.length || !variant) return 0;
+    return originalProducts
+      .filter(
+        (p) =>
+          p.productserviceid === selectedProduct.productserviceid &&
+          (p.variantid ?? null) === (selectedProduct.variantid ?? null)
+      )
+      .reduce((sum, p) => sum + getInvoiceLineBaseQty(p, variant), 0);
+  };
 
   /** Last 5 times the selected product was sold/purchased — date, party, qty, rate, disc */
   const productSaleHistory = useMemo(() => {
@@ -481,10 +514,14 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         .filter(p => p.variantid === selectedProduct.variantid)
         .reduce((sum, p) => sum + getInvoiceLineBaseQty(p, variant), 0);
 
+      // What this bill already had reserved is still its own to spend — see
+      // originalProducts. On a new invoice this is 0 and nothing changes.
+      const effectiveStock = currentStock + reservedBaseQtyFor(variant);
+
       // ❌ FINAL SALES VALIDATION
-      if (type === "sales" && usedBaseQty + newBaseQty > currentStock) {
+      if (type === "sales" && usedBaseQty + newBaseQty > effectiveStock) {
         setQtyError(
-          `Sales quantity exceeds available stock (${currentStock} in base units)`
+          `Sales quantity exceeds available stock (${effectiveStock} in base units)`
         );
         return;
       }
@@ -742,7 +779,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               const selectedUnitId = selectedProduct.salesunitid || variant.baseunitid;
               const baseQty = getBaseQuantity(qty, selectedUnitId, variant);
 
-              const currentStock = Number(variant.currentstock ?? 0);
+              const currentStock =
+                Number(variant.currentstock ?? 0) + reservedBaseQtyFor(variant);
 
               // ✅ SALES ONLY validation
               if (type === "sales" && baseQty > currentStock) {

@@ -16,6 +16,7 @@ import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isCustomerParty } from "../../../utils/partytype";
+import { BRANCH_REQUIRED } from "../../../utils/branch";
 
 const AddEditSalesOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -31,16 +32,22 @@ const AddEditSalesOrder = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
+  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // that is all it was ever meant for. It used to sit on the admin arm too,
+  // which meant an admin on "All Branches" silently filed the document under
+  // whichever branch happened to come back first: no error, wrong branch, and
+  // nothing on screen to say so. Admin now resolves to the chosen branch or to
+  // nothing, and the save path says so out loud.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId = type === 'admin' ? admin?.id
     : type === 'branch' ? (branch?.admin?.id || admin?.id || storedAdminId)
     : type === 'staff' ? (staff?.admin?.id || admin?.id || storedAdminId)
     : (admin?.id || storedAdminId);
-  const branchId = type === 'admin' ? (selectedBranchId || firstBranchId)
+  const branchId = type === 'admin' ? selectedBranchId
     : type === 'branch' ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
     : type === 'staff' ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
-    : (selectedBranchId || storedBranchId || firstBranchId);
+    : (selectedBranchId || storedBranchId);
 
   const creatorInfo = useMemo(() => {
     if (type === 'admin' && admin) return { id: admin.id, name: admin.name, type: 'admin' };
@@ -199,9 +206,14 @@ const AddEditSalesOrder = () => {
       return;
     }
 
-    if (!adminId || !branchId) {
-      console.error("Session error debug:", { type, adminId, branchId, staff, admin, selectedBranchId, storedBranchId });
-      dispatch(showMessage({ message: `Session error: ${!adminId ? 'Admin' : 'Branch'} ID is missing. Please re-login.`, type: "error" }));
+    // A missing branch is almost always the header sitting on "All Branches",
+    // not a broken session — say the thing the user can actually act on.
+    if (!branchId) {
+      dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
+      return;
+    }
+    if (!adminId) {
+      dispatch(showMessage({ message: "Session error: Admin ID is missing. Please re-login.", type: "error" }));
       return;
     }
 

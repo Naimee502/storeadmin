@@ -42,6 +42,7 @@ import {
 import { showMessage } from "../../redux/slices/message";
 import { partyLabel } from "../../utils/partylabel";
 import { isCustomerParty } from "../../utils/partytype";
+import { BRANCH_REQUIRED } from "../../utils/branch";
 
 /* ---------------- Helpers ---------------- */
 function getPriceFromUnitPrice(u: any) {
@@ -190,6 +191,12 @@ export default function POSDashboard() {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
+  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // that is all it was ever meant for. It used to sit on the admin arm too,
+  // which meant an admin on "All Branches" silently filed the document under
+  // whichever branch happened to come back first: no error, wrong branch, and
+  // nothing on screen to say so. Admin now resolves to the chosen branch or to
+  // nothing, and the save path says so out loud.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId =
@@ -202,12 +209,12 @@ export default function POSDashboard() {
       : (admin?.id || storedAdminId);
   const branchId =
     type === "admin"
-      ? (selectedBranchId || firstBranchId)
+      ? selectedBranchId
       : type === "branch"
       ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
       : type === "staff"
       ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
-      : (selectedBranchId || storedBranchId || firstBranchId);
+      : (selectedBranchId || storedBranchId);
 
   const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
   const { addSalesOrderMutation } = useSalesOrderMutations();
@@ -611,10 +618,16 @@ export default function POSDashboard() {
       return;
     }
 
-    if (!adminId || !branchId) {
+    // A missing branch is almost always the header sitting on "All Branches",
+    // not a broken session — say the thing the user can actually act on.
+    if (!branchId) {
+      dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
+      return;
+    }
+    if (!adminId) {
       dispatch(
         showMessage({
-          message: "Session error: Admin or Branch ID is missing. Please re-login.",
+          message: "Session error: Admin ID is missing. Please re-login.",
           type: "error",
         })
       );

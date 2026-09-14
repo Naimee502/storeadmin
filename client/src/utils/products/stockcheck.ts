@@ -21,6 +21,7 @@ export interface StockShortfall {
   lineIndexes: number[];
 }
 
+
 const idOf = (value: any): string =>
   !value ? "" : typeof value === "string" ? value : String(value.id ?? "");
 
@@ -38,13 +39,46 @@ export const lineBaseQty = (line: InvoiceProduct, variant: any): number => {
 };
 
 /**
+ * Base-unit quantity this variant already holds on the SAVED version of the
+ * invoice being edited.
+ *
+ * On an edit the stock hook puts the old lines back before deducting the new
+ * ones, so an invoice that already took 3 pieces out is still entitled to
+ * those 3 even though `currentstock` now reads 0. Without this, opening a
+ * saved bill just to change a rate would flag every line red and seal the
+ * Update button — the server nets it off exactly this way
+ * (server utils/stockguard), so the panel has to as well.
+ */
+export const getReservedBaseQty = (
+  originalProducts: InvoiceProduct[] | undefined,
+  productId: string,
+  variantId: string,
+  variant: any
+): number => {
+  if (!originalProducts?.length) return 0;
+  return originalProducts.reduce((sum, line) => {
+    if (idOf(line.productserviceid) !== productId) return sum;
+    if (idOf(line.variantid) !== variantId) return sum;
+    return sum + lineBaseQty(line, variant);
+  }, 0);
+};
+
+/**
  * Returns one entry per variant whose total quantity on this invoice exceeds
  * the branch stock. Empty array = nothing to warn about.
  */
 export const getStockShortfalls = (
   products: InvoiceProduct[],
   productData: any[],
-  opts: { isService?: boolean } = {}
+  opts: {
+    isService?: boolean;
+    /**
+     * The invoice's own SAVED lines, when an existing bill is being edited.
+     * Their quantity is credited back before the comparison, mirroring the
+     * server guard — see getReservedBaseQty above.
+     */
+    originalProducts?: InvoiceProduct[];
+  } = {}
 ): StockShortfall[] => {
   if (opts.isService) return [];
   if (!products?.length || !productData?.length) return [];
@@ -77,7 +111,15 @@ export const getStockShortfalls = (
 
   const shortfalls: StockShortfall[] = [];
   byVariant.forEach(({ product, variant, qty, lineIndexes }) => {
-    const available = Number(variant.currentstock ?? 0);
+    // What this invoice already had reserved counts as available to it, so an
+    // untouched (or reduced) line on a saved bill never reads as short.
+    const reserved = getReservedBaseQty(
+      opts.originalProducts,
+      String(product.id ?? product._id ?? ""),
+      String(variant.id ?? variant._id ?? ""),
+      variant
+    );
+    const available = Number(variant.currentstock ?? 0) + reserved;
     if (qty > available) {
       shortfalls.push({
         productname: product.name || "Unknown product",

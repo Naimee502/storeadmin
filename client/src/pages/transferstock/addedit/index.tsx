@@ -17,6 +17,7 @@ import {
   useTransferStockMutations,
   useTransferStockByIDQuery,
 } from "../../../graphql/hooks/transferstock";
+import { BRANCH_REQUIRED } from "../../../utils/branch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,13 +84,19 @@ const TransferStockAddEdit: React.FC = () => {
     : (admin?.id || storedAdminId);
 
   const { data: branchesData } = useBranchesQuery();
+  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // that is all it was ever meant for. It used to sit on the admin arm too,
+  // which meant an admin on "All Branches" silently filed the document under
+  // whichever branch happened to come back first: no error, wrong branch, and
+  // nothing on screen to say so. Admin now resolves to the chosen branch or to
+  // nothing, and the save path says so out loud.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const fromBranchId =
-    type === "admin" ? (selectedBranchId || firstBranchId)
+    type === "admin" ? selectedBranchId
     : type === "branch" ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
     : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
-    : (selectedBranchId || storedBranchId || firstBranchId);
+    : (selectedBranchId || storedBranchId);
 
   const branches = branchesData?.getBranches || [];
   const fromBranchName = branches.find((b: any) => b.id === fromBranchId)?.branchname || fromBranchId;
@@ -240,6 +247,8 @@ const TransferStockAddEdit: React.FC = () => {
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = (): string | null => {
+    // Source branch comes from the header; on "All Branches" there is none.
+    if (!fromBranchId) return BRANCH_REQUIRED;
     if (!tobranchid) return "Please select a destination branch.";
     if (tobranchid === fromBranchId) return "From and To branch cannot be the same.";
     if (!transferdate) return "Transfer date is required.";

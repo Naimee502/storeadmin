@@ -20,6 +20,7 @@ import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { getStockShortfalls } from "../../../utils/products/stockcheck";
 import { isCustomerParty } from "../../../utils/partytype";
+import { BRANCH_REQUIRED } from "../../../utils/branch";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -40,16 +41,22 @@ const AddEditSalesInvoice = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
+  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // that is all it was ever meant for. It used to sit on the admin arm too,
+  // which meant an admin on "All Branches" silently filed the document under
+  // whichever branch happened to come back first: no error, wrong branch, and
+  // nothing on screen to say so. Admin now resolves to the chosen branch or to
+  // nothing, and the save path says so out loud.
   const firstBranchId = branchesData?.getBranches?.[0]?.id || "";
 
   const adminId = type === 'admin' ? admin?.id
     : type === 'branch' ? (branch?.admin?.id || admin?.id || storedAdminId)
     : type === 'staff' ? (staff?.admin?.id || admin?.id || storedAdminId)
     : (admin?.id || storedAdminId);
-  const branchId = type === 'admin' ? (selectedBranchId || firstBranchId)
+  const branchId = type === 'admin' ? selectedBranchId
     : type === 'branch' ? (branch?.id || selectedBranchId || storedBranchId || firstBranchId)
     : type === 'staff' ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
-    : (selectedBranchId || storedBranchId || firstBranchId);
+    : (selectedBranchId || storedBranchId);
 
   const creatorInfo = useMemo(() => {
     if (type === 'admin' && admin) return { id: admin.id, name: admin.name, type: 'admin' };
@@ -178,9 +185,31 @@ const AddEditSalesInvoice = () => {
   // Products box and its stock check. Re-run the check over the finished list
   // so the shortfall is visible here instead of surfacing as a server error —
   // or, worse, as silently negative stock.
+  //
+  // On an EDIT the saved lines are netted off first. The bill's own stock is
+  // already out of the branch — a bill that took the last 3 pieces leaves
+  // currentstock at 0 — and the stock hook puts it back before deducting the
+  // new lines, so those units are still this bill's to spend. Without this,
+  // re-opening a saved invoice just to fix a rate would flag every line red
+  // and seal Update over stock the invoice itself consumed. The server nets it
+  // the same way (server utils/stockguard), so the two stay in step.
+  const originalProducts = useMemo<InvoiceProduct[]>(() => {
+    if (!isEdit) return [];
+    return (data?.getSalesInvoiceById?.productservice || []).map((p: any) => ({
+      productserviceid: p.productserviceid?.id ?? p.productserviceid,
+      variantid: p.variantid?.id ?? p.variantid ?? null,
+      salesunitid: p.salesunitid?.id ?? p.salesunitid ?? null,
+      productname: "",
+      unitquantity: p.unitqty,
+      quantity: p.qty,
+      rate: p.rate,
+      total: p.amount,
+    })) as InvoiceProduct[];
+  }, [isEdit, data]);
+
   const stockShortfalls = useMemo(
-    () => getStockShortfalls(products, salesProductData, { isService }),
-    [products, salesProductData, isService]
+    () => getStockShortfalls(products, salesProductData, { isService, originalProducts }),
+    [products, salesProductData, isService, originalProducts]
   );
   // Business Settings -> "Allow negative stock": when it's on, short lines are
   // still flagged in red but the bill is allowed through — the server takes the
@@ -420,6 +449,15 @@ const AddEditSalesInvoice = () => {
     }
 
     setErrors({});
+
+    // The header can sit on "All Branches" (value ""), but this document must
+    // belong to one real branch — the server requires it. Said as a toast so
+    // the form stays usable; sealing the button would only leave the user
+    // staring at a dead control.
+    if (!branchId) {
+      dispatch(showMessage({ message: BRANCH_REQUIRED, type: "error" }));
+      return;
+    }
 
     if (products.length === 0) {
       alert("Please add at least one product/service");
@@ -746,6 +784,7 @@ const AddEditSalesInvoice = () => {
             type="sales"
             navigate={navigate}
             iservice={isService}
+            originalProducts={originalProducts}
           />
 
           <PosAddCustomer
