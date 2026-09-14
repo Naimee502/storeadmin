@@ -104,8 +104,11 @@ const accountSchema = new mongoose.Schema(
      * which sums openingsettled party-wide, not per side).
      *
      * The LEDGER never sees 'both': a trial balance line has to stand on one
-     * side, so the hooks below write 'debit' for it — the same side a
-     * both-party already defaults to today, so the books do not move.
+     * side. 'both' says WHERE the figure may be settled, not which side it
+     * stands on, so the hooks below leave the ledger's existing side ALONE.
+     * They used to force 'debit', which silently flipped a credit opening — a
+     * party the firm owed 10.98 lakh turned into one that owed the firm 10.98
+     * lakh, a 21.97 lakh swing in the books, with nothing on screen to say so.
      */
     openingbalancetype: {
       type: String,
@@ -181,9 +184,14 @@ accountSchema.pre("save", async function (next) {
         accountgroupid: this.accountgroupid,
         ledgername: `${this.name} - ${this.accountcode}`,
         openingbalance: this.openingbalance,
-        // 'both' is an account-level setting; the ledger keeps a real side.
+        // A brand new ledger has no side to preserve, so one has to be chosen:
+        // a vendor's opening is money owed out (credit), everyone else's is
+        // money owed in (debit). Nothing is being flipped here — the ledger is
+        // being created — and the user can change it on the account afterwards.
         openingbalancetype:
-          this.openingbalancetype === "both" ? "debit" : this.openingbalancetype,
+          this.openingbalancetype === "both"
+            ? (String(this.type).toLowerCase() === "vendor" ? "credit" : "debit")
+            : this.openingbalancetype,
         status: true,
       });
 
@@ -237,8 +245,10 @@ accountSchema.pre('findOneAndUpdate', async function (next) {
       const $set: Record<string, any> = {};
       if (newName) $set.ledgername = `${newName} - ${doc.accountcode}`;
       if (newOpening !== undefined) $set.openingbalance = newOpening;
-      if (newOpeningType !== undefined)
-        $set.openingbalancetype = newOpeningType === 'both' ? 'debit' : newOpeningType;
+      // 'both' is deliberately NOT pushed: the ledger keeps whichever side it
+      // already stands on. Only a real debit/credit choice moves it.
+      if (newOpeningType !== undefined && newOpeningType !== 'both')
+        $set.openingbalancetype = newOpeningType;
       if (newGroup !== undefined) $set.accountgroupid = newGroup;
       if (Object.keys($set).length) {
         await AccountLedger.updateOne({ _id: doc.ledgerid }, { $set });
