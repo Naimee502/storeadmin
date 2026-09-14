@@ -538,17 +538,20 @@ export async function getPartyOpeningDue(opts: {
     : null;
   const src = led || acc;
 
-  // The AMOUNT is the ledger's when there is one, but the "which side" setting
-  // is the ACCOUNT's: the ledger is only ever debit or credit, because a trial
-  // balance line has to stand somewhere (see models/accounts).
-  const bothSides = String(acc.openingbalancetype).toLowerCase() === "both";
-
   let opening: number;
-  if (bothSides) {
-    // Owed on either side, out of one pool. Positive whichever screen asks —
-    // the party-wide openingsettled subtraction below is what stops it being
-    // collected twice: settle ₹50,000 on the receipt side and the payment side
-    // is left offering the remainder, not the whole figure again.
+  if (isBothParty(acc.type)) {
+    // A Customer & Vendor party trades in both directions, so its opening is
+    // offered on BOTH payment screens — positive whichever side asks, and the
+    // side it is booked on (debit or credit) is left to the ledger and the
+    // statement, untouched.
+    //
+    // It cannot be collected twice: the openingsettled subtraction below is
+    // party-wide, not per side, so settling ₹50,000 on the receipt side leaves
+    // the payment side offering the remainder, never the whole figure again.
+    //
+    // This used to be handed to ONE side — a debit opening to the sales side, a
+    // credit one to the purchase side — and the other side was shown ₹0 with no
+    // explanation, which is what sent us looking for a bug that was not there.
     opening = Number(src.openingbalance) || 0;
   } else {
     opening =
@@ -556,12 +559,6 @@ export async function getPartyOpeningDue(opts: {
         ? Number(src.openingbalance) || 0
         : -(Number(src.openingbalance) || 0);
     if (String(acc.type).toLowerCase() === "vendor") opening = -opening;
-
-    if (isBothParty(acc.type)) {
-      // Signed, and handed to whichever side it actually belongs to.
-      const wantPayable = opts.invoicemodel === "PurchaseInvoice";
-      opening = wantPayable ? -opening : opening;
-    }
   }
 
   // A credit opening means WE owe THEM — there is nothing to collect.
@@ -802,18 +799,14 @@ export async function getPartiesTotalDue(opts: {
     isVendor[k] = vendor;
 
     const src = (a.ledgerid && ledgerById[String(a.ledgerid)]) || a;
-    // Amount from the ledger, side from the account — see getPartyOpeningDue.
     // This bulk figure is ONE net number per party for lists and reports, not a
-    // per-side one, so a 'both' opening is counted once, on the receivable side
-    // — exactly what it did before the setting existed. Only the payment
-    // screens, which ask per side, gain the second side.
-    const bothSides = String(a.openingbalancetype).toLowerCase() === "both";
-    let opening = bothSides
-      ? Number(src.openingbalance) || 0
-      : String(src.openingbalancetype).toLowerCase() === "debit"
-      ? Number(src.openingbalance) || 0
-      : -(Number(src.openingbalance) || 0);
-    if (!bothSides && vendor) opening = -opening;
+    // per-side one, so it stays signed — only the payment screens, which ask
+    // per side, offer a both-party's opening on both.
+    let opening =
+      String(src.openingbalancetype).toLowerCase() === "debit"
+        ? Number(src.openingbalance) || 0
+        : -(Number(src.openingbalance) || 0);
+    if (vendor) opening = -opening;
 
     if (both) {
       // Kept SIGNED. A both-party's net is one subtraction, and clamping the
