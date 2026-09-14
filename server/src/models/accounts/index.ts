@@ -96,9 +96,20 @@ const accountSchema = new mongoose.Schema(
 
     // Accounting Info
     openingbalance: { type: Number, default: 0 },
+    /**
+     * 'both' is for a party that is a customer AND a vendor and carries one
+     * opening figure that is owed on either side — the Payment In and the
+     * Payment Out screen each offer it, out of ONE shared pool, so settling it
+     * on one side reduces what the other side offers (see utils/allocation,
+     * which sums openingsettled party-wide, not per side).
+     *
+     * The LEDGER never sees 'both': a trial balance line has to stand on one
+     * side, so the hooks below write 'debit' for it — the same side a
+     * both-party already defaults to today, so the books do not move.
+     */
     openingbalancetype: {
       type: String,
-      enum: ['debit', 'credit'],
+      enum: ['debit', 'credit', 'both'],
       default: 'debit',
     },
     creditlimit: { type: Number, default: 0 },
@@ -170,7 +181,9 @@ accountSchema.pre("save", async function (next) {
         accountgroupid: this.accountgroupid,
         ledgername: `${this.name} - ${this.accountcode}`,
         openingbalance: this.openingbalance,
-        openingbalancetype: this.openingbalancetype,
+        // 'both' is an account-level setting; the ledger keeps a real side.
+        openingbalancetype:
+          this.openingbalancetype === "both" ? "debit" : this.openingbalancetype,
         status: true,
       });
 
@@ -224,7 +237,8 @@ accountSchema.pre('findOneAndUpdate', async function (next) {
       const $set: Record<string, any> = {};
       if (newName) $set.ledgername = `${newName} - ${doc.accountcode}`;
       if (newOpening !== undefined) $set.openingbalance = newOpening;
-      if (newOpeningType !== undefined) $set.openingbalancetype = newOpeningType;
+      if (newOpeningType !== undefined)
+        $set.openingbalancetype = newOpeningType === 'both' ? 'debit' : newOpeningType;
       if (newGroup !== undefined) $set.accountgroupid = newGroup;
       if (Object.keys($set).length) {
         await AccountLedger.updateOne({ _id: doc.ledgerid }, { $set });

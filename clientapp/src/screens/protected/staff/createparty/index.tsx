@@ -90,7 +90,7 @@ export default function StaffCreateParty() {
   const [pincode, setPincode] = useState('');
   const [creditlimit, setCreditlimit] = useState('');
   const [openingbalance, setOpeningbalance] = useState('');
-  const [openingbalancetype, setOpeningbalancetype] = useState<'debit' | 'credit'>('debit');
+  const [openingbalancetype, setOpeningbalancetype] = useState<'debit' | 'credit' | 'both'>('debit');
   const [channel, setChannel] = useState<Option | null>(null);
   const [region,  setRegion]  = useState<Option>(regionOptions[0]);
   const [parentParty, setParentParty] = useState<Option | null>(null);
@@ -403,7 +403,12 @@ export default function StaffCreateParty() {
           <View style={styles.fieldWrap}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>Balance Type</Text>
             <View style={styles.typeRow}>
-              {(['debit', 'credit'] as const).map(bt => {
+              {/* "Debit & Credit" is offered only for a Customer & Vendor party:
+                  the one opening figure is then owed on either side, and both
+                  the Payment In and the Payment Out screen offer it out of the
+                  same pool. A pure customer or vendor has only one side, so the
+                  chip would mean nothing there. Mirrors the admin panel. */}
+              {([...(['debit', 'credit'] as const), ...(type === 'both' ? (['both'] as const) : [])]).map(bt => {
                 const active = openingbalancetype === bt;
                 return (
                   <TouchableOpacity
@@ -414,7 +419,11 @@ export default function StaffCreateParty() {
                     onPress={() => setOpeningbalancetype(bt)}
                   >
                     <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>
-                      {bt === 'debit' ? 'Debit (To Receive)' : 'Credit (To Pay)'}
+                      {bt === 'debit'
+                        ? 'Debit (To Receive)'
+                        : bt === 'credit'
+                        ? 'Credit (To Pay)'
+                        : 'Debit & Credit (Both)'}
                     </Text>
                   </TouchableOpacity>
                 );

@@ -224,6 +224,15 @@ const AddEditPayment = () => {
   // Null until a preview has run — we never guess it client-side.
   const [openingDue, setOpeningDue] = useState<number | null>(null);
   /**
+   * That preview is a server round-trip, so there is a gap between picking the
+   * party and knowing what they carry. The panel used to fill that gap with
+   * "this party has nothing outstanding" and no concession fields — a definite
+   * answer it did not have yet — and then flip once the reply landed, which
+   * read as the fields switching themselves on late. Tracked so the wait can
+   * say it is waiting.
+   */
+  const [openingLoading, setOpeningLoading] = useState(false);
+  /**
    * Ledger mode's equivalent: what the SELECTED ledger currently carries, as
    * the server last totalled it. A ledger has no bills, so this one figure is
    * its whole outstanding — the counterpart of openingDue above.
@@ -431,9 +440,11 @@ const AddEditPayment = () => {
   useEffect(() => {
     if (!partyid || isLedgerMode || payType === "expense") {
       setOpeningDue(null);
+      setOpeningLoading(false);
       return;
     }
     let cancelled = false;
+    setOpeningLoading(true);
     (async () => {
       try {
         const res = await runPreview({
@@ -452,6 +463,8 @@ const AddEditPayment = () => {
         if (!cancelled) setOpeningDue(Number(res?.data?.previewAllocation?.openingdue) || 0);
       } catch {
         if (!cancelled) setOpeningDue(null);
+      } finally {
+        if (!cancelled) setOpeningLoading(false);
       }
     })();
     return () => {
@@ -1536,7 +1549,12 @@ const AddEditPayment = () => {
                     )}
                     <div className="flex justify-between border-t pt-1">
                       <span className="font-medium">Total Outstanding</span>
-                      <span className="font-semibold text-orange-600">₹{fmt(totalOutstanding)}</span>
+                      {/* ₹0.00 while the server is still answering is a wrong
+                          answer, not an empty one — say nothing until it is
+                          actually known. */}
+                      <span className="font-semibold text-orange-600">
+                        {openingLoading ? "…" : `₹${fmt(totalOutstanding)}`}
+                      </span>
                     </div>
                   </div>
 
@@ -1552,7 +1570,9 @@ const AddEditPayment = () => {
                             {hasSomethingToSettle ? "Settle Amount (₹)" : "Amount (₹)"}
                           </span>
                           <span className="block text-[11px] text-gray-500">
-                            {!hasSomethingToSettle
+                            {openingLoading
+                              ? "Checking what is still open…"
+                              : !hasSomethingToSettle
                               ? "Nothing open — this is recorded On Account and goes onto their next invoice."
                               : directConcessionsAllowed
                               ? hasOpenBills
@@ -1671,6 +1691,10 @@ const AddEditPayment = () => {
                         ? " — and how the discount / commission is split —"
                         : ""}{" "}
                       before it saves.
+                    </p>
+                  ) : openingLoading ? (
+                    <p className="text-xs text-gray-500">
+                      Working out what this party still owes…
                     </p>
                   ) : (
                     dcEnabled && (

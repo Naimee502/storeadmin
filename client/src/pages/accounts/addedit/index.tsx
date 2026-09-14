@@ -210,6 +210,9 @@ const AddEditAccount = () => {
         : value === "vendor"
         ? "credit"
         : undefined;
+    // "Debit & Credit" only exists for a Customer & Vendor party, so moving off
+    // that type has to drop it — otherwise the form would keep submitting a
+    // value its own dropdown no longer offers.
     setFormValues(prev => ({
       ...prev,
       type: value,
@@ -520,7 +523,14 @@ const AddEditAccount = () => {
                   />
                 )}
                 {isFieldEnabled("openingbalancetype") && (
-                  <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }]} placeholder="Select balance type" />
+                  /* "Debit & Credit" is offered only for a Customer & Vendor
+                     party: it means the one opening figure is owed on either
+                     side, so Payment In and Payment Out both offer it out of
+                     the same pool — settle it on one side and the other side is
+                     left with the remainder. For a pure customer or a pure
+                     vendor there is only one side, so the option would mean
+                     nothing. */
+                  <FormField label="Balance Type" name="openingbalancetype" type="select" value={formValues.openingbalancetype} onChange={(e) => handleChange("openingbalancetype", e.target.value)} options={[{ label: "Debit", value: "debit" }, { label: "Credit", value: "credit" }, ...(formValues.type === "both" ? [{ label: "Debit & Credit", value: "both" }] : [])]} placeholder="Select balance type" />
                 )}
                 {isFieldEnabled("creditlimit") && (
                   <FormField
