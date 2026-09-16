@@ -346,7 +346,7 @@ export default function OrderDetail() {
               ]}>
                 <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
                   {item.productserviceid?.imageurl
-                    ? <AppImage uri={item.productserviceid.imageurl} width={IMG.thumb} style={styles.itemImg} resizeMode="cover" />
+                    ? <AppImage uri={item.productserviceid.imageurl} width={IMG.product} style={styles.itemImg} resizeMode="cover" />
                     : <Icon name="package-variant-closed" size={16} color={colors.brand} />
                   }
                 </View>

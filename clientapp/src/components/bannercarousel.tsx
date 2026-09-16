@@ -120,7 +120,10 @@ export const BannerCarousel: React.FC<Props> = ({
           const eyebrowColor = onDark ? 'rgba(255,255,255,0.85)' : colors.brand;
           const bodyColor    = onDark ? 'rgba(255,255,255,0.85)' : colors.subText;
           const ctaBg        = onDark ? '#FFFFFF' : colors.brand;
-          const ctaFg        = onDark ? colors.text : colors.onBrand;
+          // The pill on a dark slide is painted white in both themes, so its
+          // label cannot follow `colors.text` — that is white in dark mode and
+          // the pill came out blank. It is read against the pill, not the page.
+          const ctaFg        = onDark ? '#111111' : colors.onBrand;
 
           return (
             <TouchableOpacity

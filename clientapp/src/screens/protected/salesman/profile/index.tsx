@@ -77,7 +77,7 @@ export default function SalesmanProfile() {
           <Animated.View entering={FadeInUp.duration(400).delay(60)}>
             <LinearGradient colors={[colors.brandSoft, colors.cardGlass]} style={[styles.avatarCard, { borderColor: colors.border }]}>
               <View style={[styles.avatar, { backgroundColor: colors.brand }]}>
-                <Text style={styles.avatarText}>{(user?.name ?? 'S').charAt(0).toUpperCase()}</Text>
+                <Text style={[styles.avatarText, { color: colors.onBrand }]}>{(user?.name ?? 'S').charAt(0).toUpperCase()}</Text>
               </View>
               <Text style={[styles.userName, { color: colors.text }]}>{user?.name ?? account?.name ?? 'Salesman'}</Text>
               <View style={[styles.roleBadge, { backgroundColor: colors.brand + '22' }]}>
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   scroll:    { paddingHorizontal: 18, paddingBottom: 110 },
   avatarCard: { borderRadius: 24, borderWidth: 1, padding: 24, alignItems: 'center', marginTop: 14, marginBottom: 14 },
   avatar:     { width: 72, height: 72, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
-  avatarText: { fontSize: 28, fontFamily: FONTS.bold, color: '#fff' },
+  avatarText: { fontSize: 28, fontFamily: FONTS.bold },
   userName:   { fontSize: 18, fontFamily: FONTS.bold, marginBottom: 8 },
   roleBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   roleText:   { fontSize: 12, fontFamily: FONTS.semiBold },

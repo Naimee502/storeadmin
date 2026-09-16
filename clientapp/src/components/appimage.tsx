@@ -1,38 +1,54 @@
 import React, { memo, useMemo } from 'react';
-import {
-  Image, ImageResizeMode, StyleProp, ImageStyle,
-  NativeSyntheticEvent, ImageLoadEventData,
-} from 'react-native';
+import { ImageResizeMode, StyleProp, ImageStyle } from 'react-native';
+import FastImage, { ResizeMode as FastImageResizeMode } from 'react-native-fast-image';
 import { resolveMediaUrl } from '../config';
 
 /**
  * Every remote image in the app goes through here.
  *
- * Two things it does that a bare <Image source={{ uri }} /> does not:
+ * Three things it does that a bare image tag does not:
  *
  * 1. It asks for the size it is actually going to draw. The server keeps the
  *    original upload — a phone photo of several megabytes — and renders a
  *    small WebP copy on request. A product card asking for `IMG.card` gets
- *    about 25 KB instead of 3 MB, which is the whole difference between a grid
- *    that paints instantly and one that sits on grey boxes until you navigate
- *    away and come back.
+ *    about 25 KB instead of 3 MB.
  *
- * 2. It keeps the `source` object identity stable. `source={{ uri }}` builds a
- *    new object on every render, and these screens re-render constantly — the
- *    cart changes, a price resolves, a settings query lands. Memoising it means
- *    the native image view is never handed "new" work for a picture it is
- *    already showing.
+ *    That resize only happens when /uploads reaches the server. It currently
+ *    does not: nginx answers those URLs itself and drops the "?w=" along with
+ *    the caching headers, so every picture is still the full-size original and
+ *    is re-requested on every launch. See server/deploy/nginx-uploads.conf —
+ *    until that is deployed, no image library can make these pictures small.
+ *
+ * 2. It percent-encodes the path. Uploads keep the name they were uploaded
+ *    under, and most of this store's carry a space; a literal space makes an
+ *    invalid URL, which iOS refuses outright.
+ *
+ * 3. It keeps the `source` object identity stable. Building it inline makes a
+ *    new object on every render, and these screens re-render constantly.
  *
  * What it deliberately does NOT do is hold state of its own. An earlier version
  * faded each picture in, which meant a timer and a setState inside every cell;
  * inside a recycled FlashList that is a re-render arriving in the middle of the
  * list's own measuring pass, and it showed up as blank and misplaced cards.
- * A plain image with a stable source is both faster and correct.
  *
- * It is built on React Native's own <Image>. react-native-fast-image is still
- * in package.json but has no Fabric support, and this app runs on the new
- * architecture; the caching it was wanted for is what the server's immutable
- * Cache-Control headers provide anyway.
+ * ── On react-native-fast-image ──────────────────────────────────────────────
+ * This is built on it by request. It is worth knowing what it is being asked
+ * to do, and what it cannot do.
+ *
+ * It caches with Glide on Android and SDWebImage on iOS, both of which keep
+ * their own disk cache and ignore HTTP cache headers — which is why it is
+ * usually reached for. On Android that is close to what React Native's own
+ * <Image> already gives through Fresco, so the gain there is small; on iOS,
+ * where NSURLCache does follow the headers the server is not currently
+ * sending, it is real. What neither library can do is make the first download
+ * smaller: that is the "?w=" the server never sees.
+ *
+ * Compatibility is the open question. Version 8.6.3 is from 2023, it declares
+ * peer dependencies of React 17/18 against this app's React 19, and its Android
+ * view is a SimpleViewManager — a Paper component — while this app builds with
+ * newArchEnabled=true on React Native 0.84, where the interop that used to
+ * wrap such components is gone. If the build fails or the images render blank,
+ * that is why, and it is not something a change in this file can work around.
  */
 
 export interface AppImageProps {
@@ -52,6 +68,18 @@ export interface AppImageProps {
   onAspectRatio?: (ratio: number) => void;
 }
 
+/**
+ * React Native's resizeMode is a string; FastImage wants one of its own
+ * constants. "repeat" has no equivalent and falls back to cover.
+ */
+const RESIZE: Record<string, FastImageResizeMode> = {
+  cover: FastImage.resizeMode.cover,
+  contain: FastImage.resizeMode.contain,
+  stretch: FastImage.resizeMode.stretch,
+  center: FastImage.resizeMode.center,
+  repeat: FastImage.resizeMode.cover,
+};
+
 function AppImageBase({
   uri,
   width,
@@ -61,20 +89,34 @@ function AppImageBase({
   onAspectRatio,
 }: AppImageProps) {
   const resolved = useMemo(() => resolveMediaUrl(uri, width), [uri, width]);
-  const source = useMemo(() => ({ uri: resolved }), [resolved]);
+  const source = useMemo(
+    () => ({
+      uri: resolved,
+      // Every URL here is content-addressed in practice — upload names carry
+      // Date.now() and the width is in the query — so the bytes behind one
+      // never change. `immutable` tells Glide/SDWebImage exactly that, and
+      // stops them revalidating a picture they already hold. It is also what
+      // lets this work while the server sends no cache headers of its own.
+      cache: FastImage.cacheControl.immutable,
+      priority: FastImage.priority.normal,
+    }),
+    [resolved],
+  );
 
   if (!resolved) return null;
 
   return (
-    <Image
+    <FastImage
       source={source}
-      style={style}
-      resizeMode={resizeMode}
-      onLoad={(e: NativeSyntheticEvent<ImageLoadEventData>) => {
-        const { width: w, height: h } = (e?.nativeEvent?.source ?? {}) as any;
+      style={style as any}
+      resizeMode={RESIZE[resizeMode] ?? FastImage.resizeMode.cover}
+      onLoad={(e: any) => {
+        // FastImage reports the decoded size directly on nativeEvent; React
+        // Native's own Image nests it under nativeEvent.source.
+        const { width: w, height: h } = e?.nativeEvent ?? {};
         if (onAspectRatio && w && h) onAspectRatio(w / h);
-        onLoadEnd?.();
       }}
+      onLoadEnd={() => onLoadEnd?.()}
       onError={() => onLoadEnd?.()}
     />
   );
@@ -87,10 +129,11 @@ export const AppImage = memo(AppImageBase);
  * ──────────────────────────────────────────────────────────────────────────*/
 
 /**
- * There is deliberately no prefetching here.
+ * There is deliberately no prefetching here, and FastImage.preload is the same
+ * trap under a different name.
  *
  * It was tried, and it broke the app twice in ways that looked nothing like an
- * image problem. Android pulls every image — prefetched or on screen — through
+ * image problem. Android pulls every image — preloaded or on screen — through
  * one small pool of network connections, and a visible card gets no priority
  * over a warming one. Warming a whole page of products therefore puts the four
  * cards the customer is looking at behind forty-six they cannot see. Do it on
@@ -99,10 +142,9 @@ export const AppImage = memo(AppImageBase);
  * the product list itself stops arriving. The screen goes blank and nothing in
  * the symptom points back at the cause.
  *
- * It is not needed either. The server now answers with a ~25 KB WebP instead of
- * a three megabyte original, and FlashList already builds about a screen beyond
- * the scroll, so a card's picture starts downloading well before it is looked
- * at. The one thing prefetching genuinely bought — never paying for the very
- * first resize — belongs on the server, where `npm run warm-images` renders
- * every upload once, offline, at no cost to anybody's phone.
+ * FlashList already builds about a screen beyond the scroll, so a card's
+ * picture starts downloading well before it is looked at. The one thing
+ * prefetching genuinely bought — never paying for the very first resize —
+ * belongs on the server, where `npm run warm-images` renders every upload once,
+ * offline, at no cost to anybody's phone.
  */

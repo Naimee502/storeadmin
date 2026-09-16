@@ -68,7 +68,7 @@ export const TileGrid: React.FC<{
                 <Icon name="shape-outline" size={30} color={colors.placeholder} />
               )}
             </View>
-            <Text style={styles.tileLabel} numberOfLines={3}>
+            <Text style={[styles.tileLabel, { color: colors.onBrand }]} numberOfLines={3}>
               {t.label.toUpperCase()}
             </Text>
           </TouchableOpacity>
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   tileImg: { width: '100%', height: '100%' },
   tileLabel: {
-    color: '#fff', fontSize: 12, fontFamily: FONTS.semiBold,
+    fontSize: 12, fontFamily: FONTS.semiBold,
     textAlign: 'center', paddingHorizontal: 6, paddingVertical: 10, lineHeight: 16,
   },
 

@@ -13,7 +13,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, setBranch } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
-import { SEND_OTP, REGISTER_ACCOUNT } from '../../../apollo/mutations/accounts';
+import { SEND_OTP, REGISTER_ACCOUNT, VERIFY_OTP } from '../../../apollo/mutations/accounts';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
 import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../store/rootreducer';
@@ -92,16 +92,52 @@ export default function Login({ navigation }: any) {
     if (!validateMobile()) return;
     showLoader(true);
     try {
-      const { data } = await apolloClient.mutate({
+      const { data: sendOtpData } = await apolloClient.mutate({
         mutation: SEND_OTP,
         variables: { adminId, mobile: mobile.trim() },
       });
-      if (data?.sendOTP?.success) {
-        navigation.navigate('OTPVerification', {
-          mobile: mobile.trim(),
-          adminId,
-          autoOtp: data.sendOTP.otp ?? '',
-        });
+      if (sendOtpData?.sendOTP?.success) {
+        const otp = sendOtpData.sendOTP.otp ?? '';
+
+        // Directly verify OTP without showing verification screen
+        try {
+          const { data: verifyData } = await apolloClient.mutate({
+            mutation: VERIFY_OTP,
+            variables: { adminId, mobile: mobile.trim(), otp },
+          });
+
+          const { accessToken, account } = verifyData.verifyOTP;
+
+          dispatch(setCredentials({
+            user: {
+              id: account.id,
+              name: account.name,
+              mobile: account.mobile,
+              role: 'party',
+              adminId: account.admin?.id ?? adminId,
+              email: account.email,
+              partyType: account.type,
+              channelName: account.channel?.channelName ?? null,
+            },
+            token: accessToken,
+          }));
+          await signIn();
+          showToast('Logged in successfully', 'success');
+        } catch (verifyErr: any) {
+          const msg = verifyErr?.message || 'Verification failed. Try again.';
+          const CODE = 'ACCOUNT_PENDING_APPROVAL';
+          const codes = [
+            verifyErr?.extensions?.code,
+            ...(verifyErr?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
+            ...(verifyErr?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
+          ];
+          const pending = codes.includes(CODE) || /waiting for approval/i.test(msg);
+
+          showToast(msg, pending ? 'warning' : 'danger');
+          if (!pending) {
+            setErrors(e => ({ ...e, mobile: msg }));
+          }
+        }
       }
     } catch (err: any) {
       const msg = err?.message || 'Could not send OTP. Try again.';
@@ -229,7 +265,7 @@ export default function Login({ navigation }: any) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       <SafeAreaView style={{ flex: 1 }}>
         {/* Android needs an explicit behavior now. targetSdk 36 means edge-to-edge
@@ -288,7 +324,7 @@ export default function Login({ navigation }: any) {
                   ? "This number isn't registered yet — tell us a bit about yourself to get set up."
                   : isStaffMode
                     ? 'Enter your mobile number and password to sign in.'
-                    : 'Enter your mobile number to receive a one-time passcode.'}
+                    : 'Enter your mobile number to login securely.'}
               </Text>
             </Animated.View>
 
@@ -333,7 +369,7 @@ export default function Login({ navigation }: any) {
               )}
 
               {/* Registration fields — Name + Email only, everything else
-                  (Party Type, Sales Channel, Ledger) is set automatically. */}
+                  (Party Type, Sales Channel, Ledger) are all set automatically. */}
               {isRegisterMode && (
                 <Animated.View entering={FadeInDown.duration(350)}>
                   <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Full Name</Text>
@@ -431,10 +467,10 @@ export default function Login({ navigation }: any) {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.btnText}>
-                    {isRegisterMode ? 'Create Account & Send OTP' : isStaffMode ? 'Sign In' : 'Send OTP'}
+                    {isRegisterMode ? 'Create Account & Send OTP' : isStaffMode ? 'Sign In' : 'Login'}
                   </Text>
                   <Icon
-                    name={isRegisterMode ? 'account-plus-outline' : isStaffMode ? 'login' : 'message-badge-outline'}
+                    name={isRegisterMode ? 'account-plus-outline' : isStaffMode ? 'login' : 'login'}
                     size={18}
                     color={COLORS.light.onBrand}
                     style={{ marginLeft: 8 }}
@@ -487,7 +523,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 22, paddingBottom: 140, flexGrow: 1 },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
   glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
-  glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+  glowTwo: { bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
 
   hero: { paddingTop: 56, paddingBottom: 22, alignItems: 'flex-start' },
   iconBadge: {

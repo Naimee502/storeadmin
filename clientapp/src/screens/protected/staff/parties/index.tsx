@@ -78,8 +78,8 @@ export default function StaffParties() {
             onPress={() => navigation.navigate('StaffCatalog', { partyId: item.id, partyName: item.name })}
             activeOpacity={0.82}
           >
-            <Icon name="clipboard-plus-outline" size={14} color="#fff" />
-            <Text style={styles.orderBtnText}>Order</Text>
+            <Icon name="clipboard-plus-outline" size={14} color={colors.onBrand} />
+            <Text style={[styles.orderBtnText, { color: colors.onBrand }]}>Order</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -132,8 +132,8 @@ export default function StaffParties() {
         onPress={() => navigation.navigate('StaffCreateParty')}
         activeOpacity={0.88}
       >
-        <Icon name="plus" size={22} color="#fff" />
-        <Text style={styles.fabText}>Add Party</Text>
+        <Icon name="plus" size={22} color={colors.onBrand} />
+        <Text style={[styles.fabText, { color: colors.onBrand }]}>Add Party</Text>
       </TouchableOpacity>
     </View>
   );
@@ -161,14 +161,14 @@ const styles = StyleSheet.create({
   dot:        { width: 3, height: 3, borderRadius: 2, backgroundColor: '#aaa' },
   code:       { fontSize: 10, fontFamily: FONTS.regular, marginTop: 3 },
   orderBtn:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
-  orderBtnText: { fontSize: 12, fontFamily: FONTS.bold, color: '#fff' },
+  orderBtnText: { fontSize: 12, fontFamily: FONTS.bold },
   fab: {
     position: 'absolute', bottom: 28, right: 20,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 20, paddingVertical: 14, borderRadius: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 6,
   },
-  fabText:   { fontSize: 14, fontFamily: FONTS.bold, color: '#fff' },
+  fabText:   { fontSize: 14, fontFamily: FONTS.bold },
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyText: { fontSize: 14, fontFamily: FONTS.regular },
 });

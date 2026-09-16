@@ -150,7 +150,7 @@ export default function OTPVerification({ navigation, route }: any) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       <SafeAreaView style={{ flex: 1 }}>
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.navBar}>
@@ -214,7 +214,7 @@ export default function OTPVerification({ navigation, route }: any) {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.duration(800).delay(600)} style={styles.buttonSection}>
-            <AppButton title={sText.verify} onPress={handleVerify} style={[styles.verifyButton, { backgroundColor: colors.brand }]} textStyle={styles.verifyText} />
+            <AppButton title={sText.verify} onPress={handleVerify} style={[styles.verifyButton, { backgroundColor: colors.brand }]} textStyle={[styles.verifyText, { color: colors.onBrand }]} />
           </Animated.View>
         </View>
       </SafeAreaView>
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   backButton: { width: 44, height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
   glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
-  glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+  glowTwo: { bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
   content: { flex: 1, paddingHorizontal: 22, paddingBottom: 28 },
   header: { alignItems: 'center', marginTop: 14 },
   iconContainer: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
@@ -250,5 +250,5 @@ const styles = StyleSheet.create({
   resendButton: { flexDirection: 'row', alignItems: 'center' },
   buttonSection: { width: '100%', marginTop: 'auto' },
   verifyButton: { borderRadius: 14 },
-  verifyText: { color: COLORS.light.onBrand },
+  verifyText: {},
 });

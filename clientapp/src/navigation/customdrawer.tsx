@@ -155,7 +155,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
               item — on a short phone that pushed Sign Out off the screen. Same
               information, about half the height, for every role. */}
           <View style={[styles.avatarWrap, { backgroundColor: colors.brand }]}>
-            <Text style={styles.avatarText}>
+            <Text style={[styles.avatarText, { color: colors.onBrand }]}>
               {(user?.name ?? 'U').charAt(0).toUpperCase()}
             </Text>
           </View>
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.light.shadow,
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
-  avatarText:  { fontSize: 20, fontFamily: FONTS.bold, color: '#fff' },
+  avatarText:  { fontSize: 20, fontFamily: FONTS.bold },
   // flex + minWidth let a long name ellipsize instead of shoving the avatar.
   headerText:  { flex: 1, minWidth: 0 },
   userName:    { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 1 },

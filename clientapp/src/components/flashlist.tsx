@@ -64,7 +64,16 @@ function FlashListComponent<T>({
     renderItem,
     keyExtractor,
 
-    estimatedItemSize = 200,
+    /**
+     * Accepted and ignored.
+     *
+     * FlashList v2 measures items itself; `estimatedItemSize` was removed from
+     * its props, and forwarding it is a type error. Two dozen call sites still
+     * pass a number, so the prop stays in this wrapper's signature — dropping
+     * it would be a rename across the app for no behavioural gain — but it
+     * goes no further than here.
+     */
+    estimatedItemSize: _estimatedItemSize = 200,
 
     numColumns = 1,
 
@@ -88,7 +97,18 @@ function FlashListComponent<T>({
 
     extraData,
 
-    removeClippedSubviews = true,
+    /**
+     * Accepted and ignored, and the default is the reason.
+     *
+     * FlashList v2 clips for itself; this prop is not one of its own, it
+     * reaches the ScrollView underneath through ScrollViewProps. React
+     * Native's own documentation warns that on Android it can leave content
+     * missing, and a recycling list is exactly where that shows: a cell is
+     * detached, comes back empty, and re-renders — which reads as a picture
+     * that keeps having to load again. No call site asks for it; this default
+     * was applying it to every list in the app.
+     */
+    removeClippedSubviews: _removeClippedSubviews = true,
 
     drawDistance = 250,
 }: DynamicFlashListProps<T>) {
@@ -131,16 +151,10 @@ function FlashListComponent<T>({
                 keyExtractor ??
                 defaultKeyExtractor
             }
-            estimatedItemSize={
-                estimatedItemSize
-            }
             numColumns={numColumns}
             horizontal={horizontal}
             scrollEnabled={scrollEnabled}
             extraData={extraData}
-            removeClippedSubviews={
-                removeClippedSubviews
-            }
             showsVerticalScrollIndicator={
                 showsVerticalScrollIndicator
             }

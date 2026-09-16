@@ -1,54 +1,31 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
-import { useSelector, useDispatch } from 'react-redux';
-import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../../config';
-import { ProductGridSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { useSelector } from 'react-redux';
+import { STRINGS, useTheme } from '../../../../config';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
-import { useProductPage } from '../../../../apollo/hooks/products';
-import { apolloClient } from '../../../../apollo/client';
-import { AppHeader, AppImage, AppTextInput, CategoryStrip, DynamicFlashList } from '../../../../components';
+import { AppHeader, AppTextInput, CategoryStrip, ProductCatalog } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
-import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
+/**
+ * Shop — the search box, the category strip, and the shared product grid.
+ *
+ * The grid, the cards, the paging and the cart handlers all moved into
+ * components/productcatalog.tsx when Home started showing the same catalogue.
+ * Nothing about how it loads changed; this screen just stopped owning it.
+ */
 export default function Catalog() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
-  const dispatch = useDispatch();
-  const user = useSelector((s: RootState) => s.auth.user);
-  const tenant = useSelector((s: RootState) => s.tenant);
   const cartItems = useSelector((s: RootState) => s.cart.items);
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
-  const adminid = tenant.adminId ?? '';
-  const showPrice = useShowProductPrice();
-  // Display-only x2 markup on the card price. Add-to-cart still passes the
-  // real unitprice through, so the cart total and the order stay correct.
-  const { formatCatalogINR } = useCatalogPrice();
-  const showStock = useShowProductStock();
-  // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
-  // null = the admin hasn't picked one, so the card keeps its fixed image
-  // height as before.
-  const imgRatio = useProductImageRatio();
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
-  const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
-
-  // One page at a time, with the search box and category chip applied on the
-  // SERVER — see the hook for why that matters once a list is paginated.
-  const { products, initialLoading, refreshing, loadingMore, loadMore } = useProductPage({
-    adminid,
-    search,
-    categoryid: category,
-  });
 
   // Categories come from the category list, not from whichever products are on
   // the current page — otherwise the chips would change as the user scrolls.
@@ -56,190 +33,12 @@ export default function Catalog() {
     variables: { adminId: adminid },
     skip: !adminid,
   });
-
-  const { data: accountData } = useQuery(GET_ACCOUNT, {
-    variables: { id: user?.id, adminId: adminid },
-    skip: !user?.id || !adminid,
-  });
-  const partyAccount = (accountData as any)?.getAccountById;
-
-  const categories = useMemo<CategoryItem[]>(() => {
-    const list = ((categoriesData as any)?.getCategories ?? []) as any[];
-    return list
+  const categories = useMemo<CategoryItem[]>(
+    () => (((categoriesData as any)?.getCategories ?? []) as any[])
       .filter((c: any) => c && c.status !== false)
-      .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image }));
-  }, [categoriesData]);
-
-  // Search and category are already applied server-side; only the inactive
-  // guard is left, since the storefront must never show a disabled product.
-  const filtered = useMemo(
-    () => products.filter((p: any) => p.status !== false),
-    [products],
+      .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image })),
+    [categoriesData],
   );
-
-  const getCartQty = (productId: string, variantId: string, unitId?: string) =>
-    cartItems.find(i => i.productId === productId && i.variantId === variantId && i.unitId === unitId)?.qty ?? 0;
-
-  const getUnitLabel = (up: any) => {
-    const name = up?.unitid?.unitname ?? 'Unit';
-    const qty = up?.quantity ?? 1;
-    return qty > 1 ? `${qty} × ${name}` : name;
-  };
-
-  const handleAdd = async (p: any) => {
-    const v = p.productvariants?.[0];
-    if (!v) return;
-    const unitIdx = selectedUnits[p.id] ?? 0;
-    const up = v.unitprices?.[unitIdx] ?? v.unitprices?.[0];
-    const defaultRate = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
-    let rate = defaultRate, disc = up?.discount ?? 0;
-    if (up?.unitid?.id) {
-      try {
-        const vars = {
-          productid: p.id, variantid: v.id,
-          unitid: up.unitid.id,
-          adminid: adminid || null,
-          accountid: user?.id ?? null,
-          channelid: partyAccount?.channel?.id ?? null,
-          region: partyAccount?.region ?? null,
-        };
-        const { data: pd } = await apolloClient.query({
-          query: RESOLVE_PRICE,
-          variables: vars,
-          fetchPolicy: 'network-only',
-        });
-        const rp = (pd as any)?.resolvePrice;
-        if (rp) {
-          if (rp.rate != null) rate = rp.rate;
-          // Only override the base unit discount when resolvePrice returns a
-          // real party/channel discount. A null/zero result must NOT wipe the
-          // product's own unit discount (otherwise discount disappears & total
-          // is computed on the full rate).
-          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
-        }
-      } catch (e) {
-        console.warn('[resolvePrice] error:', e);
-      }
-    }
-    dispatch(addToCart({
-      productId: p.id, productName: p.name,
-      variantId: v.id, variantName: v.name,
-      unitId: up?.unitid?.id,
-      unitName: up?.unitid?.unitname,
-      unitqty: up?.quantity ?? 1,
-      imageUrl: p.imageurl,
-      qty: 1, rate, discount: disc, gst: v.gst ?? 0,
-      amount: (rate - disc) * 1,
-    }));
-  };
-
-  const handleQty = (productId: string, variantId: string, unitId: string | undefined, qty: number) =>
-    dispatch(updateQty({ productId, variantId, unitId, qty }));
-
-  const renderProduct = ({ item: p, index }: any) => {
-    const v = p.productvariants?.[0];
-    const unitIdx = selectedUnits[p.id] ?? 0;
-    const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
-    const unitId = up?.unitid?.id;
-    const price = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
-    const mrp = up?.mrp ?? 0;
-    const cartQty = v ? getCartQty(p.id, v.id, unitId) : 0;
-    const hasMrp = mrp > 0;
-    const isLeft = index % 2 === 0;
-    const outOfStock = v?.currentstock === 0;
-    const multiUnit = (v?.unitprices?.length ?? 0) > 1;
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          { backgroundColor: colors.cardGlass, borderColor: colors.border },
-          isLeft ? { marginRight: 6 } : { marginLeft: 6 },
-        ]}
-        onPress={() => navigation.navigate('ProductDetail', { productId: p.id })}
-        activeOpacity={0.88}
-      >
-        <View>
-          <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
-            {p.imageurl
-              ? <AppImage uri={p.imageurl} width={IMG.card} style={styles.img} resizeMode="cover" />
-              : <Icon name="package-variant-closed" size={30} color={colors.brand} />
-            }
-            {showStock && outOfStock && (
-              <View style={styles.oosTag}>
-                <Text style={styles.oosText}>{STRINGS.party.outOfStock}</Text>
-              </View>
-            )}
-          </View>
-
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{p.name}</Text>
-          {p.categoryid?.categoryname && (
-            <Text style={[styles.catText, { color: colors.subText }]}>{p.categoryid.categoryname}</Text>
-          )}
-
-          {/* Unit chips */}
-          {multiUnit && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
-              {v.unitprices.map((u: any, ui: number) => {
-                const active = (selectedUnits[p.id] ?? 0) === ui;
-                return (
-                  <TouchableOpacity
-                    key={`${u.unitid?.id ?? ui}`}
-                    style={[styles.unitChip, active
-                      ? { backgroundColor: colors.brand, borderColor: colors.brand }
-                      : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
-                    ]}
-                    onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
-                  >
-                    <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
-                      {getUnitLabel(u)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          {showPrice && (
-            <View style={styles.priceRow}>
-              <Text style={[styles.price, { color: colors.brand }]}>{formatCatalogINR(price)}</Text>
-              {hasMrp && (
-                <Text style={[styles.mrp, { color: colors.subText }]}>{formatCatalogINR(mrp)}</Text>
-              )}
-            </View>
-          )}
-        </View>
-
-        {v && !outOfStock && (
-          cartQty === 0 ? (
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.brand }]}
-              onPress={() => handleAdd(p)}
-            >
-              <Icon name="plus" size={14} color="#fff" />
-              <Text style={styles.addBtnText}>{STRINGS.party.add}</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-              <TouchableOpacity
-                style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}
-              >
-                <Icon name="minus" size={13} color={colors.brand} />
-              </TouchableOpacity>
-              <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
-              <TouchableOpacity
-                style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
-                onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}
-              >
-                <Icon name="plus" size={13} color={colors.brand} />
-              </TouchableOpacity>
-            </View>
-          )
-        )}
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -254,12 +53,12 @@ export default function Catalog() {
         }]}
       />
 
-      {/* Search + categories are rendered ONCE here, above the branch below.
-          They used to be a ListHeader component declared inside this component
-          and passed to the list — which gave React a new element type on every
-          render, remounting the TextInput and dismissing the keyboard after a
-          single character. Kept out here they never unmount, and they also stay
-          put while the grid scrolls. */}
+      {/* Search and categories render here, above the grid rather than inside
+          its header. They used to be a ListHeader component declared inside
+          this one, which gave React a new element type on every render —
+          remounting the TextInput and dismissing the keyboard after a single
+          character. Out here they never unmount, and they stay put while the
+          grid scrolls. */}
       <View style={styles.headerWrap}>
         <AppTextInput
           leftIcon="magnify"
@@ -278,89 +77,14 @@ export default function Catalog() {
         />
       </View>
 
-      {/* A thin bar while a new category or search is fetched. The rows below
-          stay put — the skeleton is only for the very first load, when there is
-          genuinely nothing on screen yet. Rebuilding the whole grid every time a
-          category chip is tapped made the screen feel like it was reloading. */}
-      {refreshing && (
-        <View style={styles.refreshBar}>
-          <ActivityIndicator size="small" color={colors.brand} />
-        </View>
-      )}
-
-      {initialLoading ? (
-        <ProductGridSkeleton />
-      ) : filtered.length === 0 ? (
-        <View style={styles.center}>
-          <Icon name="magnify-close" size={44} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
-        </View>
-      ) : (
-        <DynamicFlashList
-          data={filtered}
-          renderItem={renderProduct}
-          numColumns={2}
-          estimatedItemSize={220}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.6}
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator color={colors.brand} />
-              </View>
-            ) : null
-          }
-        />
-      )}
+      <ProductCatalog search={search} category={category} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
-  // Matches listContent's horizontal padding so the search box and category
-  // strip stay aligned with the grid now that they sit outside the list.
+  // Matches the grid's own horizontal padding so the search box and the
+  // category strip line up with the cards below them.
   headerWrap: { paddingHorizontal: 18 },
-  footerLoader: { paddingVertical: 18, alignItems: 'center' },
-  refreshBar: { paddingVertical: 6, alignItems: 'center' },
-  card: {
-    flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
-    justifyContent: 'space-between',
-    shadowColor: COLORS.light.shadow,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  imgWrap: {
-    height: 90, borderRadius: 12, marginBottom: 10,
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
-  },
-  img: { ...StyleSheet.absoluteFillObject },
-  oosTag: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 3, alignItems: 'center',
-  },
-  oosText: { fontSize: 10, fontFamily: FONTS.semiBold, color: '#fff' },
-  name: { fontSize: 13, fontFamily: FONTS.semiBold, lineHeight: 18, marginBottom: 2 },
-  catText: { fontSize: 11, fontFamily: FONTS.regular, marginBottom: 4 },
-  unitScroll: { flexGrow: 0, marginBottom: 6 },
-  unitChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, marginRight: 5 },
-  unitChipText: { fontSize: 10, fontFamily: FONTS.semiBold },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  price: { fontSize: 14, fontFamily: FONTS.bold },
-  mrp: { fontSize: 12, fontFamily: FONTS.regular, textDecorationLine: 'line-through' },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 12, paddingVertical: 8, gap: 4,
-  },
-  addBtnText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
-  qtyControl: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: 12, borderWidth: 1.5, overflow: 'hidden',
-  },
-  qtyBtn: { paddingHorizontal: 12, paddingVertical: 8 },
-  qtyText: { fontSize: 14, fontFamily: FONTS.bold, minWidth: 24, textAlign: 'center' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
-  emptyText: { fontSize: 14, fontFamily: FONTS.regular },
 });

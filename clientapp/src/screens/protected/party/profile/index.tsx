@@ -77,7 +77,7 @@ export default function PartyProfile() {
           {/* Avatar */}
           <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.avatarSection}>
             <LinearGradient colors={[colors.brand, colors.brandDark]} style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{initials}</Text>
+              <Text style={[styles.avatarText, { color: colors.onBrand }]}>{initials}</Text>
             </LinearGradient>
             <Text style={[styles.userName, { color: colors.text }]}>{user?.name ?? 'Party'}</Text>
             <View style={[styles.roleBadge, { backgroundColor: colors.brandSoft }]}>
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     width: 76, height: 76, borderRadius: 38,
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  avatarText: { fontSize: 26, fontFamily: FONTS.bold, color: '#fff' },
+  avatarText: { fontSize: 26, fontFamily: FONTS.bold },
   userName:   { fontSize: 19, fontFamily: FONTS.bold, marginBottom: 8 },
   roleBadge:  { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 20 },
   roleText:   { fontSize: 12, fontFamily: FONTS.semiBold },

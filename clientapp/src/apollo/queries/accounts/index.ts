@@ -35,6 +35,50 @@ export const GET_PRODUCTS = gql`
   }
 `;
 
+/**
+ * One product, by id — what the detail screen needs.
+ *
+ * It used to open by fetching the WHOLE catalogue with no limit and running
+ * .find() over it for a single row. On the server that is every product, every
+ * variant, and a stock aggregate for each of them, so the wait grew with the
+ * catalogue while what was shown never changed.
+ *
+ * The selection is deliberately identical to GET_PRODUCTS. Apollo normalises
+ * both into the same ProductService entity, so a product the grid has already
+ * loaded is complete in the cache and this query answers from it with no
+ * request at all — see the getProductServiceById field policy in apollo/client.
+ */
+export const GET_PRODUCT_BY_ID = gql`
+  query GetProductById($id: ID!, $adminId: ID) {
+    getProductServiceById(id: $id, adminId: $adminId) {
+      id
+      name
+      description
+      imageurl
+      imageurls
+      status
+      categoryid { id categoryname image }
+      subcategoryid { id subcategoryname }
+      productvariants {
+        id
+        name
+        sku
+        gst
+        currentstock
+        unitprices {
+          mrp
+          salesrate
+          offerprice
+          discount
+          discounttype
+          quantity
+          unitid { id unitname }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_SALES_ORDERS = gql`
   query GetSalesOrders($adminid: ID, $partyacc: ID, $salesmenid: ID, $includeDownline: Boolean) {
     getSalesOrders(filter: { adminid: $adminid, partyacc: $partyacc, salesmenid: $salesmenid, includeConverted: true, includeDownline: $includeDownline }) {

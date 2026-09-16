@@ -154,7 +154,7 @@ export function AddressForm({ accountId, name, accountGroupId, initial, onSaved,
         disabled={!valid || saving || !accountGroupId}
         activeOpacity={0.85}
       >
-        <Text style={styles.submitBtnText}>{saving ? 'Saving…' : submitLabel}</Text>
+        <Text style={[styles.submitBtnText, { color: colors.onBrand }]}>{saving ? 'Saving…' : submitLabel}</Text>
       </TouchableOpacity>
 
       <Modal visible={statePickerOpen} transparent animationType="slide" onRequestClose={() => setStatePickerOpen(false)}>
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   selectText: { flex: 1, fontFamily: FONTS.regular, fontSize: 14 },
   error: { fontSize: 12, fontFamily: FONTS.regular, marginBottom: 10, marginLeft: 6 },
   submitBtn: { borderRadius: 14, height: 48, justifyContent: 'center', alignItems: 'center', marginTop: 4 },
-  submitBtnText: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  submitBtnText: { fontSize: 15, fontFamily: FONTS.bold },
 
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },

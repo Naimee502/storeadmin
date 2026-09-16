@@ -76,7 +76,7 @@ export default function Signup({ navigation }: any) {
 
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView
@@ -148,7 +148,7 @@ export default function Signup({ navigation }: any) {
               title={sText.button}
               onPress={handleSignUp}
               style={[styles.signUpButton, { backgroundColor: colors.brand }]}
-              textStyle={styles.primaryButtonText}
+              textStyle={[styles.primaryButtonText, { color: colors.onBrand }]}
             />
 
             <View style={styles.termsContainer}>
@@ -199,7 +199,6 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-7deg' }],
   },
   glowTwo: {
-    backgroundColor: COLORS.light.warmSoft,
     bottom: 100,
     left: -48,
     height: 150,
@@ -270,9 +269,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderRadius: 14,
   },
-  primaryButtonText: {
-    color: COLORS.light.onBrand,
-  },
+  primaryButtonText: {},
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',

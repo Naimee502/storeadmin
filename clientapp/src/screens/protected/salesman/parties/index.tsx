@@ -352,7 +352,7 @@ export default function SalesmanParties() {
                 onPress={() => setChannelFilter(c.id)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]} numberOfLines={1}>
+                <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]} numberOfLines={1}>
                   {c.channelName}
                 </Text>
               </TouchableOpacity>

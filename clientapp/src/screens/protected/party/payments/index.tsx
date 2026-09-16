@@ -233,7 +233,7 @@ export default function Payments() {
             const active = scope === s.key;
             return (
               <TouchableOpacity key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)} activeOpacity={0.85}>
-                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+                <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -286,7 +286,7 @@ export default function Payments() {
                       })
                     }
                   >
-                    <Icon name="cash-plus" size={16} color="#fff" />
+                    <Icon name="cash-plus" size={16} color={colors.onBrand} />
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>

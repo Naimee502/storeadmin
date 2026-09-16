@@ -195,8 +195,8 @@ export default function StaffCart() {
         activeOpacity={0.88}
       >
         {placing
-          ? <Text style={styles.placeBtnText}>Placing Order…</Text>
-          : <><Icon name="check-circle-outline" size={18} color="#fff" /><Text style={styles.placeBtnText}>Place Order · {formatINR(grandTotal)}</Text></>
+          ? <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Placing Order…</Text>
+          : <><Icon name="check-circle-outline" size={18} color={colors.onBrand} /><Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Place Order · {formatINR(grandTotal)}</Text></>
         }
       </TouchableOpacity>
     </View>
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   totalLabel:   { fontSize: 15, fontFamily: FONTS.bold },
   totalValue:   { fontSize: 17, fontFamily: FONTS.bold },
   placeBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 18, paddingVertical: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
-  placeBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  placeBtnText: { fontSize: 16, fontFamily: FONTS.bold },
   emptyWrap:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
   emptyText:    { fontSize: 16, fontFamily: FONTS.semiBold },
   browseBtn:    { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },

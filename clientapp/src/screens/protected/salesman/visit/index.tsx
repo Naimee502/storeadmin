@@ -207,9 +207,9 @@ export default function RoutePartyVisit() {
               onPress={() => navigation.navigate('SalesmanCart')}
               activeOpacity={0.88}
             >
-              <Icon name="cart-outline" size={18} color="#fff" />
-              <Text style={styles.cartBannerText}>{cartCount} item{cartCount !== 1 ? 's' : ''} in cart — Review Order</Text>
-              <Icon name="chevron-right" size={18} color="#fff" />
+              <Icon name="cart-outline" size={18} color={colors.onBrand} />
+              <Text style={[styles.cartBannerText, { color: colors.onBrand }]}>{cartCount} item{cartCount !== 1 ? 's' : ''} in cart — Review Order</Text>
+              <Icon name="chevron-right" size={18} color={colors.onBrand} />
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: 16, padding: 14, marginBottom: 20,
   },
-  cartBannerText: { flex: 1, fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
+  cartBannerText: { flex: 1, fontSize: 13, fontFamily: FONTS.bold },
 
   section:      { marginBottom: 20 },
   sectionTitle: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 12 },

@@ -167,9 +167,12 @@ const PurchaseOrders = () => {
           element: waRef.current!,
           ...waMeta.current!,
         });
-        if (result === "downloaded") {
+        if (result === "copied" || result === "downloaded") {
           dispatch(showMessage({
-            message: "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
+            message:
+                result === "copied"
+                  ? "Order copied — press Cmd/Ctrl+V in the WhatsApp chat that just opened."
+                  : "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
             // The message slice only types 'success' | 'error'; this is an
             // informational note, and 'success' is the truthful one of the two
             // (the PDF really was produced and downloaded).

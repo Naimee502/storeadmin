@@ -100,6 +100,10 @@ const Splash = () => {
   const trendStyle   = useAnimatedStyle(() => ({ transform: [{ rotate: `${badgeRotate.value}deg` }] }));
 
   const accent       = colors.brand;
+  // The arrow chip on the button is painted white in both modes, so the mark
+  // inside it needs the brand variant that reads on white — which in dark mode
+  // is not `brand` itself, because a near-black brand inverts to white there.
+  const onLightChip  = isDark ? colors.brandDark : colors.brand;
   const particle     = isDark ? colors.whiteOverlay : colors.brand;
 
   return (
@@ -107,7 +111,7 @@ const Splash = () => {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
       <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       {/* Floating background business icons */}
       <FloatingIcon name="briefcase-outline"         size={32} color={particle} top="12%" left="10%"  opacity={isDark ? 0.05 : 0.08} delay={0}    duration={5000} />
@@ -180,7 +184,7 @@ const Splash = () => {
                   />
                   <Text style={styles.buttonText}>{sText.button}</Text>
                   <Animated.View style={[styles.arrowContainer, arrowStyle]}>
-                    <Icon name="arrow-right" size={20} color={accent} />
+                    <Icon name="arrow-right" size={20} color={onLightChip} />
                   </Animated.View>
                 </Animated.View>
               </Pressable>
@@ -200,7 +204,7 @@ const styles = StyleSheet.create({
   safeArea:     { flex: 1 },
   glow:         { position: 'absolute', width: '120%', height: 210, opacity: 1 },
   glowOne:      { top: -76, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
-  glowTwo:      { backgroundColor: COLORS.light.warmSoft,  bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+  glowTwo:      { bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
   innerContent: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'space-between' },
   heroContainer:{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: height * 0.05 },
   pulseRing:    { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 1.5 },

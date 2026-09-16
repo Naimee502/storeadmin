@@ -167,7 +167,7 @@ const BillAllocation: React.FC<Props> = ({
           >
             <TouchableOpacity style={styles.cardHead} activeOpacity={0.8} onPress={() => toggle(inv)}>
               <View style={[styles.checkbox, { borderColor: sel ? colors.brand : colors.border, backgroundColor: sel ? colors.brand : 'transparent' }]}>
-                {sel ? <Icon name="check" size={13} color="#fff" /> : null}
+                {sel ? <Icon name="check" size={13} color={colors.onBrand} /> : null}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.billNo, { color: colors.text }]}>{prefix}{inv.billnumber}</Text>
@@ -258,11 +258,11 @@ const BillAllocation: React.FC<Props> = ({
 
       {value.length > 0 ? (
         <View style={[styles.totalBar, { backgroundColor: colors.brand }]}>
-          <Text style={styles.totalText}>
+          <Text style={[styles.totalText, { color: colors.onBrand }]}>
             {value.length} bill(s){mode !== 'record' && showDiscountCommission ? ' · Cash in' : ' selected'}
           </Text>
           {mode !== 'record'
-            ? <Text style={styles.totalAmount}>{money(showDiscountCommission ? cashTotal : total)}</Text>
+            ? <Text style={[styles.totalAmount, { color: colors.onBrand }]}>{money(showDiscountCommission ? cashTotal : total)}</Text>
             : null}
         </View>
       ) : null}
@@ -299,8 +299,8 @@ const styles = StyleSheet.create({
   dcCash: { fontSize: 14, fontFamily: FONTS.bold, paddingVertical: 6 },
 
   totalBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, marginTop: 2 },
-  totalText: { fontSize: 13, fontFamily: FONTS.semiBold, color: '#fff' },
-  totalAmount: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  totalText: { fontSize: 13, fontFamily: FONTS.semiBold },
+  totalAmount: { fontSize: 16, fontFamily: FONTS.bold },
 });
 
 export default BillAllocation;

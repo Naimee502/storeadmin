@@ -101,22 +101,13 @@ export function useProductPage({
     inFlight.current = true;
     setLoadingMore(true);
     try {
+      // No updateQuery: the cache's own field policy for getProductServices
+      // (see apollo/client.ts) merges each response at its offset. Doing it
+      // here as well would append the page a second time, and appending is
+      // what the policy deliberately does not do — writing by offset is what
+      // lets a refetch of page one leave the pages after it alone.
       const res: any = await fetchMore({
         variables: { ...variables, offset: products.length },
-        updateQuery: (prev: any, { fetchMoreResult }: any) => {
-          const next = fetchMoreResult?.getProductServices ?? [];
-          if (!next.length) return prev;
-          // De-duplicated by id: a product added while the user was scrolling
-          // shifts every later offset by one, which would otherwise repeat a row.
-          const seen = new Set((prev?.getProductServices ?? []).map((p: any) => p.id));
-          return {
-            ...prev,
-            getProductServices: [
-              ...(prev?.getProductServices ?? []),
-              ...next.filter((p: any) => !seen.has(p.id)),
-            ],
-          };
-        },
       });
       const got = res?.data?.getProductServices?.length ?? 0;
       if (got < pageSize) setExhausted(true);

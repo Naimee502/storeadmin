@@ -141,10 +141,10 @@ export default function SalesmanOrders() {
               ]}
               onPress={() => setFilter(f.key)}
             >
-              <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>{f.label}</Text>
+              <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>{f.label}</Text>
               {count > 0 && (
-                <View style={[styles.chipCount, { backgroundColor: active ? 'rgba(255,255,255,0.25)' : colors.brandSoft }]}>
-                  <Text style={[styles.chipCountText, { color: active ? '#fff' : colors.brand }]}>{count}</Text>
+                <View style={[styles.chipCount, { backgroundColor: active ? colors.onBrand + '40' : colors.brandSoft }]}>
+                  <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
             </TouchableOpacity>

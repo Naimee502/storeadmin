@@ -9,7 +9,7 @@ import Animated, {
   FadeInUp, FadeInDown,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../config';
+import { FONTS, STRINGS, useTheme, IMG } from '../../../config';
 import { AppImage } from '../../../components';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store/rootreducer';
@@ -304,7 +304,7 @@ const Introduction = () => {
               activeOpacity={0.8}
               style={[styles.nextButton, { backgroundColor: colors.brand, shadowColor: colors.brand }]}
             >
-              <Text style={styles.nextButtonText}>
+              <Text style={[styles.nextButtonText, { color: colors.onBrand }]}>
                 {currentIndex === steps.length - 1 ? STRINGS.onboarding.done : STRINGS.onboarding.next}
               </Text>
             </TouchableOpacity>
@@ -359,5 +359,5 @@ const styles = StyleSheet.create({
   backButton:  { width: 88, height: 40, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   backButtonText: { fontSize: 14, fontFamily: FONTS.medium },
   nextButton:  { width: 136, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 5 },
-  nextButtonText: { fontSize: 14, fontFamily: FONTS.bold, color: COLORS.light.onBrand },
+  nextButtonText: { fontSize: 14, fontFamily: FONTS.bold },
 });

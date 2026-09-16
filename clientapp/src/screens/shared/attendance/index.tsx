@@ -276,8 +276,8 @@ export default function AttendanceScreen() {
           </View>
         </View>
         <TouchableOpacity style={[styles.punchBtn, { backgroundColor: isPunchedIn ? '#ef444422' : colors.brand }]} onPress={handlePunch} disabled={punching}>
-          <Icon name={isPunchedIn ? 'logout' : 'login'} size={18} color={isPunchedIn ? '#ef4444' : '#fff'} />
-          <Text style={[styles.punchBtnText, { color: isPunchedIn ? '#ef4444' : '#fff' }]}>{punching ? '…' : (isPunchedIn ? 'Punch Out' : 'Punch In')}</Text>
+          <Icon name={isPunchedIn ? 'logout' : 'login'} size={18} color={isPunchedIn ? '#ef4444' : colors.onBrand} />
+          <Text style={[styles.punchBtnText, { color: isPunchedIn ? '#ef4444' : colors.onBrand }]}>{punching ? '…' : (isPunchedIn ? 'Punch Out' : 'Punch In')}</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -285,8 +285,8 @@ export default function AttendanceScreen() {
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Leave Requests</Text>
           <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.brand }]} onPress={() => { resetForm(); setShowModal(true); }}>
-            <Icon name="plus" size={13} color="#fff" />
-            <Text style={styles.applyBtnText}>Apply Leave</Text>
+            <Icon name="plus" size={13} color={colors.onBrand} />
+            <Text style={[styles.applyBtnText, { color: colors.onBrand }]}>Apply Leave</Text>
           </TouchableOpacity>
         </View>
         {leaves.length === 0 ? (
@@ -427,7 +427,7 @@ export default function AttendanceScreen() {
                     const a = halfSession === s;
                     return (
                       <TouchableOpacity key={s} style={[styles.sessionChip, a ? { backgroundColor: selectedType?.color ?? colors.brand, borderColor: selectedType?.color ?? colors.brand } : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]} onPress={() => setHalfSession(s)}>
-                        <Text style={[styles.sessionText, { color: a ? '#fff' : colors.subText }]}>{s === 'first' ? 'First Half' : 'Second Half'}</Text>
+                        <Text style={[styles.sessionText, { color: a ? (selectedType?.color != null ? '#fff' : colors.onBrand) : colors.subText }]}>{s === 'first' ? 'First Half' : 'Second Half'}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -452,8 +452,8 @@ export default function AttendanceScreen() {
                 onPress={handleSubmitLeave}
                 disabled={submitting}
               >
-                <Icon name="send-outline" size={16} color="#fff" />
-                <Text style={styles.submitBtnText}>{submitting ? 'Submitting…' : 'Submit Request'}</Text>
+                <Icon name="send-outline" size={16} color={selectedType?.color != null ? '#fff' : colors.onBrand} />
+                <Text style={[styles.submitBtnText, { color: selectedType?.color != null ? '#fff' : colors.onBrand }]}>{submitting ? 'Submitting…' : 'Submit Request'}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sectionTitle:  { fontSize: 15, fontFamily: FONTS.bold },
   applyBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12 },
-  applyBtnText:  { fontSize: 12, fontFamily: FONTS.bold, color: '#fff' },
+  applyBtnText:  { fontSize: 12, fontFamily: FONTS.bold },
 
   leaveCard: { borderRadius: 14, borderWidth: 1, padding: 12, marginBottom: 10, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
   leaveTop:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
@@ -543,5 +543,5 @@ const styles = StyleSheet.create({
   reasonInput:  { fontSize: 13, fontFamily: FONTS.regular, minHeight: 72 },
 
   submitBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingVertical: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 3 },
-  submitBtnText: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  submitBtnText: { fontSize: 15, fontFamily: FONTS.bold },
 });

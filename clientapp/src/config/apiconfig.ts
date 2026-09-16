@@ -96,6 +96,26 @@ export const IMG = {
   logo: 320,
   /** Product grid cards (~170dp, two columns). */
   card: 480,
+  /**
+   * Every picture OF A PRODUCT, whatever size it is drawn at.
+   *
+   * A width is part of the URL, and a URL is the cache key — so a 32dp order
+   * line asking for `thumb` was not reusing the catalogue's copy of the same
+   * photo, it was starting a second download of it. That is why a product
+   * looked instant in the grid and then crawled on the order detail screen.
+   *
+   * While nginx serves /uploads itself the "?w=" is dropped anyway (see
+   * server/deploy/nginx-uploads.conf), so that second request is the whole
+   * multi-megabyte original again — the smaller number bought nothing and cost
+   * the entire download. Sharing one width makes every screen after the first
+   * a disk-cache hit; once the resize is actually deployed the difference
+   * between a 240 and a 480 render is a few kilobytes, which is a price worth
+   * paying once for a picture that is then free everywhere else.
+   *
+   * Category circles, brand tiles and logos are NOT products — they keep their
+   * own sizes, because they are never drawn large anywhere.
+   */
+  product: 480,
   /** Full-bleed banners and hero slides. */
   banner: 1080,
   /** Product detail hero and the full-screen viewer. */
@@ -103,6 +123,24 @@ export const IMG = {
 } as const;
 
 export type ImageWidth = number;
+
+/**
+ * Percent-encode a path so a filename with a space or a bracket survives.
+ *
+ * Uploads keep the name they were uploaded under, and "images (35).jpg" is a
+ * real one in this store — seven of the first nine products have a space in
+ * theirs. A literal space makes the URL invalid. Android's image loader is
+ * lenient enough to cope; iOS builds an NSURL, gets nil, and the picture
+ * simply never appears, with nothing in the log to say why.
+ *
+ * Each segment is encoded on its own so the separators stay separators, and a
+ * path that already carries an escape is left alone — encoding "%20" a second
+ * time gives "%2520" and breaks a URL that was working.
+ */
+const encodePath = (path: string): string =>
+  /%[0-9a-f]{2}/i.test(path)
+    ? path
+    : path.split('/').map(encodeURIComponent).join('/');
 
 export const resolveMediaUrl = (url?: string | null, width?: ImageWidth): string => {
   const raw = String(url ?? '').trim();
@@ -115,11 +153,11 @@ export const resolveMediaUrl = (url?: string | null, width?: ImageWidth): string
 
   // Already relative — just give it a host.
   if (at === 0) {
-    resolved = `${ACTIVE_SERVER_URL}${raw}`;
+    resolved = `${ACTIVE_SERVER_URL}${encodePath(raw)}`;
   } else {
     const origin = raw.slice(0, at);
     if (!isOurOrigin(origin)) return raw;
-    resolved = `${ACTIVE_SERVER_URL}${raw.slice(at)}`;
+    resolved = `${ACTIVE_SERVER_URL}${encodePath(raw.slice(at))}`;
   }
 
   return width ? withWidth(resolved, width) : resolved;

@@ -27,7 +27,7 @@ export default function ForgotPassword({ navigation }: any) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
       <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -56,7 +56,7 @@ export default function ForgotPassword({ navigation }: any) {
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <AppButton title="Send reset link" onPress={handleReset} style={[styles.button, { backgroundColor: colors.brand }]} textStyle={styles.buttonText} />
+            <AppButton title="Send reset link" onPress={handleReset} style={[styles.button, { backgroundColor: colors.brand }]} textStyle={[styles.buttonText, { color: colors.onBrand }]} />
             <View style={[styles.tip, { backgroundColor: colors.softSurface }]}>
               <Icon name="shield-check-outline" size={18} color={colors.brand} />
               <Text style={[styles.tipText, { color: colors.subText }]}>For your safety, the reset link expires shortly after it is sent.</Text>
@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-7deg' }],
   },
   glowTwo: {
-    backgroundColor: COLORS.light.warmSoft,
     bottom: 110,
     left: -48,
     height: 150,
@@ -102,7 +101,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, fontFamily: FONTS.regular, lineHeight: 22, textAlign: 'center', marginTop: 10, paddingHorizontal: 8 },
   card: { borderWidth: 1, borderRadius: 28, padding: 18, shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.1, shadowRadius: 28, elevation: 8 },
   button: { borderRadius: 14 },
-  buttonText: { color: COLORS.light.onBrand },
+  buttonText: {},
   tip: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 13, marginTop: 8 },
   tipText: { flex: 1, marginLeft: 10, fontSize: 12, lineHeight: 18, fontFamily: FONTS.medium },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },

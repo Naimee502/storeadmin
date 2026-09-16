@@ -176,7 +176,7 @@ export default function Ledger() {
             const active = scope === s.key;
             return (
               <TouchableOpacity key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)} activeOpacity={0.85}>
-                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+                <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -223,7 +223,7 @@ export default function Ledger() {
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate('AddLedgerEntry', { partyId: item.id, partyName: item.name })}
                   >
-                    <Icon name="book-plus-outline" size={15} color="#fff" />
+                    <Icon name="book-plus-outline" size={15} color={colors.onBrand} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               );

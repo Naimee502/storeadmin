@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, KeyboardTypeOptions, ViewStyle, TextStyle, TouchableOpacity, StyleProp } from 'react-native';
+import { View, TextInput, Text, StyleSheet, KeyboardTypeOptions, ReturnKeyTypeOptions, ViewStyle, TextStyle, TouchableOpacity, StyleProp } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONTS, useTheme } from '../config';
 
@@ -22,6 +22,10 @@ type AppTextInputProps = {
    *  and Shop search bars, which need a more legible hint over the
    *  card background. Defaults to `colors.placeholder`. */
   placeholderTextColor?: string;
+  /** What the keyboard's action key says, and what it does. Home's search box
+   *  uses it to hand the query to Shop. */
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: () => void;
 };
 
 export const AppTextInput: React.FC<AppTextInputProps> = ({
@@ -40,6 +44,8 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
   autoCapitalize = 'sentences',
   showEyeIcon = false,
   placeholderTextColor,
+  returnKeyType,
+  onSubmitEditing,
 }) => {
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
@@ -81,6 +87,8 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
           keyboardType={keyboardType}
           secureTextEntry={isSecure}
           autoCapitalize={autoCapitalize}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />

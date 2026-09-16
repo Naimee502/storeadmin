@@ -9,7 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
-import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
+import { GET_PRODUCT_BY_ID, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { BackHeader, AppImage } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
@@ -100,11 +100,20 @@ export default function ProductDetail() {
     }
   }
 
-  // Unlimited: this screen finds ONE product inside the list, so a capped page
-  // meant any product past the cap opened to an empty detail screen.
-  const { data, loading } = useQuery(GET_PRODUCTS, {
-    variables: { adminid },
-    skip: !adminid,
+  /**
+   * One product, not the catalogue.
+   *
+   * cache-first on purpose: the grid the user just tapped has already put this
+   * product in the cache, complete, so this resolves without a request and the
+   * screen paints at once. The app-wide default is cache-and-network, which
+   * would make `loading` true on every mount and show the spinner below over
+   * data that was ready to draw. Prices are not risked by this — add-to-cart
+   * resolves the real rate through RESOLVE_PRICE with network-only.
+   */
+  const { data, loading } = useQuery(GET_PRODUCT_BY_ID, {
+    variables: { id: productId, adminId: adminid },
+    skip: !productId,
+    fetchPolicy: 'cache-first',
   });
 
   const { data: accountData } = useQuery(GET_ACCOUNT, {
@@ -113,8 +122,7 @@ export default function ProductDetail() {
   });
   const partyAccount = (accountData as any)?.getAccountById;
 
-  const allProducts = (data as any)?.getProductServices ?? [];
-  const fetchedProduct = allProducts.find((p: any) => p.id === productId);
+  const fetchedProduct = (data as any)?.getProductServiceById;
   const product = fetchedProduct ?? DUMMY_PRODUCT;
 
   // Full gallery — same fallback as the website: imageurls[] if the admin
@@ -205,7 +213,8 @@ export default function ProductDetail() {
     setSelectedUnitIdx(0);
   };
 
-  if (loading) {
+  // Only when there is genuinely nothing to draw yet.
+  if (loading && !fetchedProduct) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
@@ -274,7 +283,7 @@ export default function ProductDetail() {
                 ]}
                 activeOpacity={0.8}
               >
-                <AppImage uri={uri} width={IMG.thumb} style={styles.thumbImg} resizeMode="cover" />
+                <AppImage uri={uri} width={IMG.product} style={styles.thumbImg} resizeMode="cover" />
               </TouchableOpacity>
             ))}
           </Animated.View>
@@ -335,9 +344,9 @@ export default function ProductDetail() {
                     ]}
                     onPress={() => selectVariant(i)}
                   >
-                    <Text style={[styles.variantChipText, { color: active ? '#fff' : colors.text }]}>{v.name}</Text>
+                    <Text style={[styles.variantChipText, { color: active ? colors.onBrand : colors.text }]}>{v.name}</Text>
                     {showPrice && (
-                      <Text style={[styles.variantPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.subText }]}>
+                      <Text style={[styles.variantPrice, { color: active ? colors.onBrand + 'CC' : colors.subText }]}>
                         {formatCatalogINR(vPrice)}
                       </Text>
                     )}
@@ -369,16 +378,16 @@ export default function ProductDetail() {
                     ]}
                     onPress={() => setSelectedUnitIdx(i)}
                   >
-                    <Text style={[styles.unitChipLabel, { color: active ? '#fff' : colors.text }]}>
+                    <Text style={[styles.unitChipLabel, { color: active ? colors.onBrand : colors.text }]}>
                       {getUnitLabel(up)}
                     </Text>
                     {showPrice && (
-                      <Text style={[styles.unitChipPrice, { color: active ? 'rgba(255,255,255,0.8)' : colors.brand }]}>
+                      <Text style={[styles.unitChipPrice, { color: active ? colors.onBrand + 'CC' : colors.brand }]}>
                         {formatCatalogINR(uPrice)}
                       </Text>
                     )}
                     {showPrice && uHasDisc && (
-                      <Text style={[styles.unitChipMrp, { color: active ? 'rgba(255,255,255,0.55)' : colors.subText }]}>
+                      <Text style={[styles.unitChipMrp, { color: active ? colors.onBrand + '8C' : colors.subText }]}>
                         {formatCatalogINR(uMrp)}
                       </Text>
                     )}
@@ -408,8 +417,8 @@ export default function ProductDetail() {
               disabled={!inStock}
               activeOpacity={0.85}
             >
-              <Icon name="cart-plus" size={18} color="#fff" />
-              <Text style={styles.addCartText}>{inStock ? 'Add to Cart' : 'Out of Stock'}</Text>
+              <Icon name="cart-plus" size={18} color={colors.onBrand} />
+              <Text style={[styles.addCartText, { color: colors.onBrand }]}>{inStock ? 'Add to Cart' : 'Out of Stock'}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.cartControlWrap}>
@@ -420,8 +429,8 @@ export default function ProductDetail() {
                 <Icon name="minus" size={18} color={colors.brand} />
               </TouchableOpacity>
               <View style={[styles.cartQtyBox, { backgroundColor: colors.brand }]}>
-                <Text style={styles.cartQtyText}>{cartQty}</Text>
-                <Text style={styles.cartQtyLabel}>in cart</Text>
+                <Text style={[styles.cartQtyText, { color: colors.onBrand }]}>{cartQty}</Text>
+                <Text style={[styles.cartQtyLabel, { color: colors.onBrand + 'CC' }]}>in cart</Text>
               </View>
               <TouchableOpacity
                 style={[styles.cartBtn, { backgroundColor: colors.brandSoft, borderColor: colors.brand }]}
@@ -510,13 +519,13 @@ const styles = StyleSheet.create({
   cartControlWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
   cartBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
   cartQtyBox: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
-  cartQtyText: { fontSize: 18, fontFamily: FONTS.bold, color: '#fff' },
-  cartQtyLabel: { fontSize: 10, fontFamily: FONTS.semiBold, color: 'rgba(255,255,255,0.8)' },
+  cartQtyText: { fontSize: 18, fontFamily: FONTS.bold },
+  cartQtyLabel: { fontSize: 10, fontFamily: FONTS.semiBold },
   addCartBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 52, borderRadius: 16,
   },
-  addCartText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  addCartText: { fontSize: 16, fontFamily: FONTS.bold },
   goCartBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 48, borderRadius: 16, borderWidth: 1.5, marginTop: 10,

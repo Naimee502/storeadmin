@@ -91,8 +91,17 @@ export const useNotificationCenter = () => {
     onPress: () => setOpen(true),
   };
 
-  const NotificationsModal = (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+  /**
+   * Built only while it is open.
+   *
+   * This element was constructed on every render of every screen that shows
+   * the bell — the sheet, its header, its list, all of it — and handed to a
+   * <Modal visible={false}>, which on Android still mounts a native modal host
+   * to put it in. On Home that is a whole second view tree being rebuilt
+   * alongside the product grid, for a sheet nobody has asked for.
+   */
+  const NotificationsModal = !open ? null : (
+    <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
         <Pressable style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}

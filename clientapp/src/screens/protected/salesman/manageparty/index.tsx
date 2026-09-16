@@ -193,11 +193,11 @@ export default function ManagePartyRoute() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Icon name="map-marker-path" size={14} color={active ? '#fff' : colors.subText} />
-                    <Text style={[styles.routeChipText, { color: active ? '#fff' : colors.subText }]}>
+                    <Icon name="map-marker-path" size={14} color={active ? colors.onBrand : colors.subText} />
+                    <Text style={[styles.routeChipText, { color: active ? colors.onBrand : colors.subText }]}>
                       {r.routename}
                     </Text>
-                    {active && <Icon name="check" size={13} color="#fff" />}
+                    {active && <Icon name="check" size={13} color={colors.onBrand} />}
                   </TouchableOpacity>
                 );
               })}
@@ -221,7 +221,7 @@ export default function ManagePartyRoute() {
                 ]}
                 onPress={() => setSelectedDay(dayKey(d))}
               >
-                <Text style={[styles.dayChipText, { color: active ? '#fff' : colors.subText }]}>
+                <Text style={[styles.dayChipText, { color: active ? colors.onBrand : colors.subText }]}>
                   {d.slice(0, 3)}
                 </Text>
               </TouchableOpacity>
@@ -252,8 +252,8 @@ export default function ManagePartyRoute() {
           disabled={!hasChange || saving}
           activeOpacity={0.88}
         >
-          <Icon name="content-save-outline" size={18} color="#fff" />
-          <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
+          <Icon name="content-save-outline" size={18} color={colors.onBrand} />
+          <Text style={[styles.saveBtnText, { color: colors.onBrand }]}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </TouchableOpacity>
 
         {/* Divider */}
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     borderRadius: 18, paddingVertical: 15, marginBottom: 24,
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
   },
-  saveBtnText: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  saveBtnText: { fontSize: 15, fontFamily: FONTS.bold },
 
   divider: { borderTopWidth: StyleSheet.hairlineWidth, marginBottom: 20 },
 

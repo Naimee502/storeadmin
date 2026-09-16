@@ -46,6 +46,20 @@ const rgba = ([r, g, b]: RGB, alpha: number) =>
 /** Perceived brightness, 0 (black) to 1 (white). */
 const luminance = ([r, g, b]: RGB) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
+/**
+ * What text and icons sitting ON a solid brand surface are painted.
+ *
+ * Everything on a brand-coloured button, chip or badge used to be a hardcoded
+ * white, which is right for every brand the app can paint white text on — and
+ * wrong for exactly one case, which dark mode creates on its own: a near-black
+ * brand has to invert to white in dark mode to be visible against the page at
+ * all (see `darkBrand` below), and a white button with white text on it is a
+ * blank rectangle. So the foreground is read off the surface rather than
+ * assumed. The threshold is high on purpose: only a surface too light to carry
+ * white at all flips, so every brand that worked before is untouched.
+ */
+const onColor = (surface: RGB) => (luminance(surface) > 0.7 ? '#111111' : '#FFFFFF');
+
 export type BrandTokens = Record<string, string | string[]>;
 
 /**
@@ -90,6 +104,9 @@ export const buildBrandTokens = (brandColor: string): { light: BrandTokens; dark
 
   const light: BrandTokens = {
     brand: coreHex,
+    // `core` is guaranteed dark enough to carry white (the pale-brand guard
+    // above sees to it), so in practice this stays white in light mode.
+    onBrand: onColor(core),
     brandDark: toHex(darker),
     brandLight: toHex(lighter),
     brandSoft: toHex(mix(core, WHITE, 0.9)),
@@ -128,6 +145,9 @@ export const buildBrandTokens = (brandColor: string): { light: BrandTokens; dark
 
   const dark: BrandTokens = {
     brand: darkBrand,
+    // The case this exists for: a black brand inverts to white here, so its
+    // buttons and chips need dark text instead of the usual white.
+    onBrand: onColor(parseHex(darkBrand) ?? core),
     brandDark: coreHex,
     brandLight: toHex(mix(core, WHITE, 0.4)),
     brandSoft: rgba(mix(core, WHITE, 0.5), 0.12),

@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
   circleList:  { paddingBottom: 8, gap: 14, paddingHorizontal: 2 },
   // Wider than the 54px circle so a two-line name has room to break sensibly
   // instead of ellipsising after one word.
-  circleItem:  { alignItems: 'center', width: 76 },
+  circleItem:  { alignItems: 'center', width: 68 },
   circle: {
-    width: 54, height: 54, borderRadius: 27,
+    width: 50, height: 50, borderRadius: 25,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   circleImg:         { width: '100%', height: '100%' },

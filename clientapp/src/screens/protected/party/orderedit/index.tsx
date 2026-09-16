@@ -253,7 +253,7 @@ export default function OrderEdit() {
           <View key={idx} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
               {l.imageUrl
-                ? <AppImage uri={l.imageUrl} width={IMG.thumb} style={styles.thumbImg} resizeMode="cover" />
+                ? <AppImage uri={l.imageUrl} width={IMG.product} style={styles.thumbImg} resizeMode="cover" />
                 : <Icon name="package-variant-closed" size={20} color={colors.brand} />
               }
             </View>
@@ -315,8 +315,8 @@ export default function OrderEdit() {
           disabled={saving}
           activeOpacity={0.88}
         >
-          <Icon name="content-save-outline" size={18} color="#fff" />
-          <Text style={styles.saveText}>{saving ? 'Saving…' : (showPrice ? `Save Changes · ${formatINR(grandTotal)}` : 'Save Changes')}</Text>
+          <Icon name="content-save-outline" size={18} color={colors.onBrand} />
+          <Text style={[styles.saveText, { color: colors.onBrand }]}>{saving ? 'Saving…' : (showPrice ? `Save Changes · ${formatINR(grandTotal)}` : 'Save Changes')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 15, fontFamily: FONTS.bold },
   totalValue: { fontSize: 16, fontFamily: FONTS.bold },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingVertical: 15, marginTop: 16, marginBottom: 24 },
-  saveText: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  saveText: { fontSize: 15, fontFamily: FONTS.bold },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', paddingVertical: 12, marginTop: 12 },
   addText: { fontSize: 14, fontFamily: FONTS.bold },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

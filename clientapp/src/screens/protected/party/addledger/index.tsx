@@ -208,8 +208,8 @@ export default function AddLedgerEntry() {
         </View>
 
         <TouchableOpacity style={[styles.submit, { backgroundColor: submitting ? colors.border : colors.brand }]} onPress={handleSubmit} disabled={submitting} activeOpacity={0.88}>
-          <Icon name="check-circle-outline" size={18} color="#fff" />
-          <Text style={styles.submitText}>{submitting ? 'Saving…' : 'Save Ledger Entry'}</Text>
+          <Icon name="check-circle-outline" size={18} color={colors.onBrand} />
+          <Text style={[styles.submitText, { color: colors.onBrand }]}>{submitting ? 'Saving…' : 'Save Ledger Entry'}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   totText: { fontSize: 13, fontFamily: FONTS.bold },
 
   submit: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, paddingVertical: 15, marginTop: 18 },
-  submitText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  submitText: { fontSize: 16, fontFamily: FONTS.bold },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },

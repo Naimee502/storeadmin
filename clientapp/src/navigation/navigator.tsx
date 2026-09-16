@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -31,16 +31,35 @@ export const createNavigator = (config: any) => {
   const NavigatorComponent = () => {
     const { colors } = useTheme();
 
+    /**
+     * freezeOnBlur is the important line here.
+     *
+     * A party sees a drawer wrapping five tabs wrapping a stack, and every one
+     * of those screens stays mounted once visited — which is what makes going
+     * back to a tab instant, and also what made the app feel sticky. Each of
+     * them holds Apollo watchers and a subscription to the cart, so a single
+     * tap on "+" re-rendered Home, Shop, Orders, Payments and Profile, not just
+     * the screen in front of the user. Frozen, a blurred screen keeps its state
+     * and its scroll position but stops re-rendering until it is looked at
+     * again.
+     *
+     * Memoised because React Navigation recomputes every screen's options when
+     * this object's identity changes, and a literal here made that happen on
+     * every render of the navigator.
+     */
+    const screenOptions = useMemo(() => ({
+      freezeOnBlur: true,
+      headerTintColor: colors.brand,
+      headerStyle: { backgroundColor: colors.cardGlass },
+      headerTitleStyle: { color: colors.text },
+      drawerActiveTintColor: colors.brand,
+      drawerInactiveTintColor: colors.subText,
+      drawerStyle: { backgroundColor: colors.background },
+    }), [colors]);
+
     return (
       <Navigator.Navigator
-        screenOptions={{
-          headerTintColor: colors.brand,
-          headerStyle: { backgroundColor: colors.cardGlass },
-          headerTitleStyle: { color: colors.text },
-          drawerActiveTintColor: colors.brand,
-          drawerInactiveTintColor: colors.subText,
-          drawerStyle: { backgroundColor: colors.background },
-        }}
+        screenOptions={screenOptions}
         {...(resolvedType === 'drawer' ? { drawerContent: (props) => <CustomDrawerContent {...props} /> } : {})}
         {...(resolvedType === 'tabs'   ? { tabBar: (props) => <CustomTabBar {...props} /> } : {})}
       >

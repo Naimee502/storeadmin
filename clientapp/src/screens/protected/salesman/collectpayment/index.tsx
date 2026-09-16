@@ -310,8 +310,8 @@ export default function CollectPayment() {
                   activeOpacity={0.85}
                   onPress={() => { setSettleMode(s.id); if (s.id === 'onaccount') setAllocations([]); }}
                 >
-                  <Icon name={s.icon} size={15} color={active ? '#fff' : colors.subText} />
-                  <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+                  <Icon name={s.icon} size={15} color={active ? colors.onBrand : colors.subText} />
+                  <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
                 </TouchableOpacity>
               );
             })}

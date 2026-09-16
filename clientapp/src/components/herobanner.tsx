@@ -72,7 +72,11 @@ export const HeroBanner: React.FC<Props> = ({
         title: `Shop everything from ${brandName}`,
         body: catalogLine,
         cta: 'Start Shopping',
-        gradient: [colors.brand, colors.brandDark],
+        // brandLight → brandDark, not brand → brandDark: `brand` inverts to
+        // white in dark mode for a near-black brand, which turned this tile
+        // white under its own white text. Both of these stay dark in either
+        // theme, which is what a slide flagged `onDark` needs.
+        gradient: [colors.brandLight, colors.brandDark],
         onDark: true,
       },
       {
@@ -96,13 +100,13 @@ export const HeroBanner: React.FC<Props> = ({
         body: `${top.items} products waiting for you in ${top.name}.`,
         cta: `Shop ${top.name}`,
         icon: 'star-outline',
-        gradient: [colors.brandDark, colors.brand],
+        gradient: [colors.brandDark, colors.brandLight],
         onDark: true,
       });
     }
 
     return base;
-  }, [slides, products, brandName, colors.brand, colors.brandDark]);
+  }, [slides, products, brandName, colors.brandLight, colors.brandDark]);
 
   return (
     <BannerCarousel

@@ -135,10 +135,13 @@ const PurchaseInvoices = () => {
           element: waRef.current!,
           ...waMeta.current!,
         });
-        if (result === "downloaded") {
+        if (result === "copied" || result === "downloaded") {
           dispatch(
             showMessage({
-              message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
+              message:
+                result === "copied"
+                  ? "Invoice copied — press Cmd/Ctrl+V in the WhatsApp chat that just opened."
+                  : "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
               type: "info",
             })
           );

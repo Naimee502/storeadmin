@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator, Modal } from 'react-native';
-import { COLORS, useTheme } from '../config';
+import { useTheme } from '../config';
 
 type AppLoaderProps = {
   visible: boolean;
 };
 
 export const AppLoader: React.FC<AppLoaderProps> = ({ visible }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   return (
     <Modal
       transparent
@@ -15,7 +15,7 @@ export const AppLoader: React.FC<AppLoaderProps> = ({ visible }) => {
       visible={visible}
     >
       <View style={styles.container}>
-        <View style={styles.loaderContainer}>
+        <View style={[styles.loaderContainer, { backgroundColor: colors.card }]}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </View>
@@ -31,7 +31,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loaderContainer: {
-    backgroundColor: COLORS.light.white,
     padding: 25,
     borderRadius: 15,
     shadowColor: '#000',

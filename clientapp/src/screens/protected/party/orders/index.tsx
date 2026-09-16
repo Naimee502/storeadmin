@@ -213,7 +213,7 @@ export default function MyOrders() {
                 onPress={() => setScope(s.key)}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.segmentText, { color: active ? '#fff' : colors.subText }]}>{s.label}</Text>
+                <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -239,14 +239,14 @@ export default function MyOrders() {
               ]}
               onPress={() => setFilter(f.key)}
             >
-              <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>
+              <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>
                 {f.label}
               </Text>
               {count > 0 && (
                 <View style={[styles.chipCount, {
-                  backgroundColor: active ? 'rgba(255,255,255,0.25)' : colors.brandSoft,
+                  backgroundColor: active ? colors.onBrand + '40' : colors.brandSoft,
                 }]}>
-                  <Text style={[styles.chipCountText, { color: active ? '#fff' : colors.brand }]}>
+                  <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>
                     {count}
                   </Text>
                 </View>

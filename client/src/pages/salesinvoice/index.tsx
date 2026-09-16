@@ -101,7 +101,6 @@ const SalesInvoices = () => {
     }
   };
   const invoiceList = data?.getSalesInvoices || [];
-  console.log("Fetched Sales Invoices:", JSON.stringify(invoiceList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Build a Set of source-invoice ids that already have an active Sales
@@ -204,10 +203,13 @@ const SalesInvoices = () => {
           element: waRef.current!,
           ...waMeta.current!,
         });
-        if (result === "downloaded") {
+        if (result === "copied" || result === "downloaded") {
           dispatch(
             showMessage({
-              message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
+              message:
+                result === "copied"
+                  ? "Invoice copied — press Cmd/Ctrl+V in the WhatsApp chat that just opened."
+                  : "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
               type: "info",
             })
           );

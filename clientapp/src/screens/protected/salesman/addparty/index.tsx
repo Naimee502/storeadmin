@@ -155,8 +155,8 @@ export default function AddPartyToRoute() {
         activeOpacity={0.8}
       >
         {adding === a.id
-          ? <Icon name="loading" size={16} color="#fff" />
-          : <Icon name="plus" size={16} color="#fff" />
+          ? <Icon name="loading" size={16} color={colors.onBrand} />
+          : <Icon name="plus" size={16} color={colors.onBrand} />
         }
       </TouchableOpacity>
     </View>
@@ -186,8 +186,8 @@ export default function AddPartyToRoute() {
           }}
           activeOpacity={0.85}
         >
-          <Icon name="account-plus" size={13} color="#fff" />
-          <Text style={styles.newPartyText}>New Party</Text>
+          <Icon name="account-plus" size={13} color={colors.onBrand} />
+          <Text style={[styles.newPartyText, { color: colors.onBrand }]}>New Party</Text>
         </TouchableOpacity>
       </View>
 
@@ -208,7 +208,7 @@ export default function AddPartyToRoute() {
                 ]}
                 onPress={() => setSelectedDay(dayKey(d))}
               >
-                <Text style={[styles.dayChipText, { color: active ? '#fff' : colors.subText }]}>
+                <Text style={[styles.dayChipText, { color: active ? colors.onBrand : colors.subText }]}>
                   {d.slice(0, 3)}
                 </Text>
               </TouchableOpacity>
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   },
   contextText: { fontSize: 13, fontFamily: FONTS.semiBold, flex: 1 },
   newPartyBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginLeft: 'auto' },
-  newPartyText: { fontSize: 11, fontFamily: FONTS.bold, color: '#fff' },
+  newPartyText: { fontSize: 11, fontFamily: FONTS.bold },
 
   daySection: { paddingHorizontal: 18, marginTop: 12, marginBottom: 8 },
   dayLabel:   { fontSize: 13, fontFamily: FONTS.semiBold, marginBottom: 8 },

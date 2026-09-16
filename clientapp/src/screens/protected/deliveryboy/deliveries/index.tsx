@@ -271,8 +271,8 @@ export default function DeliveryList() {
                 style={[styles.actionBtn, { backgroundColor: colors.brand }]}
                 onPress={() => handleAccept(item)}
               >
-                <Icon name="hand-okay" size={12} color="#fff" />
-                <Text style={styles.actionBtnText}>Accept</Text>
+                <Icon name="hand-okay" size={12} color={colors.onBrand} />
+                <Text style={[styles.actionBtnText, { color: colors.onBrand }]}>Accept</Text>
               </TouchableOpacity>
             )}
 
@@ -282,8 +282,8 @@ export default function DeliveryList() {
                   style={[styles.actionBtn, { backgroundColor: colors.brand }]}
                   onPress={() => handleMarkDelivered(item)}
                 >
-                  <Icon name="check" size={12} color="#fff" />
-                  <Text style={styles.actionBtnText}>Delivered</Text>
+                  <Icon name="check" size={12} color={colors.onBrand} />
+                  <Text style={[styles.actionBtnText, { color: colors.onBrand }]}>Delivered</Text>
                 </TouchableOpacity>
                 {item.outstanding > 0 && (
                   <TouchableOpacity
@@ -291,7 +291,7 @@ export default function DeliveryList() {
                     onPress={() => handleCollectPayment(item)}
                   >
                     <Icon name="cash" size={12} color="#fff" />
-                    <Text style={styles.actionBtnText}>Collect ₹</Text>
+                    <Text style={[styles.actionBtnText, { color: '#fff' }]}>Collect ₹</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -333,10 +333,10 @@ export default function DeliveryList() {
               ]}
               onPress={() => setFilter(f.key)}
             >
-              <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>{f.label}</Text>
+              <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>{f.label}</Text>
               {count > 0 && (
-                <View style={[styles.chipCount, { backgroundColor: active ? 'rgba(255,255,255,0.25)' : colors.brandSoft }]}>
-                  <Text style={[styles.chipCountText, { color: active ? '#fff' : colors.brand }]}>{count}</Text>
+                <View style={[styles.chipCount, { backgroundColor: active ? colors.onBrand + '40' : colors.brandSoft }]}>
+                  <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   distBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   distText:   { fontSize: 11, fontFamily: FONTS.bold },
   actionBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-  actionBtnText: { fontSize: 11, fontFamily: FONTS.bold, color: '#fff' },
+  actionBtnText: { fontSize: 11, fontFamily: FONTS.bold },
   cashText:   { fontSize: 12, fontFamily: FONTS.semiBold },
 
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 12 },

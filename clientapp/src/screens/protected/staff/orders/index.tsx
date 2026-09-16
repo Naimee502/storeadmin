@@ -142,10 +142,10 @@ export default function StaffOrders() {
               ]}
               onPress={() => setFilter(f.key)}
             >
-              <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>{f.label}</Text>
+              <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>{f.label}</Text>
               {count > 0 && (
-                <View style={[styles.chipCount, { backgroundColor: active ? 'rgba(255,255,255,0.25)' : colors.brandSoft }]}>
-                  <Text style={[styles.chipCountText, { color: active ? '#fff' : colors.brand }]}>{count}</Text>
+                <View style={[styles.chipCount, { backgroundColor: active ? colors.onBrand + '40' : colors.brandSoft }]}>
+                  <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -177,8 +177,8 @@ export default function StaffOrders() {
         onPress={() => navigation.navigate('StaffParties')}
         activeOpacity={0.88}
       >
-        <Icon name="plus" size={20} color="#fff" />
-        <Text style={styles.fabText}>New Order</Text>
+        <Icon name="plus" size={20} color={colors.onBrand} />
+        <Text style={[styles.fabText, { color: colors.onBrand }]}>New Order</Text>
       </TouchableOpacity>
     </View>
   );
@@ -217,5 +217,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14, borderRadius: 18,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 6,
   },
-  fabText: { fontSize: 14, fontFamily: FONTS.bold, color: '#fff' },
+  fabText: { fontSize: 14, fontFamily: FONTS.bold },
 });

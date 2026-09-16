@@ -232,7 +232,7 @@ export default function SalesmanCatalog() {
                       ]}
                       onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
                     >
-                      <Text style={[styles.unitChipText, { color: active ? '#fff' : colors.text }]}>
+                      <Text style={[styles.unitChipText, { color: active ? colors.onBrand : colors.text }]}>
                         {getUnitLabel(u)}
                       </Text>
                     </TouchableOpacity>
@@ -248,8 +248,8 @@ export default function SalesmanCatalog() {
           {v && !outOfStock && (
             cartQty === 0 ? (
               <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => handleAdd(p)}>
-                <Icon name="plus" size={14} color="#fff" />
-                <Text style={styles.addBtnText}>Add</Text>
+                <Icon name="plus" size={14} color={colors.onBrand} />
+                <Text style={[styles.addBtnText, { color: colors.onBrand }]}>Add</Text>
               </TouchableOpacity>
             ) : (
               <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
@@ -299,7 +299,7 @@ export default function SalesmanCatalog() {
                 ]}
                 onPress={() => setCategory(item.id)}
               >
-                <Text style={[styles.chipText, { color: active ? '#fff' : colors.subText }]}>{item.name}</Text>
+                <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>{item.name}</Text>
               </TouchableOpacity>
             );
           })}
@@ -347,11 +347,11 @@ export default function SalesmanCatalog() {
           onPress={() => navigation.navigate('SalesmanCart')}
           activeOpacity={0.9}
         >
-          <View style={[styles.cartBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-            <Text style={styles.cartBadgeText}>{cartCount}</Text>
+          <View style={[styles.cartBadge, { backgroundColor: colors.onBrand + '40' }]}>
+            <Text style={[styles.cartBadgeText, { color: colors.onBrand }]}>{cartCount}</Text>
           </View>
-          <Text style={styles.cartBarText}>View Cart</Text>
-          <Icon name="chevron-right" size={18} color="#fff" />
+          <Text style={[styles.cartBarText, { color: colors.onBrand }]}>View Cart</Text>
+          <Icon name="chevron-right" size={18} color={colors.onBrand} />
         </TouchableOpacity>
       )}
     </View>
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   unitChip:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, marginRight: 5 },
   unitChipText: { fontSize: 10, fontFamily: FONTS.semiBold },
   addBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 11, paddingVertical: 8, paddingHorizontal: 16, gap: 4 },
-  addBtnText:  { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
+  addBtnText:  { fontSize: 13, fontFamily: FONTS.bold },
   qtyControl:  { flexDirection: 'row', alignItems: 'center', borderRadius: 11, borderWidth: 1.5, overflow: 'hidden' },
   qtyBtn:      { paddingHorizontal: 11, paddingVertical: 7 },
   qtyText:     { fontSize: 14, fontFamily: FONTS.bold, minWidth: 26, textAlign: 'center' },
@@ -414,6 +414,6 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
   cartBadge:     { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  cartBadgeText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
-  cartBarText:   { flex: 1, fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  cartBadgeText: { fontSize: 13, fontFamily: FONTS.bold },
+  cartBarText:   { flex: 1, fontSize: 15, fontFamily: FONTS.bold },
 });

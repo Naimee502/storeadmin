@@ -11,7 +11,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import {
-  COLORS, FONTS, useTheme,
+  FONTS, useTheme,
   partyTypeOptions, regionOptions, stateOptions, TYPE_GROUP_MAP, type Option,
 } from '../../../../config';
 import { BackHeader } from '../../../../components';
@@ -324,7 +324,7 @@ export default function StaffCreateParty() {
                     else if (t.value === 'vendor') setOpeningbalancetype('credit');
                   }}
                 >
-                  <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>{t.label}</Text>
+                  <Text style={[styles.typeChipText, { color: active ? colors.onBrand : colors.subText }]}>{t.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -416,7 +416,7 @@ export default function StaffCreateParty() {
                       : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
                     onPress={() => setOpeningbalancetype(bt)}
                   >
-                    <Text style={[styles.typeChipText, { color: active ? '#fff' : colors.subText }]}>
+                    <Text style={[styles.typeChipText, { color: active ? colors.onBrand : colors.subText }]}>
                       {bt === 'debit' ? 'Debit (To Receive)' : 'Credit (To Pay)'}
                     </Text>
                   </TouchableOpacity>
@@ -431,8 +431,8 @@ export default function StaffCreateParty() {
             disabled={submitting}
             activeOpacity={0.88}
           >
-            <Icon name={submitting ? 'loading' : 'account-plus-outline'} size={20} color="#fff" />
-            <Text style={styles.submitBtnText}>{submitting ? 'Creating…' : 'Create Party'}</Text>
+            <Icon name={submitting ? 'loading' : 'account-plus-outline'} size={20} color={colors.onBrand} />
+            <Text style={[styles.submitBtnText, { color: colors.onBrand }]}>{submitting ? 'Creating…' : 'Create Party'}</Text>
           </TouchableOpacity>
 
         </ScrollView>
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     borderRadius: 18, paddingVertical: 16, marginTop: 6, marginBottom: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
-  submitBtnText: { fontSize: 16, fontFamily: FONTS.bold, color: '#fff' },
+  submitBtnText: { fontSize: 16, fontFamily: FONTS.bold },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },

@@ -124,8 +124,8 @@ export default function AdminSetup() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <LinearGradient colors={colors.appGradient} style={StyleSheet.absoluteFill} />
-      <View style={[styles.glow, styles.glowOne]} />
-      <View style={[styles.glow, styles.glowTwo]} />
+      <View style={[styles.glow, styles.glowOne, { backgroundColor: colors.brandSoft }]} />
+      <View style={[styles.glow, styles.glowTwo, { backgroundColor: colors.warmSoft }]} />
 
       <AppLoader visible={loading} />
 
@@ -251,8 +251,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'flex-start',
   },
   glow: { position: 'absolute', width: '120%', height: 190, opacity: 1 },
-  glowOne: { backgroundColor: COLORS.light.brandSoft, top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
-  glowTwo: { backgroundColor: COLORS.light.warmSoft, bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
+  glowOne: { top: -72, right: -34, borderBottomLeftRadius: 120, transform: [{ rotate: '-7deg' }] },
+  glowTwo: { bottom: 86, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
   iconWrap: { marginBottom: 28, marginTop: 20 },
   iconBadge: {
     width: 110, height: 110, borderRadius: 32,
