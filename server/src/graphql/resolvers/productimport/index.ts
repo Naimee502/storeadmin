@@ -279,8 +279,11 @@ export const productImportResolvers = {
           .map((v: any) => v?.productcode)
           .find((code: any) => code && String(code).trim());
 
+        // Only a system code (#PRD0001 ...) can point at an existing product.
+        // A free-text code like "ASDFF" is always treated as a new product and
+        // gets a fresh system code below.
         let existingId: string | undefined;
-        if (productCode) {
+        if (productCode && /^#PRD\d{4,}$/.test(String(productCode).trim())) {
           const existing: any = await ProductService.findOne({
             adminid,
             branchid,
@@ -295,6 +298,16 @@ export const productImportResolvers = {
             message: `Product code ${productCode} already exists. Switch to "Update existing" to overwrite it.`,
             sheet: "Variants",
           });
+        }
+
+        // New products always get a system code (#PRD0001, #PRD0002, ...).
+        // Whatever the sheet carried ("ASDFF", a code from another branch, a
+        // hand-typed #PRD number) is dropped so the model's pre-save hook
+        // assigns the next code in this branch's sequence.
+        if (!existingId && Array.isArray(normalised.productvariants)) {
+          for (const variant of normalised.productvariants) {
+            if (variant) delete variant.productcode;
+          }
         }
 
         if (rowIssues.length) {

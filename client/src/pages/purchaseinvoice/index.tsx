@@ -17,7 +17,8 @@ import { usePurchaseReturnsQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { formatDateDMY } from "../../utils/helper";
-import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { shareBlobOnWhatsApp } from "../../utils/sharepdf";
+import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 
@@ -73,7 +74,7 @@ const PurchaseInvoices = () => {
 
   // Share the purchase invoice on WhatsApp as a PDF (same printable
   // layout as Print). Hidden mount below; effect converts + shares.
-  const waRef = useRef<HTMLDivElement>(null);
+  const makeInvoicePdf = useInvoicePdf();
   const [waInvoice, setWaInvoice] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
@@ -127,28 +128,35 @@ const PurchaseInvoices = () => {
   };
 
   useEffect(() => {
-    if (!waInvoice || !waRef.current || !waMeta.current) return;
+    if (!waInvoice || !waMeta.current) return;
     const run = async () => {
       dispatch(showLoading());
       try {
-        const result = await shareElementAsPdfOnWhatsApp({
-          element: waRef.current!,
+        const blob = await makeInvoicePdf(waInvoice);
+        const result = await shareBlobOnWhatsApp({
+          blob,
           ...waMeta.current!,
         });
-        if (result === "copied" || result === "downloaded") {
+        if (result === "downloaded") {
           dispatch(
             showMessage({
-              message:
-                result === "copied"
-                  ? "Invoice copied — press Cmd/Ctrl+V in the WhatsApp chat that just opened."
-                  : "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
-              type: "info",
+              message: "Invoice PDF downloaded — attach it in the WhatsApp chat that just opened.",
+              // The message slice only types 'success' | 'error'; this is an
+              // informational note, and 'success' is the truthful one of the two
+              // (the PDF really was produced and downloaded).
+              type: "success",
             })
           );
         }
       } catch (e) {
         console.error("WhatsApp PDF share error:", e);
-        dispatch(showMessage({ message: "Failed to share invoice PDF.", type: "error" }));
+        // The reason is spelled out rather than swallowed: this path can fail
+        // for several unrelated causes (the PDF module not loading, bad data
+        // on the document), and "it failed" leaves nobody anything to act on.
+        dispatch(showMessage({
+          message: `Failed to share invoice PDF: ${(e as any)?.message || e}`,
+          type: "error",
+        }));
       } finally {
         dispatch(hideLoading());
         setWaInvoice(null);
@@ -343,12 +351,6 @@ const PurchaseInvoices = () => {
           </div>
         )}
 
-        {/* Hidden copy rendered only while generating the WhatsApp PDF */}
-        {waInvoice && (
-          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
-            <PrintableInvoice ref={waRef} invoice={waInvoice} />
-          </div>
-        )}
       </div>
     </HomeLayout>
   );

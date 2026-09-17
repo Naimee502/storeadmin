@@ -14,7 +14,8 @@ import {
 import { formatDateDMY } from "../../utils/helper";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
-import { shareElementAsPdfOnWhatsApp } from "../../utils/sharepdf";
+import { shareBlobOnWhatsApp } from "../../utils/sharepdf";
+import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
 
@@ -131,7 +132,7 @@ const PurchaseOrders = () => {
   /* ---------- WhatsApp share ----------
      Shares the very same printable layout as a PDF, so what the supplier
      receives on WhatsApp is byte-for-byte what Print produces. */
-  const waRef = useRef<HTMLDivElement>(null);
+  const makeInvoicePdf = useInvoicePdf();
   const [waOrder, setWaOrder] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
@@ -159,20 +160,21 @@ const PurchaseOrders = () => {
   };
 
   useEffect(() => {
-    if (!waOrder || !waRef.current || !waMeta.current) return;
+    if (!waOrder || !waMeta.current) return;
     const run = async () => {
       dispatch(showLoading());
       try {
-        const result = await shareElementAsPdfOnWhatsApp({
-          element: waRef.current!,
+        const blob = await makeInvoicePdf(waOrder, {
+          title: "PURCHASE ORDER",
+          docNoLabel: "Order No.",
+        });
+        const result = await shareBlobOnWhatsApp({
+          blob,
           ...waMeta.current!,
         });
-        if (result === "copied" || result === "downloaded") {
+        if (result === "downloaded") {
           dispatch(showMessage({
-            message:
-                result === "copied"
-                  ? "Order copied — press Cmd/Ctrl+V in the WhatsApp chat that just opened."
-                  : "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
+            message: "Order PDF downloaded — attach it in the WhatsApp chat that just opened.",
             // The message slice only types 'success' | 'error'; this is an
             // informational note, and 'success' is the truthful one of the two
             // (the PDF really was produced and downloaded).
@@ -181,7 +183,13 @@ const PurchaseOrders = () => {
         }
       } catch (e) {
         console.error("WhatsApp PDF share error:", e);
-        dispatch(showMessage({ message: "Failed to share order PDF.", type: "error" }));
+        // The reason is spelled out rather than swallowed: this path can fail
+        // for several unrelated causes (the PDF module not loading, bad data
+        // on the document), and "it failed" leaves nobody anything to act on.
+        dispatch(showMessage({
+          message: `Failed to share order PDF: ${(e as any)?.message || e}`,
+          type: "error",
+        }));
       } finally {
         dispatch(hideLoading());
         setWaOrder(null);
@@ -306,19 +314,6 @@ const PurchaseOrders = () => {
           </div>
         )}
 
-        {/* Hidden copy rendered only while the WhatsApp PDF is generated. The
-            explicit width matters: html2canvas rasterises at the laid-out
-            width, and offscreen content would otherwise collapse. */}
-        {waOrder && (
-          <div style={{ position: "absolute", left: "-9999px", top: 0, width: "800px" }}>
-            <PrintableInvoice
-              ref={waRef}
-              invoice={waOrder}
-              title="PURCHASE ORDER"
-              docNoLabel="Order No."
-            />
-          </div>
-        )}
       </div>
     </HomeLayout>
   );

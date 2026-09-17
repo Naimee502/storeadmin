@@ -35,6 +35,7 @@ import { chargeRuleResolvers } from "./chargerule";
 import { visitResolvers } from "./visit";
 import { locationPingResolvers } from "./locationping";
 import { notificationResolvers } from "./notifications";
+import { accountDeletionResolvers } from "./accountdeletionrequest";
 
 export const resolvers = [
   branchResolvers,
@@ -74,4 +75,5 @@ export const resolvers = [
   visitResolvers,
   locationPingResolvers,
   notificationResolvers,
+  accountDeletionResolvers,
 ];

@@ -34,6 +34,7 @@ import { chargeRuleTypeDefs } from "./chargerule";
 import { visitTypeDefs } from "./visit";
 import { locationPingTypeDefs } from "./locationping";
 import { notificationTypeDefs } from "./notifications";
+import { accountDeletionTypeDefs } from "./accountdeletionrequest";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -72,4 +73,5 @@ export const typeDefs = [
   visitTypeDefs,
   locationPingTypeDefs,
   notificationTypeDefs,
+  accountDeletionTypeDefs,
 ];
