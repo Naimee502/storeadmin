@@ -4,18 +4,19 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 
 const Message: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { message, type } = useAppSelector((state: any) => state.message);
+  const { message, type, duration } = useAppSelector((state: any) => state.message);
 
   useEffect(() => {
     if (message) {
       // Errors now name every field that is wrong, which takes longer to
-      // read than a one-word "Saved".
+      // read than a one-word "Saved". A message may also ask for its own
+      // time — see `duration` on the slice.
       const timer = setTimeout(() => {
         dispatch(clearMessage());
-      }, type === 'success' ? 3000 : 7000);
+      }, duration ?? (type === 'success' ? 3000 : 7000));
       return () => clearTimeout(timer);
     }
-  }, [message, type, dispatch]);
+  }, [message, type, duration, dispatch]);
 
   if (!message) return null;
 

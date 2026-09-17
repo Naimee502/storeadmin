@@ -18,7 +18,7 @@ import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
-import { shareBlobOnWhatsApp } from "../../utils/sharepdf";
+import { shareBlobOnWhatsApp, copyPartyNumberForPicker } from "../../utils/sharepdf";
 import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
@@ -149,6 +149,23 @@ const SalesInvoices = () => {
   const handleWhatsAppShare = async (row: any) => {
     const orig = invoiceList.find((inv: any) => inv.id === row.id);
     if (!orig) return;
+
+    // Nothing a browser can do names the recipient for WhatsApp — the share
+    // sheet carries the file and nothing else, so its "Send message to" list
+    // always follows. The number goes on the clipboard so that list becomes
+    // a paste instead of a search, and the message below says so, because a
+    // clipboard nobody was told about helps nobody. It is held on screen far
+    // longer than a normal toast: by the time WhatsApp's picker is actually
+    // open, three seconds are long gone.
+    const copiedNumber = copyPartyNumberForPicker(orig.partyacc?.mobile);
+    if (copiedNumber) {
+      dispatch(showMessage({
+        message:
+          `${copiedNumber} copied.\nIn WhatsApp\u2019s \u201cSend message to\u201d search box, press Ctrl+V to pull up this party.`,
+        type: "success",
+        duration: 20000,
+      }));
+    }
 
     // Business Settings → Invoice Print → "Show company name in signature"
     // also governs the WhatsApp message's sign-off — when disabled, the
