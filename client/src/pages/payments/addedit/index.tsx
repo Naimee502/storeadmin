@@ -341,8 +341,35 @@ const AddEditPayment = () => {
   // Concessions can be captured in Direct mode too, but only when there is an
   // allocation to attach them to — with auto-settlement off the money just sits
   // On Account and a discount would have nothing to reduce.
+  /**
+   * Does the party carry an opening at all — whichever side it sits on?
+   *
+   * `openingDueValue` answers a narrower question: how much of it THIS screen
+   * can clear, which is 0 for a payment-out against a debit opening because
+   * that payment adds to the opening instead of clearing it. The commission on
+   * such a payout is still real, so the concession gate asks this instead.
+   * Ledger first, account as fallback — same order the server uses.
+   */
+  const partyOpening = useMemo(() => {
+    const acc = (accountsData?.getAccounts || []).find((a: any) => a.id === partyid);
+    if (!acc) return 0;
+    const led = (ledgerData?.getAccountLedgers || []).find(
+      (l: any) => l.id === acc.ledgerid?.id
+    );
+    const src = led || acc;
+    const amt = Number(src.openingbalance) || 0;
+    if (!amt) return 0;
+    return String(src.openingbalancetype).toLowerCase() === "debit" ? amt : -amt;
+  }, [accountsData, ledgerData, partyid]);
+  const partyHasOpening = partyOpening !== 0;
+  /** Party carries an opening, but this voucher moves it instead of clearing it. */
+  const openingMovesNotClears = partyHasOpening && !hasSomethingToSettle;
+
   const directConcessionsAllowed =
-    dcEnabled && isDirectSettle && autoSettlement !== "off" && hasSomethingToSettle;
+    dcEnabled &&
+    isDirectSettle &&
+    autoSettlement !== "off" &&
+    (hasSomethingToSettle || partyHasOpening);
   /**
    * Ledger mode takes the same pair. Settling a running ledger — the angadia,
    * a transporter, a labour contractor — works exactly like settling a party:
@@ -1001,6 +1028,7 @@ const AddEditPayment = () => {
     if (totalDiscount <= 0 && totalCommission <= 0) return "";
     const cleared = parseFloat((billsAllocated(p) + (p.openingsettled || 0)).toFixed(2));
     if (cleared <= 0) {
+      if (partyHasOpening) return "";
       return noBillForConcession(p.unallocated || 0);
     }
     if (totalDiscount > cleared + 0.01) {
@@ -1194,7 +1222,7 @@ const AddEditPayment = () => {
     // still correct: the party ledger is posted in full either way.
     // No open bills, but the opening balance may still soak up part of it.
     if (!p || (!p.lines.length && !p.openingsettled)) {
-      if (totalDiscount > 0 || totalCommission > 0) {
+      if (!partyHasOpening && (totalDiscount > 0 || totalCommission > 0)) {
         setErrors({ amount: noBillForConcession(totalAmount) });
         return;
       }
@@ -1536,15 +1564,23 @@ const AddEditPayment = () => {
                         bill and there is nothing to explain why. It is a debt
                         like any other: the money settles it, and a discount or
                         commission can be given on it. */}
-                    {openingDueValue > 0 && (
+                    {(openingDueValue > 0 || openingMovesNotClears) && (
                       <div className="flex justify-between">
                         <span>
                           Opening Balance
                           <span className="block text-[11px] text-gray-500">
-                            Carried forward — cleared before any bill.
+                            {openingMovesNotClears
+                              ? payType === "receipt"
+                                ? "Carried forward — this receipt reduces it."
+                                : "Carried forward — this payment adds to it."
+                              : "Carried forward — cleared before any bill."}
                           </span>
                         </span>
-                        <span className="font-medium">₹{fmt(openingDueValue)}</span>
+                        <span className="font-medium whitespace-nowrap">
+                          {openingMovesNotClears
+                            ? `₹${fmt(Math.abs(partyOpening))} (${partyOpening > 0 ? "Dr" : "Cr"})`
+                            : `₹${fmt(openingDueValue)}`}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-1">
@@ -1572,6 +1608,10 @@ const AddEditPayment = () => {
                           <span className="block text-[11px] text-gray-500">
                             {openingLoading
                               ? "Checking what is still open…"
+                              : openingMovesNotClears
+                              ? payType === "receipt"
+                                ? "Recorded On Account — it comes off the opening balance above."
+                                : "Recorded On Account — it adds to the opening balance above."
                               : !hasSomethingToSettle
                               ? "Nothing open — this is recorded On Account and goes onto their next invoice."
                               : directConcessionsAllowed
@@ -1696,7 +1736,7 @@ const AddEditPayment = () => {
                     <p className="text-xs text-gray-500">
                       Working out what this party still owes…
                     </p>
-                  ) : (
+                  ) : openingMovesNotClears ? null : (
                     dcEnabled && (
                       <p className="text-xs text-gray-500">
                         No discount or commission — this party has nothing outstanding, so the

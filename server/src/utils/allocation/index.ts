@@ -540,18 +540,18 @@ export async function getPartyOpeningDue(opts: {
 
   let opening: number;
   if (isBothParty(acc.type)) {
-    // A Customer & Vendor party trades in both directions, so its opening is
-    // offered on BOTH payment screens — positive whichever side asks, and the
-    // side it is booked on (debit or credit) is left to the ledger and the
-    // statement, untouched.
+    // An opening is settleable only from the side that REDUCES it — the same
+    // direction the Party Statement posts by:
     //
-    // It cannot be collected twice: the openingsettled subtraction below is
-    // party-wide, not per side, so settling ₹50,000 on the receipt side leaves
-    // the payment side offering the remainder, never the whole figure again.
+    //   DEBIT opening  → Payment In reduces it, Payment Out adds to it
+    //   CREDIT opening → Payment Out reduces it, Payment In adds to it
     //
-    // This used to be handed to ONE side — a debit opening to the sales side, a
-    // credit one to the purchase side — and the other side was shown ₹0 with no
-    // explanation, which is what sent us looking for a bug that was not there.
+    // Offering it to both sides let a Payment Out settle a debit opening, so
+    // the payment module counted it down while the statement counted it up.
+    const openingIsDebit =
+      String(src.openingbalancetype).toLowerCase() === "debit";
+    const asking = opts.invoicemodel === "PurchaseInvoice" ? "payment" : "receipt";
+    if (asking !== (openingIsDebit ? "receipt" : "payment")) return 0;
     opening = Number(src.openingbalance) || 0;
   } else {
     opening =
