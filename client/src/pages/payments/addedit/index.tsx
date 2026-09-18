@@ -389,12 +389,6 @@ const AddEditPayment = () => {
    * total, and the carried-forward name earns its place again.
    */
   const openingIsWholeBalance = openingDueValue > 0 && !hasOpenBills;
-  /**
-   * Which side that settleable balance sits on. It is only ever > 0 in the
-   * direction this voucher clears: a receipt collects what they owe us (Dr),
-   * a payment clears what we owe them (Cr).
-   */
-  const openingDueSide = payType === "receipt" ? "Dr" : "Cr";
 
   const directConcessionsAllowed =
     dcEnabled &&
@@ -956,13 +950,13 @@ const AddEditPayment = () => {
             {ledgerDue.balance !== 0 ? ` (${ledgerDue.balance > 0 ? "Dr" : "Cr"})` : ""}
           </span>
         </div>
-        <div className="flex justify-between border-t pt-1">
-          <span className="font-medium">Total Outstanding</span>
-          <span className="font-semibold text-orange-600">₹{fmt(ledgerDueValue)}</span>
-        </div>
-        {/* A balance running the other way is not a bug and not zero — it is
-            simply not collectable by THIS voucher, and saying so beats an
-            unexplained ₹0.00 under a ledger the user knows carries money. */}
+        {/* A balance running the other way is not a bug — it is simply not
+            settleable by THIS voucher, and the money will sit on account. The
+            panel used to carry a "Total Outstanding" figure that said the same
+            thing in numbers, but it read as the ledger's balance and so looked
+            wrong beside the balance above: the same ₹8,62,500 Cr ledger showed
+            ₹8,62,500 against a payment and ₹0.00 against a receipt. The balance
+            is the figure; this sentence covers the rest. */}
         {ledgerDueValue === 0 && ledgerDue.balance !== 0 && (
           <p className="text-[11px] text-gray-500">
             This ledger carries ₹{fmt(Math.abs(ledgerDue.balance))}{" "}
@@ -1611,29 +1605,29 @@ const AddEditPayment = () => {
                                 : "Balance as it stands now — this payment adds to it."
                               : openingIsWholeBalance
                               ? payType === "receipt"
-                                ? "Balance as it stands now — this receipt clears it."
-                                : "Balance as it stands now — this payment clears it."
+                                ? "Balance as it stands now — this receipt comes off it."
+                                : "Balance as it stands now — this payment comes off it."
                               : "Carried forward — what is left of it clears before any bill."}
                           </span>
                         </span>
                         <span className="font-medium whitespace-nowrap">
-                          {openingMovesNotClears
+                          {/* A row called Current Balance must print the
+                              balance, not the settleable part of it. They are
+                              usually the same figure, but not always: pay a
+                              ₹7,44,860 Dr party ₹760 and the statement reads
+                              ₹7,44,760 Dr, while only ₹7,44,000 of the OPENING
+                              is still collectable — the ₹760 went out as an
+                              advance, which is not opening and cannot be
+                              un-settled by a receipt. Quoting the settleable
+                              figure here made the panel disagree with the
+                              party's own statement, which is the one number the
+                              person checks it against. */}
+                          {openingMovesNotClears || openingIsWholeBalance
                             ? `₹${fmt(Math.abs(partyOpening))} (${partyOpening > 0 ? "Dr" : "Cr"})`
-                            : openingIsWholeBalance
-                            ? `₹${fmt(openingDueValue)} (${openingDueSide})`
                             : `₹${fmt(openingDueValue)}`}
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="font-medium">Total Outstanding</span>
-                      {/* ₹0.00 while the server is still answering is a wrong
-                          answer, not an empty one — say nothing until it is
-                          actually known. */}
-                      <span className="font-semibold text-orange-600">
-                        {openingLoading ? "…" : `₹${fmt(totalOutstanding)}`}
-                      </span>
-                    </div>
                   </div>
 
                   {/* The three inputs stack in the order the entry is made —
