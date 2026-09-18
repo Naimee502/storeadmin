@@ -12,6 +12,7 @@ import {
   allocateWithOpening,
   assertAllocationsFit,
   computeUnallocated,
+  getPartyRunningBalance,
   type InvoiceModel,
 } from "../../../utils/allocation";
 
@@ -365,9 +366,19 @@ export const paymentResolvers = {
       const totaloutstanding = parseFloat(
         (bills.reduce((t, b) => t + b.outstanding, 0) + openingdue).toFixed(2)
       );
+      // What the party carries RIGHT NOW — same basis as the Party Statement,
+      // so the panel cannot quote the frozen master opening after a payment has
+      // already moved the balance.
+      const partybalance = await getPartyRunningBalance({
+        partyid: args.partyid,
+        adminid: args.adminid,
+        branchid: args.branchid,
+        excludePaymentId: args.excludePaymentId,
+      });
       return {
         openingdue,
         openingsettled,
+        partybalance,
         lines: lines.map((l) => {
           const bill = byId.get(l.invoiceid);
           return {

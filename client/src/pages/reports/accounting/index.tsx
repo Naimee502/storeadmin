@@ -11,7 +11,7 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
-import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
+import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
 
 const reportTabsObj = [
     { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-blue-600" /> },
@@ -194,17 +194,13 @@ const AccountingFinanceReports: React.FC = () => {
         // Discount / Commission ledgers are created on the server the first time
         // they are needed, so the payment document never carries their ids.
         // Resolve them by name or those legs can never be selected here.
-        const timeOf = (d: any) => {
-            if (!d) return NaN;
-            const str = String(d).trim();
-            return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
-        };
+        const timeOf = timestampOf;
 
         // One row per payment. Debit / Credit carry the cash, which is already
         // net of the concessions (settle - discount + commission), so the
         // running balance reflects them; the Discount / Commission columns
         // beside it show how that net was arrived at.
-        type Row = { t: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number };
+        type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number };
         const rows: Row[] = [];
 
         payments
@@ -251,6 +247,10 @@ const AccountingFinanceReports: React.FC = () => {
                     .forEach((l: any) => {
                         rows.push({
                             t: timeOf(p.paymentdate),
+                            // Two vouchers on the same day are tied on date
+                            // alone; this is what keeps them in the order they
+                            // were actually entered.
+                            seq: timeOf(p.createdAt),
                             type: isReceipt ? "Payment-In" : "Payment-Out",
                             ref: String(p.paymentcode ?? "-"),
                             debit: r2(l.debit),
@@ -262,7 +262,7 @@ const AccountingFinanceReports: React.FC = () => {
                     });
             });
 
-        const valid = rows.filter((r) => !isNaN(r.t)).sort((x, y) => x.t - y.t);
+        const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
 
         // Everything before the period is folded into one beginning balance, so
         // the statement opens with what the ledger carried in, not from zero.
@@ -501,11 +501,7 @@ const AccountingFinanceReports: React.FC = () => {
         // paymentdate arrives as an epoch string OR an ISO date. Number() turns
         // the ISO form into NaN and then every date comparison below silently
         // passes, which is why a wrong date range never looked wrong.
-        const timeOf = (d: any) => {
-            if (!d) return NaN;
-            const str = String(d).trim();
-            return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
-        };
+        const timeOf = timestampOf;
 
         // Party account -> the ledger it actually posts to, so a party-mode
         // receipt is still found by picking that party's ledger in the filter.

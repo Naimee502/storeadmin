@@ -233,6 +233,18 @@ const AddEditPayment = () => {
    */
   const [openingLoading, setOpeningLoading] = useState(false);
   /**
+   * The party's CURRENT balance as the server last totalled it — the same
+   * closing figure the Party Statement prints, and the number this voucher is
+   * about to move. Null until the preview has answered; the account master's
+   * frozen opening stands in until then.
+   *
+   * It has to come from the server because the master's `openingbalance` never
+   * changes: pay a vendor ₹50,000 against a ₹7,44,860 debit opening and the
+   * statement moves to ₹7,94,860 Dr while the master still says ₹7,44,860 — so
+   * every payment after the first was being entered against a stale figure.
+   */
+  const [partyBalanceLive, setPartyBalanceLive] = useState<number | null>(null);
+  /**
    * Ledger mode's equivalent: what the SELECTED ledger currently carries, as
    * the server last totalled it. A ledger has no bills, so this one figure is
    * its whole outstanding — the counterpart of openingDue above.
@@ -351,6 +363,9 @@ const AddEditPayment = () => {
    * Ledger first, account as fallback — same order the server uses.
    */
   const partyOpening = useMemo(() => {
+    // Live balance wins whenever the server has answered — the master opening
+    // below is only the day-one figure and does not move with the vouchers.
+    if (partyBalanceLive !== null) return partyBalanceLive;
     const acc = (accountsData?.getAccounts || []).find((a: any) => a.id === partyid);
     if (!acc) return 0;
     const led = (ledgerData?.getAccountLedgers || []).find(
@@ -360,10 +375,26 @@ const AddEditPayment = () => {
     const amt = Number(src.openingbalance) || 0;
     if (!amt) return 0;
     return String(src.openingbalancetype).toLowerCase() === "debit" ? amt : -amt;
-  }, [accountsData, ledgerData, partyid]);
+  }, [accountsData, ledgerData, partyid, partyBalanceLive]);
   const partyHasOpening = partyOpening !== 0;
   /** Party carries an opening, but this voucher moves it instead of clearing it. */
   const openingMovesNotClears = partyHasOpening && !hasSomethingToSettle;
+  /**
+   * The carried-forward figure the server reports is the opening MINUS whatever
+   * earlier vouchers already settled against it — i.e. what the party carries
+   * today, not what they opened with. With no bills beside it that figure IS
+   * their current balance, so "Opening Balance" made a ₹50,000 opening read as
+   * ₹50,000, then ₹25,000 after the first ₹25,000 went out, as if the master
+   * had changed. Only when bills sit next to it is it one component of the
+   * total, and the carried-forward name earns its place again.
+   */
+  const openingIsWholeBalance = openingDueValue > 0 && !hasOpenBills;
+  /**
+   * Which side that settleable balance sits on. It is only ever > 0 in the
+   * direction this voucher clears: a receipt collects what they owe us (Dr),
+   * a payment clears what we owe them (Cr).
+   */
+  const openingDueSide = payType === "receipt" ? "Dr" : "Cr";
 
   const directConcessionsAllowed =
     dcEnabled &&
@@ -467,6 +498,7 @@ const AddEditPayment = () => {
   useEffect(() => {
     if (!partyid || isLedgerMode || payType === "expense") {
       setOpeningDue(null);
+      setPartyBalanceLive(null);
       setOpeningLoading(false);
       return;
     }
@@ -487,9 +519,16 @@ const AddEditPayment = () => {
             excludePaymentId: id || undefined,
           },
         });
-        if (!cancelled) setOpeningDue(Number(res?.data?.previewAllocation?.openingdue) || 0);
+        if (!cancelled) {
+          setOpeningDue(Number(res?.data?.previewAllocation?.openingdue) || 0);
+          const bal = res?.data?.previewAllocation?.partybalance;
+          setPartyBalanceLive(bal === null || bal === undefined ? null : Number(bal) || 0);
+        }
       } catch {
-        if (!cancelled) setOpeningDue(null);
+        if (!cancelled) {
+          setOpeningDue(null);
+          setPartyBalanceLive(null);
+        }
       } finally {
         if (!cancelled) setOpeningLoading(false);
       }
@@ -887,41 +926,36 @@ const AddEditPayment = () => {
   const totalOutstanding = parseFloat((billsOutstanding + openingDueValue).toFixed(2));
 
   /**
-   * The selected ledger's balance, laid out with the same rows, divider and
+   * The selected ledger's balance, laid out with the same row, divider and
    * orange total as the party panel's outstanding block — so a Ledger-mode
    * receipt reads exactly the way a party receipt already does. Null until the
    * server has reported a balance, and for a ledger that carries nothing.
+   *
+   * It used to split into "Opening Balance" + "Posted Since", which read as a
+   * different screen from the party panel next door and, worse, put the day-one
+   * figure on the line the eye lands on first — the party panel names the ONE
+   * number this voucher is about to move. The split is now in the hint under
+   * the figure, where it explains the total instead of competing with it.
    */
   const ledgerBalanceRows =
     ledgerDue && (ledgerDue.openingbalance !== 0 || ledgerDue.movement !== 0) ? (
       <div className="space-y-1">
-        {ledgerDue.openingbalance !== 0 && (
-          <div className="flex justify-between">
-            <span>
-              Opening Balance
-              <span className="block text-[11px] text-gray-500">
-                Carried forward — what this ledger opened with.
-              </span>
+        <div className="flex justify-between">
+          <span>
+            Current Balance
+            <span className="block text-[11px] text-gray-500">
+              {ledgerDueValue > 0
+                ? `Balance as it stands now — this ${
+                    payType === "payment" ? "payment" : "receipt"
+                  } clears it.`
+                : "Balance as it stands now — opening plus everything posted since."}
             </span>
-            <span className="font-medium">
-              ₹{fmt(Math.abs(ledgerDue.openingbalance))}{" "}
-              {ledgerDue.openingbalance > 0 ? "Dr" : "Cr"}
-            </span>
-          </div>
-        )}
-        {ledgerDue.movement !== 0 && (
-          <div className="flex justify-between">
-            <span>
-              Posted Since
-              <span className="block text-[11px] text-gray-500">
-                Vouchers already posted to this ledger.
-              </span>
-            </span>
-            <span className="font-medium">
-              ₹{fmt(Math.abs(ledgerDue.movement))} {ledgerDue.movement > 0 ? "Dr" : "Cr"}
-            </span>
-          </div>
-        )}
+          </span>
+          <span className="font-medium whitespace-nowrap">
+            ₹{fmt(Math.abs(ledgerDue.balance))}
+            {ledgerDue.balance !== 0 ? ` (${ledgerDue.balance > 0 ? "Dr" : "Cr"})` : ""}
+          </span>
+        </div>
         <div className="flex justify-between border-t pt-1">
           <span className="font-medium">Total Outstanding</span>
           <span className="font-semibold text-orange-600">₹{fmt(ledgerDueValue)}</span>
@@ -1567,18 +1601,26 @@ const AddEditPayment = () => {
                     {(openingDueValue > 0 || openingMovesNotClears) && (
                       <div className="flex justify-between">
                         <span>
-                          Opening Balance
+                          {openingMovesNotClears || openingIsWholeBalance
+                            ? "Current Balance"
+                            : "Opening Balance"}
                           <span className="block text-[11px] text-gray-500">
                             {openingMovesNotClears
                               ? payType === "receipt"
-                                ? "Carried forward — this receipt reduces it."
-                                : "Carried forward — this payment adds to it."
-                              : "Carried forward — cleared before any bill."}
+                                ? "Balance as it stands now — this receipt reduces it."
+                                : "Balance as it stands now — this payment adds to it."
+                              : openingIsWholeBalance
+                              ? payType === "receipt"
+                                ? "Balance as it stands now — this receipt clears it."
+                                : "Balance as it stands now — this payment clears it."
+                              : "Carried forward — what is left of it clears before any bill."}
                           </span>
                         </span>
                         <span className="font-medium whitespace-nowrap">
                           {openingMovesNotClears
                             ? `₹${fmt(Math.abs(partyOpening))} (${partyOpening > 0 ? "Dr" : "Cr"})`
+                            : openingIsWholeBalance
+                            ? `₹${fmt(openingDueValue)} (${openingDueSide})`
                             : `₹${fmt(openingDueValue)}`}
                         </span>
                       </div>
@@ -1610,17 +1652,17 @@ const AddEditPayment = () => {
                               ? "Checking what is still open…"
                               : openingMovesNotClears
                               ? payType === "receipt"
-                                ? "Recorded On Account — it comes off the opening balance above."
-                                : "Recorded On Account — it adds to the opening balance above."
+                                ? "Recorded On Account — it comes off the current balance above."
+                                : "Recorded On Account — it adds to the current balance above."
                               : !hasSomethingToSettle
                               ? "Nothing open — this is recorded On Account and goes onto their next invoice."
                               : directConcessionsAllowed
                               ? hasOpenBills
-                                ? "Balance to clear — opening balance first, then the oldest bills."
-                                : "Opening balance to clear — same as Settle Now on a bill row."
+                                ? "Balance to clear — carried-forward balance first, then the oldest bills."
+                                : "Current balance to clear — same as Settle Now on a bill row."
                               : hasOpenBills
-                              ? "Cleared against the opening balance first, then the oldest bills."
-                              : "Cleared against the carried-forward opening balance."}
+                              ? "Cleared against the carried-forward balance first, then the oldest bills."
+                              : "Cleared against the balance they carry."}
                           </span>
                         </span>
                         <input
@@ -1650,7 +1692,7 @@ const AddEditPayment = () => {
                                 ? "Concession you allowed — comes off the cash and the balance."
                                 : "Discount the vendor allowed — comes off the cash and the balance."}
                               {!hasOpenBills && openingDueValue > 0
-                                ? " Given on the opening balance."
+                                ? " Given on the current balance."
                                 : ""}
                             </span>
                           </span>
@@ -1724,7 +1766,9 @@ const AddEditPayment = () => {
                   {hasSomethingToSettle ? (
                     <p className="text-xs text-gray-500">
                       {openingDueValue > 0
-                        ? "The opening balance is cleared first, then the oldest bills"
+                        ? hasOpenBills
+                          ? "The carried-forward balance is cleared first, then the oldest bills"
+                          : "This clears the balance they carry"
                         : "Oldest bills are cleared first"}
                       , and you will see exactly what it clears
                       {directConcessionsAllowed

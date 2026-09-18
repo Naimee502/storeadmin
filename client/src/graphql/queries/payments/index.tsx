@@ -220,6 +220,7 @@ export const PREVIEW_ALLOCATION = gql`
       unallocated
       openingdue
       openingsettled
+      partybalance
       lines {
         invoiceid
         invoicemodel

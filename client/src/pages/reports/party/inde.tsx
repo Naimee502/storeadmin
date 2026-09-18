@@ -10,7 +10,7 @@ import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice
 import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
-import { formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
+import { formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
 import { useMutation } from "@apollo/client";
 import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -573,16 +573,15 @@ const PartyReports: React.FC = () => {
     const isVendor = a.type === "vendor";
     const { fromTimestamp, toTimestamp } = getFilterTimestamps();
 
-    const timeOf = (d: any) => {
-      if (!d) return NaN;
-      const str = String(d).trim();
-      return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
-    };
+    const timeOf = timestampOf;
 
     type Row = {
       t: number; type: string; ref: string; debit: number; credit: number; remarks: string;
       // Only payments carry concessions; invoice / return rows leave these unset.
       discount?: number; commission?: number;
+      // Same-day tie-break — see compareStatementRows. Only payments can offer
+      // it here, so invoice / return rows keep the position they already had.
+      seq?: number;
     };
     const rows: Row[] = [];
 
@@ -669,6 +668,7 @@ const PartyReports: React.FC = () => {
 
         rows.push({
           t: timeOf(p.paymentdate),
+          seq: timeOf(p.createdAt),
           type: inward ? "Payment-In" : "Payment-Out",
           ref: String(p.paymentcode ?? "-"),
           debit: inward ? 0 : cash,
@@ -679,7 +679,7 @@ const PartyReports: React.FC = () => {
         });
       });
 
-    const valid = rows.filter((r) => !isNaN(r.t)).sort((x, y) => x.t - y.t);
+    const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
 
     // Everything before the period is folded into one beginning balance, so the
     // statement opens with what they carried in rather than from zero.

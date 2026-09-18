@@ -20,7 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import mongoose from "mongoose";
-import { isBothParty } from "../partytype";
+import { isBothParty, isCustomerParty, isVendorParty } from "../partytype";
 
 export type InvoiceModel = "SalesInvoice" | "PurchaseInvoice";
 
@@ -932,4 +932,116 @@ export async function getPartiesTotalDue(opts: {
   });
 
   return out;
+}
+
+/**
+ * The party's CURRENT running balance — the same closing figure the Party
+ * Statement prints, computed on the server so the payment screen cannot
+ * disagree with the report.
+ *
+ * ── Why this exists ─────────────────────────────────────────────────────────
+ * The Add Payment panel used to label the party's brought-forward figure with
+ * the account master's `openingbalance`. That field never moves: it is what the
+ * party carried in on day one. So a vendor with a ₹7,44,860 debit opening was
+ * paid ₹50,000 out — the statement correctly showed ₹7,94,860 Dr afterwards
+ * (a payment OUT adds to a debit balance) — and the next Add Payment screen
+ * still announced ₹7,44,860, because it was reading the frozen master figure
+ * rather than the live balance. Every payment after the first was entered
+ * against a stale number.
+ *
+ * ── The formula ─────────────────────────────────────────────────────────────
+ * Identical to the statement, in the same DISPLAY sign (positive = Dr, the
+ * party owes us; negative = Cr, we owe them):
+ *
+ *     balance = signed opening
+ *             + Σ sales invoices      (Dr)   − Σ sales returns      (Cr)
+ *             + Σ purchase returns    (Dr)   − Σ purchase invoices  (Cr)
+ *             + Σ payments OUT        (Dr)   − Σ payments IN        (Cr)
+ *
+ * Which documents count is decided by the party type, exactly as the statement
+ * decides it: a vendor gets the purchase side, a customer the sales side, and a
+ * "both" party gets both on ONE balance — that is the point of the type.
+ *
+ * Cancelled bills are excluded (they were reversed out of the books) and so are
+ * soft-deleted rows. `excludePaymentId` drops the payment being edited, so the
+ * screen shows the balance as it stands WITHOUT this voucher — which is the
+ * figure the user is about to move.
+ */
+export async function getPartyRunningBalance(opts: {
+  partyid: any;
+  adminid?: any;
+  branchid?: any;
+  excludePaymentId?: any;
+}): Promise<number> {
+  const { partyid, branchid, excludePaymentId } = opts;
+  if (!partyid) return 0;
+
+  const acc: any = await mongoose
+    .model("Account")
+    .findById(partyid)
+    .select("ledgerid openingbalance openingbalancetype type admin")
+    .lean();
+  if (!acc) return 0;
+
+  const adminid = opts.adminid || acc.admin;
+
+  // The ledger is authoritative when the party has one; the account's own
+  // opening is the fallback. Same order the party report uses.
+  const led: any = acc.ledgerid
+    ? await mongoose
+        .model("AccountLedger")
+        .findById(acc.ledgerid)
+        .select("openingbalance openingbalancetype")
+        .lean()
+    : null;
+  const src = led || acc;
+  let balance =
+    String(src.openingbalancetype).toLowerCase() === "debit"
+      ? Number(src.openingbalance) || 0
+      : -(Number(src.openingbalance) || 0);
+
+  const showPurchase = isVendorParty(acc.type);
+  const showSales = isCustomerParty(acc.type) || !showPurchase;
+
+  const docQuery = (extra: any = {}) => {
+    const q: any = { partyacc: partyid, status: true, cancelStatus: { $ne: "cancelled" }, ...extra };
+    if (adminid) q.adminid = adminid;
+    if (branchid) q.branchid = branchid;
+    return q;
+  };
+  const sumOf = async (model: string) => {
+    const rows: any[] = await mongoose
+      .model(model)
+      .find(docQuery())
+      .select("totalamount")
+      .lean();
+    return rows.reduce((t, r) => t + (Number(r.totalamount) || 0), 0);
+  };
+
+  const [salesInv, salesRet, purchInv, purchRet] = await Promise.all([
+    showSales ? sumOf("SalesInvoice") : Promise.resolve(0),
+    showSales ? sumOf("SalesReturn") : Promise.resolve(0),
+    showPurchase ? sumOf("PurchaseInvoice") : Promise.resolve(0),
+    showPurchase ? sumOf("PurchaseReturn") : Promise.resolve(0),
+  ]);
+
+  balance += salesInv - salesRet + purchRet - purchInv;
+
+  // Payments move the balance by the CASH that changed hands. A receipt credits
+  // the party (they owe less), a payment-out debits them.
+  const payQuery: any = { partyid, status: true };
+  if (adminid) payQuery.adminid = adminid;
+  if (branchid) payQuery.branchid = branchid;
+  if (excludePaymentId) payQuery._id = { $ne: excludePaymentId };
+  const pays: any[] = await mongoose
+    .model("Payment")
+    .find(payQuery)
+    .select("amount type")
+    .lean();
+  pays.forEach((p) => {
+    const cash = Number(p.amount) || 0;
+    balance += p.type === "receipt" ? -cash : cash;
+  });
+
+  return round2(balance);
 }

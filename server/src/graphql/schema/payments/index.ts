@@ -57,6 +57,12 @@ export const paymentTypeDefs = gql`
     # amount went to clearing it before any bill was touched.
     openingdue: Float!
     openingsettled: Float!
+    # The party's CURRENT running balance (positive = Dr, they owe us;
+    # negative = Cr, we owe them) — the same closing figure the Party Statement
+    # prints, and what the payment screen shows as "Opening Balance". Excludes
+    # the payment being edited, so it is the balance this voucher is about to
+    # move rather than the frozen account-master opening.
+    partybalance: Float!
   }
 
   # Account Type

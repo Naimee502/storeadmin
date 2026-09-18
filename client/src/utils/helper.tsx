@@ -216,3 +216,56 @@ export const toTitleCase = (value: string | null | undefined): string =>
   String(value ?? "")
     .toLowerCase()
     .replace(/(^|[\s/-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+
+
+/**
+ * A date as a sortable number, whichever shape it arrives in — an epoch-ms
+ * string ("1758153600000"), an ISO string, a Date. NaN for anything unusable,
+ * so the caller can drop the row instead of sorting it to the top.
+ */
+export const timestampOf = (d: any): number => {
+  if (d === null || d === undefined || d === "") return NaN;
+  const str = String(d).trim();
+  return /^\d+$/.test(str) ? Number(str) : new Date(str).getTime();
+};
+
+/** A row of a running statement, as far as its ordering is concerned. */
+export type StatementSortable = {
+  /** The voucher date. */
+  t: number;
+  /** When the voucher was actually entered — the same-day tie-break. */
+  seq?: number;
+  /** Document number, the last resort when even `seq` ties. */
+  ref?: string;
+};
+
+/**
+ * The order a running statement is read in — Party Statement, Ledger Statement,
+ * and anything else that carries a running balance down the page.
+ *
+ * Sorting on the voucher DATE alone leaves every same-day row tied, and the
+ * payments query has no sort of its own, so those rows landed in whatever order
+ * Mongo happened to hand back: a Payment-In entered first could print below the
+ * Payment-Out that followed it, and the running balance beside them then told a
+ * story that never happened. Worse, two sheets built from the same data
+ * disagreed — the party's read correctly while the ledger's did not.
+ *
+ * So the date decides first, then the entry order (`seq`, the row's createdAt),
+ * then the document number. Rows that cannot offer a `seq` — an invoice or a
+ * return, which carry no such field here — are left where they are, because
+ * Array#sort is stable, so this never reshuffles what it cannot rank.
+ */
+export const compareStatementRows = (
+  x: StatementSortable,
+  y: StatementSortable
+): number => {
+  if (x.t !== y.t) return x.t - y.t;
+
+  const xs = x.seq;
+  const ys = y.seq;
+  const comparable =
+    xs !== undefined && ys !== undefined && !isNaN(xs) && !isNaN(ys);
+  if (comparable && xs !== ys) return xs - ys;
+  if (comparable && x.ref && y.ref) return String(x.ref).localeCompare(String(y.ref));
+  return 0;
+};
