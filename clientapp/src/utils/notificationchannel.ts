@@ -39,6 +39,13 @@ export const displayRemoteMessage = async (remoteMessage: any) => {
     android: {
       channelId: DEFAULT_CHANNEL_ID,
       importance: AndroidImportance.HIGH,
+      // White logo on transparent (android/app/src/*/res/drawable-*/ic_notification.png).
+      smallIcon: 'ic_notification',
+      color: '#1E7B3C',
+      // The full-colour app logo (each flavor's own mipmap/ic_launcher) shown
+      // inside the notification. The status-bar icon above can only ever be a
+      // one-colour silhouette — that is an Android rule, not ours.
+      largeIcon: 'ic_launcher',
       pressAction: { id: 'default' },
     },
   });

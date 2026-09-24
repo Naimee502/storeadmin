@@ -88,6 +88,19 @@ class FirebaseManager {
       }
     });
 
+    // App opened by tapping a notification that notifee showed while the app
+    // was in the background or closed (all server pushes are data-only now,
+    // so they are shown by notifee, not by Android).
+    notifee
+      .getInitialNotification()
+      .then((initial) => {
+        const data = initial?.notification?.data;
+        if (data) {
+          setTimeout(() => this.handleNotificationNavigation({ data } as any), 1000);
+        }
+      })
+      .catch(() => {});
+
   }
 
   private async displayLocalNotification(remoteMessage: FirebaseMessagingTypes.RemoteMessage) {

@@ -111,18 +111,16 @@ export const sendPushToToken = async (
         body: JSON.stringify({
           message: {
             token,
-            // A "notification" payload is what makes Android show it in the
-            // status bar by itself when the app is in background / closed.
-            notification: { title: msg.title, body: msg.body || "" },
-            data,
-            android: {
-              priority: "HIGH",
-              notification: {
-                channel_id: "default", // created by the app (FirebaseManager)
-                sound: "default",
-              },
+            // Android: DATA-ONLY. The app shows it itself (notifee) so it can
+            // put the full-colour app logo in the notification — a message
+            // with a "notification" block is drawn by Android, which only
+            // allows a one-colour icon. title/body travel inside data.
+            data: { ...data, title: msg.title, body: msg.body || "" },
+            android: { priority: "HIGH" },
+            // iOS still needs a visible alert from APNs.
+            apns: {
+              payload: { aps: { alert: { title: msg.title, body: msg.body || "" }, sound: "default" } },
             },
-            apns: { payload: { aps: { sound: "default" } } },
           },
         }),
       }

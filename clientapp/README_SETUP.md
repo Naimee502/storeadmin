@@ -1,12 +1,13 @@
 # Store Admin - React Native App
 
-A multi-flavor React Native application for store management with support for different roles (Party, Salesman, Delivery Boy, Staff) and three app variants (flavors): **RudraERP**, **RKN** and **Powergold Agro**.
+A multi-flavor React Native application for store management with support for different roles (Party, Salesman, Delivery Boy, Staff) and four app variants (flavors): **RudraERP**, **RKN**, **Powergold Agro** and **Arsi Agarbatti**.
 
 | Flavor | npm script | Package name | Admin code | Business |
 |---|---|---|---|---|
 | `rudraerp` | `npm run android:rudraerp` | `com.app.rudraerp` | `#ADM0003` | Rudra Enterprise |
 | `rkn` | `npm run android:rkn` | `com.app.rkn` | `#ADM0001` | DK Marketing |
 | `powergold` | `npm run android:powergold` | `com.app.powergoldagroproduct` | `#ADM0004` | Powergold Agro Product |
+| `arsi` | `npm run android:arsi` | `com.arsi.agarbatti` (already on Play) | `#ADM0002` | Arsi Agarbatti |
 
 ---
 
@@ -203,8 +204,22 @@ cd clientapp/android
 ./gradlew app:installPowergoldDebug
 ```
 
+#### 🪔 **Arsi Agarbatti Flavor** (`#ADM0002`)
+
+```bash
+# Run debug build
+npm run android:arsi
+
+# Or using Gradle directly
+cd clientapp/android
+./gradlew app:installArsiDebug
+```
+
+> Arsi is **already live on Google Play** as `com.arsi.agarbatti`. This flavor uses the same
+> package name, so a release build is an **update** of that listing (see "Arsi Agarbatti Release Build").
+
 > **Only one flavor stays installed.** The two flavors have different
-> applicationIds (`com.app.rudraerp` / `com.app.rkn` / `com.app.powergoldagroproduct`), so Android is happy to keep
+> applicationIds (`com.app.rudraerp` / `com.app.rkn` / `com.app.powergoldagroproduct` / `com.arsi.agarbatti`), so Android is happy to keep
 > them all on the device at once. The `npm run android:*` scripts uninstall the other
 > flavors first, via `scripts/run-flavor.js`. Switching flavors therefore wipes that
 > app's AsyncStorage and persisted Redux state, so you start unactivated and
@@ -223,6 +238,8 @@ npx react-native run-android --mode rudraerpDebug --appId com.app.rudraerp
 npx react-native run-android --mode rknDebug --appId com.app.rkn
 # or
 npx react-native run-android --mode powergoldDebug --appId com.app.powergoldagroproduct
+# or
+npx react-native run-android --mode arsiDebug --appId com.arsi.agarbatti
 ```
 
 (Running this way skips the `adb reverse` step — run `adb reverse tcp:4000 tcp:4000` yourself when using the local server.)
@@ -264,6 +281,34 @@ cd clientapp/android
 # Output: app/build/outputs/apk/powergold/release/app-powergold-release.apk
 ```
 
+### Arsi Agarbatti Release Build
+
+Arsi is an **update of the app already on Play** (`com.arsi.agarbatti`), so two things are required:
+
+1. **Sign with Arsi's original upload key** (not the Rudra key). Put the keystore in
+   `android/app/` and add to `android/gradle.properties`:
+   ```
+   ARSI_UPLOAD_STORE_FILE=arsi.keystore
+   ARSI_UPLOAD_KEY_ALIAS=...
+   ARSI_UPLOAD_STORE_PASSWORD=...
+   ARSI_UPLOAD_KEY_PASSWORD=...
+   ```
+   Lost the keystore? Play Console → Arsi → Setup → App signing → request an upload key reset.
+2. **versionCode higher than the live one** — `arsi { versionCode ... }` in `android/app/build.gradle`
+   (check Play Console → App bundle explorer).
+
+```bash
+cd clientapp/android
+
+# Build release APK
+./gradlew app:assembleArsiRelease
+# Output: app/build/outputs/apk/arsi/release/app-arsi-release.apk
+
+# Build AAB for Play (upload to Internal testing first)
+./gradlew app:bundleArsiRelease
+# Output: app/build/outputs/bundle/arsiRelease/app-arsi-release.aab
+```
+
 ### Build AAB (for Google Play)
 
 ```bash
@@ -277,6 +322,9 @@ cd clientapp/android
 
 # Powergold Agro
 ./gradlew app:bundlePowergoldRelease
+
+# Arsi Agarbatti (signed with the Arsi upload key)
+./gradlew app:bundleArsiRelease
 
 # Output: app/build/outputs/bundle/
 ```
@@ -333,8 +381,17 @@ const SERVER_URL = 'https://your-ngrok-url.ngrok.io';
 - **Firebase:** the app is added in Firebase. Re-download the common `android/app/google-services.json`
   (it must list `com.app.powergoldagroproduct`), then delete the temporary placeholder
   `android/app/src/powergold/google-services.json`.
-- **Icons:** no Powergold launcher icons yet — add them under `android/app/src/powergold/res/mipmap-*`
-  (Android Studio → New → Image Asset, with the Powergold flavor source set).
+- **Icons:** done — PG-GOLD launcher icons in `android/app/src/powergold/res/mipmap-*` and the
+  status-bar notification icon in `android/app/src/powergold/res/drawable-*/ic_notification.png`.
+
+#### ⚠️ Arsi — still to do before release
+
+- **Firebase:** add an Android app with package `com.arsi.agarbatti` in project `rudra-erp-26fe7`, then
+  re-download the common `android/app/google-services.json` (it must list `com.arsi.agarbatti`).
+- **Upload key:** Arsi's original keystore + the 4 `ARSI_*` values in `android/gradle.properties`.
+- **versionCode:** higher than the one live on Play.
+- **Icons:** done — Arsi launcher icons in `android/app/src/arsi/res/mipmap-*` and the
+  status-bar notification icon in `android/app/src/arsi/res/drawable-*/ic_notification.png`.
 
 ### Build Configuration
 
@@ -342,6 +399,7 @@ Each flavor has its own config file:
 - `src/config/buildconfig.rudraerp.ts` - RudraERP specific config
 - `src/config/buildconfig.rkn.ts` - RKN specific config
 - `src/config/buildconfig.powergold.ts` - Powergold Agro specific config (`#ADM0004`)
+- `src/config/buildconfig.arsi.ts` - Arsi Agarbatti specific config (`#ADM0002`)
 - `src/config/buildconfig.ts` - Auto-selected based on flavor
 
 ---
@@ -360,6 +418,7 @@ productFlavors {
     rudraerp { dimension "app" }
     rkn { dimension "app" }
     powergold { dimension "app" }
+    arsi { dimension "app" }
 }
 ```
 
@@ -501,11 +560,14 @@ npm start                                      # Start Metro
 npm run android:rudraerp                       # Run RudraERP
 npm run android:rkn                            # Run RKN
 npm run android:powergold                      # Run Powergold Agro
+npm run android:arsi                           # Run Arsi Agarbatti
 
 # Build
 ./gradlew app:assembleRudraerpRelease        # Build RudraERP APK
 ./gradlew app:assembleRknRelease             # Build RKN APK
 ./gradlew app:assemblePowergoldRelease       # Build Powergold APK
+./gradlew app:assembleArsiRelease            # Build Arsi APK (Arsi upload key)
+./gradlew app:bundleArsiRelease              # Build Arsi AAB (update of com.arsi.agarbatti)
 ./gradlew app:bundleRudraerpRelease          # Build RudraERP AAB
 
 # install release build on devices

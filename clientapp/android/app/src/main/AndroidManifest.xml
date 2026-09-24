@@ -16,6 +16,13 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
+      <!-- Status-bar icon for push notifications: white logo on transparent
+           (res/drawable-*/ic_notification.png, per flavor). Android draws the
+           small icon as a silhouette, so the full-colour launcher icon showed
+           up as a plain white square. Colour comes from firebase.json. -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_icon"
+        android:resource="@drawable/ic_notification" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
