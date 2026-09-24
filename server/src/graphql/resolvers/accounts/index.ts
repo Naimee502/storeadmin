@@ -11,6 +11,7 @@ import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { sendOtpEmail } from "../../../utils/mail";
+import { PendingRegistration } from "../../../models/pendingregistration";
 import { AdminSettings } from "../../../models/adminsettings";
 import { resolveTenant } from "../../../utils/tenant";
 import { ApolloError } from "apollo-server-express";
@@ -148,23 +149,95 @@ export const REGISTRATION_INCOMPLETE = "REGISTRATION_INCOMPLETE";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Registration OTP — generated here, saved on the account, sent ONLY by email.
- * It is never returned in a response: that would let anyone register any
- * number/email without owning it.
+ * Registration OTP — generated here, saved on the pending signup (or, for an
+ * old half-finished signup, on the account), sent ONLY by email. It is never
+ * returned in a response: that would let anyone register any number/email
+ * without owning it.
  */
-const issueEmailOtp = async (account: any, adminId: any) => {
-  if (!account.email) throw new Error("No email address on this account.");
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-  await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+const newOtp = () => ({
+  otp: Math.floor(1000 + Math.random() * 9000).toString(),
+  otpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 min
+});
 
+const mailOtp = async (email: string, mobile: string, otp: string, adminId: any) => {
   const admin: any = await Admin.findById(adminId).select("companyName").lean();
-  const sent = await sendOtpEmail(account.email, otp, admin?.companyName || "");
+  const sent = await sendOtpEmail(email, otp, admin?.companyName || "");
   // Dev convenience only: with no SMTP configured the OTP is visible in the
   // server console (never in the API response).
-  if (!sent) console.log(`[OTP] ${account.email} (${account.mobile}) | OTP: ${otp}`);
+  if (!sent) console.log(`[OTP] ${email} (${mobile}) | OTP: ${otp}`);
   return sent;
 };
+
+const MAX_OTP_ATTEMPTS = 5;
+
+/**
+ * Create the real customer Account for a signup whose OTP has just been
+ * verified: Sundry Debtors group, EndUser channel, approval status from
+ * Business Settings, and the "new customer" notification to the admin.
+ */
+const createSelfRegisteredAccount = async (adminId: any, name: string, mobile: string, email: string) => {
+  let group = await AccountGroup.findOne({ admin: adminId, accountgroupname: "Sundry Debtors" });
+  if (!group) {
+    group = await AccountGroup.create({
+      admin: adminId,
+      accountgroupname: "Sundry Debtors",
+      category: "assets",
+      status: true,
+    });
+  }
+
+  // Self-registered app/website customers are always the "EndUser" channel.
+  let endUserChannel = await Channel.findOne({ admin: adminId, channelName: "EndUser" });
+  if (!endUserChannel) {
+    endUserChannel = await Channel.create({
+      admin: adminId,
+      channelName: "EndUser",
+      isDefault: true,
+      status: true,
+    });
+  }
+
+  // Business Settings → "New customer signups need admin approval".
+  const settings: any = await AdminSettings.getOrCreateForAdmin(adminId);
+  const needsApproval = settings?.requirePartyApproval === true;
+
+  const account = new Account({
+    admin: adminId,
+    name,
+    mobile,
+    email,
+    selfregistered: true,
+    emailverified: true,
+    mobileverified: true,
+    type: "customer",
+    accountgroupid: group._id,
+    channel: endUserChannel._id,
+    approvalstatus: needsApproval ? "pending" : "approved",
+    approvedAt: needsApproval ? undefined : new Date(),
+    status: true,
+  });
+  await account.save();
+
+  try {
+    await pushNotification({
+      adminid: adminId,
+      targettype: "admin",
+      ntype: "party",
+      title: needsApproval
+        ? `New customer "${name}" is waiting for approval`
+        : `New customer "${name}" self-registered`,
+      message: mobile || "",
+      webpath: "/accounts",
+      docmodel: "Account",
+      docid: account._id,
+    });
+  } catch (e) { /* notifications are best-effort */ }
+
+  return account;
+};
+
+/** An account left behind by the old flow (created before its OTP was entered). */
+const isUnverifiedSignup = (a: any) => a?.selfregistered && !a?.emailverified && !a?.mobileverified;
 
 const maskEmail = (email: string) => {
   const [user, domain] = String(email).split("@");
@@ -487,118 +560,68 @@ export const accountResolvers = {
       return { accessToken, account: populated };
     },
 
-    // (Re)send the registration OTP to the account's email ("Resend OTP", or
-    // finishing a registration that was left half-way).
+    // Resend the registration OTP ("Resend OTP" on the OTP step).
     sendOTP: async (_: any, { adminId, mobile }: any) => {
-      const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
-      if (!account) throw new Error("Mobile number not registered.");
-      assertCustomerAccount(account);
-      if (!account.email) throw new Error("No email address on this account. Please contact the store.");
+      const pending: any = await PendingRegistration.findOne({ admin: adminId, mobile });
+      if (pending) {
+        const { otp, otpExpiry } = newOtp();
+        pending.otp = otp;
+        pending.otpExpiry = otpExpiry;
+        pending.attempts = 0;
+        await pending.save();
+        await mailOtp(pending.email, mobile, otp, adminId);
+        return { success: true, message: `OTP sent to ${maskEmail(pending.email)}.` };
+      }
 
-      await issueEmailOtp(account, adminId);
-      return { success: true, message: `OTP sent to ${maskEmail(account.email)}.` };
+      // Old flow: an account created before its OTP was entered.
+      const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (account && isUnverifiedSignup(account) && account.email) {
+        const { otp, otpExpiry } = newOtp();
+        await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+        await mailOtp(account.email, mobile, otp, adminId);
+        return { success: true, message: `OTP sent to ${maskEmail(account.email)}.` };
+      }
+
+      throw new Error("No registration in progress for this number. Please register again.");
     },
 
-    // Self-service signup — an unregistered mobile number entering their own
-    // Name/Email (app/website "New Customer" flow, no admin-only fields).
-    // Creates a real end-user Account (type "customer") under the tenant's
-    // "Sundry Debtors" group, same group every admin-created customer uses,
-    // so the model's own pre-save hook auto-generates its accountcode AND
-    // ledger exactly like an admin adding an account would. Then sends an
-    // OTP immediately so the caller can go straight into the normal
-    // verifyOTP step, same shape as sendOTP.
+    // Self-service signup (app/website "New Customer"). Does NOT create the
+    // account — it only stores the details as a pending signup and emails an
+    // OTP. The account (ledger, account code, admin notification) is created
+    // by verifyOTP once the correct OTP is entered, so an abandoned signup
+    // never appears in Party Accounts.
     registerAccount: async (_: any, { adminId, name, mobile, email }: any) => {
+      name = String(name || "").trim();
       email = String(email || "").trim().toLowerCase();
+      if (!name) throw new Error("Enter your name.");
       if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address.");
 
       const existing: any = await Account.findOne({ admin: adminId, mobile, status: true });
       if (existing) {
-        // Registered earlier but never entered the OTP — let them try again
-        // (possibly with a corrected email) instead of locking the number out.
-        if (existing.selfregistered && !existing.emailverified && !existing.mobileverified) {
-          existing.name = name;
-          existing.email = email;
-          await existing.save();
-          await issueEmailOtp(existing, adminId);
-          return {
-            success: true,
-            pendingApproval: existing.approvalstatus === "pending",
-            message: `OTP sent to ${maskEmail(email)}.`,
-          };
+        if (!isUnverifiedSignup(existing)) {
+          throw new Error("This mobile number is already registered. Please login instead.");
         }
-        throw new Error("This mobile number is already registered. Please login instead.");
+        // Left over from the old flow (account created before its OTP):
+        // retire it and go through the proper pending signup instead.
+        await Account.findByIdAndUpdate(existing._id, { status: false });
       }
 
-      let group = await AccountGroup.findOne({ admin: adminId, accountgroupname: "Sundry Debtors" });
-      if (!group) {
-        group = await AccountGroup.create({
-          admin: adminId,
-          accountgroupname: "Sundry Debtors",
-          category: "assets",
-          status: true,
-        });
-      }
+      const { otp, otpExpiry } = newOtp();
+      await PendingRegistration.findOneAndUpdate(
+        { admin: adminId, mobile },
+        { admin: adminId, mobile, name, email, otp, otpExpiry, attempts: 0 },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      await mailOtp(email, mobile, otp, adminId);
 
-      // Self-registered app/website customers are always the "EndUser"
-      // channel — same default channel every admin gets auto-created for
-      // them at signup (see adminResolvers.addAdmin) — never a channel an
-      // admin/salesman assigns manually (Retailer/Wholesaler/Distributor).
-      let endUserChannel = await Channel.findOne({ admin: adminId, channelName: "EndUser" });
-      if (!endUserChannel) {
-        endUserChannel = await Channel.create({
-          admin: adminId,
-          channelName: "EndUser",
-          isDefault: true,
-          status: true,
-        });
-      }
-
-      // Business Settings → "New customer signups need admin approval".
       const settings: any = await AdminSettings.getOrCreateForAdmin(adminId);
       const needsApproval = settings?.requirePartyApproval === true;
-
-      const account = new Account({
-        admin: adminId,
-        name,
-        mobile,
-        email,
-        selfregistered: true,
-        type: "customer",
-        accountgroupid: group._id,
-        channel: endUserChannel._id,
-        approvalstatus: needsApproval ? "pending" : "approved",
-        approvedAt: needsApproval ? undefined : new Date(),
-        status: true,
-      });
-      await account.save();
-
-      try {
-        await pushNotification({
-          adminid: adminId,
-          targettype: "admin",
-          ntype: "party",
-          title: needsApproval
-            ? `New customer "${name}" is waiting for approval`
-            : `New customer "${name}" self-registered`,
-          message: mobile || "",
-          webpath: "/accounts",
-          docmodel: "Account",
-          docid: account._id,
-        });
-      } catch (e) { /* notifications are best-effort */ }
-
-      // The OTP is sent even when approval is required. It proves the person
-      // owns the email BEFORE an admin is asked to approve them. The token is
-      // what gets withheld: verifyOTP marks the account verified and then
-      // refuses to sign a pending account in.
-      await issueEmailOtp(account, adminId);
-
       return {
         success: true,
         pendingApproval: needsApproval,
         message: needsApproval
-          ? `Account created. Enter the OTP sent to ${maskEmail(email)} — you can sign in once the store approves you.`
-          : `Registered successfully. OTP sent to ${maskEmail(email)}.`,
+          ? `OTP sent to ${maskEmail(email)}. After verifying, you can sign in once the store approves you.`
+          : `OTP sent to ${maskEmail(email)}. Enter it to complete your registration.`,
       };
     },
 
@@ -619,8 +642,49 @@ export const accountResolvers = {
     },
 
     verifyOTP: async (_: any, { adminId, mobile, otp }: any, { res }: any) => {
+      // New flow: a pending signup — the account is created only here, once
+      // the OTP from the email is correct.
+      const pending: any = await PendingRegistration.findOne({ admin: adminId, mobile });
+      if (pending) {
+        if (pending.attempts >= MAX_OTP_ATTEMPTS) {
+          throw new Error("Too many wrong attempts. Tap Resend OTP to get a new code.");
+        }
+        if (new Date() > pending.otpExpiry) {
+          throw new Error("OTP has expired. Please request a new one.");
+        }
+        if (pending.otp !== String(otp)) {
+          pending.attempts += 1;
+          await pending.save();
+          throw new Error("Invalid OTP. Please try again.");
+        }
+
+        const already = await Account.findOne({ admin: adminId, mobile, status: true });
+        if (already) {
+          await PendingRegistration.deleteOne({ _id: pending._id });
+          throw new Error("This mobile number is already registered. Please login instead.");
+        }
+
+        const created: any = await createSelfRegisteredAccount(adminId, pending.name, mobile, pending.email);
+        await PendingRegistration.deleteOne({ _id: pending._id });
+
+        // Account exists now; the store may still have to approve it.
+        assertApproved(created);
+
+        const { accessToken, refreshToken } = generateTokens({
+          id: created.id,
+          email: created.email || mobile,
+          type: "party",
+          adminid: created.admin,
+          branchid: created.branchid,
+        });
+        sendRefreshToken(res, refreshToken);
+        const populatedNew = await Account.findById(created._id).populate("admin").populate("channel");
+        return { accessToken, account: populatedNew };
+      }
+
+      // Old flow: an account that already exists (created before this change).
       const account = await Account.findOne({ admin: adminId, mobile, status: true });
-      if (!account) throw new Error("Mobile number not registered.");
+      if (!account) throw new Error("No registration in progress for this number. Please register again.");
       // Checked again rather than trusting sendOTP: verifyOTP is a mutation of
       // its own and can be called directly, and this is the step that hands out
       // a token.

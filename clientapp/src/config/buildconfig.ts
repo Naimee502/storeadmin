@@ -1,11 +1,13 @@
 /**
- * RKN Flavor Configuration  
- * This file overrides buildconfig.ts for rkn flavor builds
+ * Rudra ERP Flavor Configuration
+ * This file overrides buildconfig.ts for rudraerp flavor builds
  */
 
 export const BUILD_CONFIG = {
-  ADMIN_CODE: '#ADM0001',
-  FLAVOR: 'rkn',
+  // Rudra ERP business code (live). Do NOT change to #ADM0001 — that is
+  // DK Marketing (RKN) and would give Rudra their logo and theme colour.
+  ADMIN_CODE: '#ADM0003',
+  FLAVOR: 'rudraerp',
 };
 
 export const getAdminCode = () => BUILD_CONFIG.ADMIN_CODE;
