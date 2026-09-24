@@ -68,6 +68,10 @@ const accountSchema = new mongoose.Schema(
     approvedAt: { type: Date },
     /** Set once the signup OTP has been entered correctly for this number. */
     mobileverified: { type: Boolean, default: false },
+    /** Created through the app/website "New Customer" form (registerAccount). */
+    selfregistered: { type: Boolean, default: false },
+    /** Set once the registration OTP sent to the account's email was entered. */
+    emailverified: { type: Boolean, default: false },
 
     accountcode: { type: String },
     mobile: { type: String },

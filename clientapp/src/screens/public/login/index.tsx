@@ -13,7 +13,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setCredentials, setBranch } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
-import { SEND_OTP, REGISTER_ACCOUNT, VERIFY_OTP } from '../../../apollo/mutations/accounts';
+import { SEND_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from '../../../apollo/mutations/accounts';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
 import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../store/rootreducer';
@@ -69,7 +69,7 @@ export default function Login({ navigation }: any) {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string }>({});
+  const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string; email?: string }>({});
   const [mobileFocused, setMobileFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
@@ -88,66 +88,66 @@ export default function Login({ navigation }: any) {
     return true;
   };
 
+  // Party login: mobile number only — no OTP (the OTP is only for registration).
   const handleSendOTP = async () => {
     if (!validateMobile()) return;
     showLoader(true);
     try {
-      const { data: sendOtpData } = await apolloClient.mutate({
-        mutation: SEND_OTP,
+      const { data } = await apolloClient.mutate({
+        mutation: LOGIN_PARTY,
         variables: { adminId, mobile: mobile.trim() },
       });
-      if (sendOtpData?.sendOTP?.success) {
-        const otp = sendOtpData.sendOTP.otp ?? '';
+      const { accessToken, account } = (data as any).loginParty;
 
-        // Directly verify OTP without showing verification screen
-        try {
-          const { data: verifyData } = await apolloClient.mutate({
-            mutation: VERIFY_OTP,
-            variables: { adminId, mobile: mobile.trim(), otp },
-          });
-
-          const { accessToken, account } = verifyData.verifyOTP;
-
-          dispatch(setCredentials({
-            user: {
-              id: account.id,
-              name: account.name,
-              mobile: account.mobile,
-              role: 'party',
-              adminId: account.admin?.id ?? adminId,
-              email: account.email,
-              partyType: account.type,
-              channelName: account.channel?.channelName ?? null,
-            },
-            token: accessToken,
-          }));
-          await signIn();
-          showToast('Logged in successfully', 'success');
-        } catch (verifyErr: any) {
-          const msg = verifyErr?.message || 'Verification failed. Try again.';
-          const CODE = 'ACCOUNT_PENDING_APPROVAL';
-          const codes = [
-            verifyErr?.extensions?.code,
-            ...(verifyErr?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
-            ...(verifyErr?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
-          ];
-          const pending = codes.includes(CODE) || /waiting for approval/i.test(msg);
-
-          showToast(msg, pending ? 'warning' : 'danger');
-          if (!pending) {
-            setErrors(e => ({ ...e, mobile: msg }));
-          }
-        }
-      }
+      dispatch(setCredentials({
+        user: {
+          id: account.id,
+          name: account.name,
+          mobile: account.mobile,
+          role: 'party',
+          adminId: account.admin?.id ?? adminId,
+          email: account.email,
+          partyType: account.type,
+          channelName: account.channel?.channelName ?? null,
+        },
+        token: accessToken,
+      }));
+      await signIn();
+      showToast('Logged in successfully', 'success');
     } catch (err: any) {
-      const msg = err?.message || 'Could not send OTP. Try again.';
+      const msg = err?.message || 'Could not sign in. Try again.';
+      const codes = [
+        err?.extensions?.code,
+        ...(err?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
+        ...(err?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
+      ];
+
       if (msg.toLowerCase().includes('not registered')) {
         setIsRegisterMode(true);
         setErrors({});
         setTimeout(() => nameRef.current?.focus(), 350);
         return;
       }
-      setErrors(e => ({ ...e, mobile: msg }));
+
+      // Registered earlier but never entered the email OTP — send a fresh one
+      // and finish the registration.
+      if (codes.includes('REGISTRATION_INCOMPLETE') || /registration is not complete/i.test(msg)) {
+        try {
+          const { data: sent } = await apolloClient.mutate({
+            mutation: SEND_OTP,
+            variables: { adminId, mobile: mobile.trim() },
+          });
+          showToast((sent as any)?.sendOTP?.message || 'OTP sent to your email', 'success');
+          navigation.navigate('OTPVerification', { mobile: mobile.trim(), adminId });
+        } catch (e: any) {
+          setErrors(er => ({ ...er, mobile: e?.message || msg }));
+        }
+        return;
+      }
+
+      const pending = codes.includes('ACCOUNT_PENDING_APPROVAL') || /waiting for approval/i.test(msg);
+      showToast(msg, pending ? 'warning' : 'danger');
+      if (!pending) setErrors(e => ({ ...e, mobile: msg }));
     } finally {
       showLoader(false);
     }
@@ -159,17 +159,22 @@ export default function Login({ navigation }: any) {
       setErrors(e => ({ ...e, name: 'Enter your name' }));
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setErrors(e => ({ ...e, email: 'Enter a valid email — the OTP is sent there' }));
+      return;
+    }
     showLoader(true);
     try {
       const { data } = await apolloClient.mutate({
         mutation: REGISTER_ACCOUNT,
-        variables: { adminId, name: name.trim(), mobile: mobile.trim(), email: email.trim() || null },
+        variables: { adminId, name: name.trim(), mobile: mobile.trim(), email: email.trim() },
       });
       if (data?.registerAccount?.success) {
+        showToast((data as any).registerAccount.message || 'OTP sent to your email', 'success');
         navigation.navigate('OTPVerification', {
           mobile: mobile.trim(),
           adminId,
-          autoOtp: data.registerAccount.otp ?? '',
+          email: email.trim(),
         });
       } else {
         // The server can decline without throwing. Without this the button
@@ -397,10 +402,10 @@ export default function Login({ navigation }: any) {
                     </View>
                   )}
 
-                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Email (optional)</Text>
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Email</Text>
                   <View style={[styles.inputRow, {
                     backgroundColor: colors.raisedSurface,
-                    borderColor: emailFocused ? colors.brand : colors.border,
+                    borderColor: errors.email ? '#ef4444' : emailFocused ? colors.brand : colors.border,
                   }]}>
                     <Icon name="email-outline" size={20} color={emailFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
                     <TextInput
@@ -408,7 +413,7 @@ export default function Login({ navigation }: any) {
                       placeholder="you@example.com"
                       placeholderTextColor={colors.placeholder}
                       value={email}
-                      onChangeText={setEmail}
+                      onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       returnKeyType="done"
@@ -417,6 +422,15 @@ export default function Login({ navigation }: any) {
                       onBlur={() => setEmailFocused(false)}
                     />
                   </View>
+                  {!!errors.email && (
+                    <View style={styles.errorRow}>
+                      <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                      <Text style={styles.errorText}>{errors.email}</Text>
+                    </View>
+                  )}
+                  <Text style={[styles.hintText, { color: colors.subText }]}>
+                    We'll email you an OTP to verify your account.
+                  </Text>
                 </Animated.View>
               )}
 
@@ -560,6 +574,7 @@ const styles = StyleSheet.create({
   eyeBtn: { padding: 4 },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, marginLeft: 2 },
   errorText: { fontSize: 12, fontFamily: FONTS.medium, color: '#ef4444', marginLeft: 4 },
+  hintText: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 6, marginLeft: 2 },
 
   primaryBtn: { borderRadius: 16, overflow: 'hidden' },
   btnGrad: { height: 52, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },

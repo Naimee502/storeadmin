@@ -40,6 +40,8 @@ export const accountTypeDefs = gql`
     approvalstatus: String
     approvedAt: String
     mobileverified: Boolean
+    selfregistered: Boolean
+    emailverified: Boolean
     name: String!
     type: String
     accountgroupid: AccountGroup
@@ -69,6 +71,8 @@ export const accountTypeDefs = gql`
     salesmanid: Salesman
     latitude: Float
     longitude: Float
+    # Never filled any more — the OTP only goes out by email. Kept so older
+    # app builds that still select it do not fail validation.
     otp: String
     channel: Channel
     region: String
@@ -180,6 +184,9 @@ export const accountTypeDefs = gql`
     editAccount(id: ID!, input: AccountInput!): Account!
     deleteAccount(id: ID!): Boolean!
     resetAccount(id: ID!): Boolean!
+    # Party login — mobile number only, no OTP.
+    loginParty(adminId: ID!, mobile: String!): VerifyOTPResponse!
+    # (Re)send the registration OTP to the account's email.
     sendOTP(adminId: ID!, mobile: String!): SendOTPResponse!
     verifyOTP(adminId: ID!, mobile: String!, otp: String!): VerifyOTPResponse!
     # Self-service signup for an unregistered mobile number (app/website "New
@@ -188,7 +195,7 @@ export const accountTypeDefs = gql`
     # existing pre-save hook to auto-create its Ledger + accountcode too),
     # then sends an OTP exactly like sendOTP so the caller can go straight to
     # OTP verification afterwards.
-    registerAccount(adminId: ID!, name: String!, mobile: String!, email: String): SendOTPResponse!
+    registerAccount(adminId: ID!, name: String!, mobile: String!, email: String!): SendOTPResponse!
     # Let a self-registered customer sign in. Back-office only — the party
     # cannot approve itself.
     approveAccount(id: ID!): Account!

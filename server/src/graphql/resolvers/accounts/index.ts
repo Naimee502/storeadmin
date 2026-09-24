@@ -10,6 +10,7 @@ import { Branch } from "../../../models/branches";
 import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { sendOtpEmail } from "../../../utils/mail";
 import { AdminSettings } from "../../../models/adminsettings";
 import { resolveTenant } from "../../../utils/tenant";
 import { ApolloError } from "apollo-server-express";
@@ -140,6 +141,36 @@ const assertCustomerAccount = (account: any) => {
  * message got through and the code silently did not.
  */
 export const ACCOUNT_PENDING_APPROVAL = "ACCOUNT_PENDING_APPROVAL";
+
+/** A self-registered customer who never entered the email OTP. */
+export const REGISTRATION_INCOMPLETE = "REGISTRATION_INCOMPLETE";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Registration OTP — generated here, saved on the account, sent ONLY by email.
+ * It is never returned in a response: that would let anyone register any
+ * number/email without owning it.
+ */
+const issueEmailOtp = async (account: any, adminId: any) => {
+  if (!account.email) throw new Error("No email address on this account.");
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+  await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+
+  const admin: any = await Admin.findById(adminId).select("companyName").lean();
+  const sent = await sendOtpEmail(account.email, otp, admin?.companyName || "");
+  // Dev convenience only: with no SMTP configured the OTP is visible in the
+  // server console (never in the API response).
+  if (!sent) console.log(`[OTP] ${account.email} (${account.mobile}) | OTP: ${otp}`);
+  return sent;
+};
+
+const maskEmail = (email: string) => {
+  const [user, domain] = String(email).split("@");
+  if (!domain) return email;
+  return `${user.slice(0, 2)}${"*".repeat(Math.max(user.length - 2, 1))}@${domain}`;
+};
 
 const assertApproved = (account: any) => {
   if (String(account?.approvalstatus || "approved") === "pending") {
@@ -426,21 +457,46 @@ export const accountResolvers = {
       return !!result;
     },
 
-    sendOTP: async (_: any, { adminId, mobile }: any) => {
-      const account = await Account.findOne({ admin: adminId, mobile, status: true });
+    // Party login: mobile number only, no OTP. Same guards verifyOTP had
+    // (customer-only, approval), plus: a self-registered customer must have
+    // finished the email OTP first.
+    loginParty: async (_: any, { adminId, mobile }: any, { res }: any) => {
+      const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
       assertCustomerAccount(account);
+      if (account.selfregistered && !account.emailverified && !account.mobileverified) {
+        throw new ApolloError(
+          "Your registration is not complete. Enter the OTP sent to your email.",
+          REGISTRATION_INCOMPLETE,
+        );
+      }
       assertApproved(account);
 
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+      const { accessToken, refreshToken } = generateTokens({
+        id: account.id,
+        email: account.email || mobile,
+        type: "party",
+        adminid: account.admin,
+        branchid: account.branchid,
+      });
+      sendRefreshToken(res, refreshToken);
 
-      await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
+      const populated = await Account.findById(account._id)
+        .populate("admin")
+        .populate("channel");
+      return { accessToken, account: populated };
+    },
 
-      // TODO: replace with SMS provider (Twilio, AWS SNS, etc.) and remove otp from response
-      console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
+    // (Re)send the registration OTP to the account's email ("Resend OTP", or
+    // finishing a registration that was left half-way).
+    sendOTP: async (_: any, { adminId, mobile }: any) => {
+      const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (!account) throw new Error("Mobile number not registered.");
+      assertCustomerAccount(account);
+      if (!account.email) throw new Error("No email address on this account. Please contact the store.");
 
-      return { success: true, message: "OTP sent successfully.", otp };
+      await issueEmailOtp(account, adminId);
+      return { success: true, message: `OTP sent to ${maskEmail(account.email)}.` };
     },
 
     // Self-service signup — an unregistered mobile number entering their own
@@ -452,8 +508,26 @@ export const accountResolvers = {
     // OTP immediately so the caller can go straight into the normal
     // verifyOTP step, same shape as sendOTP.
     registerAccount: async (_: any, { adminId, name, mobile, email }: any) => {
-      const existing = await Account.findOne({ admin: adminId, mobile, status: true });
-      if (existing) throw new Error("This mobile number is already registered. Please login instead.");
+      email = String(email || "").trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address.");
+
+      const existing: any = await Account.findOne({ admin: adminId, mobile, status: true });
+      if (existing) {
+        // Registered earlier but never entered the OTP — let them try again
+        // (possibly with a corrected email) instead of locking the number out.
+        if (existing.selfregistered && !existing.emailverified && !existing.mobileverified) {
+          existing.name = name;
+          existing.email = email;
+          await existing.save();
+          await issueEmailOtp(existing, adminId);
+          return {
+            success: true,
+            pendingApproval: existing.approvalstatus === "pending",
+            message: `OTP sent to ${maskEmail(email)}.`,
+          };
+        }
+        throw new Error("This mobile number is already registered. Please login instead.");
+      }
 
       let group = await AccountGroup.findOne({ admin: adminId, accountgroupname: "Sundry Debtors" });
       if (!group) {
@@ -487,7 +561,8 @@ export const accountResolvers = {
         admin: adminId,
         name,
         mobile,
-        email: email || undefined,
+        email,
+        selfregistered: true,
         type: "customer",
         accountgroupid: group._id,
         channel: endUserChannel._id,
@@ -513,24 +588,17 @@ export const accountResolvers = {
       } catch (e) { /* notifications are best-effort */ }
 
       // The OTP is sent even when approval is required. It proves the person
-      // owns the number BEFORE an admin is asked to approve them — without it
-      // anyone could register any number and fill the approval queue with junk.
-      // The token is what gets withheld: verifyOTP marks the number verified and
-      // then refuses to sign a pending account in.
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-      await Account.findByIdAndUpdate(account._id, { otp, otpExpiry });
-
-      // TODO: replace with SMS provider (Twilio, AWS SNS, etc.) and remove otp from response
-      console.log(`[OTP] Mobile: ${mobile} | OTP: ${otp}`);
+      // owns the email BEFORE an admin is asked to approve them. The token is
+      // what gets withheld: verifyOTP marks the account verified and then
+      // refuses to sign a pending account in.
+      await issueEmailOtp(account, adminId);
 
       return {
         success: true,
         pendingApproval: needsApproval,
         message: needsApproval
-          ? "Account created. Verify your number with the OTP — you can sign in once the store approves you."
-          : "Registered successfully. OTP sent.",
-        otp,
+          ? `Account created. Enter the OTP sent to ${maskEmail(email)} — you can sign in once the store approves you.`
+          : `Registered successfully. OTP sent to ${maskEmail(email)}.`,
       };
     },
 
@@ -570,6 +638,7 @@ export const accountResolvers = {
         otp: null,
         otpExpiry: null,
         mobileverified: true,
+        emailverified: true,
       });
 
       // Only now: the number is theirs, but the store has not let them in yet.

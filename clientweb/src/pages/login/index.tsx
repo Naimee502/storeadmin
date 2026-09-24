@@ -5,17 +5,15 @@ import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, User, Mail } 
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
-import { SEND_OTP, VERIFY_OTP, REGISTER_ACCOUNT } from "../../graphql/queries/accounts";
+import { SEND_OTP, VERIFY_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from "../../graphql/queries/accounts";
 
 type Step = "mobile" | "register" | "otp" | "success";
 
-// Real party login against the Account/Party model — same sendOTP/verifyOTP
-// the mobile app uses. Entering a mobile number that has no matching
-// Account drops straight into an inline registration form (Name + Email
-// only — Party Type/Sales Channel/Ledger are all set automatically
-// server-side by registerAccount), then continues into the same OTP step
-// as an existing account would. No separate "New Customer" tab/toggle —
-// the mobile number itself is what decides which path this takes.
+// Party login — same flow as the mobile app:
+//   - Login: mobile number only, no OTP (loginParty).
+//   - New number: inline registration form (Name + Email, both required),
+//     then an OTP sent to that EMAIL (never returned by the server), verified
+//     with verifyOTP.
 export default function LoginPage() {
   const { companyName, adminid, brandLogo } = useTenant();
   const { setSession } = useAuth();
@@ -34,7 +32,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [sendOtpMutation, { loading: sending }] = useMutation(SEND_OTP);
+  const [sendOtpMutation] = useMutation(SEND_OTP);
+  const [loginMutation, { loading: sending }] = useMutation(LOGIN_PARTY);
+  const [info, setInfo] = useState<string | null>(null);
   const [verifyOtpMutation, { loading: verifying }] = useMutation(VERIFY_OTP);
   const [registerMutation, { loading: registering }] = useMutation(REGISTER_ACCOUNT);
 
@@ -44,34 +44,12 @@ export default function LoginPage() {
     return () => clearInterval(id);
   }, [resendIn]);
 
-  // WebOTP API — the browser-level equivalent of the app's SMS auto-read.
-  // It only fires when: (1) the page is served over HTTPS on a real
-  // domain (not http://localhost), and (2) an actual SMS arrives on that
-  // device containing the OTP followed by "@<domain> #<code>" on its own
-  // line. Nothing will visibly happen on localhost — this is wired up for
-  // when a real SMS gateway is connected in production.
-  useEffect(() => {
-    if (step !== "otp") return;
-    if (!("OTPCredential" in window)) return;
-    const controller = new AbortController();
-    (navigator.credentials as any)
-      .get({ otp: { transport: ["sms"] }, signal: controller.signal })
-      .then((otpCred: any) => {
-        const code: string | undefined = otpCred?.code;
-        if (code) handleOtpChange(0, code);
-      })
-      .catch(() => {
-        // Aborted (user left the step) or unsupported — ignore.
-      });
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  const codeOf = (err: any) =>
+    err?.graphQLErrors?.map((e: any) => e?.extensions?.code).find(Boolean) || err?.extensions?.code;
 
+  // (Re)send the registration OTP to the account's email.
   const requestOtp = async () => {
-    if (!adminid) {
-      setError("Store is still loading — please try again in a moment.");
-      return;
-    }
+    if (!adminid) return;
     setError(null);
     try {
       const { data } = await sendOtpMutation({ variables: { adminId: adminid, mobile } });
@@ -79,34 +57,47 @@ export default function LoginPage() {
         setError(data?.sendOTP?.message || "Couldn't send the OTP. Please try again.");
         return;
       }
-      // No SMS gateway is wired up yet, so the server hands the OTP straight
-      // back in the response (dev-only — this is what "auto-fill" actually
-      // is right now, not the WebOTP API reading a real SMS). Pre-fill it so
-      // testing doesn't require checking server logs for the code. Remove
-      // this once a real SMS provider is connected and `otp` stops being
-      // returned by sendOTP.
-      const devOtp: string | undefined = data.sendOTP.otp;
-      setOtp(devOtp ? devOtp.padStart(4, "0").slice(-4).split("") : Array(4).fill(""));
+      setInfo(data.sendOTP.message || "OTP sent to your email.");
+      setOtp(Array(4).fill(""));
       setStep("otp");
       setResendIn(30);
     } catch (err: any) {
-      const msg: string = err?.message || "";
-      if (msg.includes("not registered")) {
-        // No Account exists for this number yet — drop into the inline
-        // registration form instead of just showing an error.
-        setStep("register");
-        return;
-      }
-      // The server says why it refused — a vendor or other non-customer
-      // account being the case that matters here. "Please try again" only
-      // made them try again, on a number that will never be let in.
-      setError(msg || "Couldn't send the OTP. Please try again.");
+      setError(err?.message || "Couldn't send the OTP. Please try again.");
     }
   };
 
-  const sendOtp = (e: React.FormEvent) => {
+  // Login: mobile number only, no OTP.
+  const login = async (e: React.FormEvent) => {
     e.preventDefault();
-    requestOtp();
+    if (!adminid) {
+      setError("Store is still loading — please try again in a moment.");
+      return;
+    }
+    setError(null);
+    try {
+      const { data } = await loginMutation({ variables: { adminId: adminid, mobile } });
+      const result = data?.loginParty;
+      setSession(result.accessToken, {
+        id: result.account.id,
+        name: result.account.name,
+        mobile: result.account.mobile,
+        email: result.account.email,
+      });
+      setStep("success");
+    } catch (err: any) {
+      const msg: string = err?.message || "";
+      if (msg.includes("not registered")) {
+        // No Account for this number yet — inline registration form.
+        setStep("register");
+        return;
+      }
+      if (codeOf(err) === "REGISTRATION_INCOMPLETE") {
+        // Registered earlier but never entered the email OTP — send a new one.
+        await requestOtp();
+        return;
+      }
+      setError(msg || "Couldn't sign in. Please try again.");
+    }
   };
 
   const submitRegister = async (e: React.FormEvent) => {
@@ -115,15 +106,14 @@ export default function LoginPage() {
     setError(null);
     try {
       const { data } = await registerMutation({
-        variables: { adminId: adminid, name: name.trim(), mobile, email: email.trim() || null },
+        variables: { adminId: adminid, name: name.trim(), mobile, email: email.trim() },
       });
       if (!data?.registerAccount?.success) {
         setError(data?.registerAccount?.message || "Couldn't create your account. Please try again.");
         return;
       }
-      // Same dev-only OTP pre-fill as requestOtp — see comment there.
-      const devOtp: string | undefined = data.registerAccount.otp;
-      setOtp(devOtp ? devOtp.padStart(4, "0").slice(-4).split("") : Array(4).fill(""));
+      setInfo(data.registerAccount.message || "OTP sent to your email.");
+      setOtp(Array(4).fill(""));
       setStep("otp");
       setResendIn(30);
     } catch (err: any) {
@@ -161,10 +151,7 @@ export default function LoginPage() {
       // Matched on the server's error code rather than its wording.
       // Both shapes: ApolloError carries graphQLErrors, but a bare GraphQL
       // error surfaces its extensions directly.
-      const pending =
-        err?.graphQLErrors?.some(
-          (e: any) => e?.extensions?.code === "ACCOUNT_PENDING_APPROVAL",
-        ) || err?.extensions?.code === "ACCOUNT_PENDING_APPROVAL";
+      const pending = codeOf(err) === "ACCOUNT_PENDING_APPROVAL";
       if (pending) {
         setOtp(Array(4).fill(""));
         setStep("mobile");
@@ -228,8 +215,8 @@ export default function LoginPage() {
           )}
 
           {step === "mobile" && (
-            <form onSubmit={sendOtp} className="space-y-4">
-              <p className="text-sm text-slate-500">Enter your mobile number to receive a one-time password.</p>
+            <form onSubmit={login} className="space-y-4">
+              <p className="text-sm text-slate-500">Enter your mobile number to sign in.</p>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-900">Mobile Number</label>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
@@ -251,7 +238,7 @@ export default function LoginPage() {
                 disabled={mobile.length !== 10 || sending || !adminid}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {sending ? "Sending OTP…" : "Send OTP"}
+                {sending ? "Signing in…" : "Continue"}
               </button>
               <p className="text-center text-xs text-slate-400">
                 New here? Just enter your number — we'll set your account up in a moment.
@@ -292,21 +279,23 @@ export default function LoginPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-ink-900">Email (optional)</label>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Email</label>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
                   <Mail className="h-4 w-4 text-slate-400" />
                   <input
                     type="email"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
                   />
                 </div>
+                <p className="mt-1 text-xs text-slate-400">We'll email you an OTP to verify your account.</p>
               </div>
               <button
                 type="submit"
-                disabled={!name.trim() || registering || !adminid}
+                disabled={!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || registering || !adminid}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {registering ? "Creating account…" : "Create Account & Send OTP"}
@@ -327,7 +316,7 @@ export default function LoginPage() {
                 <ArrowLeft className="h-3.5 w-3.5" /> Change number
               </button>
               <p className="text-sm text-slate-500">
-                Enter the 4-digit code sent to <span className="font-semibold text-ink-900">+91 {mobile}</span>
+                {info || "Enter the 4-digit code sent to your email."}
               </p>
               <div className="flex justify-center gap-2.5">
                 {otp.map((digit, i) => (

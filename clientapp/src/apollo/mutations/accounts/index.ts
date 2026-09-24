@@ -1,11 +1,29 @@
 import { gql } from '@apollo/client';
 
+// (Re)send the registration OTP — it goes to the account's email only.
 export const SEND_OTP = gql`
   mutation SendOTP($adminId: ID!, $mobile: String!) {
     sendOTP(adminId: $adminId, mobile: $mobile) {
       success
       message
-      otp
+    }
+  }
+`;
+
+// Party login — mobile number only, no OTP.
+export const LOGIN_PARTY = gql`
+  mutation LoginParty($adminId: ID!, $mobile: String!) {
+    loginParty(adminId: $adminId, mobile: $mobile) {
+      accessToken
+      account {
+        id
+        name
+        mobile
+        email
+        type
+        channel { id channelName }
+        admin { id }
+      }
     }
   }
 `;
@@ -29,16 +47,12 @@ export const VERIFY_OTP = gql`
   }
 `;
 
-// Self-service signup for an unregistered mobile number — Name + Email only
-// (Party Type/Sales Channel/Ledger are all set automatically server-side).
-// Same response shape as SEND_OTP so the Login screen can flow straight
-// into OTP verification afterwards.
+// Self-service signup — Name + Email (required: the OTP is emailed).
 export const REGISTER_ACCOUNT = gql`
-  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String) {
+  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String!) {
     registerAccount(adminId: $adminId, name: $name, mobile: $mobile, email: $email) {
       success
       message
-      otp
     }
   }
 `;

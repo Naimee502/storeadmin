@@ -9,7 +9,22 @@ export const SEND_OTP = gql`
     sendOTP(adminId: $adminId, mobile: $mobile) {
       success
       message
-      otp
+    }
+  }
+`;
+
+// Party login — mobile number only, no OTP (OTP is only for registration).
+export const LOGIN_PARTY = gql`
+  mutation LoginParty($adminId: ID!, $mobile: String!) {
+    loginParty(adminId: $adminId, mobile: $mobile) {
+      accessToken
+      account {
+        id
+        name
+        mobile
+        email
+        admin { id }
+      }
     }
   }
 `;
@@ -34,11 +49,10 @@ export const VERIFY_OTP = gql`
 // Returns the same shape as sendOTP so the login page can flow straight
 // into OTP verification afterwards.
 export const REGISTER_ACCOUNT = gql`
-  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String) {
+  mutation RegisterAccount($adminId: ID!, $name: String!, $mobile: String!, $email: String!) {
     registerAccount(adminId: $adminId, name: $name, mobile: $mobile, email: $email) {
       success
       message
-      otp
     }
   }
 `;

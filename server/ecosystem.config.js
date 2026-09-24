@@ -12,7 +12,14 @@ module.exports = {
         // domain instead of the dev LAN IP in server/.env.
         PUBLIC_BASE_URL_PROD: "https://rudra.digisysindiatech.com",
         JWT_ACCESS_SECRET: "your_super_secret_access_key_123",
-        JWT_REFRESH_SECRET: "your_super_secret_refresh_key_456"
+        JWT_REFRESH_SECRET: "your_super_secret_refresh_key_456",
+        // Registration OTP email (Hostinger). The password is NOT kept here
+        // (this file is in git) — put SMTP_PASS=... in server/.env on the
+        // production server; dotenv loads it at startup.
+        SMTP_HOST: "smtp.hostinger.com",
+        SMTP_PORT: 465,
+        SMTP_USER: "info@digisysindiatech.com",
+        MAIL_FROM: "Rudra ERP <info@digisysindiatech.com>"
       }
     }
   ]

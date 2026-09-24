@@ -24,19 +24,14 @@ export default function OTPVerification({ navigation, route }: any) {
 
   const mobile: string = route?.params?.mobile ?? '';
   const adminId: string = route?.params?.adminId ?? '';
-  const autoOtp: string = route?.params?.autoOtp ?? '';
+  // Where the OTP was emailed (shown to the user). The OTP itself never comes
+  // back from the server — it has to be read from the email.
+  const email: string = route?.params?.email ?? '';
 
   const [code, setCode]                = useState(['', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [timer, setTimer]              = useState(30);
   const inputs = useRef<any>([]);
-
-  // auto-fill boxes when OTP comes from server
-  useEffect(() => {
-    if (autoOtp.length === 4) {
-      setCode(autoOtp.split(''));
-    }
-  }, [autoOtp]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -132,10 +127,9 @@ export default function OTPVerification({ navigation, route }: any) {
       });
       if (data?.sendOTP?.success) {
         setTimer(30);
-        const newOtp = data.sendOTP.otp ?? '';
-        setCode(newOtp.length === 4 ? newOtp.split('') : ['', '', '', '']);
+        setCode(['', '', '', '']);
         setFocusedIndex(-1);
-        showToast(sText.resent, 'success');
+        showToast((data as any).sendOTP.message || sText.resent, 'success');
       }
     } catch (err: any) {
       const msg = err?.message || 'Could not resend OTP.';
@@ -167,9 +161,9 @@ export default function OTPVerification({ navigation, route }: any) {
             <Text style={[styles.eyebrow, { color: colors.brand }]}>Secure verification</Text>
             <Text style={[styles.title, { color: colors.text }]}>{sText.title}</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>
-              {mobile
-                ? `Enter the 4-digit code sent to +91 ${mobile}.`
-                : sText.subtitle}
+              {email
+                ? `Enter the 4-digit code sent to ${email}.`
+                : 'Enter the 4-digit code sent to your email.'}
             </Text>
           </Animated.View>
 
