@@ -1,6 +1,11 @@
 import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
-import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
+import notifee, { EventType } from '@notifee/react-native';
 import { navigate } from './navigationservice';
+import {
+  displayRemoteMessage,
+  ensureNotificationChannel,
+  requestAndroidNotificationPermission,
+} from './notificationchannel';
 
 class FirebaseManager {
   async register() {
@@ -18,6 +23,11 @@ class FirebaseManager {
 
   async requestPermission() {
     try {
+      await ensureNotificationChannel();
+      const androidGranted = await requestAndroidNotificationPermission();
+      if (!androidGranted) {
+        console.warn('[FirebaseManager] Notification permission denied — pushes will not show.');
+      }
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -78,44 +88,25 @@ class FirebaseManager {
       }
     });
 
-    notifee.onBackgroundEvent(async ({ type, detail }) => {
-      if (type === EventType.PRESS && detail.notification) {
-      }
-    });
   }
 
   private async displayLocalNotification(remoteMessage: FirebaseMessagingTypes.RemoteMessage) {
-    const channelId = await notifee.createChannel({
-      id: 'default',
-      name: 'Default Channel',
-      importance: AndroidImportance.HIGH,
-    });
-
-    await notifee.displayNotification({
-      title: remoteMessage.notification?.title || 'Notification',
-      body: remoteMessage.notification?.body || '',
-      data: remoteMessage.data,
-      android: {
-        channelId,
-        importance: AndroidImportance.HIGH,
-        pressAction: {
-          id: 'default',
-        },
-      },
-    });
+    await displayRemoteMessage(remoteMessage);
   }
 
   private handleNotificationNavigation(remoteMessage: FirebaseMessagingTypes.RemoteMessage) {
-    const { data } = remoteMessage;
-
+    const { data } = remoteMessage || ({} as any);
     if (!data) return;
 
+    // Explicit route name, if a sender ever provides one.
     if (data.screen) {
       const { screen, ...params } = data;
       navigate(screen as string, params);
-    } else {
-      navigate('Home');
+      return;
     }
+    // Server pushes (utils/fcm) — open the notifications list, which is
+    // registered for every role.
+    navigate('Notifications');
   }
 }
 

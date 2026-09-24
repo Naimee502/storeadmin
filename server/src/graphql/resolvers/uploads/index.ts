@@ -5,8 +5,10 @@ import fs from 'fs';
 import { requireBackofficeTenant } from '../../../utils/tenant';
 import { ProductService } from '../../../models/products';
 import { Category } from '../../../models/categories';
+import { SubCategory } from '../../../models/subcategories';
 import { AdminSettings } from '../../../models/adminsettings';
 import { purgeImageCache } from '../../../utils/imagecache';
+import { PUBLIC_BASE_URL } from '../../../config/serverconfig';
 
 /** Where uploadImage writes, and what express serves at /uploads. */
 const uploadDir = () => path.join(__dirname, '../../../uploads');
@@ -57,9 +59,10 @@ const localUploadPath = (rawUrl: string): string | null => {
  * and this quietly deletes files that page is still displaying.
  */
 const stillInUse = async (url: string): Promise<boolean> => {
-  const [product, category, settings] = await Promise.all([
+  const [product, category, subcategory, settings] = await Promise.all([
     ProductService.exists({ $or: [{ imageurl: url }, { imageurls: url }] }),
     Category.exists({ image: url }),
+    SubCategory.exists({ image: url }),
     AdminSettings.exists({
       $or: [
         { "heroBannerSlides.image": url },
@@ -68,7 +71,7 @@ const stillInUse = async (url: string): Promise<boolean> => {
       ],
     }),
   ]);
-  return Boolean(product || category || settings);
+  return Boolean(product || category || subcategory || settings);
 };
 
 export const uploadResolvers = {
@@ -98,29 +101,9 @@ export const uploadResolvers = {
       stream.pipe(out);
       await finished(out); // wait for the file to be fully written
 
-      // Build a URL any caller can actually reach. A hardcoded
-      // "http://localhost:4000" only resolves on the machine running the
-      // server itself — the admin panel's own browser (localhost) happened
-      // to work by coincidence, but the mobile app (LAN IP / ngrok /
-      // production domain) could never load it.
-      //
-      // Which base URL to use is picked automatically from NODE_ENV so
-      // nobody has to remember to flip a value before/after deploying:
-      //   - NODE_ENV=production (set by ecosystem.config.js under pm2)
-      //     -> PUBLIC_BASE_URL_PROD (public domain, e.g. https://rudra...)
-      //   - anything else (local dev)
-      //     -> PUBLIC_BASE_URL_DEV (LAN IP, so the mobile app on the same
-      //        network can load it too)
-      // If neither is set, fall back to deriving it from the incoming
-      // request (works for LAN/ngrok/prod alike as long as `trust proxy`
-      // is configured), and finally to localhost as a last resort.
-      const req = context?.req;
-      const isProd = process.env.NODE_ENV === 'production';
-      const configuredBase = isProd
-        ? process.env.PUBLIC_BASE_URL_PROD
-        : (process.env.PUBLIC_BASE_URL_DEV || process.env.PUBLIC_BASE_URL); // PUBLIC_BASE_URL kept for back-compat
-      const base = configuredBase
-        || (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${process.env.PORT || 4000}`);
+      // Public URL for the file: dev → http://localhost:4000,
+      // production → https://rudra.digisysindiatech.com (src/config/serverconfig.ts).
+      const base = PUBLIC_BASE_URL;
 
       return {
         filename: uniqueFilename,

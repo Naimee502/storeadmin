@@ -4,6 +4,8 @@ const subCategorySchema = new mongoose.Schema(
   {
     subcategorycode: { type: String },
     subcategoryname: { type: String, required: true },
+    // Optional, same as Category.image — an /uploads url or "".
+    image: { type: String, default: "" },
     status: { type: Boolean, default: true },
 
     // Link to parent Category

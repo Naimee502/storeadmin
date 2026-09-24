@@ -14,7 +14,11 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const EDGE = 18;
 const GAP = 10;
 const COLUMNS = 3;
-const TILE_W = (SCREEN_W - EDGE * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
+// Floored on purpose: the exact value is fractional (e.g. 118.67dp), and once
+// the layout engine rounds three of those plus the gaps to whole pixels the row
+// comes out a fraction wider than the screen — so the 3rd tile wraps and every
+// row shows only 2. Dropping the fraction leaves a pixel or two spare instead.
+const TILE_W = Math.floor((SCREEN_W - EDGE * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
 export type Tile = {
   id: string;
@@ -28,9 +32,14 @@ export type Tile = {
  *
  * A tile is a picture with its name on a brand-coloured caption underneath,
  * which is the shape the businesses using this mode already had their staff and
- * customers trained on. Sub-categories have no image in this system (only
- * categories and products do), so their tiles show the caption over a plain
- * panel rather than a broken frame.
+ * customers trained on. Both categories and sub-categories carry an optional
+ * image; either kind without one shows a placeholder icon rather than a broken
+ * frame.
+ *
+ * Both kinds request the SAME width (IMG.thumb) through AppImage, so they share
+ * the server's small WebP render and FastImage's immutable disk cache — after
+ * the first view a tile's picture comes straight off disk. No prefetching: see
+ * the note at the bottom of components/appimage.tsx for why.
  */
 export const TileGrid: React.FC<{
   tiles: Tile[];

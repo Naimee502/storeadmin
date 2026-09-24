@@ -47,3 +47,6 @@ uploads/
 server/src/uploads/*
 !server/src/uploads/.gitkeep
 
+
+# Firebase service account (push notifications) — never commit
+firebase-service-account.json

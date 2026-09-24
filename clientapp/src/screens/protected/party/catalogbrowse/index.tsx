@@ -149,7 +149,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
             sc?.category?.id === categoryId &&
             matches(sc.subcategoryname ?? ''),
         )
-        .map((sc: any) => ({ id: sc.id, label: sc.subcategoryname })),
+        .map((sc: any) => ({ id: sc.id, label: sc.subcategoryname, image: sc.image })),
     [subcategories, matches],
   );
 

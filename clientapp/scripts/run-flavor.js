@@ -2,7 +2,7 @@
 /**
  * Runs a single Android flavor and makes sure it is the only one on the device.
  *
- * The two flavors have different applicationIds, so Android happily keeps both
+ * The flavors have different applicationIds, so Android happily keeps both
  * installed side by side. That gets confusing fast when you are testing branding
  * or the auto-activation admin code, so we uninstall the sibling flavor first.
  */
@@ -13,6 +13,7 @@ const fs = require('fs');
 const FLAVORS = {
   rudraerp: { mode: 'rudraerpDebug', appId: 'com.app.rudraerp' },
   rkn: { mode: 'rknDebug', appId: 'com.app.rkn' },
+  powergold: { mode: 'powergoldDebug', appId: 'com.app.powergoldagroproduct' },
 };
 
 const flavor = process.argv[2];
@@ -42,6 +43,14 @@ for (const [name, other] of Object.entries(FLAVORS)) {
   process.stdout.write(`Removing other flavor ${other.appId} ... `);
   const { status } = spawnSync(adb, ['uninstall', other.appId], { stdio: 'pipe' });
   console.log(status === 0 ? 'uninstalled' : 'not installed');
+}
+
+// Local dev: the app's debug SERVER_URL is http://localhost:4000 and Metro is
+// on 8081 — both are the Mac's ports, so forward them to the device/emulator.
+// Must be re-done after every USB re-plug or reboot; doing it on every run
+// means nobody has to remember. Harmless if no device is attached yet.
+for (const port of ['4000', '8081']) {
+  spawnSync(adb, ['reverse', `tcp:${port}`, `tcp:${port}`], { stdio: 'ignore' });
 }
 
 const { status } = spawnSync(

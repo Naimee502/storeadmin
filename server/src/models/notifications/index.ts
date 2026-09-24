@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { sendPushToToken } from "../../utils/fcm";
 
 // Business-event notifications.
 // target:
@@ -62,8 +63,45 @@ export const pushNotification = async (data: {
   try {
     if (!data.adminid || !data.title) return;
     if (data.targettype !== "admin" && !data.targetid) return;
-    await Notification.create(data);
+    const doc = await Notification.create(data);
+    // Also deliver it to the phone's status bar (staff/salesman/party logins).
+    // Not awaited: a slow FCM call must not hold up the business mutation.
+    if (data.targettype !== "admin") {
+      sendDevicePush(data, String(doc._id)).catch(() => {});
+    }
   } catch (err) {
     console.error("pushNotification failed:", err);
+  }
+};
+
+// Staff/salesman/delivery tokens live on StaffAccount, party tokens on Account
+// (see saveDeviceToken). Models are looked up by name to avoid import cycles.
+const sendDevicePush = async (
+  data: { targettype: "staff" | "party" | "admin"; targetid?: any; ntype: string; title: string; message?: string; appscreen?: string; docmodel?: string; docid?: any },
+  notificationId: string
+) => {
+  const modelName = data.targettype === "party" ? "Account" : "StaffAccount";
+  if (!mongoose.modelNames().includes(modelName)) return;
+  const Model = mongoose.model(modelName);
+
+  const user: any = await Model.findById(data.targetid).select("fcmtoken").lean();
+  const token = user?.fcmtoken;
+  if (!token) return;
+
+  const result = await sendPushToToken(token, {
+    title: data.title,
+    body: data.message,
+    data: {
+      notificationId,
+      ntype: data.ntype,
+      appscreen: data.appscreen,
+      docmodel: data.docmodel,
+      docid: data.docid,
+    },
+  });
+
+  // Dead token (app uninstalled / reinstalled): forget it so we stop trying.
+  if (result === "invalid-token") {
+    await Model.updateOne({ _id: data.targetid, fcmtoken: token }, { $set: { fcmtoken: null } });
   }
 };

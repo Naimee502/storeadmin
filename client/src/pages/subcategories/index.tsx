@@ -12,6 +12,7 @@ import {
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
+import { useImageUpload } from "../../graphql/hooks/uploads";
 import { selectModuleActions } from "../../redux/slices/permissions";
 
 const SubCategories = () => {
@@ -31,17 +32,30 @@ const SubCategories = () => {
     editSubCategoryMutation,
     deleteSubCategoryMutation,
   } = useSubCategoryMutations();
+  const { uploadImageMutation, deleteImages } = useImageUpload();
 
   const subCategoryList = data?.getSubCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-  console.log("Sub Category List:", JSON.stringify(subCategoryList));
 
   // Form state for add/edit
-  const [formValues, setFormValues] = useState({
+  // Image is optional, same as on Categories. It is what the client app's
+  // catalogue browse mode shows on the sub-category tile.
+  const [formValues, setFormValues] = useState<{
+    subcategoryname: string;
+    status: boolean;
+    category: string;
+    image: string;
+  }>({
     subcategoryname: "",
     status: true,
     category: "",
+    image: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // The image this sub-category had when editing started — deleted from the
+  // server once a save replaces or removes it (same rule as Categories).
+  const previousImageUrl = useRef<string>("");
   const [formErrors, setFormErrors] = useState<{
     subcategoryname?: string;
     category?: string;
@@ -49,8 +63,28 @@ const SubCategories = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Handle form input change
-  const handleFormChange = (name: string, value: string | boolean) => {
+  // Handle form input change — a File means the image picker fired: preview
+  // it straight away (blob URL) and upload only on Save, like Categories.
+  const handleFormChange = (name: string, value: string | boolean | File) => {
+    if (value instanceof File) {
+      setSelectedFile(value);
+      setFormValues((prev) => {
+        if (prev.image.startsWith("blob:")) URL.revokeObjectURL(prev.image);
+        return { ...prev, image: URL.createObjectURL(value) };
+      });
+      return;
+    }
+
+    // The preview's ✕ clears the image.
+    if (name === "image" && value === "") {
+      setSelectedFile(null);
+      setFormValues((prev) => {
+        if (prev.image.startsWith("blob:")) URL.revokeObjectURL(prev.image);
+        return { ...prev, image: "" };
+      });
+      return;
+    }
+
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -73,7 +107,10 @@ const SubCategories = () => {
       subcategoryname: row.subcategoryname,
       status: row.status === "Active",
       category: row.category?.id || "",
+      image: row.image || "",
     });
+    setSelectedFile(null);
+    previousImageUrl.current = row.image || "";
     setIsEditing(true);
     setEditingId(row.id);
   };
@@ -97,12 +134,17 @@ const SubCategories = () => {
     if (!validateForm()) return;
     dispatch(showLoading());
     try {
+      const uploadedUrl = selectedFile
+        ? (await uploadImageMutation({ variables: { file: selectedFile } })).data?.uploadImage?.url
+        : formValues.image;
+
       if (isEditing && editingId) {
         await editSubCategoryMutation({
           variables: {
             id: editingId,
             input: {
               subcategoryname: formValues.subcategoryname,
+              image: uploadedUrl || "",
               status: formValues.status,
               admin: adminId,
               category: formValues.category,
@@ -120,6 +162,7 @@ const SubCategories = () => {
           variables: {
             input: {
               subcategoryname: formValues.subcategoryname,
+              image: uploadedUrl || "",
               status: formValues.status,
               admin: adminId,
               category: formValues.category,
@@ -134,8 +177,13 @@ const SubCategories = () => {
         );
       }
 
+      const replaced = previousImageUrl.current;
+      previousImageUrl.current = "";
+      if (replaced && replaced !== uploadedUrl) void deleteImages([replaced]);
+
       await refetch();
-      setFormValues({ subcategoryname: "", status: true, category: "" });
+      setFormValues({ subcategoryname: "", status: true, category: "", image: "" });
+      setSelectedFile(null);
       setIsEditing(false);
       setEditingId(null);
     } catch (error) {
@@ -293,6 +341,12 @@ const SubCategories = () => {
               label: "SubCategory Name",
               type: "text",
               placeholder: "Enter subcategory name",
+            },
+            {
+              name: "image",
+              label: "Image",
+              type: "file",
+              accept: "image/*",
             },
           ]}
           formValues={formValues}

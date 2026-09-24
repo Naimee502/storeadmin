@@ -1,4 +1,5 @@
 import { StaffAccount } from "../../../models/staffaccounts";
+import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 
 export const staffAccountResolvers = {
@@ -208,13 +209,20 @@ export const staffAccountResolvers = {
     // ==========================================
     // 🔔 Save FCM device token (from the mobile app after login)
     // ==========================================
+    // The app calls this for every login role. Staff/salesman/delivery are
+    // StaffAccounts; party logins are Accounts — try both so parties get
+    // push too. A token belongs to one device, so it is removed from anyone
+    // else who had it (e.g. a different user logged in on this phone before).
     saveDeviceToken: async (_: any, { id, token }: any) => {
-      const result = await StaffAccount.findByIdAndUpdate(
-        id,
-        { fcmtoken: token },
-        { new: true }
-      );
-      return !!result;
+      if (!id || !token) return false;
+      await Promise.all([
+        StaffAccount.updateMany({ fcmtoken: token, _id: { $ne: id } }, { $set: { fcmtoken: null } }),
+        Account.updateMany({ fcmtoken: token, _id: { $ne: id } }, { $set: { fcmtoken: null } }),
+      ]);
+      const staff = await StaffAccount.findByIdAndUpdate(id, { fcmtoken: token }, { new: true });
+      if (staff) return true;
+      const party = await Account.findByIdAndUpdate(id, { fcmtoken: token }, { new: true });
+      return !!party;
     },
   },
 };

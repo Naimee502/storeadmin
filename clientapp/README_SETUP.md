@@ -1,6 +1,12 @@
 # Store Admin - React Native App
 
-A multi-flavor React Native application for store management with support for different roles (Party, Salesman, Delivery Boy, Staff) and two app variants: **RudraERP** and **RKN**.
+A multi-flavor React Native application for store management with support for different roles (Party, Salesman, Delivery Boy, Staff) and three app variants (flavors): **RudraERP**, **RKN** and **Powergold Agro**.
+
+| Flavor | npm script | Package name | Admin code | Business |
+|---|---|---|---|---|
+| `rudraerp` | `npm run android:rudraerp` | `com.app.rudraerp` | `#ADM0003` | Rudra Enterprise |
+| `rkn` | `npm run android:rkn` | `com.app.rkn` | `#ADM0001` | DK Marketing |
+| `powergold` | `npm run android:powergold` | `com.app.powergoldagroproduct` | `#ADM0004` | Powergold Agro Product |
 
 ---
 
@@ -9,6 +15,7 @@ A multi-flavor React Native application for store management with support for di
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Running Locally (local server + admin panel)](#-running-locally-local-server--admin-panel)
 - [Running the App](#running-the-app)
 - [Running Specific Flavors](#running-specific-flavors)
 - [Building Release APK](#building-release-apk)
@@ -100,6 +107,53 @@ Ready to accept connections
 
 ---
 
+## 🖥️ Running Locally (local server + admin panel)
+
+Everything is currently pointed at the **local** server (`http://localhost:4000`):
+
+| Part | Where the URL lives | Local value | Live value |
+|---|---|---|---|
+| App (debug builds) | `clientapp/src/config/apiconfig.ts` → `SERVER_URL` | `http://localhost:4000` | `https://rudra.digisysindiatech.com` |
+| Admin panel (client) | `client/src/config/apiconfig.ts` → `SERVER_URL` / `SERVER_URL_PROD` | `http://localhost:4000` | `https://rudra.digisysindiatech.com` |
+| Website (clientweb) | `clientweb/src/config/apiconfig.ts` → `SERVER_URL` / `SERVER_URL_PROD` | `http://localhost:4000` | `https://rudra.digisysindiatech.com` |
+| Server (image URLs) | `server/src/config/serverconfig.ts` | `http://localhost:4000` | `https://rudra.digisysindiatech.com` |
+
+Automatic: app debug / `npm run dev` → local; app release / `npm run build` / `npm start` / pm2 → live.
+
+```bash
+# Terminal 1 — MongoDB must be running (server/.env → mongodb://127.0.0.1:27017/pos_billing_erp)
+brew services start mongodb-community     # or however Mongo is installed
+
+# Terminal 2 — backend on :4000
+cd server
+npm install
+npm run dev
+
+# Terminal 3 — admin panel on http://localhost:5173
+cd client
+npm install
+npm run dev
+
+# Terminal 4 — Metro
+cd clientapp
+npm start
+
+# Terminal 5 — the app (pick a flavor)
+cd clientapp
+npm run android:powergold
+```
+
+`npm run android:<flavor>` runs `adb reverse tcp:4000 tcp:4000` and `adb reverse tcp:8081 tcp:8081`
+for you, so a USB phone or emulator reaches the Mac's server and Metro. If you re-plug the phone
+without re-running the script, run those two commands by hand.
+
+> **The local database is separate from live.** The app activates itself with its flavor's admin code
+> (e.g. `#ADM0004`). That admin must exist in the **local** database, otherwise the app shows
+> "Business code #ADM0004 not found". Create it from the local admin panel (Manage Admins) first,
+> or restore a copy of the live data into local Mongo.
+
+---
+
 ## 🚀 Running the App
 
 ### General Start (Both Flavors)
@@ -138,10 +192,21 @@ cd clientapp/android
 ./gradlew app:installRknDebug
 ```
 
+#### 🌾 **Powergold Agro Flavor** (`#ADM0004`)
+
+```bash
+# Run debug build
+npm run android:powergold
+
+# Or using Gradle directly
+cd clientapp/android
+./gradlew app:installPowergoldDebug
+```
+
 > **Only one flavor stays installed.** The two flavors have different
-> applicationIds (`com.app.rudraerp` / `com.app.rkn`), so Android is happy to keep
-> both on the device at once. The `npm run android:*` scripts uninstall the other
-> flavor first, via `scripts/run-flavor.js`. Switching flavors therefore wipes that
+> applicationIds (`com.app.rudraerp` / `com.app.rkn` / `com.app.powergoldagroproduct`), so Android is happy to keep
+> them all on the device at once. The `npm run android:*` scripts uninstall the other
+> flavors first, via `scripts/run-flavor.js`. Switching flavors therefore wipes that
 > app's AsyncStorage and persisted Redux state, so you start unactivated and
 > logged out. The `./gradlew app:install*` tasks skip that step and leave both
 > installed.
@@ -156,7 +221,11 @@ npm start
 npx react-native run-android --mode rudraerpDebug --appId com.app.rudraerp
 # or
 npx react-native run-android --mode rknDebug --appId com.app.rkn
+# or
+npx react-native run-android --mode powergoldDebug --appId com.app.powergoldagroproduct
 ```
+
+(Running this way skips the `adb reverse` step — run `adb reverse tcp:4000 tcp:4000` yourself when using the local server.)
 
 ---
 
@@ -184,6 +253,17 @@ cd clientapp/android
 # Output: app/build/outputs/apk/rkn/release/app-rkn-release.apk
 ```
 
+### Powergold Agro Release Build
+
+```bash
+cd clientapp/android
+
+# Build release APK
+./gradlew app:assemblePowergoldRelease
+
+# Output: app/build/outputs/apk/powergold/release/app-powergold-release.apk
+```
+
 ### Build AAB (for Google Play)
 
 ```bash
@@ -194,6 +274,9 @@ cd clientapp/android
 
 # RKN
 ./gradlew app:bundleRknRelease
+
+# Powergold Agro
+./gradlew app:bundlePowergoldRelease
 
 # Output: app/build/outputs/bundle/
 ```
@@ -207,8 +290,8 @@ cd clientapp/android
 Edit `src/config/apiconfig.ts`:
 
 ```typescript
-// Development (Debug builds)
-const SERVER_URL = 'https://rudra.digisysindiatech.com';
+// Development (Debug builds) — currently local
+const SERVER_URL = 'http://localhost:4000';
 
 // Production (Release builds)
 const SERVER_URL_PROD = 'https://rudra.digisysindiatech.com';
@@ -231,11 +314,34 @@ const SERVER_URL = 'https://your-ngrok-url.ngrok.io';
 // Sync with: npm run sync-ngrok
 ```
 
+### Adding a New Flavor (how Powergold was added)
+
+1. `android/app/build.gradle` — add it to `productFlavors` (with its `applicationId`), to
+   `debuggableVariants` (`<name>Debug`, `<name>DebugOptimized`), and to `preBuildTask`
+   (`flavor.contains('<name>')` → `buildconfig.<name>.ts`).
+2. `src/config/buildconfig.<name>.ts` — the admin code.
+3. `android/app/src/<name>/res/values/strings.xml` — `app_name` and `admin_code`.
+4. Firebase console (project `rudra-erp-26fe7`) → Add app → Android with the new applicationId, then
+   re-download the ONE common `android/app/google-services.json` (it lists every app) and replace it.
+   There are no per-flavor google-services.json files — without the new package in the common file
+   the Gradle build fails with "No matching client found".
+5. Launcher icons — `android/app/src/<name>/res/mipmap-*/` (without them the default icons in `main/` are used).
+6. `scripts/run-flavor.js` (`FLAVORS`) and `package.json` (`android:<name>` script).
+
+#### ⚠️ Powergold — still to do before release
+
+- **Firebase:** the app is added in Firebase. Re-download the common `android/app/google-services.json`
+  (it must list `com.app.powergoldagroproduct`), then delete the temporary placeholder
+  `android/app/src/powergold/google-services.json`.
+- **Icons:** no Powergold launcher icons yet — add them under `android/app/src/powergold/res/mipmap-*`
+  (Android Studio → New → Image Asset, with the Powergold flavor source set).
+
 ### Build Configuration
 
 Each flavor has its own config file:
 - `src/config/buildconfig.rudraerp.ts` - RudraERP specific config
 - `src/config/buildconfig.rkn.ts` - RKN specific config
+- `src/config/buildconfig.powergold.ts` - Powergold Agro specific config (`#ADM0004`)
 - `src/config/buildconfig.ts` - Auto-selected based on flavor
 
 ---
@@ -253,6 +359,7 @@ flavorDimensions "app"
 productFlavors {
     rudraerp { dimension "app" }
     rkn { dimension "app" }
+    powergold { dimension "app" }
 }
 ```
 
@@ -393,11 +500,19 @@ npm install
 npm start                                      # Start Metro
 npm run android:rudraerp                       # Run RudraERP
 npm run android:rkn                            # Run RKN
+npm run android:powergold                      # Run Powergold Agro
 
 # Build
 ./gradlew app:assembleRudraerpRelease        # Build RudraERP APK
 ./gradlew app:assembleRknRelease             # Build RKN APK
+./gradlew app:assemblePowergoldRelease       # Build Powergold APK
 ./gradlew app:bundleRudraerpRelease          # Build RudraERP AAB
+
+# install release build on devices
+
+adb install -r /Users/naimeenariya/Desktop/Naimee/ReactNative/storeadmin/clientapp/android/app/build/outputs/apk/rudraerp/release/app-rudraerp-release.apk
+
+adb install -r /Users/naimeenariya/Desktop/Naimee/ReactNative/storeadmin/clientapp/android/app/build/outputs/apk/rkn/release/app-rkn-release.apk
 
 # Clean & Rebuild
 ./gradlew clean

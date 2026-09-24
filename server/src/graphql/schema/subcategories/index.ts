@@ -19,6 +19,7 @@ type Admin {
     id: ID!
     subcategorycode: String!
     subcategoryname: String!
+    image: String
     status: Boolean!
     category: Category!
     admin: Admin
@@ -26,6 +27,7 @@ type Admin {
 
   input SubCategoryInput {
     subcategoryname: String!
+    image: String
     status: Boolean!
     category: ID!
     admin: ID

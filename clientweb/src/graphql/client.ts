@@ -1,5 +1,6 @@
 import { ApolloClient, InMemoryCache, HttpLink, from } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
+import { API_CONFIG } from "../config/apiconfig";
 
 // Anonymous storefront browsing (catalog, storefront info, OTP request)
 // doesn't need this — but once a party account logs in (sendOTP/verifyOTP),
@@ -13,7 +14,8 @@ export const setTokenGetter = (fn: () => string | null) => {
   _getToken = fn;
 };
 
-const httpLink = new HttpLink({ uri: import.meta.env.VITE_GRAPHQL_ENDPOINT });
+// dev → local, build → live (see config/apiconfig.ts)
+const httpLink = new HttpLink({ uri: API_CONFIG.GRAPHQL_URL });
 
 const authLink = setContext((_, { headers }) => {
   const token = _getToken ? _getToken() : null;

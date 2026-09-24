@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '../store/rootreducer';
 import { useAuth } from '../navigation';
 import { setTenant } from '../store/slices';
 import { apolloClient } from '../apollo/client';
@@ -19,9 +20,15 @@ export const useAutoActivateBusiness = () => {
   const { isActivated, activateBusiness } = useAuth();
   const dispatch = useDispatch();
   const toast = useToast();
+  // Business this install was activated with (persisted). If it differs from
+  // the code baked into this build — e.g. an APK upgraded with `adb install -r`
+  // over one built with another code — the stored logo/colour belong to the
+  // wrong business, so fetch them again.
+  const storedCode = useSelector((s: RootState) => s.tenant.businessCode);
+  const codeMismatch = storedCode !== getAdminCode();
 
   useEffect(() => {
-    if (isActivated) return; // Already activated, skip
+    if (isActivated && !codeMismatch) return; // Already activated, skip
 
     const activateBusinessAuto = async () => {
       try {
@@ -105,5 +112,5 @@ export const useAutoActivateBusiness = () => {
     };
 
     activateBusinessAuto();
-  }, [isActivated, dispatch, activateBusiness, toast]);
+  }, [isActivated, codeMismatch, dispatch, activateBusiness, toast]);
 };

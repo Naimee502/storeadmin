@@ -6,6 +6,7 @@ export const GET_SUBCATEGORIES = gql`
       id
       subcategorycode
       subcategoryname
+      image
       status
       category {
         id
@@ -27,6 +28,7 @@ export const GET_DELETED_SUBCATEGORIES = gql`
       id
       subcategorycode
       subcategoryname
+      image
       status
       category {
         id
@@ -48,6 +50,7 @@ export const GET_SUBCATEGORY_BY_ID = gql`
       id
       subcategorycode
       subcategoryname
+      image
       status
       category {
         id

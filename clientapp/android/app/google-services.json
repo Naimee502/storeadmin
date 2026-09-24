@@ -7,6 +7,44 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:958195015033:android:14f80ffd82aba033eee3a8",
+        "android_client_info": {
+          "package_name": "com.app.powergoldagroproduct"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBw-z4JkscZy1gxKY5Wndqn9803JX7wwXU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:958195015033:android:1367cd34f7f96beceee3a8",
+        "android_client_info": {
+          "package_name": "com.app.rkn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBw-z4JkscZy1gxKY5Wndqn9803JX7wwXU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:958195015033:android:2bf30bd803dfde0ceee3a8",
         "android_client_info": {
           "package_name": "com.app.rudraerp"

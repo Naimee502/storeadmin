@@ -51,6 +51,21 @@ const startServer = async () => {
 
   app.use(cookieParser());
 
+  // Allowed browser origins: the live site plus the local dev servers.
+  const corsOptions = {
+    origin: [
+      'https://rudra.digisysindiatech.com',
+      'http://localhost:5173', // client (admin panel)
+      'http://localhost:5174', // clientweb (customer website, dev)
+      'http://localhost:5175', // clientweb fallback port if 5174 is busy
+    ],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
+  };
+
+  // The admin panel calls this directly (dev: localhost:4000 from :5173).
+  app.use('/refresh_token', cors(corsOptions));
+
   app.post("/refresh_token", async (req, res) => {
     const token = req.cookies.refreshToken;
     if (!token) return res.send({ ok: false, accessToken: "" });
@@ -75,16 +90,7 @@ const startServer = async () => {
   // Apply upload middleware + cors ONLY on /graphql route BEFORE apollo middleware
   app.use(
     '/graphql',
-    cors({
-      origin: [
-        'https://rudra.digisysindiatech.com',
-        'http://localhost:5173', // client (admin panel)
-        'http://localhost:5174', // clientweb (customer website, dev)
-        'http://localhost:5175', // clientweb fallback port if 5174 is busy
-      ],
-      credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
-    }),
+    cors(corsOptions),
     graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 })
   );
 

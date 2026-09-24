@@ -3,10 +3,11 @@ import { ApolloClient, InMemoryCache, ApolloLink, from, Observable } from '@apol
 import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
+import { API_CONFIG } from '../config/apiconfig';
 
 // Create the upload link
 const httpLink = createUploadLink({
-  uri: import.meta.env.VITE_GRAPHQL_ENDPOINT,
+  uri: API_CONFIG.GRAPHQL_URL, // dev → local, build → live (see config/apiconfig.ts)
 });
 
 // Set custom headers
@@ -31,7 +32,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
         // Handle token refresh - simplified example
         // In a real app, you'd call /refresh_token here
         return new Observable(observer => {
-          fetch("/refresh_token", { method: "POST", credentials: "include" })
+          fetch(`${API_CONFIG.SERVER_URL}/refresh_token`, { method: "POST", credentials: "include" })
             .then(res => res.json())
             .then(data => {
               if (data.ok && data.accessToken) {

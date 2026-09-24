@@ -5,6 +5,7 @@ export const ADD_SUBCATEGORY = gql`
     addSubCategory(input: $input) {
       id
       subcategoryname
+      image
       status
       category {
         id
@@ -24,6 +25,7 @@ export const EDIT_SUBCATEGORY = gql`
     editSubCategory(id: $id, input: $input) {
       id
       subcategoryname
+      image
       status
       category {
         id

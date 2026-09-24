@@ -142,6 +142,10 @@ const accountSchema = new mongoose.Schema(
     otp: { type: String },
     otpExpiry: { type: Date },
 
+    // FCM device token for push notifications (set by the mobile app when a
+    // party logs in — see saveDeviceToken).
+    fcmtoken: { type: String, default: null },
+
     status: { type: Boolean, default: true },
   },
   { timestamps: true }
