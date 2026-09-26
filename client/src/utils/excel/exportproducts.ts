@@ -179,8 +179,12 @@ const writeDataSheet = (
   columns: ColumnDef[],
   rows: Record<string, any>[],
   enumRanges: Map<string, string>,
-  /** List of product names on the Products sheet, for the "Product" dropdown. */
-  productNamesFormula?: string
+  /** The Products sheet's product keys, for the child sheets' "Product Code" dropdown. */
+  productListFormula?: string,
+  /** Products sheet only: where to write the hidden per-row key the list reads. */
+  productKey?: { index: number; codeLetter: string; nameLetter: string },
+  /** Where Product Code / VariantRef sit on the Variants sheet, for the VariantRef dropdown. */
+  variantsCols?: { productLetter: string; refLetter: string }
 ) => {
   const sheet = workbook.addWorksheet(sheetId, {
     views: [{ state: "frozen", ySplit: 1 }],
@@ -237,14 +241,42 @@ const writeDataSheet = (
   for (const { def, index, idIndex } of laidOut) {
     const letter = colLetter(index);
 
-    // "Product" on the child sheets: a dropdown of the names typed on the
-    // Products sheet. Typing a Product Code instead is fine, so no popup.
-    if (def.structural && def.key === "productref" && sheetId !== "Products" && productNamesFormula) {
+    // "Product Code" on the child sheets: a live dropdown of every product on
+    // the Products sheet — its code, or its name while the code is blank. A
+    // code typed there appears here at once. Typing is still allowed.
+    // VariantRef on the conversion / price sheets: a dropdown of just the
+    // chosen product's variants. OFFSET+MATCH+COUNTIF rather than FILTER, so
+    // it works in every Excel version — it expects a product's variant rows to
+    // sit together on the Variants sheet (as exported, and as people type
+    // them). Typing stays allowed and the importer checks every VariantRef.
+    if (
+      def.structural && def.key === "variantref" && variantsCols &&
+      (sheetId === "UnitConversions" || sheetId === "UnitPrices")
+    ) {
+      const productCol = laidOut.find((c) => c.def.key === "productref");
+      if (productCol) {
+        const own = colLetter(productCol.index);
+        const { productLetter: vp, refLetter: vr } = variantsCols;
+        for (let r = 2; r <= lastRow; r++) {
+          sheet.getCell(r, index).dataValidation = {
+            type: "list",
+            allowBlank: true,
+            formulae: [
+              `OFFSET(Variants!$${vr}$1,MATCH(${own}${r},Variants!$${vp}:$${vp},0)-1,0,MAX(COUNTIF(Variants!$${vp}:$${vp},${own}${r}),1),1)`,
+            ],
+            showErrorMessage: false,
+          };
+        }
+      }
+      continue;
+    }
+
+    if (def.structural && def.key === "productref" && sheetId !== "Products" && productListFormula) {
       for (let r = 2; r <= lastRow; r++) {
         sheet.getCell(r, index).dataValidation = {
           type: "list",
           allowBlank: true,
-          formulae: [productNamesFormula],
+          formulae: [productListFormula],
           showErrorMessage: false,
         };
       }
@@ -363,8 +395,31 @@ const writeDataSheet = (
     }
   }
 
+  // Products sheet: a hidden column holding each row's key — the Product Code,
+  // or the Name while the code is blank — which the child sheets' dropdown
+  // lists. "&''" keeps a numeric code as text so COUNTIF(…,"?*") counts it.
+  // It sits in the same row as the product, so sorting the sheet keeps it
+  // right. The importer ignores it (its header starts with "__").
+  if (sheetId === "Products" && productKey) {
+    const { index, codeLetter, nameLetter } = productKey;
+    const header = sheet.getCell(1, index);
+    header.value = PRODUCT_KEY_HEADER;
+    sheet.getColumn(index).hidden = true;
+    for (let r = 2; r <= lastRow; r++) {
+      const data = rows[r - 2];
+      const result = data ? String(data.productref || data.name || "") : "";
+      sheet.getCell(r, index).value = {
+        formula: `IF(${codeLetter}${r}<>"",${codeLetter}${r}&"",IF(${nameLetter}${r}<>"",${nameLetter}${r}&"",""))`,
+        result,
+      } as any;
+    }
+  }
+
   return sheet;
 };
+
+/** Hidden helper column on the Products sheet (never imported). */
+const PRODUCT_KEY_HEADER = "__productkey";
 
 /* ------------------------------------------------------------------ *
  * Public API
@@ -405,15 +460,27 @@ export const buildProductWorkbook = async (
     Array.from(enumSets.values())
   );
 
-  // Where the product names sit on the Products sheet, for the child
-  // sheets' "Product" dropdown.
+  // The child sheets' "Product Code" dropdown reads a hidden key column on
+  // the Products sheet (code, or name while the code is blank), placed after
+  // the last real column. OFFSET/COUNTIF keeps the list to filled rows only.
   const productLayout = layoutColumns(schema.bySheet("Products"));
+  const codeColumn = productLayout.find((c) => c.def.key === "productref");
   const nameColumn = productLayout.find((c) => c.def.key === "name");
-  // OFFSET/COUNTA so the list holds only the names actually filled in, not
-  // thousands of blank rows.
-  const nameLetter = nameColumn ? colLetter(nameColumn.index) : "";
-  const productNamesFormula = nameColumn
-    ? `OFFSET(Products!$${nameLetter}$2,0,0,MAX(COUNTA(Products!$${nameLetter}:$${nameLetter})-1,1),1)`
+  const keyIndex = Math.max(...productLayout.map((c) => c.idIndex ?? c.index)) + 1;
+  const keyLetter = colLetter(keyIndex);
+  const productKey =
+    codeColumn && nameColumn
+      ? { index: keyIndex, codeLetter: colLetter(codeColumn.index), nameLetter: colLetter(nameColumn.index) }
+      : undefined;
+  const variantLayout = layoutColumns(schema.bySheet("Variants"));
+  const vProduct = variantLayout.find((c) => c.def.key === "productref");
+  const vRef = variantLayout.find((c) => c.def.key === "variantref");
+  const variantsCols =
+    vProduct && vRef ? { productLetter: colLetter(vProduct.index), refLetter: colLetter(vRef.index) } : undefined;
+
+  const listEnd = Math.max((args.data?.Products?.length ?? 0) + 1, VALIDATED_ROWS);
+  const productListFormula = productKey
+    ? `OFFSET(Products!$${keyLetter}$2,0,0,MAX(COUNTIF(Products!$${keyLetter}$2:$${keyLetter}$${listEnd},"?*"),1),1)`
     : undefined;
 
   for (const sheet of schema.sheets) {
@@ -423,7 +490,9 @@ export const buildProductWorkbook = async (
       sheet.columns,
       args.data?.[sheet.id] ?? [],
       enumRanges,
-      productNamesFormula
+      productListFormula,
+      sheet.id === "Products" ? productKey : undefined,
+      variantsCols
     );
   }
 

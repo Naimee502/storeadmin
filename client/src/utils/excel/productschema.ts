@@ -134,7 +134,7 @@ const ALL_COLUMNS: ColumnDef[] = [
 
   /* ---------------- Variants ---------------- */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "Variants", type: "text", structural: true, width: 22,
-    hint: "Which product this row belongs to: its Product Code from the Products sheet — or its Name, if the code was left blank there. Pick a name from the list or type the code." },
+    hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   {
     header: VARIANT_REF_HEADER, key: "variantref", sheet: "Variants", type: "text",
     structural: true, width: 14,
@@ -168,7 +168,7 @@ const ALL_COLUMNS: ColumnDef[] = [
 
   /* ---------------- Unit Conversions ---------------- */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitConversions", type: "text", structural: true, width: 22,
-    hint: "Which product this row belongs to: its Product Code from the Products sheet — or its Name, if the code was left blank there. Pick a name from the list or type the code." },
+    hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   { header: VARIANT_REF_HEADER, key: "variantref", sheet: "UnitConversions", type: "text", structural: true, width: 14,
     hint: "Leave blank if the product has one variant. Otherwise repeat the VariantRef from the Variants sheet." },
   { header: "Unit", key: "unitid", sheet: "UnitConversions", type: "ref", master: "units", permissionId: "unitconversions_unitid", required: true, width: 18 },
@@ -180,7 +180,7 @@ const ALL_COLUMNS: ColumnDef[] = [
 
   /* ---------------- Unit Prices ---------------- */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitPrices", type: "text", structural: true, width: 22,
-    hint: "Which product this row belongs to: its Product Code from the Products sheet — or its Name, if the code was left blank there. Pick a name from the list or type the code." },
+    hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   { header: VARIANT_REF_HEADER, key: "variantref", sheet: "UnitPrices", type: "text", structural: true, width: 14,
     hint: "Leave blank if the product has one variant. Otherwise repeat the VariantRef from the Variants sheet." },
   { header: "Quantity", key: "quantity", sheet: "UnitPrices", type: "integer", permissionId: "quantity", required: true, width: 12 },
