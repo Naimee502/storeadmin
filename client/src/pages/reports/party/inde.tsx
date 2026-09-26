@@ -156,7 +156,8 @@ const PartyReports: React.FC = () => {
   // Off means the business never collects a concession, so the statement stays
   // the plain Debit / Credit sheet it has always been.
   const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
-  // Per-business flag: show when the party last paid, above the statement.
+  // Per-business flag: Last Payment columns on Customer / Vendor Outstanding.
+  // (The stored key still says "OnStatement" so saved settings carry over.)
   const showLastPayment = !!adminSettingsData?.getAdminSettings?.showLastPaymentOnStatement;
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
@@ -399,9 +400,43 @@ const PartyReports: React.FC = () => {
   };
 
   // -----------------------------
+  // Last payment of a party (flag-gated columns on the outstanding tabs)
+  // -----------------------------
+  // Customer tab → last payment RECEIVED from them (receipt).
+  // Vendor tab   → last payment we MADE to them.
+  // A party that is both gets the matching side on each tab.
+  const getLastPayment = (a: any, received: boolean) => {
+    const latest = payments
+      .filter(
+        (p: any) =>
+          p.partyid?.id === a.id &&
+          p.status !== false &&
+          (p.type === "receipt") === received
+      )
+      .map((p: any) => ({ p, t: timestampOf(p.paymentdate), seq: timestampOf(p.createdAt) }))
+      .filter((x: any) => !isNaN(x.t))
+      .sort((x: any, y: any) => y.t - x.t || (y.seq || 0) - (x.seq || 0))[0];
+
+    if (!latest) return { lastPaymentDate: "-", lastPaymentAmount: "-", lastPaymentDays: "-" };
+
+    const dayStart = (t: number) => {
+      const d = new Date(t);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+    const days = Math.round((dayStart(Date.now()) - dayStart(latest.t)) / 86400000);
+    return {
+      lastPaymentDate: formatDateDMY(latest.t),
+      lastPaymentAmount: (Number(latest.p.amount) || 0).toFixed(2),
+      lastPaymentDays:
+        days === 0 ? "Today" : days === 1 ? "1 day ago" : days > 1 ? `${days} days ago` : `in ${-days} days`,
+    };
+  };
+
+  // -----------------------------
   // Tally-style outstanding row for one party
   // -----------------------------
-  const buildOutstandingRow = (a: any, invoices: any[]) => {
+  const buildOutstandingRow = (a: any, invoices: any[], received: boolean) => {
     // Show the opening at FACE VALUE, not the un-cleared remainder.
     //
     // It looks like it should be the remainder, but the face value is what
@@ -464,6 +499,7 @@ const PartyReports: React.FC = () => {
           : creditAvailable !== null && creditAvailable < 0
             ? "Limit Crossed"
             : "OK",
+      ...getLastPayment(a, received),
     };
   };
 
@@ -476,14 +512,14 @@ const PartyReports: React.FC = () => {
       // list for its purchases — the two are different questions and each needs
       // its own row. The netted figure lives on the party's statement.
       .filter((a: any) => isCustomerParty(a.type))
-      .map((a: any) => buildOutstandingRow(a, salesInvoices));
+      .map((a: any) => buildOutstandingRow(a, salesInvoices, true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, salesInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
   const vendorOutstandingData = useMemo(() => {
     return accounts
       .filter((a: any) => isVendorParty(a.type))
-      .map((a: any) => buildOutstandingRow(a, purchaseInvoices));
+      .map((a: any) => buildOutstandingRow(a, purchaseInvoices, false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
@@ -735,52 +771,6 @@ const PartyReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statementParty, salesInvoices, purchaseInvoices, salesReturns, purchaseReturns, payments, ledgers, appliedFilters]);
 
-  /**
-   * The party's last payment, for the line above the statement (flag-gated).
-   *
-   * A customer's last payment is the last one RECEIVED from them; a vendor's
-   * is the last one we MADE to them. A party that is both counts as a
-   * customer here — "when did they last pay us" is the question being asked.
-   * Only payments up to the statement's To Date count, so a statement printed
-   * for an earlier period doesn't show a payment from after it.
-   */
-  const lastPayment = useMemo(() => {
-    const a = statementParty;
-    if (!showLastPayment || !a) return null;
-
-    const vendorOnly = isVendorParty(a.type) && !isCustomerParty(a.type);
-    const label = vendorOnly ? "Last payment made" : "Last payment received";
-    const { toTimestamp } = getFilterTimestamps();
-
-    const latest = payments
-      .filter(
-        (p: any) =>
-          p.partyid?.id === a.id &&
-          p.status !== false &&
-          (p.type === "receipt") === !vendorOnly
-      )
-      .map((p: any) => ({ p, t: timestampOf(p.paymentdate), seq: timestampOf(p.createdAt) }))
-      .filter((x: any) => !isNaN(x.t) && (!toTimestamp || x.t <= toTimestamp))
-      .sort((x: any, y: any) => y.t - x.t || (y.seq || 0) - (x.seq || 0))[0];
-
-    if (!latest) return { label, detail: "none yet", text: `${label}: none yet` };
-
-    const dayStart = (t: number) => {
-      const d = new Date(t);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    };
-    const days = Math.round((dayStart(Date.now()) - dayStart(latest.t)) / 86400000);
-    const ago =
-      days === 0 ? "today" : days === 1 ? "1 day ago" : days > 1 ? `${days} days ago` : `in ${-days} days`;
-    const amount = `₹${(Number(latest.p.amount) || 0).toFixed(2)}`;
-    const ref = latest.p.paymentcode ? ` (${latest.p.paymentcode})` : "";
-    const detail = `${formatDateDMY(latest.t)} · ${amount}${ref} · ${ago}`;
-
-    return { label, detail, text: `${label}: ${detail}` };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showLastPayment, statementParty, payments, appliedFilters]);
-
   // -----------------------------
   // Table Switcher
   // -----------------------------
@@ -819,6 +809,13 @@ const PartyReports: React.FC = () => {
     { label: "Credit Available (₹)", key: "creditAvailable", numeric: true },
     { label: "Due Date", key: "dueDate" },
     { label: "Overdue", key: "overdue" },
+    ...(showLastPayment
+      ? [
+          { label: withRemind ? "Last Received On" : "Last Paid On", key: "lastPaymentDate" },
+          { label: withRemind ? "Last Received (₹)" : "Last Paid (₹)", key: "lastPaymentAmount" },
+          { label: "Since", key: "lastPaymentDays" },
+        ]
+      : []),
     { label: "Status", key: "status" },
     ...(!withRemind ? [] : [{
       label: "Remind",
@@ -887,8 +884,6 @@ const PartyReports: React.FC = () => {
         pdfSubtitle = [
           `Party name: ${statementParty.name || ""}`,
           `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`,
-          // Same line as on screen, so the PDF / Excel / CSV carry it too.
-          ...(lastPayment ? [lastPayment.text] : []),
         ];
       }
       tableData = statementData;
@@ -950,13 +945,6 @@ const PartyReports: React.FC = () => {
               );
             })}
         </div>
-        {activeTab === "Party Statement" && lastPayment && (
-          <div className="mb-3 inline-flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-            <FaHistory className="text-indigo-600" />
-            <span className="font-semibold">{lastPayment.label}:</span>
-            <span>{lastPayment.detail}</span>
-          </div>
-        )}
         <ReportTable moduleId="reports.party"
           title={activeTab === "Party Statement" ? "Party Statement" : "Party Reports"}
           columns={columns}
