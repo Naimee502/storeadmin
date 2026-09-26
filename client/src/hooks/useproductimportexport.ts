@@ -76,7 +76,10 @@ export const useProductImportExport = (products: any[]) => {
   const [errors, setErrors] = useState<RowError[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
-  const [mode, setMode] = useState<ImportMode>("CREATE");
+  // One mode only: add new products and update existing ones (matched on
+  // Product Code). A separate "add only" choice was easy to pick by mistake
+  // with an exported file, and then every existing row was skipped.
+  const [mode, setMode] = useState<ImportMode>("UPSERT");
   const [abortOnError, setAbortOnError] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [busyMessage, setBusyMessage] = useState("");
@@ -275,12 +278,12 @@ export const useProductImportExport = (products: any[]) => {
           }
           if (missing.length) {
             collectedWarnings.push(
-              `${missing.length} image${missing.length > 1 ? "s were" : " was"} named in the sheet but not among the selected images: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}. Use "Select Images" to add ${missing.length > 1 ? "them" : "it"}.`
+              `${missing.length} image${missing.length > 1 ? "s were" : " was"} named in the sheet but not found: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}. Put the picture${missing.length > 1 ? "s" : ""} into the cell${missing.length > 1 ? "s" : ""} instead (Excel: Insert → Pictures).`
             );
           }
         } else if (referencedImages.size) {
           collectedWarnings.push(
-            'Some image cells name a file, but no images were selected. Use "Select Images" to pick the files or their folder, or use web addresses.'
+            "Some image cells contain a file name or path, which can't be read from here. Put the pictures into those cells instead (Excel: Insert → Pictures), or use web addresses."
           );
         }
 

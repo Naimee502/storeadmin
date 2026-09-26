@@ -35,20 +35,15 @@ interface ImportDialogProps {
   /** Set while images from a .zip are uploading. */
   uploadProgress?: { done: number; total: number; currentName: string } | null;
 
-  mode: ImportMode;
-  onModeChange: (mode: ImportMode) => void;
+  /** Kept for callers; the dialog always adds new and updates existing now. */
+  mode?: ImportMode;
+  onModeChange?: (mode: ImportMode) => void;
   abortOnError: boolean;
   onAbortOnErrorChange: (value: boolean) => void;
 
   onDownloadTemplate: (format: "xlsx" | "csv") => void;
   onDownloadCurrent: (format: "xlsx" | "csv") => void;
   onFileSelected: (file: File) => void;
-  /** Images picked with "Select Images", matched to the sheet by file name. */
-  pickedImageCount?: number;
-  onImagesSelected?: (files: FileList | null) => void;
-  onClearImages?: () => void;
-  /** Re-run the check on the same file, e.g. after adding images. */
-  onRecheck?: () => void;
   onDownloadErrorFile: () => void;
   onConfirm: () => void;
   onReset: () => void;
@@ -80,78 +75,17 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
   warnings,
   summary,
   uploadProgress,
-  mode,
-  onModeChange,
   abortOnError,
   onAbortOnErrorChange,
   onDownloadTemplate,
   onDownloadCurrent,
   onFileSelected,
-  pickedImageCount = 0,
-  onImagesSelected,
-  onClearImages,
-  onRecheck,
   onDownloadErrorFile,
   onConfirm,
   onReset,
   busyMessage,
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
-  const imagesRef = useRef<HTMLInputElement>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
-
-  /**
-   * "Select Images" — pick files, or a whole folder. The sheet only needs the
-   * file name (oil.jpg); a full path pasted into the cell works too, only its
-   * file name is used. No zip needed.
-   */
-  const imagePicker = onImagesSelected ? (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" onClick={() => imagesRef.current?.click()}>
-        Select Images
-      </Button>
-      <Button type="button" variant="outline" onClick={() => folderRef.current?.click()}>
-        Select Image Folder
-      </Button>
-      <span className="text-xs text-gray-600">
-        {pickedImageCount > 0
-          ? `${pickedImageCount} image${pickedImageCount > 1 ? "s" : ""} selected`
-          : "No images selected"}
-      </span>
-      {pickedImageCount > 0 && onClearImages && (
-        <button
-          type="button"
-          onClick={onClearImages}
-          className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
-        >
-          Clear
-        </button>
-      )}
-      <input
-        ref={imagesRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          onImagesSelected(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={folderRef}
-        type="file"
-        multiple
-        className="hidden"
-        // Not in React's input typings, but supported by every current browser.
-        {...({ webkitdirectory: "", directory: "" } as any)}
-        onChange={(e) => {
-          onImagesSelected(e.target.files);
-          e.target.value = "";
-        }}
-      />
-    </div>
-  ) : null;
   const [dragging, setDragging] = useState(false);
   const [format, setFormat] = useState<"xlsx" | "csv">("xlsx");
   const [errorFilter, setErrorFilter] = useState("");
@@ -254,62 +188,11 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
                 </section>
 
                 <section>
-                  <h3 className="text-sm font-bold text-gray-900 mb-1">2 · Choose what happens to existing products</h3>
-                  <div className="flex flex-col gap-2 mt-2">
-                    <label className="flex items-start gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        checked={mode === "CREATE"}
-                        onChange={() => onModeChange("CREATE")}
-                        className="mt-1"
-                      />
-                      <span>
-                        <span className="font-semibold text-gray-800">Add new products only</span>
-                        <span className="block text-xs text-gray-500">
-                          A row whose product code already exists is reported and skipped. Nothing existing is touched.
-                        </span>
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        checked={mode === "UPSERT"}
-                        onChange={() => onModeChange("UPSERT")}
-                        className="mt-1"
-                      />
-                      <span>
-                        <span className="font-semibold text-gray-800">Add new and update existing</span>
-                        <span className="block text-xs text-gray-500">
-                          Matches on product code and overwrites that product, pricing included. Use this for the
-                          export → edit → re-import loop.
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </section>
-
-                {imagePicker && (
-                  <section>
-                    <h3 className="text-sm font-bold text-gray-900 mb-1">3 · Images (optional)</h3>
-                    <p className="text-sm text-gray-500 mb-1">
-                      <span className="font-semibold text-gray-700">Easiest:</span> in Excel, click the Product Image,
-                      Category Image or Sub Category Image cell and use{" "}
-                      <span className="font-semibold">Insert → Pictures → This Device</span> (newer Microsoft 365:
-                      Place in Cell). Keep the picture&apos;s top-left corner in that cell. The pictures travel
-                      inside the file — nothing to do here.
-                    </p>
-                    <p className="text-sm text-gray-500 mb-3">
-                      Only if you typed file names (e.g. <span className="font-mono">oil.jpg</span>) instead, pick
-                      those images here.
-                    </p>
-                    {imagePicker}
-                  </section>
-                )}
-
-                <section>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2">
-                    {imagePicker ? "4" : "3"} · Upload the filled-in file
-                  </h3>
+                  <h3 className="text-sm font-bold text-gray-900 mb-1">2 · Upload the filled-in file</h3>
+                  <p className="text-sm text-gray-500 mb-3">
+                    New products are added and existing ones (same Product Code) are updated. Pictures put in the
+                    Product Image, Category Image or Sub Category Image cells come in with the file.
+                  </p>
                   <div
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -326,7 +209,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
                       Drop your file here, or click to choose
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      .xlsx or .csv — or a .zip holding the file plus an images folder (still supported)
+                      .xlsx or .csv
                     </p>
                   </div>
                   <input
@@ -379,16 +262,6 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
                   {summary.skipped > 0 && <Chip tone="bad">{summary.skipped} with problems</Chip>}
                   <span className="text-xs text-gray-500">{summary.total} products read</span>
                 </div>
-
-                {stage === "review" && imagePicker && onRecheck && (
-                  <div className="mb-4 flex flex-wrap items-center gap-2 border border-gray-200 rounded px-3 py-2">
-                    <span className="text-xs font-semibold text-gray-700">Images:</span>
-                    {imagePicker}
-                    <Button type="button" variant="outline" onClick={onRecheck}>
-                      Re-check with these images
-                    </Button>
-                  </div>
-                )}
 
                 {warnings.length > 0 && (
                   <div className="mb-4 border-l-2 border-amber-400 bg-amber-50 px-3 py-2 rounded-r">
