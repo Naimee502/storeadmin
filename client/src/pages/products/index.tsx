@@ -239,6 +239,10 @@ const ProductServices = () => {
           onDownloadTemplate={importExport.downloadTemplate}
           onDownloadCurrent={importExport.downloadCurrent}
           onFileSelected={importExport.handleFile}
+          pickedImageCount={importExport.pickedImageCount}
+          onImagesSelected={importExport.addImages}
+          onClearImages={importExport.clearImages}
+          onRecheck={importExport.recheck}
           onDownloadErrorFile={importExport.downloadErrorFile}
           onConfirm={() => importExport.confirmImport(() => refetch())}
           onReset={importExport.reset}

@@ -3,12 +3,12 @@
  *
  * Two routes, because they suit different users:
  *
- *   URLs   — an "Image URLs" column with comma-separated web addresses. Works
+ *   URLs   — web addresses in the "Product Image" cell, comma-separated. Works
  *            in CSV too, needs no new infrastructure, and round-trips on
  *            export. Handled entirely by the parser; nothing to do here.
  *
  *   ZIP    — the user zips the workbook together with an images/ folder and
- *            names files in the "Image Files" column. That is what people
+ *            names files in the "Product Image" cell. That is what people
  *            actually have: a folder of photos off a phone or a camera.
  *
  * The ZIP route reuses the existing uploadImage GraphQL mutation, one call per
@@ -95,6 +95,42 @@ export const readImportZip = async (zipFile: File): Promise<ZipContents> => {
 };
 
 /**
+ * Images picked with the "Select Images" button (files or a whole folder),
+ * keyed the same way as zip images: lower-cased file name. Same size limits,
+ * and non-image files in a picked folder are skipped quietly.
+ */
+export const collectPickedImages = (
+  files: File[]
+): { images: Map<string, File>; warnings: string[] } => {
+  const images = new Map<string, File>();
+  const warnings: string[] = [];
+  let totalBytes = 0;
+
+  for (const file of files) {
+    if (!IMAGE_EXTENSIONS.test(file.name) || file.name.startsWith(".")) continue;
+    if (file.size > MAX_IMAGE_BYTES) {
+      warnings.push(
+        `"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — over the 5 MB limit, so it was skipped.`
+      );
+      continue;
+    }
+    totalBytes += file.size;
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      warnings.push("The selected images add up to more than 150 MB. Split the import into smaller batches.");
+      break;
+    }
+    const key = file.name.toLowerCase();
+    if (images.has(key)) {
+      warnings.push(`Two selected images are both named "${file.name}" — using the first one.`);
+      continue;
+    }
+    images.set(key, file);
+  }
+
+  return { images, warnings };
+};
+
+/**
  * Upload every referenced image once and return name → URL.
  *
  * Deduplicated on purpose: a catalogue where forty products share one brand
@@ -148,7 +184,7 @@ export const uploadImportImages = async (
 
 /**
  * Write the uploaded URLs onto the parsed products, matching by ProductRef.
- * URLs already present in the "Image URLs" column are kept and the uploaded
+ * URLs already present in the "Product Image" cell are kept and the uploaded
  * ones appended, so both routes can be used in the same file.
  */
 export const attachImageUrls = (

@@ -157,7 +157,7 @@ export const productServiceResolvers = {
 
         let productsQuery = ProductService.find(query)
           .populate({ path: "categoryid", select: "id categoryname image" })
-          .populate({ path: "subcategoryid", select: "id subcategoryname" })
+          .populate({ path: "subcategoryid", select: "id subcategoryname image" })
           .populate({ path: "groupid", select: "id productgroupname" })
           .populate({ path: "modelid", select: "id modelname" })
           .populate({ path: "brandid", select: "id brandname" })

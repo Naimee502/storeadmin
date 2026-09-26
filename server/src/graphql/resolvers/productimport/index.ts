@@ -13,6 +13,7 @@ import { Admin } from "../../../models/admin";
 import { manageStock } from "../../../utils/stockmanager";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
 import { validateProductInput } from "../../../utils/productvalidation";
+import { ImportMasterPlanner, type ImageOffer } from "../../../utils/importmasters";
 
 /** Which tab of the import workbook each kind of issue belongs to. */
 const SHEET_FOR_SCOPE: Record<string, string> = {
@@ -21,6 +22,14 @@ const SHEET_FOR_SCOPE: Record<string, string> = {
   unitconversion: "UnitConversions",
   unitprice: "UnitPrices",
 };
+
+/** Same text the client uses, so the review list shows the problem once, with its row. */
+const PRODUCT_CODE_DUPLICATE_IN_FILE = (code: string) =>
+  `Product code ${code} is used more than once in this file.`;
+
+/** Exact, case-insensitive match for a product code typed by the user. */
+const exactCodeRegex = (code: string) =>
+  new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 
 /** Hard ceiling per call, so this endpoint can't be used to hammer the database. */
 const MAX_IMPORT_ROWS = 2000;
@@ -229,12 +238,13 @@ export const productImportResolvers = {
 
       const products: any[] = Array.isArray(input?.products) ? input.products : [];
       const refs: string[] = Array.isArray(input?.refs) ? input.refs : [];
+      const masterNames: any[] = Array.isArray(input?.masters) ? input.masters : [];
       const mode = input?.mode === "UPSERT" ? "UPSERT" : "CREATE";
       const dryRun = !!input?.dryRun;
       const abortOnError = !!input?.abortOnError;
 
       if (!products.length) {
-        return { total: 0, created: 0, updated: 0, skipped: 0, dryRun, errors: [] };
+        return { total: 0, created: 0, updated: 0, skipped: 0, dryRun, newmasters: [], errors: [] };
       }
       if (products.length > MAX_IMPORT_ROWS) {
         throw new TenantError(
@@ -251,9 +261,13 @@ export const productImportResolvers = {
         adminDoc?.defaultPermissions?.formPermissions?.products || {};
 
       const owned = await loadOwnedIdSets(adminid);
+      // Every master of this business, inactive included, for find-or-create.
+      const planner = await ImportMasterPlanner.load(adminid);
 
       const errors: any[] = [];
-      const ready: { product: any; ref: string; existingId?: string }[] = [];
+      // Product codes seen so far in this file, lower-cased.
+      const seenCodes = new Set<string>();
+      const ready: { product: any; ref: string; existingId?: string; offers: ImageOffer[] }[] = [];
 
       for (let i = 0; i < products.length; i++) {
         const ref = refs[i] || products[i]?.name || `Row ${i + 1}`;
@@ -266,6 +280,11 @@ export const productImportResolvers = {
 
         const normalised = normaliseProduct(products[i], adminid, branchid, owned, rowIssues);
 
+        // Names typed in the sheet with no id: match an existing master, or
+        // plan a new one. Runs before validation so "Category is required"
+        // sees the id a new Category is about to get.
+        const offers = planner.resolve(normalised, masterNames[i], permissions, rowIssues);
+
         for (const issue of validateProductInput(normalised, permissions)) {
           rowIssues.push({
             field: issue.field,
@@ -274,20 +293,27 @@ export const productImportResolvers = {
           });
         }
 
-        // Does this product already exist for this tenant?
-        const productCode = (normalised.productvariants || [])
-          .map((v: any) => v?.productcode)
-          .find((code: any) => code && String(code).trim());
+        // Product codes typed on this product's variants. A blank one is left
+        // blank so the model's pre-save hook assigns the next #PRD number; any
+        // other code the user typed (ABC0001, #PRD0042...) is kept as-is.
+        const variantCodes: string[] = (normalised.productvariants || []).map((variant: any) => {
+          const code = String(variant?.productcode ?? "").trim();
+          if (variant) {
+            if (code) variant.productcode = code;
+            else delete variant.productcode;
+          }
+          return code;
+        });
 
-        // Only a system code (#PRD0001 ...) can point at an existing product.
-        // A free-text code like "ASDFF" is always treated as a new product and
-        // gets a fresh system code below.
+        // Does this product already exist for this tenant? Matched on its first
+        // code, case-insensitively — "abc0001" and "ABC0001" are the same code.
+        const productCode = variantCodes.find(Boolean);
         let existingId: string | undefined;
-        if (productCode && /^#PRD\d{4,}$/.test(String(productCode).trim())) {
+        if (productCode) {
           const existing: any = await ProductService.findOne({
             adminid,
             branchid,
-            "productvariants.productcode": String(productCode).trim(),
+            "productvariants.productcode": exactCodeRegex(productCode),
           }).select("_id").lean();
           if (existing) existingId = String(existing._id);
         }
@@ -300,18 +326,44 @@ export const productImportResolvers = {
           });
         }
 
-        // New products always get a system code (#PRD0001, #PRD0002, ...).
-        // Whatever the sheet carried ("ASDFF", a code from another branch, a
-        // hand-typed #PRD number) is dropped so the model's pre-save hook
-        // assigns the next code in this branch's sequence.
-        if (!existingId && Array.isArray(normalised.productvariants)) {
-          for (const variant of normalised.productvariants) {
-            if (variant) delete variant.productcode;
+        // Every code must be unique — within this file, and in this branch
+        // unless it already belongs to the very product being updated.
+        for (const code of variantCodes) {
+          if (!code) continue;
+          const key = code.toLowerCase();
+          if (seenCodes.has(key)) {
+            rowIssues.push({
+              field: "productcode",
+              message: PRODUCT_CODE_DUPLICATE_IN_FILE(code),
+              sheet: "Variants",
+            });
+            continue;
+          }
+          seenCodes.add(key);
+          if (code === productCode) continue; // checked just above
+
+          const owner: any = await ProductService.findOne({
+            adminid,
+            branchid,
+            "productvariants.productcode": exactCodeRegex(code),
+          }).select("_id").lean();
+          if (owner && String(owner._id) !== existingId) {
+            rowIssues.push({
+              field: "productcode",
+              message: `Product code ${code} is already used by another product.`,
+              sheet: "Variants",
+            });
           }
         }
 
         if (rowIssues.length) {
-          rowIssues.forEach((issue) =>
+          // The same problem can surface from two slots (an inactive unit used
+          // as both Base and Purchase unit) — report it once.
+          rowIssues
+            .filter((issue, idx, all) =>
+              all.findIndex((o) => o.sheet === issue.sheet && o.message === issue.message) === idx
+            )
+            .forEach((issue) =>
             errors.push({
               ref,
               sheet: issue.sheet,
@@ -326,7 +378,7 @@ export const productImportResolvers = {
           continue;
         }
 
-        ready.push({ product: normalised, ref, existingId });
+        ready.push({ product: normalised, ref, existingId, offers });
       }
 
       const skipped = products.length - ready.length;
@@ -338,12 +390,27 @@ export const productImportResolvers = {
           updated: ready.filter((r) => !!r.existingId).length,
           skipped,
           dryRun: true,
+          newmasters: planner.pendingFor(ready.map((r) => r.product)),
           errors,
         };
       }
 
       if (abortOnError && errors.length) {
-        return { total: products.length, created: 0, updated: 0, skipped: products.length, dryRun: false, errors };
+        return { total: products.length, created: 0, updated: 0, skipped: products.length, dryRun: false, newmasters: [], errors };
+      }
+
+      // Create the new masters the saved products need — and only those, so a
+      // product that failed validation never leaves a stray Category behind.
+      const commit = await planner.commit(
+        ready.map((r) => r.product),
+        ready.flatMap((r) => r.offers)
+      );
+      for (let k = ready.length - 1; k >= 0; k--) {
+        const failure = ImportMasterPlanner.applyCommit(ready[k].product, commit);
+        if (failure) {
+          errors.push({ ref: ready[k].ref, sheet: "Products", row: null, field: null, message: failure });
+          ready.splice(k, 1);
+        }
       }
 
       const branches = await Branch.find({ admin: adminid }).select("_id").lean();
@@ -408,8 +475,9 @@ export const productImportResolvers = {
         total: products.length,
         created,
         updated,
-        skipped: skipped + (ready.length - (created + updated)),
+        skipped: products.length - (created + updated),
         dryRun: false,
+        newmasters: commit.created,
         errors,
       };
     },

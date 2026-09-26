@@ -173,6 +173,16 @@ export const validateProductInput = (
             rowIndex,
             scope: "unitprice",
           });
+        } else if (on("quantity") && !Number.isInteger(Number(price.quantity))) {
+          // A price is always "per N whole units" — 1.5 of a unit is not a
+          // quantity the POS or the invoice can sell against.
+          issues.push({
+            field: "quantity",
+            message: "Quantity must be a whole number (1, 2, 3…), not a decimal",
+            variantIndex,
+            rowIndex,
+            scope: "unitprice",
+          });
         }
         if (on("salesrate")) {
           const entered = Number(price?.salesrate);

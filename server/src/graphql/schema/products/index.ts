@@ -325,13 +325,42 @@ export const productServiceTypeDefs = gql`
     message: String!
   }
 
+  """A master (Category, Brand...) the import creates because the sheet named a new one."""
+  type ProductImportNewMaster {
+    label: String!
+    name: String!
+  }
+
   type ProductImportResult {
     total: Int!
     created: Int!
     updated: Int!
     skipped: Int!
     dryRun: Boolean!
+    """Dry run: masters that WILL be created. Real run: masters that WERE created."""
+    newmasters: [ProductImportNewMaster!]
     errors: [ProductImportIssue!]!
+  }
+
+  """Typed master names for one product, used to find or create the record by name."""
+  input ProductImportMasterNamesInput {
+    categoryname: String
+    categoryimage: String
+    subcategoryname: String
+    subcategoryimage: String
+    brandname: String
+    modelname: String
+    sizename: String
+    groupname: String
+    salesaccountname: String
+    purchaseaccountname: String
+    """Unit names typed in the variant sheets, by payload path e.g. "0.baseunitid", "0.unitprices.2"."""
+    units: [ProductImportUnitNameInput]
+  }
+
+  input ProductImportUnitNameInput {
+    path: String!
+    name: String!
   }
 
   input ProductImportInput {
@@ -344,6 +373,8 @@ export const productServiceTypeDefs = gql`
     products: [ProductServiceInput!]!
     """Row labels, parallel to products, used in the error report."""
     refs: [String!]
+    """Typed master names, parallel to products."""
+    masters: [ProductImportMasterNamesInput]
   }
 
   type Query {

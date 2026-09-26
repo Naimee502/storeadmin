@@ -14,8 +14,8 @@ export const GET_PRODUCT_SERVICES = gql`
       imageurl
       imagename
       imageurls
-      categoryid { id categoryname }
-      subcategoryid { id subcategoryname }
+      categoryid { id categoryname image }
+      subcategoryid { id subcategoryname image }
       groupid { id productgroupname }
       modelid { id modelname }
       brandid { id brandname }
@@ -116,8 +116,8 @@ export const GET_PRODUCT_SERVICE_BY_ID = gql`
       imagename
       imageurls
 
-      categoryid { id categoryname }
-      subcategoryid { id subcategoryname }
+      categoryid { id categoryname image }
+      subcategoryid { id subcategoryname image }
       groupid { id productgroupname }
       modelid { id modelname }
       brandid { id brandname }

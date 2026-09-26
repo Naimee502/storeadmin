@@ -212,6 +212,10 @@ export const validateProduct = (
         if (on("quantity") && (!price?.quantity || Number(price.quantity) <= 0)) {
           priceErrors.quantity = "Quantity must be greater than 0";
           at("quantity", priceErrors.quantity, "unitprice", pIndex);
+        } else if (on("quantity") && !Number.isInteger(Number(price.quantity))) {
+          // Same rule as the server: a price is per N whole units.
+          priceErrors.quantity = "Quantity must be a whole number (1, 2, 3…), not a decimal";
+          at("quantity", priceErrors.quantity, "unitprice", pIndex);
         }
 
         if (on("salesrate")) {

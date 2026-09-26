@@ -234,6 +234,10 @@ export const IMPORT_PRODUCT_SERVICES = gql`
       updated
       skipped
       dryRun
+      newmasters {
+        label
+        name
+      }
       errors {
         ref
         sheet

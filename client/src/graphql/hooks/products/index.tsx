@@ -126,6 +126,7 @@ export const useProductImport = () => {
   const runImport = async (params: {
     products: any[];
     refs: string[];
+    masterNames?: Record<string, any>[];
     mode?: "CREATE" | "UPSERT";
     dryRun?: boolean;
     abortOnError?: boolean;
@@ -135,6 +136,7 @@ export const useProductImport = () => {
         input: {
           products: params.products,
           refs: params.refs,
+          masters: params.masterNames ?? [],
           mode: params.mode ?? "CREATE",
           dryRun: !!params.dryRun,
           abortOnError: !!params.abortOnError,

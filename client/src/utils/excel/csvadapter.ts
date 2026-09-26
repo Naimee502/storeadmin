@@ -1,6 +1,12 @@
 import Papa from "papaparse";
 import {
   buildProductSheetSchema,
+  INTERNAL_LINK_KEY,
+  LEGACY_PRODUCT_IMAGE_HEADERS,
+  PRODUCT_CODE_HEADER,
+  PRODUCT_LINK_HEADER,
+  VARIANT_CODE_HEADER,
+  VARIANT_REF_HEADER,
   type ColumnDef,
   type SheetId,
 } from "./productschema";
@@ -58,9 +64,9 @@ export const buildCsvColumns = (
     : [];
 
   return [
-    { header: "ProductRef", key: "productref", sheet: "Products", type: "text", structural: true },
+    { header: PRODUCT_CODE_HEADER, key: "productref", sheet: "Products", type: "text", structural: true },
     ...productCols,
-    { header: "VariantRef", key: "variantref", sheet: "Variants", type: "text", structural: true },
+    { header: VARIANT_REF_HEADER, key: "variantref", sheet: "Variants", type: "text", structural: true },
     ...variantCols,
     ...conversionCol,
     ...priceCols.map((c) => ({ ...c, header: `Price ${c.header}` })),
@@ -89,7 +95,9 @@ export const sheetRowsToCsv = (
   const columns = buildCsvColumns(permissions);
 
   const productByRef = new Map<string, Record<string, any>>();
-  for (const row of rows.Products ?? []) productByRef.set(String(row.productref), row);
+  // Variant / price rows point at a product by its code, or its name when it
+  // has none — key the products the same way.
+  for (const row of rows.Products ?? []) productByRef.set(String(row.productref || row.name), row);
 
   const conversionsByKey = new Map<string, any[]>();
   for (const row of rows.UnitConversions ?? []) {
@@ -168,10 +176,10 @@ export interface CsvSheetRows {
  * Explode the flat CSV grid back into the four row sets the xlsx parser
  * already knows how to assemble, so validation and grouping stay shared.
  *
- * ProductRef is optional in CSV — people paste from other systems and will not
- * have it. When it is missing, the product name is used as the key, which is
- * why two different products with the same name are reported as a conflict
- * rather than merged.
+ * Product Code is optional in CSV — people paste from other systems and will
+ * not have one. When it is missing, the product name groups the lines, which
+ * is why two different products with the same name are reported as a
+ * conflict rather than merged.
  */
 export const csvToSheetRows = (
   text: string,
@@ -205,16 +213,28 @@ export const csvToSheetRows = (
   const seenProducts = new Set<string>();
   const seenVariants = new Set<string>();
 
+  // A CSV made before the Product Code moved to the product columns has a
+  // "ProductRef" join key and the code under "Product Code" as a variant field.
+  const legacy = (parsed.meta?.fields ?? []).includes("ProductRef");
+  const nameHeader = productCols.find((c) => c.key === "name")?.header ?? "Name";
+
   (parsed.data || []).forEach((line, index) => {
     const rowNumber = index + 2; // header is line 1
-    const productRef = norm(line["ProductRef"]) || norm(line["Name"]);
+    const code = legacy ? "" : norm(line[PRODUCT_CODE_HEADER]);
+    // Groups the lines of one product; also how its variant rows find it.
+    const productRef = code || norm(line["ProductRef"]) || norm(line[nameHeader]);
     if (!productRef) return;
 
     const variantRef = norm(line["VariantRef"]) || norm(line["SKU"]) || "1";
 
     if (!seenProducts.has(productRef.toLowerCase())) {
       seenProducts.add(productRef.toLowerCase());
-      const values: Record<string, any> = { ProductRef: productRef };
+      const values: Record<string, any> = {
+        [PRODUCT_CODE_HEADER]: code,
+        [INTERNAL_LINK_KEY]: productRef,
+      };
+      // Older CSVs had "Image URLs" / "Image Files"; the importer still reads them.
+      for (const h of LEGACY_PRODUCT_IMAGE_HEADERS) if (line[h]) values[h] = line[h];
       for (const col of productCols) {
         if (col.key === "productref") continue;
         values[col.header] = line[col.header] ?? "";
@@ -229,10 +249,16 @@ export const csvToSheetRows = (
     if (!seenVariants.has(variantKey)) {
       seenVariants.add(variantKey);
 
-      const values: Record<string, any> = { ProductRef: productRef, VariantRef: variantRef };
+      const values: Record<string, any> = {
+        [PRODUCT_LINK_HEADER]: productRef,
+        [VARIANT_REF_HEADER]: variantRef,
+      };
       for (const col of variantCols) {
         if (col.key === "productref" || col.key === "variantref") continue;
-        values[col.header] = line[col.header] ?? "";
+        values[col.header] =
+          legacy && col.header === VARIANT_CODE_HEADER
+            ? line["Product Code"] ?? ""
+            : line[col.header] ?? "";
         if (col.type === "ref") values[idColumnHeader(col)] = "";
       }
       out.Variants.push({ row: rowNumber, values });
@@ -246,8 +272,8 @@ export const csvToSheetRows = (
           out.UnitConversions.push({
             row: rowNumber,
             values: {
-              ProductRef: productRef,
-              VariantRef: variantRef,
+              [PRODUCT_LINK_HEADER]: productRef,
+              [VARIANT_REF_HEADER]: variantRef,
               Unit: norm(unit),
               Unit_ID: "",
               Factor: norm(factor),
@@ -258,7 +284,10 @@ export const csvToSheetRows = (
     }
 
     // Every line is a price row, when it carries any pricing at all.
-    const priceValues: Record<string, any> = { ProductRef: productRef, VariantRef: variantRef };
+    const priceValues: Record<string, any> = {
+      [PRODUCT_LINK_HEADER]: productRef,
+      [VARIANT_REF_HEADER]: variantRef,
+    };
     let hasPricing = false;
     for (const col of priceCols) {
       const bare = col.header.replace(/^Price /, "");

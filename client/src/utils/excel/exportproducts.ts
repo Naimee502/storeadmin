@@ -2,6 +2,7 @@ import type ExcelJS from "exceljs";
 import {
   buildProductSheetSchema,
   headerIndex,
+  isCreatableMaster,
   masterIdRange,
   masterNameRange,
   MASTER_SHEET,
@@ -177,7 +178,9 @@ const writeDataSheet = (
   sheetId: SheetId,
   columns: ColumnDef[],
   rows: Record<string, any>[],
-  enumRanges: Map<string, string>
+  enumRanges: Map<string, string>,
+  /** List of product names on the Products sheet, for the "Product" dropdown. */
+  productNamesFormula?: string
 ) => {
   const sheet = workbook.addWorksheet(sheetId, {
     views: [{ state: "frozen", ySplit: 1 }],
@@ -234,17 +237,46 @@ const writeDataSheet = (
   for (const { def, index, idIndex } of laidOut) {
     const letter = colLetter(index);
 
+    // "Product" on the child sheets: a dropdown of the names typed on the
+    // Products sheet. Typing a Product Code instead is fine, so no popup.
+    if (def.structural && def.key === "productref" && sheetId !== "Products" && productNamesFormula) {
+      for (let r = 2; r <= lastRow; r++) {
+        sheet.getCell(r, index).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [productNamesFormula],
+          showErrorMessage: false,
+        };
+      }
+      continue;
+    }
+
     if (def.type === "ref" && def.master) {
       const nameRange = masterNameRange(def.master);
+      const label = MASTER_LABELS[def.master];
+      // Category, Brand, Unit... accept a typed name that is not in the list —
+      // the import creates it. The dropdown stays, but no popup: Excel can't
+      // remember an accepted value (the list lives on the hidden master sheet),
+      // so it would ask again on every cell. The import review lists every
+      // new record once instead — that is the real confirmation.
+      const creatable = isCreatableMaster(def.master);
+      const validation = creatable
+        ? {
+            showErrorMessage: false,
+            errorStyle: "information" as const,
+          }
+        : {
+            showErrorMessage: true,
+            errorStyle: "stop" as const,
+            errorTitle: `Pick a ${label}`,
+            error: `Choose a ${label} from the list. To use a new one, add it under Masters first, then download the template again.`,
+          };
       for (let r = 2; r <= lastRow; r++) {
         sheet.getCell(r, index).dataValidation = {
           type: "list",
           allowBlank: !def.required,
           formulae: [`=${nameRange}`],
-          showErrorMessage: true,
-          errorStyle: "stop",
-          errorTitle: `Pick a ${MASTER_LABELS[def.master]}`,
-          error: `Choose a ${MASTER_LABELS[def.master]} from the list. To use a new one, add it under Masters first, then download the template again.`,
+          ...validation,
         };
       }
 
@@ -257,6 +289,30 @@ const writeDataSheet = (
             formula: `IF(${target}="","",IFERROR(INDEX(${idRange},MATCH(${target},${nameRangeRef},0)),""))`,
           } as any;
         }
+      }
+      continue;
+    }
+
+    // Image cells: Excel can't open a file picker from a cell without macros,
+    // so the next best thing — a tooltip the moment the cell is selected,
+    // saying exactly where the picture option is.
+    if (def.type === "productimage" || def.type === "masterimage") {
+      for (let r = 2; r <= lastRow; r++) {
+        sheet.getCell(r, index).dataValidation = {
+          type: "custom",
+          allowBlank: true,
+          formulae: ["TRUE"],
+          showErrorMessage: false,
+          showInputMessage: true,
+          promptTitle: "Add a picture",
+          // Excel caps an input message at 255 characters.
+          // Worded for every Excel: "Place in Cell" only exists in recent
+          // Microsoft 365; Office 2019/2021 can only float a picture over the
+          // cell — which the import reads just the same.
+          prompt: def.type === "productimage"
+            ? "Insert > Pictures > This Device. Shrink the picture and keep its top-left corner in this cell (hold Alt while resizing to snap to the cell). Several pictures: put them all here. Newer Microsoft 365: Place in Cell."
+            : "Insert > Pictures > This Device. Shrink the picture and keep its top-left corner in this cell (hold Alt while resizing to snap to the cell). Newer Microsoft 365: Place in Cell. Or paste a web address.",
+        };
       }
       continue;
     }
@@ -278,17 +334,25 @@ const writeDataSheet = (
     }
 
     if (def.type === "number" || def.type === "integer") {
-      sheet.getColumn(index).numFmt = def.type === "integer" ? "0" : "0.00";
+      // "General", not "0.00": a factor of 1 should read 1, and 0.001 (grams
+      // per kg) must not be displayed as 0.00. The stored value was always
+      // right; the fixed two-decimal format just hid it.
+      sheet.getColumn(index).numFmt = def.type === "integer" ? "0" : "General";
+      // Whole-number columns (Quantity) refuse 1.5 at the cell, so the
+      // mistake never reaches the import.
+      const whole = def.type === "integer";
       for (let r = 2; r <= lastRow; r++) {
         sheet.getCell(r, index).dataValidation = {
-          type: "decimal",
+          type: whole ? "whole" : "decimal",
           allowBlank: true,
           operator: "greaterThanOrEqual",
-          formulae: [0],
+          formulae: [whole ? 1 : 0],
           showErrorMessage: true,
           errorStyle: "stop",
-          errorTitle: `${def.header} must be a number`,
-          error: `Enter a number of 0 or more for ${def.header}.`,
+          errorTitle: whole ? `${def.header} must be a whole number` : `${def.header} must be a number`,
+          error: whole
+            ? `Enter a whole number of 1 or more for ${def.header} (1, 2, 3…) — no decimals.`
+            : `Enter a number of 0 or more for ${def.header}.`,
         };
       }
       continue;
@@ -341,13 +405,25 @@ export const buildProductWorkbook = async (
     Array.from(enumSets.values())
   );
 
+  // Where the product names sit on the Products sheet, for the child
+  // sheets' "Product" dropdown.
+  const productLayout = layoutColumns(schema.bySheet("Products"));
+  const nameColumn = productLayout.find((c) => c.def.key === "name");
+  // OFFSET/COUNTA so the list holds only the names actually filled in, not
+  // thousands of blank rows.
+  const nameLetter = nameColumn ? colLetter(nameColumn.index) : "";
+  const productNamesFormula = nameColumn
+    ? `OFFSET(Products!$${nameLetter}$2,0,0,MAX(COUNTA(Products!$${nameLetter}:$${nameLetter})-1,1),1)`
+    : undefined;
+
   for (const sheet of schema.sheets) {
     writeDataSheet(
       workbook,
       sheet.id,
       sheet.columns,
       args.data?.[sheet.id] ?? [],
-      enumRanges
+      enumRanges,
+      productNamesFormula
     );
   }
 
@@ -408,8 +484,10 @@ export const productsToSheetRows = (
     if (product?.isservice) return; // services get their own template later
 
     const variants: any[] = Array.isArray(product.productvariants) ? product.productvariants : [];
-    const productRef =
-      variants.find((v: any) => v?.productcode)?.productcode || `P${productIndex + 1}`;
+    // The product's code lives on the Products sheet. The other sheets point
+    // back with that code — or the name, for a product that has none.
+    const productCode: string = variants[0]?.productcode || "";
+    const productLink: string = productCode || product.name || `Product ${productIndex + 1}`;
 
     const imageUrls: string[] = Array.isArray(product.imageurls) && product.imageurls.length
       ? product.imageurls
@@ -418,15 +496,17 @@ export const productsToSheetRows = (
         : [];
 
     productRows.push({
-      productref: productRef,
+      productref: productCode,
       name: product.name ?? "",
       description: product.description ?? "",
-      imageurls: imageUrls.join(", "),
-      imagefiles: "",
+      // The current pictures as web addresses: re-importing keeps them.
+      productimage: imageUrls.join(", "),
       categoryid: nameOf(product.categoryid, "categoryname"),
       categoryid__id: idOf(product.categoryid),
+      categoryimage: nameOf(product.categoryid, "image"),
       subcategoryid: nameOf(product.subcategoryid, "subcategoryname"),
       subcategoryid__id: idOf(product.subcategoryid),
+      subcategoryimage: nameOf(product.subcategoryid, "image"),
       brandid: nameOf(product.brandid, "brandname"),
       brandid__id: idOf(product.brandid),
       modelid: nameOf(product.modelid, "modelname"),
@@ -448,14 +528,19 @@ export const productsToSheetRows = (
     });
 
     variants.forEach((variant: any, variantIndex: number) => {
-      const variantRef = variant?.sku || String(variantIndex + 1);
+      // A VariantRef only when there is more than one variant to tell apart.
+      const skuIsUnique =
+        !!variant?.sku && variants.filter((v: any) => v?.sku === variant.sku).length === 1;
+      const variantRef =
+        variants.length > 1 ? (skuIsUnique ? variant.sku : String(variantIndex + 1)) : "";
 
       variantRows.push({
-        productref: productRef,
+        productref: productLink,
         variantref: variantRef,
         name: variant.name ?? "",
         sku: variant.sku ?? "",
-        productcode: variant.productcode ?? "",
+        // The first variant's code is the Product Code on the Products sheet.
+        productcode: variantIndex === 0 ? "" : variant.productcode ?? "",
         batchnumber: variant.batchnumber ?? "",
         manufacturedate: dateOf(variant.manufacturedate),
         expirydate: dateOf(variant.expirydate),
@@ -479,7 +564,7 @@ export const productsToSheetRows = (
 
       (variant.unitconversions || []).forEach((conv: any) => {
         conversionRows.push({
-          productref: productRef,
+          productref: productLink,
           variantref: variantRef,
           unitid: nameOf(conv.unitid, "unitname"),
           unitid__id: idOf(conv.unitid),
@@ -489,7 +574,7 @@ export const productsToSheetRows = (
 
       (variant.unitprices || []).forEach((price: any) => {
         priceRows.push({
-          productref: productRef,
+          productref: productLink,
           variantref: variantRef,
           quantity: price.quantity ?? "",
           unitid: nameOf(price.unitid, "unitname"),

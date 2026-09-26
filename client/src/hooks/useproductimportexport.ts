@@ -21,12 +21,37 @@ import {
 import { buildCsvTemplate, sheetRowsToCsv } from "../utils/excel/csvadapter";
 import {
   attachImageUrls,
+  collectPickedImages,
   readImportZip,
   uploadImportImages,
   type UploadProgress,
 } from "../utils/excel/importimages";
 import { PRODUCT_FORM_FIELD_IDS, headerForField, type SheetId } from "../utils/excel/productschema";
 import type { ImportMode, ImportStage, ImportSummary } from "../components/importdialog";
+
+/**
+ * "2 new Categories will be created: Oils, Soaps" — one line per master type,
+ * from the server's list, so the user sees exactly what the import will add.
+ */
+const newMasterLines = (
+  items: { label: string; name: string }[] | null | undefined,
+  done = false
+): string[] => {
+  const byLabel = new Map<string, string[]>();
+  for (const item of items ?? []) {
+    const bucket = byLabel.get(item.label) ?? [];
+    bucket.push(item.name);
+    byLabel.set(item.label, bucket);
+  }
+  return Array.from(byLabel, ([label, names]) => {
+    const plural = label.endsWith("y") ? `${label.slice(0, -1)}ies` : `${label}s`;
+    const noun = `new ${names.length > 1 ? plural : label}`;
+    const shown = names.slice(0, 10).join(", ") + (names.length > 10 ? "…" : "");
+    return done
+      ? `Created ${names.length} ${noun}: ${shown}`
+      : `${names.length} ${noun} will be created: ${shown}`;
+  });
+};
 
 /**
  * Ties the spreadsheet pieces to the products page.
@@ -55,11 +80,22 @@ export const useProductImportExport = (products: any[]) => {
   const [abortOnError, setAbortOnError] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [busyMessage, setBusyMessage] = useState("");
+  // Images picked with "Select Images" (files or a folder). Matched by file
+  // name against the Product Image / Category Image / Sub Category Image cells.
+  const [pickedImages, setPickedImages] = useState<Map<string, File>>(new Map());
+  const pickedWarnings = useRef<string[]>([]);
+  // The file exactly as the user chose it (sheet or zip), so picking images
+  // after the upload can re-run the check without asking for it again.
+  const originalFile = useRef<File | null>(null);
 
   // Held so "download the file with errors marked" can re-open the exact
   // workbook the user gave us, rather than a reconstruction of it.
   const uploadedFile = useRef<File | null>(null);
-  const parsedRef = useRef<{ products: any[]; refs: string[] } | null>(null);
+  const parsedRef = useRef<{
+    products: any[];
+    refs: string[];
+    masterNames: Record<string, any>[];
+  } | null>(null);
 
   const disabledFields = PRODUCT_FORM_FIELD_IDS.filter((id) => permissions[id] === false);
 
@@ -161,9 +197,10 @@ export const useProductImportExport = (products: any[]) => {
           return;
         }
 
+        originalFile.current = file;
         let sheetFile = file;
         let zipImages: Map<string, File> | null = null;
-        const collectedWarnings: string[] = [];
+        const collectedWarnings: string[] = [...pickedWarnings.current];
 
         if (/\.zip$/i.test(file.name)) {
           setBusyMessage("Opening the archive…");
@@ -201,12 +238,27 @@ export const useProductImportExport = (products: any[]) => {
 
         collectedWarnings.push(...parsed.warnings);
 
-        // Images from the zip, uploaded once each and attached by ProductRef.
-        if (zipImages && parsed.imageFiles.size) {
+        // Product images plus Category / Sub Category images, all uploaded in
+        // one pass so a shared file is only sent once.
+        const referencedImages = new Map<string, string[]>([
+          ...parsed.imageFiles,
+          ...parsed.masterImageFiles,
+        ]);
+
+        // Pictures inside the Excel cells, picked images and zip images
+        // together. In-cell pictures have generated names, so they never clash.
+        const availableImages = new Map<string, File>([
+          ...pickedImages,
+          ...(zipImages ?? []),
+          ...parsed.embeddedImages,
+        ]);
+
+        // Images uploaded once each and attached by ProductRef.
+        if (availableImages.size && referencedImages.size) {
           setBusyMessage("Uploading images…");
           const { urls, missing } = await uploadImportImages(
-            parsed.imageFiles,
-            zipImages,
+            referencedImages,
+            availableImages,
             async (imageFile) => {
               const { data } = await uploadImageMutation({ variables: { file: imageFile } });
               return data?.uploadImage?.url ?? "";
@@ -214,19 +266,30 @@ export const useProductImportExport = (products: any[]) => {
             setUploadProgress
           );
           attachImageUrls(parsed.products, parsed.refs, parsed.imageFiles, urls);
+          for (const [key, [fileName]] of parsed.masterImageFiles) {
+            const [index, field] = key.split(":");
+            const url = urls.get(String(fileName).trim().toLowerCase());
+            if (url && parsed.masterNames[Number(index)]) {
+              parsed.masterNames[Number(index)][field] = url;
+            }
+          }
           if (missing.length) {
             collectedWarnings.push(
-              `${missing.length} image${missing.length > 1 ? "s were" : " was"} named in the sheet but not found in the zip: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`
+              `${missing.length} image${missing.length > 1 ? "s were" : " was"} named in the sheet but not among the selected images: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}. Use "Select Images" to add ${missing.length > 1 ? "them" : "it"}.`
             );
           }
-        } else if (!zipImages && parsed.imageFiles.size) {
+        } else if (referencedImages.size) {
           collectedWarnings.push(
-            "The Image Files column has entries, but no images were uploaded. Zip the sheet together with an images folder to include them."
+            'Some image cells name a file, but no images were selected. Use "Select Images" to pick the files or their folder, or use web addresses.'
           );
         }
 
         setUploadProgress(null);
-        parsedRef.current = { products: parsed.products, refs: parsed.refs };
+        parsedRef.current = {
+          products: parsed.products,
+          refs: parsed.refs,
+          masterNames: parsed.masterNames,
+        };
 
         // The server does the counting. Client validation is for a fast, clear
         // report — it is not the gate, and its numbers are not authoritative.
@@ -234,6 +297,7 @@ export const useProductImportExport = (products: any[]) => {
         const dry = await runImport({
           products: parsed.products,
           refs: parsed.refs,
+          masterNames: parsed.masterNames,
           mode,
           dryRun: true,
         });
@@ -263,7 +327,7 @@ export const useProductImportExport = (products: any[]) => {
         ];
 
         setErrors(merged);
-        setWarnings(collectedWarnings);
+        setWarnings([...newMasterLines(dry?.newmasters), ...collectedWarnings]);
         setSummary({
           total: dry?.total ?? parsed.products.length,
           created: dry?.created ?? 0,
@@ -283,8 +347,31 @@ export const useProductImportExport = (products: any[]) => {
         setBusyMessage("");
       }
     },
-    [ensureMasters, permissions, adminid, branchid, mode, runImport, uploadImageMutation, dispatch]
+    [ensureMasters, permissions, adminid, branchid, mode, runImport, uploadImageMutation, dispatch, pickedImages]
   );
+
+  /* ---------------- picked images ---------------- */
+
+  const addImages = useCallback((files: FileList | File[] | null) => {
+    const list = Array.from(files ?? []);
+    if (!list.length) return;
+    const { images, warnings: pickWarnings } = collectPickedImages(list);
+    pickedWarnings.current = pickWarnings;
+    setPickedImages((prev) => new Map([...prev, ...images]));
+    if (!images.size) {
+      dispatch(showMessage({ message: "No image files (.jpg, .png, .webp…) were in that selection.", type: "error" }));
+    }
+  }, [dispatch]);
+
+  const clearImages = useCallback(() => {
+    pickedWarnings.current = [];
+    setPickedImages(new Map());
+  }, []);
+
+  /** Re-run the check on the same file — after adding images on the review screen. */
+  const recheck = useCallback(() => {
+    if (originalFile.current) handleFile(originalFile.current);
+  }, [handleFile]);
 
   /* ---------------- commit ---------------- */
 
@@ -298,6 +385,7 @@ export const useProductImportExport = (products: any[]) => {
         const result = await runImport({
           products: parsedRef.current.products,
           refs: parsedRef.current.refs,
+          masterNames: parsedRef.current.masterNames,
           mode,
           dryRun: false,
           abortOnError,
@@ -320,6 +408,13 @@ export const useProductImportExport = (products: any[]) => {
           }))
         );
         setStage("done");
+        if (result?.newmasters?.length) {
+          setWarnings(newMasterLines(result.newmasters, true));
+        }
+
+        // New categories / brands now exist — refresh the cached lists so the
+        // next template or import sees them in the dropdowns.
+        loadMasters().catch(() => undefined);
 
         const added = (result?.created ?? 0) + (result?.updated ?? 0);
         dispatch(
@@ -338,7 +433,7 @@ export const useProductImportExport = (products: any[]) => {
         setBusyMessage("");
       }
     },
-    [mode, abortOnError, runImport, dispatch]
+    [mode, abortOnError, runImport, dispatch, loadMasters]
   );
 
   const downloadErrorFile = useCallback(async () => {
@@ -368,6 +463,7 @@ export const useProductImportExport = (products: any[]) => {
     setUploadProgress(null);
     uploadedFile.current = null;
     parsedRef.current = null;
+    originalFile.current = null;
   }, []);
 
   const open = useCallback(() => {
@@ -378,7 +474,8 @@ export const useProductImportExport = (products: any[]) => {
   const close = useCallback(() => {
     setIsOpen(false);
     reset();
-  }, [reset]);
+    clearImages();
+  }, [reset, clearImages]);
 
   return {
     isOpen,
@@ -397,6 +494,10 @@ export const useProductImportExport = (products: any[]) => {
     downloadTemplate,
     downloadCurrent,
     handleFile,
+    pickedImageCount: pickedImages.size,
+    addImages,
+    clearImages,
+    recheck,
     downloadErrorFile,
     confirmImport,
     reset,
