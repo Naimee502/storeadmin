@@ -36,6 +36,10 @@ export interface CartLine {
   unitid?: string | null;
   unitqty?: number;
   gst?: number;
+  /** Variant stock in base units when the line was added — for the stock cap. */
+  stock?: number;
+  /** Base units one of this line's packs uses up. */
+  baseQty?: number;
 }
 
 interface CartContextValue {
@@ -49,6 +53,15 @@ interface CartContextValue {
   updateQty: (lineId: string, qty: number) => void;
   removeFromCart: (lineId: string) => void;
   clearCart: () => void;
+  /**
+   * How many more of this product (in the chosen unit) may go in the cart.
+   * Infinity when nothing caps it — the "Restrict quantity by stock" setting
+   * is off, or the stock is unknown. Every product of the same variant in the
+   * cart counts against the same stock, whatever unit it was added in.
+   */
+  remainingFor: (product: SampleProduct, unit?: string) => number;
+  /** Same, for a line already in the cart. */
+  remainingForLine: (lineId: string) => number;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -77,7 +90,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
     }
   });
   const { account } = useAuth();
-  const { adminid } = useTenant();
+  const { adminid, restrictQuantityByStock } = useTenant();
 
   useEffect(() => {
     try {
@@ -97,8 +110,42 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
   });
   const partyAccount = accountData?.getAccountById;
 
-  const addToCart = (product: SampleProduct, qty = 1, unit?: string) => {
+  /* ---------------- stock cap ---------------- */
+
+  // Base units already taken by OTHER lines of the same variant.
+  const baseUsedElsewhere = (variantKey: string, exceptLineId: string) =>
+    lines
+      .filter((l) => (l.variantid ?? l.productId) === variantKey && l.lineId !== exceptLineId)
+      .reduce((sum, l) => sum + l.qty * (l.baseQty ?? 1), 0);
+
+  // Packs this line may hold in total, or Infinity when uncapped.
+  const capFor = (stock: number | undefined, baseQty: number | undefined, variantKey: string, lineId: string) => {
+    if (!restrictQuantityByStock || typeof stock !== "number") return Infinity;
+    const perPack = baseQty && baseQty > 0 ? baseQty : 1;
+    const free = stock - baseUsedElsewhere(variantKey, lineId);
+    return Math.max(0, Math.floor(free / perPack + 1e-9));
+  };
+
+  const remainingFor = (product: SampleProduct, unit?: string) => {
     const chosenUnit = unit ?? product.units[0];
+    const matched = product.unitPrices?.find((u) => u.label === chosenUnit);
+    const lineId = `${product.id}-${chosenUnit}`;
+    const cap = capFor(product.variantStock, matched?.baseQty, product.variantid ?? product.id, lineId);
+    const inLine = lines.find((l) => l.lineId === lineId)?.qty ?? 0;
+    return cap - inLine;
+  };
+
+  const remainingForLine = (lineId: string) => {
+    const line = lines.find((l) => l.lineId === lineId);
+    if (!line) return Infinity;
+    return capFor(line.stock, line.baseQty, line.variantid ?? line.productId, lineId) - line.qty;
+  };
+
+  const addToCart = (product: SampleProduct, requestedQty = 1, unit?: string) => {
+    const chosenUnit = unit ?? product.units[0];
+    // Never past the stock when the setting is on — whatever the caller asked.
+    const qty = Math.min(requestedQty, remainingFor(product, chosenUnit));
+    if (qty <= 0) return;
     // Each unit (Piece, Dozen, ...) can have its own price — look it up so
     // the cart charges for whichever unit was actually selected, instead of
     // always using the first unit's price.
@@ -137,6 +184,8 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
             unitid: matched?.unitid ?? null,
             unitqty: matched?.unitQuantity ?? 1,
             gst: product.gst ?? 0,
+            stock: product.variantStock,
+            baseQty: matched?.baseQty ?? matched?.unitQuantity ?? 1,
           },
         ];
       });
@@ -182,7 +231,11 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
     }
   };
 
-  const updateQty = (lineId: string, qty: number) => {
+  const updateQty = (lineId: string, requestedQty: number) => {
+    const line = lines.find((l) => l.lineId === lineId);
+    // Going up is capped by stock; going down is always allowed.
+    const cap = line ? line.qty + Math.max(0, remainingForLine(lineId)) : Infinity;
+    const qty = line && requestedQty > line.qty ? Math.min(requestedQty, cap) : requestedQty;
     setLines((prev) => prev.map((l) => (l.lineId === lineId ? { ...l, qty: Math.max(1, qty) } : l)));
   };
 
@@ -209,8 +262,10 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
       updateQty,
       removeFromCart,
       clearCart,
+      remainingFor,
+      remainingForLine,
     }),
-    [lines, count, subtotal, totaldiscount, account?.id, adminid, partyAccount]
+    [lines, count, subtotal, totaldiscount, account?.id, adminid, partyAccount, restrictQuantityByStock]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

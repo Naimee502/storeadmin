@@ -14,7 +14,8 @@ import { apolloClient } from '../apollo/client';
 import { AppImage } from './appimage';
 import { DynamicFlashList } from './flashlist';
 import { addToCart, updateQty } from '../store/slices';
-import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice } from '../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock } from '../apollo/hooks/adminsettings';
+import { baseQtyOf, maxPacksFor, stockOf } from '../utils/stocklimit';
 import { formatINR as formatINRValue } from '../utils/formatters';
 import type { RootState } from '../store/rootreducer';
 
@@ -52,6 +53,8 @@ interface ProductCardProps {
   multiplier: number;
   unitIdx: number;
   cartQty: number;
+  /** Another pack may go in the cart ("Restrict quantity by stock"). */
+  canAdd: boolean;
   isLeft: boolean;
   onOpen: (productId: string) => void;
   onAdd: (product: any) => void;
@@ -67,7 +70,7 @@ const unitLabel = (u: any) => {
 
 const ProductCard = React.memo(function ProductCard({
   product: p, colors, imgRatio, showPrice, showStock, multiplier,
-  unitIdx, cartQty, isLeft, onOpen, onAdd, onQty, onSelectUnit,
+  unitIdx, cartQty, canAdd, isLeft, onOpen, onAdd, onQty, onSelectUnit,
 }: ProductCardProps) {
   const v = p.productvariants?.[0];
   const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
@@ -138,7 +141,9 @@ const ProductCard = React.memo(function ProductCard({
         )}
       </View>
 
-      {v && !outOfStock && (
+      {/* Add shows when another pack is allowed — out of stock with "Restrict
+          quantity by stock" on hides it; with the setting off it stays. */}
+      {v && (cartQty > 0 || canAdd) && (
         cartQty === 0 ? (
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.brand }]}
@@ -157,8 +162,9 @@ const ProductCard = React.memo(function ProductCard({
             </TouchableOpacity>
             <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
             <TouchableOpacity
-              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }, !canAdd && { opacity: 0.35 }]}
               onPress={() => onQty(p.id, v.id, unitId, cartQty + 1)}
+              disabled={!canAdd}
             >
               <Icon name="plus" size={13} color={colors.brand} />
             </TouchableOpacity>
@@ -209,6 +215,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
   // real unitprice through, so the cart total and the order stay correct.
   const { multiplier } = useCatalogPrice();
   const showStock = useShowProductStock();
+  const restrict = useRestrictQtyByStock();
   // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
   const imgRatio = useProductImageRatio();
 
@@ -250,11 +257,25 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     return m;
   }, [cartItems]);
 
+  // Packs of this product+unit the cart may hold in total — Infinity when
+  // "Restrict quantity by stock" is off or the stock isn't known.
+  const maxPacks = (p: any, v: any, up: any) =>
+    maxPacksFor({
+      restrict,
+      stock: stockOf(v),
+      baseqty: baseQtyOf(v, up?.unitid?.id, up?.quantity),
+      items: cartItems,
+      productId: p.id,
+      variantId: v?.id,
+      unitId: up?.unitid?.id,
+    });
+
   const handleAdd = async (p: any) => {
     const v = p.productvariants?.[0];
     if (!v) return;
     const unitIdx = selectedUnits[p.id] ?? 0;
     const up = v.unitprices?.[unitIdx] ?? v.unitprices?.[0];
+    if (maxPacks(p, v, up) < 1) return;
     const defaultRate = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
     let rate = defaultRate, disc = up?.discount ?? 0;
     if (up?.unitid?.id) {
@@ -293,6 +314,8 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
       imageUrl: p.imageurl,
       qty: 1, rate, discount: disc, gst: v.gst ?? 0,
       amount: (rate - disc) * 1,
+      stock: stockOf(v),
+      baseqty: baseQtyOf(v, up?.unitid?.id, up?.quantity),
     }));
   };
 
@@ -335,6 +358,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
         multiplier={multiplier}
         unitIdx={unitIdx}
         cartQty={cartQtyByKey.get(key) ?? 0}
+        canAdd={v ? (cartQtyByKey.get(key) ?? 0) < maxPacks(p, v, up) : false}
         isLeft={index % 2 === 0}
         onOpen={onOpen}
         onAdd={onAdd}
@@ -342,7 +366,8 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
         onSelectUnit={onSelectUnit}
       />
     );
-  }, [selectedUnits, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, onOpen, onAdd, onQty, onSelectUnit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUnits, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, cartItems, restrict, onOpen, onAdd, onQty, onSelectUnit]);
 
   if (initialLoading) return <ProductGridSkeleton />;
 

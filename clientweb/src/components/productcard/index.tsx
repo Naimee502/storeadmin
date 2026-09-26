@@ -24,7 +24,7 @@ export default function ProductCard({
   product: SampleProduct;
   imageRatio?: string;
 }) {
-  const { lines, addToCart, updateQty, removeFromCart } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart, remainingFor } = useCart();
   const { displayProductPrice, displayStock, homeProductImageRatio } = useTenant();
   // Card prices follow the admin's "Show Double Price" display markup; the
   // Add-to-cart handlers below pass the untouched product through to the cart,
@@ -57,11 +57,15 @@ export default function ProductCard({
   // shows/adds to that unit's own line instead of a shared counter.
   const lineId = `${product.id}-${selected.label}`;
   const line = lines.find((l) => l.lineId === lineId);
-  const atStockLimit = typeof product.stock === "number" && !!line && line.qty >= product.stock;
+  // How many more may go in — Infinity when "Restrict quantity by stock" is
+  // off. `blocked`: nothing can be added (out of stock with the setting on).
+  const remaining = remainingFor(product, selected.label);
+  const blocked = !line && remaining < 1;
+  const atStockLimit = !!line && remaining < 1;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (outOfStock) return;
+    if (blocked) return;
     addToCart(product, 1, selected.label);
   };
 
@@ -168,7 +172,7 @@ export default function ProductCard({
         ) : (
           <div />
         )}
-        {outOfStock ? (
+        {blocked ? (
           <button
             disabled
             className="shrink-0 whitespace-nowrap rounded-lg bg-slate-200 px-2.5 py-2 text-[11px] font-semibold text-slate-500"

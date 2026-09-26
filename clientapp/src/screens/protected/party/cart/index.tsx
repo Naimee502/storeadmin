@@ -15,7 +15,8 @@ import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { GET_SALES_ORDERS, GET_ACCOUNT } from '../../../../apollo/queries/accounts';
 import { updateQty, removeFromCart, clearCart } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
-import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
+import { maxPacksForItem } from '../../../../utils/stocklimit';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function CartScreen() {
@@ -24,6 +25,8 @@ export default function CartScreen() {
   const dispatch = useDispatch();
   const apolloClient = useApolloClient();
   const cartItems = useSelector((s: RootState) => s.cart.items);
+  // "Restrict quantity by stock": + stops at what is on hand.
+  const restrictQty = useRestrictQtyByStock();
   const user = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
@@ -174,7 +177,12 @@ export default function CartScreen() {
             </TouchableOpacity>
             <Text style={[styles.qtyNum, { color: colors.brand }]}>{item.qty}</Text>
             <TouchableOpacity
-              style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
+              style={[
+                styles.qtyBtn,
+                { backgroundColor: colors.brandSoft },
+                item.qty >= maxPacksForItem(restrictQty, item, cartItems) && { opacity: 0.35 },
+              ]}
+              disabled={item.qty >= maxPacksForItem(restrictQty, item, cartItems)}
               onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}
             >
               <Icon name="plus" size={13} color={colors.brand} />

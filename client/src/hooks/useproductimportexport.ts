@@ -108,7 +108,20 @@ export const useProductImportExport = (products: any[]) => {
     const result = await loadMasters();
     const fresh = result.data?.getProductImportMasters;
     if (!fresh) {
-      dispatch(showMessage({ message: "Could not load your category and unit lists.", type: "error" }));
+      // Say WHY — "session expired, sign in again" is something the person
+      // can fix; a generic "could not load" sends them to support instead.
+      const serverError: any = result.error;
+      const reason =
+        serverError?.graphQLErrors?.[0]?.message ||
+        (serverError?.networkError ? "The server could not be reached. Check your internet connection." : "");
+      dispatch(
+        showMessage({
+          message: reason
+            ? `Could not load your category and unit lists: ${reason}`
+            : "Could not load your category and unit lists.",
+          type: "error",
+        })
+      );
       return null;
     }
     return {

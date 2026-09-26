@@ -22,6 +22,10 @@ export const GET_STORE_PRODUCTS = gql`
         name
         gst
         currentstock
+        unitconversions {
+          factor
+          unitid { id }
+        }
         unitprices {
           mrp
           salesrate

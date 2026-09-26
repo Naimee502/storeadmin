@@ -39,7 +39,16 @@ function mapProduct(p: any): SampleProduct {
   // login will later override this per line via resolvePrice. Each unit
   // (Piece, Dozen, ...) gets its own price/mrp here, same as the app, so
   // switching units on the card actually changes the price shown/added.
-  const unitPrices: { label: string; price: number; mrp: number; discount: number; unitid: string | null; unitQuantity: number }[] = rawUnitprices.map((u: any) => {
+  // Base units in one of the unit — the variant's conversion factor for it,
+  // 1 for the base unit itself. Stock is kept in base units, so a "Box of 12"
+  // uses up 12 of it.
+  const factorOf = (unitid: string | null) => {
+    const conv = (variant?.unitconversions ?? []).find((c: any) => c?.unitid?.id && c.unitid.id === unitid);
+    const f = Number(conv?.factor);
+    return f > 0 ? f : 1;
+  };
+
+  const unitPrices: { label: string; price: number; mrp: number; discount: number; unitid: string | null; unitQuantity: number; baseQty: number }[] = rawUnitprices.map((u: any) => {
     const name = u.unitid?.unitname ?? "Unit";
     const label = u.quantity > 1 ? `${u.quantity} × ${name}` : name;
     const price = (u.offerprice ?? 0) > 0 ? u.offerprice : (u.salesrate ?? 0);
@@ -51,7 +60,8 @@ function mapProduct(p: any): SampleProduct {
     // out of the MRP gap instead. MRP stays a display-only strike-through.
     const discount = Number(u.discount) || 0;
     const unitid = u.unitid?.id ?? null;
-    return { label, price, mrp, discount, unitid, unitQuantity: u.quantity || 1 };
+    const unitQuantity = u.quantity || 1;
+    return { label, price, mrp, discount, unitid, unitQuantity, baseQty: unitQuantity * factorOf(unitid) };
   });
 
   const first = unitPrices[0] ?? { label: "1 unit", price: 0, mrp: 0, discount: 0 };
@@ -85,6 +95,7 @@ function mapProduct(p: any): SampleProduct {
     imageurls: Array.isArray(p.imageurls) && p.imageurls.length ? p.imageurls : undefined,
     createdAt: p.createdAt || undefined,
     variantid: variant?.id,
+    variantStock: typeof variant?.currentstock === "number" ? Number(variant.currentstock) : undefined,
     gst: variant?.gst ?? 0,
     description: p.description || `Genuine, quality-checked — ${p.name}.`,
     highlights: ["Genuine product", "Quality checked", "Fast delivery", "Easy returns"],

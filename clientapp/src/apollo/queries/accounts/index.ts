@@ -21,6 +21,10 @@ export const GET_PRODUCTS = gql`
         sku
         gst
         currentstock
+        unitconversions {
+          factor
+          unitid { id }
+        }
         unitprices {
           mrp
           salesrate
@@ -65,6 +69,10 @@ export const GET_PRODUCT_BY_ID = gql`
         sku
         gst
         currentstock
+        unitconversions {
+          factor
+          unitid { id }
+        }
         unitprices {
           mrp
           salesrate
@@ -479,6 +487,7 @@ export const GET_ADMIN_SETTINGS = gql`
       secureScreenApp
       displayProductPriceOnWebsite
       displayStockOnWebsite
+      restrictQuantityByStock
       doubleDisplayPrice
       supportEmail
       supportPhone

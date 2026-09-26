@@ -85,7 +85,16 @@ export interface SampleProduct {
   // subtract. It is NOT derived from MRP: MRP is only ever a strike-through
   // on the catalogue, while this is what actually reduces what the customer
   // pays, so the two must never be confused.
-  unitPrices?: { label: string; price: number; mrp: number; discount?: number; unitid?: string | null; unitQuantity?: number }[];
+  unitPrices?: {
+    label: string; price: number; mrp: number; discount?: number; unitid?: string | null; unitQuantity?: number;
+    /** Base units one of these packs uses up (unit quantity x the unit's conversion factor). */
+    baseQty?: number;
+  }[];
+  /**
+   * Stock of the variant that goes in the cart, in BASE units. Undefined when
+   * unknown (sample data) — then nothing is capped.
+   */
+  variantStock?: number;
   /** Per-unit rupee discount for the default (first) unit. See unitPrices. */
   discount?: number;
   createdAt?: string;

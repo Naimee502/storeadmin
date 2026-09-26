@@ -26,6 +26,13 @@ interface TenantContextValue {
    * multiplier by hand, so every price on the site doubles the same way.
    */
   doubleDisplayPrice: boolean;
+  /**
+   * Business Settings -> "Restrict quantity by stock". On: a customer cannot
+   * put more of a product in the cart than the branch has on hand (and cannot
+   * add an out-of-stock one at all). Off: they can order past it. The server
+   * enforces the same rule on the order itself.
+   */
+  restrictQuantityByStock: boolean;
   /** Draw the tiled identity watermark over the storefront. */
   secureScreenWebsite: boolean;
 
@@ -145,6 +152,8 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
     displayStock: info?.displayStockOnWebsite ?? true,
     doubleDisplayPrice: info?.doubleDisplayPrice ?? false,
+    // Defaults to ON, same as the server, for a store that predates the flag.
+    restrictQuantityByStock: info?.restrictQuantityByStock ?? true,
     secureScreenWebsite: info?.secureScreenWebsite ?? false,
 
     supportEmail: info?.supportEmail ?? "",

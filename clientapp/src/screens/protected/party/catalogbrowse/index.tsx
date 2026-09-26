@@ -14,7 +14,8 @@ import { AppHeader, AppTextInput, HeroBanner, useNotificationCenter } from '../.
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
 import { addToCart } from '../../../../store/slices';
 import { useUI } from '../../../../utils';
-import { useShowProductPrice, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
+import { baseQtyOf, maxPacksFor, stockOf } from '../../../../utils/stocklimit';
 import type { RootState } from '../../../../store/rootreducer';
 import { TileGrid, ImageViewer, type Tile } from './tiles';
 
@@ -50,6 +51,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
 
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
   const cartItems = useSelector((s: RootState) => s.cart.items);
+  const restrictQty = useRestrictQtyByStock();
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
 
   const [stage, setStage] = useState<Stage>({ name: 'categories' });
@@ -202,9 +204,36 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
       return;
     }
 
-    lines.forEach(({ p, n }) => {
+    // "Restrict quantity by stock": trim each line to what is left on hand,
+    // counting what this product already has in the cart, and say so.
+    const trimmed: string[] = [];
+    const skipped: string[] = [];
+    let added = 0;
+
+    lines.forEach(({ p, n: wanted }) => {
       const v = p.productvariants?.[0];
       const up = v?.unitprices?.[0];
+      const unitId = up?.unitid?.id;
+      const baseqty = baseQtyOf(v, unitId, up?.quantity);
+      const inCart =
+        cartItems.find(i => i.productId === p.id && i.variantId === (v?.id ?? p.id) && i.unitId === unitId)?.qty ?? 0;
+      const room =
+        maxPacksFor({
+          restrict: restrictQty,
+          stock: stockOf(v),
+          baseqty,
+          items: cartItems,
+          productId: p.id,
+          variantId: v?.id ?? p.id,
+          unitId,
+        }) - inCart;
+      const n = Math.min(wanted, room);
+      if (n <= 0) {
+        skipped.push(p.name);
+        return;
+      }
+      if (n < wanted) trimmed.push(`${p.name} (only ${n})`);
+      added += 1;
       const rate = (Number(up?.offerprice) || 0) > 0 ? Number(up.offerprice) : Number(up?.salesrate) || 0;
       dispatch(
         addToCart({
@@ -221,12 +250,25 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
           discount: Number(up?.discount) || 0,
           gst: Number(v?.gst) || 0,
           amount: rate * n,
+          stock: stockOf(v),
+          baseqty,
         }),
       );
     });
 
+    if (skipped.length || trimmed.length) {
+      const parts = [
+        skipped.length ? `Out of stock: ${skipped.join(', ')}` : '',
+        trimmed.length ? `Added only what is in stock: ${trimmed.join(', ')}` : '',
+      ].filter(Boolean);
+      showToast(parts.join('. ') + '.', 'danger');
+    }
+    if (!added) return;
+
     setQty({});
-    showToast(`${lines.length} item${lines.length > 1 ? 's' : ''} added to cart.`, 'success');
+    if (!skipped.length && !trimmed.length) {
+      showToast(`${added} item${added > 1 ? 's' : ''} added to cart.`, 'success');
+    }
     navigation.navigate('CartScreen');
   };
 

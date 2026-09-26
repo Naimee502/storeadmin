@@ -14,6 +14,10 @@ export interface CartItem {
   discount: number;
   gst: number;
   amount: number;
+  /** Variant stock in BASE units when the line was added — for the stock cap. */
+  stock?: number;
+  /** Base units one pack of this line uses up (unit quantity x conversion factor). */
+  baseqty?: number;
 }
 
 interface CartState {

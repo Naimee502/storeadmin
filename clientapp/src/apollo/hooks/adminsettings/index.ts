@@ -37,6 +37,23 @@ export function useShowProductStock(): boolean {
 }
 
 /**
+ * Business Settings -> "Restrict quantity by stock". On (the default): a
+ * customer can't put more of a product in the cart than the branch has, and
+ * can't add an out-of-stock one at all. Off: they can order past it. The
+ * server holds party orders to the same rule, so this is the friendly front
+ * of it, not the only check.
+ */
+export function useRestrictQtyByStock(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.restrictQuantityByStock !== false;
+}
+
+/**
  * Catalogue prices rendered at twice the stored rate. Admin-controlled via
  * Business Settings -> "Show Double Price on App/Website".
  *

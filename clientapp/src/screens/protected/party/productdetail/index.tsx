@@ -13,7 +13,8 @@ import { GET_PRODUCT_BY_ID, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apoll
 import { apolloClient } from '../../../../apollo/client';
 import { BackHeader, AppImage } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useCatalogPrice } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
+import { baseQtyOf, maxPacksFor, stockOf } from '../../../../utils/stocklimit';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCT = {
@@ -72,6 +73,7 @@ export default function ProductDetail() {
   // still sends the real unitprice, so the cart and the order are unaffected.
   const { formatCatalogINR } = useCatalogPrice();
   const showStock = useShowProductStock();
+  const restrictQty = useRestrictQtyByStock();
   // Auto-fit the hero image to its own aspect ratio (no cropping) instead of
   // forcing every photo into one fixed box shape. Read the real pixel size
   // once the image loads, then size the box to match it exactly, capped so
@@ -157,8 +159,23 @@ export default function ProductDetail() {
     i => i.productId === product.id && i.variantId === variant?.id && i.unitId === unitprice?.unitid?.id,
   )?.qty ?? 0;
 
+  // "Restrict quantity by stock": packs of this unit the cart may hold in
+  // total (Infinity when the setting is off). Other units of the same variant
+  // already in the cart count against the same stock.
+  const baseqty = baseQtyOf(variant, unitprice?.unitid?.id, unitprice?.quantity);
+  const maxPacks = maxPacksFor({
+    restrict: restrictQty,
+    stock: stockOf(variant),
+    baseqty,
+    items: cartItems,
+    productId: product.id,
+    variantId: variant?.id,
+    unitId: unitprice?.unitid?.id,
+  });
+  const canAdd = cartQty < maxPacks;
+
   const handleAdd = async () => {
-    if (!variant || !unitprice) return;
+    if (!variant || !unitprice || !canAdd) return;
     let rate = price;
     let disc = unitprice.discount ?? 0;
     if (unitprice.unitid?.id) {
@@ -200,11 +217,14 @@ export default function ProductDetail() {
       qty: 1, rate, discount: disc,
       gst: variant.gst ?? 0,
       amount: (rate - disc) * 1,
+      stock: stockOf(variant),
+      baseqty,
     }));
   };
 
   const handleQty = (delta: number) => {
     if (!variant) return;
+    if (delta > 0 && !canAdd) return;
     dispatch(updateQty({ productId: product.id, variantId: variant.id, unitId: unitprice?.unitid?.id, qty: cartQty + delta }));
   };
 
@@ -412,13 +432,13 @@ export default function ProductDetail() {
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={{ marginTop: 4, marginBottom: 32 }}>
           {cartQty === 0 ? (
             <TouchableOpacity
-              style={[styles.addCartBtn, { backgroundColor: inStock ? colors.brand : colors.border }]}
+              style={[styles.addCartBtn, { backgroundColor: canAdd ? colors.brand : colors.border }]}
               onPress={handleAdd}
-              disabled={!inStock}
+              disabled={!canAdd}
               activeOpacity={0.85}
             >
               <Icon name="cart-plus" size={18} color={colors.onBrand} />
-              <Text style={[styles.addCartText, { color: colors.onBrand }]}>{inStock ? 'Add to Cart' : 'Out of Stock'}</Text>
+              <Text style={[styles.addCartText, { color: colors.onBrand }]}>{canAdd ? 'Add to Cart' : 'Out of Stock'}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.cartControlWrap}>
@@ -433,8 +453,9 @@ export default function ProductDetail() {
                 <Text style={[styles.cartQtyLabel, { color: colors.onBrand + 'CC' }]}>in cart</Text>
               </View>
               <TouchableOpacity
-                style={[styles.cartBtn, { backgroundColor: colors.brandSoft, borderColor: colors.brand }]}
+                style={[styles.cartBtn, { backgroundColor: colors.brandSoft, borderColor: colors.brand }, !canAdd && { opacity: 0.35 }]}
                 onPress={() => handleQty(1)}
+                disabled={!canAdd}
               >
                 <Icon name="plus" size={18} color={colors.brand} />
               </TouchableOpacity>

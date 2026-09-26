@@ -7,7 +7,7 @@ import { useChargePreview } from "../../hooks/useChargePreview";
 import { formatPrice } from "../../utils/format";
 
 export default function CartPage() {
-  const { lines, updateQty, removeFromCart } = useCart();
+  const { lines, updateQty, removeFromCart, remainingForLine } = useCart();
   const { displayProductPrice } = useTenant();
 
   // Exactly the arithmetic the POS cart and the app's party cart use, so one
@@ -104,7 +104,10 @@ export default function CartPage() {
                         <span className="w-8 text-center text-sm font-semibold">{line.qty}</span>
                         <button
                           onClick={() => updateQty(line.lineId, line.qty + 1)}
-                          className="p-2 hover:bg-slate-50"
+                          // Stops at the stock on hand when "Restrict quantity by stock" is on.
+                          disabled={remainingForLine(line.lineId) < 1}
+                          title={remainingForLine(line.lineId) < 1 ? "No more in stock" : undefined}
+                          className="p-2 hover:bg-slate-50 disabled:opacity-40"
                           aria-label="Increase quantity"
                         >
                           <Plus className="h-3.5 w-3.5" />

@@ -257,6 +257,37 @@ const getDownlinePartyIds = async (rootId: any): Promise<string[]> => {
 };
 import { ChargeRule } from "../../../models/chargerule";
 import { AdminSettings } from "../../../models/adminsettings";
+import { assertSalesStockAvailable, InsufficientStockError } from "../../../utils/stockguard";
+
+/**
+ * Business Settings -> "Restrict quantity by stock": a customer (party) order
+ * — from the app or the website — may not ask for more than the branch has on
+ * hand. The app and the website already stop the cart at the stock; this is
+ * the lock behind them, so an old app version or a stale cart can't get past
+ * it. Salesman / staff / admin orders are not affected, as the setting says.
+ */
+const assertPartyOrderWithinStock = async (opts: {
+  isParty: boolean;
+  adminid: any;
+  branchid: any;
+  productservice: any[] | undefined;
+}) => {
+  if (!opts.isParty || !opts.adminid || !Array.isArray(opts.productservice)) return;
+  const settings: any = await AdminSettings.getOrCreateForAdmin(opts.adminid);
+  if (settings?.restrictQuantityByStock === false) return;
+  try {
+    await assertSalesStockAvailable({ branchid: opts.branchid, productservice: opts.productservice });
+  } catch (err: any) {
+    if (err instanceof InsufficientStockError) {
+      const lines = err.shortfalls.map(
+        (s) =>
+          `${s.productname}${s.variantname ? ` (${s.variantname})` : ""}: only ${s.available} in stock, ${s.required} ordered`
+      );
+      throw new Error(`Not enough stock — ${lines.join("; ")}. Please reduce the quantity and try again.`);
+    }
+    throw err;
+  }
+};
 import { getInvoiceOutstanding } from "../../../utils/allocation";
 
 // Evaluate the admin's active charge rules (Amazon/Flipkart-style) against an
@@ -561,6 +592,14 @@ export const salesOrderResolvers = {
         const { user } = context;
         const createdbyData = await resolveCreatedBy(user, input);
 
+        // Customer orders can't go past the stock on hand (flag-gated).
+        await assertPartyOrderWithinStock({
+          isParty: createdbyData.createdby_type === "party",
+          adminid: input.adminid,
+          branchid: input.branchid,
+          productservice: input.productservice,
+        });
+
         // Auto-apply the admin's dynamic charge rules (delivery/handling/COD,
         // etc.). App and website orders carry no charges of their own, so the
         // engine adds them here based on the configured rules.
@@ -732,6 +771,19 @@ export const salesOrderResolvers = {
     },
 
     editSalesOrder: async (_: any, { id, input }: any, context: any) => {
+      // A customer editing their own order is held to the same stock rule as
+      // placing it. Only when lines are actually being changed.
+      const editorType = String(context?.user?.type || "");
+      if (Array.isArray(input?.productservice) && (editorType === "party" || editorType === "account")) {
+        const current: any = await SalesOrder.findById(id).select("adminid branchid").lean();
+        await assertPartyOrderWithinStock({
+          isParty: true,
+          adminid: input.adminid ?? current?.adminid,
+          branchid: input.branchid ?? current?.branchid,
+          productservice: input.productservice,
+        });
+      }
+
       // Re-evaluate charge rules when this is a real line-item edit (i.e. a
       // new subtotal was sent, same as addSalesOrder). Partial updates from
       // other flows (status/isConverted syncs) never send `subtotal`, so

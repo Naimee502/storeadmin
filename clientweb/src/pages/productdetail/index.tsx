@@ -35,7 +35,7 @@ export default function ProductDetailPage() {
   const [pendingQty, setPendingQty] = useState(1);
   useEffect(() => setPendingQty(1), [product, selectedUnit]);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
-  const { lines, addToCart, updateQty, removeFromCart } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart, remainingFor } = useCart();
   const { displayProductPrice, displayStock } = useTenant();
   // Display-only x2 markup (Business Settings -> "Show Double Price"). The
   // Add-to-cart button below is untouched — it hands the cart the real rate.
@@ -70,18 +70,22 @@ export default function ProductDetailPage() {
   // real quantity already in the cart instead of resetting to 1.
   const lineId = `${product.id}-${selectedUnit}`;
   const line = lines.find((l) => l.lineId === lineId);
-  const atStockLimit = typeof product.stock === "number" && !!line && line.qty >= product.stock;
+  // How many more may go in — Infinity when "Restrict quantity by stock" is
+  // off. Before the first add, the stepper can't be pushed past it either.
+  const remaining = remainingFor(product, selectedUnit);
+  const blocked = !line && remaining < 1;
+  const atStockLimit = line ? remaining < 1 : pendingQty >= remaining;
   const displayQty = line ? line.qty : pendingQty;
 
   const handleAdd = () => {
-    if (outOfStock) return;
-    addToCart(product, pendingQty, selectedUnit);
+    if (blocked) return;
+    addToCart(product, Math.min(pendingQty, remaining), selectedUnit);
   };
 
   const handleIncrement = () => {
     if (line) {
       if (!atStockLimit) updateQty(line.lineId, line.qty + 1);
-    } else {
+    } else if (!atStockLimit) {
       setPendingQty((q) => q + 1);
     }
   };
@@ -226,11 +230,11 @@ export default function ProductDetailPage() {
             {/* Quantity + actions */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <div className="flex items-center rounded-lg border border-slate-200">
-                <button onClick={handleDecrement} disabled={outOfStock} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Decrease quantity">
+                <button onClick={handleDecrement} disabled={blocked} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Decrease quantity">
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="w-10 text-center text-sm font-semibold">{displayQty}</span>
-                <button onClick={handleIncrement} disabled={outOfStock || atStockLimit} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Increase quantity">
+                <button onClick={handleIncrement} disabled={blocked || atStockLimit} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Increase quantity">
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
@@ -242,15 +246,15 @@ export default function ProductDetailPage() {
               ) : (
                 <button
                   onClick={handleAdd}
-                  disabled={outOfStock}
+                  disabled={blocked}
                   className={`flex-1 rounded-lg px-6 py-3 text-sm font-semibold text-white transition sm:flex-none ${
-                    outOfStock ? "bg-slate-300" : "bg-ink-900 hover:bg-brand-700"
+                    blocked ? "bg-slate-300" : "bg-ink-900 hover:bg-brand-700"
                   }`}
                 >
-                  {outOfStock ? "Unavailable" : "Add to Cart"}
+                  {blocked ? "Unavailable" : "Add to Cart"}
                 </button>
               )}
-              {!outOfStock && (
+              {!blocked && (
                 <Link
                   to="/checkout"
                   className="flex-1 rounded-lg bg-accent-600 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-accent-700 sm:flex-none"
