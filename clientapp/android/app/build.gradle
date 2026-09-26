@@ -157,11 +157,12 @@ android {
         // Arsi Agarbatti — admin code #ADM0002. Same package as the app already
         // on Play, so this build UPDATES it. versionCode must be higher than the
         // one currently live (Play Console → App bundle explorer).
+        // Live on Play: versionCode 1 (1.0) -> this upload is 2.
         arsi {
             dimension "app"
             applicationId "com.arsi.agarbatti"
             signingConfig project.hasProperty('ARSI_UPLOAD_STORE_FILE') ? signingConfigs.arsiRelease : signingConfigs.debug
-            versionCode 100
+            versionCode 2
             versionName "2.0"
         }
     }
