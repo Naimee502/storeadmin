@@ -22,3 +22,5 @@ export { default as BillAllocation } from './billallocation';
 export type { Allocation } from './billallocation';
 
 export { useNotificationCenter } from './notificationcenter';
+export { AppTour, tourRef, resetTour } from './apptour';
+export type { TourStep } from './apptour';

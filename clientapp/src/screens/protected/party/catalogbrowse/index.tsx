@@ -10,7 +10,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FONTS, useTheme } from '../../../../config';
 import { GET_CATEGORIES, GET_SUBCATEGORIES } from '../../../../apollo/queries/categories';
 import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
-import { AppHeader, AppTextInput, HeroBanner, useNotificationCenter } from '../../../../components';
+import { AppHeader, AppTextInput, AppTour, HeroBanner, tourRef, useNotificationCenter } from '../../../../components';
+import type { TourStep } from '../../../../components';
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
 import { addToCart } from '../../../../store/slices';
 import { useUI } from '../../../../utils';
@@ -37,6 +38,24 @@ type Stage =
  * strictly linear, the data is one products query the whole way down, and
  * keeping it here means the tab bar's back behaviour stays with the tab.
  */
+// First-time guides for the catalogue Home (Business Settings → "App Home
+// browses a catalogue"). Different screen, different controls, so a different
+// tour from the storefront Home's — each shown once per party on this device.
+const CATALOG_HOME_TOUR: TourStep[] = [
+  { target: 'cat-menu',  title: 'Menu',          text: 'Open your profile, ledger, addresses and other options from here.' },
+  { target: 'cat-bell',  title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
+  { target: 'cat-cart',  title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
+  { target: 'cat-tiles', title: 'Categories',    text: 'Tap a category, then a sub-category, to open its order sheet.' },
+  { target: 'tabbar',    title: 'Get Around',    text: 'Jump between Home, Shop, Orders, Payments and your Profile from here.' },
+];
+
+// The order sheet is a screen of its own the first time someone reaches it.
+const ORDER_SHEET_TOUR: TourStep[] = [
+  { target: 'sheet-qty',   title: 'Quantity',    text: 'Type how many you want against each item. Leave it empty to skip that item.' },
+  { target: 'sheet-image', title: 'Photo',       text: 'Tap to see the product picture.' },
+  { target: 'sheet-add',   title: 'Add to Cart', text: 'Adds every item you typed a quantity for in one go. Cancel goes back.' },
+];
+
 export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
   const { colors, isDark } = useTheme();
   const dispatch = useDispatch();
@@ -50,6 +69,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
   const heroSlides = useHeroBannerSlides();
 
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const userId = useSelector((s: RootState) => s.auth.user?.id) ?? '';
   const cartItems = useSelector((s: RootState) => s.cart.items);
   const restrictQty = useRestrictQtyByStock();
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
@@ -291,10 +311,12 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
         label={title}
         leftIcon={stage.name === 'categories' ? 'menu' : 'arrow-left'}
         onPress={stage.name === 'categories' ? undefined : goBack}
+        menuTourId={variant === 'home' && stage.name === 'categories' ? 'cat-menu' : undefined}
         rightIcons={[
-          bellIcon,
+          { ...bellIcon, tourId: variant === 'home' ? 'cat-bell' : undefined },
           {
             id: 'cart',
+            tourId: variant === 'home' ? 'cat-cart' : undefined,
             name: 'cart-outline',
             color: colors.brand,
             // Units, not lines: a sheet with 10 typed against one product has
@@ -343,7 +365,9 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
               />
             </View>
           )}
-          <TileGrid tiles={categoryTiles} onPress={openCategory} emptyLabel="No categories yet." />
+          <View ref={variant === 'home' ? tourRef('cat-tiles') : undefined} collapsable={false}>
+            <TileGrid tiles={categoryTiles} onPress={openCategory} emptyLabel="No categories yet." />
+          </View>
         </ScrollView>
       )}
 
@@ -389,7 +413,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                 <Text style={[styles.emptyText, { color: colors.subText }]}>No items here yet.</Text>
               </View>
             ) : (
-              sheetProducts.map((p: any) => {
+              sheetProducts.map((p: any, rowIndex: number) => {
                 const pack = packLine(p);
                 const up = p?.productvariants?.[0]?.unitprices?.[0];
                 // Same rule the product grid uses, so one product never shows
@@ -414,6 +438,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                     </View>
 
                     <TextInput
+                      ref={rowIndex === 0 ? (tourRef('sheet-qty') as any) : undefined}
                       style={[styles.qtyInput, { borderColor: colors.brand, color: colors.text }]}
                       value={qty[p.id] ?? ''}
                       onChangeText={(t) => setQty((q) => ({ ...q, [p.id]: t.replace(/[^0-9]/g, '') }))}
@@ -424,6 +449,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                     />
 
                     <TouchableOpacity
+                      ref={rowIndex === 0 ? (tourRef('sheet-image') as any) : undefined}
                       style={styles.imgBtn}
                       activeOpacity={0.7}
                       disabled={!p.imageurl}
@@ -457,7 +483,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                 <Text style={[styles.actionText, { color: colors.onBrand }]}>Cancel</Text>
               </TouchableOpacity>
               <View style={[styles.actionDivider, { backgroundColor: colors.onBrand }]} />
-              <TouchableOpacity style={styles.actionBtn} onPress={addSheetToCart} activeOpacity={0.8}>
+              <TouchableOpacity ref={tourRef('sheet-add') as any} style={styles.actionBtn} onPress={addSheetToCart} activeOpacity={0.8}>
                 <Text style={[styles.actionText, { color: colors.onBrand }]}>Add to Cart</Text>
               </TouchableOpacity>
             </View>
@@ -466,6 +492,21 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
       )}
 
       <ImageViewer uri={preview} onClose={() => setPreview(null)} />
+
+      {variant === 'home' && stage.name === 'categories' && (
+        <AppTour
+          steps={CATALOG_HOME_TOUR}
+          storageKey={`tour.catalogHome.${userId}`}
+          enabled={!!userId && !!catData}
+        />
+      )}
+      {stage.name === 'products' && (
+        <AppTour
+          steps={ORDER_SHEET_TOUR}
+          storageKey={`tour.orderSheet.${userId}`}
+          enabled={!!userId && sheetProducts.length > 0}
+        />
+      )}
     </View>
   );
 }

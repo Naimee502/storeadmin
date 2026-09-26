@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme, NavConfig, IMAGES } from '../config';
+import { tourRef } from './apptour';
 
 export const HEADER_ICONS = {
   menu: 'menu',
@@ -14,7 +15,7 @@ export const HEADER_ICONS = {
   home: 'home-outline',
 } as const;
 
-const LeftSection = ({ type, label, leftIcon, handleLeftPress, onLongPress, colors, showMenuIcon }: any) => {
+const LeftSection = ({ type, label, leftIcon, handleLeftPress, onLongPress, colors, showMenuIcon, menuTourId }: any) => {
   const isAppTypeWithoutMenu = type === 'app' && !showMenuIcon;
 
   return (
@@ -26,7 +27,9 @@ const LeftSection = ({ type, label, leftIcon, handleLeftPress, onLongPress, colo
       disabled={isAppTypeWithoutMenu}
     >
       {!isAppTypeWithoutMenu && (
-        <Icon name={leftIcon} size={24} color={colors.brand} />
+        <View ref={menuTourId ? (tourRef(menuTourId) as any) : undefined} collapsable={false}>
+          <Icon name={leftIcon} size={24} color={colors.brand} />
+        </View>
       )}
       {isAppTypeWithoutMenu && (
         <Image
@@ -55,6 +58,8 @@ const RightSection = ({ rightIcons, colors }: any) => (
     {rightIcons.map((icon: any) => (
       <TouchableOpacity
         key={icon.id}
+        // Optional first-time-guide target (see components/apptour).
+        ref={icon.tourId ? (tourRef(icon.tourId) as any) : undefined}
         style={[styles.iconButton, icon.style]}
         onPress={icon.onPress}
         onLongPress={icon.onLongPress}
@@ -95,6 +100,7 @@ export const DynamicHeader = (props: any) => {
     rightIcons = [],
     style = {},
     showMenuIcon = true,
+    menuTourId,
   } = props;
 
   const handleLeftPress = () => {
@@ -142,6 +148,7 @@ export const DynamicHeader = (props: any) => {
         onLongPress={onLongPress}
         colors={colors}
         showMenuIcon={shouldShowMenuIcon}
+        menuTourId={menuTourId}
       />
       {type === 'back' ? (
         <>

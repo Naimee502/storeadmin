@@ -59,4 +59,12 @@ const { status } = spawnSync(
   ['run-android', '--mode', config.mode, '--appId', config.appId],
   { stdio: 'inherit', shell: true },
 );
+
+// Again, now that a device is certainly up. When no emulator was running,
+// run-android launches one AFTER the reverse above — which then had nothing to
+// attach to, so the app came up with "Network request failed" on localhost:4000.
+for (const port of ['4000', '8081']) {
+  spawnSync(adb, ['reverse', `tcp:${port}`, `tcp:${port}`], { stdio: 'ignore' });
+}
+if (status === 0) console.log('adb reverse tcp:4000 / tcp:8081 set — reload the app if it opened before this.');
 process.exit(status ?? 1);

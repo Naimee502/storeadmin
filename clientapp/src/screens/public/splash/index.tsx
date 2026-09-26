@@ -10,8 +10,12 @@ import Animated, {
   withSpring, withDelay, FadeInUp, FadeInDown,
 } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS, FONTS, STRINGS, useTheme } from '../../../config';
+import { useSelector } from 'react-redux';
+import { COLORS, FONTS, STRINGS, useTheme, IMG } from '../../../config';
+import { AppImage } from '../../../components';
 import { useAuth } from '../../../navigation';
+import type { RootState } from '../../../store/rootreducer';
+import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
 
 const { height } = Dimensions.get('window');
 
@@ -78,6 +82,16 @@ const Splash = () => {
   const { colors, isDark } = useTheme();
   const sText = STRINGS.splash;
 
+  // This flavour's business (auto-activated from the build's admin code) —
+  // same logo and name the intro screen shows. Until activation lands we fall
+  // back to the generic mark and "Business Suite".
+  const companyName = useSelector((s: RootState) => s.tenant.companyName);
+  // Live from the server (same hook the login screen uses), falling back to the
+  // logo stored at activation — so a logo added later still shows here.
+  const brandLogo = useBrandLogo();
+  // 'My Business' is the slice's placeholder for "nothing activated yet".
+  const businessName = companyName && companyName !== 'My Business' ? companyName : '';
+
   const badgeScale      = useSharedValue(0);
   const dividerWidth    = useSharedValue(0);
   const buttonScale     = useSharedValue(1);
@@ -137,10 +151,16 @@ const Splash = () => {
                 colors={[colors.raisedSurface, colors.brandSoft]}
                 style={[styles.badgeGradient, { borderColor: colors.border }]}
               >
-                <Icon name="store-outline" size={58} color={accent} />
-                <Animated.View style={[styles.trendBadge, trendStyle, { backgroundColor: accent, shadowColor: accent }]}>
-                  <Icon name="trending-up" size={22} color={colors.onBrand} />
-                </Animated.View>
+                {brandLogo ? (
+                  <AppImage uri={brandLogo} width={IMG.logo} style={styles.brandLogo} resizeMode="contain" instant />
+                ) : (
+                  <>
+                    <Icon name="store-outline" size={42} color={accent} />
+                    <Animated.View style={[styles.trendBadge, trendStyle, { backgroundColor: accent, shadowColor: accent }]}>
+                      <Icon name="trending-up" size={16} color={colors.onBrand} />
+                    </Animated.View>
+                  </>
+                )}
               </LinearGradient>
             </Animated.View>
           </View>
@@ -148,11 +168,22 @@ const Splash = () => {
           {/* Bottom text + button */}
           <View style={styles.contentBottom}>
             <Animated.View entering={FadeInUp.duration(1000).delay(300)} style={styles.textContainer}>
-              <Text style={[styles.title, { color: colors.text }]}>
-                <Text style={{ opacity: 0.7, fontFamily: FONTS.regular }}>{sText.title.split(' ')[0]}</Text>
-                {' '}
-                <Text style={{ fontFamily: FONTS.bold, color: accent }}>{sText.title.split(' ')[1] || 'Suite'}</Text>
-              </Text>
+              {businessName ? (
+                <Text
+                  style={[styles.title, styles.companyTitle, { color: accent }]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {businessName}
+                </Text>
+              ) : (
+                <Text style={[styles.title, { color: colors.text }]}>
+                  <Text style={{ opacity: 0.7, fontFamily: FONTS.regular }}>{sText.title.split(' ')[0]}</Text>
+                  {' '}
+                  <Text style={{ fontFamily: FONTS.bold, color: accent }}>{sText.title.split(' ')[1] || 'Suite'}</Text>
+                </Text>
+              )}
 
               <View style={styles.dividerContainer}>
                 <Animated.View style={[styles.dividerLine, dividerStyle, { backgroundColor: colors.border }]} />
@@ -207,13 +238,15 @@ const styles = StyleSheet.create({
   glowTwo:      { bottom: 110, left: -48, height: 150, borderTopRightRadius: 110, transform: [{ rotate: '-8deg' }] },
   innerContent: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'space-between' },
   heroContainer:{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', marginTop: height * 0.05 },
-  pulseRing:    { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 1.5 },
-  badgeContainer: { width: 156, height: 156, borderRadius: 42, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, overflow: 'hidden' },
-  badgeGradient:  { flex: 1, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderRadius: 42 },
-  trendBadge:   { position: 'absolute', top: 30, right: 30, borderRadius: 14, padding: 4, elevation: 3, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
+  pulseRing:    { position: 'absolute', width: 104, height: 104, borderRadius: 52, borderWidth: 1.5 },
+  badgeContainer: { width: 112, height: 112, borderRadius: 30, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, overflow: 'hidden' },
+  badgeGradient:  { flex: 1, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderRadius: 30 },
+  brandLogo:    { width: 76, height: 76, borderRadius: 16 },
+  trendBadge:   { position: 'absolute', top: 20, right: 20, borderRadius: 11, padding: 3, elevation: 3, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
   contentBottom:{ width: '100%', alignItems: 'center', marginBottom: height * 0.03 },
   textContainer:{ alignItems: 'center', marginBottom: height * 0.05 },
   title:        { fontSize: 40, textAlign: 'center', fontFamily: FONTS.bold, lineHeight: 46 },
+  companyTitle: { fontSize: 32, lineHeight: 40, paddingHorizontal: 12 },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 14, height: 20, width: '100%' },
   dividerLine:  { height: 1, position: 'absolute' },
   dividerIconContainer: { paddingHorizontal: 8, zIndex: 2 },

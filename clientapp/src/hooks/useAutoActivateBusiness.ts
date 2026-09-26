@@ -44,7 +44,7 @@ export const useAutoActivateBusiness = () => {
         
         if (!admin) {
           console.error('❌ Business code not found:', adminCode);
-          toast.show(`Business code ${adminCode} not found. Check server connection.`, {
+          toast?.show?.(`Business code ${adminCode} not found. Check server connection.`, {
             type: 'danger',
             duration: 4000,
           });
@@ -102,7 +102,11 @@ export const useAutoActivateBusiness = () => {
                          error?.message?.toLowerCase().includes('fetch');
         
         console.error('❌ Auto-activation failed:', error);
-        toast.show(
+        // useToast() hands back an empty object until <ToastProvider> has
+        // mounted its ref — on a cold start that is exactly when this runs, and
+        // calling show() then threw "undefined is not a function" on top of the
+        // real error. Optional-call so a failed activation only logs.
+        toast?.show?.(
           isNetwork
             ? 'Cannot connect to server. Check your internet connection.'
             : 'Failed to activate business. Please check the admin code.',

@@ -7,8 +7,8 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { FONTS, STRINGS, useTheme } from '../../../../config';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
-import { AppHeader, AppTextInput, CategoryStrip, ProductCatalog, useNotificationCenter } from '../../../../components';
-import type { CategoryItem } from '../../../../components';
+import { AppHeader, AppTextInput, AppTour, CategoryStrip, ProductCatalog, tourRef, useNotificationCenter } from '../../../../components';
+import type { CategoryItem, TourStep } from '../../../../components';
 import { HomeBanner } from './homebanner';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -27,6 +27,16 @@ import type { RootState } from '../../../../store/rootreducer';
  * in TradeOverview, which owns its own queries and is built here exactly once,
  * so neither its results nor its refetches reach the grid at all.
  */
+// First-time guide for a party's Home — shown once per party on this device.
+const HOME_TOUR: TourStep[] = [
+  { target: 'party-menu',     title: 'Menu',          text: 'Open your profile, ledger, addresses and other options from here.' },
+  { target: 'party-search',   title: 'Search',        text: 'Type a product name to find it quickly.' },
+  { target: 'party-bell',     title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
+  { target: 'party-cart',     title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
+  { target: 'party-category', title: 'Categories',    text: 'Pick a category to see only those products.' },
+  { target: 'tabbar',         title: 'Get Around',    text: 'Jump between Home, Shop, Orders, Payments and your Profile from here.' },
+];
+
 export default function PartyHome() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
@@ -34,6 +44,7 @@ export default function PartyHome() {
   const cartItems = useSelector((s: RootState) => s.cart.items);
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const userId = useSelector((s: RootState) => s.auth.user?.id) ?? '';
 
   // Every party, whatever its channel, gets the same storefront: search,
   // banner, categories, catalogue. No outstanding/pending cards or recent orders.
@@ -59,10 +70,11 @@ export default function PartyHome() {
 
       <AppHeader
         label={STRINGS.party.home}
+        menuTourId="party-menu"
         rightIcons={[
-          bellIcon,
+          { ...bellIcon, tourId: 'party-bell' },
           {
-            id: 'cart', name: 'cart-outline', color: colors.brand, badge: cartCount,
+            id: 'cart', tourId: 'party-cart', name: 'cart-outline', color: colors.brand, badge: cartCount,
             onPress: () => navigation.navigate('CartScreen'),
           },
         ]}
@@ -72,6 +84,7 @@ export default function PartyHome() {
       {/* Search and categories sit above the grid, exactly as on Shop, so
           neither unmounts while the catalogue reloads underneath. */}
       <View style={styles.headerWrap}>
+        <View ref={tourRef('party-search')} collapsable={false}>
         <AppTextInput
           leftIcon="magnify"
           placeholder={STRINGS.storefront.searchPlaceholder}
@@ -81,17 +94,28 @@ export default function PartyHome() {
           placeholderTextColor={colors.subText}
           containerStyle={{ marginBottom: 8, marginTop: 10 }}
         />
+        </View>
         <HomeBanner />
 
-        <CategoryStrip
-          categories={categories}
-          selected={category}
-          onSelect={setCategory}
-          contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
-        />
+        <View ref={tourRef('party-category')} collapsable={false}>
+          <CategoryStrip
+            categories={categories}
+            selected={category}
+            onSelect={setCategory}
+            contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
+          />
+        </View>
       </View>
 
       <ProductCatalog search={search} category={category} />
+
+      {/* Categories arrive from the server — wait for the query so that step
+          has something to point at (a business with none just skips it). */}
+      <AppTour
+        steps={HOME_TOUR}
+        storageKey={`tour.partyHome.${userId}`}
+        enabled={!!userId && !!categoriesData}
+      />
 
       {cartCount > 0 && (
         <TouchableOpacity

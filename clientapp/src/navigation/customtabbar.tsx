@@ -6,6 +6,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme } from '../config';
 import { usePunchGate } from '../apollo/hooks/attendance';
+import { tourRef } from '../components/apptour';
 
 // Tabs reachable WITHOUT punching in: the dashboard (landing tab), the
 // attendance tab itself (needed to punch in) and profile (so sign-out is
@@ -28,7 +29,7 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
   if (activeOptions?.tabBarStyle?.display === 'none') return null;
 
   return (
-    <View style={[
+    <View ref={tourRef('tabbar')} collapsable={false} style={[
       styles.container,
       {
         backgroundColor: colors.tabBarBg,
