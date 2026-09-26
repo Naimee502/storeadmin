@@ -34,7 +34,7 @@ const HOME_TOUR: TourStep[] = [
   { target: 'party-bell',     title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
   { target: 'party-cart',     title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
   { target: 'party-category', title: 'Categories',    text: 'Pick a category to see only those products.' },
-  { target: 'tabbar',         title: 'Get Around',    text: 'Jump between Home, Shop, Orders, Payments and your Profile from here.' },
+  { target: 'tabbar',         title: 'Get Around',    text: 'Jump between your main screens — Home, Shop, Orders and more — from here.' },
 ];
 
 export default function PartyHome() {

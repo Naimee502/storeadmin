@@ -24,6 +24,7 @@ import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
+import { usePaymentsEnabled } from "../../hooks/useModuleEnabled";
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function Header() {
   const { isLoggedIn, account, logout } = useAuth();
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail, brandLogo } = useTenant();
+  const paymentsEnabled = usePaymentsEnabled();
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.
@@ -184,13 +186,15 @@ export default function Header() {
                     >
                       <Package className="h-4 w-4" /> My Orders
                     </Link>
-                    <Link
-                      to="/account?tab=payments"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
-                    >
-                      <Wallet className="h-4 w-4" /> Payments
-                    </Link>
+                    {paymentsEnabled && (
+                      <Link
+                        to="/account?tab=payments"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                      >
+                        <Wallet className="h-4 w-4" /> Payments
+                      </Link>
+                    )}
                     <Link
                       to="/account/notifications"
                       onClick={() => setAccountMenuOpen(false)}

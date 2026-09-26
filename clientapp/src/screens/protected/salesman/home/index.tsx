@@ -13,6 +13,7 @@ import { AppHeader, useNotificationCenter } from '../../../../components';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { GET_SALES_ORDERS, GET_PAYMENTS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
+import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -31,6 +32,7 @@ function orderLabel(o: any): string {
 export default function SalesmanDashboard() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const paymentsEnabled = usePaymentsEnabled();
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const adminid = tenant.adminId ?? '';
@@ -124,14 +126,18 @@ export default function SalesmanDashboard() {
             </View>
             <Text style={[styles.todayValue, { color: colors.text }]} numberOfLines={1}>{formatINR(todaySales)}</Text>
           </View>
-          <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.todayHalf}>
-            <View style={styles.todayLabelRow}>
-              <Icon name="cash-check" size={13} color="#16a34a" />
-              <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
-            </View>
-            <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(todayCollection)}</Text>
-          </View>
+          {paymentsEnabled && (
+            <>
+              <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.todayHalf}>
+                <View style={styles.todayLabelRow}>
+                  <Icon name="cash-check" size={13} color="#16a34a" />
+                  <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
+                </View>
+                <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(todayCollection)}</Text>
+              </View>
+            </>
+          )}
         </Animated.View>
 
         {/* Compact stat strip */}
@@ -142,7 +148,7 @@ export default function SalesmanDashboard() {
           {[
             { value: String(todayOrders.length),  label: 'Orders',     color: '#3b82f6' },
             { value: String(pending),             label: 'Pending',    color: '#f59e0b' },
-            { value: formatINR(totalOutstanding), label: 'To Collect', color: '#ef4444' },
+            ...(paymentsEnabled ? [{ value: formatINR(totalOutstanding), label: 'To Collect', color: '#ef4444' }] : []),
             { value: String(parties.length),      label: 'Parties',    color: '#8b5cf6' },
           ].map((s, i) => (
             <React.Fragment key={s.label}>

@@ -12,6 +12,7 @@ import { formatINR, formatBillNumber } from '../../../../utils';
 import { GET_DELIVERY_POOL, GET_MY_DELIVERIES } from '../../../../apollo/queries/accounts';
 import { ASSIGN_INVOICE_DELIVERY_BOY, MARK_SALES_INVOICE_DELIVERED } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
+import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
 type FilterKey = 'available' | 'out' | 'delivered';
@@ -85,6 +86,7 @@ function openInMaps(lat: number, lng: number, label: string, fromLoc: LatLng | n
 export default function DeliveryList() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const paymentsEnabled = usePaymentsEnabled();
 
   const adminId = useSelector((s: RootState) => s.tenant.adminId);
   const user    = useSelector((s: RootState) => s.auth.user);
@@ -285,7 +287,7 @@ export default function DeliveryList() {
                   <Icon name="check" size={12} color={colors.onBrand} />
                   <Text style={[styles.actionBtnText, { color: colors.onBrand }]}>Delivered</Text>
                 </TouchableOpacity>
-                {item.outstanding > 0 && (
+                {paymentsEnabled && item.outstanding > 0 && (
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: '#22c55e' }]}
                     onPress={() => handleCollectPayment(item)}

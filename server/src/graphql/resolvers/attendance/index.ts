@@ -5,6 +5,7 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Branch } from "../../../models/branches";
 import { pushNotification } from "../../../models/notifications";
 import { Admin } from "../../../models/admin";
+import { recomputeAttendanceTotals } from "../../../utils/attendancetotals";
 
 // Display name for the acting user. Branch/admin tokens only carry an email,
 // so look the proper name up from the DB; staff tokens get their staff name.
@@ -357,25 +358,7 @@ export const attendanceResolvers = {
         deviceInfo: input.deviceInfo, ipAddress: ctx?.req?.ip, remarks: input.remarks,
       };
       log.punches.push(punch);
-      const sorted = [...log.punches].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      let firstIn: Date | null = null;
-      let lastOut: Date | null = null;
-      let workMs = 0;
-      let breakMs = 0;
-      let openIn: Date | null = null;
-      let openBreak: Date | null = null;
-      for (const p of sorted) {
-        const t = new Date(p.timestamp);
-        if (p.type === "in") { if (!firstIn) firstIn = t; openIn = t; }
-        else if (p.type === "out") { lastOut = t; if (openIn) { workMs += t.getTime() - openIn.getTime(); openIn = null; } }
-        else if (p.type === "breakstart") { openBreak = t; }
-        else if (p.type === "breakend") { if (openBreak) { breakMs += t.getTime() - openBreak.getTime(); openBreak = null; } }
-      }
-      log.firstPunchIn = firstIn || log.firstPunchIn;
-      log.lastPunchOut = lastOut || log.lastPunchOut;
-      log.totalWorkMinutes = Math.round(workMs / 60000);
-      log.totalBreakMinutes = Math.round(breakMs / 60000);
-      if (log.status === "absent") log.status = "present";
+      recomputeAttendanceTotals(log);
       await log.save();
 
       // ── Notifications ──────────────────────────────────────────

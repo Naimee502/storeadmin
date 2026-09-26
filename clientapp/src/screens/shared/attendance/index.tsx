@@ -92,6 +92,8 @@ export default function AttendanceScreen() {
     id: l.id, date: l.date, status: l.status,
     inTime:  fmtTime(l.firstPunchIn),
     outTime: fmtTime(l.lastPunchOut),
+    // The server closed this day because nobody punched out — say so next to the time.
+    autoOut: (l.punches ?? []).some((p: any) => p?.type === 'out' && p?.isAutoOut),
     totalWorkMinutes: l.totalWorkMinutes ?? 0,
   })), [logsData]);
 
@@ -239,7 +241,7 @@ export default function AttendanceScreen() {
         </View>
         {log.inTime && (
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.logTime, { color: colors.text }]}>{log.inTime} → {log.outTime ?? '–'}</Text>
+            <Text style={[styles.logTime, { color: colors.text }]}>{log.inTime} → {log.outTime ?? '–'}{log.autoOut ? ' (auto)' : ''}</Text>
             <Text style={[styles.logWork, { color: colors.subText }]}>{formatMinutes(log.totalWorkMinutes)}</Text>
           </View>
         )}

@@ -10,6 +10,7 @@ import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/slices';
 import type { RootState } from '../store/rootreducer';
+import { usePaymentsEnabled, PAYMENT_SCREENS } from '../apollo/hooks/admin';
 
 interface DrawerMenuItem {
   label: string;
@@ -97,7 +98,10 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const user = useSelector((state: RootState) => state.auth.user);
 
   const role  = user?.role ?? 'party';
-  const menu  = ROLE_MENUS[role] ?? PARTY_MENU;
+  const paymentsEnabled = usePaymentsEnabled();
+  const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
+    (m) => paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? ''),
+  );
   const label = ROLE_LABELS[role] ?? 'User';
 
   const tabState     = props.state.routes[0]?.state;

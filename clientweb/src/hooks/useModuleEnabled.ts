@@ -18,3 +18,10 @@ export function useModuleEnabled(moduleId: string): boolean {
   if (allowed === null || allowed.length === 0) return true;
   return allowed.some((m) => (m || "").toLowerCase() === moduleId.toLowerCase());
 }
+
+/**
+ * Business Settings → Business Modules → Accounting → "Payments". Off means
+ * the site shows no payment surface at all: no Payments tab or header link,
+ * and the sub-party payments / collect pages redirect back to My Account.
+ */
+export const usePaymentsEnabled = (): boolean => useModuleEnabled("payments");

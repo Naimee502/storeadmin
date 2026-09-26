@@ -5,6 +5,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
+import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { BackHeader } from '../../../../components';
@@ -27,6 +28,7 @@ export default function RoutePartyVisit() {
   const navigation = useNavigation<any>();
   const route      = useRoute<any>();
   const { colors, isDark } = useTheme();
+  const paymentsEnabled = usePaymentsEnabled();
   const dispatch   = useDispatch();
   const cartItems  = useSelector((s: RootState) => s.cart.items);
   const cartPartyId = useSelector((s: RootState) => s.cart.partyId);
@@ -176,7 +178,8 @@ export default function RoutePartyVisit() {
             },
             // Only when there's an actual due — avoids collecting twice on a
             // fully-paid party (no-due → button hidden).
-            ...(outstandingAmt > 0 ? [{
+            // Also gone when the business has the Payments module off.
+            ...(paymentsEnabled && outstandingAmt > 0 ? [{
               icon: 'cash-multiple',
               label: 'Collect Payment',
               sub: `${formatINR(outstandingAmt)} pending`,

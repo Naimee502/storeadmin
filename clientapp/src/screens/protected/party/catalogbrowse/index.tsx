@@ -46,7 +46,7 @@ const CATALOG_HOME_TOUR: TourStep[] = [
   { target: 'cat-bell',  title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
   { target: 'cat-cart',  title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
   { target: 'cat-tiles', title: 'Categories',    text: 'Tap a category, then a sub-category, to open its order sheet.' },
-  { target: 'tabbar',    title: 'Get Around',    text: 'Jump between Home, Shop, Orders, Payments and your Profile from here.' },
+  { target: 'tabbar',    title: 'Get Around',    text: 'Jump between your main screens — Home, Shop, Orders and more — from here.' },
 ];
 
 // The order sheet is a screen of its own the first time someone reaches it.

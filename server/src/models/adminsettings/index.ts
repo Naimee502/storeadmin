@@ -345,6 +345,16 @@ const adminSettingsSchema = new mongoose.Schema(
      */
     appCatalogBrowseMode: { type: Boolean, default: false },
 
+    /**
+     * Auto punch-out. A salesman / delivery boy / staff who forgets to punch
+     * out is punched out by the server at this time (IST, "HH:mm") — which also
+     * stops their live location tracking, since the app only tracks while a
+     * punch is open. The punch is stamped AT this time, not when the job ran,
+     * so worked hours stop there. On by default at 22:00.
+     */
+    autoPunchOutEnabled: { type: Boolean, default: true },
+    autoPunchOutTime: { type: String, default: "22:00" },
+
     /* ============================================================
        SOCIAL LINKS — website footer only shows an icon for a network
        once its URL is filled in here. No dummy/placeholder icons.

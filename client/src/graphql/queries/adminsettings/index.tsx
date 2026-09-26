@@ -70,6 +70,8 @@ const SETTINGS_FIELDS = `
   websiteHomeProductImageRatio
   websiteShopProductImageRatio
   appCatalogBrowseMode
+  autoPunchOutEnabled
+  autoPunchOutTime
   socialFacebookUrl
   socialInstagramUrl
   socialTwitterUrl

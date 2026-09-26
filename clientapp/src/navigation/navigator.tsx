@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getScreenComponent, useTheme } from '../config';
+import { usePaymentsEnabled, PAYMENT_SCREENS } from '../apollo/hooks/admin';
 import { CustomDrawerContent } from '.';
 import { CustomTabBar } from './customtabbar';
 
@@ -30,6 +31,33 @@ export const createNavigator = (config: any) => {
 
   const NavigatorComponent = () => {
     const { colors } = useTheme();
+    // Payments module off → the payment tabs and screens are not registered at
+    // all, so there is no tab, no drawer entry and no route to land on.
+    const paymentsEnabled = usePaymentsEnabled();
+    const visibleScreens = useMemo(
+      () => (paymentsEnabled ? screens : screens.filter((r: any) => !PAYMENT_SCREENS.has(r.name))),
+      [paymentsEnabled],
+    );
+    // Sub-navigator components built once per screen list. Building them inside
+    // the render below gave each render a brand-new component type, so any
+    // re-render here (the module query landing, say) would have remounted the
+    // whole tree beneath and thrown away its navigation state.
+    const subComponents = useMemo(() => {
+      const map: Record<string, any> = {};
+      screens.forEach((route: any) => {
+        if (route.subNavigator) {
+          map[route.name] = createNavigator({
+            ...route.subNavigator,
+            showDrawer: route.subNavigator.showDrawer ?? showDrawer,
+            showBottomTabs: route.subNavigator.showBottomTabs ?? showBottomTabs,
+          });
+        }
+      });
+      return map;
+      // Keyed on the static config, not visibleScreens: hiding a payment route
+      // must not rebuild (and so remount) the drawer/tabs beside it.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /**
      * freezeOnBlur is the important line here.
@@ -64,16 +92,12 @@ export const createNavigator = (config: any) => {
         {...(resolvedType === 'tabs'   ? { tabBar: (props) => <CustomTabBar {...props} /> } : {})}
       >
 
-        {screens.map((route: any) => {
+        {visibleScreens.map((route: any) => {
           let Component: any;
 
           if (route.subNavigator) {
             // Cascade flags down to sub-navigators unless explicitly overridden
-            Component = createNavigator({
-              ...route.subNavigator,
-              showDrawer: route.subNavigator.showDrawer ?? showDrawer,
-              showBottomTabs: route.subNavigator.showBottomTabs ?? showBottomTabs,
-            });
+            Component = subComponents[route.name];
           } else {
             Component = getScreenComponent(route.name);
           }

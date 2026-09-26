@@ -145,6 +145,10 @@ export const adminSettingsTypeDefs = gql`
     # sheet) instead of showing the storefront. Off by default.
     appCatalogBrowseMode: Boolean
 
+    # Auto punch-out for anyone still punched in at this time (IST, "HH:mm").
+    autoPunchOutEnabled: Boolean
+    autoPunchOutTime: String
+
     # Social links — footer only shows an icon once a URL is set here.
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -316,6 +320,8 @@ export const adminSettingsTypeDefs = gql`
     websiteHomeProductImageRatio: String
     websiteShopProductImageRatio: String
     appCatalogBrowseMode: Boolean
+    autoPunchOutEnabled: Boolean
+    autoPunchOutTime: String
 
     socialFacebookUrl: String
     socialInstagramUrl: String

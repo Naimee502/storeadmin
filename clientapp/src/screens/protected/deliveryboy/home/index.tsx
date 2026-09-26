@@ -11,6 +11,7 @@ import { AppHeader, useNotificationCenter } from '../../../../components';
 import { formatINR, formatBillNumber } from '../../../../utils';
 import { GET_DELIVERY_POOL, GET_MY_DELIVERIES, GET_PAYMENTS } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
+import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
@@ -22,6 +23,7 @@ const STATUS_META: Record<string, { color: string; icon: string; label: string }
 export default function DeliveryDashboard() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
+  const paymentsEnabled = usePaymentsEnabled();
   const user    = useSelector((s: RootState) => s.auth.user);
   const adminId = useSelector((s: RootState) => s.tenant.adminId);
   const { bellIcon, NotificationsModal } = useNotificationCenter();
@@ -116,14 +118,18 @@ export default function DeliveryDashboard() {
               {deliveredToday.length}
             </Text>
           </View>
-          <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.todayHalf}>
-            <View style={styles.todayLabelRow}>
-              <Icon name="cash-check" size={13} color="#16a34a" />
-              <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
-            </View>
-            <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(collectedToday)}</Text>
-          </View>
+          {paymentsEnabled && (
+            <>
+              <View style={[styles.todayVDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.todayHalf}>
+                <View style={styles.todayLabelRow}>
+                  <Icon name="cash-check" size={13} color="#16a34a" />
+                  <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
+                </View>
+                <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(collectedToday)}</Text>
+              </View>
+            </>
+          )}
         </Animated.View>
 
         {/* Compact stat strip */}
@@ -153,7 +159,7 @@ export default function DeliveryDashboard() {
           <View style={styles.actionsRow}>
             {[
               { icon: 'truck-delivery-outline', label: 'Deliveries',  screen: 'DeliveryList',        color: '#f59e0b' },
-              { icon: 'cash-multiple',          label: 'Collections', screen: 'DeliveryCollections', color: '#22c55e' },
+              ...(paymentsEnabled ? [{ icon: 'cash-multiple', label: 'Collections', screen: 'DeliveryCollections', color: '#22c55e' }] : []),
               { icon: 'calendar-check-outline', label: 'Attendance',  screen: 'DeliveryAttendance',  color: '#3b82f6' },
             ].map((a) => (
               <TouchableOpacity

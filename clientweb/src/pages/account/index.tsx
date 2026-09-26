@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { usePaymentsEnabled } from "../../hooks/useModuleEnabled";
 import { Navigate, useNavigate, useSearchParams, Link } from "react-router";
 import { useQuery } from "@apollo/client";
 import {
@@ -83,7 +84,12 @@ export default function AccountPage() {
   // /account, since the path itself never changed.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as Tab | null;
-  const tab: Tab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : "dashboard";
+  // Payments module off → no Payments tab, and ?tab=payments falls back to the dashboard.
+  const paymentsEnabled = usePaymentsEnabled();
+  const tab: Tab =
+    tabParam && VALID_TABS.includes(tabParam) && (paymentsEnabled || tabParam !== "payments")
+      ? tabParam
+      : "dashboard";
   const setTab = (t: Tab) => {
     setSearchParams(t === "dashboard" ? {} : { tab: t });
   };
@@ -224,7 +230,7 @@ export default function AccountPage() {
             </div>
 
             <nav className="space-y-1 rounded-2xl border border-slate-100 p-2">
-              {navItems.map(({ id, label, icon: Icon }) => (
+              {navItems.filter(({ id }) => paymentsEnabled || id !== "payments").map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}

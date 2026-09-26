@@ -13,6 +13,7 @@ import jwt from 'jsonwebtoken';
 import { generateTokens, sendRefreshToken } from './utils/auth';
 import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
+import { startAutoPunchOutScheduler } from './utils/autopunchout';
 import { imageResizer } from './utils/imagecache';
 
 dotenv.config();
@@ -141,6 +142,8 @@ const startServer = async () => {
 
   // Month-end outstanding reminders (in-app, customers only).
   startReminderScheduler();
+  // Punch out anyone who forgot, at the business's cut-off (default 22:00 IST).
+  startAutoPunchOutScheduler();
 };
 
 startServer();

@@ -298,6 +298,30 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         </p>
       </Section>
 
+      <Section title="Attendance">
+        <Toggle
+          label="Auto punch-out if someone forgets to punch out"
+          checked={draft.autoPunchOutEnabled !== false}
+          onChange={(v: boolean) => set("autoPunchOutEnabled", v)}
+        />
+        {draft.autoPunchOutEnabled !== false && (
+          <div className="flex items-center justify-between text-sm">
+            <span>Auto punch-out time</span>
+            <input
+              type="time"
+              className="border rounded px-2 py-1 text-sm"
+              value={draft.autoPunchOutTime || "22:00"}
+              onChange={(e) => set("autoPunchOutTime", e.target.value || "22:00")}
+            />
+          </div>
+        )}
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          Staff, salesmen and delivery boys still punched in at this time are punched out automatically, stamped at
+          this time, so their worked hours stop there and live location tracking ends. They and you get a notification.
+          Someone who punched in after this time is closed at 11:59 PM that day instead.
+        </p>
+      </Section>
+
       <Section title="Invoice Print">
         <Toggle
           label="Show company header (name, address, city, mobile) on print"

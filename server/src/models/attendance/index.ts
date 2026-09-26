@@ -9,7 +9,7 @@ const punchSubSchema = new mongoose.Schema(
     accuracy: { type: Number },
     address: { type: String },
     routeid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesRoute" },
-    source: { type: String, enum: ["web", "mobile", "biometric", "kiosk", "manual"], default: "web" },
+    source: { type: String, enum: ["web", "mobile", "biometric", "kiosk", "manual", "auto"], default: "web" },
     selfieUrl: { type: String },
     deviceInfo: { type: String },
     ipAddress: { type: String },

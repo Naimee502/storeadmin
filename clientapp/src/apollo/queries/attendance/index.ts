@@ -26,7 +26,7 @@ export const GET_ATTENDANCE_LOGS = gql`
       firstPunchIn
       lastPunchOut
       totalWorkMinutes
-      punches { id type timestamp latitude longitude }
+      punches { id type timestamp latitude longitude isAutoOut }
     }
   }
 `;

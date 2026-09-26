@@ -20,3 +20,25 @@ export const useModuleEnabled = (moduleId: string): boolean => {
   if (allowed === null || allowed.length === 0) return true;
   return allowed.some((m) => (m || '').toLowerCase() === moduleId.toLowerCase());
 };
+
+/**
+ * Business Settings → Business Modules → Accounting → "Payments".
+ *
+ * Off means the business does not take payments through the app at all, so
+ * every payment surface disappears for every role — the party's Payments tab,
+ * the salesman's and delivery boy's Collect Payment, the Collections tab, the
+ * "Collected" figures on their dashboards. PAYMENT_SCREENS below is also
+ * dropped from the navigators, so nothing can reach them by a stale link.
+ */
+export const PAYMENTS_MODULE = 'payments';
+export const usePaymentsEnabled = (): boolean => useModuleEnabled(PAYMENTS_MODULE);
+
+/** Every route that exists only to show or take a payment. */
+export const PAYMENT_SCREENS = new Set<string>([
+  'Payments',               // party tab
+  'PartyPaymentsView',      // channel party → a sub-party's payments
+  'PaymentDetail',
+  'CollectPayment',         // party (downline) + salesman
+  'DeliveryCollections',    // delivery boy tab
+  'DeliveryCollectPayment',
+]);
