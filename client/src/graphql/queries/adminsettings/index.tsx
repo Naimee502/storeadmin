@@ -30,6 +30,7 @@ const SETTINGS_FIELDS = `
   partyManagesDownline
   requirePartyApproval
   enablePaymentDiscountCommission
+  showLastPaymentOnStatement
   paymentAutoSettlement
   paymentAllocationOrder
   autoAdjustAdvanceOnInvoice

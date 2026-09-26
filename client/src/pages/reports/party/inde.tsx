@@ -156,6 +156,8 @@ const PartyReports: React.FC = () => {
   // Off means the business never collects a concession, so the statement stays
   // the plain Debit / Credit sheet it has always been.
   const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
+  // Per-business flag: show when the party last paid, above the statement.
+  const showLastPayment = !!adminSettingsData?.getAdminSettings?.showLastPaymentOnStatement;
 
   const accounts = [...(accountsData?.getAccounts || [])].reverse();
   const payments = paymentsData?.getPayments || [];
@@ -733,6 +735,52 @@ const PartyReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statementParty, salesInvoices, purchaseInvoices, salesReturns, purchaseReturns, payments, ledgers, appliedFilters]);
 
+  /**
+   * The party's last payment, for the line above the statement (flag-gated).
+   *
+   * A customer's last payment is the last one RECEIVED from them; a vendor's
+   * is the last one we MADE to them. A party that is both counts as a
+   * customer here — "when did they last pay us" is the question being asked.
+   * Only payments up to the statement's To Date count, so a statement printed
+   * for an earlier period doesn't show a payment from after it.
+   */
+  const lastPayment = useMemo(() => {
+    const a = statementParty;
+    if (!showLastPayment || !a) return null;
+
+    const vendorOnly = isVendorParty(a.type) && !isCustomerParty(a.type);
+    const label = vendorOnly ? "Last payment made" : "Last payment received";
+    const { toTimestamp } = getFilterTimestamps();
+
+    const latest = payments
+      .filter(
+        (p: any) =>
+          p.partyid?.id === a.id &&
+          p.status !== false &&
+          (p.type === "receipt") === !vendorOnly
+      )
+      .map((p: any) => ({ p, t: timestampOf(p.paymentdate), seq: timestampOf(p.createdAt) }))
+      .filter((x: any) => !isNaN(x.t) && (!toTimestamp || x.t <= toTimestamp))
+      .sort((x: any, y: any) => y.t - x.t || (y.seq || 0) - (x.seq || 0))[0];
+
+    if (!latest) return { label, detail: "none yet", text: `${label}: none yet` };
+
+    const dayStart = (t: number) => {
+      const d = new Date(t);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+    const days = Math.round((dayStart(Date.now()) - dayStart(latest.t)) / 86400000);
+    const ago =
+      days === 0 ? "today" : days === 1 ? "1 day ago" : days > 1 ? `${days} days ago` : `in ${-days} days`;
+    const amount = `₹${(Number(latest.p.amount) || 0).toFixed(2)}`;
+    const ref = latest.p.paymentcode ? ` (${latest.p.paymentcode})` : "";
+    const detail = `${formatDateDMY(latest.t)} · ${amount}${ref} · ${ago}`;
+
+    return { label, detail, text: `${label}: ${detail}` };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLastPayment, statementParty, payments, appliedFilters]);
+
   // -----------------------------
   // Table Switcher
   // -----------------------------
@@ -838,7 +886,9 @@ const PartyReports: React.FC = () => {
       if (statementParty) {
         pdfSubtitle = [
           `Party name: ${statementParty.name || ""}`,
-          `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`
+          `Duration: From ${appliedFilters.fromDate ? formatDateDMY(appliedFilters.fromDate) : "-"} to ${appliedFilters.toDate ? formatDateDMY(appliedFilters.toDate) : "-"}`,
+          // Same line as on screen, so the PDF / Excel / CSV carry it too.
+          ...(lastPayment ? [lastPayment.text] : []),
         ];
       }
       tableData = statementData;
@@ -900,6 +950,13 @@ const PartyReports: React.FC = () => {
               );
             })}
         </div>
+        {activeTab === "Party Statement" && lastPayment && (
+          <div className="mb-3 inline-flex flex-wrap items-center gap-2 rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+            <FaHistory className="text-indigo-600" />
+            <span className="font-semibold">{lastPayment.label}:</span>
+            <span>{lastPayment.detail}</span>
+          </div>
+        )}
         <ReportTable moduleId="reports.party"
           title={activeTab === "Party Statement" ? "Party Statement" : "Party Reports"}
           columns={columns}

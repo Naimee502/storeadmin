@@ -277,6 +277,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}
         />
         <Toggle
+          label="Show the party's last payment on the Party Statement"
+          checked={!!draft.showLastPaymentOnStatement}
+          onChange={(v: boolean) => set("showLastPaymentOnStatement", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          Adds a line above the statement — and to its PDF, Excel and CSV — with the date, amount and
+          number of the party&apos;s last payment and how many days ago it was. Customers show the last
+          payment received; vendors the last payment made.
+        </p>
+        <Toggle
           label="App Home browses a catalogue (Category → Sub-category → order sheet with quantity boxes) instead of the storefront"
           checked={!!draft.appCatalogBrowseMode}
           onChange={(v: boolean) => set("appCatalogBrowseMode", v)}

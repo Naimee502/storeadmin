@@ -76,6 +76,7 @@ export const adminSettingsTypeDefs = gql`
     partyManagesDownline: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
+    showLastPaymentOnStatement: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String
     autoAdjustAdvanceOnInvoice: Boolean
@@ -270,6 +271,7 @@ export const adminSettingsTypeDefs = gql`
     partyManagesDownline: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
+    showLastPaymentOnStatement: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String
     autoAdjustAdvanceOnInvoice: Boolean

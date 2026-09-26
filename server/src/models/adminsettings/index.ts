@@ -190,6 +190,11 @@ const adminSettingsSchema = new mongoose.Schema(
        ============================================================ */
     enablePaymentDiscountCommission: { type: Boolean, default: false },
 
+    /* Party Statement shows when the party last paid (date, amount, ref and
+       how many days ago). Off by default — a one-click need for some
+       businesses, noise for the rest. */
+    showLastPaymentOnStatement: { type: Boolean, default: false },
+
     /* ============================================================
        DIRECT / ON-ACCOUNT SETTLEMENT — how a payment entered as a plain
        amount (no invoice ticked) is spread over the party's open bills.
