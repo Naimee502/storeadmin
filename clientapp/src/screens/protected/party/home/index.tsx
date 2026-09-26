@@ -7,11 +7,9 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { FONTS, STRINGS, useTheme } from '../../../../config';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
-import { useIsEndUserParty } from '../../../../utils';
 import { AppHeader, AppTextInput, CategoryStrip, ProductCatalog, useNotificationCenter } from '../../../../components';
 import type { CategoryItem } from '../../../../components';
 import { HomeBanner } from './homebanner';
-import { TradeOverview } from './tradeoverview';
 import type { RootState } from '../../../../store/rootreducer';
 
 /**
@@ -37,10 +35,8 @@ export default function PartyHome() {
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
 
-  // A shopper (EndUser channel, or no channel yet) gets the storefront: search,
-  // categories, catalogue. A trade party keeps their figures above it.
-  // See utils/enduser.ts.
-  const isEndUser = useIsEndUserParty();
+  // Every party, whatever its channel, gets the same storefront: search,
+  // banner, categories, catalogue. No outstanding/pending cards or recent orders.
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -54,13 +50,6 @@ export default function PartyHome() {
       .filter((c: any) => c && c.status !== false)
       .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image })),
     [categoriesData],
-  );
-
-  // Built once. A new element here on every render would be a changed prop, and
-  // the memoised grid would re-render for it — the very thing being avoided.
-  const listHeader = useMemo(
-    () => (isEndUser ? null : <TradeOverview />),
-    [isEndUser],
   );
 
   return (
@@ -83,17 +72,15 @@ export default function PartyHome() {
       {/* Search and categories sit above the grid, exactly as on Shop, so
           neither unmounts while the catalogue reloads underneath. */}
       <View style={styles.headerWrap}>
-        {isEndUser && (
-          <AppTextInput
-            leftIcon="magnify"
-            placeholder={STRINGS.storefront.searchPlaceholder}
-            value={search}
-            onChangeText={setSearch}
-            autoCapitalize="none"
-            placeholderTextColor={colors.subText}
-            containerStyle={{ marginBottom: 8, marginTop: 10 }}
-          />
-        )}
+        <AppTextInput
+          leftIcon="magnify"
+          placeholder={STRINGS.storefront.searchPlaceholder}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          placeholderTextColor={colors.subText}
+          containerStyle={{ marginBottom: 8, marginTop: 10 }}
+        />
         <HomeBanner />
 
         <CategoryStrip
@@ -104,7 +91,7 @@ export default function PartyHome() {
         />
       </View>
 
-      <ProductCatalog search={search} category={category} ListHeaderComponent={listHeader} />
+      <ProductCatalog search={search} category={category} />
 
       {cartCount > 0 && (
         <TouchableOpacity
