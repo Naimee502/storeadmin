@@ -13,6 +13,7 @@ import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { AppHeader, AppTextInput, AppTour, HeroBanner, tourRef, useNotificationCenter } from '../../../../components';
 import type { TourStep } from '../../../../components';
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
+import { useAdminQuery, usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { addToCart } from '../../../../store/slices';
 import { useUI } from '../../../../utils';
 import { useShowProductPrice, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
@@ -42,7 +43,7 @@ type Stage =
 // browses a catalogue"). Different screen, different controls, so a different
 // tour from the storefront Home's — each shown once per party on this device.
 const CATALOG_HOME_TOUR: TourStep[] = [
-  { target: 'cat-menu',  title: 'Menu',          text: 'Open your profile, ledger, addresses and other options from here.' },
+  { target: 'cat-menu',  title: 'Menu',          text: 'Open your profile, orders, notifications, help & support and other options from here.' },
   { target: 'cat-bell',  title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
   { target: 'cat-cart',  title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
   { target: 'cat-tiles', title: 'Categories',    text: 'Tap a category, then a sub-category, to open its order sheet.' },
@@ -71,6 +72,16 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
   const userId = useSelector((s: RootState) => s.auth.user?.id) ?? '';
   const cartItems = useSelector((s: RootState) => s.cart.items);
+
+  // Payments module off → no payment reminders, so the tour must not mention them.
+  const paymentsEnabled = usePaymentsEnabled();
+  const adminLoaded = !!useAdminQuery().data;
+  const catalogHomeTour = useMemo<TourStep[]>(
+    () => CATALOG_HOME_TOUR.map((s) => (s.target === 'cat-bell' && !paymentsEnabled
+      ? { ...s, text: 'Order updates and offers show up here.' }
+      : s)),
+    [paymentsEnabled],
+  );
   const restrictQty = useRestrictQtyByStock();
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
 
@@ -495,9 +506,9 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
 
       {variant === 'home' && stage.name === 'categories' && (
         <AppTour
-          steps={CATALOG_HOME_TOUR}
+          steps={catalogHomeTour}
           storageKey={`tour.catalogHome.${userId}`}
-          enabled={!!userId && !!catData}
+          enabled={!!userId && !!catData && adminLoaded}
         />
       )}
       {stage.name === 'products' && (

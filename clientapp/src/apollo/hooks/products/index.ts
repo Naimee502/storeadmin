@@ -77,7 +77,10 @@ export function useProductPage({
   // the previous rows until the new ones land keeps the screen still.
   const shown = useRef<any[]>([]);
   if (!loading) shown.current = fresh;
-  const products: any[] = loading && shown.current.length ? shown.current : fresh;
+  // Only fall back to the previous rows when the new variables have nothing
+  // cached yet. A category visited before already has its rows in the cache
+  // (cache-and-network), so show those straight away instead of the old ones.
+  const products: any[] = loading && !fresh.length && shown.current.length ? shown.current : fresh;
 
   // True only until the FIRST page has ever arrived. Changing the search term
   // or the category also sets `loading`, but by then the screen is already
@@ -96,8 +99,16 @@ export function useProductPage({
     inFlight.current = false;
   }, [term, categoryid, adminid]);
 
+  // A page shorter than pageSize means the server has nothing after it. Without
+  // this check a small category (say 2 products) leaves the list short enough
+  // that FlashList fires onEndReached immediately, a pointless next-page fetch
+  // starts, and its footer spinner shows up right after the refresh bar —
+  // two loaders for one category tap.
+  const hasMore =
+    !exhausted && products.length >= pageSize && products.length % pageSize === 0;
+
   const loadMore = useCallback(async () => {
-    if (inFlight.current || exhausted || loading || !products.length) return;
+    if (inFlight.current || !hasMore || loading) return;
     inFlight.current = true;
     setLoadingMore(true);
     try {
@@ -117,7 +128,7 @@ export function useProductPage({
       inFlight.current = false;
       setLoadingMore(false);
     }
-  }, [fetchMore, products.length, exhausted, loading, pageSize, term, categoryid, adminid]);
+  }, [fetchMore, products.length, hasMore, loading, pageSize, term, categoryid, adminid]);
 
   return {
     products,
@@ -126,7 +137,7 @@ export function useProductPage({
     refreshing,
     loadingMore,
     /** False once a short page proves there is nothing left to fetch. */
-    hasMore: !exhausted && products.length >= pageSize,
+    hasMore,
     loadMore,
     refetch,
   };

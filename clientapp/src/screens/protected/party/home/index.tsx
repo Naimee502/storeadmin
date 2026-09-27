@@ -10,6 +10,7 @@ import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
 import { AppHeader, AppTextInput, AppTour, CategoryStrip, ProductCatalog, tourRef, useNotificationCenter } from '../../../../components';
 import type { CategoryItem, TourStep } from '../../../../components';
 import { HomeBanner } from './homebanner';
+import { useAdminQuery, usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
 /**
@@ -29,10 +30,10 @@ import type { RootState } from '../../../../store/rootreducer';
  */
 // First-time guide for a party's Home — shown once per party on this device.
 const HOME_TOUR: TourStep[] = [
-  { target: 'party-menu',     title: 'Menu',          text: 'Open your profile, ledger, addresses and other options from here.' },
-  { target: 'party-search',   title: 'Search',        text: 'Type a product name to find it quickly.' },
+  { target: 'party-menu',     title: 'Menu',          text: 'Open your profile, orders, notifications, help & support and other options from here.' },
   { target: 'party-bell',     title: 'Notifications', text: 'Order updates, payment reminders and offers show up here.' },
   { target: 'party-cart',     title: 'Cart',          text: 'Everything you add lands here. Tap to review and place your order.' },
+  { target: 'party-search',   title: 'Search',        text: 'Type a product name to find it quickly.' },
   { target: 'party-category', title: 'Categories',    text: 'Pick a category to see only those products.' },
   { target: 'tabbar',         title: 'Get Around',    text: 'Jump between your main screens — Home, Shop, Orders and more — from here.' },
 ];
@@ -48,6 +49,17 @@ export default function PartyHome() {
 
   // Every party, whatever its channel, gets the same storefront: search,
   // banner, categories, catalogue. No outstanding/pending cards or recent orders.
+
+  // Payments module off → no payment reminders ever arrive, so the tour must
+  // not promise them.
+  const paymentsEnabled = usePaymentsEnabled();
+  const adminLoaded = !!useAdminQuery().data;
+  const homeTour = useMemo<TourStep[]>(
+    () => HOME_TOUR.map((s) => (s.target === 'party-bell' && !paymentsEnabled
+      ? { ...s, text: 'Order updates and offers show up here.' }
+      : s)),
+    [paymentsEnabled],
+  );
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -112,9 +124,9 @@ export default function PartyHome() {
       {/* Categories arrive from the server — wait for the query so that step
           has something to point at (a business with none just skips it). */}
       <AppTour
-        steps={HOME_TOUR}
+        steps={homeTour}
         storageKey={`tour.partyHome.${userId}`}
-        enabled={!!userId && !!categoriesData}
+        enabled={!!userId && !!categoriesData && adminLoaded}
       />
 
       {cartCount > 0 && (
