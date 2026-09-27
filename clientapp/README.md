@@ -6,7 +6,7 @@
 |-------------|------------------------|---------------------------------|------------|---------|
 | `rkn`       | DK                     | `com.app.rkn`                   | #ADM0001   | 1 (1.0) |
 | `arsi`      | Arsi Agarbatti         | `com.arsi.agarbatti`            | #ADM0002   | 2 (2.0) |
-| `rudraerp`  | Rudra ERP              | `com.app.rudraerp`              | #ADM0003   | 1 (1.0) |
+| `rudraerp`  | Rudra ERP              | `com.app.rudraerp`              | #ADM0003   | 2 (2.0) |
 | `powergold` | Powergold Agro Product | `com.app.powergoldagroproduct`  | #ADM0004   | 1 (1.0) |
 
 ## Run
