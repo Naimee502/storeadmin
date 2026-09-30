@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Search } from "lucide-react";
 import { SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -23,7 +23,7 @@ const DEFAULT_MAX_PRICE = 30000;
 
 export default function ShopPage() {
   const { categories, products, loading } = useCatalog();
-  const { displayProductPrice, shopProductImageRatio } = useTenant();
+  const { displayProductPrice, shopProductImageRatio, shopInfiniteScroll } = useTenant();
   // The slider still filters on the real stored rate — only its label is
   // doubled, so the number the shopper drags to matches the prices printed on
   // the cards beside it (which ProductCard doubles the same way).
@@ -97,7 +97,40 @@ export default function ShopPage() {
   }, [products, selectedCategories, selectedBrands, priceMax, sortBy, query]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Settings -> Website — Shop Page -> Infinite Scroll. On: `page` counts how
+  // many PAGE_SIZE batches are showing, and reaching the bottom of the grid
+  // adds the next batch. Off: `page` is the one numbered page on screen.
+  // Every filter/sort/search change already resets `page` to 1, so both modes
+  // start from the top of the new result set.
+  const paged = shopInfiniteScroll
+    ? filtered.slice(0, page * PAGE_SIZE)
+    : filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hasMore = shopInfiniteScroll && page < totalPages;
+
+  // Sentinel just below the grid; when it scrolls into view (with a 400px
+  // head start so the next batch is there before the shopper hits the end),
+  // load the next batch.
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setPage((n) => Math.min(totalPages, n + 1));
+      },
+      { rootMargin: "400px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, totalPages, page]);
+
+  // Search typed into the box resets to the top too (it doesn't go through
+  // toggle()/clearFilters, which already do).
+  useEffect(() => {
+    setPage(1);
+  }, [query, sortBy]);
 
   // Filtering down while deep in the list used to leave `page` past the end,
   // so a perfectly good result set rendered as "No products match your
@@ -289,7 +322,13 @@ export default function ShopPage() {
               </div>
             )}
 
-            {totalPages > 1 && (
+            {hasMore && (
+              <div ref={loadMoreRef} className="mt-8 flex justify-center py-4" aria-live="polite">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-brand-700" />
+              </div>
+            )}
+
+            {!shopInfiniteScroll && totalPages > 1 && (
               <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
                 <button
                   onClick={() => setPage((n) => Math.max(1, n - 1))}

@@ -330,6 +330,9 @@ const adminSettingsSchema = new mongoose.Schema(
     websiteHomeProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
     // Website — the Shop / All Products grid.
     websiteShopProductImageRatio: { ...PRODUCT_IMAGE_RATIO_RULE },
+    // Website — Shop / All Products: load more cards as the shopper scrolls
+    // (infinite scroll) instead of numbered pages. Off = the pager.
+    websiteShopInfiniteScroll: { type: Boolean, default: false },
 
     /**
      * Party app Home shows a catalogue to browse rather than a storefront.

@@ -140,6 +140,8 @@ export const adminSettingsTypeDefs = gql`
     websiteDealProductImageRatio: String
     websiteHomeProductImageRatio: String
     websiteShopProductImageRatio: String
+    # Shop page loads more on scroll instead of numbered pages. Off by default.
+    websiteShopInfiniteScroll: Boolean
 
     # Party app Home browses a catalogue (category -> sub-category -> order
     # sheet) instead of showing the storefront. Off by default.
@@ -220,6 +222,7 @@ export const adminSettingsTypeDefs = gql`
     websiteDealProductImageRatio: String
     websiteHomeProductImageRatio: String
     websiteShopProductImageRatio: String
+    websiteShopInfiniteScroll: Boolean!
 
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -319,6 +322,7 @@ export const adminSettingsTypeDefs = gql`
     websiteDealProductImageRatio: String
     websiteHomeProductImageRatio: String
     websiteShopProductImageRatio: String
+    websiteShopInfiniteScroll: Boolean
     appCatalogBrowseMode: Boolean
     autoPunchOutEnabled: Boolean
     autoPunchOutTime: String

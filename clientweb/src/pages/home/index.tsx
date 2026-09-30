@@ -195,7 +195,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {featured.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
@@ -207,7 +207,7 @@ export default function HomePage() {
       {/* New arrivals — curated list from admin, or the genuinely newest products */}
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <SectionHeader eyebrow="Just landed" title="New Arrivals" subtitle="Freshly added across the catalog." />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {newArrivals.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

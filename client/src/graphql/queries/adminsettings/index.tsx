@@ -69,6 +69,7 @@ const SETTINGS_FIELDS = `
   websiteDealProductImageRatio
   websiteHomeProductImageRatio
   websiteShopProductImageRatio
+  websiteShopInfiniteScroll
   appCatalogBrowseMode
   autoPunchOutEnabled
   autoPunchOutTime
