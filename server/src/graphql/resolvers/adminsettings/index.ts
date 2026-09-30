@@ -115,6 +115,7 @@ export const adminSettingsResolvers = {
         websiteDealProductImageRatio: settings.websiteDealProductImageRatio || "",
         websiteHomeProductImageRatio: settings.websiteHomeProductImageRatio || "",
         websiteShopProductImageRatio: settings.websiteShopProductImageRatio || "",
+        websiteShopInfiniteScroll: !!settings.websiteShopInfiniteScroll,
 
         socialFacebookUrl: settings.socialFacebookUrl || "",
         socialInstagramUrl: settings.socialInstagramUrl || "",

@@ -615,6 +615,21 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         </div>
       </Section>
 
+      <Section title="Website — Shop Page">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          How the All Products grid on the website's Shop page shows a long catalogue. On: more products load
+          automatically as the shopper scrolls down (infinite scroll). Off: numbered pages at the bottom (pagination).
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <FormSwitch
+            label="Infinite Scroll (instead of pagination)"
+            name="websiteShopInfiniteScroll"
+            checked={!!draft.websiteShopInfiniteScroll}
+            onChange={(v) => set("websiteShopInfiniteScroll", !!v)}
+          />
+        </div>
+      </Section>
+
       <Section title="Website Content">
         <div className="text-xs text-gray-400 mb-1 px-1">
           Shown directly on your website's About Us / Privacy Policy / Terms &amp; Conditions pages. Leave blank and the page will say content hasn't been added yet.

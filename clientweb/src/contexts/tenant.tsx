@@ -71,6 +71,8 @@ interface TenantContextValue {
   homeProductImageRatio: string;
   /** The Shop / All Products grid. */
   shopProductImageRatio: string;
+  /** Shop page: load more on scroll (true) or show numbered pages (false). */
+  shopInfiniteScroll: boolean;
 
   socialFacebookUrl: string;
   socialInstagramUrl: string;
@@ -170,6 +172,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     dealProductImageRatio: info?.websiteDealProductImageRatio ?? "",
     homeProductImageRatio: info?.websiteHomeProductImageRatio ?? "",
     shopProductImageRatio: info?.websiteShopProductImageRatio ?? "",
+    shopInfiniteScroll: !!info?.websiteShopInfiniteScroll,
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",

@@ -13,7 +13,7 @@ import { GET_PRODUCT_BY_ID, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apoll
 import { apolloClient } from '../../../../apollo/client';
 import { BackHeader, AppImage } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
 import { baseQtyOf, maxPacksFor, stockOf } from '../../../../utils/stocklimit';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -91,7 +91,16 @@ export default function ProductDetail() {
   const HERO_MIN_H = 200;
   let imgBoxWidth = cardWidth;
   let imgBoxHeight = 220;
-  if (imgRatio) {
+  // Settings -> General -> Product Image Ratio -> "App — Home & Shop".
+  // When the admin has picked a shape, the detail hero uses the SAME shape as
+  // the Home/Shop cards (full card width, photo cropped to fill), so tapping a
+  // card opens a picture that looks the same. Left unselected → fall back to
+  // the auto-fit below, sized from the photo's own ratio.
+  const settingRatio = useProductImageRatio();
+  if (settingRatio) {
+    imgBoxWidth = cardWidth;
+    imgBoxHeight = cardWidth / settingRatio;
+  } else if (imgRatio) {
     imgBoxHeight = cardWidth / imgRatio;
     if (imgBoxHeight > HERO_MAX_H) {
       imgBoxHeight = HERO_MAX_H;
