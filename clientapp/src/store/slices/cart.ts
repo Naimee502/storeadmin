@@ -1,4 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { logout } from './auth';
+import { clearTenant } from './tenant';
 
 export interface CartItem {
   productId: string;
@@ -83,6 +85,13 @@ const cartSlice = createSlice({
       state.routeDay  = action.payload.routeDay;
       state.items     = [];
     },
+  },
+  // The cart is persisted now, so it must not carry over to the next user who
+  // logs in on this device, or across a business reset.
+  extraReducers: builder => {
+    builder
+      .addCase(logout, () => initialState)
+      .addCase(clearTenant, () => initialState);
   },
 });
 

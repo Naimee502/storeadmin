@@ -5,6 +5,7 @@ import { RootState } from './rootreducer';
 export const persistConfig: PersistConfig<RootState> = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['auth', 'tenant'],
+  // `cart` is persisted so items survive the app being killed and reopened.
+  whitelist: ['auth', 'tenant', 'cart'],
   blacklist: ['app', 'baseApi'],
 };
