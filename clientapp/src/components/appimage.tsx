@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { ImageResizeMode, StyleProp, ImageStyle } from 'react-native';
 import FastImage, { ResizeMode as FastImageResizeMode } from 'react-native-fast-image';
 import { resolveMediaUrl } from '../config';
@@ -66,6 +66,12 @@ export interface AppImageProps {
    * layouts that size their box to the photo instead of cropping it.
    */
   onAspectRatio?: (ratio: number) => void;
+  /**
+   * Shown instead of the picture when it fails to load — e.g. the stored url
+   * points at a file no longer in /uploads. Without it a failed image is just
+   * an empty box.
+   */
+  fallback?: React.ReactNode;
 }
 
 /**
@@ -87,8 +93,14 @@ function AppImageBase({
   resizeMode = 'cover',
   onLoadEnd,
   onAspectRatio,
+  fallback,
 }: AppImageProps) {
   const resolved = useMemo(() => resolveMediaUrl(uri, width), [uri, width]);
+  // The one piece of state here, and it only changes when a load FAILS — never
+  // on the normal path, so it adds no re-render to a working list. It stores
+  // the url that failed rather than a flag, so a recycled FlashList cell that
+  // is handed another product's url tries that url instead of staying broken.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const source = useMemo(
     () => ({
       uri: resolved,
@@ -104,6 +116,7 @@ function AppImageBase({
   );
 
   if (!resolved) return null;
+  if (fallback !== undefined && failedUri === resolved) return <>{fallback}</>;
 
   return (
     <FastImage
@@ -117,7 +130,10 @@ function AppImageBase({
         if (onAspectRatio && w && h) onAspectRatio(w / h);
       }}
       onLoadEnd={() => onLoadEnd?.()}
-      onError={() => onLoadEnd?.()}
+      onError={() => {
+        if (fallback !== undefined) setFailedUri(resolved);
+        onLoadEnd?.();
+      }}
     />
   );
 }

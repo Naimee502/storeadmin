@@ -1,9 +1,9 @@
 import { gql } from '@apollo/client';
 
 export const GET_PRODUCTS = gql`
-  query GetProducts($adminid: ID!, $limit: Int, $offset: Int, $name_contains: String, $categoryid: ID) {
+  query GetProducts($adminid: ID!, $limit: Int, $offset: Int, $name_contains: String, $categoryid: ID, $instockfirst: Boolean) {
     getProductServices(
-      filter: { adminid: $adminid, name_contains: $name_contains, categoryid: $categoryid }
+      filter: { adminid: $adminid, name_contains: $name_contains, categoryid: $categoryid, instockfirst: $instockfirst }
       limit: $limit
       offset: $offset
     ) {

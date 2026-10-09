@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useImageFallback } from "../../utils/useimagefallback";
 import { Link } from "react-router";
 import { Plus, Minus, Star } from "lucide-react";
 import type { SampleProduct } from "../../data/sampleData";
@@ -32,6 +33,10 @@ export default function ProductCard({
   const { formatCatalogPrice } = useCatalogPrice();
   const ratio = imageRatio ?? homeProductImageRatio;
   const [unitIdx, setUnitIdx] = useState(0);
+  // Falls back to the package icon if the stored image fails to load.
+  // Default icon shows until the photo has really loaded (also covers a
+  // missing file or a host that never answers).
+  const image = useImageFallback(product.imageurl);
   const Icon = product.icon;
 
   // Same as the app's catalog card — when a product has more than one unit
@@ -90,7 +95,7 @@ export default function ProductCard({
         className={`relative mb-3 flex ${ratio ? "w-full" : "h-36"} items-center justify-center overflow-hidden rounded-xl`}
         style={{
           ...imageBoxStyle,
-          ...(product.imageurl ? {} : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }),
+          ...(image.showImage ? {} : { background: `linear-gradient(135deg, ${product.from}, ${product.to})` }),
         }}
       >
         {product.badge && (
@@ -100,10 +105,18 @@ export default function ProductCard({
             {product.badge}
           </span>
         )}
-        {product.imageurl ? (
-          <img src={product.imageurl} alt={product.name} className="h-full w-full object-cover" />
-        ) : (
-          <Icon className="h-14 w-14 text-brand-600" />
+        {!image.showImage && <Icon className="h-14 w-14 text-brand-600" />}
+        {image.mountImage && (
+          <img
+            {...image.imgProps}
+            src={product.imageurl}
+            alt={product.name}
+            className={
+              image.showImage
+                ? "h-full w-full object-cover"
+                : "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0"
+            }
+          />
         )}
       </Link>
 

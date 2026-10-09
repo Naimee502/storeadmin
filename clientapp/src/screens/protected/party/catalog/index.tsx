@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { STRINGS, useTheme } from '../../../../config';
@@ -26,6 +26,18 @@ export default function Catalog() {
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+
+  // Arriving from a Home banner (hooks/usebannerlink): apply the category /
+  // search from the banner's link. Keyed on `bannerTap` so tapping the same
+  // banner again re-applies it even if the user changed the chip meanwhile.
+  const route = useRoute<any>();
+  const bannerTap = route.params?.bannerTap;
+  useEffect(() => {
+    if (!bannerTap) return;
+    setCategory(route.params?.categoryId ?? null);
+    setSearch(route.params?.search ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bannerTap]);
 
   // Categories come from the category list, not from whichever products are on
   // the current page — otherwise the chips would change as the user scrolls.

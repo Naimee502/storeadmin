@@ -21,6 +21,7 @@ type Admin {
     subcategoryname: String!
     image: String
     status: Boolean!
+    sortorder: Int
     category: Category!
     admin: Admin
   }
@@ -44,5 +45,8 @@ type Admin {
     editSubCategory(id: ID!, input: SubCategoryInput!): SubCategory!
     deleteSubCategory(id: ID!): Boolean!
     resetSubCategory(id: ID!): Boolean!
+    # Saves the order of one category's sub-categories: \`ids\` is every
+    # active sub-category of \`categoryId\`, first to last.
+    reorderSubCategories(adminId: ID!, categoryId: ID!, ids: [ID!]!): Boolean!
   }
 `;

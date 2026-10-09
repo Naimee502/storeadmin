@@ -97,7 +97,9 @@ export const MODULES: ModuleDef[] = [
   // "rearrange" = the Rearrange button on Categories, which sets the order
   // categories show in on the client app and website.
   { id: "categories",     label: "Categories",      section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
-  { id: "subcategories",  label: "Sub Categories",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // "rearrange" = order of sub-categories inside each category on the app's
+  // catalogue browse (Category → Sub-category).
+  { id: "subcategories",  label: "Sub Categories",  section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
   { id: "brands",         label: "Brands",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "models",         label: "Models",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "productgroups",  label: "Product Groups",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },

@@ -13,6 +13,7 @@ import { GET_PRODUCTS } from '../../../../apollo/queries/accounts';
 import { AppHeader, AppTextInput, AppTour, HeroBanner, tourRef, useNotificationCenter } from '../../../../components';
 import type { TourStep } from '../../../../components';
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
+import { useBannerLink } from '../../../../hooks/usebannerlink';
 import { useAdminQuery, usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { addToCart } from '../../../../store/slices';
 import { useUI } from '../../../../utils';
@@ -68,6 +69,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
   const insets = useSafeAreaInsets();
   const { bellIcon, NotificationsModal } = useNotificationCenter();
   const heroSlides = useHeroBannerSlides();
+  const openBannerLink = useBannerLink();
 
   const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
   const userId = useSelector((s: RootState) => s.auth.user?.id) ?? '';
@@ -101,7 +103,8 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
     fetchPolicy: 'cache-and-network',
   });
   const { data: prodData } = useQuery(GET_PRODUCTS, {
-    variables: { adminid },
+    // Same as Home/Shop: in-stock products first, out-of-stock last.
+    variables: { adminid, instockfirst: true },
     skip: !adminid,
     fetchPolicy: 'cache-and-network',
   });
@@ -372,7 +375,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                 slides={heroSlides}
                 products={products}
                 horizontalPadding={18}
-                onPress={() => {}}
+                onPress={slide => openBannerLink(slide?.link)}
               />
             </View>
           )}

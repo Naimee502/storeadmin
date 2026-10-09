@@ -7,6 +7,7 @@ import ProductCard from "../../components/productcard";
 import { useCatalog } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import { useCatalogPrice } from "../../utils/catalogprice";
+import { stockAware } from "../../utils/stock";
 
 type SortKey = "popularity" | "price-asc" | "price-desc" | "rating" | "newest";
 
@@ -78,7 +79,8 @@ export default function ShopPage() {
       return true;
     });
 
-    result = [...result].sort((a, b) => {
+    // Whatever the shopper sorts by, out-of-stock stays at the end.
+    result = [...result].sort(stockAware((a, b) => {
       switch (sortBy) {
         case "price-asc":
           return a.price - b.price;
@@ -91,7 +93,7 @@ export default function ShopPage() {
         default:
           return b.ratingCount - a.ratingCount;
       }
-    });
+    }));
 
     return result;
   }, [products, selectedCategories, selectedBrands, priceMax, sortBy, query]);

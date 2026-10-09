@@ -41,11 +41,13 @@ export const HeroBanner: React.FC<Props> = ({
   const carouselSlides = useMemo<BannerSlide[]>(() => {
     // Admin-configured slides win outright, exactly like the website.
     if (slides.length > 0) {
+      // Image with no title = the picture is the whole banner (its own text
+      // is in the artwork), so no generated eyebrow/CTA is drawn over it.
       return slides.map(s => ({
         image: s.image,
-        eyebrow: s.subtitle || 'Featured',
+        eyebrow: s.title ? s.subtitle || 'Featured' : undefined,
         title: s.title || undefined,
-        cta: s.cta || 'Shop Now',
+        cta: s.title ? s.cta || 'Shop Now' : undefined,
         onDark: true,
       }));
     }

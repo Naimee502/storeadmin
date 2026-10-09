@@ -4,6 +4,7 @@ import {
   EDIT_SUBCATEGORY,
   DELETE_SUBCATEGORY,
   RESET_SUBCATEGORY,
+  REORDER_SUBCATEGORIES,
 } from '../../mutations/subcategories';
 import {
   GET_SUBCATEGORIES,
@@ -87,4 +88,20 @@ export const useSubCategoryByIDQuery = (id: string) => {
   });
 
   return { data, loading, error };
+};
+
+// Saves the order of one category's sub-categories (Sub Categories →
+// Rearrange). Admin id resolved the same way as useSubCategoriesQuery.
+export const useReorderSubCategories = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const [mutate, { loading }] = useMutation(REORDER_SUBCATEGORIES);
+
+  const reorderSubCategories = (categoryId: string, ids: string[]) =>
+    mutate({ variables: { adminId, categoryId, ids }, refetchQueries: [GET_SUBCATEGORIES] });
+
+  return { reorderSubCategories, loading };
 };

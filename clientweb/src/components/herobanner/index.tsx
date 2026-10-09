@@ -5,6 +5,12 @@ import { useCatalog } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import { siteConfig } from "../../config/site";
 
+// Uploads are served through the server's resizer: "?w=1600" returns a cached
+// WebP sized for the banner instead of the full original (often several MB,
+// or AVIF). Same mechanism the app uses for every image.
+const bannerSrc = (url: string) =>
+  /\/uploads\//.test(url) && !url.includes("?") ? `${url}?w=1600` : url;
+
 export interface HeroSlideOverride {
   eyebrow: string;
   title: string;
@@ -101,6 +107,9 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
   }, [slides.length]);
 
   const slide = slides[active] ?? slides[0];
+  // Image with no title = the picture is the whole banner (artwork with its
+  // own text). Show it as-is: no dark overlay, no generated copy on top.
+  const imageOnly = !!slide.image && !slide.title;
   // Admin panel → Settings → General → Hero Banner. Off means the banner runs
   // edge to edge instead of leaving a third of the row to the catalogue.
   const promoTiles = heroBannerShowCategoryTiles ? categories.slice(0, 2) : [];
@@ -114,30 +123,62 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
           className={`relative flex min-h-[280px] flex-col justify-center overflow-hidden rounded-2xl p-8 text-white transition-colors duration-500 sm:min-h-[340px] sm:p-12 ${
             hasTiles ? "lg:col-span-2" : ""
           } ${
-            slide.image ? "bg-cover bg-center" : `bg-gradient-to-br ${slide.gradFrom} ${slide.gradTo}`
+            slide.image ? "bg-slate-100" : `bg-gradient-to-br ${slide.gradFrom} ${slide.gradTo}`
           }`}
-          style={slide.image ? { backgroundImage: `url(${slide.image})` } : undefined}
         >
-          {slide.image && <div className="absolute inset-0 bg-ink-900/50" />}
+          {/* A real <img> (not a CSS background) so the browser fetches it at
+              high priority as soon as the page renders. Every slide's image
+              is mounted, the inactive ones hidden, so switching slides shows
+              an already-loaded picture instead of starting a download. */}
+          {slides.map((s, i) =>
+            s.image ? (
+              <img
+                key={s.image + i}
+                src={bannerSrc(s.image)}
+                alt={s.title || "Banner"}
+                loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "auto"}
+                decoding="async"
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                  i === active ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            ) : null
+          )}
+          {imageOnly && (
+            // Whole banner is the link when there is no button on it.
+            <Link to={slide.link} className="absolute inset-0 z-[5]" aria-label="Open banner" />
+          )}
+          {slide.image && !imageOnly && <div className="absolute inset-0 bg-ink-900/50" />}
           {!slide.image && (
             <>
               <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 right-24 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
             </>
           )}
-          <p className="relative z-10 mb-3 inline-block w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-            {slide.eyebrow}
-          </p>
-          <h1 className="relative z-10 max-w-md text-3xl font-extrabold leading-tight sm:text-4xl">
-            {slide.title}
-          </h1>
-          <p className="relative z-10 mt-3 max-w-sm text-sm text-white/85 sm:text-base">{slide.body}</p>
-          <Link
-            to={slide.link}
-            className="relative z-10 mt-6 flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-100"
-          >
-            {slide.cta} <ArrowRight className="h-4 w-4" />
-          </Link>
+          {!imageOnly && (
+            <>
+              {slide.eyebrow && (
+                <p className="relative z-10 mb-3 inline-block w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+                  {slide.eyebrow}
+                </p>
+              )}
+              <h1 className="relative z-10 max-w-md text-3xl font-extrabold leading-tight sm:text-4xl">
+                {slide.title}
+              </h1>
+              {slide.body && (
+                <p className="relative z-10 mt-3 max-w-sm text-sm text-white/85 sm:text-base">{slide.body}</p>
+              )}
+              {slide.cta && (
+                <Link
+                  to={slide.link}
+                  className="relative z-10 mt-6 flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-100"
+                >
+                  {slide.cta} <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </>
+          )}
 
           {/* Controls */}
           {slides.length > 1 && (

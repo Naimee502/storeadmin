@@ -9,6 +9,40 @@ import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
 import { discountPercent } from "../../utils/format";
 import { useCatalogPrice } from "../../utils/catalogprice";
+import { useImageFallback } from "../../utils/useimagefallback";
+
+// Main gallery picture: the placeholder stays until the photo has actually
+// loaded, so a missing/unreachable file never leaves an empty white box.
+function MainImage({ src, alt, placeholder, onBroken }: {
+  src: string;
+  alt: string;
+  placeholder: React.ReactNode;
+  onBroken: () => void;
+}) {
+  const image = useImageFallback(src);
+  // Drop it from the gallery after render, not during it.
+  useEffect(() => {
+    if (image.status === "error") onBroken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [image.status]);
+  return (
+    <>
+      {!image.showImage && placeholder}
+      {image.mountImage && (
+        <img
+          {...image.imgProps}
+          src={src}
+          alt={alt}
+          className={
+            image.showImage
+              ? "h-full w-full object-contain"
+              : "pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0"
+          }
+        />
+      )}
+    </>
+  );
+}
 
 const tabs = ["Description", "Highlights", "Reviews"] as const;
 
@@ -40,6 +74,11 @@ export default function ProductDetailPage() {
   // Display-only x2 markup (Business Settings -> "Show Double Price"). The
   // Add-to-cart button below is untouched — it hands the cart the real rate.
   const { formatCatalogPrice } = useCatalogPrice();
+  // Stored image URLs whose file failed to load — dropped from the gallery
+  // so the page falls back to the placeholder instead of a broken image.
+  const [brokenImages, setBrokenImages] = useState<string[]>([]);
+  const markBroken = (url: string) =>
+    setBrokenImages((prev) => (prev.includes(url) ? prev : [...prev, url]));
 
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
@@ -62,7 +101,8 @@ export default function ProductDetailPage() {
 
   // Full gallery — falls back to the single imageurl, or no images at all
   // (decorative icon tiles below cover that case, same as before).
-  const galleryImages = product.imageurls?.length ? product.imageurls : product.imageurl ? [product.imageurl] : [];
+  const galleryImages = (product.imageurls?.length ? product.imageurls : product.imageurl ? [product.imageurl] : [])
+    .filter((url) => !brokenImages.includes(url));
   const mainImage = galleryImages[activeImageIdx] ?? galleryImages[0];
 
   // Cart line for whichever unit is currently selected — same lineId scheme
@@ -113,16 +153,27 @@ export default function ProductDetailPage() {
           {/* Gallery */}
           <div>
             <div className="relative mb-4 aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              {mainImage ? (
-                <img src={mainImage} alt={product.name} className="h-full w-full object-contain" />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center rounded-xl"
-                  style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
-                >
-                  <Icon className="h-32 w-32 text-brand-600" />
-                </div>
-              )}
+              {(() => {
+                const placeholder = (
+                  <div
+                    className="flex h-full w-full items-center justify-center rounded-xl"
+                    style={{ background: `linear-gradient(135deg, ${product.from}, ${product.to})` }}
+                  >
+                    <Icon className="h-32 w-32 text-brand-600" />
+                  </div>
+                );
+                return mainImage ? (
+                  <MainImage
+                    key={mainImage}
+                    src={mainImage}
+                    alt={product.name}
+                    placeholder={placeholder}
+                    onBroken={() => markBroken(mainImage)}
+                  />
+                ) : (
+                  placeholder
+                );
+              })()}
               {displayProductPrice && discount > 0 && (
                 <span className="absolute left-3 top-3 rounded-full bg-brand-600 px-2.5 py-1 text-xs font-bold text-white shadow">
                   {discount}% OFF
@@ -140,7 +191,7 @@ export default function ProductDetailPage() {
                     }`}
                     aria-label={`Show image ${i + 1}`}
                   >
-                    <img src={url} alt={`${product.name} ${i + 1}`} className="h-full w-full object-contain" />
+                    <img src={url} alt={`${product.name} ${i + 1}`} onError={() => markBroken(url)} className="h-full w-full object-contain" />
                   </button>
                 ))}
               </div>

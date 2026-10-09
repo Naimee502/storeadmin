@@ -165,6 +165,12 @@ export const productServiceTypeDefs = gql`
     createdTo: Date
     updatedFrom: Date
     updatedTo: Date
+    # Storefront ordering (client app + website): products with stock come
+    # first and out-of-stock ones last, applied BEFORE limit/offset so a
+    # paginated list never shows an out-of-stock item above an in-stock one.
+    # Services have no stock and count as available. Off (default) keeps the
+    # plain newest-first order the admin panel uses.
+    instockfirst: Boolean
   }
 
   # Input Types

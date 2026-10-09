@@ -137,7 +137,11 @@ export const BannerCarousel: React.FC<Props> = ({
                 {s.image ? (
                   <>
                     <AppImage uri={s.image} width={IMG.banner} style={styles.image} resizeMode="cover" />
-                    <View style={[styles.overlay, { backgroundColor: colors.heroOverlay }]} />
+                    {/* Darken only when text sits on the photo; a plain
+                        artwork banner is shown as uploaded. */}
+                    {!!(s.title || s.eyebrow || s.body || s.cta) && (
+                      <View style={[styles.overlay, { backgroundColor: colors.heroOverlay }]} />
+                    )}
                   </>
                 ) : !s.bg ? (
                   <LinearGradient

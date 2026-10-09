@@ -7,7 +7,7 @@ import { gql } from "@apollo/client";
 // resolvePrice, once login is wired in (see contexts/tenant + useCatalog).
 export const GET_STORE_PRODUCTS = gql`
   query GetStoreProducts($adminid: ID!, $limit: Int, $offset: Int) {
-    getProductServices(filter: { adminid: $adminid }, limit: $limit, offset: $offset) {
+    getProductServices(filter: { adminid: $adminid, instockfirst: true }, limit: $limit, offset: $offset) {
       id
       name
       description

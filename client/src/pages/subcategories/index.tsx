@@ -14,6 +14,9 @@ import { showMessage } from "../../redux/slices/message";
 import { useCategoriesQuery } from "../../graphql/hooks/categories";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import CategoryReorder from "../../components/categoryreorder";
+import { useReorderSubCategories } from "../../graphql/hooks/subcategories";
+import { FaSort, FaTags, FaChevronDown } from "react-icons/fa";
 
 const SubCategories = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "subcategories"));
@@ -35,6 +38,33 @@ const SubCategories = () => {
   const { uploadImageMutation, deleteImages } = useImageUpload();
 
   const subCategoryList = data?.getSubCategories || [];
+
+  // Rearrange: sub-categories are ordered inside their own category (that is
+  // how the app's catalogue browse shows them), so the modal works one
+  // category at a time.
+  const { reorderSubCategories, loading: reordering } = useReorderSubCategories();
+  const [isReorderOpen, setIsReorderOpen] = useState(false);
+  const [reorderCategoryId, setReorderCategoryId] = useState<string>("");
+  const categoriesWithSubs = categoryData.filter((c: any) =>
+    subCategoryList.some((s: any) => s.category?.id === c.id)
+  );
+  const openReorder = () => {
+    if (!reorderCategoryId || !categoriesWithSubs.some((c: any) => c.id === reorderCategoryId)) {
+      setReorderCategoryId(categoriesWithSubs[0]?.id ?? "");
+    }
+    setIsReorderOpen(true);
+  };
+  const handleSaveSubOrder = async (ids: string[]) => {
+    try {
+      await reorderSubCategories(reorderCategoryId, ids);
+      await refetch();
+      dispatch(showMessage({ message: "Sub category order saved.", type: "success" }));
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to save sub category order.", type: "error" }));
+      throw error;
+    }
+  };
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Form state for add/edit
@@ -218,7 +248,15 @@ const SubCategories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...subCategoryList].reverse().map((sub: any, index: number) => ({
+  // Grouped by category in the categories' own (rearranged) order, then the
+  // sub-categories' order inside each — the same order the app shows.
+  const categoryRank = new Map<string, number>(categoryData.map((c: any, i: number) => [c.id, i]));
+  const orderedSubs = [...subCategoryList].sort(
+    (a: any, b: any) =>
+      (categoryRank.get(a.category?.id) ?? 1e9) - (categoryRank.get(b.category?.id) ?? 1e9)
+  );
+
+  const tableData = orderedSubs.map((sub: any, index: number) => ({
     ...sub,
     seqNo: index + 1,
     status: sub.status ? "Active" : "Inactive",
@@ -226,7 +264,7 @@ const SubCategories = () => {
   }));
 
   const handleExport = () => {
-    const exportData = [...subCategoryList].reverse().map((sub: any, index: number) => ({
+    const exportData = orderedSubs.map((sub: any, index: number) => ({
       ID: index + 1,
       SubCategoryName: sub.subcategoryname || "-",
       Category: sub.category?.categoryname || "-",
@@ -321,6 +359,17 @@ const SubCategories = () => {
           onExport={handleExport}
           onAdd={() => navigate("/subcategories")}
           onShowDeleted={() => navigate("/subcategories/deletedentries")}
+          toolbarActions={
+            actions.showRearrange && categoriesWithSubs.length > 0 ? (
+              <button
+                onClick={openReorder}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
+              >
+                <FaSort className="!text-white flex-shrink-0" />
+                <span className="!text-white font-bold">Rearrange</span>
+              </button>
+            ) : null
+          }
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
@@ -353,6 +402,43 @@ const SubCategories = () => {
           formErrors={formErrors}
           onFormChange={handleFormChange}
           onFormSubmit={handleFormSubmit}
+        />
+
+        <CategoryReorder
+          isOpen={isReorderOpen}
+          onClose={() => setIsReorderOpen(false)}
+          title="Rearrange Sub Categories"
+          hint="Order is per category — this is how the app's catalogue browse lists them."
+          emptyText="No active sub categories in this category."
+          resetKey={reorderCategoryId}
+          header={
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700">Category</span>
+              <div className="relative">
+                <FaTags className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <select
+                  value={reorderCategoryId}
+                  onChange={(e) => setReorderCategoryId(e.target.value)}
+                  className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                >
+                  {categoriesWithSubs.map((c: any) => {
+                    const count = subCategoryList.filter((s: any) => s.category?.id === c.id).length;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.categoryname} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+                <FaChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
+              </div>
+            </label>
+          }
+          categories={subCategoryList
+            .filter((s: any) => s.category?.id === reorderCategoryId)
+            .map((s: any) => ({ id: s.id, categoryname: s.subcategoryname, categorycode: s.subcategorycode }))}
+          onSave={handleSaveSubOrder}
+          saving={reordering}
         />
       </div>
     </HomeLayout>

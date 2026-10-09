@@ -12,6 +12,7 @@ import { useCatalog } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import { siteConfig } from "../../config/site";
 import { discountPercent } from "../../utils/format";
+import { inStockFirst, isOutOfStock, stockAware } from "../../utils/stock";
 import type { SampleProduct } from "../../data/sampleData";
 
 // Shared by Featured Products / New Arrivals / Deal of the Day — each is
@@ -62,12 +63,16 @@ export default function HomePage() {
   const heroOverrideSlides = useMemo(
     () =>
       tenant.heroBannerSlides
-        .filter((s) => s.title)
+        // A slide counts once it has a title OR an image. An image-only slide
+        // is a finished banner artwork (text already in the picture) — it
+        // used to be dropped here, which is why an uploaded banner never
+        // showed. Untitled slides get no eyebrow/CTA, only the picture.
+        .filter((s) => s.title || s.image)
         .map((s) => ({
-          eyebrow: "Featured",
+          eyebrow: s.title ? "Featured" : "",
           title: s.title || "",
           body: s.subtitle || "",
-          cta: s.cta || "Shop Now",
+          cta: s.title ? s.cta || "Shop Now" : "",
           link: s.link || "/shop",
           image: s.image || undefined,
         })),
@@ -84,7 +89,7 @@ export default function HomePage() {
   // list makes tab-browsing redundant); otherwise the live catalog with
   // category tabs is shown, same as before.
   const curatedFeatured = useMemo(
-    () => resolvePickedProducts(tenant.featuredProductItems, products),
+    () => inStockFirst(resolvePickedProducts(tenant.featuredProductItems, products)),
     [tenant.featuredProductItems, products]
   );
   const hasCuratedFeatured = curatedFeatured.length > 0;
@@ -98,13 +103,17 @@ export default function HomePage() {
   // in the order they were added. Falls back to the products with the
   // biggest real discount (mrp vs price) when nothing's picked, so the
   // fallback is still driven by live catalog data, not an arbitrary slice.
+  // A deal nobody can buy is worse than no deal, so out-of-stock products
+  // are left out of this strip entirely (picked or automatic). If nothing
+  // is left, the section hides itself below.
   const dealProducts = useMemo(() => {
+    const available = products.filter((p) => !isOutOfStock(p));
     if (tenant.dealOfDayItems.length === 0) {
-      return [...products]
+      return [...available]
         .sort((a, b) => discountPercent(b.price, b.mrp) - discountPercent(a.price, a.mrp))
         .slice(0, 8);
     }
-    return resolvePickedProducts(tenant.dealOfDayItems, products);
+    return resolvePickedProducts(tenant.dealOfDayItems, available);
   }, [tenant.dealOfDayItems, products]);
 
   // New Arrivals — admin's explicit picks take over when set; otherwise
@@ -112,12 +121,12 @@ export default function HomePage() {
   // just whatever order the catalog query happened to return.
   const newArrivals = useMemo(() => {
     if (tenant.newArrivalItems.length > 0) {
-      return resolvePickedProducts(tenant.newArrivalItems, products);
+      return inStockFirst(resolvePickedProducts(tenant.newArrivalItems, products));
     }
     const withDates = products.filter((p) => p.createdAt);
-    if (withDates.length === 0) return products.slice(-8);
+    if (withDates.length === 0) return products.slice(0, 8);
     return [...withDates]
-      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .sort(stockAware((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()))
       .slice(0, 8);
   }, [tenant.newArrivalItems, products]);
 
@@ -128,7 +137,7 @@ export default function HomePage() {
 
       {/* Deal of the day — admin can disable, override the copy, or pick
           the exact products/variants from Settings → General. */}
-      {dealOfDayEnabled && (
+      {dealOfDayEnabled && dealProducts.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-brand-700 to-brand-900 p-6 sm:p-8">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">

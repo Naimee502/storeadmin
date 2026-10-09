@@ -7,6 +7,11 @@ const subCategorySchema = new mongoose.Schema(
     // Optional, same as Category.image — an /uploads url or "".
     image: { type: String, default: "" },
     status: { type: Boolean, default: true },
+    // Position inside its parent category on the app's catalogue browse
+    // (Category → Sub-category). Lower first; set from the admin "Rearrange"
+    // screen. A new sub-category goes to the end of its category. Rows saved
+    // before this existed sort first, by createdAt — their old order.
+    sortorder: { type: Number },
 
     // Link to parent Category
     category: {
@@ -27,6 +32,7 @@ const subCategorySchema = new mongoose.Schema(
 
 subCategorySchema.index({ admin: 1, subcategorycode: 1 }, { unique: true });
 subCategorySchema.index({ admin: 1, subcategoryname: 1 }, { unique: true });
+subCategorySchema.index({ admin: 1, category: 1, sortorder: 1 });
 
 // Auto-generate subcategory code
 subCategorySchema.pre('save', async function (next) {
@@ -49,6 +55,15 @@ subCategorySchema.pre('save', async function (next) {
     }
 
     this.subcategorycode = `#SUBC${nextNumber.toString().padStart(4, '0')}`;
+  }
+  if (this.isNew && (this.sortorder === undefined || this.sortorder === null)) {
+    const SubCategory = mongoose.model('SubCategory');
+    const last = await SubCategory.findOne({ admin: this.admin, category: this.category, sortorder: { $ne: null } })
+      .sort({ sortorder: -1 })
+      .select('sortorder')
+      .lean<{ sortorder?: number }>()
+      .exec();
+    this.sortorder = (last?.sortorder ?? 0) + 1;
   }
   next();
 });

@@ -141,7 +141,15 @@ export default function CartScreen() {
         {/* Product image */}
         <View style={[styles.itemImg, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <AppImage uri={item.imageUrl} width={IMG.product} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ? (
+              <AppImage
+                uri={item.imageUrl}
+                width={IMG.product}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+                fallback={<Icon name="package-variant-closed" size={22} color={colors.brand} />}
+              />
+            )
             : <Icon name="package-variant-closed" size={22} color={colors.brand} />
           }
         </View>

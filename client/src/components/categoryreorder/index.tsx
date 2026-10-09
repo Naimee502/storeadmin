@@ -19,6 +19,14 @@ interface CategoryReorderProps {
   // modal stays open with the user's arrangement intact.
   onSave: (ids: string[]) => Promise<unknown>;
   saving?: boolean;
+  /** Defaults are for Categories; Sub Categories passes its own. */
+  title?: string;
+  hint?: React.ReactNode;
+  emptyText?: string;
+  /** Shown above the list — e.g. the parent-category picker. */
+  header?: React.ReactNode;
+  /** Changing it reloads the list from `categories` (new parent picked). */
+  resetKey?: string;
 }
 
 const iconBtn =
@@ -83,14 +91,26 @@ const Row: React.FC<{
  * (Home/Shop category strip) and the website (nav, Home cards, Shop filter)
  * show them in. Nothing is saved until "Save Order".
  */
-const CategoryReorder: React.FC<CategoryReorderProps> = ({ isOpen, onClose, categories, onSave, saving }) => {
+const CategoryReorder: React.FC<CategoryReorderProps> = ({
+  isOpen,
+  onClose,
+  categories,
+  onSave,
+  saving,
+  title = "Rearrange Categories",
+  hint,
+  emptyText = "No active categories.",
+  header,
+  resetKey,
+}) => {
   const [items, setItems] = useState<ReorderCategory[]>(categories);
 
-  // Start from the saved order every time the modal opens.
+  // Start from the saved order every time the modal opens, or a different
+  // parent is picked.
   useEffect(() => {
     if (isOpen) setItems(categories);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, resetKey]);
 
   const move = (from: number, to: number) => {
     setItems((prev) => {
@@ -106,21 +126,25 @@ const CategoryReorder: React.FC<CategoryReorderProps> = ({ isOpen, onClose, cate
   const handleSave = async () => {
     try {
       await onSave(items.map((c) => c.id));
-      onClose();
+      // With a parent picker the admin usually goes on to the next parent,
+      // so stay open; a plain list is done.
+      if (!header) onClose();
     } catch {
       // Parent shows the error; keep the modal open so nothing is lost.
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Rearrange Categories" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
       <p className="text-sm text-gray-500 mb-4">
-        Drag the <GripVertical size={14} className="inline -mt-0.5" /> handle or use the arrows. This order is used on
-        the app's Home &amp; Shop and on the website.
+        Drag the <GripVertical size={14} className="inline -mt-0.5" /> handle or use the arrows.{" "}
+        {hint ?? "This order is used on the app's Home & Shop and on the website."}
       </p>
 
+      {header && <div className="mb-4">{header}</div>}
+
       {items.length === 0 ? (
-        <div className="py-10 text-center text-sm text-gray-400">No active categories.</div>
+        <div className="py-10 text-center text-sm text-gray-400">{emptyText}</div>
       ) : (
         // Own scroll container with layoutScroll so drag positions stay
         // correct after the list is scrolled.

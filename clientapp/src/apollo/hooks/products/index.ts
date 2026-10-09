@@ -56,6 +56,10 @@ export function useProductPage({
     // undefined (not "") so the server skips the filter entirely.
     name_contains: term || undefined,
     categoryid: categoryid || undefined,
+    // Party Home/Shop: out-of-stock products always sink to the end. Sorted
+    // on the server before paging, so a later page can never bring an
+    // in-stock product in below out-of-stock ones.
+    instockfirst: true,
   };
 
   // notifyOnNetworkStatusChange is deliberately OFF. With it on, `loading`

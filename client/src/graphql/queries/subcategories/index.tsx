@@ -8,6 +8,7 @@ export const GET_SUBCATEGORIES = gql`
       subcategoryname
       image
       status
+      sortorder
       category {
         id
         categorycode

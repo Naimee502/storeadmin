@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { HeroBanner } from '../../../../components';
 import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
+import { useBannerLink } from '../../../../hooks/usebannerlink';
 
 /**
  * Home's hero banner, kept to itself.
@@ -26,6 +27,9 @@ import { useHeroBannerSlides } from '../../../../apollo/hooks/adminsettings';
  */
 export const HomeBanner: React.FC = React.memo(function HomeBanner() {
   const slides = useHeroBannerSlides();
+  // Same as the website: a banner tap follows the slide's "Button Link"
+  // (default /shop), so it lands on Shop instead of doing nothing.
+  const openLink = useBannerLink();
 
   return (
     <View style={styles.wrap}>
@@ -33,7 +37,7 @@ export const HomeBanner: React.FC = React.memo(function HomeBanner() {
         slides={slides}
         products={[]}
         horizontalPadding={18}
-        onPress={() => undefined}
+        onPress={slide => openLink(slide?.link)}
       />
     </View>
   );

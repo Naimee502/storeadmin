@@ -78,7 +78,10 @@ const ProductCard = React.memo(function ProductCard({
   const price = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
   const mrp = up?.mrp ?? 0;
   const hasMrp = mrp > 0;
-  const outOfStock = v?.currentstock === 0;
+  // <= 0, not === 0: a negative balance (oversold) is out of stock too, and
+  // matches the server's in-stock-first ordering. No variant (a service)
+  // has no stock to run out of.
+  const outOfStock = typeof v?.currentstock === 'number' && v.currentstock <= 0;
   const multiUnit = (v?.unitprices?.length ?? 0) > 1;
 
   return (
@@ -94,7 +97,16 @@ const ProductCard = React.memo(function ProductCard({
       <View>
         <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
           {p.imageurl
-            ? <AppImage uri={p.imageurl} width={IMG.product} style={styles.img} resizeMode="cover" />
+            ? (
+              <AppImage
+                uri={p.imageurl}
+                width={IMG.product}
+                style={styles.img}
+                resizeMode="cover"
+                // Stored url whose file is gone: same icon as "no image".
+                fallback={<Icon name="package-variant-closed" size={30} color={colors.brand} />}
+              />
+            )
             : <Icon name="package-variant-closed" size={30} color={colors.brand} />
           }
           {showStock && outOfStock && (

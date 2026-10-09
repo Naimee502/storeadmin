@@ -148,9 +148,10 @@ export function useHeroBannerSlides(): HeroSlide[] {
     fetchPolicy: 'cache-and-network',
   });
   const slides = ((data as any)?.getAdminSettings?.heroBannerSlides ?? []) as HeroSlide[];
-  // The website only renders a slide once it has a title; an untitled row is
-  // an empty draft the admin hasn't filled in yet.
-  return slides.filter(s => s?.title);
+  // A slide counts once it has a title OR an image — an image-only slide is a
+  // finished banner artwork. Filtering on title alone dropped uploaded
+  // banners entirely. A row with neither is an empty draft.
+  return slides.filter(s => s?.title || s?.image);
 }
 
 /**

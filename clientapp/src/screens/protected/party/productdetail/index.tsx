@@ -286,6 +286,7 @@ export default function ProductDetail() {
                   style={styles.img}
                   resizeMode="cover"
                   onAspectRatio={setImgRatio}
+                  fallback={<Icon name="package-variant-closed" size={72} color={colors.brand} />}
                 />
               )
               : <Icon name="package-variant-closed" size={72} color={colors.brand} />

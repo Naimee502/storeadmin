@@ -155,7 +155,7 @@ export const productServiceResolvers = {
 
         const totalCount = await ProductService.countDocuments(query);
 
-        let productsQuery = ProductService.find(query)
+        const buildProductsQuery = (q: any) => ProductService.find(q)
           .populate({ path: "categoryid", select: "id categoryname image" })
           .populate({ path: "subcategoryid", select: "id subcategoryname image" })
           .populate({ path: "groupid", select: "id productgroupname" })
@@ -170,7 +170,8 @@ export const productServiceResolvers = {
           .populate({ path: "salesaccountid", select: "id ledgername" })
           .populate({ path: "purchaseaccountid", select: "id ledgername" })
           .populate({ path: "serviceaccountid", select: "id ledgername" })
-          .lean();
+          .lean()
+          .sort({ createdAt: -1, _id: -1 });
 
         // Deterministic order is NOT optional here. Every caller pages this with
         // its own limit (storefront 200, app shop 100, app home 24), and without
@@ -179,12 +180,50 @@ export const productServiceResolvers = {
         // website and the app's home screen showed a random slice of the
         // catalogue that disagreed with its own shop screen.
         // Newest first, tie-broken on _id so the order can never wobble.
-        productsQuery = productsQuery.sort({ createdAt: -1, _id: -1 });
+        let products: any[];
 
-        if (offset) productsQuery = productsQuery.skip(offset);
-        if (limit) productsQuery = productsQuery.limit(limit);
+        if (filter.instockfirst) {
+          // Storefront: in-stock first, out-of-stock last, then newest first
+          // inside each group. "In stock" = the product's total currentstock
+          // in this tenant's scope (same records getStockDetails sums for the
+          // card) is above 0. Done as two ordered segments so limit/offset
+          // page across the combined list correctly.
+          const toOid = (v: any) => (v instanceof Types.ObjectId ? v : new Types.ObjectId(String(v)));
+          const stockMatch: any = { adminid: toOid(tenant.adminid) };
+          if (tenant.branchid) stockMatch.branchid = toOid(tenant.branchid);
+          const inStockIds = (
+            await ProductBranchStock.aggregate([
+              { $match: stockMatch },
+              { $group: { _id: "$productid", total: { $sum: "$currentstock" } } },
+              { $match: { total: { $gt: 0 } } },
+            ])
+          ).map((r: any) => r._id);
 
-        const products = await productsQuery.exec();
+          const inStockQuery = { $and: [query, { $or: [{ _id: { $in: inStockIds } }, { isservice: true }] }] };
+          const outOfStockQuery = { $and: [query, { _id: { $nin: inStockIds } }, { isservice: { $ne: true } }] };
+          const inStockCount = await ProductService.countDocuments(inStockQuery);
+
+          const page = (q: any, skip: number, take: number) => {
+            let qq = buildProductsQuery(q);
+            if (skip) qq = qq.skip(skip);
+            if (take) qq = qq.limit(take);
+            return qq.exec();
+          };
+
+          if (offset < inStockCount) {
+            const first = await page(inStockQuery, offset, limit);
+            const remaining = limit ? limit - first.length : 0;
+            const rest = !limit || remaining > 0 ? await page(outOfStockQuery, 0, remaining) : [];
+            products = [...first, ...rest];
+          } else {
+            products = await page(outOfStockQuery, offset - inStockCount, limit);
+          }
+        } else {
+          let productsQuery = buildProductsQuery(query);
+          if (offset) productsQuery = productsQuery.skip(offset);
+          if (limit) productsQuery = productsQuery.limit(limit);
+          products = await productsQuery.exec();
+        }
 
         const adminId = tenant.adminid;
         const branchId = tenant.branchid;

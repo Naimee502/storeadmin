@@ -4,6 +4,7 @@ import { Package, type LucideIcon } from "lucide-react";
 import { GET_STORE_CATEGORIES, GET_STORE_PRODUCTS } from "../graphql/queries/catalog";
 import { useTenant } from "../contexts/tenant";
 import type { SampleProduct } from "../data/sampleData";
+import { inStockFirst } from "../utils/stock";
 
 export interface DisplayCategory {
   id: string;
@@ -126,7 +127,9 @@ export function useCatalog() {
 
   const products = useMemo<SampleProduct[]>(() => {
     const list = (prodData as any)?.getProductServices ?? [];
-    return list.filter((p: any) => p && p.status !== false).map(mapProduct);
+    // Out-of-stock last everywhere the storefront lists products (the server
+    // already orders them so; this keeps it true by the card's own rule).
+    return inStockFirst(list.filter((p: any) => p && p.status !== false).map(mapProduct));
   }, [prodData]);
 
   const categories = useMemo<DisplayCategory[]>(() => {
