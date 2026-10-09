@@ -41,3 +41,9 @@ export const RESET_CATEGORY = gql`
     resetCategory(id: $id)
   }
 `;
+
+export const REORDER_CATEGORIES = gql`
+  mutation ReorderCategories($adminId: ID!, $ids: [ID!]!) {
+    reorderCategories(adminId: $adminId, ids: $ids)
+  }
+`;

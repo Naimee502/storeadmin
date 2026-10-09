@@ -4,6 +4,7 @@ import {
   DELETE_CATEGORY,
   EDIT_CATEGORY,
   RESET_CATEGORY,
+  REORDER_CATEGORIES,
 } from '../../mutations/categories';
 import {
   GET_CATEGORIES,
@@ -75,4 +76,21 @@ export const useCategoryByIDQuery = (id: string) => {
   });
 
   return { data, loading, error };
+};
+
+// Saves the storefront order of categories (Categories → Rearrange). The
+// admin id is resolved the same way as useCategoriesQuery so a branch or
+// staff login reorders the same business it is looking at.
+export const useReorderCategories = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const [mutate, { loading }] = useMutation(REORDER_CATEGORIES);
+
+  const reorderCategories = (ids: string[]) =>
+    mutate({ variables: { adminId, ids }, refetchQueries: [GET_CATEGORIES] });
+
+  return { reorderCategories, loading, adminId };
 };

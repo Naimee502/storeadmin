@@ -175,6 +175,7 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     showExportCsv: allow("exportcsv"),
     showExportPdf: allow("exportpdf"),
     canReset: allow("reset"),
+    showRearrange: allow("rearrange"),
     showDeleted: allow("delete"),
   };
 };

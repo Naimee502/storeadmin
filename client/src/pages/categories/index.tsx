@@ -5,7 +5,9 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useCategoriesQuery, useCategoryMutations } from "../../graphql/hooks/categories";
+import { useCategoriesQuery, useCategoryMutations, useReorderCategories } from "../../graphql/hooks/categories";
+import CategoryReorder from "../../components/categoryreorder";
+import { FaSort } from "react-icons/fa";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
@@ -27,6 +29,20 @@ const Categories = () => {
   const { addCategoryMutation, editCategoryMutation, deleteCategoryMutation } =
     useCategoryMutations();
   const { uploadImageMutation, deleteImages } = useImageUpload();
+  const { reorderCategories, loading: reordering } = useReorderCategories();
+  const [isReorderOpen, setIsReorderOpen] = useState(false);
+
+  const handleSaveOrder = async (ids: string[]) => {
+    try {
+      await reorderCategories(ids);
+      await refetch();
+      dispatch(showMessage({ message: "Category order saved.", type: "success" }));
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to save category order.", type: "error" }));
+      throw error;
+    }
+  };
 
   // Form state for add/edit
   const [formValues, setFormValues] = useState<{ categoryname: string; status: boolean; image: string }>({
@@ -178,14 +194,16 @@ const Categories = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...categoryList].reverse().map((cat: any, index: number) => ({
+  // Server returns categories in storefront order, so Seq Number is the
+  // position shown on the app and website.
+  const tableData = [...categoryList].map((cat: any, index: number) => ({
     ...cat,
     seqNo: index + 1,
     status: cat.status ? "Active" : "Inactive",
   }));
 
   const handleExport = () => {
-    const exportData = [...categoryList].reverse().map((cat: any, index: number) => ({
+    const exportData = [...categoryList].map((cat: any, index: number) => ({
       ID: index + 1,
       CategoryName: cat.categoryname || "-",
       Status: cat.status ? "true" : "false",
@@ -265,6 +283,17 @@ const Categories = () => {
           onExport={handleExport}
           onAdd={() => navigate("/categories")}
           onShowDeleted={() => navigate("/categories/deletedentries")}
+          toolbarActions={
+            actions.showRearrange && categoryList.length > 1 ? (
+              <button
+                onClick={() => setIsReorderOpen(true)}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
+              >
+                <FaSort className="!text-white flex-shrink-0" />
+                <span className="!text-white font-bold">Rearrange</span>
+              </button>
+            ) : null
+          }
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
@@ -286,6 +315,18 @@ const Categories = () => {
           formErrors={formErrors}
           onFormChange={handleFormChange}
           onFormSubmit={handleFormSubmit}
+        />
+
+        <CategoryReorder
+          isOpen={isReorderOpen}
+          onClose={() => setIsReorderOpen(false)}
+          categories={categoryList.map((c: any) => ({
+            id: c.id,
+            categoryname: c.categoryname,
+            categorycode: c.categorycode,
+          }))}
+          onSave={handleSaveOrder}
+          saving={reordering}
         />
       </div>
     </HomeLayout>

@@ -8,6 +8,7 @@ export const GET_CATEGORIES = gql`
       categoryname
       image
       status
+      sortorder
       admin {
         id
         name

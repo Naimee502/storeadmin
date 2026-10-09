@@ -20,6 +20,7 @@ export const categoryTypeDefs = gql`
     categoryname: String!
     image: String
     status: Boolean!
+    sortorder: Int
     admin: Admin
   }
 
@@ -41,5 +42,8 @@ export const categoryTypeDefs = gql`
     editCategory(id: ID!, input: CategoryInput!): Category!
     deleteCategory(id: ID!): Boolean!
     resetCategory(id: ID!): Boolean!
+    # Saves the storefront order: \`ids\` is every active category of the
+    # business, first to last.
+    reorderCategories(adminId: ID!, ids: [ID!]!): Boolean!
   }
 `;

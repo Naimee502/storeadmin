@@ -141,6 +141,8 @@ interface DataTableProps {
     onActiveToggle?: (checked: boolean) => void;
     showActionsColumn?: boolean;
     requireBranchForAdd?: boolean;
+    // Extra page-specific buttons, shown first in the toolbar button row.
+    toolbarActions?: React.ReactNode;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -196,6 +198,7 @@ const DataTable: React.FC<DataTableProps> = ({
     onActiveToggle,
     showActionsColumn = true,
     requireBranchForAdd,
+    toolbarActions,
 }) => {
     const [entriesPerPage, setEntriesPerPage] = useStickyTableState(title, "entriesPerPage", defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useStickyTableState(title, "currentPage", 1);
@@ -356,6 +359,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 )}
 
                 <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full sm:w-auto">
+                    {toolbarActions}
                     {showImport && (
                         <button
                             onClick={onImport}

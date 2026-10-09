@@ -6,6 +6,11 @@ const categorySchema = new mongoose.Schema(
     categoryname: { type: String, required: true },
     image: { type: String, default: "" },
     status: Boolean,
+    // Position on the storefront (app Home/Shop strip, website nav and grids).
+    // Lower comes first. Set from the admin "Rearrange" screen; a new category
+    // goes to the end. Older rows without it sort first, by createdAt, which
+    // is the order they were already showing in.
+    sortorder: { type: Number },
     admin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Admin',
@@ -17,6 +22,7 @@ const categorySchema = new mongoose.Schema(
 
 categorySchema.index({ admin: 1, categorycode: 1 }, { unique: true });
 categorySchema.index({ admin: 1, categoryname: 1 }, { unique: true });
+categorySchema.index({ admin: 1, sortorder: 1 });
 
 categorySchema.pre('save', async function (next) {
   if (!this.categorycode) {
@@ -33,6 +39,15 @@ categorySchema.pre('save', async function (next) {
       }
     }
     this.categorycode = `#CAT${nextNumber.toString().padStart(4, '0')}`;
+  }
+  if (this.isNew && (this.sortorder === undefined || this.sortorder === null)) {
+    const Category = mongoose.model('Category');
+    const last = await Category.findOne({ admin: this.admin, sortorder: { $ne: null } })
+      .sort({ sortorder: -1 })
+      .select('sortorder')
+      .lean<{ sortorder?: number }>()
+      .exec();
+    this.sortorder = (last?.sortorder ?? 0) + 1;
   }
   next();
 });

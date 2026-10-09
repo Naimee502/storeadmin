@@ -24,6 +24,7 @@ export type ModuleAction =
   | "exportexcel"
   | "exportcsv"
   | "exportpdf"
+  | "rearrange"
   | "reset";
 
 export const ACTION_LABELS: Record<ModuleAction, string> = {
@@ -41,6 +42,7 @@ export const ACTION_LABELS: Record<ModuleAction, string> = {
   exportexcel: "Export Excel",
   exportcsv: "Export CSV",
   exportpdf: "Export PDF",
+  rearrange: "Rearrange",
   reset: "Reset",
 };
 
@@ -92,7 +94,9 @@ export type ModuleSection =
 
 export const MODULES: ModuleDef[] = [
   // ───────────── Master / Setup ─────────────
-  { id: "categories",     label: "Categories",      section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
+  // "rearrange" = the Rearrange button on Categories, which sets the order
+  // categories show in on the client app and website.
+  { id: "categories",     label: "Categories",      section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
   { id: "subcategories",  label: "Sub Categories",  section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "brands",         label: "Brands",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "models",         label: "Models",          section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
