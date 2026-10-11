@@ -1,6 +1,7 @@
 import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { enforceLoginOtp } from "../../../utils/loginotp";
 
 export const staffAccountResolvers = {
   Query: {
@@ -138,7 +139,7 @@ export const staffAccountResolvers = {
         .populate("assignedChannels");
     },
 
-    loginStaff: async (_: any, { email, password }: any, { res }: any) => {
+    loginStaff: async (_: any, { email, password, otp }: any, { res }: any) => {
       const staff = await StaffAccount.findOne({ email })
         .populate("admin")
         .populate("branchid")
@@ -147,6 +148,13 @@ export const staffAccountResolvers = {
 
       if (staff.password !== password) throw new Error("Invalid credentials");
       if (!staff.status) throw new Error("Your account is currently disabled.");
+
+      // Billing-panel login: Business Settings -> login email OTP (no-op when
+      // off). The app's salesman login (loginStaffByMobile) is not affected.
+      await enforceLoginOtp({
+        kind: "staff", userId: staff._id, email: staff.email,
+        adminId: (staff as any).admin, businessName: (staff as any).admin?.companyName, otp,
+      });
 
       const { accessToken, refreshToken } = generateTokens({
         id: staff.id,

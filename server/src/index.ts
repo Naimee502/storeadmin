@@ -15,6 +15,7 @@ import { Admin } from './models/admin';
 import { startReminderScheduler } from './utils/reminderscheduler';
 import { startAutoPunchOutScheduler } from './utils/autopunchout';
 import { imageResizer } from './utils/imagecache';
+import { warmUpMail } from './utils/mail';
 
 dotenv.config();
 
@@ -137,6 +138,7 @@ const startServer = async () => {
 
   const PORT = Number(process.env.PORT) || 4000;
   app.listen(PORT, '0.0.0.0', () => {
+    warmUpMail();
     console.log(`🚀 Server ready at http://0.0.0.0:${PORT}${server.graphqlPath}`);
   });
 

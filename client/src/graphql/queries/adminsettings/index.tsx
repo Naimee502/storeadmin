@@ -71,6 +71,8 @@ const SETTINGS_FIELDS = `
   websiteShopProductImageRatio
   websiteShopInfiniteScroll
   appCatalogBrowseMode
+  appCategoryAutoScroll
+  loginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime
   socialFacebookUrl

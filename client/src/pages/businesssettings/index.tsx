@@ -296,6 +296,26 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           picture grid is useless and a typed quantity per line is the whole job. Party logins only;
           salesman and staff are unaffected.
         </p>
+        <Toggle
+          label="Auto-scroll the category row on the App (Home & Shop)"
+          checked={!!draft.appCategoryAutoScroll}
+          onChange={(v: boolean) => set("appCategoryAutoScroll", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          The category chips above the products slide along by themselves every few seconds and loop
+          back to the start, so customers notice categories that sit off-screen. It pauses while the
+          customer is swiping the row and resumes a few seconds later. Off: the row only moves when swiped.
+        </p>
+        <Toggle
+          label="Billing panel login needs an email OTP (Admin, Branch & Staff login)"
+          checked={!!draft.loginEmailOtp}
+          onChange={(v: boolean) => set("loginEmailOtp", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          After the email and password are accepted, a 6-digit OTP is emailed to that login's email address and the
+          panel opens only once it is entered (valid 10 minutes). Make sure every branch and staff login has a working
+          email before turning this on. The mobile app logins are not affected.
+        </p>
       </Section>
 
       <Section title="Attendance">

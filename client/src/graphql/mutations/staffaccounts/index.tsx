@@ -96,8 +96,8 @@ export const RESET_STAFF = gql`
 `;
 
 export const LOGIN_STAFF = gql`
-  mutation LoginStaff($email: String!, $password: String!) {
-    loginStaff(email: $email, password: $password) {
+  mutation LoginStaff($email: String!, $password: String!, $otp: String) {
+    loginStaff(email: $email, password: $password, otp: $otp) {
       accessToken
       staff {
         id

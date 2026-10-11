@@ -70,7 +70,7 @@ export const branchTypeDefs = gql`
     addBranch(input: BranchInput!): Branch!
     addBranches(inputs: [BranchInput!]!): [Branch!]!
     editBranch(id: ID!, input: BranchInput!): Branch!
-    loginBranch(email: String!, password: String!): LoginBranchResponse
+    loginBranch(email: String!, password: String!, otp: String): LoginBranchResponse
     deleteBranch(id: ID!): Boolean!
     resetBranch(id: ID!): Boolean!
   }

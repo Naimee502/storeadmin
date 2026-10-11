@@ -16,7 +16,7 @@ import nodemailer from "nodemailer";
 // the server console — handy in dev, where the OTP shows up there instead.
 // ─────────────────────────────────────────────────────────────────────────────
 
-let transporter: ReturnType<typeof nodemailer.createTransport> | null | undefined; // undefined = not built yet
+let transporter: nodemailer.Transporter<any> | null | undefined; // undefined = not built yet
 
 const getTransporter = () => {
   if (transporter !== undefined) return transporter;
@@ -27,14 +27,29 @@ const getTransporter = () => {
     return transporter;
   }
   const port = Number(SMTP_PORT) || 465;
+  // Pooled: keeps the SMTP connection open and reuses it, so a mail doesn't
+  // pay a fresh connect + TLS + login every time (that handshake was most of
+  // the wait for an OTP mail).
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port,
     secure: port === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 100,
   });
   console.log(`[mail] SMTP enabled via ${SMTP_HOST}:${port} as ${SMTP_USER}`);
   return transporter;
+};
+
+/** Open the SMTP connection at server start so the first OTP mail is quick too. */
+export const warmUpMail = () => {
+  const t = getTransporter();
+  if (!t) return;
+  t.verify()
+    .then(() => console.log("[mail] SMTP connection ready"))
+    .catch((e: any) => console.error("[mail] SMTP verify failed:", e?.message || e));
 };
 
 /** Returns true when the mail was handed to the SMTP server. Never throws. */
@@ -91,4 +106,22 @@ export const sendOtpEmail = async (to: string, otp: string, business: string) =>
     If you did not try to register, you can ignore this email.</p>
   </div>`;
   return sendMail({ to, subject: `${otp} is your ${name} registration OTP`, text, html, fromName: business });
+};
+
+/** The billing-panel login OTP email (Business Settings -> login email OTP). */
+export const sendLoginOtpEmail = async (to: string, otp: string, business: string) => {
+  const name = business || "Billing panel";
+  const text =
+    `${otp} is your OTP to log in to ${name}.\n` +
+    `It is valid for 10 minutes. Do not share it with anyone.\n` +
+    `If you did not try to log in, change your password.`;
+  const html = `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1f2937">
+    <h2 style="margin:0 0 12px;font-size:18px">${escapeHtml(name)}</h2>
+    <p style="margin:0 0 16px;font-size:14px">Use this OTP to log in to the billing panel:</p>
+    <div style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:12px 0">${otp}</div>
+    <p style="margin:16px 0 0;font-size:12px;color:#6b7280">Valid for 10 minutes. Do not share it with anyone.
+    If you did not try to log in, change your password.</p>
+  </div>`;
+  return sendMail({ to, subject: `${otp} is your ${name} login OTP`, text, html, fromName: business });
 };

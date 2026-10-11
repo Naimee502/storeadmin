@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, StyleProp, ViewStyle,
+  Animated, Easing,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
@@ -10,6 +11,13 @@ import { AppImage } from './appimage';
 import { GET_CATEGORIES } from '../apollo/queries/categories';
 import type { RootState } from '../store/rootreducer';
 import { useIsEndUserParty } from '../utils/enduser';
+import { useCategoryAutoScroll } from '../apollo/hooks/adminsettings';
+
+// Auto-scroll (only when the admin turns the setting on). The row drifts
+// continuously like an LED ticker. Slow enough that a customer can read a
+// chip and tap it while it moves.
+const MARQUEE_SPEED_PX_PER_SEC = 30;
+const RESUME_AFTER_TOUCH_MS    = 1500; // ticker waits this long after a tap
 
 export type CategoryItem = { id: string | null; name: string; image?: string | null };
 
@@ -53,6 +61,76 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
   const { colors } = useTheme();
   const adminid = useSelector((s: RootState) => s.tenant.adminId ?? '');
   const asCircles = useIsEndUserParty();
+  const autoScroll = useCategoryAutoScroll();
+
+  // --- Auto-scroll (LED-ticker marquee) ---------------------------------
+  // The items are drawn twice side by side and the whole row is slid left at
+  // a constant speed on the native driver. When the first copy has fully slid
+  // out, the row jumps back to 0 — which looks identical, because the second
+  // copy is now exactly where the first one started — so the loop is seamless.
+  // Touching the row pauses it (so a tap lands on the chip the customer aimed
+  // at); it picks up again from the same spot shortly after. Runs only when
+  // the setting is on AND the categories don't already fit on screen.
+  const gap = asCircles ? 14 : 8;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const posX = useRef(0);
+  const running = useRef(false);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [viewW, setViewW] = useState(0);
+  const [copyW, setCopyW] = useState(0);
+  const marquee = autoScroll && viewW > 0 && copyW > viewW;
+  const loopW = copyW + gap; // one copy plus the gap before the next copy
+
+  const stop = useCallback(() => {
+    running.current = false;
+    translateX.stopAnimation(v => { posX.current = v; });
+  }, [translateX]);
+
+  const start = useCallback(() => {
+    if (!marquee) return;
+    running.current = true;
+    const run = (from: number) => {
+      const f = from <= -loopW || from > 0 ? 0 : from;
+      translateX.setValue(f);
+      Animated.timing(translateX, {
+        toValue: -loopW,
+        duration: ((loopW + f) / MARQUEE_SPEED_PX_PER_SEC) * 1000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished && running.current) run(0);
+      });
+    };
+    run(posX.current);
+  }, [marquee, loopW, translateX]);
+
+  // Timer callbacks always call the latest `start`.
+  const startRef = useRef(start);
+  startRef.current = start;
+
+  useEffect(() => {
+    if (!marquee) {
+      stop();
+      translateX.setValue(0);
+      posX.current = 0;
+      return;
+    }
+    start();
+    return () => {
+      stop();
+      if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    };
+  }, [marquee, start, stop, translateX]);
+
+  const onTouchStart = useCallback(() => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    stop();
+  }, [stop]);
+
+  const onTouchEnd = useCallback(() => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => startRef.current(), RESUME_AFTER_TOUCH_MS);
+  }, []);
 
   const { data: catData } = useQuery(GET_CATEGORIES, {
     variables: { adminId: adminid },
@@ -72,20 +150,13 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
   // "All" always leads the row and clears the filter.
   const items: CategoryItem[] = [{ id: null, name: 'All', image: null }, ...categories];
 
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[asCircles ? styles.circleList : styles.chipList, contentContainerStyle]}
-      style={styles.scroll}
-    >
-      {items.map(item => {
+  const renderItem = (item: CategoryItem, copy = 0) => {
         const active = selected === item.id;
 
         if (!asCircles) {
           return (
             <TouchableOpacity
-              key={item.id ?? 'all'}
+              key={`${copy}-${item.id ?? 'all'}`}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand, borderColor: colors.brand }
                 : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
@@ -103,7 +174,7 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
 
         return (
           <TouchableOpacity
-            key={item.id ?? 'all'}
+            key={`${copy}-${item.id ?? 'all'}`}
             style={styles.circleItem}
             onPress={() => onSelect(item.id)}
             activeOpacity={0.75}
@@ -142,13 +213,71 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
             </Text>
           </TouchableOpacity>
         );
-      })}
+  };
+
+  const listStyle = asCircles ? styles.circleList : styles.chipList;
+
+  if (autoScroll) {
+    // "All" stays pinned on the left; only the real categories run in the
+    // ticker beside it.
+    const [allItem, ...catItems] = items;
+    return (
+      <View style={[styles.marqueeRow, { gap, paddingBottom: 8 }, contentContainerStyle]}>
+        <View style={[listStyle, styles.marqueePinned]}>{renderItem(allItem)}</View>
+        <View
+          style={styles.marqueeWrap}
+          onLayout={e => setViewW(e.nativeEvent.layout.width)}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
+        >
+          <Animated.View
+            style={[
+              styles.marqueeTrack,
+              // Exactly two copies wide, so every chip sits inside the track's
+              // bounds and stays tappable (Android ignores touches outside).
+              marquee && { width: loopW + copyW },
+              { transform: [{ translateX }] },
+            ]}
+          >
+            <View
+              style={[listStyle, styles.marqueeCopy]}
+              onLayout={e => setCopyW(e.nativeEvent.layout.width)}
+            >
+              {catItems.map(item => renderItem(item, 0))}
+            </View>
+            {marquee && (
+              <View style={[listStyle, styles.marqueeCopy, { marginLeft: gap }]}>
+                {catItems.map(item => renderItem(item, 1))}
+              </View>
+            )}
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[listStyle, contentContainerStyle]}
+      style={styles.scroll}
+    >
+      {items.map(item => renderItem(item))}
     </ScrollView>
   );
 });
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
+
+  // auto-scroll marquee
+  marqueeRow:    { flexDirection: 'row', alignItems: 'flex-start' },
+  marqueePinned: { flexDirection: 'row', flexShrink: 0, paddingBottom: 0 },
+  marqueeWrap:   { flex: 1, overflow: 'hidden' },
+  marqueeTrack: { flexDirection: 'row', alignSelf: 'flex-start' },
+  marqueeCopy:  { flexDirection: 'row', flexShrink: 0, paddingBottom: 0 },
 
   // pill variant — same metrics the two screens used before
   chipList: { paddingBottom: 8, gap: 8 },

@@ -113,7 +113,7 @@ export const staffAccountTypeDefs = gql`
   type Mutation {
     addStaffAccount(input: StaffAccountInput!): StaffAccount!
     editStaffAccount(id: ID!, input: StaffAccountInput!): StaffAccount!
-    loginStaff(email: String!, password: String!): LoginStaffResponse
+    loginStaff(email: String!, password: String!, otp: String): LoginStaffResponse
     loginStaffByMobile(adminId: ID!, mobile: String!, password: String!): LoginStaffResponse
     deleteStaffAccount(id: ID!): Boolean!
     resetStaffAccount(id: ID!): Boolean!

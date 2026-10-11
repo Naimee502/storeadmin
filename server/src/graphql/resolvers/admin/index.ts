@@ -2,6 +2,7 @@ import { Admin } from "../../../models/admin";
 import { Channel } from "../../../models/channel";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { ApolloError } from "apollo-server-express";
+import { enforceLoginOtp } from "../../../utils/loginotp";
 
 export const adminResolvers = {
   Query: {
@@ -155,7 +156,7 @@ export const adminResolvers = {
       return admin;
     },
 
-    loginAdmin: async (_: any, { email, password }: any, { res }: any) => {
+    loginAdmin: async (_: any, { email, password, otp }: any, { res }: any) => {
       const admin = await Admin.findOne({ email });
       if (!admin) throw new Error("Admin not found");
 
@@ -186,6 +187,12 @@ export const adminResolvers = {
           { email: admin.email }
         );
       }
+
+      // Business Settings -> login email OTP (no-op when the switch is off).
+      await enforceLoginOtp({
+        kind: "admin", userId: admin._id, email: admin.email,
+        adminId: admin._id, businessName: admin.companyName, otp,
+      });
 
       const { accessToken, refreshToken } = generateTokens({
         id: admin.id,

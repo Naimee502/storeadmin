@@ -76,8 +76,8 @@ export const RESET_BRANCH = gql`
 `;
 
 export const LOGIN_BRANCH = gql`
-  mutation LoginBranch($email: String!, $password: String!) {
-    loginBranch(email: $email, password: $password) {
+  mutation LoginBranch($email: String!, $password: String!, $otp: String) {
+    loginBranch(email: $email, password: $password, otp: $otp) {
       accessToken
       branch {
         id

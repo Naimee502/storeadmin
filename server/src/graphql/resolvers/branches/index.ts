@@ -1,5 +1,6 @@
 import { Branch } from "../../../models/branches";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
+import { enforceLoginOtp } from "../../../utils/loginotp";
 
 export const branchResolvers = {
   Query: {
@@ -43,13 +44,19 @@ export const branchResolvers = {
     editBranch: async (_: any, { id, input }: any) =>
       await Branch.findByIdAndUpdate(id, input, { new: true }).populate('admin'),
 
-    loginBranch: async (_: any, { email, password }: any, { res }: any) => {
+    loginBranch: async (_: any, { email, password, otp }: any, { res }: any) => {
       const branch = await Branch.findOne({ email }).populate("admin");
       if (!branch) throw new Error("Branch not found");
 
       if (branch.password !== password) {
         throw new Error("Invalid credentials");
       }
+
+      // Business Settings -> login email OTP (no-op when the switch is off).
+      await enforceLoginOtp({
+        kind: "branch", userId: branch._id, email: branch.email,
+        adminId: (branch as any).admin, businessName: (branch as any).admin?.companyName, otp,
+      });
 
       const { accessToken, refreshToken } = generateTokens({
         id: branch.id,

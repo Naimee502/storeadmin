@@ -69,8 +69,8 @@ export const CONFIRM_SUBSCRIPTION = gql`
 `;
 
 export const LOGIN_ADMIN = gql`
-  mutation LoginAdmin($email: String!, $password: String!) {
-    loginAdmin(email: $email, password: $password) {
+  mutation LoginAdmin($email: String!, $password: String!, $otp: String) {
+    loginAdmin(email: $email, password: $password, otp: $otp) {
       accessToken
       admin {
         id

@@ -37,6 +37,22 @@ export function useShowProductStock(): boolean {
 }
 
 /**
+ * Business Settings -> "Auto-scroll the category row on the App"
+ * (appCategoryAutoScroll). Off by default: only businesses that ask for it get
+ * a self-scrolling category strip on Home / Shop; everyone else keeps the
+ * plain swipe-only row.
+ */
+export function useCategoryAutoScroll(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.appCategoryAutoScroll === true;
+}
+
+/**
  * Business Settings -> "Restrict quantity by stock". On (the default): a
  * customer can't put more of a product in the cart than the branch has, and
  * can't add an out-of-stock one at all. Off: they can order past it. The

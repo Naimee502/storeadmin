@@ -69,7 +69,7 @@ export const adminTypeDefs = gql`
 
   type Mutation {
     createAdmin(input: CreateAdminInput!): Admin
-    loginAdmin(email: String!, password: String!): LoginAdminResponse
+    loginAdmin(email: String!, password: String!, otp: String): LoginAdminResponse
     confirmSubscription(
       email: String!
       transactionId: String!

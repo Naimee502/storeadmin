@@ -349,6 +349,23 @@ const adminSettingsSchema = new mongoose.Schema(
     appCatalogBrowseMode: { type: Boolean, default: false },
 
     /**
+     * App category row (the chips / circles above the product grid on Home
+     * and Shop) scrolls itself sideways so customers notice categories that
+     * sit off-screen. Off (default): the row only moves when swiped. Only
+     * some businesses want the motion, so it is opt-in per business.
+     */
+    appCategoryAutoScroll: { type: Boolean, default: false },
+
+    /**
+     * Billing panel (web) login needs an email OTP. After the email + password
+     * check passes for Admin / Branch / Staff login, an OTP is mailed to that
+     * login's email (same SMTP mailbox as the app registration OTP) and the
+     * session is only opened once it is entered. Off (default): password
+     * alone logs in, as before. The mobile app logins are not affected.
+     */
+    loginEmailOtp: { type: Boolean, default: false },
+
+    /**
      * Auto punch-out. A salesman / delivery boy / staff who forgets to punch
      * out is punched out by the server at this time (IST, "HH:mm") — which also
      * stops their live location tracking, since the app only tracks while a

@@ -146,6 +146,10 @@ export const adminSettingsTypeDefs = gql`
     # Party app Home browses a catalogue (category -> sub-category -> order
     # sheet) instead of showing the storefront. Off by default.
     appCatalogBrowseMode: Boolean
+    # App Home/Shop category row auto-scrolls sideways. Off by default.
+    appCategoryAutoScroll: Boolean
+    # Billing-panel login (Admin/Branch/Staff) needs an email OTP. Off by default.
+    loginEmailOtp: Boolean
 
     # Auto punch-out for anyone still punched in at this time (IST, "HH:mm").
     autoPunchOutEnabled: Boolean
@@ -324,6 +328,8 @@ export const adminSettingsTypeDefs = gql`
     websiteShopProductImageRatio: String
     websiteShopInfiniteScroll: Boolean
     appCatalogBrowseMode: Boolean
+    appCategoryAutoScroll: Boolean
+    loginEmailOtp: Boolean
     autoPunchOutEnabled: Boolean
     autoPunchOutTime: String
 

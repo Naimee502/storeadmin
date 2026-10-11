@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import LoginLayout from "../../layouts/login";
 import FormField from "../../components/formfiled";
@@ -31,8 +31,39 @@ const Login = () => {
   const [invalidCredentialError, setInvalidCredentialError] = useState("");
   const isExpiringSoon = useAppSelector(state => state.auth.admin?.isExpiringSoon);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Email-OTP step (Business Settings -> "Billing panel login needs an email
+  // OTP"). The server answers the first login with LOGIN_OTP_REQUIRED after
+  // mailing the OTP; the same login is then repeated with the OTP attached.
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpInfo, setOtpInfo] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const resetOtpStep = () => {
+    setOtpStep(false);
+    setOtp("");
+    setOtpInfo("");
+    setResendIn(0);
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (otpStep && !/^\d{6}$/.test(otp.trim())) {
+      setInvalidCredentialError("Enter the 6-digit OTP sent to your email.");
+      return;
+    }
+    doLogin(otpStep ? otp.trim() : undefined);
+  };
+
+  const doLogin = async (otpValue?: string) => {
+    if (busy) return;
     setEmailError("");
     setPasswordError("");
     setInvalidCredentialError("");
@@ -46,9 +77,10 @@ const Login = () => {
       return;
     }
 
+    setBusy(true);
     try {
       if (loginType === "staff") {
-        const res = await loginStaff({ variables: { email, password } });
+        const res = await loginStaff({ variables: { email, password, otp: otpValue } });
         const loginData = res.data?.loginStaff;
         const staff = loginData?.staff;
         const accessToken = loginData?.accessToken;
@@ -69,7 +101,7 @@ const Login = () => {
         navigate("/home");
         return;
       } else if (loginType === "admin") {
-        const res = await loginAdmin({ variables: { email, password } });
+        const res = await loginAdmin({ variables: { email, password, otp: otpValue } });
         const loginData = res.data?.loginAdmin;
         const admin = loginData?.admin;
         const accessToken = loginData?.accessToken;
@@ -125,7 +157,7 @@ const Login = () => {
         login();
         navigate("/home");
       } else {
-        const res = await loginBranch({ variables: { email, password } });
+        const res = await loginBranch({ variables: { email, password, otp: otpValue } });
         const loginData = res.data?.loginBranch;
         const branch = loginData?.branch;
         const accessToken = loginData?.accessToken;
@@ -159,6 +191,18 @@ const Login = () => {
       const code = gqlError?.extensions?.code || err?.extensions?.code || "";
       const message = (gqlError?.message || err?.message || "").toLowerCase();
 
+      // Email OTP step: OTP mailed -> show the OTP box.
+      if (code === "LOGIN_OTP_REQUIRED") {
+        setOtpStep(true);
+        setOtpInfo(gqlError?.message || "OTP sent to your email.");
+        setResendIn(Number(gqlError?.extensions?.resendIn) || 60);
+        return;
+      }
+      if (code === "LOGIN_OTP_INVALID") {
+        setInvalidCredentialError(gqlError?.message || "Incorrect OTP.");
+        return;
+      }
+
       // Message fallback: older server builds throw a plain Error with no
       // extensions.code, so match on the text too.
       const underReview =
@@ -178,6 +222,8 @@ const Login = () => {
       }
 
       setInvalidCredentialError(err?.message || "Login failed. Try again.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -199,7 +245,7 @@ const Login = () => {
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500"
               }`}
-              onClick={() => setLoginType("branch")}
+              onClick={() => { setLoginType("branch"); resetOtpStep(); }}
             >
               Branch Login
             </button>
@@ -210,7 +256,7 @@ const Login = () => {
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500"
               }`}
-              onClick={() => setLoginType("staff")}
+              onClick={() => { setLoginType("staff"); resetOtpStep(); }}
             >
               Staff Login
             </button>
@@ -221,7 +267,7 @@ const Login = () => {
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500"
               }`}
-              onClick={() => setLoginType("admin")}
+              onClick={() => { setLoginType("admin"); resetOtpStep(); }}
             >
               Admin Login
             </button>
@@ -241,6 +287,7 @@ const Login = () => {
               onChange={(e: any) => {
                 setEmail(e.target.value);
                 setEmailError("");
+                if (otpStep) resetOtpStep();
               }}
               error={emailError}
             />
@@ -255,23 +302,56 @@ const Login = () => {
               onChange={(e: any) => {
                 setPassword(e.target.value);
                 setPasswordError("");
+                if (otpStep) resetOtpStep();
               }}
               error={passwordError}
             />
 
-            {/* Subscribe Link (Removed manual link since system redirects automatically on expiry) */}
-            <div className="flex justify-end items-center">
-              {/* Subscription warning for admin */}
-              {isExpiringSoon && (
-                <span className="text-xs text-red-600 font-medium">
-                  {email && password && invalidCredentialError === "" &&
-                    "⚠️ Your subscription may expire soon!"}
-                </span>
-              )}
-            </div>
+            {/* OTP field sits right under Password with the same gap as
+                Email -> Password; the sent-to note and Resend sit tight under it. */}
+            {otpStep && (
+              <div className="space-y-1">
+                <FormField
+                  label="Email OTP"
+                  type="text"
+                  name="otp"
+                  placeholder="6-digit OTP"
+                  value={otp}
+                  onChange={(e: any) => {
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    setInvalidCredentialError("");
+                  }}
+                />
+                <div className="flex justify-between items-start gap-3 text-xs">
+                  <span className="text-green-700">{otpInfo}</span>
+                  <button
+                    type="button"
+                    disabled={resendIn > 0 || busy}
+                    className={`shrink-0 ${resendIn > 0 || busy ? "text-gray-400" : "text-blue-600 hover:underline"}`}
+                    onClick={() => { setOtp(""); doLogin(undefined); }}
+                  >
+                    {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
+                  </button>
+                </div>
+              </div>
+            )}
 
-            <Button type="submit" variant="outline" className="w-full">
-              {loginType === "admin" ? "Admin Login" : loginType === "branch" ? "Branch Login" : "Staff Login"}
+            {/* Subscription warning for admin — rendered only when there is
+                something to say, so an empty row doesn't add a gap. */}
+            {isExpiringSoon && email && password && invalidCredentialError === "" && (
+              <div className="flex justify-end items-center">
+                <span className="text-xs text-red-600 font-medium">
+                  ⚠️ Your subscription may expire soon!
+                </span>
+              </div>
+            )}
+
+            <Button type="submit" variant="outline" className="w-full" disabled={busy}>
+              {busy
+                ? "Please wait…"
+                : otpStep
+                  ? "Verify OTP & Login"
+                  : loginType === "admin" ? "Admin Login" : loginType === "branch" ? "Branch Login" : "Staff Login"}
             </Button>
 
             {invalidCredentialError && (
