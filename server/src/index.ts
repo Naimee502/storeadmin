@@ -16,6 +16,7 @@ import { startReminderScheduler } from './utils/reminderscheduler';
 import { startAutoPunchOutScheduler } from './utils/autopunchout';
 import { imageResizer } from './utils/imagecache';
 import { warmUpMail } from './utils/mail';
+import { isCustomDomainOrigin } from './utils/customdomain';
 
 dotenv.config();
 
@@ -54,13 +55,22 @@ const startServer = async () => {
   app.use(cookieParser());
 
   // Allowed browser origins: the live site plus the local dev servers.
-  const corsOptions = {
-    origin: [
-      'https://rudra.digisysindiatech.com',
-      'http://localhost:5173', // client (admin panel)
-      'http://localhost:5174', // clientweb (customer website, dev)
-      'http://localhost:5175', // clientweb fallback port if 5174 is busy
-    ],
+  const STATIC_ORIGINS = [
+    'https://rudra.digisysindiatech.com',
+    'http://localhost:5173', // client (admin panel)
+    'http://localhost:5174', // clientweb (customer website, dev)
+    'http://localhost:5175', // clientweb fallback port if 5174 is busy
+  ];
+  // Plus every business's own website domain (Business Settings -> Website
+  // Storefront -> Custom Domain), with or without "www.", so a storefront on
+  // dkmarketing.com can call this API. No code change per new client.
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      if (!origin || STATIC_ORIGINS.includes(origin)) return callback(null, true);
+      isCustomDomainOrigin(origin)
+        .then((ok) => callback(null, ok))
+        .catch(() => callback(null, false));
+    },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'],
   };

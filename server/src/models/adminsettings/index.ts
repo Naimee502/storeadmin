@@ -130,6 +130,19 @@ const adminSettingsSchema = new mongoose.Schema(
       match: [/^[a-z0-9-]*$/, "Only lowercase letters, numbers and hyphens allowed"],
     },
 
+    // Business's own domain for the customer website, e.g. "dkmarketing.com"
+    // (stored normalised: lowercase, no protocol/path/"www."). When a visitor
+    // opens that domain, clientweb looks the store up by it instead of by the
+    // /<storeslug> path. Unset = only the storeslug link works. One domain can
+    // belong to one business only. See utils/customdomain.
+    customDomain: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
+
     /* ============================================================
        INVOICE PRINT LAYOUT — lets an admin switch off parts of the
        printed Sales/Purchase Invoice header & footer, and customise the

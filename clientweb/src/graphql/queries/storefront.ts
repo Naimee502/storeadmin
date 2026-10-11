@@ -3,8 +3,8 @@ import { gql } from "@apollo/client";
 // Resolves which admin a storefront link (yourdomain.com/<storeslug>)
 // belongs to. Public/anonymous — no auth needed to browse a catalog.
 export const GET_STOREFRONT_BY_SLUG = gql`
-  query GetStorefrontByStoreSlug($storeslug: String!) {
-    getStorefrontByStoreSlug(storeslug: $storeslug) {
+  query GetStorefrontByStoreSlug($storeslug: String, $domain: String) {
+    getStorefrontByStoreSlug(storeslug: $storeslug, domain: $domain) {
       adminid
       branchid
       companyName

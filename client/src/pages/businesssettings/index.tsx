@@ -409,23 +409,46 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
         <div className="text-xs text-gray-400 mb-1 px-1">
           Controls your customer-facing website (clientweb) link, and which payment methods appear at checkout.
         </div>
-        <div>
-          <FormField
-            label="Website Link (store handle)"
-            name="storeslug"
-            placeholder="e.g. rudra"
-            value={draft.storeslug ?? ""}
-            onChange={(e: any) =>
-              set("storeslug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
-            }
-          />
-          {draft.storeslug && (
+        {/* Store handle and custom domain side by side (stacked on small screens). */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <FormField
+              label="Website Link (store handle)"
+              name="storeslug"
+              placeholder="e.g. rudra"
+              value={draft.storeslug ?? ""}
+              onChange={(e: any) =>
+                set("storeslug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+              }
+            />
+            {draft.storeslug && (
+              <p className="mt-1.5 text-xs text-gray-400">
+                Your website link:{" "}
+                <span className="font-medium text-gray-600">yourdomain.com/{draft.storeslug}</span>{" "}
+                — share this with your customers.
+              </p>
+            )}
+          </div>
+          <div>
+            <FormField
+              label="Custom Domain (optional)"
+              name="customDomain"
+              placeholder="e.g. rudradigisys.com"
+              value={draft.customDomain ?? ""}
+              onChange={(e: any) => set("customDomain", e.target.value.toLowerCase().replace(/\s/g, ""))}
+            />
             <p className="mt-1.5 text-xs text-gray-400">
-              Your website link:{" "}
-              <span className="font-medium text-gray-600">yourdomain.com/{draft.storeslug}</span>{" "}
-              — share this with your customers. (Replace "yourdomain.com" with your live site's actual address.)
+              {draft.customDomain ? (
+                <>
+                  Store also opens at{" "}
+                  <span className="font-medium text-gray-600">https://{String(draft.customDomain).replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")}</span>{" "}
+                  once the domain is connected to our server — ask support.
+                </>
+              ) : (
+                <>Your own domain (like rudradigisys.com) to open the store directly on it.</>
+              )}
             </p>
-          )}
+          </div>
         </div>
         <div className="pt-2">
           <Toggle

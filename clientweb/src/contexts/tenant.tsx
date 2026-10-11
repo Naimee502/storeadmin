@@ -113,9 +113,21 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 // resolves the URL's storeslug (e.g. "rudra" from /rudra) to an actual
 // admin via getStorefrontByStoreSlug, so every business's own link shows
 // their own company name, home page layout and payment options.
-export function TenantProvider({ storeSlug, children }: { storeSlug: string; children: ReactNode }) {
+//
+// On a business's own domain (dkmarketing.com) `domain` is set instead and the
+// store is looked up by it; `storeSlug` then just carries the domain as a key
+// for the per-store cart / session storage.
+export function TenantProvider({
+  storeSlug,
+  domain,
+  children,
+}: {
+  storeSlug: string;
+  domain?: string | null;
+  children: ReactNode;
+}) {
   const { data, loading, error } = useQuery(GET_STOREFRONT_BY_SLUG, {
-    variables: { storeslug: storeSlug },
+    variables: domain ? { domain } : { storeslug: storeSlug },
   });
 
   const info = data?.getStorefrontByStoreSlug;

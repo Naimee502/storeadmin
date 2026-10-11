@@ -117,6 +117,7 @@ export const adminSettingsTypeDefs = gql`
     # Cash on Delivery only, and this admin's public website link.
     websiteCodOnly: Boolean
     storeslug: String
+    customDomain: String
 
     # Website content (rich HTML) shown directly on the clientweb
     # About/Privacy/Terms pages.
@@ -317,6 +318,7 @@ export const adminSettingsTypeDefs = gql`
 
     websiteCodOnly: Boolean
     storeslug: String
+    customDomain: String
 
     websiteAboutContent: String
     websitePrivacyContent: String
@@ -357,7 +359,9 @@ export const adminSettingsTypeDefs = gql`
 
   extend type Query {
     getAdminSettings(adminid: ID!): AdminSettings!
-    getStorefrontByStoreSlug(storeslug: String!): StorefrontInfo
+    # Look a storefront up by its /<storeslug> link OR by the business's own
+    # domain (dkmarketing.com). Pass one of the two.
+    getStorefrontByStoreSlug(storeslug: String, domain: String): StorefrontInfo
   }
 
   extend type Mutation {

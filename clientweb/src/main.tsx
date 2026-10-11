@@ -20,16 +20,54 @@ import apolloClient from "./graphql/client";
 // step with the storeslug validation in Business Settings.
 const RESERVED_SEGMENTS = new Set(["account-deletion"]);
 
+// ── Custom domains ───────────────────────────────────────────────────────────
+// Our own hosts use the /<storeslug> link. Any OTHER host is a business's own
+// domain (dkmarketing.com, saved in Business Settings -> Custom Domain): there
+// the whole site is that one store, so there is no slug and no basename, and
+// the store is looked up by the domain itself.
+//
+// Add a host here (or in VITE_PLATFORM_HOSTS, comma separated) if the platform
+// is ever served from another address of its own.
+const PLATFORM_HOSTS = new Set(
+  (import.meta.env.VITE_PLATFORM_HOSTS || "localhost,127.0.0.1,rudra.digisysindiatech.com")
+    .split(",")
+    .map((h: string) => h.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+const host = window.location.hostname.toLowerCase().replace(/^www\./, "");
+
+// Local testing of a custom domain without DNS: open
+//   http://localhost:5174/?domain=dkmarketing.com
+// once — it is remembered for this tab until ?domain= (empty) clears it.
+const DEV_DOMAIN_KEY = "dev_custom_domain";
+let devDomain: string | null = null;
+if (host === "localhost" || host === "127.0.0.1") {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    if (q.has("domain")) {
+      const v = (q.get("domain") || "").trim().toLowerCase();
+      if (v) sessionStorage.setItem(DEV_DOMAIN_KEY, v);
+      else sessionStorage.removeItem(DEV_DOMAIN_KEY);
+    }
+    devDomain = sessionStorage.getItem(DEV_DOMAIN_KEY);
+  } catch {
+    devDomain = null;
+  }
+}
+
+const customDomain = devDomain || (PLATFORM_HOSTS.has(host) ? null : host);
+
 const segments = window.location.pathname.split("/").filter(Boolean);
 const first = segments[0] ?? null;
 const reserved = first && RESERVED_SEGMENTS.has(first) ? first : null;
-const storeSlug = reserved ? null : first;
+const storeSlug = reserved || customDomain ? null : first;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ApolloProvider client={apolloClient}>
       <BrowserRouter basename={storeSlug ? `/${storeSlug}` : undefined}>
-        <App storeSlug={storeSlug} platformPath={reserved} />
+        <App storeSlug={storeSlug} platformPath={reserved} customDomain={reserved ? null : customDomain} />
       </BrowserRouter>
     </ApolloProvider>
   </StrictMode>

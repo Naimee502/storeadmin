@@ -59,6 +59,7 @@ const SETTINGS_FIELDS = `
   appDownloadUrl
   websiteCodOnly
   storeslug
+  customDomain
   websiteAboutContent
   websitePrivacyContent
   websiteTermsContent

@@ -1,3 +1,4 @@
+import { normalizeDomain, isValidDomain, clearCustomDomainCache } from "../../../utils/customdomain";
 import { AdminSettings } from "../../../models/adminsettings";
 import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
@@ -64,11 +65,19 @@ export const adminSettingsResolvers = {
     // (unlike clientapp's getAdminByCode): browsing a public catalog isn't
     // sensitive, only the party-login step needs to check identity, and it
     // does that scoped to the adminid this query returns.
-    getStorefrontByStoreSlug: async (_: any, { storeslug }: { storeslug: string }) => {
+    getStorefrontByStoreSlug: async (
+      _: any,
+      { storeslug, domain }: { storeslug?: string; domain?: string }
+    ) => {
+      // Business's own domain (dkmarketing.com) wins when given; otherwise
+      // the /<storeslug> link as before.
+      const host = normalizeDomain(domain);
       const normalized = String(storeslug || "").trim().toLowerCase();
-      if (!normalized) return null;
+      if (!host && !normalized) return null;
 
-      const settings: any = await AdminSettings.findOne({ storeslug: normalized }).lean();
+      const settings: any = host
+        ? await AdminSettings.findOne({ customDomain: host }).lean()
+        : await AdminSettings.findOne({ storeslug: normalized }).lean();
       if (!settings) return null;
 
       const admin: any = await Admin.findOne({ _id: settings.adminid, status: true }).lean();
@@ -151,12 +160,37 @@ export const adminSettingsResolvers = {
     ) => {
       const doc = await AdminSettings.getOrCreateForAdmin(adminid);
       const $set: any = {};
+      const $unset: any = {};
       Object.keys(input || {}).forEach((k) => {
         if (input[k] !== undefined) $set[k] = input[k];
       });
+
+      // Custom domain: normalise, validate, keep it unique across businesses.
+      // Blank removes it — $unset rather than "", since the unique index is
+      // sparse and two businesses with "" would collide.
+      if ("customDomain" in $set) {
+        const d = normalizeDomain($set.customDomain);
+        delete $set.customDomain;
+        if (!d) {
+          $unset.customDomain = "";
+        } else {
+          if (!isValidDomain(d)) {
+            throw new Error(`"${d}" is not a valid domain. Enter it like dkmarketing.com`);
+          }
+          const taken: any = await AdminSettings.findOne({ customDomain: d, _id: { $ne: doc._id } })
+            .select("_id")
+            .lean();
+          if (taken) throw new Error(`The domain ${d} is already used by another business.`);
+          $set.customDomain = d;
+        }
+        clearCustomDomainCache();
+      }
+
+      const update: any = { $set };
+      if (Object.keys($unset).length) update.$unset = $unset;
       const updated = await AdminSettings.findByIdAndUpdate(
         doc._id,
-        { $set },
+        update,
         { new: true }
       ).lean();
       return formatSettings(updated);
