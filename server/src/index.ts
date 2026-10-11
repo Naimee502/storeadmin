@@ -16,7 +16,7 @@ import { startReminderScheduler } from './utils/reminderscheduler';
 import { startAutoPunchOutScheduler } from './utils/autopunchout';
 import { imageResizer } from './utils/imagecache';
 import { warmUpMail } from './utils/mail';
-import { isCustomDomainOrigin } from './utils/customdomain';
+import { isCustomDomainOrigin, getCustomDomains } from './utils/customdomain';
 
 dotenv.config();
 
@@ -77,6 +77,24 @@ const startServer = async () => {
 
   // The admin panel calls this directly (dev: localhost:4000 from :5173).
   app.use('/refresh_token', cors(corsOptions));
+
+  // List of every business's custom domain, for deploy/sync-custom-domains.sh
+  // (cron on the VPS) which creates the nginx site + SSL for each one. Only
+  // answers a request made on the machine itself — checked on the raw socket
+  // address, not req.ip, because 'trust proxy' would let a forged
+  // X-Forwarded-For header pass as localhost. nginx does not proxy this path
+  // either, so it is not reachable from outside through the website.
+  app.get('/internal/custom-domains', async (req, res) => {
+    const ra = req.socket.remoteAddress || '';
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ra)) return res.status(404).end();
+    try {
+      const domains = await getCustomDomains();
+      // First line "OK" so the script can tell "no domains" from "server down".
+      res.type('text/plain').send(['OK', ...Array.from(domains)].join('\n') + '\n');
+    } catch {
+      res.status(500).end();
+    }
+  });
 
   app.post("/refresh_token", async (req, res) => {
     const token = req.cookies.refreshToken;

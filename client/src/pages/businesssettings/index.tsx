@@ -442,7 +442,9 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
                 <>
                   Store also opens at{" "}
                   <span className="font-medium text-gray-600">https://{String(draft.customDomain).replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "")}</span>{" "}
-                  once the domain is connected to our server — ask support.
+                  — set the domain's DNS A record (@ and www) to{" "}
+                  <span className="font-medium text-gray-600">72.61.226.71</span>; it goes live with https
+                  automatically within ~5 minutes of the DNS update.
                 </>
               ) : (
                 <>Your own domain (like rudradigisys.com) to open the store directly on it.</>
