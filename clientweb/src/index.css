@@ -91,3 +91,16 @@ body {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+/* Category ticker (Business Settings -> auto-scroll the category row). */
+@keyframes cat-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.cat-ticker:hover .cat-ticker-track,
+.cat-ticker.paused .cat-ticker-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-ticker-track { animation: none !important; }
+}

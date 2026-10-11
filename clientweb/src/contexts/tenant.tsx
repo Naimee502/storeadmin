@@ -72,6 +72,12 @@ interface TenantContextValue {
   /** The Shop / All Products grid. */
   shopProductImageRatio: string;
   /** Shop page: load more on scroll (true) or show numbered pages (false). */
+  /**
+   * Business Settings -> "Auto-scroll the category row" (appCategoryAutoScroll).
+   * On: the Shop by Category row runs as a slow, looping ticker. Same switch
+   * as the app.
+   */
+  categoryAutoScroll: boolean;
   shopInfiniteScroll: boolean;
 
   socialFacebookUrl: string;
@@ -173,6 +179,7 @@ export function TenantProvider({ storeSlug, children }: { storeSlug: string; chi
     homeProductImageRatio: info?.websiteHomeProductImageRatio ?? "",
     shopProductImageRatio: info?.websiteShopProductImageRatio ?? "",
     shopInfiniteScroll: !!info?.websiteShopInfiniteScroll,
+    categoryAutoScroll: !!info?.appCategoryAutoScroll,
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",

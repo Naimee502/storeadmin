@@ -297,7 +297,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           salesman and staff are unaffected.
         </p>
         <Toggle
-          label="Auto-scroll the category row on the App (Home & Shop)"
+          label="Auto-scroll the category row (App Home & Shop + Website Shop by Category)"
           checked={!!draft.appCategoryAutoScroll}
           onChange={(v: boolean) => set("appCategoryAutoScroll", v)}
         />

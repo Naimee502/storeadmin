@@ -227,6 +227,8 @@ export const adminSettingsTypeDefs = gql`
     websiteHomeProductImageRatio: String
     websiteShopProductImageRatio: String
     websiteShopInfiniteScroll: Boolean!
+    # Category row auto-scrolls (ticker) on the app and the website.
+    appCategoryAutoScroll: Boolean
 
     socialFacebookUrl: String
     socialInstagramUrl: String
