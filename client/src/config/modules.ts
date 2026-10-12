@@ -55,6 +55,12 @@ const FULL_TXN_ACTIONS: ModuleAction[] = [
 // order-only business (invoicing module switched off) still has to hand the
 // customer a document and send it to them, so the order IS their bill.
 // Both are permissioned so an admin can hide either from the Actions column.
+// Return documents (Sales / Purchase Returns) get everything an invoice has
+// EXCEPT "return": a return is created FROM an invoice, and a return cannot
+// itself be returned, so there is no Return button on their lists. Leaving
+// the key in drew a Return checkbox in Business Permissions that controlled
+// nothing.
+const RETURN_TXN_ACTIONS: ModuleAction[] = FULL_TXN_ACTIONS.filter((a) => a !== "return");
 const ORDER_ACTIONS: ModuleAction[] = [
   "add", "edit", "delete", "print", "whatsapp", "cancel", "convert", "reset",
 ];
@@ -116,7 +122,7 @@ export const MODULES: ModuleDef[] = [
   // ───────────── Sales pipeline ─────────────
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "salesinvoice",   label: "Sales Invoices",  section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
-  { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
+  { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
 
   // ───────────── Point of Sale ─────────────
   { id: "posdashboard",   label: "POS Dashboard",   section: "pos", actions: ["view"], inAdminRegister: true },
@@ -124,7 +130,7 @@ export const MODULES: ModuleDef[] = [
   // ───────────── Purchase pipeline ─────────────
   { id: "purchaseorder",   label: "Purchase Orders",   section: "purchase", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "purchaseinvoice", label: "Purchase Invoices", section: "purchase", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
-  { id: "purchasereturn",  label: "Purchase Returns",  section: "purchase", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
+  { id: "purchasereturn",  label: "Purchase Returns",  section: "purchase", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
 
   // ───────────── Inventory operations ─────────────
   { id: "transferstock",     label: "Transfer Stock",     section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },

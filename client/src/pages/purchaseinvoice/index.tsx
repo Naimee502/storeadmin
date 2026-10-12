@@ -289,10 +289,15 @@ const PurchaseInvoices = () => {
           title="Manage Purchase Invoices"
           columns={columns}
           data={tableData}
-          showPrint={true}
-          showWhatsApp={true}
           onWhatsApp={handleWhatsAppShare}
-          showReturn={(row: any) => !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled}
+          // Combine the "no duplicate return" rule with the user's
+          // permission to perform a return at all (Business Permissions →
+          // Purchase Invoices → Return). Print / WhatsApp come from
+          // {...actions} above — never hard-code them to true here, or the
+          // permission checkboxes stop working.
+          showReturn={(row: any) =>
+            actions.showReturn && !returnedInvoiceIds.has(String(row.id)) && !row.isCancelled
+          }
           showCancel={(row: any) => !row.isCancelled}
           showReopen={(row: any) => Boolean(row.isCancelled)}
           cancelTitle="Cancel Invoice"
