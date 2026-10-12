@@ -1,6 +1,8 @@
 import { useQuery } from "@apollo/client";
 import { useTenant } from "../contexts/tenant";
 import { GET_ADMIN_BY_ID } from "../graphql/queries/accounts";
+import { IS_ANNOUNCEMENTS_ENABLED } from "../graphql/queries/announcements";
+import { useAuth } from "../contexts/auth";
 
 // Is a business module enabled (admin-level allowedmodules)? Ported from
 // clientapp's useModuleEnabled — null/empty allowedmodules means "all
@@ -25,3 +27,19 @@ export function useModuleEnabled(moduleId: string): boolean {
  * and the sub-party payments / collect pages redirect back to My Account.
  */
 export const usePaymentsEnabled = (): boolean => useModuleEnabled("payments");
+
+/**
+ * Business Settings → Modules → "Announcements". Opt-in: off means no
+ * Announcements link, page or unread count anywhere on the site.
+ */
+export const useAnnouncementsEnabled = (): boolean => {
+  const moduleOn = useModuleEnabled("announcements");
+  const { isLoggedIn } = useAuth();
+  // Also off when every Announcements permission box is unticked — the server
+  // answers that for the signed-in party.
+  const { data } = useQuery(IS_ANNOUNCEMENTS_ENABLED, {
+    skip: !moduleOn || !isLoggedIn,
+    fetchPolicy: "cache-and-network",
+  });
+  return moduleOn && isLoggedIn && data?.isAnnouncementsEnabled === true;
+};

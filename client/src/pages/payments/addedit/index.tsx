@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
@@ -818,6 +818,25 @@ const AddEditPayment = () => {
       ]);
     }
   };
+
+  // "Pay" on an approved Expense Claim lands here with ?expensenote=<id>:
+  // open in Expense mode with that note already ticked. Done once, and only
+  // for a new payment, so the user can still untick it or change anything.
+  const location = useLocation();
+  const prefillNoteId = !isEdit ? new URLSearchParams(location.search).get("expensenote") : null;
+  const prefillDone = useRef(false);
+  useEffect(() => {
+    if (prefillNoteId && payType !== "expense" && !prefillDone.current) setPayType("expense");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillNoteId]);
+  useEffect(() => {
+    if (!prefillNoteId || prefillDone.current || payType !== "expense") return;
+    const note = outstandingInvoices.find((inv: any) => inv.id === prefillNoteId);
+    if (!note) return;
+    prefillDone.current = true;
+    if (!isSelected(note.id)) toggleInvoice(note);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillNoteId, payType, outstandingInvoices]);
 
   const updateSettleAmount = (invoiceid: string, amount: number) => {
     setSettledInvoices(prev =>

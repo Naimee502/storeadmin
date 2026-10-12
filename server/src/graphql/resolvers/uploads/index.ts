@@ -8,6 +8,8 @@ import { Category } from '../../../models/categories';
 import { SubCategory } from '../../../models/subcategories';
 import { AdminSettings } from '../../../models/adminsettings';
 import { purgeImageCache } from '../../../utils/imagecache';
+import { ExpenseClaim } from '../../../models/expenseclaim';
+import { Announcement } from '../../../models/announcement';
 import { PUBLIC_BASE_URL } from '../../../config/serverconfig';
 
 /** Where uploadImage writes, and what express serves at /uploads. */
@@ -59,7 +61,7 @@ const localUploadPath = (rawUrl: string): string | null => {
  * and this quietly deletes files that page is still displaying.
  */
 const stillInUse = async (url: string): Promise<boolean> => {
-  const [product, category, subcategory, settings] = await Promise.all([
+  const [product, category, subcategory, settings, claim, announcement] = await Promise.all([
     ProductService.exists({ $or: [{ imageurl: url }, { imageurls: url }] }),
     Category.exists({ image: url }),
     SubCategory.exists({ image: url }),
@@ -70,8 +72,12 @@ const stillInUse = async (url: string): Promise<boolean> => {
         { brandLogo: url },
       ],
     }),
+    // Bill photos on expense claims.
+    ExpenseClaim.exists({ receipts: url }),
+    // Announcement pictures.
+    Announcement.exists({ imageurl: url }),
   ]);
-  return Boolean(product || category || subcategory || settings);
+  return Boolean(product || category || subcategory || settings || claim || announcement);
 };
 
 export const uploadResolvers = {

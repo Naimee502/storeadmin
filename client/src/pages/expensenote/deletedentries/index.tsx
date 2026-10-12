@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
+import DeletedExpenseClaims from "./claims";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
@@ -18,6 +19,8 @@ const DeletedExpenseNotes = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "expensenote"));
   const dispatch = useAppDispatch();
+  const location = useLocation();
+  const showClaims = new URLSearchParams(location.search).get("tab") === "claims";
 
   const { data, refetch } = useDeletedExpenseNotesQuery();
   const { resetExpenseNoteMutation } = useExpenseNoteMutations();
@@ -110,6 +113,16 @@ const DeletedExpenseNotes = () => {
   /* =========================
      UI
      ========================= */
+
+  if (showClaims) {
+    return (
+      <HomeLayout>
+        <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+          <DeletedExpenseClaims />
+        </div>
+      </HomeLayout>
+    );
+  }
 
   return (
     <HomeLayout>

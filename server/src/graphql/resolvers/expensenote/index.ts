@@ -46,7 +46,7 @@ const ensureLedger = async (
 // Map an expense category to the canonical ledger that should sit on the
 // debit side of the journal entry. Resolved on demand so admins who don't
 // use TA/DA or salary never see these ledgers in their COA.
-const ensureCategoryLedger = async (adminid: any, category: string) => {
+export const ensureCategoryLedger = async (adminid: any, category: string) => {
   if (category === "tada") {
     return ensureLedger(
       adminid,

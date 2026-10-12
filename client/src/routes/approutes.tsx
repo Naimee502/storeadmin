@@ -80,6 +80,8 @@ import POSDashboard from "../pages/posdashboard";
 import AddEditExpenseNote from "../pages/expensenote/addedit";
 import DeletedExpenseNotes from "../pages/expensenote/deletedentries";
 import ExpenseNote from "../pages/expensenote";
+import Announcements from "../pages/announcements";
+import DeletedAnnouncements from "../pages/announcements/deletedentries";
 import Channels from "../pages/channels";
 import DeletedChannels from "../pages/channels/deletedentries";
 import StockAdjustments from "../pages/stockadjustments";
@@ -623,6 +625,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <DeletedTransferStocks />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/announcements"
+        element={
+          <ProtectedRoutes>
+            <Announcements />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/announcements/deletedentries"
+        element={
+          <ProtectedRoutes>
+            <DeletedAnnouncements />
           </ProtectedRoutes>
         }
       />

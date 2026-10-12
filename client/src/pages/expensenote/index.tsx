@@ -1,5 +1,8 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/tabs";
+import ExpenseClaimsTab from "./claims";
+import { useExpenseClaimsQuery } from "../../graphql/hooks/expenseclaim";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
@@ -18,6 +21,18 @@ const ExpenseNote = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "expensenote"));
   const dispatch = useAppDispatch();
+
+  const location = useLocation();
+  const [tabState, setTab] = useState<string>(
+    new URLSearchParams(location.search).get("tab") === "claims" ? "claims" : "notes"
+  );
+  // Pending-claims badge on the tab. Same query the tab itself uses, so it is
+  // one request, shared through the Apollo cache.
+  // Business Settings → Permissions → Expense Notes → "Expense Claims".
+  const claimsOn = actions.showClaims;
+  const { data: claimsData } = useExpenseClaimsQuery(!claimsOn);
+  const tab = claimsOn ? tabState : "notes";
+  const pendingClaims = (claimsData?.getExpenseClaims || []).filter((c: any) => c.status === "pending").length;
 
   const { data, refetch } = useExpenseNotesQuery();
   const { deleteExpenseNoteMutation } = useExpenseNoteMutations();
@@ -116,9 +131,33 @@ const ExpenseNote = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        {/* Same layout as Attendance & Leave: page title first, tabs under it. */}
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{claimsOn ? <>Expense Notes &amp; Claims</> : "Expense Notes"}</h1>
+        </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          {claimsOn && (
+          <TabsList className="flex flex-wrap mb-3">
+            <TabsTrigger value="notes">Expense Notes</TabsTrigger>
+            <TabsTrigger value="claims">
+              Expense Claims
+              {pendingClaims > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-yellow-500 text-white text-[9px] font-bold">
+                  {pendingClaims}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          )}
+          {claimsOn && (
+            <TabsContent value="claims">
+              <ExpenseClaimsTab />
+            </TabsContent>
+          )}
+          <TabsContent value="notes">
         <DataTable requireBranchForAdd={true}
           {...actions}
-          title="Manage Expense Notes"
+          title="Expense Notes"
           columns={columns}
           data={tableData}
           
@@ -168,6 +207,8 @@ const ExpenseNote = () => {
           defaultEntriesPerPage={10}
           isLoading={isLoading}
         />
+          </TabsContent>
+        </Tabs>
       </div>
     </HomeLayout>
   );

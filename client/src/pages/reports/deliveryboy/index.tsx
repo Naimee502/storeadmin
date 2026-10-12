@@ -5,7 +5,8 @@ import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import LiveTrackingMap from "../../../components/livetrackingmap";
-import { useLatestLocationsQuery, useLocationPingsQuery } from "../../../graphql/hooks/locationping";
+import { useLatestLocationsQuery, useLocationPingsQuery, useTravelSummaryQuery } from "../../../graphql/hooks/locationping";
+import { cumulativeKm } from "../../../utils/travel";
 import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaTruck, FaMapMarkedAlt } from "react-icons/fa";
 
@@ -55,6 +56,15 @@ const DeliveryBoyReport: React.FC = () => {
   }), [trackingAppliedFilters]);
   const { data: locationsData } = useLatestLocationsQuery(locFilter);
   const { data: trailData } = useLocationPingsQuery(locFilter);
+  // KM per delivery boy per day: Live Tracking day + Summary range.
+  const { data: dayTravelData } = useTravelSummaryQuery(locFilter);
+  const { data: rangeTravelData } = useTravelSummaryQuery({
+    role: "deliveryboy",
+    dateFrom: appliedFilters.fromDate || undefined,
+    dateTo: appliedFilters.toDate || undefined,
+  });
+  const dayTravel: any[] = (dayTravelData as any)?.getTravelSummary || [];
+  const rangeTravel: any[] = (rangeTravelData as any)?.getTravelSummary || [];
 
   const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
   const deliveryBoys = staffList.filter((s: any) => s.role?.toLowerCase() === "deliveryboy");
@@ -108,7 +118,9 @@ const DeliveryBoyReport: React.FC = () => {
       const deliveredValue = dOrders.filter((o: any) => o.deliveryStatus === "delivered").reduce((sum: number, o: any) => sum + Number(o.totalamount || 0), 0);
       const collections = fPayments.filter((p: any) => p.createdby_id === s.id).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
       const deliveryPct = assigned > 0 ? ((delivered / assigned) * 100).toFixed(0) + "%" : "-";
+      const km = rangeTravel.filter((t: any) => t.staffid === s.id).reduce((sum: number, t: any) => sum + Number(t.km || 0), 0);
       return {
+        km: km.toFixed(2),
         seqNo: idx + 1,
         staffName: s.name,
         assigned,
@@ -120,7 +132,7 @@ const DeliveryBoyReport: React.FC = () => {
         deliveryPct,
       };
     });
-  }, [fOrders, fPayments, deliveryBoys, appliedFilters]);
+  }, [fOrders, fPayments, deliveryBoys, appliedFilters, rangeTravel]);
 
   // ── Detail: one row per delivery boy + day ──────────────────────────
   const detailData = useMemo(() => {
@@ -157,6 +169,7 @@ const DeliveryBoyReport: React.FC = () => {
     { label: "Delivered Value (₹)", key: "deliveredValue", numeric: true },
     { label: "Collections (₹)", key: "collections", numeric: true },
     { label: "Delivery %", key: "deliveryPct" },
+    { label: "KM Travelled", key: "km", numeric: true },
   ];
 
   const detailColumns: ReportColumn[] = [
@@ -221,6 +234,8 @@ const DeliveryBoyReport: React.FC = () => {
   }, [trackingPings]);
 
   const trackingData = useMemo(() => {
+    const running = showingTrail ? cumulativeKm(trackingPings) : [];
+    const todayKm = (sid?: string) => dayTravel.find((t: any) => t.staffid === sid)?.km ?? 0;
     return trackingPings.map((p: any, idx: number) => {
       const key = p.latitude != null && p.longitude != null
         ? `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`
@@ -230,10 +245,14 @@ const DeliveryBoyReport: React.FC = () => {
         staffName: p.staffid?.name || "-",
         lastSeen: p.pingedAt ? formatDateTimeDMY(p.pingedAt) : "-",
         location: key ? (geocodeCache[key] || locationNames[key] || "Resolving…") : "-",
-        accuracy: p.accuracy ?? "-",
+        accuracy: p.accuracy != null ? Math.round(p.accuracy) : "-",
+        battery: p.battery != null ? `${Math.round(p.battery)}%` : "-",
+        km: (showingTrail ? running[idx] : todayKm(p.staffid?.id)).toFixed(2),
       };
     });
-  }, [trackingPings, locationNames]);
+  }, [trackingPings, locationNames, dayTravel, showingTrail]);
+
+  const trailSummary = showingTrail ? dayTravel.find((t: any) => t.staffid === trackingAppliedFilters.deliveryboyid) : null;
 
   const trackingColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
@@ -241,6 +260,8 @@ const DeliveryBoyReport: React.FC = () => {
     { label: showingTrail ? "Time" : "Last Seen", key: "lastSeen" },
     { label: "Location", key: "location" },
     { label: "Accuracy (m)", key: "accuracy" },
+    { label: "Battery", key: "battery" },
+    { label: showingTrail ? "KM (so far)" : "Today's KM", key: "km" },
   ];
 
   const filterFields: ReportFilterField[] = [
@@ -293,6 +314,22 @@ const DeliveryBoyReport: React.FC = () => {
                 ? "Showing the selected delivery boy's full trail for the chosen date (green = punch-in / start, red = latest). Pick a different date to change the day."
                 : "Latest known location per delivery boy shown as pins. Pick a delivery boy to see their full route for the day (punch-in → punch-out)."}
             </div>
+
+            {showingTrail && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                {[
+                  { label: "Distance covered", value: `${(trailSummary?.km ?? 0).toFixed(2)} km` },
+                  { label: "First location", value: trailSummary?.firstAt ? formatDateTimeDMY(trailSummary.firstAt) : "-" },
+                  { label: "Last location", value: trailSummary?.lastAt ? formatDateTimeDMY(trailSummary.lastAt) : "-" },
+                  { label: "Points recorded", value: String(trailSummary?.points ?? 0) },
+                ].map((c) => (
+                  <div key={c.label} className="bg-white border rounded-lg p-3">
+                    <div className="text-xs text-gray-500">{c.label}</div>
+                    <div className="text-lg font-bold text-gray-800">{c.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Live map */}
             <div className="mb-4">

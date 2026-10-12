@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { LocationPing } from "../../../models/locationping";
+import { travelledMeters } from "../../../utils/travel";
 
 const buildQuery = (filter: any = {}) => {
   const query: any = { status: true };
@@ -35,6 +36,36 @@ export const locationPingResolvers = {
         if (!latestByStaff[key]) latestByStaff[key] = p;
       }
       return Object.values(latestByStaff);
+    },
+
+    // Kilometres covered per staff per day (see utils/travel for how GPS
+    // jitter and jumps are kept out of the total).
+    getTravelSummary: async (_: any, { filter = {} }: { filter?: any }) => {
+      const pings: any[] = await LocationPing.find(buildQuery(filter))
+        .select("staffid role pingdate latitude longitude accuracy pingedAt")
+        .populate("staffid", "name")
+        .sort({ pingedAt: 1 })
+        .lean();
+      const groups = new Map<string, any[]>();
+      for (const p of pings) {
+        const key = `${String(p.staffid?._id || p.staffid)}|${p.pingdate}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(p);
+      }
+      return Array.from(groups.values()).map((list) => {
+        const first = list[0];
+        const last = list[list.length - 1];
+        return {
+          staffid: String(first.staffid?._id || first.staffid),
+          staffname: first.staffid?.name || "",
+          role: first.role || "",
+          pingdate: first.pingdate,
+          km: Math.round((travelledMeters(list) / 1000) * 100) / 100,
+          points: list.length,
+          firstAt: first.pingedAt ? new Date(first.pingedAt).toISOString() : null,
+          lastAt: last.pingedAt ? new Date(last.pingedAt).toISOString() : null,
+        };
+      });
     },
   },
 

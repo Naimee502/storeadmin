@@ -32,6 +32,7 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       websiteShopProductImageRatio
       websiteShopInfiniteScroll
       appCategoryAutoScroll
+      appProductAutoScroll
 
       socialFacebookUrl
       socialInstagramUrl

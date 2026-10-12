@@ -25,7 +25,10 @@ export type ModuleAction =
   | "exportcsv"
   | "exportpdf"
   | "rearrange"
-  | "reset";
+  | "reset"
+  // Expense Notes only: field staff can file Expense Claims (app) and the
+  // Expense Claims tab shows. Off for businesses that do not reimburse staff.
+  | "claims";
 
 export const ACTION_LABELS: Record<ModuleAction, string> = {
   view: "View",
@@ -44,6 +47,7 @@ export const ACTION_LABELS: Record<ModuleAction, string> = {
   exportpdf: "Export PDF",
   rearrange: "Rearrange",
   reset: "Reset",
+  claims: "Claims",
 };
 
 // Default action sets per module category. Sales/Purchase invoices get
@@ -95,6 +99,7 @@ export type ModuleSection =
   | "accounting"
   | "manufacturing"
   | "hr"
+  | "communication"
   | "reports"
   | "system";
 
@@ -148,10 +153,15 @@ export const MODULES: ModuleDef[] = [
   // ───────────── Accounting / cross-cutting ─────────────
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
+  { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: [...CRUD_ACTIONS, "claims"], inAdminRegister: true },
 
   // ───────────── HR & Staff ─────────────
   { id: "attendance",    label: "Attendance & Leave", section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
+
+  // ───────────── Communication ─────────────
+  // Announcements to staff and parties. Opt-in: NOT in DEFAULT_ON_MODULE_IDS,
+  // so a business only sees it (admin panel, app, website) once it is enabled.
+  { id: "announcements", label: "Announcements", section: "communication", actions: CRUD_ACTIONS, inAdminRegister: true },
 
   // ───────────── Manufacturing (BOM / Production) ─────────────
   { id: "bom",         label: "Bill of Materials", section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
@@ -189,6 +199,7 @@ export const SECTION_LABELS: Record<ModuleSection, string> = {
   accounting: "Accounting",
   manufacturing: "Manufacturing",
   hr: "HR & Staff",
+  communication: "Communication",
   reports: "Reports",
   system: "System",
 };
@@ -206,7 +217,7 @@ export const ADMIN_REGISTER_MODULES = MODULES.filter((m) => m.inAdminRegister);
 export const MODULES_BY_SECTION = (() => {
   const map: Record<ModuleSection, ModuleDef[]> = {
     master: [], accounts: [], sales: [], pos: [], purchase: [], inventory: [], distribution: [], pricing: [],
-    accounting: [], manufacturing: [], hr: [], reports: [], system: [],
+    accounting: [], manufacturing: [], hr: [], communication: [], reports: [], system: [],
   };
   MODULES.forEach((m) => map[m.section].push(m));
   return map;

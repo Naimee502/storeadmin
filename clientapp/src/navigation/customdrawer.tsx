@@ -5,12 +5,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal } from '../components';
+import { AnnouncementPopup } from '../components/announcementpopup';
+import { BatteryBadge } from '../components/batterybadge';
+import { useQuery } from '@apollo/client/react';
+import { GET_MY_ANNOUNCEMENTS } from '../apollo/queries/announcements';
 import { useAuth } from './authcontext';
 import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/slices';
 import type { RootState } from '../store/rootreducer';
-import { usePaymentsEnabled, PAYMENT_SCREENS } from '../apollo/hooks/admin';
+import { usePaymentsEnabled, PAYMENT_SCREENS, useModuleScreenGate } from '../apollo/hooks/admin';
 
 interface DrawerMenuItem {
   label: string;
@@ -27,6 +31,7 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: 'Payments',            icon: 'cash-multiple',          tabScreen: 'Payments'  },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
+  { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
   { label: 'Notifications', icon: 'bell-outline',       screen: 'Notifications' },
   { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support' },
   { label: 'separator2', icon: '', section: true },
@@ -40,7 +45,9 @@ const SALESMAN_MENU: DrawerMenuItem[] = [
   { label: 'Orders',      icon: 'clipboard-plus-outline',  tabScreen: 'SalesmanOrders'     },
   { label: 'separator1', icon: '', section: true },
   { label: 'Attendance',  icon: 'calendar-check-outline',  tabScreen: 'SalesmanAttendance' },
+  { label: 'Expense Claims', icon: 'receipt', screen: 'ExpenseClaims' },
   { label: 'separator2', icon: '', section: true },
+  { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
   { label: 'Notifications', icon: 'bell-outline',          screen: 'Notifications'  },
   { label: 'Help & Support', icon: 'help-circle-outline',  screen: 'Support'        },
   { label: 'separator3', icon: '', section: true },
@@ -54,7 +61,9 @@ const DELIVERY_MENU: DrawerMenuItem[] = [
   { label: 'Collections', icon: 'cash-multiple',           tabScreen: 'DeliveryCollections' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Attendance',  icon: 'calendar-check-outline',  tabScreen: 'DeliveryAttendance'  },
+  { label: 'Expense Claims', icon: 'receipt', screen: 'ExpenseClaims' },
   { label: 'separator2', icon: '', section: true },
+  { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
   { label: 'Notifications', icon: 'bell-outline',         screen: 'Notifications' },
   { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support'       },
   { label: 'separator3', icon: '', section: true },
@@ -67,7 +76,9 @@ const STAFF_MENU: DrawerMenuItem[] = [
   { label: 'Orders',     icon: 'clipboard-list-outline', tabScreen: 'StaffOrders'     },
   { label: 'separator1', icon: '', section: true },
   { label: 'Attendance', icon: 'calendar-check-outline', tabScreen: 'StaffAttendance' },
+  { label: 'Expense Claims', icon: 'receipt', screen: 'ExpenseClaims' },
   { label: 'separator2', icon: '', section: true },
+  { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
   { label: 'Notifications', icon: 'bell-outline',         screen: 'Notifications' },
   { label: 'Help & Support', icon: 'help-circle-outline', screen: 'Support'       },
   { label: 'separator3', icon: '', section: true },
@@ -99,10 +110,20 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
 
   const role  = user?.role ?? 'party';
   const paymentsEnabled = usePaymentsEnabled();
+  // Opt-in modules (Expense Claims, Announcements): no drawer entry while off.
+  const moduleAllows = useModuleScreenGate();
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
-    (m) => paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? ''),
+    (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen),
   );
   const label = ROLE_LABELS[role] ?? 'User';
+
+  // Unread announcements → badge on the drawer entry (and the popup below).
+  const announcementsOn = moduleAllows('Announcements');
+  const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
+    skip: !announcementsOn || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const unreadAnnouncements = ((annData as any)?.getMyAnnouncements ?? []).filter((a: any) => !a.read).length;
 
   const tabState     = props.state.routes[0]?.state;
   const activeTabIdx = tabState?.index ?? 0;
@@ -178,6 +199,9 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
               <Text style={[styles.roleBadgeText, { color: colors.brand }]} numberOfLines={1}>{label}</Text>
             </View>
           </View>
+
+          {/* Field staff: phone battery at a glance (right side of the card). */}
+          {(role === 'salesman' || role === 'deliveryboy') && <BatteryBadge />}
         </LinearGradient>
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -199,6 +223,11 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
                 <Icon name={item.icon} size={19} color={isActive ? colors.brand : colors.subText} />
               </View>
               <Text style={[styles.menuLabel, { color: isActive ? colors.brand : colors.text }]}>{item.label}</Text>
+              {item.screen === 'Announcements' && unreadAnnouncements > 0 && (
+                <View style={{ backgroundColor: colors.brand, borderRadius: 9, minWidth: 18, height: 18, paddingHorizontal: 5, justifyContent: 'center', alignItems: 'center', marginLeft: 6 }}>
+                  <Text style={{ color: colors.onBrand, fontSize: 10, fontFamily: FONTS.bold }}>{unreadAnnouncements > 9 ? '9+' : unreadAnnouncements}</Text>
+                </View>
+              )}
               {isActive && <View style={[styles.activeBar, { backgroundColor: colors.brand }]} />}
             </TouchableOpacity>
           );
@@ -219,6 +248,8 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {announcementsOn && <AnnouncementPopup />}
 
       <AppModal
         visible={modalVisible}

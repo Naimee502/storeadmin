@@ -42,7 +42,19 @@ export const locationPingTypeDefs = gql`
     dateTo: String
   }
 
+  type TravelSummary {
+    staffid: ID!
+    staffname: String
+    role: String
+    pingdate: String!
+    km: Float!
+    points: Int!
+    firstAt: String
+    lastAt: String
+  }
+
   extend type Query {
+    getTravelSummary(filter: LocationPingFilterInput): [TravelSummary!]!
     getLocationPings(filter: LocationPingFilterInput): [LocationPing!]!
     getLatestLocations(filter: LocationPingFilterInput): [LocationPing!]!
   }

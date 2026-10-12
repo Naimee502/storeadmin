@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useAutoScrollX } from "../../hooks/useAutoScrollX";
 import { Flame } from "lucide-react";
 import HeroBanner from "../../components/herobanner";
 import CategoryGrid from "../../components/categorygrid";
@@ -130,6 +131,14 @@ export default function HomePage() {
       .slice(0, 8);
   }, [tenant.newArrivalItems, products]);
 
+  // Business Settings → "Auto-scroll the products": the Deal of the Day row
+  // drifts along by itself (still scrollable by hand; hover/touch pauses it).
+  const dealRowRef = useRef<HTMLDivElement>(null);
+  useAutoScrollX(dealRowRef, {
+    enabled: tenant.productAutoScroll && dealOfDayEnabled && dealProducts.length > 0,
+    speed: 35,
+  });
+
   return (
     <div>
       <HeroBanner overrideSlides={heroOverrideSlides} />
@@ -154,7 +163,7 @@ export default function HomePage() {
               </div>
               <DealTimer />
             </div>
-            <div className="no-scrollbar flex gap-4 overflow-x-auto">
+            <div ref={dealRowRef} className="no-scrollbar flex gap-4 overflow-x-auto">
               {dealProducts.map((p) => (
                 <div key={p.id} className="w-56 shrink-0 rounded-2xl bg-white/95 p-1">
                   <ProductCard product={p} imageRatio={tenant.dealProductImageRatio} />

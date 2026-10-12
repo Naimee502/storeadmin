@@ -149,6 +149,7 @@ export const adminSettingsTypeDefs = gql`
     appCatalogBrowseMode: Boolean
     # App Home/Shop category row auto-scrolls sideways. Off by default.
     appCategoryAutoScroll: Boolean
+    appProductAutoScroll: Boolean
     # Billing-panel login (Admin/Branch/Staff) needs an email OTP. Off by default.
     loginEmailOtp: Boolean
 
@@ -230,6 +231,7 @@ export const adminSettingsTypeDefs = gql`
     websiteShopInfiniteScroll: Boolean!
     # Category row auto-scrolls (ticker) on the app and the website.
     appCategoryAutoScroll: Boolean
+    appProductAutoScroll: Boolean
 
     socialFacebookUrl: String
     socialInstagramUrl: String
@@ -333,6 +335,7 @@ export const adminSettingsTypeDefs = gql`
     websiteShopInfiniteScroll: Boolean
     appCatalogBrowseMode: Boolean
     appCategoryAutoScroll: Boolean
+    appProductAutoScroll: Boolean
     loginEmailOtp: Boolean
     autoPunchOutEnabled: Boolean
     autoPunchOutTime: String

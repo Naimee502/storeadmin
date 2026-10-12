@@ -1,6 +1,6 @@
 import {
   Login, Signup, ForgotPassword, Splash, Introduction,
-  PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification,
+  PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification, ExpenseClaims, Announcements,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
   ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry,
@@ -27,6 +27,8 @@ export const Screens: any = {
   TermsCondition,
   Notifications,
   Support,
+  ExpenseClaims,
+  Announcements,
   // Party
   PartyHome,
   Catalog,
@@ -277,6 +279,8 @@ export const NavConfig: any = {
     { name: 'TermsCondition', options: { title: 'Terms & Conditions', presentation: 'modal' } },
     { name: 'Notifications',  options: { headerShown: false } },
     { name: 'Support',        options: { headerShown: false } },
+    { name: 'ExpenseClaims',  options: { headerShown: false } },
+    { name: 'Announcements',  options: { headerShown: false } },
   ],
 };
 

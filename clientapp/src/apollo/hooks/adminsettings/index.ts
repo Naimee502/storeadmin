@@ -223,3 +223,18 @@ export function useBrandingSync() {
     dispatch(setBranding({ logoUrl, primaryColor }));
   }, [settings, storedLogo, storedColor, dispatch]);
 }
+
+/**
+ * Business Settings -> "Auto-scroll the products" (appProductAutoScroll).
+ * Off by default. On: the Home / Shop product grid drifts down slowly by
+ * itself; touching or scrolling it by hand pauses the drift.
+ */
+export function useProductAutoScroll(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.appProductAutoScroll === true;
+}

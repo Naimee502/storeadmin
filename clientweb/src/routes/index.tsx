@@ -14,6 +14,7 @@ import OrderEditPage from "../pages/orderedit";
 import PartyPaymentsPage from "../pages/partypayments";
 import CollectPaymentPage from "../pages/collectpayment";
 import NotificationsPage from "../pages/notifications";
+import AnnouncementsPage from "../pages/announcements";
 import AboutPage from "../pages/about";
 import PrivacyPage from "../pages/privacy";
 import TermsPage from "../pages/terms";
@@ -40,6 +41,7 @@ export default function AppRoutes() {
         <Route path="/account/parties/:id/payments" element={<PaymentsOnly><PartyPaymentsPage /></PaymentsOnly>} />
         <Route path="/account/parties/:id/collect" element={<PaymentsOnly><CollectPaymentPage /></PaymentsOnly>} />
         <Route path="/account/notifications" element={<NotificationsPage />} />
+        <Route path="/account/announcements" element={<AnnouncementsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />

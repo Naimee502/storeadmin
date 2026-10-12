@@ -14,6 +14,9 @@ export const setTokenGetter = (fn: () => string | null) => {
   _getToken = fn;
 };
 
+/** The signed-in party's token — for the one call made outside Apollo (image upload). */
+export const getAuthToken = (): string | null => (_getToken ? _getToken() : null);
+
 // dev → local, build → live (see config/apiconfig.ts)
 const httpLink = new HttpLink({ uri: API_CONFIG.GRAPHQL_URL });
 

@@ -1,24 +1,43 @@
 import { useEffect, useRef } from 'react';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import DeviceInfo from 'react-native-device-info';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { ADD_LOCATION_PINGS } from '../apollo/mutations/tracking';
 import { GET_OPEN_PUNCH } from '../apollo/queries/attendance';
 import type { RootState } from '../store/rootreducer';
 
-// Foreground GPS ping cadence (only while punched in + app active).
-const PING_INTERVAL_MS = 45000;
-// How often we re-check punch state so tracking stops soon after punch-out.
-const PUNCH_POLL_MS = 30000;
-
 /**
- * Location tracker for salesman / delivery boy, gated by attendance:
- *   • Starts pinging after PUNCH IN (an open punch exists).
- *   • Stops pinging on PUNCH OUT (no open punch).
- * Also only runs while the app is in the foreground. Pings feed the admin
- * field reports' live-location view.
+ * Smart field tracking (Zoho-style), instead of a fix every 45 seconds:
+ *
+ *   • MOVEMENT-BASED — the OS reports a point only after the phone has moved
+ *     MOVE_DISTANCE_M. Sitting in a shop for an hour costs no GPS fixes and
+ *     no duplicate rows; driving gives a clean route line.
+ *   • HEARTBEAT — while standing still, one low-power fix every
+ *     HEARTBEAT_MS, so the admin still sees "here, as of 10 min ago".
+ *   • BATCHED UPLOAD — points are queued and sent together every FLUSH_MS (or
+ *     when FLUSH_SIZE pile up / the app goes to background / punch-out), so the
+ *     radio wakes a few times an hour, not every ping. Failed sends are kept
+ *     and retried.
+ *   • Poor fixes (accuracy worse than MAX_ACCURACY_M) are dropped — they are
+ *     what made the map zig-zag and the KM jump.
+ *
+ * Runs only after PUNCH IN, stops at PUNCH OUT, and only while the app is open.
  */
+const MOVE_DISTANCE_M = 100;
+const HEARTBEAT_MS = 10 * 60 * 1000;
+const FLUSH_MS = 3 * 60 * 1000;
+const FLUSH_SIZE = 10;
+const MAX_ACCURACY_M = 150;
+// How often we re-check punch state so tracking stops soon after punch-out.
+const PUNCH_POLL_MS = 2 * 60 * 1000;
+
+// Local calendar day (toISOString() is UTC — a 00:00–05:30 IST ping would
+// land on yesterday).
+const localYMD = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export function useLocationTracker() {
   const user = useSelector((s: RootState) => s.auth.user);
   const role = (user?.role || '').toLowerCase();
@@ -35,14 +54,19 @@ export function useLocationTracker() {
   });
   const punchedIn = !!(punchData as any)?.getOpenPunch;
 
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const grantedRef = useRef(false);
+  const queue = useRef<any[]>([]);
+  const lastPingAt = useRef(0);
+  const battery = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     // Track only when a trackable user is punched IN.
     if (!user?.id || !user?.adminId || !trackable || !punchedIn) return;
 
     let cancelled = false;
+    let watchId: number | null = null;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    let flusher: ReturnType<typeof setInterval> | null = null;
 
     const ensurePermission = async (): Promise<boolean> => {
       if (grantedRef.current) return true;
@@ -62,47 +86,79 @@ export function useLocationTracker() {
       return true;
     };
 
-    const sendPing = () => {
-      Geolocation.getCurrentPosition(
-        (pos: any) => {
-          if (cancelled) return;
-          const now = new Date();
-          addPings({
-            variables: {
-              inputs: [
-                {
-                  adminid: user.adminId,
-                  staffid: user.id,
-                  role,
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  accuracy: pos.coords.accuracy,
-                  speed: pos.coords.speed ?? undefined,
-                  pingdate: now.toISOString().slice(0, 10),
-                  pingedAt: now.toISOString(),
-                },
-              ],
-            },
-          }).catch((e: any) => console.warn('[tracker] ping failed:', e?.message));
-        },
-        (err: any) => console.warn('[tracker] geolocation error:', err?.message),
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 },
-      );
+    const flush = () => {
+      if (!queue.current.length) return;
+      const batch = queue.current.splice(0, queue.current.length);
+      addPings({ variables: { inputs: batch } }).catch((e: any) => {
+        // Keep them for the next try (bounded, oldest dropped first).
+        queue.current = [...batch, ...queue.current].slice(-200);
+        console.warn('[tracker] upload failed, will retry:', e?.message);
+      });
+    };
+
+    const readBattery = () =>
+      DeviceInfo.getBatteryLevel()
+        .then((l) => { if (l != null && l >= 0) battery.current = Math.round(l * 100); })
+        .catch(() => {});
+
+    const record = (pos: any) => {
+      if (cancelled || !pos?.coords) return;
+      readBattery();
+      const { latitude, longitude, accuracy, speed } = pos.coords;
+      if (accuracy != null && accuracy > MAX_ACCURACY_M) return;
+      const at = new Date(pos.timestamp || Date.now());
+      lastPingAt.current = at.getTime();
+      queue.current.push({
+        adminid: user.adminId,
+        staffid: user.id,
+        role,
+        latitude,
+        longitude,
+        accuracy,
+        speed: speed != null && speed >= 0 ? speed : undefined,
+        // Battery % at this point (refreshed on every fix / heartbeat).
+        battery: battery.current,
+        pingdate: localYMD(at),
+        pingedAt: at.toISOString(),
+      });
+      if (queue.current.length >= FLUSH_SIZE) flush();
     };
 
     const start = async () => {
-      if (timer.current || cancelled) return;
+      if (watchId != null || cancelled) return;
       const ok = await ensurePermission();
       if (!ok || cancelled) return;
-      sendPing(); // immediate first fix
-      timer.current = setInterval(sendPing, PING_INTERVAL_MS);
+      await readBattery();
+
+      // First point right away (punch-in / app opened).
+      Geolocation.getCurrentPosition(record, () => {}, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+
+      watchId = Geolocation.watchPosition(record, (err: any) => console.warn('[tracker] watch error:', err?.message), {
+        enableHighAccuracy: true,
+        distanceFilter: MOVE_DISTANCE_M,
+        interval: 60000,
+        fastestInterval: 30000,
+        maximumAge: 30000,
+      } as any);
+
+      heartbeat = setInterval(() => {
+        if (Date.now() - lastPingAt.current < HEARTBEAT_MS) return; // moved recently
+        Geolocation.getCurrentPosition(record, () => {}, { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 });
+      }, HEARTBEAT_MS);
+
+      flusher = setInterval(flush, FLUSH_MS);
     };
 
     const stop = () => {
-      if (timer.current) {
-        clearInterval(timer.current);
-        timer.current = null;
+      if (watchId != null) {
+        Geolocation.clearWatch(watchId);
+        watchId = null;
       }
+      if (heartbeat) clearInterval(heartbeat);
+      if (flusher) clearInterval(flusher);
+      heartbeat = null;
+      flusher = null;
+      flush(); // don't sit on points while the app is closed
     };
 
     const sub = AppState.addEventListener('change', (state) => {

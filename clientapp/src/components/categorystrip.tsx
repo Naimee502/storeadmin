@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, StyleProp, ViewStyle,
-  Animated, Easing,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
@@ -17,7 +16,8 @@ import { useCategoryAutoScroll } from '../apollo/hooks/adminsettings';
 // continuously like an LED ticker. Slow enough that a customer can read a
 // chip and tap it while it moves.
 const MARQUEE_SPEED_PX_PER_SEC = 30;
-const RESUME_AFTER_TOUCH_MS    = 1500; // ticker waits this long after a tap
+const RESUME_AFTER_TOUCH_MS    = 2000; // drift waits this long after a touch / swipe
+const TICK_MS                  = 33;   // ~30 fps
 
 export type CategoryItem = { id: string | null; name: string; image?: string | null };
 
@@ -63,74 +63,55 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
   const asCircles = useIsEndUserParty();
   const autoScroll = useCategoryAutoScroll();
 
-  // --- Auto-scroll (LED-ticker marquee) ---------------------------------
-  // The items are drawn twice side by side and the whole row is slid left at
-  // a constant speed on the native driver. When the first copy has fully slid
-  // out, the row jumps back to 0 — which looks identical, because the second
-  // copy is now exactly where the first one started — so the loop is seamless.
-  // Touching the row pauses it (so a tap lands on the chip the customer aimed
-  // at); it picks up again from the same spot shortly after. Runs only when
+  // --- Auto-scroll -------------------------------------------------------
+  // A normal horizontal ScrollView (so the customer can always swipe it by
+  // hand) that also moves itself a pixel at a time. The categories are drawn
+  // twice side by side; once the first copy has scrolled fully out of view
+  // the offset jumps back by one copy, which looks identical, so it loops
+  // without a seam. Any touch or swipe pauses the drift; it resumes from
+  // wherever the customer left it, RESUME_AFTER_TOUCH_MS later. Runs only when
   // the setting is on AND the categories don't already fit on screen.
   const gap = asCircles ? 14 : 8;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const posX = useRef(0);
-  const running = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  const paused = useRef(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewW, setViewW] = useState(0);
   const [copyW, setCopyW] = useState(0);
   const marquee = autoScroll && viewW > 0 && copyW > viewW;
   const loopW = copyW + gap; // one copy plus the gap before the next copy
 
-  const stop = useCallback(() => {
-    running.current = false;
-    translateX.stopAnimation(v => { posX.current = v; });
-  }, [translateX]);
-
-  const start = useCallback(() => {
-    if (!marquee) return;
-    running.current = true;
-    const run = (from: number) => {
-      const f = from <= -loopW || from > 0 ? 0 : from;
-      translateX.setValue(f);
-      Animated.timing(translateX, {
-        toValue: -loopW,
-        duration: ((loopW + f) / MARQUEE_SPEED_PX_PER_SEC) * 1000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished && running.current) run(0);
-      });
-    };
-    run(posX.current);
-  }, [marquee, loopW, translateX]);
-
-  // Timer callbacks always call the latest `start`.
-  const startRef = useRef(start);
-  startRef.current = start;
-
   useEffect(() => {
-    if (!marquee) {
-      stop();
-      translateX.setValue(0);
-      posX.current = 0;
-      return;
-    }
-    start();
-    return () => {
-      stop();
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    };
-  }, [marquee, start, stop, translateX]);
+    if (!marquee) return;
+    const step = (MARQUEE_SPEED_PX_PER_SEC * TICK_MS) / 1000;
+    const id = setInterval(() => {
+      if (paused.current) return;
+      let next = offset.current + step;
+      if (next >= loopW) next -= loopW;
+      offset.current = next;
+      scrollRef.current?.scrollTo({ x: next, animated: false });
+    }, TICK_MS);
+    return () => clearInterval(id);
+  }, [marquee, loopW]);
 
-  const onTouchStart = useCallback(() => {
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    stop();
-  }, [stop]);
+  useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
 
-  const onTouchEnd = useCallback(() => {
+  const pause = useCallback(() => {
     if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    resumeTimer.current = setTimeout(() => startRef.current(), RESUME_AFTER_TOUCH_MS);
+    paused.current = true;
   }, []);
+
+  const resumeLater = useCallback(() => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => {
+      // Hand-scrolled past the first copy → fold back so the loop math holds.
+      if (loopW > 0 && offset.current >= loopW) {
+        offset.current -= loopW;
+        scrollRef.current?.scrollTo({ x: offset.current, animated: false });
+      }
+      paused.current = false;
+    }, RESUME_AFTER_TOUCH_MS);
+  }, [loopW]);
 
   const { data: catData } = useQuery(GET_CATEGORIES, {
     variables: { adminId: adminid },
@@ -218,41 +199,39 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
   const listStyle = asCircles ? styles.circleList : styles.chipList;
 
   if (autoScroll) {
-    // "All" stays pinned on the left; only the real categories run in the
-    // ticker beside it.
+    // "All" stays pinned on the left; the real categories scroll beside it —
+    // by themselves, and by hand.
     const [allItem, ...catItems] = items;
     return (
       <View style={[styles.marqueeRow, { gap, paddingBottom: 8 }, contentContainerStyle]}>
         <View style={[listStyle, styles.marqueePinned]}>{renderItem(allItem)}</View>
-        <View
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
           style={styles.marqueeWrap}
+          contentContainerStyle={styles.marqueeTrack}
           onLayout={e => setViewW(e.nativeEvent.layout.width)}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchEnd}
+          scrollEventThrottle={16}
+          onScroll={e => { offset.current = e.nativeEvent.contentOffset.x; }}
+          onTouchStart={pause}
+          onScrollBeginDrag={pause}
+          onTouchEnd={resumeLater}
+          onScrollEndDrag={resumeLater}
+          onMomentumScrollEnd={resumeLater}
         >
-          <Animated.View
-            style={[
-              styles.marqueeTrack,
-              // Exactly two copies wide, so every chip sits inside the track's
-              // bounds and stays tappable (Android ignores touches outside).
-              marquee && { width: loopW + copyW },
-              { transform: [{ translateX }] },
-            ]}
+          <View
+            style={[listStyle, styles.marqueeCopy]}
+            onLayout={e => setCopyW(e.nativeEvent.layout.width)}
           >
-            <View
-              style={[listStyle, styles.marqueeCopy]}
-              onLayout={e => setCopyW(e.nativeEvent.layout.width)}
-            >
-              {catItems.map(item => renderItem(item, 0))}
+            {catItems.map(item => renderItem(item, 0))}
+          </View>
+          {marquee && (
+            <View style={[listStyle, styles.marqueeCopy, { marginLeft: gap }]}>
+              {catItems.map(item => renderItem(item, 1))}
             </View>
-            {marquee && (
-              <View style={[listStyle, styles.marqueeCopy, { marginLeft: gap }]}>
-                {catItems.map(item => renderItem(item, 1))}
-              </View>
-            )}
-          </Animated.View>
-        </View>
+          )}
+        </ScrollView>
       </View>
     );
   }
@@ -275,8 +254,8 @@ const styles = StyleSheet.create({
   // auto-scroll marquee
   marqueeRow:    { flexDirection: 'row', alignItems: 'flex-start' },
   marqueePinned: { flexDirection: 'row', flexShrink: 0, paddingBottom: 0 },
-  marqueeWrap:   { flex: 1, overflow: 'hidden' },
-  marqueeTrack: { flexDirection: 'row', alignSelf: 'flex-start' },
+  marqueeWrap:   { flex: 1, flexGrow: 1 },
+  marqueeTrack: { flexDirection: 'row', alignItems: 'flex-start' },
   marqueeCopy:  { flexDirection: 'row', flexShrink: 0, paddingBottom: 0 },
 
   // pill variant — same metrics the two screens used before

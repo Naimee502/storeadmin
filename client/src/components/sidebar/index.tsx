@@ -13,12 +13,14 @@ import {
   FaWrench,
   FaCalendarCheck,
   FaUndoAlt,
-  FaCog
+  FaCog,
+  FaBullhorn
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
 import { Link, useLocation } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
+import { selectModuleActions } from '../../redux/slices/permissions';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -111,6 +113,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     return true;
   };
 
+  // Announcements: unticking every permission box (Business Settings →
+  // Permissions) means the business does not use it, so the menu goes too.
+  const annActions = useAppSelector((state) => selectModuleActions(state, "announcements"));
+  const announcementsUsed = annActions.showAdd || annActions.showEdit || annActions.showDelete || annActions.canReset;
+
   const FEATURE_TO_MODULES: Record<string, string[]> = {
     enableGst: ["reports.gst"],
   };
@@ -126,6 +133,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       }
 
       if (!isModuleAllowed(moduleId)) return false;
+      if (moduleId === "announcements" && !announcementsUsed) return false;
 
       // The "Allowed Modules" checklist is now the primary driver for sidebar visibility for all roles.
       // This ensures that if a module is checked in the allowance list, it appears in the sidebar.
@@ -176,6 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
     { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-emerald-500 text-xl flex-shrink-0" />, moduleId: "transactions", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/payments', label: 'Payments', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "payments", roles: ["admin", "branch", "staff"], section: "Branch" },
     { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-500 text-xl flex-shrink-0" />, moduleId: "attendance", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/announcements', label: 'Announcements', icon: <FaBullhorn className="text-pink-500 text-xl flex-shrink-0" />, moduleId: "announcements", roles: ["admin", "branch", "staff"], section: "Branch" },
 
     { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
     { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },

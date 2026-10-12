@@ -127,6 +127,7 @@ export const adminSettingsResolvers = {
         websiteShopInfiniteScroll: !!settings.websiteShopInfiniteScroll,
         // Category row runs as a ticker (same switch as the app).
         appCategoryAutoScroll: !!settings.appCategoryAutoScroll,
+        appProductAutoScroll: !!settings.appProductAutoScroll,
 
         socialFacebookUrl: settings.socialFacebookUrl || "",
         socialInstagramUrl: settings.socialInstagramUrl || "",

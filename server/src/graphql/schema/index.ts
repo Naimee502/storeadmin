@@ -19,6 +19,8 @@ import { transferStockTypeDefs } from "./transferstock";
 import { unitTypeDefs } from "./units";
 import { uploadTypeDefs } from "./uploads";
 import { expenseNoteTypeDefs } from "./expensenote";
+import { expenseClaimTypeDefs } from "./expenseclaim";
+import { announcementTypeDefs } from "./announcement";
 import { channelTypeDefs } from "./channel";
 import { stockAdjustmentTypeDefs } from "./stockadjustments";
 import { salesRouteSchema } from "./salesroutes";
@@ -58,6 +60,8 @@ export const typeDefs = [
   transactionTypeDefs,
   paymentTypeDefs,
   expenseNoteTypeDefs,
+  expenseClaimTypeDefs,
+  announcementTypeDefs,
   channelTypeDefs,
   stockAdjustmentTypeDefs,
   salesRouteSchema,

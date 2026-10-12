@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useCatalog } from "../../hooks/useCatalog";
 import { useTenant } from "../../contexts/tenant";
 import SectionHeader from "../sectionheader";
+import { useAutoScrollX } from "../../hooks/useAutoScrollX";
 
 type Cat = ReturnType<typeof useCatalog>["categories"][number];
 
@@ -36,20 +37,18 @@ function CategoryCard({ cat, fixedWidth }: { cat: Cat; fixedWidth?: boolean }) {
 }
 
 /**
- * Business Settings -> "Auto-scroll the category row" ON: the categories run
- * as an LED-board style ticker — a constant slow drift that loops without a
- * jump. The set of cards is repeated until it is at least as wide as the
- * row, then that whole unit is drawn twice and slid left by exactly one unit
- * (-50%), so the restart lands on an identical picture. Hovering (mouse) or
- * touching (phone) pauses it so a card can be clicked.
+ * Business Settings -> "Auto-scroll the category row" ON: the categories drift
+ * along by themselves in a seamless loop — but the row is still an ordinary
+ * scrollable strip, so it can be scrolled / swiped by hand at any time.
+ * Hover, touch or wheel pauses the drift. The set of cards is repeated until
+ * it is at least as wide as the row, then drawn twice so the loop folds back
+ * onto an identical picture.
  */
 function CategoryTicker({ categories }: { categories: Cat[] }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
   const [setW, setSetW] = useState(0);
   const [viewW, setViewW] = useState(0);
-  const [touchPaused, setTouchPaused] = useState(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const measure = () => {
@@ -60,25 +59,12 @@ function CategoryTicker({ categories }: { categories: Cat[] }) {
     const ro = new ResizeObserver(measure);
     if (wrapRef.current) ro.observe(wrapRef.current);
     if (setRef.current) ro.observe(setRef.current);
-    return () => {
-      ro.disconnect();
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    };
+    return () => ro.disconnect();
   }, [categories.length]);
 
   // How many copies of the set make one unit at least as wide as the row.
   const repeats = setW > 0 && viewW > 0 ? Math.max(1, Math.ceil(viewW / setW)) : 1;
-  const unitW = setW * repeats;
-  const duration = unitW > 0 ? unitW / TICKER_PX_PER_SEC : 0;
-
-  const onTouchStart = () => {
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    setTouchPaused(true);
-  };
-  const onTouchEnd = () => {
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    resumeTimer.current = setTimeout(() => setTouchPaused(false), RESUME_AFTER_TOUCH_MS);
-  };
+  useAutoScrollX(wrapRef, { enabled: setW > 0, speed: TICKER_PX_PER_SEC, loop: true, resumeMs: RESUME_AFTER_TOUCH_MS });
 
   // Each set carries its own trailing gap (pr-4) so set widths add up exactly
   // and the loop seam is invisible.
@@ -96,19 +82,8 @@ function CategoryTicker({ categories }: { categories: Cat[] }) {
   ));
 
   return (
-    <div
-      ref={wrapRef}
-      className={`cat-ticker -mx-4 overflow-hidden px-4 py-2 sm:mx-0 sm:px-0 ${touchPaused ? "paused" : ""}`}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-    >
-      <div
-        className="cat-ticker-track flex w-max"
-        style={duration ? { animation: `cat-ticker ${duration}s linear infinite` } : undefined}
-      >
-        {sets}
-      </div>
+    <div ref={wrapRef} className="no-scrollbar -mx-4 overflow-x-auto px-4 py-2 sm:mx-0 sm:px-0">
+      <div className="flex w-max">{sets}</div>
     </div>
   );
 }

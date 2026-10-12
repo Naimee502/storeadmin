@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
@@ -14,7 +14,7 @@ import { apolloClient } from '../apollo/client';
 import { AppImage } from './appimage';
 import { DynamicFlashList } from './flashlist';
 import { addToCart, updateQty } from '../store/slices';
-import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock } from '../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock, useProductAutoScroll } from '../apollo/hooks/adminsettings';
 import { baseQtyOf, maxPacksFor, stockOf } from '../utils/stocklimit';
 import { formatINR as formatINRValue } from '../utils/formatters';
 import type { RootState } from '../store/rootreducer';
@@ -194,7 +194,16 @@ export type ProductCatalogProps = {
   category: string | null;
   /** Anything the screen wants scrolling above the grid (Home's stats/orders). */
   ListHeaderComponent?: React.ReactElement | null;
+  /** Vertical scroll position of the grid — Home uses it to fold its banner away. Keep it stable (useCallback / ref). */
+  onScrollY?: (y: number) => void;
 };
+
+// Business Settings → "Auto-scroll the products": the grid drifts down by
+// itself at this speed; any touch pauses it for RESUME_MS.
+const AUTO_PX_PER_SEC = 22;
+const AUTO_TICK_MS = 33;
+const AUTO_RESUME_MS = 4000;
+const AUTO_END_HOLD_MS = 3000; // pause at the bottom before going back to the top
 
 /**
  * Memoised, and that is the point of it.
@@ -213,7 +222,7 @@ export type ProductCatalogProps = {
  * around it.
  */
 export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function ProductCatalog({
-  search, category, ListHeaderComponent = null,
+  search, category, ListHeaderComponent = null, onScrollY,
 }) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
@@ -240,6 +249,82 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     search,
     categoryid: category,
   });
+
+  // --- Product auto-scroll (opt-in) -------------------------------------
+  // Same list, same manual scrolling; when the setting is on it also moves
+  // down a pixel at a time. Touch / drag pauses it; at the very end it waits
+  // a moment (more products may page in) and then returns to the top.
+  const productAuto = useProductAutoScroll();
+  const listRef = useRef<any>(null);
+  const autoY = useRef(0);
+  const autoPaused = useRef(false);
+  const atEndSince = useRef(0);
+  const autoResume = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadingMoreRef = useRef(loadingMore);
+  loadingMoreRef.current = loadingMore;
+
+  useEffect(() => {
+    if (!productAuto) return;
+    const step = (AUTO_PX_PER_SEC * AUTO_TICK_MS) / 1000;
+    const id = setInterval(() => {
+      if (autoPaused.current || !listRef.current) return;
+      if (atEndSince.current) {
+        if (!loadingMoreRef.current && Date.now() - atEndSince.current > AUTO_END_HOLD_MS) {
+          atEndSince.current = 0;
+          autoY.current = 0;
+          listRef.current.scrollToOffset({ offset: 0, animated: true });
+        }
+        return;
+      }
+      autoY.current += step;
+      listRef.current.scrollToOffset({ offset: autoY.current, animated: false });
+    }, AUTO_TICK_MS);
+    return () => {
+      clearInterval(id);
+      if (autoResume.current) clearTimeout(autoResume.current);
+    };
+  }, [productAuto]);
+
+  // Home folds its banner only for the customer's OWN scrolling — never for
+  // the auto-scroll drift. So onScrollY receives a "manual" offset: it moves
+  // only with scroll that follows a touch / drag / fling (MANUAL_WINDOW_MS),
+  // and snaps back to 0 whenever the list is at the top.
+  const MANUAL_WINDOW_MS = 1200;
+  const lastUserAt = useRef(0);
+  const prevY = useRef(0);
+  const manualY = useRef(0);
+  const markUser = useCallback(() => { lastUserAt.current = Date.now(); }, []);
+
+  const handleScroll = useCallback((e: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const y = contentOffset.y;
+    autoY.current = y;
+    const atEnd = contentSize.height - layoutMeasurement.height - y < 2;
+    if (atEnd && !atEndSince.current) atEndSince.current = Date.now();
+    if (!atEnd) atEndSince.current = 0;
+
+    const delta = y - prevY.current;
+    prevY.current = y;
+    const byUser = !productAuto || Date.now() - lastUserAt.current < MANUAL_WINDOW_MS;
+    if (byUser) {
+      lastUserAt.current = Date.now(); // a fling keeps counting as the user's
+      manualY.current = Math.max(0, manualY.current + delta);
+    }
+    if (y <= 0) manualY.current = 0;
+    onScrollY?.(manualY.current);
+  }, [onScrollY, productAuto]);
+
+  const pauseAuto = useCallback(() => {
+    markUser();
+    if (autoResume.current) clearTimeout(autoResume.current);
+    autoPaused.current = true;
+  }, [markUser]);
+  const resumeAuto = useCallback(() => {
+    markUser();
+    if (autoResume.current) clearTimeout(autoResume.current);
+    autoResume.current = setTimeout(() => { autoPaused.current = false; }, AUTO_RESUME_MS);
+  }, [markUser]);
+
 
   const { data: accountData } = useQuery(GET_ACCOUNT, {
     variables: { id: user?.id, adminId: adminid },
@@ -414,6 +499,14 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
           // recycled with the previous one.
           extraData={renderProduct}
           ListHeaderComponent={ListHeaderComponent}
+          listRef={listRef}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onTouchStart={productAuto ? pauseAuto : undefined}
+          onScrollBeginDrag={productAuto ? pauseAuto : undefined}
+          onTouchEnd={productAuto ? resumeAuto : undefined}
+          onScrollEndDrag={productAuto ? resumeAuto : undefined}
+          onMomentumScrollEnd={productAuto ? resumeAuto : undefined}
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoader}>

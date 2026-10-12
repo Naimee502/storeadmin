@@ -9,6 +9,9 @@ export const setTokenGetter = (fn: () => string | null) => {
   _getToken = fn;
 };
 
+/** The signed-in user's access token — for the few calls made outside Apollo (file uploads). */
+export const getAuthToken = (): string | null => (_getToken ? _getToken() : null);
+
 const httpLink = createHttpLink({
   uri: API_CONFIG.GRAPHQL_URL,
 });

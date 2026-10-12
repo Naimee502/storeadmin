@@ -16,7 +16,10 @@ import {
   Wallet,
   LogOut,
   Bell,
+  Megaphone,
 } from "lucide-react";
+import { useQuery } from "@apollo/client";
+import { GET_MY_ANNOUNCEMENTS } from "../../graphql/queries/announcements";
 import { siteConfig } from "../../config/site";
 import { useCart } from "../../contexts/cart";
 import { useTenant } from "../../contexts/tenant";
@@ -24,7 +27,7 @@ import { useAuth } from "../../contexts/auth";
 import { useCatalog } from "../../hooks/useCatalog";
 import { titleCaseIfShouting } from "../../utils/format";
 import NotificationBell from "../notificationbell";
-import { usePaymentsEnabled } from "../../hooks/useModuleEnabled";
+import { usePaymentsEnabled, useAnnouncementsEnabled } from "../../hooks/useModuleEnabled";
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,6 +39,13 @@ export default function Header() {
   const navigate = useNavigate();
   const { companyName, supportPhone, supportEmail, brandLogo } = useTenant();
   const paymentsEnabled = usePaymentsEnabled();
+  // Announcements module (opt-in): menu link + unread count for a logged-in party.
+  const announcementsEnabled = useAnnouncementsEnabled();
+  const { data: annData } = useQuery(GET_MY_ANNOUNCEMENTS, {
+    skip: !isLoggedIn || !announcementsEnabled,
+    fetchPolicy: "cache-and-network",
+  });
+  const unreadAnnouncements = (annData?.getMyAnnouncements ?? []).filter((a: any) => !a.read).length;
   // Which category the shop is currently filtered by, so the nav can mark it.
   // Same ?category=<id> param ShopPage reads, so the strip and the grid can
   // never disagree about what's selected.
@@ -202,6 +212,20 @@ export default function Header() {
                     >
                       <Bell className="h-4 w-4" /> Notifications
                     </Link>
+                    {announcementsEnabled && (
+                      <Link
+                        to="/account/announcements"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-900 hover:bg-slate-50"
+                      >
+                        <Megaphone className="h-4 w-4" /> Announcements
+                        {unreadAnnouncements > 0 && (
+                          <span className="ml-auto rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                            {unreadAnnouncements}
+                          </span>
+                        )}
+                      </Link>
+                    )}
                     <div className="my-1 border-t border-slate-100" />
                     <button
                       onClick={() => {

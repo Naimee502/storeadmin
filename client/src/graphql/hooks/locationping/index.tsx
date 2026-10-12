@@ -1,5 +1,5 @@
 import { useQuery } from "@apollo/client";
-import { GET_LOCATION_PINGS, GET_LATEST_LOCATIONS } from "../../queries/locationping";
+import { GET_LOCATION_PINGS, GET_LATEST_LOCATIONS, GET_TRAVEL_SUMMARY } from "../../queries/locationping";
 import { useAppSelector } from "../../../redux/hooks";
 
 const useAdminBranch = () => {
@@ -29,6 +29,16 @@ export const useLocationPingsQuery = (filter: any = {}) => {
 export const useLatestLocationsQuery = (filter: any = {}) => {
   const { adminid } = useAdminBranch();
   return useQuery(GET_LATEST_LOCATIONS, {
+    variables: { filter: { adminid, ...filter } },
+    skip: !adminid,
+    fetchPolicy: "cache-and-network",
+  });
+};
+
+// KM travelled per staff per day for the filter's date range.
+export const useTravelSummaryQuery = (filter: any = {}) => {
+  const { adminid } = useAdminBranch();
+  return useQuery(GET_TRAVEL_SUMMARY, {
     variables: { filter: { adminid, ...filter } },
     skip: !adminid,
     fetchPolicy: "cache-and-network",

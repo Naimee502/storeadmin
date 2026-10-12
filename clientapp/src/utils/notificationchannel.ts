@@ -1,5 +1,5 @@
 import { PermissionsAndroid, Platform } from 'react-native';
-import notifee, { AndroidImportance } from '@notifee/react-native';
+import notifee, { AndroidImportance, AndroidStyle } from '@notifee/react-native';
 
 // Must match android.notification.channel_id sent by the server (utils/fcm).
 export const DEFAULT_CHANNEL_ID = 'default';
@@ -47,6 +47,11 @@ export const displayRemoteMessage = async (remoteMessage: any) => {
       // one-colour silhouette — that is an Android rule, not ours.
       largeIcon: 'ic_launcher',
       pressAction: { id: 'default' },
+      // Announcements with a picture (e.g. a Diwali offer banner) show it
+      // full-width when the notification is expanded, like shopping apps do.
+      ...(remoteMessage?.data?.imageurl
+        ? { style: { type: AndroidStyle.BIGPICTURE, picture: String(remoteMessage.data.imageurl) } }
+        : {}),
     },
   });
 };

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -61,6 +61,27 @@ export default function PartyHome() {
     [paymentsEnabled],
   );
 
+  // The banner folds away as the products are scrolled up and comes back at
+  // the top — the categories stay on screen the whole time (only the banner
+  // collapses), so the customer can always switch category.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const lastY = useRef(0);
+  const [bannerH, setBannerH] = useState(0);
+  const onGridScroll = useCallback((y: number) => {
+    lastY.current = y;
+    scrollY.setValue(y);
+  }, [scrollY]);
+  const onBannerLayout = useCallback((e: any) => {
+    const h = e.nativeEvent.layout.height;
+    // Measure only while fully open, so the collapse never measures itself.
+    if (h > 0 && lastY.current < 2) setBannerH(prev => (Math.abs(prev - h) > 1 ? h : prev));
+  }, []);
+  const bannerStyle = bannerH > 0 ? {
+    height: scrollY.interpolate({ inputRange: [0, bannerH], outputRange: [bannerH, 0], extrapolate: 'clamp' }),
+    opacity: scrollY.interpolate({ inputRange: [0, bannerH * 0.8], outputRange: [1, 0], extrapolate: 'clamp' }),
+    overflow: 'hidden' as const,
+  } : undefined;
+
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
 
@@ -107,7 +128,11 @@ export default function PartyHome() {
           containerStyle={{ marginBottom: 8, marginTop: 10 }}
         />
         </View>
-        <HomeBanner />
+        <Animated.View style={bannerStyle}>
+          <View onLayout={onBannerLayout}>
+            <HomeBanner />
+          </View>
+        </Animated.View>
 
         <View ref={tourRef('party-category')} collapsable={false}>
           <CategoryStrip
@@ -119,7 +144,7 @@ export default function PartyHome() {
         </View>
       </View>
 
-      <ProductCatalog search={search} category={category} />
+      <ProductCatalog search={search} category={category} onScrollY={onGridScroll} />
 
       {/* Categories arrive from the server — wait for the query so that step
           has something to point at (a business with none just skips it). */}

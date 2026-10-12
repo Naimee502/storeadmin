@@ -73,6 +73,7 @@ const SETTINGS_FIELDS = `
   websiteShopInfiniteScroll
   appCatalogBrowseMode
   appCategoryAutoScroll
+  appProductAutoScroll
   loginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime

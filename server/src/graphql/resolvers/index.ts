@@ -20,6 +20,8 @@ import { transferStockResolvers } from "./transferstock";
 import { unitResolvers } from "./units";
 import { uploadResolvers } from "./uploads";
 import { expenseNoteResolvers } from "./expensenote";
+import { expenseClaimResolvers } from "./expenseclaim";
+import { announcementResolvers } from "./announcement";
 import { channelResolvers } from "./channel";
 import { stockAdjustmentResolvers } from "./stockadjustments";
 import { salesRouteResolvers } from "./salesroutes";
@@ -60,6 +62,8 @@ export const resolvers = [
   transactionResolvers,
   paymentResolvers,
   expenseNoteResolvers,
+  expenseClaimResolvers,
+  announcementResolvers,
   channelResolvers,
   stockAdjustmentResolvers,
   salesRouteResolvers,

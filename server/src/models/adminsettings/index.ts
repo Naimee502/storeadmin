@@ -370,6 +370,13 @@ const adminSettingsSchema = new mongoose.Schema(
     appCategoryAutoScroll: { type: Boolean, default: false },
 
     /**
+     * Product list scrolls itself slowly (app Home / Shop grid, website Deal of
+     * the Day row) so customers see more of the range without touching the
+     * screen. Manual scrolling always works; touching pauses it. Opt-in.
+     */
+    appProductAutoScroll: { type: Boolean, default: false },
+
+    /**
      * Billing panel (web) login needs an email OTP. After the email + password
      * check passes for Admin / Branch / Staff login, an OTP is mailed to that
      * login's email (same SMTP mailbox as the app registration OTP) and the

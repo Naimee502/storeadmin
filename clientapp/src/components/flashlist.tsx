@@ -57,6 +57,17 @@ type DynamicFlashListProps<T> = {
     removeClippedSubviews?: boolean;
 
     drawDistance?: number;
+
+    /** Scroll hooks — used by the collapsing Home banner and product auto-scroll. */
+    onScroll?: FlashListProps<T>['onScroll'];
+    scrollEventThrottle?: number;
+    onScrollBeginDrag?: FlashListProps<T>['onScrollBeginDrag'];
+    onScrollEndDrag?: FlashListProps<T>['onScrollEndDrag'];
+    onMomentumScrollEnd?: FlashListProps<T>['onMomentumScrollEnd'];
+    onTouchStart?: () => void;
+    onTouchEnd?: () => void;
+    /** Ref to the underlying FlashList (scrollToOffset etc.). */
+    listRef?: React.Ref<any>;
 };
 
 function FlashListComponent<T>({
@@ -111,6 +122,15 @@ function FlashListComponent<T>({
     removeClippedSubviews: _removeClippedSubviews = true,
 
     drawDistance = 250,
+
+    onScroll,
+    scrollEventThrottle,
+    onScrollBeginDrag,
+    onScrollEndDrag,
+    onMomentumScrollEnd,
+    onTouchStart,
+    onTouchEnd,
+    listRef,
 }: DynamicFlashListProps<T>) {
     const memoizedRenderItem =
         useCallback(
@@ -145,6 +165,14 @@ function FlashListComponent<T>({
 
     return (
         <FlashList
+            ref={listRef}
+            onScroll={onScroll}
+            scrollEventThrottle={scrollEventThrottle}
+            onScrollBeginDrag={onScrollBeginDrag}
+            onScrollEndDrag={onScrollEndDrag}
+            onMomentumScrollEnd={onMomentumScrollEnd}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
             data={data}
             renderItem={memoizedRenderItem}
             keyExtractor={

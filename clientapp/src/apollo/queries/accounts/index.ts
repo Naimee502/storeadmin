@@ -499,6 +499,7 @@ export const GET_ADMIN_SETTINGS = gql`
       appProductImageRatio
       appCatalogBrowseMode
       appCategoryAutoScroll
+      appProductAutoScroll
       heroBannerSlides {
         image
         title

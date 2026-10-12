@@ -177,6 +177,8 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     canReset: allow("reset"),
     showRearrange: allow("rearrange"),
     showDeleted: allow("delete"),
+    // Expense Notes → "Expense Claims" checkbox: claims tab + app claims screen.
+    showClaims: allow("claims"),
   };
 };
 export const selectIsFormFieldEnabled = (state: any, moduleId: string, fieldId: string): boolean => {

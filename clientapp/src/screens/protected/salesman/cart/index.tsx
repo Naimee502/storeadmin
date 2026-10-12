@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, StackActions } from '@react-navigation/native';
 import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
@@ -122,10 +122,26 @@ export default function SalesmanCart() {
                 // Cart lives in the outer stack; the tabs are nested under
                 // SalesmanDrawer → MainTabs, so target the tab through its parents
                 // (a plain navigate('SalesmanOrders') from here throws).
-                onPress: () => navigation.navigate('SalesmanDrawer', {
-                  screen: 'MainTabs',
-                  params: { screen: 'SalesmanOrders' },
-                }),
+                onPress: () => {
+                  // Go back to the screen the visit started from — the route
+                  // list (Routes tab) or My Parties — not the Orders tab, so
+                  // the salesman carries on with the next party right away.
+                  // Everything opened for this order (party visit → catalog →
+                  // cart) is popped off the stack.
+                  const state = navigation.getState?.();
+                  const routes: any[] = state?.routes ?? [];
+                  const firstIdx = routes.findIndex((r: any) =>
+                    ['RoutePartyVisit', 'SalesmanCatalog', 'SalesmanCart'].includes(r.name),
+                  );
+                  if (firstIdx > 0) {
+                    navigation.dispatch(StackActions.pop(routes.length - firstIdx));
+                  } else {
+                    navigation.navigate('SalesmanDrawer', {
+                      screen: 'MainTabs',
+                      params: { screen: 'SalesmanRoutes' },
+                    });
+                  }
+                },
               },
             ]);
           } catch (err: any) {

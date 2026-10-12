@@ -307,6 +307,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           customer is swiping the row and resumes a few seconds later. Off: the row only moves when swiped.
         </p>
         <Toggle
+          label="Auto-scroll the products (App Home & Shop grid + Website Deal of the Day)"
+          checked={!!draft.appProductAutoScroll}
+          onChange={(v: boolean) => set("appProductAutoScroll", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          The product list moves slowly by itself so customers see more of the range. Swiping / scrolling by
+          hand always works; touching the list pauses it and it carries on a few seconds later. Off: products
+          move only when scrolled.
+        </p>
+        <Toggle
           label="Billing panel login needs an email OTP (Admin, Branch & Staff login)"
           checked={!!draft.loginEmailOtp}
           onChange={(v: boolean) => set("loginEmailOtp", v)}
@@ -686,7 +696,7 @@ const PermissionsTab: React.FC<{
 
   if (!scopeid || loading || !draft) return <div className="text-sm text-gray-500">Loading…</div>;
 
-  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "exportexcel", "exportcsv", "exportpdf", "rearrange", "reset"];
+  const ALL_ACTIONS: ModuleAction[] = ["view", "add", "edit", "delete", "print", "return", "cancel", "convert", "whatsapp", "import", "export", "exportexcel", "exportcsv", "exportpdf", "rearrange", "reset", "claims"];
 
   const handleSave = async () => {
     try {

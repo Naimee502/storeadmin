@@ -78,6 +78,8 @@ interface TenantContextValue {
    * as the app.
    */
   categoryAutoScroll: boolean;
+  /** Business Settings -> "Auto-scroll the products": Deal of the Day row drifts by itself. */
+  productAutoScroll: boolean;
   shopInfiniteScroll: boolean;
 
   socialFacebookUrl: string;
@@ -192,6 +194,7 @@ export function TenantProvider({
     shopProductImageRatio: info?.websiteShopProductImageRatio ?? "",
     shopInfiniteScroll: !!info?.websiteShopInfiniteScroll,
     categoryAutoScroll: !!info?.appCategoryAutoScroll,
+    productAutoScroll: !!info?.appProductAutoScroll,
 
     socialFacebookUrl: info?.socialFacebookUrl ?? "",
     socialInstagramUrl: info?.socialInstagramUrl ?? "",
