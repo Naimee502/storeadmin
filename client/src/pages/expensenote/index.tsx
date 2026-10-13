@@ -132,9 +132,13 @@ const ExpenseNote = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         {/* Same layout as Attendance & Leave: page title first, tabs under it. */}
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{claimsOn ? <>Expense Notes &amp; Claims</> : "Expense Notes"}</h1>
-        </div>
+        {/* Page title only when the tabs are shown; without Claims the
+            DataTable's own "Expense Notes" title is enough (no duplicate). */}
+        {claimsOn && (
+          <div className="flex items-center justify-between mb-5">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Expense Notes &amp; Claims</h1>
+          </div>
+        )}
         <Tabs value={tab} onValueChange={setTab}>
           {claimsOn && (
           <TabsList className="flex flex-wrap mb-3">
