@@ -729,13 +729,20 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="Promo Banners (between Featured Products and New Arrivals)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <Toggle
+          label="Show Promo Banners on website home page"
+          checked={draft.websiteShowPromoBanners !== false}
+          onChange={(v: boolean) => set("websiteShowPromoBanners", v)}
+        />
+        <div className="text-xs text-gray-400 mb-1 px-1 pt-2">
           Manage the promo tiles shown between Featured Products and New Arrivals — add as many as you like, edit or remove any of them. Leave empty to keep the default two tiles.
         </div>
-        <HeroBannerSlidesEditor
-          slides={draft.promoBanners ?? []}
-          onChange={(slides) => set("promoBanners", slides)}
-        />
+        <div className={draft.websiteShowPromoBanners === false ? "opacity-50 pointer-events-none" : ""}>
+          <HeroBannerSlidesEditor
+            slides={draft.promoBanners ?? []}
+            onChange={(slides) => set("promoBanners", slides)}
+          />
+        </div>
       </Section>
 
       <Section title="Trust Bar Stats (Home page)">

@@ -109,6 +109,7 @@ interface TenantContextValue {
   businessStats: { label?: string; value?: string }[];
   /** Admin switches — default true so older settings keep showing them. */
   websiteShowTrustBar: boolean;
+  websiteShowPromoBanners: boolean;
   websiteShowAppSection: boolean;
 }
 
@@ -220,6 +221,7 @@ export function TenantProvider({
 
     businessStats: info?.businessStats ?? [],
     websiteShowTrustBar: info?.websiteShowTrustBar !== false,
+    websiteShowPromoBanners: info?.websiteShowPromoBanners !== false,
     websiteShowAppSection: info?.websiteShowAppSection !== false,
   };
 

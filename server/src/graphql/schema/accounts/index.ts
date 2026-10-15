@@ -188,9 +188,10 @@ export const accountTypeDefs = gql`
     # needs an email OTP" is on, the first call (no otp) mails an OTP and fails
     # with LOGIN_OTP_REQUIRED; the client repeats the call with the otp.
     # A party with no email on file gets LOGIN_OTP_NO_EMAIL; it then sends
-    # email (on both calls) — the OTP goes there and, once verified, the
-    # email is saved on the account.
-    loginParty(adminId: ID!, mobile: String!, otp: String, email: String): VerifyOTPResponse!
+    # accountCode (must match the party's Account Code, e.g. #ACC0001) and
+    # email on both calls — the OTP goes to that email and, once verified,
+    # the email is saved on the account.
+    loginParty(adminId: ID!, mobile: String!, otp: String, email: String, accountCode: String): VerifyOTPResponse!
     # (Re)send the registration OTP to the account's email.
     sendOTP(adminId: ID!, mobile: String!): SendOTPResponse!
     verifyOTP(adminId: ID!, mobile: String!, otp: String!): VerifyOTPResponse!

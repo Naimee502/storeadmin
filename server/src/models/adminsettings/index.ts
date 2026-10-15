@@ -503,6 +503,7 @@ const adminSettingsSchema = new mongoose.Schema(
     // keeps clientweb's built-in placeholder stats instead.
     // Show/hide switches for Home page blocks (default on = existing behaviour).
     websiteShowTrustBar: { type: Boolean, default: true },
+    websiteShowPromoBanners: { type: Boolean, default: true },
     websiteShowAppSection: { type: Boolean, default: true },
 
     businessStats: {

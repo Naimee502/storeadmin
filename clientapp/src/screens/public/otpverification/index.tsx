@@ -35,7 +35,8 @@ export default function OTPVerification({ navigation, route }: any) {
   // Email the customer just added on Login (no email on file) — sent again on
   // verify / resend so the server checks the OTP against it and saves it.
   const loginEmail: string = route?.params?.loginEmail ?? '';
-  const loginExtra = loginEmail ? { email: loginEmail } : {};
+  const loginAccountCode: string = route?.params?.accountCode ?? '';
+  const loginExtra = loginEmail ? { email: loginEmail, accountCode: loginAccountCode } : {};
 
   const [code, setCode]                = useState(['', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState(-1);

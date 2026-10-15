@@ -17,6 +17,7 @@ const formatSettings = (s: any) =>
         doubleDisplayPrice: !!s.doubleDisplayPrice,
         // Older rows have no value — treat missing as "show".
         websiteShowTrustBar: s.websiteShowTrustBar !== false,
+        websiteShowPromoBanners: s.websiteShowPromoBanners !== false,
         websiteShowAppSection: s.websiteShowAppSection !== false,
         // Same reason, and these two default to TRUE: a row written before the
         // return-stock switches existed must read as "yes, move stock", not as
@@ -151,6 +152,7 @@ export const adminSettingsResolvers = {
 
         businessStats: mapStats(settings.businessStats),
         websiteShowTrustBar: settings.websiteShowTrustBar !== false,
+        websiteShowPromoBanners: settings.websiteShowPromoBanners !== false,
         websiteShowAppSection: settings.websiteShowAppSection !== false,
       };
     },

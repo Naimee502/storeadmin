@@ -72,9 +72,13 @@ export default function Login({ navigation }: any) {
   // an email here (reuses the `email` field); the OTP goes there and the
   // server saves it once the OTP is right.
   const [needEmail, setNeedEmail] = useState(false);
+  // Account Code (e.g. #ACC0001) — proves it's the party before an email can
+  // be attached; the server checks it on every call.
+  const [accountCode, setAccountCode] = useState('');
+  const [codeFocused, setCodeFocused] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string; email?: string }>({});
+  const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string; email?: string; code?: string }>({});
   const [mobileFocused, setMobileFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
@@ -84,6 +88,7 @@ export default function Login({ navigation }: any) {
   const passwordRef = useRef<TextInput>(null);
   const nameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
+  const codeRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const validateMobile = () => {
@@ -100,6 +105,11 @@ export default function Login({ navigation }: any) {
   const handleSendOTP = async () => {
     if (!validateMobile()) return;
     const addEmail = needEmail ? email.trim() : '';
+    const code = needEmail ? accountCode.trim() : '';
+    if (needEmail && !code) {
+      setErrors(e => ({ ...e, code: 'Enter your Account Code' }));
+      return;
+    }
     if (needEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addEmail)) {
       setErrors(e => ({ ...e, email: 'Enter a valid email address' }));
       return;
@@ -108,7 +118,7 @@ export default function Login({ navigation }: any) {
     try {
       const { data } = await apolloClient.mutate({
         mutation: LOGIN_PARTY,
-        variables: { adminId, mobile: mobile.trim(), ...(addEmail ? { email: addEmail } : {}) },
+        variables: { adminId, mobile: mobile.trim(), ...(addEmail ? { email: addEmail, accountCode: code } : {}) },
       });
       const { accessToken, account } = (data as any).loginParty;
 
@@ -146,6 +156,7 @@ export default function Login({ navigation }: any) {
           email: ext.maskedEmail ?? '',
           resendIn: Number(ext.resendIn) || 60,
           loginEmail: addEmail,
+          accountCode: code,
         });
         return;
       }
@@ -155,7 +166,13 @@ export default function Login({ navigation }: any) {
         // instead of showing an error. (Also lands here for a badly typed one.)
         if (needEmail) setErrors(e => ({ ...e, email: msg }));
         setNeedEmail(true);
-        setTimeout(() => emailRef.current?.focus(), 350);
+        setTimeout(() => codeRef.current?.focus(), 350);
+        return;
+      }
+
+      // Wrong Account Code (or locked after too many) — show it on that field.
+      if (codes.includes('LOGIN_ACCOUNT_CODE_INVALID') || codes.includes('LOGIN_ACCOUNT_CODE_LOCKED')) {
+        setErrors(e => ({ ...e, code: msg }));
         return;
       }
 
@@ -296,6 +313,7 @@ export default function Login({ navigation }: any) {
   const toggleStaffMode = () => {
     setIsStaffMode(v => !v);
     setNeedEmail(false);
+    setAccountCode('');
     setErrors({});
     if (!isStaffMode) {
       // Entering staff mode → focus the MOBILE field first (you fill mobile, then password).
@@ -368,7 +386,7 @@ export default function Login({ navigation }: any) {
                   : isStaffMode
                     ? 'Enter your mobile number and password to sign in.'
                     : needEmail
-                      ? 'Add your email to finish signing in — we will send a one-time code there.'
+                      ? 'No email is saved on your account. Enter your Account Code and an email to finish signing in.'
                       : 'Enter your mobile number to login securely.'}
               </Text>
             </Animated.View>
@@ -392,7 +410,7 @@ export default function Login({ navigation }: any) {
                   placeholderTextColor={colors.placeholder}
                   value={mobile}
                   editable={!isRegisterMode}
-                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); if (needEmail) { setNeedEmail(false); setEmail(''); } }}
+                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); if (needEmail) { setNeedEmail(false); setEmail(''); setAccountCode(''); } }}
                   keyboardType="number-pad"
                   maxLength={10}
                   returnKeyType={isRegisterMode ? 'done' : isStaffMode ? 'next' : 'done'}
@@ -477,6 +495,34 @@ export default function Login({ navigation }: any) {
               {/* Add-email field — registered party with no email on file. */}
               {!isRegisterMode && !isStaffMode && needEmail && (
                 <Animated.View entering={FadeInDown.duration(350)}>
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Account Code</Text>
+                  <View style={[styles.inputRow, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: errors.code ? '#ef4444' : codeFocused ? colors.brand : colors.border,
+                  }]}>
+                    <Icon name="pound" size={20} color={codeFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                    <TextInput
+                      ref={codeRef}
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="ACC0001"
+                      placeholderTextColor={colors.placeholder}
+                      value={accountCode}
+                      onChangeText={t => { setAccountCode(t.toUpperCase()); setErrors(e => ({ ...e, code: undefined })); }}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => emailRef.current?.focus()}
+                      onFocus={() => setCodeFocused(true)}
+                      onBlur={() => setCodeFocused(false)}
+                    />
+                  </View>
+                  {!!errors.code && (
+                    <View style={styles.errorRow}>
+                      <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                      <Text style={styles.errorText}>{errors.code}</Text>
+                    </View>
+                  )}
+
                   <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Email</Text>
                   <View style={[styles.inputRow, {
                     backgroundColor: colors.raisedSurface,

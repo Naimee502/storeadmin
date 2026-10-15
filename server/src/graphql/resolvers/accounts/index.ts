@@ -171,6 +171,44 @@ const mailOtp = async (email: string, mobile: string, otp: string, adminId: any)
 
 const MAX_OTP_ATTEMPTS = 5;
 
+// Wrong Account Code guesses on the login "add email" step. Account codes run
+// in sequence (#ACC0001, #ACC0002 …), so without a limit they could simply be
+// tried one by one. In memory, per business + mobile: after CODE_MAX_FAILS
+// wrong codes the number is locked for CODE_LOCK_MS. (Single pm2 process, so
+// one map is enough; a restart clears it, which is acceptable here.)
+const CODE_MAX_FAILS = 5;
+const CODE_LOCK_MS = 30 * 60 * 1000;
+const codeFails = new Map<string, { count: number; until: number }>();
+const normCode = (c: any) => String(c ?? "").replace(/[#\s]/g, "").toUpperCase();
+
+const checkAccountCode = (adminId: any, mobile: string, account: any, given: any) => {
+  const key = `${adminId}:${mobile}`;
+  const now = Date.now();
+  const rec = codeFails.get(key);
+  if (rec && rec.until > now) {
+    const mins = Math.ceil((rec.until - now) / 60000);
+    throw new ApolloError(
+      `Too many wrong Account Code attempts. Try again in ${mins} min, or contact the store.`,
+      "LOGIN_ACCOUNT_CODE_LOCKED",
+    );
+  }
+  const ok = !!normCode(account.accountcode) && normCode(given) === normCode(account.accountcode);
+  if (!ok) {
+    // A finished lock starts the count again from zero.
+    const count = (rec && !rec.until ? rec.count : 0) + 1;
+    if (count >= CODE_MAX_FAILS) {
+      codeFails.set(key, { count: 0, until: now + CODE_LOCK_MS });
+    } else {
+      codeFails.set(key, { count, until: 0 });
+    }
+    throw new ApolloError(
+      "Account Code doesn't match this mobile number.",
+      "LOGIN_ACCOUNT_CODE_INVALID",
+    );
+  }
+  codeFails.delete(key);
+};
+
 /**
  * Create the real customer Account for a signup whose OTP has just been
  * verified: Sundry Debtors group, EndUser channel, approval status from
@@ -534,7 +572,7 @@ export const accountResolvers = {
     // Party login: mobile number only, no OTP. Same guards verifyOTP had
     // (customer-only, approval), plus: a self-registered customer must have
     // finished the email OTP first.
-    loginParty: async (_: any, { adminId, mobile, otp, email: newEmail }: any, { res }: any) => {
+    loginParty: async (_: any, { adminId, mobile, otp, email: newEmail, accountCode }: any, { res }: any) => {
       const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
       assertCustomerAccount(account);
@@ -561,6 +599,12 @@ export const accountResolvers = {
         if (!EMAIL_RE.test(addEmail)) {
           throw new ApolloError("Enter a valid email address.", "LOGIN_OTP_NO_EMAIL");
         }
+        // Proof this is the party and not just someone who knows the number:
+        // the Account Code from Party Accounts (printed on their bills).
+        // Checked on BOTH calls — sending the OTP and verifying it — since the
+        // email is saved on the second one.
+        const settingOn: any = await AdminSettings.findOne({ adminid: adminId }).select("partyLoginEmailOtp").lean();
+        if (settingOn?.partyLoginEmailOtp) checkAccountCode(adminId, mobile, account, accountCode);
       }
       const company: any = await Admin.findById(adminId).select("companyName").lean();
       await enforceLoginOtp({

@@ -118,6 +118,7 @@ const SETTINGS_FIELDS = `
     value
   }
   websiteShowTrustBar
+  websiteShowPromoBanners
   websiteShowAppSection
 `;
 

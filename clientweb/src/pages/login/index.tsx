@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMutation } from "@apollo/client";
-import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, User, Mail } from "lucide-react";
+import { Phone, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, User, Mail, Hash } from "lucide-react";
 import { siteConfig } from "../../config/site";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
@@ -32,6 +32,9 @@ export default function LoginPage() {
   // A registered party with no email on file (login OTP on): they add one
   // here, the OTP goes to it, and the server saves it once the OTP is right.
   const [loginEmail, setLoginEmail] = useState("");
+  // Account Code (Party Accounts, e.g. #ACC0001) — proves it's the party
+  // before an email can be attached. Checked by the server on every call.
+  const [accountCode, setAccountCode] = useState("");
   const [mobile, setMobile] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -80,7 +83,7 @@ export default function LoginPage() {
   const loginVars = (extra: Record<string, any> = {}) => ({
     adminId: adminid,
     mobile,
-    ...(loginEmail.trim() ? { email: loginEmail.trim() } : {}),
+    ...(loginEmail.trim() ? { email: loginEmail.trim(), accountCode: accountCode.trim() } : {}),
     ...extra,
   });
 
@@ -132,6 +135,7 @@ export default function LoginPage() {
     }
     setError(null);
     setLoginEmail("");
+    setAccountCode("");
     try {
       const { data } = await loginMutation({ variables: { adminId: adminid, mobile } });
       startSession(data?.loginParty);
@@ -348,9 +352,25 @@ export default function LoginPage() {
                 <ArrowLeft className="h-3.5 w-3.5" /> Change number
               </button>
               <p className="text-sm text-slate-500">
-                Add your email to sign in with +91 {mobile}. We'll send a one-time code there to confirm it's yours,
-                and save it on your account.
+                No email is saved for +91 {mobile} yet. Enter your Account Code and an email — we'll send a one-time
+                code there and save it on your account once verified.
               </p>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Account Code</label>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
+                  <Hash className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={accountCode}
+                    onChange={(e) => setAccountCode(e.target.value.toUpperCase())}
+                    placeholder="ACC0001"
+                    autoComplete="off"
+                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-900">Email</label>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
@@ -358,7 +378,6 @@ export default function LoginPage() {
                   <input
                     type="email"
                     required
-                    autoFocus
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="you@example.com"
@@ -368,7 +387,7 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim()) || sending || !adminid}
+                disabled={!accountCode.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim()) || sending || !adminid}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? "Sending OTP…" : "Send OTP"}

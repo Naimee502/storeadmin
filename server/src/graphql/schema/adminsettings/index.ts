@@ -186,6 +186,7 @@ export const adminSettingsTypeDefs = gql`
     # Home page "trust bar" stat tiles.
     businessStats: [BusinessStat!]
     websiteShowTrustBar: Boolean
+    websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
 
     createdAt: String
@@ -256,6 +257,7 @@ export const adminSettingsTypeDefs = gql`
 
     businessStats: [BusinessStat!]
     websiteShowTrustBar: Boolean
+    websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
   }
 
@@ -366,6 +368,7 @@ export const adminSettingsTypeDefs = gql`
 
     businessStats: [BusinessStatInput!]
     websiteShowTrustBar: Boolean
+    websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
   }
 

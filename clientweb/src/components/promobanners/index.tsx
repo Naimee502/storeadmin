@@ -34,8 +34,12 @@ const fallbackTiles = [
 ];
 
 export default function PromoBanners() {
-  const { promoBanners } = useTenant();
+  const { promoBanners, websiteShowPromoBanners } = useTenant();
   const configured = (promoBanners ?? []).filter((b) => b.image || b.title);
+
+  // Settings -> "Show Promo Banners on website home page" off: no tiles at
+  // all (neither the configured ones nor the default two).
+  if (!websiteShowPromoBanners) return null;
 
   if (configured.length > 0) {
     return (
