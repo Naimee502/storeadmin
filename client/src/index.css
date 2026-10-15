@@ -24,6 +24,14 @@
 /* ✅ Add scrollbar styling below */
 ::-webkit-scrollbar {
   width: 6px;
+  /* Horizontal bars (wide tables, tab rows) — thin and hidden until hovered. */
+  height: 4px;
+}
+::-webkit-scrollbar-thumb:horizontal {
+  background: transparent;
+}
+*:hover::-webkit-scrollbar-thumb:horizontal {
+  background: #cbd5e1;
 }
 ::-webkit-scrollbar-thumb {
   background: #4e6a85;

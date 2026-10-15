@@ -492,6 +492,10 @@ const adminSettingsSchema = new mongoose.Schema(
     // "Trust bar" stat tiles on the Home page (e.g. "12,400+ / Active retail
     // partners") — admin-managed, add/edit/remove any number; empty list
     // keeps clientweb's built-in placeholder stats instead.
+    // Show/hide switches for Home page blocks (default on = existing behaviour).
+    websiteShowTrustBar: { type: Boolean, default: true },
+    websiteShowAppSection: { type: Boolean, default: true },
+
     businessStats: {
       type: [
         {

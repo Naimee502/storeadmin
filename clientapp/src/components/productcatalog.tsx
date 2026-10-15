@@ -196,6 +196,8 @@ export type ProductCatalogProps = {
   ListHeaderComponent?: React.ReactElement | null;
   /** Vertical scroll position of the grid — Home uses it to fold its banner away. Keep it stable (useCallback / ref). */
   onScrollY?: (y: number) => void;
+  /** Raw vertical scroll offset of the grid (auto-scroll included). Keep it stable. */
+  onScrollOffset?: (y: number) => void;
 };
 
 // Business Settings → "Auto-scroll the products": the grid drifts down by
@@ -222,7 +224,7 @@ const AUTO_END_HOLD_MS = 3000; // pause at the bottom before going back to the t
  * around it.
  */
 export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function ProductCatalog({
-  search, category, ListHeaderComponent = null, onScrollY,
+  search, category, ListHeaderComponent = null, onScrollY, onScrollOffset,
 }) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
@@ -299,6 +301,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const y = contentOffset.y;
     autoY.current = y;
+    onScrollOffset?.(y);
     const atEnd = contentSize.height - layoutMeasurement.height - y < 2;
     if (atEnd && !atEndSince.current) atEndSince.current = Date.now();
     if (!atEnd) atEndSince.current = 0;
@@ -312,7 +315,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     }
     if (y <= 0) manualY.current = 0;
     onScrollY?.(manualY.current);
-  }, [onScrollY, productAuto]);
+  }, [onScrollY, onScrollOffset, productAuto]);
 
   const pauseAuto = useCallback(() => {
     markUser();

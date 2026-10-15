@@ -37,7 +37,7 @@ export const DELETE_ANNOUNCEMENT = gql`
 `;
 
 export const MARK_ANNOUNCEMENT_READ = gql`
-  mutation MarkAnnouncementRead($id: ID!) { markAnnouncementRead(id: $id) }
+  mutation MarkAnnouncementRead($id: ID!) { markAnnouncementRead(id: $id, source: "website") }
 `;
 
 export const IS_ANNOUNCEMENTS_ENABLED = gql`

@@ -71,6 +71,20 @@ export const announcementTypeDefs = gql`
     sub: String
   }
 
+  # One person who opened an announcement — for the admin's "Seen by" list.
+  type AnnouncementReader {
+    id: ID!
+    readertype: String!
+    name: String!
+    mobile: String
+    city: String
+    # salesman / deliveryboy / staff for staff readers.
+    role: String
+    # "app", "website" — where they opened it (empty for older reads).
+    sources: [String!]!
+    readAt: String
+  }
+
   type AnnouncementTargets {
     staff: [AnnouncementTargetOption!]!
     parties: [AnnouncementTargetOption!]!
@@ -87,6 +101,8 @@ export const announcementTypeDefs = gql`
     # What the signed-in salesman / party has sent.
     getSentAnnouncements: [Announcement!]!
     getAnnouncementTargets: AnnouncementTargets!
+    # Who has seen one announcement (sender / admin / branch only).
+    getAnnouncementReaders(id: ID!): [AnnouncementReader!]!
   }
 
   type Mutation {
@@ -94,6 +110,7 @@ export const announcementTypeDefs = gql`
     editAnnouncement(id: ID!, input: AnnouncementInput!): Announcement!
     deleteAnnouncement(id: ID!): Boolean!
     resetAnnouncement(id: ID!): Boolean!
-    markAnnouncementRead(id: ID!): Boolean!
+    # source: "app" or "website".
+    markAnnouncementRead(id: ID!, source: String): Boolean!
   }
 `;

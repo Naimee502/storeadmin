@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -61,27 +61,6 @@ export default function PartyHome() {
     [paymentsEnabled],
   );
 
-  // The banner folds away as the products are scrolled up and comes back at
-  // the top — the categories stay on screen the whole time (only the banner
-  // collapses), so the customer can always switch category.
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const lastY = useRef(0);
-  const [bannerH, setBannerH] = useState(0);
-  const onGridScroll = useCallback((y: number) => {
-    lastY.current = y;
-    scrollY.setValue(y);
-  }, [scrollY]);
-  const onBannerLayout = useCallback((e: any) => {
-    const h = e.nativeEvent.layout.height;
-    // Measure only while fully open, so the collapse never measures itself.
-    if (h > 0 && lastY.current < 2) setBannerH(prev => (Math.abs(prev - h) > 1 ? h : prev));
-  }, []);
-  const bannerStyle = bannerH > 0 ? {
-    height: scrollY.interpolate({ inputRange: [0, bannerH], outputRange: [bannerH, 0], extrapolate: 'clamp' }),
-    opacity: scrollY.interpolate({ inputRange: [0, bannerH * 0.8], outputRange: [1, 0], extrapolate: 'clamp' }),
-    overflow: 'hidden' as const,
-  } : undefined;
-
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
 
@@ -95,6 +74,48 @@ export default function PartyHome() {
       .map((c: any) => ({ id: c.id, name: c.categoryname, image: c.image })),
     [categoriesData],
   );
+
+  // Banner + categories ride INSIDE the product list as its header, so they
+  // scroll natively with the products — no JS animation, no layout change
+  // while scrolling.
+  //
+  // (Before, the banner shrank its own height from the scroll position. That
+  // moved the list under the user's finger mid-drag and changed its size every
+  // frame, so the scroll fought itself — the screen stuck and the banner
+  // flickered.)
+  //
+  // Once the banner has scrolled out of view, a copy of the category strip is
+  // pinned at the top so the customer can always switch category — same as
+  // before. Only crossing that point re-renders; plain scrolling doesn't.
+  const bannerHRef = useRef(0);
+  const pinnedRef = useRef(false);
+  const [pinned, setPinned] = useState(false);
+  const onBannerLayout = useCallback((e: any) => {
+    bannerHRef.current = e.nativeEvent.layout.height;
+  }, []);
+  const onScrollOffset = useCallback((y: number) => {
+    const p = bannerHRef.current > 0 && y >= bannerHRef.current;
+    if (p !== pinnedRef.current) {
+      pinnedRef.current = p;
+      setPinned(p);
+    }
+  }, []);
+
+  const listHeader = useMemo(() => (
+    <View>
+      <View onLayout={onBannerLayout}>
+        <HomeBanner />
+      </View>
+      <View ref={tourRef('party-category')} collapsable={false}>
+        <CategoryStrip
+          categories={categories}
+          selected={category}
+          onSelect={setCategory}
+          contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
+        />
+      </View>
+    </View>
+  ), [categories, category, onBannerLayout]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -128,23 +149,26 @@ export default function PartyHome() {
           containerStyle={{ marginBottom: 8, marginTop: 10 }}
         />
         </View>
-        <Animated.View style={bannerStyle}>
-          <View onLayout={onBannerLayout}>
-            <HomeBanner />
-          </View>
-        </Animated.View>
-
-        <View ref={tourRef('party-category')} collapsable={false}>
-          <CategoryStrip
-            categories={categories}
-            selected={category}
-            onSelect={setCategory}
-            contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
-          />
-        </View>
       </View>
 
-      <ProductCatalog search={search} category={category} onScrollY={onGridScroll} />
+      <View style={styles.listArea}>
+        <ProductCatalog
+          search={search}
+          category={category}
+          ListHeaderComponent={listHeader}
+          onScrollOffset={onScrollOffset}
+        />
+        {pinned && (
+          <View style={[styles.pinnedCats, { backgroundColor: colors.background }]}>
+            <CategoryStrip
+              categories={categories}
+              selected={category}
+              onSelect={setCategory}
+              contentContainerStyle={{ paddingTop: 0, paddingBottom: 8 }}
+            />
+          </View>
+        )}
+      </View>
 
       {/* Categories arrive from the server — wait for the query so that step
           has something to point at (a business with none just skips it). */}
@@ -176,6 +200,8 @@ const styles = StyleSheet.create({
   // Matches the grid's own horizontal padding so the search box and the
   // category strip line up with the cards below them.
   headerWrap: { paddingHorizontal: 18 },
+  listArea: { flex: 1 },
+  pinnedCats: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 18, paddingTop: 4 },
 
   cartBar: {
     position: 'absolute', bottom: 20, left: 18, right: 18,

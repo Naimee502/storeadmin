@@ -5,7 +5,10 @@ import { useTenant } from "../../contexts/tenant";
 export default function Newsletter() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  const { appDownloadUrl } = useTenant();
+  const { appDownloadUrl, websiteShowAppSection } = useTenant();
+
+  // Admin switch (Settings → "Get the App") hides this whole block.
+  if (!websiteShowAppSection) return null;
 
   return (
     <section data-newsletter className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

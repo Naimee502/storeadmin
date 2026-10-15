@@ -402,7 +402,7 @@ export const announcementResolvers = {
     getAnnouncements: async (_: any, __: any, context: any) => {
       const c = await callerOf(context);
       if (c.kind === "party") return [];
-      const rows = await Announcement.find({ ...manageQuery(c), isactive: true }).sort({ startAt: -1 }).lean();
+      const rows = await Announcement.find({ ...manageQuery(c), isactive: true }).sort({ startAt: -1, createdAt: -1 }).lean();
       return withReadCounts(rows);
     },
 
@@ -416,7 +416,7 @@ export const announcementResolvers = {
     getSentAnnouncements: async (_: any, __: any, context: any) => {
       const c = await callerOf(context);
       const rows = await Announcement.find({ adminid: c.tenant.adminid, senderid: c.id, isactive: true })
-        .sort({ startAt: -1 })
+        .sort({ startAt: -1, createdAt: -1 })
         .limit(100)
         .lean();
       return withReadCounts(rows);
@@ -449,7 +449,7 @@ export const announcementResolvers = {
           { $or: or },
         ],
       })
-        .sort({ startAt: -1 })
+        .sort({ startAt: -1, createdAt: -1 })
         .limit(100)
         .lean();
 
@@ -462,6 +462,39 @@ export const announcementResolvers = {
         .lean();
       const readSet = new Set(reads.map((r: any) => String(r.announcementid)));
       return rows.map((r) => format(r, { read: readSet.has(String(r._id)) }));
+    },
+
+    getAnnouncementReaders: async (_: any, { id }: any, context: any) => {
+      const c = await callerOf(context);
+      if (c.kind === "party") return [];
+      if (!Types.ObjectId.isValid(id)) return [];
+      // Same visibility as the admin list: whoever can see the row can see its readers.
+      const ann: any = await Announcement.findOne({ _id: oid(id), ...manageQuery(c) }).select("_id").lean();
+      if (!ann) throw new TenantError("Announcement not found.", "NOT_FOUND");
+
+      const reads: any[] = await AnnouncementRead.find({ announcementid: ann._id }).sort({ createdAt: -1 }).lean();
+      const staffIds = reads.filter((r) => r.readertype === "staff").map((r) => r.readerid);
+      const partyIds = reads.filter((r) => r.readertype === "party").map((r) => r.readerid);
+      const [staff, parties] = await Promise.all([
+        staffIds.length ? StaffAccount.find({ _id: { $in: staffIds } }).select("name mobile role").lean() : [],
+        partyIds.length ? Account.find({ _id: { $in: partyIds } }).select("name mobile city").lean() : [],
+      ]);
+      const staffMap = new Map((staff as any[]).map((s) => [String(s._id), s]));
+      const partyMap = new Map((parties as any[]).map((p) => [String(p._id), p]));
+
+      return reads.map((r) => {
+        const p: any = r.readertype === "staff" ? staffMap.get(String(r.readerid)) : partyMap.get(String(r.readerid));
+        return {
+          id: String(r._id),
+          readertype: r.readertype,
+          name: p?.name || "(deleted)",
+          mobile: p?.mobile || "",
+          city: r.readertype === "party" ? p?.city || "" : "",
+          role: r.readertype === "staff" ? p?.role || "" : "",
+          sources: r.sources || [],
+          readAt: iso(r.createdAt),
+        };
+      });
     },
 
     getAnnouncementTargets: async (_: any, __: any, context: any) => {
@@ -560,15 +593,20 @@ export const announcementResolvers = {
       return true;
     },
 
-    markAnnouncementRead: async (_: any, { id }: any, context: any) => {
+    markAnnouncementRead: async (_: any, { id, source }: any, context: any) => {
       const c = await callerOf(context);
       if (c.kind !== "staff" && c.kind !== "party") return false;
       if (!mongoose.Types.ObjectId.isValid(id)) return false;
       const exists = await Announcement.exists({ _id: oid(id), adminid: c.tenant.adminid });
       if (!exists) return false;
+      const src = source === "app" || source === "website" ? source : null;
       await AnnouncementRead.updateOne(
         { announcementid: oid(id), readertype: c.kind, readerid: c.id },
-        { $setOnInsert: { announcementid: oid(id), readertype: c.kind, readerid: c.id } },
+        {
+          $setOnInsert: { announcementid: oid(id), readertype: c.kind, readerid: c.id },
+          // Opened on both? keeps both.
+          ...(src ? { $addToSet: { sources: src } } : {}),
+        },
         { upsert: true }
       );
       return true;

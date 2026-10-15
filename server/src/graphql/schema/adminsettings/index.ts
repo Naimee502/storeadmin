@@ -183,6 +183,8 @@ export const adminSettingsTypeDefs = gql`
 
     # Home page "trust bar" stat tiles.
     businessStats: [BusinessStat!]
+    websiteShowTrustBar: Boolean
+    websiteShowAppSection: Boolean
 
     createdAt: String
     updatedAt: String
@@ -251,6 +253,8 @@ export const adminSettingsTypeDefs = gql`
     promoBanners: [HeroBannerSlide!]
 
     businessStats: [BusinessStat!]
+    websiteShowTrustBar: Boolean
+    websiteShowAppSection: Boolean
   }
 
   # Partial input — only sends fields that changed. Server merges over the
@@ -358,6 +362,8 @@ export const adminSettingsTypeDefs = gql`
     promoBanners: [HeroBannerSlideInput!]
 
     businessStats: [BusinessStatInput!]
+    websiteShowTrustBar: Boolean
+    websiteShowAppSection: Boolean
   }
 
   extend type Query {

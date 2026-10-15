@@ -107,6 +107,9 @@ interface TenantContextValue {
   // Home page "trust bar" stat tiles (Settings → General on the admin
   // panel). Empty = clientweb keeps its own built-in placeholder stats.
   businessStats: { label?: string; value?: string }[];
+  /** Admin switches — default true so older settings keep showing them. */
+  websiteShowTrustBar: boolean;
+  websiteShowAppSection: boolean;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -216,6 +219,8 @@ export function TenantProvider({
     promoBanners: info?.promoBanners ?? [],
 
     businessStats: info?.businessStats ?? [],
+    websiteShowTrustBar: info?.websiteShowTrustBar !== false,
+    websiteShowAppSection: info?.websiteShowAppSection !== false,
   };
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

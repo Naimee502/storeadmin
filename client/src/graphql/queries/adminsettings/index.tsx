@@ -116,6 +116,8 @@ const SETTINGS_FIELDS = `
     label
     value
   }
+  websiteShowTrustBar
+  websiteShowAppSection
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

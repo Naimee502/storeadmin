@@ -31,6 +31,12 @@ export const GET_DELETED_ANNOUNCEMENTS = gql`
   query GetDeletedAnnouncements { getDeletedAnnouncements { ${ANNOUNCEMENT_FIELDS} } }
 `;
 
+export const GET_ANNOUNCEMENT_READERS = gql`
+  query GetAnnouncementReaders($id: ID!) {
+    getAnnouncementReaders(id: $id) { id readertype name mobile city role sources readAt }
+  }
+`;
+
 export const GET_ANNOUNCEMENT_TARGETS = gql`
   query GetAnnouncementTargets {
     getAnnouncementTargets {

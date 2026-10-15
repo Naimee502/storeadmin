@@ -75,6 +75,8 @@ export const GET_STOREFRONT_BY_SLUG = gql`
         label
         value
       }
+      websiteShowTrustBar
+      websiteShowAppSection
     }
   }
 `;

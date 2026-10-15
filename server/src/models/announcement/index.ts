@@ -81,6 +81,9 @@ const announcementReadSchema = new mongoose.Schema(
     announcementid: { type: mongoose.Schema.Types.ObjectId, ref: "Announcement", required: true },
     readertype: { type: String, enum: ["staff", "party"], required: true },
     readerid: { type: mongoose.Schema.Types.ObjectId, required: true },
+    // Where it was opened — "app" and/or "website". Empty on rows saved
+    // before this was tracked.
+    sources: { type: [String], default: [] },
   },
   { timestamps: true }
 );

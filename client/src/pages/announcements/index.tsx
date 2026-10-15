@@ -16,6 +16,7 @@ import { formatDateDMY } from "../../utils/helper";
 import {
   GET_ANNOUNCEMENTS,
   GET_ANNOUNCEMENT_TARGETS,
+  GET_ANNOUNCEMENT_READERS,
   ADD_ANNOUNCEMENT,
   EDIT_ANNOUNCEMENT,
   DELETE_ANNOUNCEMENT,
@@ -99,6 +100,14 @@ const Announcements = () => {
   const [uploading, setUploading] = useState(false);
   // Announcement whose picture is open in the preview modal.
   const [preview, setPreview] = useState<any>(null);
+  // Announcement whose "Seen by" list is open.
+  const [seenOf, setSeenOf] = useState<any>(null);
+  const { data: readersData, loading: readersLoading } = useQuery(GET_ANNOUNCEMENT_READERS, {
+    variables: { id: seenOf?.id },
+    skip: !seenOf,
+    fetchPolicy: "network-only",
+  });
+  const readers: any[] = readersData?.getAnnouncementReaders || [];
 
   const targets = targetsData?.getAnnouncementTargets || { staff: [], parties: [], channels: [] };
   const staffOptions = useMemo(
@@ -250,7 +259,8 @@ const Announcements = () => {
           ]}
           data={rows}
           {...actions}
-          showView={false}
+          showView
+          onView={(row: any) => setSeenOf(row)}
           showReset={false}
           showImport={false}
           showExport={false}
@@ -273,6 +283,81 @@ const Announcements = () => {
           isLoading={loading && rows.length === 0}
         />
 
+        <Modal
+          isOpen={!!seenOf}
+          onClose={() => setSeenOf(null)}
+          type="custom"
+          title={seenOf ? `Seen by — ${seenOf.title}` : "Seen by"}
+          size="xl"
+        >
+          {seenOf && (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-600">
+                Seen by <b>{seenOf.readcount}</b> of {seenOf.recipientcount} people.
+              </div>
+              {readersLoading ? (
+                <div className="text-sm text-gray-500 py-6 text-center">Loading…</div>
+              ) : readers.length === 0 ? (
+                <div className="text-sm text-gray-500 py-6 text-center">Nobody has opened this announcement yet.</div>
+              ) : (
+                <div className="border rounded-lg overflow-auto max-h-[55vh]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr className="text-left text-gray-600">
+                        <th className="px-3 py-2">#</th>
+                        <th className="px-3 py-2">Name</th>
+                        <th className="px-3 py-2">Number</th>
+                        <th className="px-3 py-2">City</th>
+                        <th className="px-3 py-2">Type</th>
+                        <th className="px-3 py-2">Seen On</th>
+                        <th className="px-3 py-2">Seen At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {readers.map((r: any, i: number) => (
+                        <tr key={r.id} className="border-t">
+                          <td className="px-3 py-2">{i + 1}</td>
+                          <td className="px-3 py-2 font-medium">{r.name}</td>
+                          <td className="px-3 py-2">{r.mobile || "-"}</td>
+                          <td className="px-3 py-2">{r.city || "-"}</td>
+                          <td className="px-3 py-2">
+                            {r.readertype === "party"
+                              ? "Party"
+                              : r.role === "salesman"
+                                ? "Salesman"
+                                : r.role === "deliveryboy"
+                                  ? "Delivery Boy"
+                                  : "Staff"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {r.sources?.length ? (
+                              <span className="inline-flex gap-1">
+                                {r.sources.map((src: string) => (
+                                  <span
+                                    key={src}
+                                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${src === "app" ? "bg-indigo-100 text-indigo-700" : "bg-teal-100 text-teal-700"}`}
+                                  >
+                                    {src === "app" ? "App" : "Website"}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {r.readAt ? `${formatDateDMY(new Date(r.readAt))} ${new Date(r.readAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
+
         <Modal isOpen={!!preview} onClose={() => setPreview(null)} type="custom" title={preview?.title || "Picture"} size="md">
           {preview && (
             // Kept well under the screen height so the modal never runs up
@@ -284,12 +369,13 @@ const Announcements = () => {
           )}
         </Modal>
 
-        <Modal isOpen={open} onClose={() => setOpen(false)} type="custom" title={editing ? "Edit Announcement" : "New Announcement"} size="lg">
+        <Modal isOpen={open} onClose={() => setOpen(false)} type="custom" title={editing ? "Edit Announcement" : "New Announcement"} size="2xl">
+          {/* Laid out in rows so the form stays compact. */}
           <div className="space-y-3">
-            <FormField label="Title" name="title" value={form.title} onChange={onChange} required />
-            <FormField label="Message" name="message" value={form.message} onChange={onChange} multiline />
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="sm:col-span-2">
+                <FormField label="Title" name="title" value={form.title} onChange={onChange} required />
+              </div>
               <FormField
                 label="Priority"
                 name="priority"
@@ -301,75 +387,110 @@ const Announcements = () => {
                 value={form.priority}
                 onChange={onChange}
               />
-              <FormField label="Show From" name="startAt" type="date" value={form.startAt} onChange={onChange} />
-              <FormField label="Show Until (optional)" name="expireAt" type="date" value={form.expireAt} onChange={onChange} />
+              {authType === "admin" && branches.length > 0 ? (
+                <FormField
+                  label="Branch"
+                  name="branchid"
+                  type="select"
+                  options={[{ value: "", label: "All branches" }, ...branches.map((b: any) => ({ value: b.id, label: b.branchname }))]}
+                  value={form.branchid}
+                  onChange={onChange}
+                />
+              ) : (
+                <FormField label="Link (optional)" name="link" value={form.link} onChange={onChange} placeholder="https://…" />
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-              <FormField label="Link (optional)" name="link" value={form.link} onChange={onChange} placeholder="https://…" />
-              <div>
-                <label className="text-sm font-medium text-gray-700">Offer banner / Image (optional, wide 16:9 looks best)</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input type="file" accept="image/*" onChange={onImage} disabled={uploading} className="text-sm" />
-                  {uploading && <span className="text-xs text-gray-500">Uploading…</span>}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+              <div className="lg:col-span-3 space-y-3">
+                <FormField label="Message" name="message" value={form.message} onChange={onChange} multiline />
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${authType === "admin" && branches.length > 0 ? "lg:grid-cols-3" : ""} gap-3`}>
+                  <FormField label="Show From" name="startAt" type="date" value={form.startAt} onChange={onChange} />
+                  <FormField label="Show Until (optional)" name="expireAt" type="date" value={form.expireAt} onChange={onChange} />
+                  {authType === "admin" && branches.length > 0 && (
+                    <FormField label="Link (optional)" name="link" value={form.link} onChange={onChange} placeholder="https://…" />
+                  )}
                 </div>
+              </div>
+
+              {/* Image picker — click the box to choose a picture from the computer. */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-1">Offer banner / Image (optional)</label>
+                <label
+                  className={`relative flex-1 min-h-[150px] flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-center cursor-pointer overflow-hidden transition ${
+                    uploading ? "opacity-60 pointer-events-none" : "hover:border-blue-400 hover:bg-blue-50/40"
+                  } ${form.imageurl ? "border-gray-200 bg-white" : "border-gray-300 bg-gray-50"}`}
+                >
+                  <input type="file" accept="image/*" onChange={onImage} disabled={uploading} className="hidden" />
+                  {form.imageurl ? (
+                    <>
+                      <img src={form.imageurl} alt="" className="absolute inset-0 w-full h-full object-contain bg-gray-50" />
+                      <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-black/60 text-white text-xs">
+                        Click to change
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A1.5 1.5 0 0021.75 19.5V4.5A1.5 1.5 0 0020.25 3H3.75A1.5 1.5 0 002.25 4.5v15A1.5 1.5 0 003.75 21zM13.5 8.25h.008v.008H13.5V8.25z" />
+                      </svg>
+                      <span className="text-sm font-medium text-blue-600">{uploading ? "Uploading…" : "Choose image"}</span>
+                      <span className="text-xs text-gray-400">Wide 16:9 looks best</span>
+                    </>
+                  )}
+                </label>
                 {form.imageurl && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <img src={form.imageurl} alt="" className="h-14 rounded border" />
-                    <button className="text-xs text-red-600" onClick={() => set("imageurl", "")}>Remove</button>
-                  </div>
+                  <button type="button" className="mt-1 self-end text-xs text-red-600" onClick={() => set("imageurl", "")}>
+                    Remove image
+                  </button>
                 )}
               </div>
             </div>
 
-            {authType === "admin" && branches.length > 0 && (
-              <FormField
-                label="Branch"
-                name="branchid"
-                type="select"
-                options={[{ value: "", label: "All branches" }, ...branches.map((b: any) => ({ value: b.id, label: b.branchname }))]}
-                value={form.branchid}
-                onChange={onChange}
-              />
-            )}
-
             <div className="border rounded-lg p-3 space-y-3 bg-gray-50">
-              <div className="font-semibold text-sm">Send To</div>
-              {checkbox("Everyone (all staff and all parties)", "everyone")}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-semibold text-sm">Send To</div>
+                {checkbox("Everyone (all staff and all parties)", "everyone")}
+              </div>
 
-              <div className={`space-y-2 ${form.everyone ? "opacity-50 pointer-events-none" : ""}`}>
-                <div className="text-xs font-semibold text-gray-500 uppercase">Staff</div>
-                {checkbox("All staff", "staffAll")}
-                {!form.staffAll && (
-                  <>
-                    <div className="flex flex-wrap gap-4">
-                      {ROLE_OPTIONS.map((r) => (
-                        <label key={r.value} className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={form.staffRoles.includes(r.value)}
-                            onChange={(e) =>
-                              set("staffRoles", e.target.checked ? [...form.staffRoles, r.value] : form.staffRoles.filter((x) => x !== r.value))
-                            }
-                          />
-                          All {r.label}
-                        </label>
-                      ))}
-                    </div>
-                    <FormField label="Particular staff" name="staffIds" type="multiselect" searchable options={staffOptions} value={form.staffIds} onChange={onChange} />
-                  </>
-                )}
+              {/* Staff and Parties side by side. */}
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${form.everyone ? "opacity-50 pointer-events-none" : ""}`}>
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Staff</div>
+                  {checkbox("All staff", "staffAll")}
+                  {!form.staffAll && (
+                    <>
+                      <div className="flex flex-wrap gap-4">
+                        {ROLE_OPTIONS.map((r) => (
+                          <label key={r.value} className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={form.staffRoles.includes(r.value)}
+                              onChange={(e) =>
+                                set("staffRoles", e.target.checked ? [...form.staffRoles, r.value] : form.staffRoles.filter((x) => x !== r.value))
+                              }
+                            />
+                            All {r.label}
+                          </label>
+                        ))}
+                      </div>
+                      <FormField label="Particular staff" name="staffIds" type="multiselect" searchable options={staffOptions} value={form.staffIds} onChange={onChange} />
+                    </>
+                  )}
+                </div>
 
-                <div className="text-xs font-semibold text-gray-500 uppercase pt-2">Parties</div>
-                {checkbox("All parties", "partyAll")}
-                {!form.partyAll && (
-                  <>
-                    {channelOptions.length > 0 && (
-                      <FormField label="Channel-wise" name="partyChannels" type="multiselect" searchable options={channelOptions} value={form.partyChannels} onChange={onChange} />
-                    )}
-                    <FormField label="Particular parties" name="partyIds" type="multiselect" searchable options={partyOptions} value={form.partyIds} onChange={onChange} />
-                  </>
-                )}
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase">Parties</div>
+                  {checkbox("All parties", "partyAll")}
+                  {!form.partyAll && (
+                    <>
+                      {channelOptions.length > 0 && (
+                        <FormField label="Channel-wise" name="partyChannels" type="multiselect" searchable options={channelOptions} value={form.partyChannels} onChange={onChange} />
+                      )}
+                      <FormField label="Particular parties" name="partyIds" type="multiselect" searchable options={partyOptions} value={form.partyIds} onChange={onChange} />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -739,12 +739,27 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="Trust Bar Stats (Home page)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <Toggle
+          label="Show Trust Bar stats on website home page"
+          checked={draft.websiteShowTrustBar !== false}
+          onChange={(v: boolean) => set("websiteShowTrustBar", v)}
+        />
+        <div className="text-xs text-gray-400 mb-1 px-1 pt-2">
           The stat tiles shown under "Fast, Reliable Delivery" etc. on the Home page (e.g. "12,400+ / Active retail partners"). Add as many as you like, edit or remove any of them. Leave empty to keep the default placeholder numbers.
         </div>
-        <BusinessStatsEditor
-          stats={draft.businessStats ?? []}
-          onChange={(stats) => set("businessStats", stats)}
+        <div className={draft.websiteShowTrustBar === false ? "opacity-50 pointer-events-none" : ""}>
+          <BusinessStatsEditor
+            stats={draft.businessStats ?? []}
+            onChange={(stats) => set("businessStats", stats)}
+          />
+        </div>
+      </Section>
+
+      <Section title="Newsletter & Get the App (Home page)">
+        <Toggle
+          label='Show "Get deals before everyone else" section (newsletter + Get the app) on website home page'
+          checked={draft.websiteShowAppSection !== false}
+          onChange={(v: boolean) => set("websiteShowAppSection", v)}
         />
       </Section>
 

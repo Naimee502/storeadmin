@@ -37,7 +37,7 @@ interface ModalProps {
   parentId?: string;
   categories?: any[];
   children?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -206,13 +206,15 @@ const Modal: React.FC<ModalProps> = ({
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    '2xl': 'max-w-5xl',
     full: 'max-w-[95vw]',
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-4 pt-[76px] sm:px-6 sm:pb-6">
+          {/* pt clears the fixed 60px top header (z-[1000]), so a tall modal never slides up behind it. */}
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -228,7 +230,7 @@ const Modal: React.FC<ModalProps> = ({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`relative w-full ${sizeClasses[modalSize]} bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh]`}
+            className={`relative w-full ${sizeClasses[modalSize]} bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[calc(100vh-100px)]`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/50">
