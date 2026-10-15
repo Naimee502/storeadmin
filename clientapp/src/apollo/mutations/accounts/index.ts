@@ -10,10 +10,12 @@ export const SEND_OTP = gql`
   }
 `;
 
-// Party login — mobile number only, no OTP.
+// Party login — mobile number. With Business Settings -> "Party login needs an
+// email OTP" on, the first call (no otp) fails with LOGIN_OTP_REQUIRED after
+// mailing an OTP; OTPVerification (purpose 'login') repeats it with the otp.
 export const LOGIN_PARTY = gql`
-  mutation LoginParty($adminId: ID!, $mobile: String!) {
-    loginParty(adminId: $adminId, mobile: $mobile) {
+  mutation LoginParty($adminId: ID!, $mobile: String!, $otp: String, $email: String) {
+    loginParty(adminId: $adminId, mobile: $mobile, otp: $otp, email: $email) {
       accessToken
       account {
         id

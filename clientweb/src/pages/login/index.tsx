@@ -7,10 +7,12 @@ import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
 import { SEND_OTP, VERIFY_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from "../../graphql/queries/accounts";
 
-type Step = "mobile" | "register" | "otp" | "success";
+type Step = "mobile" | "register" | "addEmail" | "otp" | "success";
 
 // Party login — same flow as the mobile app:
-//   - Login: mobile number only, no OTP (loginParty).
+//   - Login: mobile number (loginParty). If the business has "Party login needs
+//     an email OTP" on, the server mails an OTP and answers LOGIN_OTP_REQUIRED;
+//     the OTP step then repeats loginParty with the code (otpPurpose "login").
 //   - New number: inline registration form (Name + Email, both required),
 //     then an OTP sent to that EMAIL (never returned by the server), verified
 //     with verifyOTP.
@@ -24,6 +26,12 @@ export default function LoginPage() {
   const redirectTo = searchParams.get("redirect");
   const brandName = companyName || siteConfig.name;
   const [step, setStep] = useState<Step>("mobile");
+  // Which OTP the OTP step is for: finishing a registration (verifyOTP) or the
+  // optional login OTP (loginParty with otp). Both are 4 digits.
+  const [otpPurpose, setOtpPurpose] = useState<"register" | "login">("register");
+  // A registered party with no email on file (login OTP on): they add one
+  // here, the OTP goes to it, and the server saves it once the OTP is right.
+  const [loginEmail, setLoginEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -59,6 +67,7 @@ export default function LoginPage() {
       }
       setInfo(data.sendOTP.message || "OTP sent to your email.");
       setOtp(Array(4).fill(""));
+      setOtpPurpose("register");
       setStep("otp");
       setResendIn(30);
     } catch (err: any) {
@@ -66,7 +75,55 @@ export default function LoginPage() {
     }
   };
 
-  // Login: mobile number only, no OTP.
+  // Sent with every loginParty call once the customer has typed an email on
+  // the "add email" step; ignored by the server if one is already on file.
+  const loginVars = (extra: Record<string, any> = {}) => ({
+    adminId: adminid,
+    mobile,
+    ...(loginEmail.trim() ? { email: loginEmail.trim() } : {}),
+    ...extra,
+  });
+
+  const startSession = (result: any) => {
+    setSession(result.accessToken, {
+      id: result.account.id,
+      name: result.account.name,
+      mobile: result.account.mobile,
+      email: result.account.email,
+    });
+    setStep("success");
+  };
+
+  // The server mailed a login OTP — move to the OTP step. Also what "Resend
+  // OTP" lands on in login mode: loginParty without an otp mails a new one.
+  const showLoginOtpStep = (err: any) => {
+    const ext =
+      err?.graphQLErrors?.find((e: any) => e?.extensions?.code === "LOGIN_OTP_REQUIRED")?.extensions ||
+      err?.extensions ||
+      {};
+    setInfo(err?.message || "Enter the 4-digit OTP sent to your email.");
+    setOtp(Array(4).fill(""));
+    setOtpPurpose("login");
+    setStep("otp");
+    setResendIn(Number(ext.resendIn) > 0 ? Number(ext.resendIn) : 60);
+    setTimeout(() => inputsRef.current[0]?.focus(), 50);
+  };
+
+  // Resend in login mode: ask loginParty again without an otp.
+  const resendLoginOtp = async () => {
+    if (!adminid) return;
+    setError(null);
+    try {
+      const { data } = await loginMutation({ variables: loginVars() });
+      // The setting was switched off meanwhile — just log in.
+      startSession(data?.loginParty);
+    } catch (err: any) {
+      if (codeOf(err) === "LOGIN_OTP_REQUIRED") showLoginOtpStep(err);
+      else setError(err?.message || "Couldn't send the OTP. Please try again.");
+    }
+  };
+
+  // Login: mobile number; may be followed by the login OTP step.
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminid) {
@@ -74,18 +131,21 @@ export default function LoginPage() {
       return;
     }
     setError(null);
+    setLoginEmail("");
     try {
       const { data } = await loginMutation({ variables: { adminId: adminid, mobile } });
-      const result = data?.loginParty;
-      setSession(result.accessToken, {
-        id: result.account.id,
-        name: result.account.name,
-        mobile: result.account.mobile,
-        email: result.account.email,
-      });
-      setStep("success");
+      startSession(data?.loginParty);
     } catch (err: any) {
       const msg: string = err?.message || "";
+      if (codeOf(err) === "LOGIN_OTP_REQUIRED") {
+        showLoginOtpStep(err);
+        return;
+      }
+      if (codeOf(err) === "LOGIN_OTP_NO_EMAIL") {
+        // Registered, but no email to send the login OTP to — ask for one.
+        setStep("addEmail");
+        return;
+      }
       if (msg.includes("not registered")) {
         // No Account for this number yet — inline registration form.
         setStep("register");
@@ -97,6 +157,20 @@ export default function LoginPage() {
         return;
       }
       setError(msg || "Couldn't sign in. Please try again.");
+    }
+  };
+
+  // "Add email" step: send the OTP to the address they typed.
+  const submitAddEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminid) return;
+    setError(null);
+    try {
+      const { data } = await loginMutation({ variables: loginVars() });
+      startSession(data?.loginParty); // setting switched off meanwhile
+    } catch (err: any) {
+      if (codeOf(err) === "LOGIN_OTP_REQUIRED") showLoginOtpStep(err);
+      else setError(err?.message || "Couldn't send the OTP. Please try again.");
     }
   };
 
@@ -114,6 +188,7 @@ export default function LoginPage() {
       }
       setInfo(data.registerAccount.message || "OTP sent to your email.");
       setOtp(Array(4).fill(""));
+      setOtpPurpose("register");
       setStep("otp");
       setResendIn(30);
     } catch (err: any) {
@@ -125,6 +200,17 @@ export default function LoginPage() {
     e.preventDefault();
     if (!adminid) return;
     setError(null);
+    if (otpPurpose === "login") {
+      try {
+        const { data } = await loginMutation({ variables: loginVars({ otp: otp.join("") }) });
+        startSession(data?.loginParty);
+      } catch (err: any) {
+        setError(err?.message || "Invalid or expired code. Please try again.");
+        setOtp(Array(4).fill(""));
+        inputsRef.current[0]?.focus();
+      }
+      return;
+    }
     try {
       const { data } = await verifyOtpMutation({
         variables: { adminId: adminid, mobile, otp: otp.join("") },
@@ -249,6 +335,47 @@ export default function LoginPage() {
             </form>
           )}
 
+          {step === "addEmail" && (
+            <form onSubmit={submitAddEmail} className="space-y-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("mobile");
+                  setError(null);
+                }}
+                className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-700"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Change number
+              </button>
+              <p className="text-sm text-slate-500">
+                Add your email to sign in with +91 {mobile}. We'll send a one-time code there to confirm it's yours,
+                and save it on your account.
+              </p>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-900">Email</label>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 focus-within:border-brand-500">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full py-2.5 text-sm outline-none placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim()) || sending || !adminid}
+                className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sending ? "Sending OTP…" : "Send OTP"}
+              </button>
+            </form>
+          )}
+
           {step === "register" && (
             <form onSubmit={submitRegister} className="space-y-4">
               <button
@@ -310,7 +437,10 @@ export default function LoginPage() {
             <form onSubmit={verifyOtp} className="space-y-4">
               <button
                 type="button"
-                onClick={() => setStep("mobile")}
+                onClick={() => {
+                  setStep("mobile");
+                  setError(null);
+                }}
                 className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-700"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Change number
@@ -337,16 +467,20 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={otp.some((d) => !d) || verifying}
+                disabled={otp.some((d) => !d) || verifying || sending}
                 className="w-full rounded-lg bg-brand-700 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {verifying ? "Verifying…" : "Verify & Continue"}
+                {verifying || sending ? "Verifying…" : "Verify & Continue"}
               </button>
               <p className="text-center text-xs text-slate-500">
                 {resendIn > 0 ? (
                   `Resend OTP in ${resendIn}s`
                 ) : (
-                  <button type="button" onClick={requestOtp} className="font-semibold text-brand-700">
+                  <button
+                    type="button"
+                    onClick={otpPurpose === "login" ? resendLoginOtp : requestOtp}
+                    className="font-semibold text-brand-700"
+                  >
                     Resend OTP
                   </button>
                 )}

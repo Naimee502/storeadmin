@@ -14,12 +14,15 @@ import mongoose, { Schema } from "mongoose";
  */
 const loginOtpSchema = new Schema(
   {
-    kind: { type: String, enum: ["admin", "branch", "staff"], required: true },
+    kind: { type: String, enum: ["admin", "branch", "staff", "party"], required: true },
     userId: { type: Schema.Types.ObjectId, required: true },
     otpHash: { type: String, required: true },
     otpExpiry: { type: Date, required: true },
     lastSentAt: { type: Date, required: true },
     attempts: { type: Number, default: 0 },
+    // Where this OTP was mailed. Lets a party with no email on file add one at
+    // login: the OTP proves they own it, and verify refuses a different address.
+    sentTo: { type: String, default: "" },
   },
   { timestamps: true }
 );

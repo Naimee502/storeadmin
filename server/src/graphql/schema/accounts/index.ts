@@ -184,8 +184,13 @@ export const accountTypeDefs = gql`
     editAccount(id: ID!, input: AccountInput!): Account!
     deleteAccount(id: ID!): Boolean!
     resetAccount(id: ID!): Boolean!
-    # Party login — mobile number only, no OTP.
-    loginParty(adminId: ID!, mobile: String!): VerifyOTPResponse!
+    # Party login — mobile number only. When Business Settings -> "Party login
+    # needs an email OTP" is on, the first call (no otp) mails an OTP and fails
+    # with LOGIN_OTP_REQUIRED; the client repeats the call with the otp.
+    # A party with no email on file gets LOGIN_OTP_NO_EMAIL; it then sends
+    # email (on both calls) — the OTP goes there and, once verified, the
+    # email is saved on the account.
+    loginParty(adminId: ID!, mobile: String!, otp: String, email: String): VerifyOTPResponse!
     # (Re)send the registration OTP to the account's email.
     sendOTP(adminId: ID!, mobile: String!): SendOTPResponse!
     verifyOTP(adminId: ID!, mobile: String!, otp: String!): VerifyOTPResponse!

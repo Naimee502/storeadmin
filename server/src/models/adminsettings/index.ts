@@ -386,6 +386,15 @@ const adminSettingsSchema = new mongoose.Schema(
     loginEmailOtp: { type: Boolean, default: false },
 
     /**
+     * Party (customer) login on the app and the website needs an email OTP.
+     * After the mobile number is accepted, a 4-digit OTP is mailed to the
+     * party's email and the session opens only once it is entered. Off
+     * (default): mobile number alone logs in, as before. Registration keeps
+     * its own OTP either way.
+     */
+    partyLoginEmailOtp: { type: Boolean, default: false },
+
+    /**
      * Auto punch-out. A salesman / delivery boy / staff who forgets to punch
      * out is punched out by the server at this time (IST, "HH:mm") — which also
      * stops their live location tracking, since the app only tracks while a

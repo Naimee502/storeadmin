@@ -9,6 +9,7 @@ import { CartProvider } from "../../contexts/cart";
 import { AuthProvider } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import ScreenWatermark from "../../components/screenwatermark";
+import ScrollToTop from "../../components/scrolltotop";
 
 export default function MainLayout() {
   const tenant = useTenant();
@@ -20,6 +21,7 @@ export default function MainLayout() {
     <AuthProvider storeSlug={tenant.storeSlug}>
       <CartProvider storeSlug={tenant.storeSlug}>
         <div className="flex min-h-screen flex-col bg-white">
+          <ScrollToTop />
           <Header />
           <main className="flex-1 pb-16 lg:pb-0">
             <Outlet />

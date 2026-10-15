@@ -13,7 +13,8 @@ import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
-import { SEND_OTP, VERIFY_OTP } from '../../../apollo/mutations/accounts';
+import { SEND_OTP, VERIFY_OTP, LOGIN_PARTY } from '../../../apollo/mutations/accounts';
+import { gqlErrorCodes, gqlErrorExt } from '../../../utils/gqlerror';
 
 export default function OTPVerification({ navigation, route }: any) {
   const { colors, isDark } = useTheme();
@@ -27,10 +28,18 @@ export default function OTPVerification({ navigation, route }: any) {
   // Where the OTP was emailed (shown to the user). The OTP itself never comes
   // back from the server — it has to be read from the email.
   const email: string = route?.params?.email ?? '';
+  // 'register' (default): finishing a signup -> verifyOTP / sendOTP.
+  // 'login': Business Settings -> "Party login needs an email OTP" -> the code
+  // goes back to loginParty, and Resend asks loginParty again without one.
+  const isLogin = route?.params?.purpose === 'login';
+  // Email the customer just added on Login (no email on file) — sent again on
+  // verify / resend so the server checks the OTP against it and saves it.
+  const loginEmail: string = route?.params?.loginEmail ?? '';
+  const loginExtra = loginEmail ? { email: loginEmail } : {};
 
   const [code, setCode]                = useState(['', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [timer, setTimer]              = useState(30);
+  const [timer, setTimer]              = useState<number>(Number(route?.params?.resendIn) || 30);
   const inputs = useRef<any>([]);
 
   useEffect(() => {
@@ -65,11 +74,11 @@ export default function OTPVerification({ navigation, route }: any) {
     showLoader(true);
     try {
       const { data } = await apolloClient.mutate({
-        mutation: VERIFY_OTP,
-        variables: { adminId, mobile, otp },
+        mutation: isLogin ? LOGIN_PARTY : VERIFY_OTP,
+        variables: isLogin ? { adminId, mobile, otp, ...loginExtra } : { adminId, mobile, otp },
       });
 
-      const { accessToken, account } = data.verifyOTP;
+      const { accessToken, account } = isLogin ? (data as any).loginParty : (data as any).verifyOTP;
 
       dispatch(setCredentials({
         user: {
@@ -99,6 +108,7 @@ export default function OTPVerification({ navigation, route }: any) {
         err?.extensions?.code,
         ...(err?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
         ...(err?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
+        ...gqlErrorCodes(err),
       ];
       const pending = codes.includes(CODE) || /waiting for approval/i.test(msg);
 
@@ -120,6 +130,28 @@ export default function OTPVerification({ navigation, route }: any) {
   const handleResend = async () => {
     if (timer > 0) return;
     showLoader(true);
+    if (isLogin) {
+      try {
+        // Throws LOGIN_OTP_REQUIRED after mailing a fresh OTP — that is the
+        // success path here.
+        await apolloClient.mutate({ mutation: LOGIN_PARTY, variables: { adminId, mobile, ...loginExtra } });
+        // No error = the setting was switched off meanwhile; go back and log in.
+        navigation.goBack();
+      } catch (err: any) {
+        const ext = gqlErrorExt(err, 'LOGIN_OTP_REQUIRED');
+        if (ext) {
+          setTimer(Number(ext.resendIn) || 60);
+          setCode(['', '', '', '']);
+          setFocusedIndex(-1);
+          showToast(err?.message || sText.resent, 'success');
+        } else {
+          showToast(err?.message || 'Could not resend OTP.', 'danger');
+        }
+      } finally {
+        showLoader(false);
+      }
+      return;
+    }
     try {
       const { data } = await apolloClient.mutate({
         mutation: SEND_OTP,

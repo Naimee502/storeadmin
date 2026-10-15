@@ -14,6 +14,7 @@ import { setCredentials, setBranch } from '../../../store/slices';
 import { useUI } from '../../../utils';
 import { apolloClient } from '../../../apollo/client';
 import { SEND_OTP, REGISTER_ACCOUNT, LOGIN_PARTY } from '../../../apollo/mutations/accounts';
+import { gqlErrorCodes, gqlErrorExt } from '../../../utils/gqlerror';
 import { LOGIN_STAFF } from '../../../apollo/mutations/staffaccounts';
 import { useBrandLogo } from '../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../store/rootreducer';
@@ -67,6 +68,10 @@ export default function Login({ navigation }: any) {
   // Channel/Ledger are all set automatically server-side by
   // registerAccount), instead of just showing "not registered" as an error.
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  // Registered party with no email on file while the login OTP is on: ask for
+  // an email here (reuses the `email` field); the OTP goes there and the
+  // server saves it once the OTP is right.
+  const [needEmail, setNeedEmail] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<{ mobile?: string; password?: string; name?: string; email?: string }>({});
@@ -78,6 +83,7 @@ export default function Login({ navigation }: any) {
   const mobileRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const nameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const validateMobile = () => {
@@ -88,14 +94,21 @@ export default function Login({ navigation }: any) {
     return true;
   };
 
-  // Party login: mobile number only — no OTP (the OTP is only for registration).
+  // Party login: mobile number. If the business has "Party login needs an email
+  // OTP" on, the server mails an OTP and answers LOGIN_OTP_REQUIRED — then the
+  // OTP screen finishes the login (purpose 'login').
   const handleSendOTP = async () => {
     if (!validateMobile()) return;
+    const addEmail = needEmail ? email.trim() : '';
+    if (needEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addEmail)) {
+      setErrors(e => ({ ...e, email: 'Enter a valid email address' }));
+      return;
+    }
     showLoader(true);
     try {
       const { data } = await apolloClient.mutate({
         mutation: LOGIN_PARTY,
-        variables: { adminId, mobile: mobile.trim() },
+        variables: { adminId, mobile: mobile.trim(), ...(addEmail ? { email: addEmail } : {}) },
       });
       const { accessToken, account } = (data as any).loginParty;
 
@@ -120,7 +133,31 @@ export default function Login({ navigation }: any) {
         err?.extensions?.code,
         ...(err?.graphQLErrors ?? []).map((e: any) => e?.extensions?.code),
         ...(err?.networkError?.result?.errors ?? []).map((e: any) => e?.extensions?.code),
+        ...gqlErrorCodes(err),
       ];
+
+      if (codes.includes('LOGIN_OTP_REQUIRED')) {
+        const ext: any = gqlErrorExt(err, 'LOGIN_OTP_REQUIRED') ?? {};
+        showToast(msg, 'success');
+        navigation.navigate('OTPVerification', {
+          mobile: mobile.trim(),
+          adminId,
+          purpose: 'login',
+          email: ext.maskedEmail ?? '',
+          resendIn: Number(ext.resendIn) || 60,
+          loginEmail: addEmail,
+        });
+        return;
+      }
+
+      if (codes.includes('LOGIN_OTP_NO_EMAIL')) {
+        // Registered, but nowhere to send the login OTP — ask for an email
+        // instead of showing an error. (Also lands here for a badly typed one.)
+        if (needEmail) setErrors(e => ({ ...e, email: msg }));
+        setNeedEmail(true);
+        setTimeout(() => emailRef.current?.focus(), 350);
+        return;
+      }
 
       if (msg.toLowerCase().includes('not registered')) {
         setIsRegisterMode(true);
@@ -258,6 +295,7 @@ export default function Login({ navigation }: any) {
 
   const toggleStaffMode = () => {
     setIsStaffMode(v => !v);
+    setNeedEmail(false);
     setErrors({});
     if (!isStaffMode) {
       // Entering staff mode → focus the MOBILE field first (you fill mobile, then password).
@@ -329,7 +367,9 @@ export default function Login({ navigation }: any) {
                   ? "This number isn't registered yet — tell us a bit about yourself to get set up."
                   : isStaffMode
                     ? 'Enter your mobile number and password to sign in.'
-                    : 'Enter your mobile number to login securely.'}
+                    : needEmail
+                      ? 'Add your email to finish signing in — we will send a one-time code there.'
+                      : 'Enter your mobile number to login securely.'}
               </Text>
             </Animated.View>
 
@@ -352,7 +392,7 @@ export default function Login({ navigation }: any) {
                   placeholderTextColor={colors.placeholder}
                   value={mobile}
                   editable={!isRegisterMode}
-                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); }}
+                  onChangeText={t => { setMobile(t.replace(/\D/g, '').slice(0, 10)); setErrors(e => ({ ...e, mobile: undefined })); if (needEmail) { setNeedEmail(false); setEmail(''); } }}
                   keyboardType="number-pad"
                   maxLength={10}
                   returnKeyType={isRegisterMode ? 'done' : isStaffMode ? 'next' : 'done'}
@@ -434,6 +474,42 @@ export default function Login({ navigation }: any) {
                 </Animated.View>
               )}
 
+              {/* Add-email field — registered party with no email on file. */}
+              {!isRegisterMode && !isStaffMode && needEmail && (
+                <Animated.View entering={FadeInDown.duration(350)}>
+                  <Text style={[styles.label, { color: colors.subText, marginTop: 14 }]}>Email</Text>
+                  <View style={[styles.inputRow, {
+                    backgroundColor: colors.raisedSurface,
+                    borderColor: errors.email ? '#ef4444' : emailFocused ? colors.brand : colors.border,
+                  }]}>
+                    <Icon name="email-outline" size={20} color={emailFocused ? colors.brand : colors.subText} style={styles.inputIcon} />
+                    <TextInput
+                      ref={emailRef}
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="you@example.com"
+                      placeholderTextColor={colors.placeholder}
+                      value={email}
+                      onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      returnKeyType="done"
+                      onSubmitEditing={handleSendOTP}
+                      onFocus={() => setEmailFocused(true)}
+                      onBlur={() => setEmailFocused(false)}
+                    />
+                  </View>
+                  {!!errors.email && (
+                    <View style={styles.errorRow}>
+                      <Icon name="alert-circle-outline" size={13} color="#ef4444" />
+                      <Text style={styles.errorText}>{errors.email}</Text>
+                    </View>
+                  )}
+                  <Text style={[styles.hintText, { color: colors.subText }]}>
+                    No email is saved on your account yet. We'll send the login OTP here and save it once verified.
+                  </Text>
+                </Animated.View>
+              )}
+
               {/* Staff password section */}
               {!isRegisterMode && isStaffMode && (
                 <Animated.View entering={FadeInDown.duration(350)}>
@@ -481,7 +557,7 @@ export default function Login({ navigation }: any) {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.btnText}>
-                    {isRegisterMode ? 'Create Account & Send OTP' : isStaffMode ? 'Sign In' : 'Login'}
+                    {isRegisterMode ? 'Create Account & Send OTP' : isStaffMode ? 'Sign In' : needEmail ? 'Send OTP' : 'Login'}
                   </Text>
                   <Icon
                     name={isRegisterMode ? 'account-plus-outline' : isStaffMode ? 'login' : 'login'}

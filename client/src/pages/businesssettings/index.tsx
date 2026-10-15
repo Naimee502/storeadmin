@@ -326,6 +326,17 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           panel opens only once it is entered (valid 10 minutes). Make sure every branch and staff login has a working
           email before turning this on. The mobile app logins are not affected.
         </p>
+        <Toggle
+          label="Party login needs an email OTP (Customer login on the App & Website)"
+          checked={!!draft.partyLoginEmailOtp}
+          onChange={(v: boolean) => set("partyLoginEmailOtp", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          After the customer enters their mobile number, a 4-digit OTP is emailed to the email saved on their party
+          account and they are logged in only once it is entered (valid 10 minutes). Off: the mobile number alone
+          logs in, as today. A party with no email on file cannot log in while this is on, so add emails first.
+          New-customer registration keeps its own OTP either way.
+        </p>
       </Section>
 
       <Section title="Attendance">

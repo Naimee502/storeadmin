@@ -109,19 +109,25 @@ export const sendOtpEmail = async (to: string, otp: string, business: string) =>
 };
 
 /** The billing-panel login OTP email (Business Settings -> login email OTP). */
-export const sendLoginOtpEmail = async (to: string, otp: string, business: string) => {
-  const name = business || "Billing panel";
+// `forParty`: the customer app / website login — no password there, so the
+// mail doesn't talk about the billing panel or changing a password.
+export const sendLoginOtpEmail = async (to: string, otp: string, business: string, forParty = false) => {
+  const name = business || (forParty ? "your store" : "Billing panel");
+  const where = forParty ? "your account" : "the billing panel";
+  const ignore = forParty
+    ? "If you did not try to log in, you can ignore this email."
+    : "If you did not try to log in, change your password.";
   const text =
     `${otp} is your OTP to log in to ${name}.\n` +
     `It is valid for 10 minutes. Do not share it with anyone.\n` +
-    `If you did not try to log in, change your password.`;
+    ignore;
   const html = `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:420px;margin:0 auto;padding:24px;color:#1f2937">
     <h2 style="margin:0 0 12px;font-size:18px">${escapeHtml(name)}</h2>
-    <p style="margin:0 0 16px;font-size:14px">Use this OTP to log in to the billing panel:</p>
+    <p style="margin:0 0 16px;font-size:14px">Use this OTP to log in to ${where}:</p>
     <div style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:12px 0">${otp}</div>
     <p style="margin:16px 0 0;font-size:12px;color:#6b7280">Valid for 10 minutes. Do not share it with anyone.
-    If you did not try to log in, change your password.</p>
+    ${escapeHtml(ignore)}</p>
   </div>`;
   return sendMail({ to, subject: `${otp} is your ${name} login OTP`, text, html, fromName: business });
 };

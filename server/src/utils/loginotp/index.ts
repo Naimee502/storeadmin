@@ -5,7 +5,9 @@ import { LoginOtp } from "../../models/loginotp";
 import { sendLoginOtpEmail } from "../mail";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Email OTP step for the billing panel logins (Admin / Branch / Staff).
+// Email OTP step for the billing panel logins (Admin / Branch / Staff) and the
+// customer (party) login on the app + website (kind "party", own flag:
+// adminsettings.partyLoginEmailOtp, 4-digit code).
 //
 // Per business: Business Settings -> Feature Toggles -> "Login to the billing
 // panel needs an email OTP" (adminsettings.loginEmailOtp). Off = login works
@@ -26,7 +28,16 @@ const OTP_TTL_MS = 10 * 60 * 1000;   // OTP valid for 10 minutes
 const RESEND_GAP_MS = 60 * 1000;     // at most one mail a minute per user
 const MAX_ATTEMPTS = 5;              // wrong tries before the OTP is burnt
 
-type Kind = "admin" | "branch" | "staff";
+type Kind = "admin" | "branch" | "staff" | "party";
+
+// Each kind is switched on by its own Business Settings flag: the billing
+// panel logins share one, the customer (party) app + website login has its own.
+const FLAG: Record<Kind, "loginEmailOtp" | "partyLoginEmailOtp"> = {
+  admin: "loginEmailOtp",
+  branch: "loginEmailOtp",
+  staff: "loginEmailOtp",
+  party: "partyLoginEmailOtp",
+};
 
 const hash = (otp: string) => crypto.createHash("sha256").update(String(otp)).digest("hex");
 
@@ -49,12 +60,15 @@ export const enforceLoginOtp = async (opts: {
 
   const adminRef = adminId?._id ?? adminId;
   if (!adminRef) return;
-  const settings: any = await AdminSettings.findOne({ adminid: adminRef }).select("loginEmailOtp").lean();
-  if (!settings?.loginEmailOtp) return; // feature off for this business
+  const flag = FLAG[kind];
+  const settings: any = await AdminSettings.findOne({ adminid: adminRef }).select(flag).lean();
+  if (!settings?.[flag]) return; // feature off for this business
 
   if (!email) {
     throw new ApolloError(
-      "This login has no email address, so the login OTP cannot be sent. Ask your admin to add one.",
+      kind === "party"
+        ? "No email address is saved on your account, so the login OTP cannot be sent. Please contact the store."
+        : "This login has no email address, so the login OTP cannot be sent. Ask your admin to add one.",
       "LOGIN_OTP_NO_EMAIL"
     );
   }
@@ -65,7 +79,8 @@ export const enforceLoginOtp = async (opts: {
   // ── Step 1: no OTP yet -> mail one ────────────────────────────────────────
   if (!otp) {
     const masked = maskEmail(email);
-    if (row && row.otpExpiry.getTime() > now && now - row.lastSentAt.getTime() < RESEND_GAP_MS) {
+    const sameAddress = !row?.sentTo || row.sentTo === String(email).toLowerCase();
+    if (row && sameAddress && row.otpExpiry.getTime() > now && now - row.lastSentAt.getTime() < RESEND_GAP_MS) {
       const wait = Math.ceil((RESEND_GAP_MS - (now - row.lastSentAt.getTime())) / 1000);
       throw new ApolloError(
         `OTP already sent to ${masked}. You can request a new one in ${wait}s.`,
@@ -74,10 +89,14 @@ export const enforceLoginOtp = async (opts: {
       );
     }
 
-    const code = String(crypto.randomInt(100000, 1000000));
+    // The customer app / website OTP boxes take 4 digits (same as the
+    // registration OTP); the billing panel uses 6.
+    const code = kind === "party"
+      ? String(crypto.randomInt(1000, 10000))
+      : String(crypto.randomInt(100000, 1000000));
     await LoginOtp.findOneAndUpdate(
       { kind, userId },
-      { otpHash: hash(code), otpExpiry: new Date(now + OTP_TTL_MS), lastSentAt: new Date(now), attempts: 0 },
+      { otpHash: hash(code), otpExpiry: new Date(now + OTP_TTL_MS), lastSentAt: new Date(now), attempts: 0, sentTo: String(email).toLowerCase() },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
@@ -85,7 +104,7 @@ export const enforceLoginOtp = async (opts: {
     // a few seconds, and the login screen shouldn't sit on "Please wait…" for
     // it. The OTP box appears at once; the mail follows in the background. If
     // it fails, it is logged and the user can tap Resend OTP.
-    sendLoginOtpEmail(email, code, businessName || "")
+    sendLoginOtpEmail(email, code, businessName || "", kind === "party")
       .then((sent) => { if (!sent) console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`); })
       .catch(() => console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`));
 
@@ -102,6 +121,9 @@ export const enforceLoginOtp = async (opts: {
   if (row.attempts >= MAX_ATTEMPTS) {
     await LoginOtp.deleteOne({ _id: row._id });
     throw new ApolloError("Too many wrong attempts. Tap Resend OTP to get a new one.", "LOGIN_OTP_INVALID");
+  }
+  if (row.sentTo && row.sentTo !== String(email).toLowerCase()) {
+    throw new ApolloError("This OTP was sent to a different email. Tap Resend OTP.", "LOGIN_OTP_INVALID");
   }
   if (hash(otp) !== row.otpHash) {
     row.attempts += 1;

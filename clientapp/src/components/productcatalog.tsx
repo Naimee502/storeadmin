@@ -287,6 +287,21 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     };
   }, [productAuto]);
 
+  // A new category or search is a new list — start it from the top. Without
+  // this the list kept the old scroll offset, so after scrolling down and
+  // tapping another chip (e.g. on the pinned strip) the new products opened
+  // half-way down. Skips the first render so the screen doesn't jump on mount.
+  const firstFilterRun = useRef(true);
+  useEffect(() => {
+    if (firstFilterRun.current) {
+      firstFilterRun.current = false;
+      return;
+    }
+    autoY.current = 0;
+    atEndSince.current = 0;
+    listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+  }, [category, search]);
+
   // Home folds its banner only for the customer's OWN scrolling — never for
   // the auto-scroll drift. So onScrollY receives a "manual" offset: it moves
   // only with scroll that follows a touch / drag / fling (MANUAL_WINDOW_MS),
@@ -482,13 +497,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
         </View>
       )}
 
-      {filtered.length === 0 ? (
-        <View style={styles.center}>
-          <Icon name="magnify-close" size={44} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
-        </View>
-      ) : (
-        <DynamicFlashList
+      {/* The list stays mounted even when a category has no products, so the
+          banner + category strip (its header) never disappear — the customer
+          can still see which chip is selected and tap another one. */}
+      <DynamicFlashList
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Icon name="magnify-close" size={44} color={colors.border} />
+              <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
+            </View>
+          }
           data={filtered}
           renderItem={renderProduct}
           numColumns={2}
@@ -518,7 +536,6 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
             ) : null
           }
         />
-      )}
     </>
   );
 });
@@ -562,6 +579,6 @@ const styles = StyleSheet.create({
   },
   qtyBtn: { paddingHorizontal: 12, paddingVertical: 8 },
   qtyText: { fontSize: 14, fontFamily: FONTS.bold, minWidth: 24, textAlign: 'center' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  empty: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 80 },
   emptyText: { fontSize: 14, fontFamily: FONTS.regular },
 });

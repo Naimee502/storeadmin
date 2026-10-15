@@ -75,6 +75,7 @@ const SETTINGS_FIELDS = `
   appCategoryAutoScroll
   appProductAutoScroll
   loginEmailOtp
+  partyLoginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime
   socialFacebookUrl

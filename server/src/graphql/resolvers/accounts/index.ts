@@ -11,6 +11,7 @@ import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { sendOtpEmail } from "../../../utils/mail";
+import { enforceLoginOtp } from "../../../utils/loginotp";
 import { PendingRegistration } from "../../../models/pendingregistration";
 import { AdminSettings } from "../../../models/adminsettings";
 import { resolveTenant } from "../../../utils/tenant";
@@ -533,7 +534,7 @@ export const accountResolvers = {
     // Party login: mobile number only, no OTP. Same guards verifyOTP had
     // (customer-only, approval), plus: a self-registered customer must have
     // finished the email OTP first.
-    loginParty: async (_: any, { adminId, mobile }: any, { res }: any) => {
+    loginParty: async (_: any, { adminId, mobile, otp, email: newEmail }: any, { res }: any) => {
       const account: any = await Account.findOne({ admin: adminId, mobile, status: true });
       if (!account) throw new Error("Mobile number not registered.");
       assertCustomerAccount(account);
@@ -544,6 +545,38 @@ export const accountResolvers = {
         );
       }
       assertApproved(account);
+
+      // Business Settings -> "Party login needs an email OTP". Off: returns at
+      // once and the mobile number alone logs in, as before. On: the first call
+      // mails an OTP to the party's email and throws LOGIN_OTP_REQUIRED; the
+      // app / website repeats this call with the OTP to get the token.
+      //
+      // No email on file: the app / website asks for one (LOGIN_OTP_NO_EMAIL)
+      // and sends it as `email`. The OTP goes to that address, and only once
+      // it is verified is the email saved — so it is always one they own.
+      const savedEmail = String(account.email || "").trim();
+      let addEmail = "";
+      if (!savedEmail && newEmail != null && String(newEmail).trim()) {
+        addEmail = String(newEmail).trim().toLowerCase();
+        if (!EMAIL_RE.test(addEmail)) {
+          throw new ApolloError("Enter a valid email address.", "LOGIN_OTP_NO_EMAIL");
+        }
+      }
+      const company: any = await Admin.findById(adminId).select("companyName").lean();
+      await enforceLoginOtp({
+        kind: "party",
+        userId: account._id,
+        email: savedEmail || addEmail,
+        adminId,
+        businessName: company?.companyName,
+        otp,
+      });
+      // Reached with an added email only after the OTP sent there was right
+      // (enforceLoginOtp returns early only when the setting is off, and then
+      // nothing was asked for — don't save an unverified address).
+      if (addEmail && otp) {
+        await Account.findByIdAndUpdate(account._id, { email: addEmail, emailverified: true });
+      }
 
       const { accessToken, refreshToken } = generateTokens({
         id: account.id,

@@ -13,10 +13,12 @@ export const SEND_OTP = gql`
   }
 `;
 
-// Party login — mobile number only, no OTP (OTP is only for registration).
+// Party login — mobile number only. If the business has "Party login needs an
+// email OTP" on, the first call (no otp) fails with LOGIN_OTP_REQUIRED after
+// mailing an OTP, and the login page repeats the call with the otp.
 export const LOGIN_PARTY = gql`
-  mutation LoginParty($adminId: ID!, $mobile: String!) {
-    loginParty(adminId: $adminId, mobile: $mobile) {
+  mutation LoginParty($adminId: ID!, $mobile: String!, $otp: String, $email: String) {
+    loginParty(adminId: $adminId, mobile: $mobile, otp: $otp, email: $email) {
       accessToken
       account {
         id
