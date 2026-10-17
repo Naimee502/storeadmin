@@ -396,6 +396,19 @@ const adminSettingsSchema = new mongoose.Schema(
     loginEmailOtp: { type: Boolean, default: false },
 
     /**
+     * Geo-fencing for salesmen. On: the salesman app only lists parties
+     * within geoFenceRadiusM metres of the salesman's live GPS, and an order /
+     * visit can only be recorded from inside that radius — so orders cannot be
+     * punched from home. A party with no saved location is still listed but
+     * cannot be ordered for until its location is captured at the shop.
+     */
+    geoFenceEnabled: { type: Boolean, default: false },
+    geoFenceRadiusM: { type: Number, default: 200 },
+
+    /** Salesman app "Team Leaderboard": salesmen see each other's monthly target & achievement. */
+    salesmanLeaderboardEnabled: { type: Boolean, default: true },
+
+    /**
      * Party (customer) login on the app and the website needs an email OTP.
      * After the mobile number is accepted, a 4-digit OTP is mailed to the
      * party's email and the session opens only once it is entered. Off

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Linking, Platform, Alert,
   PermissionsAndroid, ScrollView,
@@ -13,6 +13,9 @@ import { FONTS, useTheme } from '../../../../config';
 import { BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_ACCOUNTS, GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
+import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
+import { localYMD } from '../../../../utils/geo';
+import { useLiveLocation } from '../../../../hooks/uselivelocation';
 import type { RootState } from '../../../../store/rootreducer';
 import { isNamedEndUserChannel } from '../../../../utils';
 
@@ -50,7 +53,9 @@ export default function SalesmanParties() {
   const adminid = tenant.adminId ?? '';
   const [search, setSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState<string | null>(null); // null = "All"
-  const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
+  // Live GPS: refreshed on every focus and re-published after ~50 m of movement,
+  // so the nearest party floats to the top as the salesman moves.
+  const { loc: salesmanLoc } = useLiveLocation(50);
   const [savingLocId, setSavingLocId] = useState<string | null>(null);
   const [editAccount] = useMutation(EDIT_ACCOUNT);
 
@@ -72,19 +77,6 @@ export default function SalesmanParties() {
     } catch { return false; }
   };
 
-  useEffect(() => {
-    (async () => {
-      const ok = await requestLocationPermission();
-      if (!ok) { setSalesmanLoc(null); return; }
-      try {
-        Geolocation.getCurrentPosition(
-          (pos: any) => setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => setSalesmanLoc(null),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
-        );
-      } catch { setSalesmanLoc(null); }
-    })();
-  }, []);
 
   // Party has no GPS yet → capture the salesman's CURRENT position (he's
   // standing at the shop) and save it onto the party record.
@@ -139,7 +131,7 @@ export default function SalesmanParties() {
     fetchPolicy: 'cache-and-network',
   });
   const visitedSet = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localYMD();
     const set = new Set<string>();
     ((ordersData as any)?.getSalesOrders ?? []).forEach((o: any) => {
       if ((o.billdate ?? '').startsWith(today) && o.partyacc?.id) set.add(String(o.partyacc.id));
@@ -176,6 +168,7 @@ export default function SalesmanParties() {
     return Array.from(seen, ([id, channelName]) => ({ id, channelName }));
   }, [tradeParties]);
 
+  const geo = useGeoFence();
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = q
@@ -183,14 +176,25 @@ export default function SalesmanParties() {
           (p.name || '').toLowerCase().includes(q) || (p.mobile || '').includes(q))
       : tradeParties;
     if (channelFilter) list = list.filter((p: any) => p.channel?.id === channelFilter);
+    // Geo-fencing: only parties within the radius (or with no location saved
+    // yet — those must be located at the shop before an order is allowed).
+    if (geo.enabled) {
+      list = list.filter((p: any) => {
+        if (p.latitude == null || p.longitude == null) return true;
+        return distOf(p) * 1000 <= geo.radiusM;
+      });
+    }
     // Nearest party first (so the closest stop is on top, no scrolling). When we
     // have no GPS fix yet, fall back to pending-amount order.
+    // Visited-today parties always drop below the pending ones, so the next
+    // stop to do is the one on top.
+    const v = (p: any) => (visitedSet.has(String(p.id)) ? 1 : 0);
     if (!salesmanLoc) {
-      return [...list].sort((a: any, b: any) => (b.outstanding || 0) - (a.outstanding || 0));
+      return [...list].sort((a: any, b: any) => v(a) - v(b) || (b.outstanding || 0) - (a.outstanding || 0));
     }
-    return [...list].sort((a: any, b: any) => distOf(a) - distOf(b));
+    return [...list].sort((a: any, b: any) => v(a) - v(b) || distOf(a) - distOf(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tradeParties, search, salesmanLoc, channelFilter]);
+  }, [tradeParties, search, salesmanLoc, channelFilter, geo.enabled, geo.radiusM, visitedSet]);
 
   const openParty = (item: any) =>
     navigation.navigate('RoutePartyVisit', {
@@ -366,7 +370,13 @@ export default function SalesmanParties() {
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
           <Icon name="account-off-outline" size={42} color={colors.border} />
-          <Text style={[styles.locText, { color: colors.subText }]}>No parties found.</Text>
+          <Text style={[styles.locText, { color: colors.subText }]}>
+            {geo.enabled
+              ? salesmanLoc
+                ? `No parties within ${geo.radiusM} m of you.`
+                : 'Turn on GPS — only parties near you are shown.'
+              : 'No parties found.'}
+          </Text>
         </View>
       ) : (
         <DynamicFlashList

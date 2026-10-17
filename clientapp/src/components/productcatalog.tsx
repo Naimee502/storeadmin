@@ -484,16 +484,38 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUnits, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, cartItems, restrict, onOpen, onAdd, onQty, onSelectUnit]);
 
+  // Height of the list header (banner / search / chips scroll WITH the list on
+  // Home). The refresh spinner is placed just below it — at the top of the
+  // product grid — instead of over the banner or search box.
+  const [headerH, setHeaderH] = useState(0);
+  const onHeaderLayout = useCallback((e: any) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setHeaderH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+  }, []);
+  const wrappedHeader = useMemo(() => {
+    if (!ListHeaderComponent) return null;
+    const inner = React.isValidElement(ListHeaderComponent)
+      ? ListHeaderComponent
+      : React.createElement(ListHeaderComponent as any);
+    return <View onLayout={onHeaderLayout}>{inner}</View>;
+  }, [ListHeaderComponent, onHeaderLayout]);
+
   if (initialLoading) return <ProductGridSkeleton />;
 
+  // Visible top of the product grid = header height minus how far it scrolled.
+  const pillTop = Math.max(8, headerH - (autoY.current || 0) + 10);
+
   return (
-    <>
-      {/* A thin bar while a new category or search is fetched. The rows below
-          stay put — the skeleton is only for the very first load, when there is
-          genuinely nothing on screen yet. */}
-      {refreshing && (
-        <View style={styles.refreshBar}>
-          <ActivityIndicator size="small" color={colors.brand} />
+    <View style={styles.wrap}>
+      {/* A small spinner floating over the list while a new category or search
+          is fetched. It is absolutely positioned: as a normal row it pushed the
+          banner, chips and cards down and back up on every category tap, which
+          looked like the whole screen reloading. */}
+      {refreshing && filtered.length > 0 && (
+        <View pointerEvents="none" style={[styles.refreshBar, { top: pillTop }]}>
+          <View style={[styles.refreshPill, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <ActivityIndicator size="small" color={colors.brand} />
+          </View>
         </View>
       )}
 
@@ -502,10 +524,19 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
           can still see which chip is selected and tap another one. */}
       <DynamicFlashList
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Icon name="magnify-close" size={44} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
-            </View>
+            // While a new category / search is still loading, an empty list
+            // means "not here yet", not "nothing found" — show the spinner in
+            // the grid area instead of flashing "No products found".
+            refreshing ? (
+              <View style={styles.empty}>
+                <ActivityIndicator size="large" color={colors.brand} />
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Icon name="magnify-close" size={44} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.subText }]}>{STRINGS.party.noProducts}</Text>
+              </View>
+            )
           }
           data={filtered}
           renderItem={renderProduct}
@@ -519,7 +550,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
           // without this the list would keep showing rows it had already
           // recycled with the previous one.
           extraData={renderProduct}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={wrappedHeader}
           listRef={listRef}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -536,14 +567,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
             ) : null
           }
         />
-    </>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
   footerLoader: { paddingVertical: 18, alignItems: 'center' },
-  refreshBar: { paddingVertical: 6, alignItems: 'center' },
+  wrap: { flex: 1 },
+  refreshBar: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center', zIndex: 10, elevation: 10 },
+  refreshPill: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
     flex: 1, minHeight: 250, borderRadius: 18, borderWidth: 1, padding: 12, marginBottom: 12,
     justifyContent: 'space-between',

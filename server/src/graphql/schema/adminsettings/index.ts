@@ -157,6 +157,9 @@ export const adminSettingsTypeDefs = gql`
     appProductAutoScroll: Boolean
     # Billing-panel login (Admin/Branch/Staff) needs an email OTP. Off by default.
     loginEmailOtp: Boolean
+    geoFenceEnabled: Boolean
+    geoFenceRadiusM: Int
+    salesmanLeaderboardEnabled: Boolean
     # Party login on the app + website needs an email OTP. Off by default.
     partyLoginEmailOtp: Boolean
 
@@ -357,6 +360,9 @@ export const adminSettingsTypeDefs = gql`
     appCategoryAutoScroll: Boolean
     appProductAutoScroll: Boolean
     loginEmailOtp: Boolean
+    geoFenceEnabled: Boolean
+    geoFenceRadiusM: Int
+    salesmanLeaderboardEnabled: Boolean
     partyLoginEmailOtp: Boolean
     autoPunchOutEnabled: Boolean
     autoPunchOutTime: String

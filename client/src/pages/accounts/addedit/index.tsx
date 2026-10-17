@@ -4,7 +4,7 @@ import HomeLayout from "../../../layouts/home";
 import {
   FaUser, FaMobileAlt, FaEnvelope, FaLocationArrow, FaCity,
   FaMoneyCheckAlt, FaRupeeSign,
-  FaUniversity
+  FaUniversity, FaCrosshairs, FaMapMarkedAlt, FaTimes
 } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
@@ -30,6 +30,97 @@ const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
   bank:     { names: ["bank account", "bank", "cash"],                               category: "assets" },
   expense:  { names: ["direct expense", "indirect expense", "expense"],              category: "expenses" },
   other:    { names: ["miscellaneous", "suspense", "other"],                         category: "liabilities" },
+};
+
+
+// "lat, lng" or any Google Maps link (…/@23.02,72.57,… or ?q=23.02,72.57).
+const parseLatLng = (text: string): { lat: number; lng: number } | null => {
+  const m = String(text || "").match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
+  if (!m) return null;
+  const lat = Number(m[1]); const lng = Number(m[2]);
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  if (lat === 0 && lng === 0) return null;
+  return { lat, lng };
+};
+
+// One "Shop Location (GPS)" field, same as the app: tap the target to capture
+// the current position, or paste "lat, lng" / a Google Maps link.
+const ShopLocationField = ({ latitude, longitude, onChange }: {
+  latitude: any; longitude: any;
+  onChange: (lat: string, lng: string) => void;
+}) => {
+  const has = latitude !== "" && latitude != null && longitude !== "" && longitude != null;
+  const fmt = (v: any) => Number(v).toFixed(6);
+  const [text, setText] = useState(has ? `${fmt(latitude)}, ${fmt(longitude)}` : "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Keep the box in sync when the record loads (edit mode).
+  useEffect(() => {
+    if (has) {
+      const cur = parseLatLng(text);
+      if (!cur || cur.lat !== Number(latitude) || cur.lng !== Number(longitude)) setText(`${fmt(latitude)}, ${fmt(longitude)}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latitude, longitude]);
+
+  const capture = () => {
+    if (busy) return;
+    if (!navigator.geolocation) { setMsg({ type: "err", text: "This browser does not support location." }); return; }
+    setBusy(true); setMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6), lng = pos.coords.longitude.toFixed(6);
+        setText(`${lat}, ${lng}`); onChange(lat, lng); setBusy(false);
+        const acc = Math.round(pos.coords.accuracy || 0);
+        setMsg({ type: "ok", text: acc ? `Location captured (±${acc} m)` : "Location captured" });
+      },
+      (err) => {
+        setBusy(false);
+        setMsg({ type: "err", text: err.code === 1 ? "Location permission denied — allow it in the browser and try again." : "Could not get location. Try again or paste from Google Maps." });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
+
+  const onType = (v: string) => {
+    setText(v); setMsg(null);
+    if (!v.trim()) { onChange("", ""); return; }
+    const p = parseLatLng(v);
+    if (p) onChange(String(p.lat), String(p.lng));
+  };
+
+  const clear = () => { setText(""); setMsg(null); onChange("", ""); };
+  const invalid = !!text.trim() && !parseLatLng(text);
+
+  return (
+    <div className="flex flex-col w-full gap-1">
+      <label className="text-sm font-medium text-gray-700">Shop Location (GPS)</label>
+      <div className={`flex items-center gap-2 border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 ${invalid ? "border-red-500" : "border-gray-300"}`}>
+        <button type="button" onClick={capture} disabled={busy} title="Capture current location"
+          className={`text-green-600 hover:text-green-700 cursor-pointer ${busy ? "animate-spin opacity-60" : ""}`}>
+          <FaCrosshairs />
+        </button>
+        <input
+          className="w-full text-sm bg-transparent outline-none"
+          value={text}
+          onChange={(e) => onType(e.target.value)}
+          placeholder={busy ? "Getting location…" : "Tap to capture current location, or paste lat, lng / Google Maps link"}
+          onClick={() => { if (!text.trim()) capture(); }}
+        />
+        {has && !invalid && (
+          <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer"
+            title="View on map" className="text-blue-500 hover:text-blue-700"><FaMapMarkedAlt /></a>
+        )}
+        {!!text && (
+          <button type="button" onClick={clear} title="Clear" className="text-gray-400 hover:text-gray-600 cursor-pointer"><FaTimes /></button>
+        )}
+      </div>
+      {invalid ? <p className="text-red-600 text-xs">Enter as "lat, lng" (e.g. 23.0225, 72.5714) or paste a Google Maps link.</p>
+        : msg ? <p className={`text-xs ${msg.type === "ok" ? "text-green-600" : "text-red-600"}`}>{msg.text}</p>
+        : <p className="text-xs text-gray-400">Capture works best on a phone at the shop. On a computer, location can be approximate.</p>}
+    </div>
+  );
 };
 
 const AddEditAccount = () => {
@@ -497,8 +588,13 @@ const AddEditAccount = () => {
                 }
                 {isFieldEnabled("country") && <FormField label="Country" name="country" value={formValues.country} onChange={(e) => handleChange("country", e.target.value)} placeholder="Enter country" />}
                 {isFieldEnabled("pincode") && <FormField label="Pincode" name="pincode" value={formValues.pincode} onChange={(e) => handleChange("pincode", e.target.value)} placeholder="Enter pincode" />}
-                {isFieldEnabled("latitude") && <FormField label="Latitude" name="latitude" value={formValues.latitude} onChange={(e) => handleChange("latitude", e.target.value)} placeholder="e.g. 23.0225" />}
-                {isFieldEnabled("longitude") && <FormField label="Longitude" name="longitude" value={formValues.longitude} onChange={(e) => handleChange("longitude", e.target.value)} placeholder="e.g. 72.5714" />}
+                {(isFieldEnabled("latitude") || isFieldEnabled("longitude")) && (
+                  <ShopLocationField
+                    latitude={formValues.latitude}
+                    longitude={formValues.longitude}
+                    onChange={(lat, lng) => { handleChange("latitude", lat); handleChange("longitude", lng); }}
+                  />
+                )}
               </div>
             </fieldset>
             )}

@@ -11,6 +11,28 @@ export interface TrackPoint {
   staffid?: { id?: string; name?: string } | null;
 }
 
+/**
+ * The page scrolls past this map, and a wheel turn over it used to zoom the
+ * map instead of scrolling the page. Wheel-zoom is now off until the map is
+ * clicked, and goes off again as soon as the mouse leaves it. +/- buttons and
+ * pinch still work as before.
+ */
+function ClickToScrollZoom() {
+  const map = useMap();
+  useEffect(() => {
+    map.scrollWheelZoom.disable();
+    const on = () => map.scrollWheelZoom.enable();
+    const off = () => map.scrollWheelZoom.disable();
+    map.on("click", on);
+    map.on("mouseout", off);
+    return () => {
+      map.off("click", on);
+      map.off("mouseout", off);
+    };
+  }, [map]);
+  return null;
+}
+
 interface Props {
   /** Latest known location per salesman — rendered as pins. */
   latest: TrackPoint[];
@@ -158,8 +180,12 @@ export default function LiveTrackingMap({ latest, trail = [], height = 420 }: Pr
   const locationNames = useLocationNames(validLatest);
 
   return (
-    <div style={{ height, width: "100%", borderRadius: 12, overflow: "hidden", border: "1px solid #e5e7eb" }}>
-      <MapContainer center={center} zoom={5} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+    <div style={{ height, width: "100%", borderRadius: 12, overflow: "hidden", border: "1px solid #e5e7eb", position: "relative" }}>
+      <div style={{ position: "absolute", right: 10, top: 10, zIndex: 500, background: "rgba(255,255,255,0.9)", borderRadius: 8, padding: "2px 8px", fontSize: 12, color: "#4b5563", pointerEvents: "none" }}>
+        Click the map to zoom with the mouse wheel
+      </div>
+      <MapContainer center={center} zoom={5} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
+        <ClickToScrollZoom />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

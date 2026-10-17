@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { GET_ATTENDANCE_SUMMARY, GET_ATTENDANCE_LOGS, GET_OPEN_PUNCH, GET_LEAVE_REQUESTS, GET_LEAVE_TYPES } from '../../queries/attendance';
 import { PUNCH, ADD_LEAVE_REQUEST, CANCEL_LEAVE_REQUEST } from '../../mutations/attendance';
@@ -66,11 +68,17 @@ export const usePunchGate = () => {
     allowed === null || allowed.length === 0 || allowed.some((m) => (m || '').toLowerCase() === 'attendance')
   );
 
-  const { data: punchData, loading } = useQuery(GET_OPEN_PUNCH, {
+  const { data: punchData, loading, refetch } = useQuery(GET_OPEN_PUNCH, {
     variables: { staffid: user?.id },
     skip: !user?.id || !attendanceOn,
-    fetchPolicy: 'network-only',
+    fetchPolicy: 'cache-and-network',
   });
+  // Tab screens (Home, Orders…) stay mounted, so a punch-in done on the
+  // Attendance tab was never seen here and the "Punch in required" popup kept
+  // showing. Re-check every time the screen comes back into focus.
+  useFocusEffect(useCallback(() => {
+    if (user?.id && attendanceOn) refetch?.();
+  }, [user?.id, attendanceOn, refetch]));
   const punchedIn = !!(punchData as any)?.getOpenPunch;
   const blocked = attendanceOn && !loading && !punchedIn;
 
@@ -97,7 +105,8 @@ export const useLeaveTypesQuery = () => {
 };
 
 export const useAttendanceMutations = () => {
-  const [punchMutation]              = useMutation(PUNCH);
+  // Refresh the open-punch state everywhere (gates on other tabs) after a punch.
+  const [punchMutation]              = useMutation(PUNCH, { refetchQueries: [GET_OPEN_PUNCH], awaitRefetchQueries: true });
   const [addLeaveRequestMutation]    = useMutation(ADD_LEAVE_REQUEST);
   const [cancelLeaveRequestMutation] = useMutation(CANCEL_LEAVE_REQUEST);
   return { punchMutation, addLeaveRequestMutation, cancelLeaveRequestMutation };

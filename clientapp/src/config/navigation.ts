@@ -6,7 +6,7 @@ import {
   ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
-  RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty, SalesmanParties,
+  RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty, SalesmanParties, SalesmanLeaderboard,
   // Delivery boy
   DeliveryDashboard, DeliveryList, DeliveryCollections, DeliveryAttendance, DeliveryProfile, DeliveryCollectPayment,
   // Staff
@@ -59,6 +59,7 @@ export const Screens: any = {
   ManagePartyRoute,
   SalesmanCreateParty,
   SalesmanParties,
+  SalesmanLeaderboard,
   // Delivery boy
   DeliveryDashboard,
   DeliveryList,
@@ -196,6 +197,7 @@ export const NavConfig: any = {
       { name: 'OrderEdit',        options: { headerShown: false } },
       { name: 'SalesmanCreateParty', options: { headerShown: false } },
       { name: 'SalesmanParties', options: { headerShown: false } },
+      { name: 'SalesmanLeaderboard', options: { headerShown: false } },
     ],
   },
 

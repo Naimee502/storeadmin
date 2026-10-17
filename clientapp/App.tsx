@@ -36,7 +36,13 @@ const StaffNav      = createNavigator(NavConfig.staff);
  * Renders the correct role navigator based on user.role from Redux.
  */
 function ProtectedNavigator() {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const liveUser = useSelector((state: RootState) => state.auth.user);
+  // Keep the last role while logging out: if user goes null before the root
+  // swaps to Public, this stack must NOT swap its own screen too (two tree
+  // tear-downs at once crash Fabric on Android).
+  const lastUser = React.useRef(liveUser);
+  if (liveUser?.role) lastUser.current = liveUser;
+  const user = liveUser?.role ? liveUser : lastUser.current;
 
   return (
     <>

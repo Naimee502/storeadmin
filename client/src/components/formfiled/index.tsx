@@ -64,6 +64,11 @@ interface FormFieldProps {
   historyHeaders?: string[];
   historyRows?: string[][];
   historyEmptyText?: string;
+  /** Plain text/email/password inputs: native autocomplete hint. */
+  autoComplete?: string;
+  /** Stop the browser's password manager from filling this box with a saved
+      login (it ignores autocomplete="off"): read-only until focused. */
+  noAutofill?: boolean;
 }
 
 const defaultIcons: Partial<Record<InputType, React.ReactNode>> = {
@@ -181,7 +186,10 @@ const FormField: React.FC<FormFieldProps> = ({
   historyHeaders,
   historyRows,
   historyEmptyText,
+  autoComplete,
+  noAutofill = false,
 }) => {
+  const [lockedForAutofill, setLockedForAutofill] = useState(noAutofill);
   // Standalone history panel (opened via the clock icon in the select control)
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -426,6 +434,11 @@ const FormField: React.FC<FormFieldProps> = ({
         required={required}
         placeholder={placeholder ?? (type === 'number' ? '0' : placeholder)}
         accept={accept}
+        autoComplete={autoComplete ?? (noAutofill ? (type === 'password' ? 'new-password' : 'off') : undefined)}
+        readOnly={noAutofill && lockedForAutofill}
+        onFocus={noAutofill ? () => setLockedForAutofill(false) : undefined}
+        data-lpignore={noAutofill ? 'true' : undefined}
+        data-1p-ignore={noAutofill ? 'true' : undefined}
         className={`w-full text-sm bg-transparent outline-none ${className}`}
       />
     );

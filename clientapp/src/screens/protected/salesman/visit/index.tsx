@@ -1,10 +1,14 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client/react';
+import { CHECK_GEO_FENCE } from '../../../../apollo/queries/salesmanreport';
+import { MARK_VISIT } from '../../../../apollo/mutations/tracking';
+import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
+import { getCurrentLatLng } from '../../../../utils/geo';
 import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -23,6 +27,17 @@ function orderLabel(o: any) {
   if (o.isConverted) return 'Confirmed';
   return 'Pending';
 }
+
+// Reasons a salesman can pick when he visited but got no order (unproductive call).
+const NO_ORDER_REASONS = [
+  'Shop closed',
+  'Owner / buyer not available',
+  'Stock still available',
+  'Payment pending — no new order',
+  'Price / scheme issue',
+  'Will order later',
+  'Other',
+];
 
 export default function RoutePartyVisit() {
   const navigation = useNavigation<any>();
@@ -96,9 +111,79 @@ export default function RoutePartyVisit() {
     ? cartItems.reduce((s, i) => s + i.qty, 0)
     : 0;
 
-  const handleTakeOrder = () => {
+  // ── Geo-fence + calls ────────────────────────────────────────────────
+  const apollo = useApolloClient();
+  const geo = useGeoFence();
+  const [checking, setChecking] = useState(false);
+  const [markVisit] = useMutation(MARK_VISIT);
+  const [noOrderOpen, setNoOrderOpen] = useState(false);
+  const [noOrderReason, setNoOrderReason] = useState('');
+  const [noOrderNote, setNoOrderNote] = useState('');
+  const [savingNoOrder, setSavingNoOrder] = useState(false);
+
+  /** When geo-fencing is on, confirm the salesman is at the party. Returns the fix (or null when allowed without one). */
+  const ensureAtParty = async (): Promise<{ ok: boolean; lat?: number; lng?: number }> => {
+    const here = await getCurrentLatLng({ fresh: geo.enabled });
+    if (!geo.enabled) return { ok: true, lat: here?.lat, lng: here?.lng };
+    try {
+      const { data } = await apollo.query({
+        query: CHECK_GEO_FENCE,
+        variables: { adminid, partyacc: partyId, latitude: here?.lat, longitude: here?.lng },
+        fetchPolicy: 'network-only',
+      });
+      const r = (data as any)?.checkGeoFence;
+      if (r && !r.allowed) {
+        Alert.alert('Not at the party', r.message || 'You must be at the party\'s location.');
+        return { ok: false };
+      }
+      return { ok: true, lat: here?.lat, lng: here?.lng };
+    } catch (e: any) {
+      Alert.alert('Location check failed', e?.message || 'Could not verify your location. Try again.');
+      return { ok: false };
+    }
+  };
+
+  const handleTakeOrder = async () => {
+    if (checking) return;
+    setChecking(true);
+    const r = await ensureAtParty();
+    setChecking(false);
+    if (!r.ok) return;
     dispatch(setCartParty({ partyId, partyName, routeId, routeDay }));
     navigation.navigate('SalesmanCatalog', { partyId, partyName });
+  };
+
+  const submitNoOrder = async () => {
+    if (!noOrderReason) { Alert.alert('Select a reason', 'Pick why there was no order.'); return; }
+    setSavingNoOrder(true);
+    const r = await ensureAtParty();
+    if (!r.ok) { setSavingNoOrder(false); return; }
+    try {
+      await markVisit({
+        variables: {
+          input: {
+            adminid,
+            salesmanid: salesmanId,
+            partyacc: partyId,
+            routeid: routeId || undefined,
+            day: routeDay || undefined,
+            outcome: 'unproductive',
+            reason: noOrderReason,
+            notes: noOrderNote.trim() || undefined,
+            latitude: r.lat,
+            longitude: r.lng,
+          },
+        },
+      });
+      setNoOrderOpen(false);
+      setNoOrderReason('');
+      setNoOrderNote('');
+      Alert.alert('Visit recorded', `${partyName}: no order — ${noOrderReason}.`);
+    } catch (e: any) {
+      Alert.alert('Could not record visit', e?.message || 'Please try again.');
+    } finally {
+      setSavingNoOrder(false);
+    }
   };
 
   const handleCollectPayment = () => {
@@ -171,10 +256,17 @@ export default function RoutePartyVisit() {
           {[
             {
               icon: 'cart-plus',
-              label: 'Take Order',
+              label: checking ? 'Checking location…' : 'Take Order',
               sub: 'Browse & add products',
               color: colors.brand,
               onPress: handleTakeOrder,
+            },
+            {
+              icon: 'cart-off',
+              label: 'No Order',
+              sub: 'Visited, no order',
+              color: '#f59e0b',
+              onPress: () => setNoOrderOpen(true),
             },
             // Only when there's an actual due — avoids collecting twice on a
             // fully-paid party (no-due → button hidden).
@@ -291,6 +383,45 @@ export default function RoutePartyVisit() {
         </Animated.View>
 
       </ScrollView>
+
+      {/* No-order (unproductive call) reason sheet */}
+      <Modal visible={noOrderOpen} transparent animationType="slide" onRequestClose={() => setNoOrderOpen(false)}>
+        <View style={styles.sheetBackdrop}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>No order from {partyName}</Text>
+            <Text style={[styles.sheetSub, { color: colors.subText }]}>Pick the reason — it shows in your call report.</Text>
+            {NO_ORDER_REASONS.map((r) => {
+              const on = noOrderReason === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.reasonRow, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandSoft : 'transparent' }]}
+                  onPress={() => setNoOrderReason(r)}
+                  activeOpacity={0.8}
+                >
+                  <Icon name={on ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={on ? colors.brand : colors.subText} />
+                  <Text style={[styles.reasonText, { color: colors.text }]}>{r}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TextInput
+              value={noOrderNote}
+              onChangeText={setNoOrderNote}
+              placeholder="Note (optional)"
+              placeholderTextColor={colors.subText}
+              style={[styles.noteInput, { borderColor: colors.border, color: colors.text }]}
+            />
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={[styles.sheetBtn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setNoOrderOpen(false)}>
+                <Text style={[styles.sheetBtnText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: '#f59e0b' }]} onPress={submitNoOrder} disabled={savingNoOrder}>
+                {savingNoOrder ? <ActivityIndicator color="#fff" /> : <Text style={[styles.sheetBtnText, { color: '#fff' }]}>Save visit</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -343,4 +474,15 @@ const styles = StyleSheet.create({
   orderAmt:    { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 4 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
   statusText:  { fontSize: 10, fontFamily: FONTS.semiBold },
+
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet:         { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, paddingBottom: 28 },
+  sheetTitle:    { fontSize: 16, fontFamily: FONTS.bold },
+  sheetSub:      { fontSize: 12, fontFamily: FONTS.regular, marginTop: 2, marginBottom: 12 },
+  reasonRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8 },
+  reasonText:    { fontSize: 13, fontFamily: FONTS.semiBold },
+  noteInput:     { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, fontFamily: FONTS.regular, marginTop: 4 },
+  sheetActions:  { flexDirection: 'row', gap: 10, marginTop: 14 },
+  sheetBtn:      { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  sheetBtnText:  { fontSize: 14, fontFamily: FONTS.bold },
 });

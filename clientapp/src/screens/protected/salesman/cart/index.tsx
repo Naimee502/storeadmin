@@ -9,7 +9,8 @@ import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { BackHeader, AppImage, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
-import { ADD_VISIT } from '../../../../apollo/mutations/tracking';
+import { MARK_VISIT } from '../../../../apollo/mutations/tracking';
+import { getCurrentLatLng, localYMD } from '../../../../utils/geo';
 import { formatINR } from '../../../../utils';
 import { clearCart, updateQty, removeFromCart } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
@@ -33,7 +34,7 @@ export default function SalesmanCart() {
   const { blocked: punchBlocked } = usePunchGate();
 
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
-  const [addVisit] = useMutation(ADD_VISIT);
+  const [markVisit] = useMutation(MARK_VISIT);
 
   const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
   const totaldiscount = cartItems.reduce((s, i) => s + i.qty * (i.discount ?? 0), 0);
@@ -57,7 +58,7 @@ export default function SalesmanCart() {
         onPress: async () => {
           setPlacing(true);
           try {
-            await addSalesOrder({
+            const { data: orderRes } = await addSalesOrder({
               variables: {
                 input: {
                   adminid,
@@ -67,7 +68,7 @@ export default function SalesmanCart() {
                   routeid:         routeId || undefined,
                   ordersource:     'app',
                   paymenttype:     'cash',
-                  billdate:        new Date().toISOString().slice(0, 10),
+                  billdate:        localYMD(),
                   billtype:        'order',
                   taxorsupplytype: 'regular',
                   isservice:       false,
@@ -93,10 +94,11 @@ export default function SalesmanCart() {
               },
             });
 
-            // Record the visit (positive call) — an order means the party was
-            // visited. Best-effort; never block the order flow.
+            // Record the productive call (visited + order) with where it was
+            // taken. Best-effort: the order is already saved, never block it.
             try {
-              await addVisit({
+              const here = await getCurrentLatLng({ timeoutMs: 8000 });
+              await markVisit({
                 variables: {
                   input: {
                     adminid,
@@ -104,10 +106,11 @@ export default function SalesmanCart() {
                     salesmanid: user?.id,
                     partyacc: partyId,
                     routeid: routeId || undefined,
-                    visitdate: new Date().toISOString().slice(0, 10),
                     day: routeDay || undefined,
-                    visited: true,
-                    ordercreated: true,
+                    outcome: 'productive',
+                    orderid: (orderRes as any)?.addSalesOrder?.id,
+                    latitude: here?.lat,
+                    longitude: here?.lng,
                   },
                 },
               });

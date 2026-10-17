@@ -79,6 +79,9 @@ const SETTINGS_FIELDS = `
   appCategoryAutoScroll
   appProductAutoScroll
   loginEmailOtp
+  geoFenceEnabled
+  geoFenceRadiusM
+  salesmanLeaderboardEnabled
   partyLoginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime

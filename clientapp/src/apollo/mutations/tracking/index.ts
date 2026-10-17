@@ -24,3 +24,16 @@ export const ADD_VISIT = gql`
     }
   }
 `;
+
+// One call per salesman + party + day: "productive" (order booked) or
+// "unproductive" (visited, no order — reason required). The server checks the
+// geo-fence and keeps productive over unproductive.
+export const MARK_VISIT = gql`
+  mutation MarkVisit($input: MarkVisitInput!) {
+    markVisit(input: $input) {
+      id
+      ordercreated
+      reason
+    }
+  }
+`;

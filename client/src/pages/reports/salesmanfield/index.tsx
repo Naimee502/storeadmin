@@ -1,324 +1,427 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@apollo/client";
 import HomeLayout from "../../../layouts/home";
-import ReportTable, { type ReportFilterField, type ReportColumn } from "../../../components/reporttable";
+import ReportTable, { type ReportColumn } from "../../../components/reporttable";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
-import { usePaymentsQuery } from "../../../graphql/hooks/payments";
-import { useVisitsQuery } from "../../../graphql/hooks/visit";
-import { useSalesRoutesQuery } from "../../../graphql/hooks/salesroutes";
 import { useLatestLocationsQuery, useLocationPingsQuery, useTravelSummaryQuery } from "../../../graphql/hooks/locationping";
+import {
+  GET_SALESMAN_PERFORMANCE, GET_SALESMAN_CALL_LOG, GET_SALESMAN_PRODUCT_SALES,
+} from "../../../graphql/queries/salesmanreport";
 import { cumulativeKm } from "../../../utils/travel";
 import LiveTrackingMap from "../../../components/livetrackingmap";
 import { useAppSelector } from "../../../redux/hooks";
-import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
-import { FaChartBar, FaRoute, FaMapMarkedAlt } from "react-icons/fa";
+import { formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
+import { FaChartBar, FaListAlt, FaBullseye, FaBoxes, FaMapMarkedAlt } from "react-icons/fa";
 
-const reportTabsObj = [
-  { id: "Summary", label: "Summary", icon: <FaChartBar className="text-amber-500" /> },
-  { id: "Day-wise Detail", label: "Day-wise Detail", icon: <FaRoute className="text-blue-500" /> },
-  { id: "Live Tracking", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
+// ─────────────────────────────────────────────────────────────────────────────
+// Salesman Field Report. All figures come from the server
+// (getSalesmanPerformance / getSalesmanCallLog / getSalesmanProductSales),
+// which applies one rule set for calls:
+//   Productive   = visited and an order booked
+//   Unproductive = visited, no order (with the salesman's reason)
+//   Missed       = on the route for that day, never visited (past days)
+//   Pending      = on today's route, not visited yet
+// The salesman app dashboard uses the same server code, so both always agree.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: "overview", label: "Overview", icon: <FaChartBar className="text-amber-500" /> },
+  { id: "calls", label: "Call Statement", icon: <FaListAlt className="text-blue-500" /> },
+  { id: "targets", label: "Target vs Achievement", icon: <FaBullseye className="text-rose-500" /> },
+  { id: "products", label: "Product & Category", icon: <FaBoxes className="text-violet-500" /> },
+  { id: "live", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
 ];
 
-// Weekday name from a YYYY-MM-DD string (for rows that come from orders, which
-// don't carry a route "day").
-const weekdayOf = (ymd: string) => {
-  const d = new Date(ymd);
-  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { weekday: "long" });
+const STATUS: Record<string, { label: string; cls: string; bar: string }> = {
+  productive: { label: "Productive", cls: "bg-green-100 text-green-800", bar: "#16a34a" },
+  unproductive: { label: "Unproductive", cls: "bg-amber-100 text-amber-800", bar: "#f59e0b" },
+  missed: { label: "Missed", cls: "bg-red-100 text-red-700", bar: "#dc2626" },
+  pending: { label: "Pending", cls: "bg-gray-100 text-gray-600", bar: "#9ca3af" },
 };
 
-// Route days are stored inconsistently ("sun" from the admin panel, "Sunday"
-// from the app). Normalise to a full weekday name so every row reads the same
-// (e.g. both "Without Route" and route rows show "Sunday", never "sun").
-const DAY_FULL: Record<string, string> = {
-  sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday",
-  thu: "Thursday", fri: "Friday", sat: "Saturday",
-};
-const fullDay = (day: string | undefined, ymd: string) =>
-  DAY_FULL[String(day ?? "").trim().slice(0, 3).toLowerCase()] || weekdayOf(ymd);
+const inr = (n: any) =>
+  "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const n2 = (n: any) => Number(n || 0).toFixed(2);
 
-// Reverse-geocoded place names, cached per rounded lat/long across the whole
-// session (not just per-render) so re-opening the tab or switching salesman
-// doesn't re-fetch a spot that's already been resolved.
 const geocodeCache: Record<string, string> = {};
 
-/**
- * Salesman Field Report — SaaS-style overview of field activity per salesman:
- *  • Orders taken (total / via app / on a route / without a route)
- *  • Sales value booked + payment collections done in the field
- *  • Positive (visited) vs negative (not-visited) calls
- *  • Route + day-wise breakdown
- *  • Live-location / route-trace section (placeholder until the app sends GPS)
- */
+const Tile: React.FC<{ label: string; value: string; sub?: string; tone?: string }> = ({ label, value, sub, tone }) => (
+  <div className="bg-white border rounded-lg p-3">
+    <div className="text-xs text-gray-500">{label}</div>
+    <div className={`text-xl font-bold ${tone || "text-gray-800"}`}>{value}</div>
+    {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+  </div>
+);
+
+const Progress: React.FC<{ pct: number }> = ({ pct }) => {
+  const p = Math.max(0, Math.min(pct, 100));
+  const color = pct >= 100 ? "#16a34a" : pct >= 60 ? "#2563eb" : pct >= 30 ? "#f59e0b" : "#dc2626";
+  return (
+    <div className="flex items-center gap-2 min-w-[140px]">
+      <div className="flex-1 h-2 rounded bg-gray-200 overflow-hidden">
+        <div style={{ width: `${p}%`, background: color }} className="h-2" />
+      </div>
+      <span className="text-xs font-semibold w-12 text-right">{pct.toFixed(0)}%</span>
+    </div>
+  );
+};
+
+/** Day-by-day call outcome bars + order value. */
+const DailyChart: React.FC<{ daily: any[] }> = ({ daily }) => {
+  const maxCalls = Math.max(1, ...daily.map((d) => d.productive + d.unproductive + d.missed + d.pending));
+  const maxAmt = Math.max(1, ...daily.map((d) => d.amount));
+  if (!daily.length) return null;
+  return (
+    <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="font-semibold text-gray-700">Daily calls &amp; order value</div>
+        <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+          {["productive", "unproductive", "missed", "pending"].map((k) => (
+            <span key={k} className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: STATUS[k].bar }} />
+              {STATUS[k].label}
+            </span>
+          ))}
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-1 rounded" style={{ background: "#2563eb" }} /> Order value
+          </span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="flex items-end gap-1 h-44" style={{ minWidth: daily.length * 22 }}>
+          {daily.map((d) => {
+            const total = d.productive + d.unproductive + d.missed + d.pending;
+            return (
+              <div
+                key={d.date}
+                className="flex-1 flex flex-col items-center justify-end h-full relative"
+                title={`${formatDateDMY(d.date)}\nProductive ${d.productive} · Unproductive ${d.unproductive} · Missed ${d.missed} · Pending ${d.pending}\nOrders ${d.orders} · ${inr(d.amount)}`}
+              >
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                  style={{ bottom: `calc(${(d.amount / maxAmt) * 100}% - 3px)`, background: d.amount ? "#2563eb" : "transparent" }}
+                />
+                <div className="w-full max-w-[18px] flex flex-col-reverse" style={{ height: `${(total / maxCalls) * 100}%` }}>
+                  {["productive", "unproductive", "missed", "pending"].map((k) =>
+                    d[k] ? <div key={k} style={{ flex: d[k], background: STATUS[k].bar }} /> : null
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex gap-1 mt-1" style={{ minWidth: daily.length * 22 }}>
+          {daily.map((d, i) => (
+            <div key={d.date} className="flex-1 text-center text-[10px] text-gray-400">
+              {daily.length <= 14 || i % Math.ceil(daily.length / 14) === 0 ? d.date.slice(8, 10) + "/" + d.date.slice(5, 7) : ""}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SalesmanFieldReport: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
-
-  // Live Tracking has its own filter set (single Date instead of a From/To
-  // range) — kept separate from the Summary / Day-wise filters above.
-  const [trackingFilters, setTrackingFilters] = useState<{ [key: string]: any }>({});
-  const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
-
+  const [tab, setTab] = useState("overview");
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);
+  const selectedBranchId = useAppSelector((s: any) => s.selectedBranch?.branchId);
   const adminId = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
-  const branchId = type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+  const branchId = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data: staffData } = useStaffQuery();
-  // includeConverted: an order that became an invoice is still an order the
-  // salesman booked in the field — it must count in totals / route split.
-  const { data: ordersData } = useSalesOrdersQuery({ includeConverted: true });
-  const { data: paymentsData } = usePaymentsQuery();
-  const { data: visitsData } = useVisitsQuery();
-  const { data: routesData } = useSalesRoutesQuery({ adminId, branchId });
+  const salesmen = [...(staffData?.getStaffAccounts || [])].filter((s: any) => s.role?.toLowerCase() === "salesman");
 
-  // Live-tracking data honours its own single-date filter, and picking a
-  // salesman fetches their ordered trail (punch-in → punch-out) for that day.
+  // ── Shared filter (all tabs except Live Tracking) ──
+  const [draft, setDraft] = useState({ fromDate: shiftDaysYMD(-29), toDate: todayYMD(), salesmanid: "" });
+  const [applied, setApplied] = useState(draft);
+  const reportFilter = useMemo(() => ({
+    adminid: adminId,
+    branchid: branchId || undefined,
+    salesmanid: applied.salesmanid || undefined,
+    dateFrom: applied.fromDate,
+    dateTo: applied.toDate,
+  }), [adminId, branchId, applied]);
+  const skip = !adminId || !applied.fromDate || !applied.toDate;
+
+  const { data: perfLive, previousData: perfPrev, loading: perfLoading } = useQuery(GET_SALESMAN_PERFORMANCE, {
+    variables: { filter: reportFilter }, skip: skip || (tab !== "overview" && tab !== "targets"), fetchPolicy: "cache-and-network",
+  });
+  const { data: logLive, previousData: logPrev, loading: logLoading } = useQuery(GET_SALESMAN_CALL_LOG, {
+    variables: { filter: reportFilter }, skip: skip || tab !== "calls", fetchPolicy: "cache-and-network",
+  });
+  const { data: prodLive, previousData: prodPrev, loading: prodLoading } = useQuery(GET_SALESMAN_PRODUCT_SALES, {
+    variables: { filter: reportFilter }, skip: skip || tab !== "products", fetchPolicy: "cache-and-network",
+  });
+  // Keep showing the previous result while a new filter loads — no full-screen
+  // loader / blank page on every Apply, Reset or quick-date click.
+  const perfData = perfLive ?? perfPrev;
+  const logData = logLive ?? logPrev;
+  const prodData = prodLive ?? prodPrev;
+  const perf: any[] = (perfData as any)?.getSalesmanPerformance || [];
+  const callLog: any[] = (logData as any)?.getSalesmanCallLog || [];
+  const prodRows: any[] = (prodData as any)?.getSalesmanProductSales || [];
+
+  // ReportTable wants filter state even when we render our own filter bar.
+  const [tf, setTf] = useState<{ [k: string]: any }>({});
+  const [taf, setTaf] = useState<{ [k: string]: any }>({});
+
+  // ── Overview ──
+  const totals = useMemo(() => {
+    const t: any = { planned: 0, productive: 0, unproductive: 0, missed: 0, pending: 0, offRoute: 0, orders: 0, amount: 0, collections: 0, km: 0 };
+    perf.forEach((p) => {
+      t.planned += p.plannedCalls; t.productive += p.productiveCalls; t.unproductive += p.unproductiveCalls;
+      t.missed += p.missedCalls; t.pending += p.pendingCalls; t.offRoute += p.offRouteCalls;
+      t.orders += p.orders; t.amount += p.orderAmount; t.collections += p.collections; t.km += p.km;
+    });
+    t.calls = t.productive + t.unproductive;
+    t.productivity = t.calls ? (t.productive / t.calls) * 100 : 0;
+    t.coverage = t.planned ? ((t.planned - t.missed - t.pending) / t.planned) * 100 : 0;
+    t.aov = t.orders ? t.amount / t.orders : 0;
+    return t;
+  }, [perf]);
+
+  const dailyAll = useMemo(() => {
+    const m = new Map<string, any>();
+    perf.forEach((p) => p.daily.forEach((d: any) => {
+      const x = m.get(d.date) || { date: d.date, planned: 0, productive: 0, unproductive: 0, missed: 0, pending: 0, orders: 0, amount: 0, collections: 0 };
+      Object.keys(x).forEach((k) => { if (k !== "date") x[k] += d[k] || 0; });
+      m.set(d.date, x);
+    }));
+    return Array.from(m.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [perf]);
+
+  const perfRows = useMemo(() => [...perf]
+    .sort((a, b) => b.orderAmount - a.orderAmount)
+    .map((p, i) => ({
+      rank: i + 1,
+      name: p.salesmanname,
+      planned: p.plannedCalls,
+      productive: p.productiveCalls,
+      unproductive: p.unproductiveCalls,
+      missed: p.missedCalls,
+      pending: p.pendingCalls,
+      offRoute: p.offRouteCalls,
+      productivity: `${p.productivityPct.toFixed(0)}%`,
+      coverage: `${p.coveragePct.toFixed(0)}%`,
+      orders: p.orders,
+      onRoute: p.ordersOnRoute,
+      offRouteOrders: p.ordersOffRoute,
+      amount: n2(p.orderAmount),
+      aov: n2(p.avgOrderValue),
+      qty: p.totalQty,
+      lines: p.linesSold,
+      collections: n2(p.collections),
+      km: n2(p.km),
+      days: p.workingDays,
+    })), [perf]);
+
+  const perfColumns: ReportColumn[] = [
+    { label: "Rank", key: "rank" },
+    { label: "Salesman", key: "name" },
+    { label: "Planned Calls", key: "planned", numeric: true },
+    { label: "Productive", key: "productive", numeric: true },
+    { label: "Unproductive", key: "unproductive", numeric: true },
+    { label: "Missed", key: "missed", numeric: true },
+    { label: "Pending (today)", key: "pending", numeric: true },
+    { label: "Off-route Calls", key: "offRoute", numeric: true },
+    { label: "Productivity %", key: "productivity" },
+    { label: "Route Coverage %", key: "coverage" },
+    { label: "Orders", key: "orders", numeric: true },
+    { label: "On Route", key: "onRoute", numeric: true },
+    { label: "Off Route", key: "offRouteOrders", numeric: true },
+    { label: "Order Value (₹)", key: "amount", numeric: true },
+    { label: "Avg Order (₹)", key: "aov", numeric: true },
+    { label: "Qty", key: "qty", numeric: true },
+    { label: "Products Sold", key: "lines", numeric: true },
+    { label: "Collections (₹)", key: "collections", numeric: true },
+    { label: "KM", key: "km", numeric: true },
+    { label: "Working Days", key: "days", numeric: true },
+  ];
+
+  // ── Call statement ──
+  const [statusFilter, setStatusFilter] = useState("all");
+  const callRows = useMemo(() => callLog
+    .filter((r) => statusFilter === "all" || (statusFilter === "offroute" ? !r.onRoute : r.status === statusFilter))
+    .map((r, i) => ({
+      seqNo: i + 1,
+      date: formatDateDMY(r.date),
+      day: r.day || "",
+      salesman: r.salesmanname,
+      route: r.routename || "—",
+      party: r.partyname,
+      mobile: r.partymobile || "",
+      status: r.status,
+      statusLabel: STATUS[r.status]?.label || r.status,
+      plan: r.onRoute ? "On route" : "Off route",
+      time: r.visitTime ? new Date(r.visitTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "",
+      orderNo: r.orderNo || "",
+      amount: r.orderAmount != null ? n2(r.orderAmount) : "",
+      reason: r.reason || "",
+      distance: r.distanceM != null ? `${Math.round(r.distanceM)} m` : "",
+    })), [callLog, statusFilter]);
+
+  const callCounts = useMemo(() => {
+    const c: any = { all: callLog.length, productive: 0, unproductive: 0, missed: 0, pending: 0, offroute: 0 };
+    callLog.forEach((r) => { c[r.status]++; if (!r.onRoute) c.offroute++; });
+    return c;
+  }, [callLog]);
+
+  const callColumns: ReportColumn[] = [
+    { label: "Seq No", key: "seqNo" },
+    { label: "Date", key: "date" },
+    { label: "Day", key: "day" },
+    { label: "Salesman", key: "salesman" },
+    { label: "Route", key: "route" },
+    { label: "Party", key: "party" },
+    { label: "Mobile", key: "mobile" },
+    {
+      label: "Call Status", key: "statusLabel",
+      render: (row: any) => (
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${STATUS[row.status]?.cls || ""}`}>{row.statusLabel}</span>
+      ),
+    },
+    { label: "Plan", key: "plan" },
+    { label: "Visit Time", key: "time" },
+    { label: "Order No", key: "orderNo" },
+    { label: "Order Value (₹)", key: "amount", numeric: true },
+    { label: "No-order Reason", key: "reason" },
+    { label: "Distance from Party", key: "distance" },
+  ];
+
+  // ── Targets ──
+  const targetRows = useMemo(() => [...perf]
+    .sort((a, b) => b.monthTarget - a.monthTarget || b.monthAchieved - a.monthAchieved)
+    .map((p, i) => ({
+      rank: i + 1,
+      name: p.salesmanname,
+      month: p.targetMonth,
+      target: n2(p.monthTarget),
+      achieved: n2(p.monthAchieved),
+      remaining: n2(p.monthRemaining),
+      pctNum: p.monthAchievedPct,
+      pct: `${p.monthAchievedPct.toFixed(0)}%`,
+      status: !p.monthTarget ? "No target set" : p.monthAchievedPct >= 100 ? "Achieved" : "Not achieved",
+    })), [perf]);
+  const targetColumns: ReportColumn[] = [
+    { label: "Rank (by target)", key: "rank" },
+    { label: "Salesman", key: "name" },
+    { label: "Month", key: "month" },
+    { label: "Monthly Target (₹)", key: "target", numeric: true },
+    { label: "Achieved (₹)", key: "achieved", numeric: true },
+    { label: "Remaining (₹)", key: "remaining", numeric: true },
+    { label: "Achieved %", key: "pct", render: (r: any) => <Progress pct={r.pctNum} /> },
+    {
+      label: "Status", key: "status",
+      render: (r: any) => (
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+          r.status === "Achieved" ? "bg-green-100 text-green-800" : r.status === "No target set" ? "bg-gray-100 text-gray-600" : "bg-red-100 text-red-700"}`}>
+          {r.status}
+        </span>
+      ),
+    },
+  ];
+  const biggestTarget = [...perf].sort((a, b) => b.monthTarget - a.monthTarget)[0];
+  const bestAchiever = [...perf].filter((p) => p.monthTarget > 0).sort((a, b) => b.monthAchievedPct - a.monthAchievedPct)[0];
+  const topSeller = [...perf].sort((a, b) => b.monthAchieved - a.monthAchieved)[0];
+
+  // ── Product & category ──
+  const [groupBy, setGroupBy] = useState<"product" | "category" | "salesman-product" | "salesman-category">("product");
+  const prodTable = useMemo(() => {
+    const key = (r: any) => {
+      if (groupBy === "product") return r.productid;
+      if (groupBy === "category") return r.categoryid || "none";
+      if (groupBy === "salesman-product") return `${r.salesmanid}|${r.productid}`;
+      return `${r.salesmanid}|${r.categoryid || "none"}`;
+    };
+    const m = new Map<string, any>();
+    prodRows.forEach((r) => {
+      const k = key(r);
+      const x = m.get(k) || {
+        salesman: r.salesmanname, product: r.productname, category: r.categoryname || "Uncategorised",
+        qty: 0, amount: 0, orders: 0, salesmen: new Set<string>(), products: new Set<string>(),
+      };
+      x.qty += r.qty; x.amount += r.amount; x.orders += r.orders;
+      x.salesmen.add(r.salesmanname); x.products.add(r.productid);
+      m.set(k, x);
+    });
+    const grand = Array.from(m.values()).reduce((a, x) => a + x.amount, 0) || 1;
+    return Array.from(m.values())
+      .sort((a, b) => b.amount - a.amount)
+      .map((x, i) => ({
+        rank: i + 1,
+        salesman: x.salesman,
+        product: x.product,
+        category: x.category,
+        salesmenCount: x.salesmen.size,
+        productsCount: x.products.size,
+        qty: Number(x.qty.toFixed(2)),
+        orders: x.orders,
+        amount: n2(x.amount),
+        share: `${((x.amount / grand) * 100).toFixed(1)}%`,
+      }));
+  }, [prodRows, groupBy]);
+  const prodColumns: ReportColumn[] = [
+    { label: "Rank", key: "rank" },
+    ...(groupBy.startsWith("salesman") ? [{ label: "Salesman", key: "salesman" }] : []),
+    ...(groupBy.endsWith("product") ? [{ label: "Product", key: "product" }, { label: "Category", key: "category" }] : [{ label: "Category", key: "category" }, { label: "Products", key: "productsCount", numeric: true }]),
+    ...(!groupBy.startsWith("salesman") ? [{ label: "Salesmen", key: "salesmenCount", numeric: true }] : []),
+    { label: "Orders", key: "orders", numeric: true },
+    { label: "Qty", key: "qty", numeric: true },
+    { label: "Sales (₹)", key: "amount", numeric: true },
+    { label: "Share", key: "share" },
+  ];
+
+  // ── Live tracking (own date + salesman, shown ABOVE the map) ──
+  const [trkDraft, setTrkDraft] = useState({ date: todayYMD(), salesmanid: "" });
+  const [trk, setTrk] = useState(trkDraft);
   const locFilter = useMemo(() => ({
     role: "salesman",
-    staffid: trackingAppliedFilters.salesmanid || undefined,
-    dateFrom: trackingAppliedFilters.date || undefined,
-    dateTo: trackingAppliedFilters.date || undefined,
-  }), [trackingAppliedFilters]);
+    staffid: trk.salesmanid || undefined,
+    dateFrom: trk.date || undefined,
+    dateTo: trk.date || undefined,
+  }), [trk]);
   const { data: locationsData } = useLatestLocationsQuery(locFilter);
   const { data: trailData } = useLocationPingsQuery(locFilter);
-  // KM per salesman per day: for the Live Tracking day, and for the Summary range.
   const { data: dayTravelData } = useTravelSummaryQuery(locFilter);
-  const { data: rangeTravelData } = useTravelSummaryQuery({
-    role: "salesman",
-    dateFrom: appliedFilters.fromDate || undefined,
-    dateTo: appliedFilters.toDate || undefined,
-  });
   const dayTravel: any[] = (dayTravelData as any)?.getTravelSummary || [];
-  const rangeTravel: any[] = (rangeTravelData as any)?.getTravelSummary || [];
-
-  const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
-  // Salesman field report → only salesman-role staff (not "staff" or "deliveryboy").
-  const salesmen = staffList.filter(
-    (s: any) => s.role?.toLowerCase() === "salesman"
-  );
-  const orders = ordersData?.getSalesOrders || [];
-  const payments = paymentsData?.getPayments || [];
-  const visits = visitsData?.getVisits || [];
-  const routes = routesData?.getSalesRoutes || [];
-  const locations = locationsData?.getLatestLocations || [];
-  // Full ordered trail (punch-in → punch-out) only when a single salesman is picked.
-  const trail = trackingAppliedFilters.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];
-
-  // Default last 30 days (Summary / Day-wise)
-  useEffect(() => {
-    const to = todayYMD();
-    const from = shiftDaysYMD(-30);
-    setFilters({ fromDate: from, toDate: to });
-    setAppliedFilters({ fromDate: from, toDate: to });
-  }, []);
-
-  // Live Tracking defaults to today's date.
-  useEffect(() => {
-    const today = todayYMD();
-    setTrackingFilters({ date: today, salesmanid: "" });
-    setTrackingAppliedFilters({ date: today, salesmanid: "" });
-  }, []);
-
-  const inRange = (d: string | null) => {
-    if (!d) return false;
-    const { fromDate, toDate } = appliedFilters;
-    if (fromDate && d < fromDate) return false;
-    if (toDate && d > toDate) return false;
-    return true;
-  };
-
-  const matchSalesman = (id?: string) => !appliedFilters.salesmanid || id === appliedFilters.salesmanid;
-  const matchRoute = (id?: string) => !appliedFilters.routeid || id === appliedFilters.routeid;
-
-  // ── Filtered datasets ───────────────────────────────────────────────
-  const fOrders = useMemo(
-    () => orders.filter((o: any) => inRange(normalizeToYMD(o.billdate)) && matchSalesman(o.salesmenid?.id) && matchRoute(o.routeid)),
-    [orders, appliedFilters]
-  );
-  const fVisits = useMemo(
-    () => visits.filter((v: any) => inRange(normalizeToYMD(v.visitdate)) && matchSalesman(v.salesmanid?.id) && matchRoute(v.routeid?.id)),
-    [visits, appliedFilters]
-  );
-  // Map each party → the salesman who booked its orders, so a receipt with no
-  // stored collector id can still be credited to the right salesman via its party.
-  const partyToSalesman = useMemo(() => {
-    const m: Record<string, string> = {};
-    orders.forEach((o: any) => {
-      const pid = o.partyacc?.id; const sid = o.salesmenid?.id;
-      if (pid && sid && !m[pid]) m[pid] = sid;
-    });
-    return m;
-  }, [orders]);
-
-  // A receipt is credited to the salesman who booked the order in the field
-  // (orderedby_id), then whoever created it (a salesman's own manual collection),
-  // and finally the salesman who owns the receipt's party (covers auto-created
-  // receipts that saved no collector id). Keeps admin-formalised cash invoices
-  // counting for the salesman who actually collected.
-  const collectorOf = (p: any) => p.orderedby_id || p.createdby_id || partyToSalesman[p.partyid?.id];
-  const fPayments = useMemo(
-    () => payments.filter((p: any) => p.type === "receipt" && inRange(normalizeToYMD(p.paymentdate)) && matchSalesman(collectorOf(p))),
-    [payments, appliedFilters]
-  );
-
-  // ── Summary: one row per salesman ───────────────────────────────────
-  const summaryData = useMemo(() => {
-    const list = appliedFilters.salesmanid ? salesmen.filter((s: any) => s.id === appliedFilters.salesmanid) : salesmen;
-    return list.map((s: any, idx: number) => {
-      const so = fOrders.filter((o: any) => o.salesmenid?.id === s.id);
-      const totalOrders = so.length;
-      const viaApp = so.filter((o: any) => o.ordersource === "app").length;
-      const onRoute = so.filter((o: any) => !!o.routeid).length;
-      const offRoute = totalOrders - onRoute;
-      const totalSales = so.reduce((sum: number, o: any) => sum + Number(o.totalamount || 0), 0);
-      const collections = fPayments.filter((p: any) => collectorOf(p) === s.id).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-      const sv = fVisits.filter((v: any) => v.salesmanid?.id === s.id);
-      const visited = sv.filter((v: any) => v.visited).length;
-      const notVisited = sv.filter((v: any) => !v.visited).length;
-      const totalCalls = visited + notVisited;
-      const visitPct = totalCalls > 0 ? ((visited / totalCalls) * 100).toFixed(0) + "%" : "-";
-      const km = rangeTravel.filter((t: any) => t.staffid === s.id).reduce((sum: number, t: any) => sum + Number(t.km || 0), 0);
-      return {
-        km: km.toFixed(2),
-        seqNo: idx + 1,
-        staffName: s.name,
-        totalOrders,
-        viaApp,
-        onRoute,
-        offRoute,
-        totalSales: totalSales.toFixed(2),
-        collections: collections.toFixed(2),
-        visited,
-        notVisited,
-        visitPct,
-      };
-    });
-  }, [fOrders, fVisits, fPayments, salesmen, appliedFilters, rangeTravel]);
-
-  // ── Detail: one row PER ORDER, so the admin can see exactly what each order
-  // contained (bill/invoice no, party, payment type, items & qty). A pending
-  // order shows its SO number; once converted it shows the linked INV number.
-  const detailData = useMemo(() => {
-    const routeNameById: Record<string, string> = {};
-    routes.forEach((r: any) => { routeNameById[r.id] = r.routename; });
-
-    const orderNo = (o: any) =>
-      o.isConverted && o.invoicenumber
-        ? `INV-${String(o.invoicenumber).padStart(6, "0")}`
-        : `SO-${String(o.billnumber ?? "").padStart(6, "0")}`;
-
-    return fOrders
-      // Only orders that actually have a salesman assigned — rows with no
-      // salesman (shown as "-") don't belong in a per-salesman field report.
-      .filter((o: any) => !!o.salesmenid?.id)
-      .slice()
-      .sort((a: any, b: any) => ((normalizeToYMD(a.billdate) || "") < (normalizeToYMD(b.billdate) || "") ? 1 : -1))
-      .map((o: any, idx: number) => {
-        const ymd = normalizeToYMD(o.billdate) || "-";
-        const items = o.productservice || [];
-        return {
-          seqNo: idx + 1,
-          staffName: o.salesmenid?.name || "-",
-          billNo: orderNo(o),
-          party: o.partyacc?.accountname || "-",
-          paymentType: String(o.paymenttype || "-").replace(/^\w/, (c: string) => c.toUpperCase()),
-          routeName: o.routeid ? (routeNameById[o.routeid] || "Route") : "Without Route",
-          day: fullDay("", ymd),
-          date: formatDateDMY(o.billdate),
-          totalItems: items.length,
-          totalQty: items.reduce((s: number, p: any) => s + Number(p.qty || 0), 0),
-          sales: Number(o.totalamount || 0).toFixed(2),
-        };
-      });
-  }, [fOrders, routes]);
-
-  const summaryColumns: ReportColumn[] = [
-    { label: "Seq No", key: "seqNo" },
-    { label: "Salesman", key: "staffName" },
-    { label: "Total Orders", key: "totalOrders", numeric: true },
-    { label: "Via App", key: "viaApp", numeric: true },
-    { label: "On Route", key: "onRoute", numeric: true },
-    { label: "Without Route", key: "offRoute", numeric: true },
-    { label: "Total Sales (₹)", key: "totalSales", numeric: true },
-    { label: "Collections (₹)", key: "collections", numeric: true },
-    { label: "Visited (+)", key: "visited", numeric: true },
-    { label: "Not Visited (−)", key: "notVisited", numeric: true },
-    { label: "Visit %", key: "visitPct" },
-    { label: "KM Travelled", key: "km", numeric: true },
-  ];
-
-  const detailColumns: ReportColumn[] = [
-    { label: "Seq No", key: "seqNo" },
-    { label: "Salesman", key: "staffName" },
-    { label: "Bill No", key: "billNo" },
-    { label: "Party A/c", key: "party" },
-    { label: "Payment Type", key: "paymentType" },
-    { label: "Route", key: "routeName" },
-    { label: "Day", key: "day" },
-    { label: "Date", key: "date" },
-    { label: "Total Items", key: "totalItems", numeric: true },
-    { label: "Total Qty", key: "totalQty", numeric: true },
-    { label: "Sales (₹)", key: "sales", numeric: true },
-  ];
-
-  // ── Live tracking: full day's trail when a salesman is picked (punch-in →
-  // punch-out, one row per GPS ping, oldest first), otherwise the latest
-  // known location per salesman. Location shown as a place name, not raw
-  // lat/long — resolved via free-text reverse geocoding (OpenStreetMap
-  // Nominatim), cached per rounded coordinate so the same spot isn't looked
-  // up twice.
-  const showingTrail = !!trackingAppliedFilters.salesmanid;
+  const locations = (locationsData as any)?.getLatestLocations || [];
+  const trail = trk.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];
+  const showingTrail = !!trk.salesmanid;
   const trackingPings = showingTrail ? trail : locations;
-
   const [locationNames, setLocationNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const keys: string[] = Array.from(
-      new Set<string>(
-        trackingPings
-          .filter((p: any) => p.latitude != null && p.longitude != null)
-          .map((p: any) => `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`)
-      )
-    ).filter((k: string) => !(k in geocodeCache));
-
-    if (keys.length === 0) return;
+    if (tab !== "live") return;
+    const keys: string[] = Array.from(new Set<string>(
+      trackingPings.filter((p: any) => p.latitude != null && p.longitude != null)
+        .map((p: any) => `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`)
+    )).filter((k: string) => !(k in geocodeCache));
+    if (!keys.length) return;
     let cancelled = false;
-
-    const resolveNext = (i: number) => {
+    const next = (i: number) => {
       if (cancelled || i >= keys.length) return;
-      const key = keys[i];
-      const [lat, lon] = key.split(",");
-      fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=16&addressdetails=0`,
-        { headers: { Accept: "application/json" } }
-      )
-        .then((res) => res.json())
-        .then((json) => {
-          geocodeCache[key] = json?.display_name || `${lat}, ${lon}`;
-        })
-        .catch(() => {
-          geocodeCache[key] = `${lat}, ${lon}`;
-        })
+      const [lat, lon] = keys[i].split(",");
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=16&addressdetails=0`, { headers: { Accept: "application/json" } })
+        .then((r) => r.json())
+        .then((j) => { geocodeCache[keys[i]] = j?.display_name || `${lat}, ${lon}`; })
+        .catch(() => { geocodeCache[keys[i]] = `${lat}, ${lon}`; })
         .finally(() => {
           if (!cancelled) {
-            setLocationNames((prev) => ({ ...prev, [key]: geocodeCache[key] }));
-            // Throttle to ~1 request/sec per Nominatim's usage policy.
-            setTimeout(() => resolveNext(i + 1), 1100);
+            setLocationNames((p) => ({ ...p, [keys[i]]: geocodeCache[keys[i]] }));
+            setTimeout(() => next(i + 1), 1100);
           }
         });
     };
-    resolveNext(0);
-
+    next(0);
     return () => { cancelled = true; };
-  }, [trackingPings]);
+  }, [trackingPings, tab]);
 
   const trackingData = useMemo(() => {
     const running = showingTrail ? cumulativeKm(trackingPings) : [];
-    const todayKm = (sid?: string) => dayTravel.find((t: any) => t.staffid === sid)?.km ?? 0;
+    const kmOf = (sid?: string) => dayTravel.find((t: any) => t.staffid === sid)?.km ?? 0;
     return trackingPings.map((p: any, idx: number) => {
-      const key = p.latitude != null && p.longitude != null
-        ? `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}`
-        : "";
+      const key = p.latitude != null && p.longitude != null ? `${Number(p.latitude).toFixed(4)},${Number(p.longitude).toFixed(4)}` : "";
       return {
         seqNo: idx + 1,
         staffName: p.staffid?.name || "-",
@@ -326,14 +429,11 @@ const SalesmanFieldReport: React.FC = () => {
         location: key ? (geocodeCache[key] || locationNames[key] || "Resolving…") : "-",
         accuracy: p.accuracy != null ? Math.round(p.accuracy) : "-",
         battery: p.battery != null ? `${Math.round(p.battery)}%` : "-",
-        km: (showingTrail ? running[idx] : todayKm(p.staffid?.id)).toFixed(2),
+        km: (showingTrail ? running[idx] : kmOf(p.staffid?.id)).toFixed(2),
       };
     });
   }, [trackingPings, locationNames, dayTravel, showingTrail]);
-
-  // Day total for the picked salesman (server figure — same rules as the column).
-  const trailSummary = showingTrail ? dayTravel.find((t: any) => t.staffid === trackingAppliedFilters.salesmanid) : null;
-
+  const trailSummary = showingTrail ? dayTravel.find((t: any) => t.staffid === trk.salesmanid) : null;
   const trackingColumns: ReportColumn[] = [
     { label: "Seq No", key: "seqNo" },
     { label: "Salesman", key: "staffName" },
@@ -344,109 +444,187 @@ const SalesmanFieldReport: React.FC = () => {
     { label: showingTrail ? "KM (so far)" : "Today's KM", key: "km" },
   ];
 
-  const filterFields: ReportFilterField[] = [
-    { name: "fromDate", label: "From Date", type: "date" },
-    { name: "toDate", label: "To Date", type: "date" },
-    { name: "salesmanid", label: "Salesman", type: "select", searchable: true, options: salesmen.map((s: any) => ({ label: s.name, value: s.id })) },
-  ];
+  const inputCls = "border rounded-lg px-3 py-2 text-sm bg-white w-full";
+  const salesmanSelect = (value: string, onChange: (v: string) => void) => (
+    <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">All salesmen</option>
+      {salesmen.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  );
 
-  const trackingFilterFields: ReportFilterField[] = [
-    { name: "date", label: "Date", type: "date" },
-    { name: "salesmanid", label: "Salesman", type: "select", searchable: true, options: salesmen.map((s: any) => ({ label: s.name, value: s.id })) },
-  ];
+  const FilterBar = (
+    <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <label className="text-sm text-gray-600">From Date
+          <input type="date" className={inputCls} value={draft.fromDate} onChange={(e) => setDraft({ ...draft, fromDate: e.target.value })} />
+        </label>
+        <label className="text-sm text-gray-600">To Date
+          <input type="date" className={inputCls} value={draft.toDate} onChange={(e) => setDraft({ ...draft, toDate: e.target.value })} />
+        </label>
+        <label className="text-sm text-gray-600">Salesman
+          {salesmanSelect(draft.salesmanid, (v) => setDraft({ ...draft, salesmanid: v }))}
+        </label>
+        <div className="flex gap-2">
+          <button type="button" className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold" onClick={() => setApplied(draft)}>Apply</button>
+          <button type="button" className="px-4 py-2 rounded-lg bg-gray-500 text-white text-sm font-semibold" onClick={() => {
+            const d = { fromDate: shiftDaysYMD(-29), toDate: todayYMD(), salesmanid: "" };
+            setDraft(d); setApplied(d);
+          }}>Reset</button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3 text-xs">
+        {[
+          { l: "Today", f: todayYMD(), t: todayYMD() },
+          { l: "Yesterday", f: shiftDaysYMD(-1), t: shiftDaysYMD(-1) },
+          { l: "Last 7 days", f: shiftDaysYMD(-6), t: todayYMD() },
+          { l: "This month", f: todayYMD().slice(0, 8) + "01", t: todayYMD() },
+          { l: "Last 30 days", f: shiftDaysYMD(-29), t: todayYMD() },
+        ].map((q) => (
+          <button key={q.l} type="button" className="px-3 py-1 rounded-full border bg-gray-50 hover:bg-gray-100"
+            onClick={() => { const d = { ...draft, fromDate: q.f, toDate: q.t }; setDraft(d); setApplied(d); }}>
+            {q.l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
-  // ── Per-tab config ──
-  const isSummary = activeTab === "Summary";
-  const tableTitle = isSummary
-    ? "Salesman Field Report — Summary"
-    : "Day-wise Detail";
-  const tableColumns = isSummary ? summaryColumns : detailColumns;
-  const tableData = isSummary ? summaryData : detailData;
-  const exportFileName = isSummary ? "SalesmanFieldReport" : "SalesmanRouteDayDetail";
+  const tableProps = { filters: tf, setFilters: setTf, appliedFilters: taf, setAppliedFilters: setTaf, showExport: true, showCsv: true, showPdf: true };
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
         <div className="flex flex-wrap gap-2 mb-4">
-          {reportTabsObj.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                  isActive
-                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
-                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          {TABS.map((t) => (
+            <button key={t.id} type="button" onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                tab === t.id ? "!bg-slate-900 !text-white shadow-sm border border-slate-900" : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"}`}>
+              <span>{t.icon}</span><span>{t.label}</span>
+            </button>
+          ))}
         </div>
 
-        {activeTab === "Live Tracking" ? (
+        {tab !== "live" && FilterBar}
+        {tab !== "live" && (perfLoading || logLoading || prodLoading) && (
+          <div className="text-xs text-gray-500 -mt-2 mb-3 flex items-center gap-2">
+            <span className="inline-block w-3 h-3 rounded-full border-2 border-gray-300 border-t-slate-700 animate-spin" />
+            Updating report…
+          </div>
+        )}
+
+        {tab === "overview" && (
           <>
-            <div className="bg-white border rounded-lg p-4 text-sm text-gray-600 mb-4">
-              <div className="font-semibold text-gray-700 mb-1">Live Location & Route Tracking</div>
-              {trackingAppliedFilters.salesmanid
-                ? "Showing the selected salesman's full trail for the chosen date (green = punch-in / start, red = latest). Pick a different date to change the day."
-                : "Latest known location per salesman shown as pins. Pick a salesman to see their full route for the day (punch-in → punch-out)."}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+              <Tile label="Planned calls" value={String(totals.planned)} sub={`${totals.coverage.toFixed(0)}% route covered`} />
+              <Tile label="Productive calls" value={String(totals.productive)} tone="text-green-700" sub="Visited + order" />
+              <Tile label="Unproductive calls" value={String(totals.unproductive)} tone="text-amber-600" sub="Visited, no order" />
+              <Tile label="Missed calls" value={String(totals.missed)} tone="text-red-600" sub={totals.pending ? `${totals.pending} pending today` : "On route, not visited"} />
+              <Tile label="Productivity" value={`${totals.productivity.toFixed(0)}%`} sub={`${totals.offRoute} off-route calls`} />
+              <Tile label="Orders" value={String(totals.orders)} sub={`Avg ${inr(totals.aov)}`} />
+              <Tile label="Order value" value={inr(totals.amount)} tone="text-blue-700" />
+              <Tile label="Collections" value={inr(totals.collections)} tone="text-emerald-700" />
+              <Tile label="Distance travelled" value={`${totals.km.toFixed(1)} km`} />
+            </div>
+            <DailyChart daily={dailyAll} />
+            <ReportTable moduleId="reports.salesmanfield" title="Salesman Performance (ranked by order value)"
+              columns={perfColumns} data={perfRows} isLoading={false} exportFileName="SalesmanPerformance" showTotals {...tableProps} />
+          </>
+        )}
+
+        {tab === "calls" && (
+          <>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[
+                { k: "all", l: "All calls" }, { k: "productive", l: "Productive" }, { k: "unproductive", l: "Unproductive" },
+                { k: "missed", l: "Missed" }, { k: "pending", l: "Pending" }, { k: "offroute", l: "Off route" },
+              ].map((c) => (
+                <button key={c.k} type="button" onClick={() => setStatusFilter(c.k)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === c.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
+                  {c.l} ({callCounts[c.k] ?? 0})
+                </button>
+              ))}
+            </div>
+            <ReportTable moduleId="reports.salesmanfield" title="Call Statement (every planned and visited party, day by day)"
+              columns={callColumns} data={callRows} isLoading={false} exportFileName="SalesmanCallStatement" showTotals {...tableProps} />
+          </>
+        )}
+
+        {tab === "targets" && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <Tile label="Biggest monthly target" value={biggestTarget ? inr(biggestTarget.monthTarget) : "—"} sub={biggestTarget?.salesmanname} />
+              <Tile label="Highest achievement" value={bestAchiever ? `${bestAchiever.monthAchievedPct.toFixed(0)}%` : "—"} tone="text-green-700" sub={bestAchiever?.salesmanname} />
+              <Tile label="Top seller this month" value={topSeller ? inr(topSeller.monthAchieved) : "—"} tone="text-blue-700" sub={topSeller?.salesmanname} />
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Target month = the month of the To Date ({applied.toDate.slice(0, 7)}). Target comes from Staff Accounts → Target Amount; achieved = order value booked by the salesman in that month (cancelled orders excluded).
+            </p>
+            <ReportTable moduleId="reports.salesmanfield" title="Monthly Target vs Achievement"
+              columns={targetColumns} data={targetRows} isLoading={false} exportFileName="SalesmanTargets" showTotals {...tableProps} />
+          </>
+        )}
+
+        {tab === "products" && (
+          <>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[
+                { k: "product", l: "By product" }, { k: "category", l: "By category" },
+                { k: "salesman-product", l: "Salesman × product" }, { k: "salesman-category", l: "Salesman × category" },
+              ].map((g) => (
+                <button key={g.k} type="button" onClick={() => setGroupBy(g.k as any)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${groupBy === g.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
+                  {g.l}
+                </button>
+              ))}
+            </div>
+            <ReportTable moduleId="reports.salesmanfield" title="Orders taken by salesmen — product & category wise"
+              columns={prodColumns} data={prodTable} isLoading={false} exportFileName="SalesmanProductSales" showTotals {...tableProps} />
+          </>
+        )}
+
+        {tab === "live" && (
+          <>
+            <div className="bg-white border rounded-lg p-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <label className="text-sm text-gray-600">Date
+                  <input type="date" className={inputCls} value={trkDraft.date} onChange={(e) => setTrkDraft({ ...trkDraft, date: e.target.value })} />
+                </label>
+                <label className="text-sm text-gray-600">Salesman
+                  {salesmanSelect(trkDraft.salesmanid, (v) => setTrkDraft({ ...trkDraft, salesmanid: v }))}
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold" onClick={() => setTrk(trkDraft)}>Apply</button>
+                  <button type="button" className="px-4 py-2 rounded-lg bg-gray-500 text-white text-sm font-semibold" onClick={() => {
+                    const d = { date: todayYMD(), salesmanid: "" }; setTrkDraft(d); setTrk(d);
+                  }}>Reset</button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {showingTrail
+                  ? "Full trail of the selected salesman for the day (green = punch-in / start, blue = latest)."
+                  : "Latest known location of every salesman. Pick a salesman to see the full route for the day."}
+                {" "}GPS is recorded only while the salesman is punched in with the app open.
+              </p>
             </div>
 
             {showingTrail && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                {[
-                  { label: "Distance covered", value: `${(trailSummary?.km ?? 0).toFixed(2)} km` },
-                  { label: "First location", value: trailSummary?.firstAt ? formatDateTimeDMY(trailSummary.firstAt) : "-" },
-                  { label: "Last location", value: trailSummary?.lastAt ? formatDateTimeDMY(trailSummary.lastAt) : "-" },
-                  { label: "Points recorded", value: String(trailSummary?.points ?? 0) },
-                ].map((c) => (
-                  <div key={c.label} className="bg-white border rounded-lg p-3">
-                    <div className="text-xs text-gray-500">{c.label}</div>
-                    <div className="text-lg font-bold text-gray-800">{c.value}</div>
-                  </div>
-                ))}
+                <Tile label="Distance covered" value={`${(trailSummary?.km ?? 0).toFixed(2)} km`} />
+                <Tile label="First location" value={trailSummary?.firstAt ? formatDateTimeDMY(trailSummary.firstAt) : "-"} />
+                <Tile label="Last location" value={trailSummary?.lastAt ? formatDateTimeDMY(trailSummary.lastAt) : "-"} />
+                <Tile label="Points recorded" value={String(trailSummary?.points ?? 0)} />
               </div>
             )}
 
-            {/* Live map */}
             <div className="mb-4">
               <LiveTrackingMap latest={locations} trail={trail} height={440} />
             </div>
 
             <ReportTable moduleId="reports.salesmanfield"
               title={showingTrail ? "Live Location (Full Day Trail)" : "Live Location (Latest per Salesman)"}
-              columns={trackingColumns}
-              data={trackingData}
-              filterFields={trackingFilterFields}
-              filters={trackingFilters}
-              setFilters={setTrackingFilters}
-              appliedFilters={trackingAppliedFilters}
-              setAppliedFilters={setTrackingAppliedFilters}
-              showCsv
-              exportFileName="SalesmanLiveLocation"
-            />
+              columns={trackingColumns} data={trackingData} exportFileName="SalesmanLiveLocation"
+              filters={tf} setFilters={setTf} appliedFilters={taf} setAppliedFilters={setTaf} showCsv />
           </>
-        ) : (
-          <ReportTable moduleId="reports.salesmanfield"
-            title={tableTitle}
-            columns={tableColumns}
-            data={tableData}
-            filterFields={filterFields}
-            filters={filters}
-            setFilters={setFilters}
-            appliedFilters={appliedFilters}
-            setAppliedFilters={setAppliedFilters}
-            showExport
-            showCsv
-            showPdf
-            exportFileName={exportFileName}
-            showTotals
-          />
         )}
       </div>
     </HomeLayout>

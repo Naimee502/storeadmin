@@ -238,3 +238,30 @@ export function useProductAutoScroll(): boolean {
   });
   return (data as any)?.getAdminSettings?.appProductAutoScroll === true;
 }
+
+/**
+ * Business Settings -> "Geo-fencing for salesmen". On: the salesman only sees
+ * parties within `radiusM` of his live GPS and can take an order / mark a
+ * no-order call only from there. Off by default.
+ */
+export function useGeoFence(): { enabled: boolean; radiusM: number } {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const st = (data as any)?.getAdminSettings;
+  return { enabled: st?.geoFenceEnabled === true, radiusM: Number(st?.geoFenceRadiusM) || 200 };
+}
+
+/** Business Settings -> "Team Leaderboard in the salesman app". On by default. */
+export function useLeaderboardEnabled(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.salesmanLeaderboardEnabled !== false;
+}

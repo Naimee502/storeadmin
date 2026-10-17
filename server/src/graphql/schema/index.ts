@@ -34,6 +34,7 @@ import { adminSettingsTypeDefs } from "./adminsettings";
 import { permissionsTypeDefs } from "./permissions";
 import { chargeRuleTypeDefs } from "./chargerule";
 import { visitTypeDefs } from "./visit";
+import { salesmanReportTypeDefs } from "./salesmanreport";
 import { locationPingTypeDefs } from "./locationping";
 import { notificationTypeDefs } from "./notifications";
 import { accountDeletionTypeDefs } from "./accountdeletionrequest";
@@ -75,6 +76,7 @@ export const typeDefs = [
   permissionsTypeDefs,
   chargeRuleTypeDefs,
   visitTypeDefs,
+  salesmanReportTypeDefs,
   locationPingTypeDefs,
   notificationTypeDefs,
   accountDeletionTypeDefs,

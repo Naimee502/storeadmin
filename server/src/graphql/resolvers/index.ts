@@ -35,6 +35,7 @@ import { adminSettingsResolvers } from "./adminsettings";
 import { permissionsResolvers } from "./permissions";
 import { chargeRuleResolvers } from "./chargerule";
 import { visitResolvers } from "./visit";
+import { salesmanReportResolvers } from "./salesmanreport";
 import { locationPingResolvers } from "./locationping";
 import { notificationResolvers } from "./notifications";
 import { accountDeletionResolvers } from "./accountdeletionrequest";
@@ -77,6 +78,7 @@ export const resolvers = [
   permissionsResolvers,
   chargeRuleResolvers,
   visitResolvers,
+  salesmanReportResolvers,
   locationPingResolvers,
   notificationResolvers,
   accountDeletionResolvers,

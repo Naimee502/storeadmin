@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
@@ -13,6 +13,9 @@ import { useSalesRoutesQuery } from '../../../../apollo/hooks/staffaccounts';
 import { GET_SALES_ORDERS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import type { RootState } from '../../../../store/rootreducer';
+import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
+import { localYMD, haversineM } from '../../../../utils/geo';
+import { useLiveLocation } from '../../../../hooks/uselivelocation';
 
 // Days come in mixed formats: admin panel saves "sun"/"mon", the app used
 // "Sunday"/"Monday". Normalise to a lowercase 3-letter key everywhere.
@@ -226,8 +229,8 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                 style={[styles.addPartyBtn, { backgroundColor: colors.brandSoft }]}
                 onPress={() => onAddParty(
                   route.id, route.routename, day.day,
-                  day.accounts.map((a: any) => a.id),
-                  route.dayWiseAccounts,
+                  (day.fullAccounts ?? day.accounts).map((a: any) => a.id),
+                  route.fullDayWiseAccounts ?? route.dayWiseAccounts,
                   route.salesmanid?.id ?? '',
                 )}
               >
@@ -238,8 +241,11 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
 
             {[...day.accounts]
               .sort((a: any, b: any) => {
-                // Nearest party first so the closest stop is on top (no scrolling).
-                // No GPS fix → keep the route's planned order (both Infinity).
+                // Pending before visited, then nearest first so the next stop is
+                // on top. No GPS fix → keep the route's planned order.
+                const va = a.visitStatus === 'visited' ? 1 : 0;
+                const vb = b.visitStatus === 'visited' ? 1 : 0;
+                if (va !== vb) return va - vb;
                 const da = (salesmanLoc && a.lat != null && a.lng != null)
                   ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, a.lat, a.lng) : Infinity;
                 const db = (salesmanLoc && b.lat != null && b.lng != null)
@@ -356,7 +362,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     style={[styles.manageBtn, { backgroundColor: colors.raisedSurface }]}
                     onPress={() => onManageParty(
                       party, route.id, route.routename, day.day,
-                      route.dayWiseAccounts, route.salesmanid?.id ?? '', allRoutes,
+                      route.fullDayWiseAccounts ?? route.dayWiseAccounts, route.salesmanid?.id ?? '', allRoutes,
                     )}
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                   >
@@ -377,57 +383,12 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
 export default function SalesmanRoutes() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
-  const [salesmanLoc, setSalesmanLoc] = useState<LatLng | null>(null);
-  const [locLabel,    setLocLabel]    = useState<'fetching' | 'live' | 'off'>('fetching');
+  // Live GPS: fresh fix on every focus + re-published after ~50 m of movement,
+  // so the nearest pending party floats to the top as the salesman moves.
+  const { loc: salesmanLoc, status: locLabel, refresh: fetchLocation } = useLiveLocation(50);
   const [savingLocId, setSavingLocId] = useState<string | null>(null);
   const [editAccount] = useMutation(EDIT_ACCOUNT);
 
-  const fetchLocation = useCallback(async () => {
-    setLocLabel('fetching');
-
-    // Android needs an explicit runtime permission before the first fix.
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location permission',
-            message: 'Your location is used to show distance to each party.',
-            buttonPositive: 'Allow',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          setSalesmanLoc(null);
-          setLocLabel('off');
-          return;
-        }
-      } catch {
-        setSalesmanLoc(null);
-        setLocLabel('off');
-        return;
-      }
-    }
-
-    try {
-      Geolocation.getCurrentPosition(
-        (pos: any) => {
-          setSalesmanLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setLocLabel('live');
-        },
-        () => {
-          // No fix available — hide distances rather than show a fake one.
-          setSalesmanLoc(null);
-          setLocLabel('off');
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
-      );
-    } catch {
-      setSalesmanLoc(null);
-      setLocLabel('off');
-    }
-  }, []);
-
-  useEffect(() => { fetchLocation(); }, [fetchLocation]);
 
   // Live sales routes for the logged-in salesman (admin/branch/salesman filtered server-side).
   const { data, loading, refetch } = useSalesRoutesQuery();
@@ -441,7 +402,7 @@ export default function SalesmanRoutes() {
     fetchPolicy: 'cache-and-network',
   });
   const visitedSet = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localYMD();
     const set = new Set<string>();
     ((ordersData as any)?.getSalesOrders ?? []).forEach((o: any) => {
       if ((o.billdate ?? '').startsWith(today) && o.partyacc?.id) set.add(String(o.partyacc.id));
@@ -461,10 +422,34 @@ export default function SalesmanRoutes() {
     return new Set(list.map((a: any) => String(a.id)));
   }, [myPartiesData]);
 
-  const routes = useMemo(
+  const allRoutes = useMemo(
     () => mapServerRoutes((data as any)?.getSalesRoutes ?? [], visitedSet, myPartyIds),
     [data, visitedSet, myPartyIds],
   );
+
+  // Geo-fencing (Business Settings): only the parties within the allowed
+  // radius of the salesman's live GPS are listed. A party with no saved
+  // location stays listed (its location is captured at the shop first, and an
+  // order is refused until then). No GPS fix = nothing listed.
+  const geo = useGeoFence();
+  const routes = useMemo(() => {
+    if (!geo.enabled) return allRoutes;
+    // fullDayWiseAccounts / fullAccounts keep the complete lists so Add /
+    // Manage party never save a route with the hidden parties dropped.
+    return allRoutes.map((r: any) => ({
+      ...r,
+      fullDayWiseAccounts: r.dayWiseAccounts,
+      dayWiseAccounts: (r.dayWiseAccounts || []).map((d: any) => ({
+        ...d,
+        fullAccounts: d.accounts,
+        accounts: (d.accounts || []).filter((p: any) => {
+          if (p.lat == null || p.lng == null) return true;
+          if (!salesmanLoc) return false;
+          return haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng) <= geo.radiusM;
+        }),
+      })),
+    }));
+  }, [allRoutes, geo.enabled, geo.radiusM, salesmanLoc]);
 
   // Refresh whenever the screen regains focus (e.g. after add / manage party / new order).
   useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));
@@ -579,7 +564,11 @@ export default function SalesmanRoutes() {
       <View style={[styles.locBar, { backgroundColor: colors.cardGlass, borderBottomColor: colors.border }]}>
         <Icon name={locIcon} size={14} color={locColor} />
         <Text style={[styles.locBarText, { color: locColor }]}>{locTip}</Text>
-        <Text style={[styles.locBarSub, { color: colors.subText }]}>· Distances shown per party</Text>
+        <Text style={[styles.locBarSub, { color: colors.subText }]} numberOfLines={1}>
+          {geo.enabled
+            ? salesmanLoc ? `· Parties within ${geo.radiusM} m` : '· Turn on GPS to see parties'
+            : '· Distances shown per party'}
+        </Text>
         <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
           <Icon name="refresh" size={16} color={colors.brand} />
         </TouchableOpacity>
@@ -596,7 +585,7 @@ export default function SalesmanRoutes() {
             onAddParty={handleAddParty}
             onManageParty={handleManageParty}
             onNavigate={handleNavigate}
-            allRoutes={routes}
+            allRoutes={allRoutes}
             defaultExpanded={index === 0}
             onAddLocation={handleAddLocation}
             savingLocId={savingLocId}

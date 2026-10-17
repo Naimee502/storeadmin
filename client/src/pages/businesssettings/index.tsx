@@ -166,6 +166,14 @@ export { PermissionsTab as BusinessPermissionsTab };
    GENERAL TAB
    ===================================================================== */
 
+
+// Usual SSL/TLS port per provider; 465 (implicit SSL) is the safe default.
+const defaultSmtpPort = (host: string): number => {
+  const h = (host || "").toLowerCase();
+  if (/office365|outlook|hotmail|live\.com|sendgrid|mailgun|amazonaws|brevo|sendinblue/.test(h)) return 587;
+  return 465;
+};
+
 const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   adminId,
   dispatch,
@@ -177,9 +185,14 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   const [draft, setDraft] = useState<any>(null);
   const [smtpTestTo, setSmtpTestTo] = useState("");
 
+  // Switching business: drop the previous one's draft at once so its values
+  // (mailbox, password, domain…) are never shown — or saved — under the new one.
+  useEffect(() => { setDraft(null); setSmtpTestTo(""); }, [adminId]);
   useEffect(() => {
-    if (settings) setDraft({ ...settings });
-  }, [settings]);
+    if (settings && (!adminId || settings.adminid === adminId || !settings.adminid)) {
+      setDraft({ ...settings, smtpPass: "" });
+    }
+  }, [settings, adminId]);
 
   if (!draft) return <div className="text-gray-500 text-sm">Loading…</div>;
 
@@ -187,8 +200,18 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   const handleSave = async () => {
     if (!adminId) return;
-    const { id, adminid, __typename, smtpPassSet, smtpPass, ...rest } = draft;
+    const { id, adminid, __typename, smtpPassSet, smtpPass, smtpPortTouched, ...rest } = draft;
     const input = deepStripTypename(rest);
+    // SMTP sanity: a mailbox needs its host; blank port = the provider default.
+    if (input.smtpUser && !input.smtpHost) {
+      dispatch(showMessage({ message: "Enter the SMTP Host for the mailbox, or clear the email to use the default Rudra mailbox.", type: "error" }));
+      return;
+    }
+    if (input.smtpUser && !smtpPassSet && !smtpPass) {
+      dispatch(showMessage({ message: "Enter the mailbox password.", type: "error" }));
+      return;
+    }
+    if (input.smtpPort === "" || input.smtpPort == null) input.smtpPort = defaultSmtpPort(input.smtpHost || "");
     // Password: only sent when typed — blank keeps the saved one.
     if (smtpPass) input.smtpPass = smtpPass;
     try {
@@ -318,6 +341,38 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           The product list moves slowly by itself so customers see more of the range. Swiping / scrolling by
           hand always works; touching the list pauses it and it carries on a few seconds later. Off: products
           move only when scrolled.
+        </p>
+        <Toggle
+          label="Team Leaderboard in the salesman app (salesmen see each other's target & achievement)"
+          checked={draft.salesmanLeaderboardEnabled !== false}
+          onChange={(v: boolean) => set("salesmanLeaderboardEnabled", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
+          On: every salesman can open Leaderboard and see the whole team's monthly target, sales and rank. Off: the
+          Leaderboard and "My Rank" are hidden in the app — each salesman sees only his own target.
+        </p>
+        <Toggle
+          label="Geo-fencing for salesmen (orders only at the party's location)"
+          checked={!!draft.geoFenceEnabled}
+          onChange={(v: boolean) => set("geoFenceEnabled", v)}
+        />
+        {draft.geoFenceEnabled && (
+          <div className="max-w-xs pl-1 mb-2">
+            <FormField
+              label="Allowed distance from the party (metres)"
+              type="number"
+              name="geoFenceRadiusM"
+              placeholder="200"
+              value={draft.geoFenceRadiusM ?? 200}
+              onChange={(e: any) => set("geoFenceRadiusM", e.target.value === "" ? 200 : Number(e.target.value))}
+            />
+          </div>
+        )}
+        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
+          On: the salesman app lists only the parties within this distance of the salesman's live GPS, and an order or a
+          "no order" call can be recorded only from there — so orders cannot be punched from home. A party whose
+          location is not saved is still listed, but must have its location saved at the shop before an order is taken.
+          100–300 m suits most shops; use more for rural areas with weak GPS.
         </p>
         <Toggle
           label="Billing panel login needs an email OTP (Admin, Branch & Staff login)"
@@ -498,7 +553,8 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <FormField
             label="Email (mailbox)"
             type="email"
-            name="smtpUser"
+            name="biz-smtp-mailbox"
+            noAutofill
             placeholder="e.g. veer@dkmarketing.co.in"
             value={draft.smtpUser ?? ""}
             onChange={(e: any) => set("smtpUser", e.target.value.trim().toLowerCase())}
@@ -506,7 +562,8 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <FormField
             label="Password"
             type="password"
-            name="smtpPass"
+            name="biz-smtp-secret"
+            noAutofill
             placeholder={draft.smtpPassSet ? "Saved — leave blank to keep it" : "Mailbox password"}
             value={draft.smtpPass ?? ""}
             onChange={(e: any) => set("smtpPass", e.target.value)}
@@ -516,15 +573,27 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             name="smtpHost"
             placeholder="smtp.hostinger.com"
             value={draft.smtpHost ?? ""}
-            onChange={(e: any) => set("smtpHost", e.target.value.trim().toLowerCase())}
+            onChange={(e: any) => {
+              const host = e.target.value.trim().toLowerCase();
+              setDraft((d: any) => {
+                const next = { ...d, smtpHost: host };
+                // Port follows the provider unless the admin typed one himself.
+                if (!d.smtpPortTouched) next.smtpPort = defaultSmtpPort(host);
+                return next;
+              });
+            }}
           />
           <FormField
             label="SMTP Port"
             type="number"
             name="smtpPort"
-            placeholder="465"
-            value={draft.smtpPort ?? 465}
-            onChange={(e: any) => set("smtpPort", e.target.value === "" ? 465 : Number(e.target.value))}
+            placeholder="465 (SSL) or 587 (TLS)"
+            value={draft.smtpHost ? (draft.smtpPort ?? "") : ""}
+            disabled={!draft.smtpHost}
+            onChange={(e: any) => setDraft((d: any) => ({
+              ...d, smtpPortTouched: true,
+              smtpPort: e.target.value === "" ? "" : Number(e.target.value),
+            }))}
           />
         </div>
         <p className="mt-1.5 text-xs px-1">

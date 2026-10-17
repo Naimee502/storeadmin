@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView, InteractionManager } from 'react-native';
+import { useLeaderboardEnabled } from '../apollo/hooks/adminsettings';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -12,7 +13,7 @@ import { GET_MY_ANNOUNCEMENTS } from '../apollo/queries/announcements';
 import { useAuth } from './authcontext';
 import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
-import { logout } from '../store/slices';
+import { safeLogout } from '../utils/safelogout';
 import type { RootState } from '../store/rootreducer';
 import { usePaymentsEnabled, PAYMENT_SCREENS, useModuleScreenGate } from '../apollo/hooks/admin';
 
@@ -43,6 +44,7 @@ const SALESMAN_MENU: DrawerMenuItem[] = [
   { label: 'Dashboard',   icon: 'view-dashboard-outline',  tabScreen: 'SalesmanDashboard'  },
   { label: 'My Routes',   icon: 'map-marker-path',         tabScreen: 'SalesmanRoutes'     },
   { label: 'Orders',      icon: 'clipboard-plus-outline',  tabScreen: 'SalesmanOrders'     },
+  { label: 'Leaderboard', icon: 'trophy-outline',          screen: 'SalesmanLeaderboard' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Attendance',  icon: 'calendar-check-outline',  tabScreen: 'SalesmanAttendance' },
   { label: 'Expense Claims', icon: 'receipt', screen: 'ExpenseClaims' },
@@ -112,8 +114,10 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   const paymentsEnabled = usePaymentsEnabled();
   // Opt-in modules (Expense Claims, Announcements): no drawer entry while off.
   const moduleAllows = useModuleScreenGate();
+  const leaderboardOn = useLeaderboardEnabled();
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
-    (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen),
+    (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)
+      && (leaderboardOn || m.screen !== 'SalesmanLeaderboard'),
   );
   const label = ROLE_LABELS[role] ?? 'User';
 
@@ -136,12 +140,7 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
     // Resetting auth synchronously unmounts the whole navigator tree mid-
     // fragment-transaction, crashing with "FragmentManager is already
     // executing transactions" / removeViewAt errors on Android.
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(async () => {
-        dispatch(logout());
-        await signOut();
-      }, 100);
-    });
+    safeLogout(dispatch, signOut);
   };
 
   const navigateTo = (item: DrawerMenuItem) => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   FaFileCsv,
   FaSync,
@@ -7,6 +7,7 @@ import {
   FaFilePdf,
   FaFilter,
   FaSearch,
+  FaColumns,
 } from "react-icons/fa";
 import Loader from "../loader";
 import FormField from "../formfiled";
@@ -177,6 +178,14 @@ const printReportAsPDF = (
       }).join("")}</tr>`
     : "";
 
+  // Fit wide reports on the page: landscape from 8 columns, smaller text and
+  // padding as the column count grows.
+  const n = columns.length;
+  // Always A4 (what offices print on): landscape from 8 columns.
+  const pageSize = n > 7 ? "A4 landscape" : "A4 portrait";
+  const fs = n > 18 ? 7 : n > 13 ? 8 : n > 9 ? 9 : 10;
+  const pad = n > 18 ? "2px 3px" : n > 13 ? "3px 4px" : n > 9 ? "4px 5px" : "5px 8px";
+
   const win = window.open("", "_blank");
   if (!win) return;
   const subtitleHtml = pdfSubtitle && pdfSubtitle.length > 0 
@@ -188,11 +197,15 @@ const printReportAsPDF = (
   body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#222;}
   h2{text-align:center;font-size:15px;margin-bottom:4px;}
   .meta{text-align:center;font-size:10px;color:#555;margin-bottom:12px;}
-  table{width:100%;border-collapse:collapse;}
-  thead tr th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;font-size:10px;border:1px solid #1e3a5f;}
-  tbody tr td{padding:5px 8px;border:1px solid #ccc;font-size:10px;}
+  @page{size:${pageSize};margin:8mm;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  table{width:100%;border-collapse:collapse;table-layout:auto;}
+  thead{display:table-header-group;}
+  tr{page-break-inside:avoid;}
+  thead tr th{background:#1e3a5f;color:#fff;padding:${pad};text-align:left;font-size:${fs}px;border:1px solid #1e3a5f;white-space:normal;word-break:normal;line-height:1.2;}
+  tbody tr td{padding:${pad};border:1px solid #ccc;font-size:${fs}px;line-height:1.25;}
   tbody tr.even td{background:#f7f9fc;}
-  @media print{body{margin:10px;}}
+  @media print{body{margin:0;}}
 </style></head><body>
 <h2>${title}</h2>
 <div class="meta">${fyInfo()} &nbsp;|&nbsp; Generated on: ${today} &nbsp;|&nbsp; Total records: ${data.length}</div>
@@ -206,9 +219,14 @@ ${subtitleHtml}
 /* ──────────────────────────────────────────────────────────────────
    Component
 ────────────────────────────────────────────────────────────────── */
+// Column chooser: offered only on wide reports, remembered per report in this
+// browser. The first LOCKED_COLS columns (Seq No / Rank, name) always stay.
+const COLUMN_CHOOSER_MIN = 9;
+const LOCKED_COLS = 2;
+
 const ReportTable: React.FC<ReportTableProps> = ({
   title,
-  columns,
+  columns: allColumns,
   data,
   filterFields = [],
   filters,
@@ -234,6 +252,43 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const finalShowExport = moduleId ? actions?.showExportExcel : showExport;
   const finalShowCsv = moduleId ? actions?.showExportCsv : showCsv;
   const finalShowPdf = moduleId ? actions?.showExportPdf : showPdf;
+
+  /* ── Column chooser (screen, totals, Excel, CSV and PDF all follow it) ── */
+  const chooserOn = allColumns.length >= COLUMN_CHOOSER_MIN;
+  const storageKey = `reportcols:${moduleId || ""}:${exportFileName}:${title}`;
+  const [hiddenCols, setHiddenCols] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      setHiddenCols(Array.isArray(v) ? v : []);
+    } catch { setHiddenCols([]); }
+  }, [storageKey]);
+  const saveHidden = (next: string[]) => {
+    setHiddenCols(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* storage off */ }
+  };
+  const lockedKeys = useMemo(() => new Set(allColumns.slice(0, LOCKED_COLS).map((c) => c.key)), [allColumns]);
+  const columns = useMemo(
+    () => chooserOn ? allColumns.filter((c) => lockedKeys.has(c.key) || !hiddenCols.includes(c.key)) : allColumns,
+    [allColumns, hiddenCols, chooserOn, lockedKeys]
+  );
+  const [colMenuOpen, setColMenuOpen] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!colMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setColMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [colMenuOpen]);
+  const toggleCol = (key: string) =>
+    saveHidden(hiddenCols.includes(key) ? hiddenCols.filter((k) => k !== key) : [...hiddenCols, key]);
 
   const [globalSearch, setGlobalSearch] = useState("");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
@@ -470,6 +525,47 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
             {/* Export buttons with visible icon + text */}
             <div className="flex flex-wrap items-center gap-2">
+              {chooserOn && (
+                <div className="relative" ref={colMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setColMenuOpen((v) => !v)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-md hover:bg-gray-100 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-gray-300"
+                  >
+                    <FaColumns className="flex-shrink-0" size={14} />
+                    <span>Columns ({columns.length}/{allColumns.length})</span>
+                  </button>
+                  {colMenuOpen && (
+                    <div className="absolute z-30 mt-2 w-72 bg-white border rounded-lg shadow-lg p-3 left-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-gray-700 text-sm">Show columns</span>
+                        <div className="flex gap-2 text-xs">
+                          <button type="button" className="text-blue-600 hover:underline" onClick={() => saveHidden([])}>Select all</button>
+                          <button type="button" className="text-gray-500 hover:underline" onClick={() => saveHidden([])}>Reset</button>
+                        </div>
+                      </div>
+                      <div className="max-h-72 overflow-auto grid grid-cols-1 gap-1">
+                        {allColumns.map((c) => {
+                          const locked = lockedKeys.has(c.key);
+                          const on = locked || !hiddenCols.includes(c.key);
+                          return (
+                            <label key={c.key} className={`flex items-center gap-2 px-2 py-1 rounded text-sm ${locked ? "text-gray-400" : "hover:bg-gray-50 cursor-pointer text-gray-700"}`}>
+                              <input type="checkbox" checked={on} disabled={locked} onChange={() => toggleCol(c.key)} />
+                              <span className="truncate">{c.label}</span>
+                              {locked && <span className="ml-auto text-[10px]">always</span>}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className={`mt-2 text-xs ${columns.length > 12 ? "text-amber-600" : "text-gray-400"}`}>
+                        {columns.length > 12
+                          ? `${columns.length} columns — the PDF will use small text. Pick 12 or fewer for a clear A4 print.`
+                          : "Screen, totals, Excel, CSV and PDF show only the ticked columns."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {finalShowExport && (
                 <button
                   type="button"

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -11,7 +11,7 @@ import { formatINR } from '../../../../utils';
 import { ProfileSkeleton } from '../../../../config/skeletonlayouts';
 import { AppHeader, AppModal } from '../../../../components';
 import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
-import { logout } from '../../../../store/slices';
+import { safeLogout } from '../../../../utils/safelogout';
 import { useAuth } from '../../../../navigation';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -57,12 +57,7 @@ export default function StaffProfile() {
     setLogoutModal(false);
     // Defer the auth reset so the modal close transaction finishes before the
     // navigator tree unmounts (avoids Android FragmentManager crashes).
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(async () => {
-        dispatch(logout());
-        await signOut();
-      }, 100);
-    });
+    safeLogout(dispatch, signOut);
   };
 
   return (

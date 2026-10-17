@@ -500,6 +500,9 @@ export const GET_ADMIN_SETTINGS = gql`
       appCatalogBrowseMode
       appCategoryAutoScroll
       appProductAutoScroll
+      geoFenceEnabled
+      geoFenceRadiusM
+      salesmanLeaderboardEnabled
       heroBannerSlides {
         image
         title

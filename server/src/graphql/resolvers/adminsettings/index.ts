@@ -38,6 +38,9 @@ const formatSettings = (s: any) =>
         smtpUser: s.smtpUser || "",
         smtpPassSet: !!s.smtpPassEnc,
         smtpPassEnc: undefined,
+        geoFenceEnabled: !!s.geoFenceEnabled,
+        salesmanLeaderboardEnabled: s.salesmanLeaderboardEnabled !== false,
+        geoFenceRadiusM: Number(s.geoFenceRadiusM) || 200,
       }
     : null;
 
@@ -224,6 +227,9 @@ export const adminSettingsResolvers = {
           throw new Error(`"${u}" is not a valid email address for the SMTP mailbox.`);
         }
       }
+      if ($set.smtpUser && "smtpHost" in $set && !$set.smtpHost) {
+        throw new Error("SMTP host is required for the mailbox (e.g. smtp.hostinger.com), or clear the email to use the default mailbox.");
+      }
       if ("smtpPort" in $set) {
         const port = Number($set.smtpPort);
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -232,6 +238,13 @@ export const adminSettingsResolvers = {
         $set.smtpPort = port;
       }
       if (smtpTouched) clearBusinessMailer(adminid);
+      if ("geoFenceRadiusM" in $set) {
+        const r = Math.round(Number($set.geoFenceRadiusM));
+        if (!Number.isFinite(r) || r < 20 || r > 50000) {
+          throw new Error("Geo-fence radius must be between 20 and 50,000 metres.");
+        }
+        $set.geoFenceRadiusM = r;
+      }
 
       const update: any = { $set };
       if (Object.keys($unset).length) update.$unset = $unset;

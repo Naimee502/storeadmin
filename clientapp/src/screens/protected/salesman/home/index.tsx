@@ -10,24 +10,23 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { AppHeader, useNotificationCenter } from '../../../../components';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
-import { GET_SALES_ORDERS, GET_PAYMENTS, GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
+import { formatINR } from '../../../../utils';
+import { GET_SALESMAN_DASHBOARD, GET_SALESMAN_LEADERBOARD } from '../../../../apollo/queries/salesmanreport';
+import { localYMD } from '../../../../utils/geo';
+import { useLeaderboardEnabled } from '../../../../apollo/hooks/adminsettings';
+import { GET_ACCOUNTS, GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import type { RootState } from '../../../../store/rootreducer';
 
-const STATUS_COLOR: Record<string, string> = {
-  Cancelled: '#ef4444', Confirmed: '#3b82f6', Pending: '#f59e0b',
-  Dispatched: '#0ea5e9', Delivered: '#22c55e',
+// Call outcome colours (same meaning as the admin Salesman Field Report).
+const CALL = {
+  productive:   { color: '#16a34a', label: 'Productive' },
+  unproductive: { color: '#f59e0b', label: 'No order' },
+  missed:       { color: '#ef4444', label: 'Missed' },
+  pending:      { color: '#9ca3af', label: 'Pending' },
 };
-
-function orderLabel(o: any): string {
-  if (o.cancelStatus === 'cancelled') return 'Cancelled';
-  if (o.deliveryStatus === 'delivered') return 'Delivered';
-  if (o.deliveryStatus === 'dispatched') return 'Dispatched';
-  if (o.isConverted) return 'Confirmed';
-  return 'Pending';
-}
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function SalesmanDashboard() {
   const navigation = useNavigation<any>();
@@ -55,16 +54,12 @@ export default function SalesmanDashboard() {
     navigation.navigate(screen, params);
   };
 
-  const { data, refetch } = useQuery(GET_SALES_ORDERS, {
-    variables: { adminid, salesmenid: user?.id },
+  // Everything on this screen comes from the server dashboard (same rules as
+  // the admin Salesman Field Report): today's calls, this month's target and
+  // the last 7 days.
+  const { data, refetch } = useQuery(GET_SALESMAN_DASHBOARD, {
+    variables: { adminid, salesmanid: user?.id, date: localYMD() },
     skip: !adminid || !user?.id,
-    fetchPolicy: 'cache-and-network',
-  });
-
-  // Today's collections (this salesman's receipts) + my parties (for outstanding).
-  const { data: payData, refetch: refetchPay } = useQuery(GET_PAYMENTS, {
-    variables: { adminid },
-    skip: !adminid,
     fetchPolicy: 'cache-and-network',
   });
   const { data: partyData, refetch: refetchParties } = useQuery(GET_ACCOUNTS, {
@@ -73,36 +68,50 @@ export default function SalesmanDashboard() {
     fetchPolicy: 'cache-and-network',
   });
 
-  // Re-pull whenever the dashboard regains focus, so new orders/payments show immediately.
-  useFocusEffect(useCallback(() => { refetch?.(); refetchPay?.(); refetchParties?.(); }, [refetch, refetchPay, refetchParties]));
+  // My rank this month (team leaderboard) + my orders still awaiting confirmation.
+  const { data: lbData, refetch: refetchLb } = useQuery(GET_SALESMAN_LEADERBOARD, {
+    variables: { adminid, salesmanid: user?.id },
+    skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const { data: ordData, refetch: refetchOrd } = useQuery(GET_SALES_ORDERS, {
+    variables: { adminid, salesmenid: user?.id },
+    skip: !adminid || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
 
-  // Newest first — orders come back oldest-first from the server.
-  const orders = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
+  useFocusEffect(useCallback(() => {
+    refetch?.(); refetchParties?.(); refetchLb?.(); refetchOrd?.();
+  }, [refetch, refetchParties, refetchLb, refetchOrd]));
 
-  const today       = new Date().toISOString().slice(0, 10);
-  const todayOrders = useMemo(() => orders.filter((o: any) => (o.billdate ?? '').startsWith(today)), [orders, today]);
-  const pending     = useMemo(() => orders.filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length, [orders]);
-  const confirmed   = useMemo(() => orders.filter((o: any) => o.isConverted).length, [orders]);
-  const recent      = useMemo(() => orders.slice(0, 3), [orders]);
-
-  const ymd = (d: any) => {
-    const t = Number(d); const dt = !isNaN(t) ? new Date(t) : new Date(d);
-    return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
-  };
-  const todaySales = useMemo(
-    () => todayOrders.reduce((s: number, o: any) => s + (o.totalamount || 0), 0),
-    [todayOrders],
+  const leaderboardOn = useLeaderboardEnabled();
+  const lbRows: any[] = (lbData as any)?.getSalesmanLeaderboard?.rows ?? [];
+  const myRank = lbRows.find((r) => r.isMe)?.rank;
+  const pendingOrders = useMemo(
+    () => ((ordData as any)?.getSalesOrders ?? []).filter((o: any) => !o.isConverted && o.cancelStatus !== 'cancelled').length,
+    [ordData],
   );
-  const todayCollection = useMemo(() => {
-    return ((payData as any)?.getPayments ?? [])
-      .filter((p: any) => p.type === 'receipt' && p.status !== false && ymd(p.paymentdate) === today)
-      .reduce((s: number, p: any) => s + (p.amount || 0), 0);
-  }, [payData, today]);
+
+  const dash  = (data as any)?.getSalesmanDashboard;
+  const today = dash?.today;
+  const month = dash?.month;
+  const last7: any[] = dash?.last7 ?? [];
+
   const parties = useMemo(() => (partyData as any)?.getAccounts ?? [], [partyData]);
   const totalOutstanding = useMemo(
     () => parties.reduce((s: number, p: any) => s + Math.max(0, p.outstanding || 0), 0),
     [parties],
   );
+
+  // Whole rupees with Indian grouping (₹5,00,000) — decimals only add noise here.
+  const inr0 = (n: number) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
+  const hasPlan = (today?.plannedCalls ?? 0) > 0;
+  const targetPct = Math.min(100, Math.max(0, month?.monthAchievedPct ?? 0));
+  const targetColor = (month?.monthAchievedPct ?? 0) >= 100 ? '#16a34a' : targetPct >= 60 ? colors.brand : targetPct >= 30 ? '#f59e0b' : '#ef4444';
+  const maxCalls = Math.max(1, ...last7.map((d) => d.productive + d.unproductive + d.missed + d.pending));
+  const weekAmount = last7.reduce((s, d) => s + (d.amount || 0), 0);
+  const weekProductive = last7.reduce((s, d) => s + (d.productive || 0), 0);
+  const weekCalls = last7.reduce((s, d) => s + (d.productive || 0) + (d.unproductive || 0), 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -124,7 +133,7 @@ export default function SalesmanDashboard() {
               <Icon name="trending-up" size={13} color={colors.brand} />
               <Text style={[styles.todayLabel, { color: colors.subText }]}>Sales today</Text>
             </View>
-            <Text style={[styles.todayValue, { color: colors.text }]} numberOfLines={1}>{formatINR(todaySales)}</Text>
+            <Text style={[styles.todayValue, { color: colors.text }]} numberOfLines={1}>{formatINR(today?.orderAmount ?? 0)}</Text>
           </View>
           {paymentsEnabled && (
             <>
@@ -134,7 +143,7 @@ export default function SalesmanDashboard() {
                   <Icon name="cash-check" size={13} color="#16a34a" />
                   <Text style={[styles.todayLabel, { color: colors.subText }]}>Collected</Text>
                 </View>
-                <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(todayCollection)}</Text>
+                <Text style={[styles.todayValue, { color: '#16a34a' }]} numberOfLines={1}>{formatINR(today?.collections ?? 0)}</Text>
               </View>
             </>
           )}
@@ -146,19 +155,62 @@ export default function SalesmanDashboard() {
           style={[styles.statStrip, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         >
           {[
-            { value: String(todayOrders.length),  label: 'Orders',     color: '#3b82f6' },
-            { value: String(pending),             label: 'Pending',    color: '#f59e0b' },
-            ...(paymentsEnabled ? [{ value: formatINR(totalOutstanding), label: 'To Collect', color: '#ef4444' }] : []),
-            { value: String(parties.length),      label: 'Parties',    color: '#8b5cf6' },
+            ...(leaderboardOn ? [{ value: myRank ? `#${myRank}/${lbRows.length}` : '—', label: 'My Rank', color: '#f59e0b', onPress: () => navigation.navigate('SalesmanLeaderboard') }] : []),
+            { value: String(pendingOrders), label: 'Pending Orders', color: '#3b82f6', onPress: () => goWithPunch('SalesmanOrders') },
+            ...(paymentsEnabled ? [{ value: inr0(totalOutstanding), label: 'To Collect', color: '#ef4444', onPress: undefined }] : []),
+            { value: String(parties.length), label: 'Parties', color: '#8b5cf6', onPress: () => goWithPunch('SalesmanParties') },
           ].map((s, i) => (
             <React.Fragment key={s.label}>
               {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
-              <View style={styles.stripItem}>
-                <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1}>{s.value}</Text>
-                <Text style={[styles.stripLabel, { color: colors.subText }]}>{s.label}</Text>
-              </View>
+              <TouchableOpacity style={styles.stripItem} onPress={s.onPress} disabled={!s.onPress} activeOpacity={0.7}>
+                <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1} adjustsFontSizeToFit>{s.value}</Text>
+                <Text style={[styles.stripLabel, { color: colors.subText }]} numberOfLines={1}>{s.label}</Text>
+              </TouchableOpacity>
             </React.Fragment>
           ))}
+        </Animated.View>
+
+        {/* Today's calls */}
+        <Animated.View entering={FadeInUp.duration(400).delay(100)} style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Calls</Text>
+          <View style={[styles.perfCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <View style={styles.callsRow}>
+              {[
+                // No route planned today (or the business doesn't use routes):
+                // show visits instead of planned / remaining.
+                ...(hasPlan ? [{ k: 'planned', v: today.plannedCalls, l: 'Planned', c: colors.text }]
+                            : [{ k: 'visits', v: today?.totalCalls ?? 0, l: 'Visits', c: colors.text }]),
+                { k: 'productive', v: today?.productiveCalls ?? 0, l: CALL.productive.label, c: CALL.productive.color },
+                { k: 'unproductive', v: today?.unproductiveCalls ?? 0, l: CALL.unproductive.label, c: CALL.unproductive.color },
+                ...(hasPlan ? [{ k: 'pending', v: today.pendingCalls, l: 'Remaining', c: CALL.pending.color }]
+                            : [{ k: 'productivity', v: `${Math.round(today?.productivityPct ?? 0)}%`, l: 'Productivity', c: '#3b82f6' }]),
+              ].map((x, i) => (
+                <React.Fragment key={x.k}>
+                  {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
+                  <View style={styles.callCell}>
+                    <Text style={[styles.callValue, { color: x.c }]} numberOfLines={1}>{x.v}</Text>
+                    <Text style={[styles.callLabel, { color: colors.subText }]} numberOfLines={1}>{x.l}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+            {(today?.plannedCalls ?? 0) > 0 && (
+              <View style={[styles.stackBar, { backgroundColor: colors.border }]}>
+                {(['productive', 'unproductive', 'pending'] as const).map((k) => {
+                  const v = k === 'productive' ? today.productiveCalls : k === 'unproductive' ? today.unproductiveCalls : today.pendingCalls;
+                  return v ? <View key={k} style={{ flex: v, backgroundColor: CALL[k].color }} /> : null;
+                })}
+              </View>
+            )}
+            {hasPlan && (
+              <View style={[styles.footRow, { borderTopColor: colors.border }]}>
+                <Icon name="map-marker-check-outline" size={13} color={colors.subText} />
+                <Text style={[styles.footText, { color: colors.subText }]} numberOfLines={1}>
+                  {`Route covered ${Math.round(today?.coveragePct ?? 0)}%${(today?.offRouteCalls ?? 0) > 0 ? ` · ${today.offRouteCalls} off-route` : ''}`}
+                </Text>
+              </View>
+            )}
+          </View>
         </Animated.View>
 
         {/* Today's Route */}
@@ -196,50 +248,98 @@ export default function SalesmanDashboard() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Recent Orders */}
-        <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
+        {/* Monthly target */}
+        <Animated.View entering={FadeInUp.duration(400).delay(110)} style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Orders</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Monthly Target</Text>
+            {leaderboardOn && (
+              <TouchableOpacity onPress={() => navigation.navigate('SalesmanLeaderboard')}>
+                <Text style={[styles.viewAll, { color: colors.brand }]}>Leaderboard</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={[styles.perfCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            {month?.monthTarget ? (
+              <>
+                <View style={styles.callsRow}>
+                  {[
+                    { k: 'ach', l: 'Achieved', v: inr0(month.monthAchieved), c: colors.text },
+                    { k: 'tgt', l: 'Target', v: inr0(month.monthTarget), c: colors.brand },
+                    { k: 'rem', l: month.monthAchievedPct >= 100 ? 'Extra' : 'To go', v: inr0(month.monthAchievedPct >= 100 ? month.monthAchieved - month.monthTarget : month.monthRemaining), c: month.monthAchievedPct >= 100 ? '#16a34a' : '#ef4444' },
+                  ].map((x, i) => (
+                    <React.Fragment key={x.k}>
+                      {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
+                      <View style={styles.callCell}>
+                        <Text style={[styles.targetVal, { color: x.c }]} numberOfLines={1} adjustsFontSizeToFit>{x.v}</Text>
+                        <Text style={[styles.callLabel, { color: colors.subText }]}>{x.l}</Text>
+                      </View>
+                    </React.Fragment>
+                  ))}
+                </View>
+                <View style={styles.progressRow}>
+                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                    <View style={{ width: `${targetPct}%`, backgroundColor: targetColor, height: '100%', borderRadius: 5 }} />
+                  </View>
+                  <Text style={[styles.targetPct, { color: targetColor }]}>{Math.round(month.monthAchievedPct)}%</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={[styles.perfFoot, { color: colors.subText }]}>
+                No target set for you yet. This month: {formatINR(month?.monthAchieved ?? 0)} booked.
+              </Text>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Last 7 days */}
+        <Animated.View entering={FadeInUp.duration(400).delay(115)} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Last 7 Days</Text>
             <TouchableOpacity onPress={() => goWithPunch('SalesmanOrders')}>
-              <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
+              <Text style={[styles.viewAll, { color: colors.brand }]}>My orders</Text>
             </TouchableOpacity>
           </View>
-
-          {recent.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-              <Icon name="clipboard-outline" size={28} color={colors.border} />
-              <Text style={[styles.emptyText, { color: colors.subText }]}>No orders yet</Text>
+          <View style={[styles.perfCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+            <View style={styles.weekTop}>
+              <View>
+                <Text style={[styles.callLabel, { color: colors.subText }]}>Order value</Text>
+                <Text style={[styles.weekVal, { color: colors.text }]}>{formatINR(weekAmount)}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.callLabel, { color: colors.subText }]}>Productive calls</Text>
+                <Text style={[styles.weekVal, { color: CALL.productive.color }]}>{weekProductive}/{weekCalls}</Text>
+              </View>
             </View>
-          ) : (
-            recent.map((order: any) => {
-              const label  = orderLabel(order);
-              const colour = STATUS_COLOR[label] ?? colors.brand;
-              return (
-                <TouchableOpacity
-                  key={order.id}
-                  style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
-                  onPress={() => goWithPunch('OrderDetail', { orderId: order.id })}
-                  activeOpacity={0.85}
-                >
-                  <View style={[styles.statusDot, { backgroundColor: colour }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.orderNum, { color: colors.text }]}>{formatBillNumber(order)}</Text>
-                    <Text style={[styles.orderParty, { color: colors.subText }]} numberOfLines={1}>
-                      {order.partyacc?.accountname ?? '—'}
+            <View style={styles.chart}>
+              {last7.map((d) => {
+                const total = d.productive + d.unproductive + d.missed + d.pending;
+                const dow = DOW[new Date(`${d.date}T00:00:00`).getDay()];
+                return (
+                  <View key={d.date} style={styles.chartCol}>
+                    <Text style={[styles.chartAmt, { color: colors.subText }]} numberOfLines={1}>
+                      {d.amount ? (d.amount >= 1000 ? `${Math.round(d.amount / 1000)}k` : Math.round(d.amount)) : ''}
                     </Text>
-                    <Text style={[styles.orderDate, { color: colors.subText }]}>{formatDate(order.billdate)}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.orderAmt, { color: colors.text }]}>{formatINR(order.totalamount)}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: colour + '22' }]}>
-                      <Text style={[styles.statusText, { color: colour }]}>{label}</Text>
+                    <View style={styles.chartBarArea}>
+                      <View style={[styles.chartBar, { height: `${(total / maxCalls) * 100}%` }]}>
+                        {(['pending', 'missed', 'unproductive', 'productive'] as const).map((k) =>
+                          d[k] ? <View key={k} style={{ flex: d[k], backgroundColor: CALL[k].color }} /> : null,
+                        )}
+                      </View>
                     </View>
+                    <Text style={[styles.chartDay, { color: colors.subText }]}>{dow}</Text>
                   </View>
-                  <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
-              );
-            })
-          )}
+                );
+              })}
+            </View>
+            <View style={styles.legend}>
+              {(['productive', 'unproductive', 'missed', 'pending'] as const).map((k) => (
+                <View key={k} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: CALL[k].color }]} />
+                  <Text style={[styles.legendText, { color: colors.subText }]}>{CALL[k].label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         </Animated.View>
 
       </ScrollView>
@@ -286,6 +386,37 @@ const styles = StyleSheet.create({
   routeIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   routeName:     { fontSize: 14, fontFamily: FONTS.bold },
   routeCode:     { fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
+
+  perfCard: {
+    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 12,
+    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  },
+  callsRow:      { flexDirection: 'row', alignItems: 'center' },
+  callCell:      { flex: 1, alignItems: 'center' },
+  callValue:     { fontSize: 18, fontFamily: FONTS.bold },
+  callLabel:     { fontSize: 10.5, fontFamily: FONTS.regular, marginTop: 3 },
+  footRow:       { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  footText:      { flex: 1, fontSize: 11.5, fontFamily: FONTS.regular },
+  targetVal:     { fontSize: 15, fontFamily: FONTS.bold },
+  progressRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  stackBar:      { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 12 },
+  perfFoot:      { fontSize: 11.5, fontFamily: FONTS.regular, marginTop: 8 },
+  targetTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  targetAch:     { fontSize: 20, fontFamily: FONTS.bold },
+  targetPct:     { fontSize: 14, fontFamily: FONTS.bold, minWidth: 38, textAlign: 'right' },
+  progressTrack: { flex: 1, height: 8, borderRadius: 5, overflow: 'hidden' },
+  weekTop:       { flexDirection: 'row', justifyContent: 'space-between' },
+  weekVal:       { fontSize: 16, fontFamily: FONTS.bold, marginTop: 2 },
+  chart:         { flexDirection: 'row', alignItems: 'flex-end', height: 130, marginTop: 12, gap: 6 },
+  chartCol:      { flex: 1, alignItems: 'center', height: '100%' },
+  chartAmt:      { fontSize: 9, fontFamily: FONTS.regular, height: 12 },
+  chartBarArea:  { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
+  chartBar:      { width: '70%', maxWidth: 22, borderRadius: 4, overflow: 'hidden', flexDirection: 'column', minHeight: 2 },
+  chartDay:      { fontSize: 10, fontFamily: FONTS.regular, marginTop: 4 },
+  legend:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, justifyContent: 'center' },
+  legendItem:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot:     { width: 8, height: 8, borderRadius: 2 },
+  legendText:    { fontSize: 10.5, fontFamily: FONTS.regular },
 
   emptyCard: { borderRadius: 16, borderWidth: 1, paddingVertical: 22, alignItems: 'center', justifyContent: 'center', gap: 8 },
   emptyText: { fontSize: 13, fontFamily: FONTS.regular },
