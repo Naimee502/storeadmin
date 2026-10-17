@@ -157,6 +157,33 @@ export function TenantProvider({
     applyBrandTheme(themeBrandColor);
   }, [themeBrandColor]);
 
+  // Browser tab title, description and favicon follow the business, so a store
+  // on its own domain (dkmarketing.co.in) never shows the platform's name.
+  const tabName: string = info?.companyName ?? "";
+  const tabTagline: string = info?.websiteTagline ?? "";
+  const tabIcon: string = info?.brandLogo ?? "";
+  useLayoutEffect(() => {
+    if (!tabName) return;
+    document.title = tabTagline ? `${tabName} — ${tabTagline}` : tabName;
+    let desc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    if (!desc) {
+      desc = document.createElement("meta");
+      desc.name = "description";
+      document.head.appendChild(desc);
+    }
+    desc.content = tabTagline || `Shop online at ${tabName}.`;
+    if (tabIcon) {
+      let icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (!icon) {
+        icon = document.createElement("link");
+        icon.rel = "icon";
+        document.head.appendChild(icon);
+      }
+      icon.removeAttribute("type"); // logo may be png/jpg, not the default svg
+      icon.href = tabIcon;
+    }
+  }, [tabName, tabTagline, tabIcon]);
+
   if (error) {
     // Surface the real cause in the console — "Store not found" on screen looks
     // the same whether the slug truly doesn't exist or the server/schema call

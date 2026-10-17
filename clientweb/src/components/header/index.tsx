@@ -76,12 +76,16 @@ export default function Header() {
       <div className="hidden bg-ink-900 text-slate-200 md:block">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 text-xs sm:px-6 lg:px-8">
           <div className="flex items-center gap-5">
-            <a href="#" className="flex items-center gap-1.5 hover:text-white">
-              <Phone className="h-3.5 w-3.5" /> {supportPhone || siteConfig.supportPhone}
-            </a>
-            <a href="#" className="hidden items-center gap-1.5 hover:text-white lg:flex">
-              <Mail className="h-3.5 w-3.5" /> {supportEmail || siteConfig.supportEmail}
-            </a>
+            {supportPhone && (
+              <a href={`tel:${supportPhone.replace(/\s+/g, "")}`} className="flex items-center gap-1.5 hover:text-white">
+                <Phone className="h-3.5 w-3.5" /> {supportPhone}
+              </a>
+            )}
+            {supportEmail && (
+              <a href={`mailto:${supportEmail}`} className="hidden items-center gap-1.5 hover:text-white lg:flex">
+                <Mail className="h-3.5 w-3.5" /> {supportEmail}
+              </a>
+            )}
           </div>
           <div className="flex items-center gap-5">
             <Link to="/login" className="flex items-center gap-1.5 font-medium text-brand-300 hover:text-brand-200">

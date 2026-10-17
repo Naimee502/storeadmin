@@ -17,7 +17,7 @@ type Step = "mobile" | "register" | "addEmail" | "otp" | "success";
 //     then an OTP sent to that EMAIL (never returned by the server), verified
 //     with verifyOTP.
 export default function LoginPage() {
-  const { companyName, adminid, brandLogo } = useTenant();
+  const { companyName, adminid, brandLogo, websiteTagline } = useTenant();
   const { setSession } = useAuth();
   const [searchParams] = useSearchParams();
   // Checkout (and anywhere else that requires login) links here with
@@ -294,7 +294,7 @@ export default function LoginPage() {
             </span>
           )}
           <h1 className="text-xl font-bold text-ink-900">Welcome to {brandName}</h1>
-          <p className="mt-1 text-sm text-slate-500">{siteConfig.tagline}</p>
+          {websiteTagline && <p className="mt-1 text-sm text-slate-500">{websiteTagline}</p>}
         </div>
 
         <div className="rounded-2xl border border-slate-100 p-6 shadow-sm">

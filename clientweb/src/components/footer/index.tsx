@@ -71,12 +71,16 @@ export default function Footer() {
             </div>
             <p className="mb-4 text-sm leading-relaxed text-slate-400">{tagline}</p>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-brand-400" /> {supportPhone || siteConfig.supportPhone}
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-brand-400" /> {supportEmail || siteConfig.supportEmail}
-              </li>
+              {supportPhone && (
+                <li className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-brand-400" /> {supportPhone}
+                </li>
+              )}
+              {supportEmail && (
+                <li className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-brand-400" /> {supportEmail}
+                </li>
+              )}
               {address && (
                 <li className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-brand-400" /> {address}
