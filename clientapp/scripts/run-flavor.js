@@ -15,6 +15,7 @@ const FLAVORS = {
   rkn: { mode: 'rknDebug', appId: 'com.app.rkn' },
   powergold: { mode: 'powergoldDebug', appId: 'com.app.powergoldagroproduct' },
   arsi: { mode: 'arsiDebug', appId: 'com.arsi.agarbatti' },
+  pelican: { mode: 'pelicanDebug', appId: 'com.app.pelican' },
 };
 
 const flavor = process.argv[2];

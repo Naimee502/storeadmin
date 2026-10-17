@@ -17,7 +17,7 @@ apply plugin: "com.google.gms.google-services"
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 react {
-    debuggableVariants = ["rudraerpDebug", "rudraerpDebugOptimized", "rknDebug", "rknDebugOptimized", "powergoldDebug", "powergoldDebugOptimized", "arsiDebug", "arsiDebugOptimized"]
+    debuggableVariants = ["rudraerpDebug", "rudraerpDebugOptimized", "rknDebug", "rknDebugOptimized", "powergoldDebug", "powergoldDebugOptimized", "arsiDebug", "arsiDebugOptimized", "pelicanDebug", "pelicanDebugOptimized"]
     autolinkLibrariesWithApp()
 }
 
@@ -26,7 +26,7 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 // Copy the flavor's admin code into src/config/buildconfig.ts before anything builds.
 def taskNames = gradle.startParameter.taskNames.join('').toLowerCase()
-def activeFlavor = ['rudraerp', 'rkn', 'powergold', 'arsi'].find { taskNames.contains(it) }
+def activeFlavor = ['rudraerp', 'rkn', 'powergold', 'arsi', 'pelican'].find { taskNames.contains(it) }
 if (activeFlavor) {
     def configDir = file("../../src/config")
     new File(configDir, "buildconfig.ts").text = new File(configDir, "buildconfig.${activeFlavor}.ts").text
@@ -94,6 +94,14 @@ android {
         powergold {
             dimension "app"
             applicationId "com.app.powergoldagroproduct"
+            signingConfig signingConfigs.release
+            versionCode 1
+            versionName "1.0"
+        }
+        // Pelican Chocolate Industry — #ADM0005 (signed with the Rudra ERP key)
+        pelican {
+            dimension "app"
+            applicationId "com.app.pelican"
             signingConfig signingConfigs.release
             versionCode 1
             versionName "1.0"
