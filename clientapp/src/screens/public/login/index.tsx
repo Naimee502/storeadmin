@@ -362,7 +362,12 @@ export default function Login({ navigation }: any) {
                     uri={brandLogo}
                     width={IMG.logo}
                     style={{ width: logoWidth, height: LOGO_HEIGHT }}
-                    resizeMode="cover"
+                    // contain, never cover: on a cold start FastImage/Glide can
+                    // hand back the bitmap it already decoded for the splash
+                    // screen's square box, and cover then zooms that into this
+                    // wide box and cuts the logo's top and bottom off. contain
+                    // always shows the whole logo, whatever bitmap arrives.
+                    resizeMode="contain"
                     instant
                   />
                 </View>
