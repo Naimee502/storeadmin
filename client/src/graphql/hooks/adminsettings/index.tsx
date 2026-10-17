@@ -2,6 +2,7 @@ import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 import {
   GET_ADMIN_SETTINGS,
   UPDATE_ADMIN_SETTINGS,
+  TEST_BUSINESS_SMTP,
   GET_PERMISSIONS,
   GET_EFFECTIVE_PERMISSIONS,
   SET_PERMISSIONS,
@@ -28,7 +29,8 @@ export const useAdminSettingsQuery = (adminid?: string) => {
 
 export const useAdminSettingsMutations = () => {
   const [updateAdminSettings] = useMutation(UPDATE_ADMIN_SETTINGS);
-  return { updateAdminSettings };
+  const [testBusinessSmtp, { loading: testingSmtp }] = useMutation(TEST_BUSINESS_SMTP);
+  return { updateAdminSettings, testBusinessSmtp, testingSmtp };
 };
 
 export const usePermissionsLazy = (options?: Parameters<typeof useLazyQuery>[1]) =>

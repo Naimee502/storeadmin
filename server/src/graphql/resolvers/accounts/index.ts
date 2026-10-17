@@ -162,7 +162,7 @@ const newOtp = () => ({
 
 const mailOtp = async (email: string, mobile: string, otp: string, adminId: any) => {
   const admin: any = await Admin.findById(adminId).select("companyName").lean();
-  const sent = await sendOtpEmail(email, otp, admin?.companyName || "");
+  const sent = await sendOtpEmail(email, otp, admin?.companyName || "", adminId);
   // Dev convenience only: with no SMTP configured the OTP is visible in the
   // server console (never in the API response).
   if (!sent) console.log(`[OTP] ${email} (${mobile}) | OTP: ${otp}`);

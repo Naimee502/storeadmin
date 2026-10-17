@@ -143,6 +143,16 @@ const adminSettingsSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    // Business's own mailbox for outgoing OTP mails (Business Settings ->
+    // Email (SMTP)), e.g. veer@dkmarketing.co.in on smtp.hostinger.com:465.
+    // All three + the password set = this business's OTP mails go from it;
+    // otherwise the platform mailbox from .env is used. The password is kept
+    // encrypted (utils/secret) and is never sent back to the panel.
+    smtpHost: { type: String, trim: true, lowercase: true, default: "" },
+    smtpPort: { type: Number, default: 465 },
+    smtpUser: { type: String, trim: true, lowercase: true, default: "" },
+    smtpPassEnc: { type: String, default: "" },
+
     /* ============================================================
        INVOICE PRINT LAYOUT — lets an admin switch off parts of the
        printed Sales/Purchase Invoice header & footer, and customise the

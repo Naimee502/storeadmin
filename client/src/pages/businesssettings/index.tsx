@@ -172,9 +172,10 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 }) => {
   const { admin: loggedInAdmin } = useAppSelector((s: any) => s.auth);
   const { data, refetch } = useAdminSettingsQuery(adminId);
-  const { updateAdminSettings } = useAdminSettingsMutations();
+  const { updateAdminSettings, testBusinessSmtp, testingSmtp } = useAdminSettingsMutations();
   const settings = data?.getAdminSettings;
   const [draft, setDraft] = useState<any>(null);
+  const [smtpTestTo, setSmtpTestTo] = useState("");
 
   useEffect(() => {
     if (settings) setDraft({ ...settings });
@@ -186,8 +187,10 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   const handleSave = async () => {
     if (!adminId) return;
-    const { id, adminid, __typename, ...rest } = draft;
+    const { id, adminid, __typename, smtpPassSet, smtpPass, ...rest } = draft;
     const input = deepStripTypename(rest);
+    // Password: only sent when typed — blank keeps the saved one.
+    if (smtpPass) input.smtpPass = smtpPass;
     try {
       await updateAdminSettings({ variables: { adminid: adminId, input } });
       const { data: updated } = await refetch();
@@ -480,6 +483,84 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             onChange={(v: boolean) => set("websiteCodOnly", v)}
           />
         </div>
+      </Section>
+
+      {/* The business's own mailbox for OTP mails. Blank = the platform
+          mailbox sends them (with the business name as sender name). */}
+      <Section title="Email (SMTP) — OTP mails from your own email">
+        <div className="text-xs text-gray-400 mb-1 px-1">
+          Registration and login OTP mails for this business are sent from this mailbox (e.g.
+          veer@dkmarketing.co.in). Leave the email blank to use the default Rudra mailbox. For a
+          Hostinger email use host <span className="font-medium text-gray-600">smtp.hostinger.com</span>,
+          port <span className="font-medium text-gray-600">465</span>.
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormField
+            label="Email (mailbox)"
+            type="email"
+            name="smtpUser"
+            placeholder="e.g. veer@dkmarketing.co.in"
+            value={draft.smtpUser ?? ""}
+            onChange={(e: any) => set("smtpUser", e.target.value.trim().toLowerCase())}
+          />
+          <FormField
+            label="Password"
+            type="password"
+            name="smtpPass"
+            placeholder={draft.smtpPassSet ? "Saved — leave blank to keep it" : "Mailbox password"}
+            value={draft.smtpPass ?? ""}
+            onChange={(e: any) => set("smtpPass", e.target.value)}
+          />
+          <FormField
+            label="SMTP Host"
+            name="smtpHost"
+            placeholder="smtp.hostinger.com"
+            value={draft.smtpHost ?? ""}
+            onChange={(e: any) => set("smtpHost", e.target.value.trim().toLowerCase())}
+          />
+          <FormField
+            label="SMTP Port"
+            type="number"
+            name="smtpPort"
+            placeholder="465"
+            value={draft.smtpPort ?? 465}
+            onChange={(e: any) => set("smtpPort", e.target.value === "" ? 465 : Number(e.target.value))}
+          />
+        </div>
+        <p className="mt-1.5 text-xs px-1">
+          {draft.smtpUser && draft.smtpHost && (draft.smtpPassSet || draft.smtpPass) ? (
+            <span className="text-green-700">OTP mails will be sent from {draft.smtpUser} (after you save).</span>
+          ) : (
+            <span className="text-gray-400">Not set — OTP mails go from the default Rudra mailbox.</span>
+          )}
+        </p>
+        <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-end">
+          <div className="md:w-1/2">
+            <FormField
+              label="Send a test mail to"
+              type="email"
+              name="smtpTestTo"
+              placeholder="your@email.com"
+              value={smtpTestTo}
+              onChange={(e: any) => setSmtpTestTo(e.target.value.trim())}
+            />
+          </div>
+          <Button
+            variant="outline"
+            disabled={!adminId || !smtpTestTo || testingSmtp}
+            onClick={async () => {
+              try {
+                const { data: res } = await testBusinessSmtp({ variables: { adminid: adminId, to: smtpTestTo } });
+                dispatch(showMessage({ message: res?.testBusinessSmtp || "Test mail sent.", type: "success" }));
+              } catch (e: any) {
+                dispatch(showMessage({ message: e?.message || "Test mail failed.", type: "error" }));
+              }
+            }}
+          >
+            {testingSmtp ? "Sending…" : "Send Test Mail"}
+          </Button>
+        </div>
+        <p className="mt-1 text-xs text-gray-400 px-1">Save the settings first — the test uses the saved mailbox.</p>
       </Section>
 
       {/* What each toggle can ACTUALLY enforce differs a lot by platform, and

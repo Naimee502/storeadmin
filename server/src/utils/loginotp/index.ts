@@ -21,7 +21,8 @@ import { sendLoginOtpEmail } from "../mail";
 //   - `otp` present            -> checked; wrong / expired fails with
 //     LOGIN_OTP_INVALID, right lets the login go on and issue the token.
 // Mail goes out through the same SMTP mailbox the app registration OTP uses
-// (utils/mail — Hostinger today), with the business name as sender name.
+// (utils/mail — Hostinger today), with the business name as sender name —
+// or the business's own mailbox when one is saved in Business Settings.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OTP_TTL_MS = 10 * 60 * 1000;   // OTP valid for 10 minutes
@@ -104,7 +105,7 @@ export const enforceLoginOtp = async (opts: {
     // a few seconds, and the login screen shouldn't sit on "Please wait…" for
     // it. The OTP box appears at once; the mail follows in the background. If
     // it fails, it is logged and the user can tap Resend OTP.
-    sendLoginOtpEmail(email, code, businessName || "", kind === "party")
+    sendLoginOtpEmail(email, code, businessName || "", kind === "party", adminRef)
       .then((sent) => { if (!sent) console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`); })
       .catch(() => console.log(`[LOGIN OTP] ${kind} ${email} | OTP: ${code}`));
 

@@ -1,5 +1,7 @@
 import { normalizeDomain, isValidDomain, clearCustomDomainCache } from "../../../utils/customdomain";
 import { AdminSettings } from "../../../models/adminsettings";
+import { encryptSecret } from "../../../utils/secret";
+import { clearBusinessMailer, getBusinessSmtp, sendTestMail } from "../../../utils/mail";
 import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
 
@@ -29,6 +31,13 @@ const formatSettings = (s: any) =>
         // before this flag existed must read as "yes, cap at stock" rather
         // than as a missing field that trips Boolean!.
         restrictQuantityByStock: s.restrictQuantityByStock !== false,
+        // Own mailbox for OTP mails: the password never leaves the server —
+        // the panel only learns whether one is saved.
+        smtpHost: s.smtpHost || "",
+        smtpPort: Number(s.smtpPort) || 465,
+        smtpUser: s.smtpUser || "",
+        smtpPassSet: !!s.smtpPassEnc,
+        smtpPassEnc: undefined,
       }
     : null;
 
@@ -194,6 +203,36 @@ export const adminSettingsResolvers = {
         clearCustomDomainCache();
       }
 
+      // Own mailbox for OTP mails (Business Settings -> Email (SMTP)).
+      // smtpPass: blank = keep the saved one; anything else is encrypted.
+      // Clearing the email turns the feature off (host + password go too).
+      delete $set.smtpPassSet; // read-only, echoed back by the panel
+      const smtpTouched = ["smtpHost", "smtpPort", "smtpUser", "smtpPass"].some((k) => k in $set);
+      if ("smtpPass" in $set) {
+        const pass = String($set.smtpPass ?? "").trim();
+        delete $set.smtpPass;
+        if (pass) $set.smtpPassEnc = encryptSecret(pass);
+      }
+      if ("smtpHost" in $set) $set.smtpHost = String($set.smtpHost ?? "").trim().toLowerCase();
+      if ("smtpUser" in $set) {
+        const u = String($set.smtpUser ?? "").trim().toLowerCase();
+        $set.smtpUser = u;
+        if (!u) {
+          $set.smtpHost = "";
+          $set.smtpPassEnc = "";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u)) {
+          throw new Error(`"${u}" is not a valid email address for the SMTP mailbox.`);
+        }
+      }
+      if ("smtpPort" in $set) {
+        const port = Number($set.smtpPort);
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          throw new Error("SMTP port must be a number like 465 or 587.");
+        }
+        $set.smtpPort = port;
+      }
+      if (smtpTouched) clearBusinessMailer(adminid);
+
       const update: any = { $set };
       if (Object.keys($unset).length) update.$unset = $unset;
       const updated = await AdminSettings.findByIdAndUpdate(
@@ -202,6 +241,19 @@ export const adminSettingsResolvers = {
         { new: true }
       ).lean();
       return formatSettings(updated);
+    },
+
+    // Sends a test mail through the business's SAVED mailbox and reports the
+    // real SMTP error (wrong password / port / host) if it fails.
+    testBusinessSmtp: async (_: any, { adminid, to }: { adminid: string; to: string }) => {
+      const email = String(to || "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email to send the test mail to.");
+      const c = await getBusinessSmtp(adminid);
+      if (!c) throw new Error("Save the SMTP host, email and password first, then send a test mail.");
+      const admin: any = await Admin.findById(adminid).select("companyName").lean();
+      const err = await sendTestMail(c, email, admin?.companyName || "");
+      if (err) throw new Error(`Test mail failed: ${err}`);
+      return `Test mail sent to ${email} from ${c.user}.`;
     },
   },
 };

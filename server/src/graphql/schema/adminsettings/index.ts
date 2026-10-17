@@ -118,6 +118,11 @@ export const adminSettingsTypeDefs = gql`
     websiteCodOnly: Boolean
     storeslug: String
     customDomain: String
+    # Own mailbox for OTP mails; the password is never returned.
+    smtpHost: String
+    smtpPort: Int
+    smtpUser: String
+    smtpPassSet: Boolean
 
     # Website content (rich HTML) shown directly on the clientweb
     # About/Privacy/Terms pages.
@@ -329,6 +334,13 @@ export const adminSettingsTypeDefs = gql`
     websiteCodOnly: Boolean
     storeslug: String
     customDomain: String
+    # Own mailbox for OTP mails. smtpPass: blank = keep the saved one.
+    smtpHost: String
+    smtpPort: Int
+    smtpUser: String
+    smtpPass: String
+    # Read-only flag echoed back by panels that save the whole settings object; ignored.
+    smtpPassSet: Boolean
 
     websiteAboutContent: String
     websitePrivacyContent: String
@@ -381,5 +393,7 @@ export const adminSettingsTypeDefs = gql`
 
   extend type Mutation {
     updateAdminSettings(adminid: ID!, input: AdminSettingsInput!): AdminSettings!
+    # Test mail through the business's saved SMTP mailbox; returns a message.
+    testBusinessSmtp(adminid: ID!, to: String!): String!
   }
 `;

@@ -60,6 +60,10 @@ const SETTINGS_FIELDS = `
   websiteCodOnly
   storeslug
   customDomain
+  smtpHost
+  smtpPort
+  smtpUser
+  smtpPassSet
   websiteAboutContent
   websitePrivacyContent
   websiteTermsContent
@@ -135,6 +139,14 @@ export const UPDATE_ADMIN_SETTINGS = gql`
     updateAdminSettings(adminid: $adminid, input: $input) {
       ${SETTINGS_FIELDS}
     }
+  }
+`;
+
+// Test mail through the business's saved SMTP mailbox (Business Settings ->
+// Email (SMTP)). Resolves to a success message; fails with the SMTP error.
+export const TEST_BUSINESS_SMTP = gql`
+  mutation TestBusinessSmtp($adminid: ID!, $to: String!) {
+    testBusinessSmtp(adminid: $adminid, to: $to)
   }
 `;
 
