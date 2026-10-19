@@ -30,6 +30,7 @@ interface AdminSettings {
   printShowTermsAndConditions?: boolean;
   printTermsAndConditions?: string;
   printShowPartyBalance?: boolean;
+  deleteInvoiceFromInsideOnly?: boolean;
 }
 
 interface AdminSettingsState {

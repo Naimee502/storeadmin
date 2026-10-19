@@ -62,13 +62,18 @@ function CategoryTicker({ categories }: { categories: Cat[] }) {
     return () => ro.disconnect();
   }, [categories.length]);
 
+  // All the cards already fit in the row (e.g. a business with only two
+  // categories) — nothing to scroll to, so no drift and no repeated copies.
+  // Same rule the app's CategoryStrip uses. 16 = the set's trailing gap.
+  const fits = setW > 0 && viewW > 0 && setW - 16 <= viewW;
+
   // How many copies of the set make one unit at least as wide as the row.
   const repeats = setW > 0 && viewW > 0 ? Math.max(1, Math.ceil(viewW / setW)) : 1;
-  useAutoScrollX(wrapRef, { enabled: setW > 0, speed: TICKER_PX_PER_SEC, loop: true, resumeMs: RESUME_AFTER_TOUCH_MS });
+  useAutoScrollX(wrapRef, { enabled: setW > 0 && !fits, speed: TICKER_PX_PER_SEC, loop: true, resumeMs: RESUME_AFTER_TOUCH_MS });
 
   // Each set carries its own trailing gap (pr-4) so set widths add up exactly
   // and the loop seam is invisible.
-  const sets = Array.from({ length: repeats * 2 }, (_, i) => (
+  const sets = Array.from({ length: fits ? 1 : repeats * 2 }, (_, i) => (
     <div
       key={i}
       ref={i === 0 ? setRef : undefined}

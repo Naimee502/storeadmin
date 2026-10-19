@@ -31,6 +31,7 @@ const SETTINGS_FIELDS = `
   requirePartyApproval
   enablePaymentDiscountCommission
   showLastPaymentOnStatement
+  deleteInvoiceFromInsideOnly
   paymentAutoSettlement
   paymentAllocationOrder
   autoAdjustAdvanceOnInvoice
@@ -108,6 +109,7 @@ const SETTINGS_FIELDS = `
   heroBannerShowCategoryTiles
   heroBannerSlides {
     image
+    video
     title
     subtitle
     cta

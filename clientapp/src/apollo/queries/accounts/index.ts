@@ -134,6 +134,7 @@ export const GET_SALES_ORDER_BY_ID = gql`
       cancelStatus
       isConverted
       invoicenumber
+      invoiceid
       outstanding
       orderStatus
       deliveryStatus
@@ -505,6 +506,7 @@ export const GET_ADMIN_SETTINGS = gql`
       salesmanLeaderboardEnabled
       heroBannerSlides {
         image
+        video
         title
         subtitle
         cta

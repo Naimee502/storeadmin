@@ -5,3 +5,5 @@ export { default as Notifications } from './notifications';
 export { default as Support } from './support';
 export { default as ExpenseClaims } from './expenseclaims';
 export { default as Announcements } from './announcements';
+export { default as SalesReturns } from './salesreturn';
+export { default as SalesReturnCreate } from './salesreturn/create';

@@ -38,13 +38,29 @@ export const HeroBanner: React.FC<Props> = ({
   const companyName = useSelector((s: RootState) => s.tenant.companyName);
   const brandName = companyName || 'our store';
 
+  const expanded = useMemo(
+    () =>
+      slides.flatMap(slide =>
+        slide.image && slide.video
+          ? [
+              { slide, image: slide.image, video: null },
+              { slide, image: null, video: slide.video },
+            ]
+          : [{ slide, image: slide.image, video: slide.video }],
+      ),
+    [slides],
+  );
+
   const carouselSlides = useMemo<BannerSlide[]>(() => {
     // Admin-configured slides win outright, exactly like the website.
     if (slides.length > 0) {
       // Image with no title = the picture is the whole banner (its own text
       // is in the artwork), so no generated eyebrow/CTA is drawn over it.
-      return slides.map(s => ({
-        image: s.image,
+      // A slide with both an image and a video shows both — the image as its
+      // own slide, then the video as the next one (same as the website).
+      return expanded.map(({ slide: s, image, video }) => ({
+        image,
+        video,
         eyebrow: s.title ? s.subtitle || 'Featured' : undefined,
         title: s.title || undefined,
         cta: s.title ? s.cta || 'Shop Now' : undefined,
@@ -108,7 +124,7 @@ export const HeroBanner: React.FC<Props> = ({
     }
 
     return base;
-  }, [slides, products, brandName, colors.brandLight, colors.brandDark]);
+  }, [slides, expanded, products, brandName, colors.brandLight, colors.brandDark]);
 
   return (
     <BannerCarousel
@@ -116,7 +132,7 @@ export const HeroBanner: React.FC<Props> = ({
       height={196}
       horizontalPadding={horizontalPadding}
       style={style}
-      onPress={(_, i) => onPress?.(slides[i] ?? null)}
+      onPress={(_, i) => onPress?.(expanded[i]?.slide ?? null)}
     />
   );
 };

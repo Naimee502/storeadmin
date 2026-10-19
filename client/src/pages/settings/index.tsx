@@ -306,8 +306,8 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
     setDraft({ ...settings });
     setLogoFile(null);
     originalImages.current = [
-      ...[...(settings.heroBannerSlides ?? []), ...(settings.promoBanners ?? [])].map(
-        (slide: any) => slide?.image
+      ...[...(settings.heroBannerSlides ?? []), ...(settings.promoBanners ?? [])].flatMap(
+        (slide: any) => [slide?.image, slide?.video]
       ),
       settings.brandLogo,
     ].filter(Boolean);
@@ -357,7 +357,20 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             // A blob: url is a preview of a file that never made it up. Storing
             // it would save a link that dies with the tab.
             if (image.startsWith("blob:")) image = "";
-            return { image, title: s.title ?? "", subtitle: s.subtitle ?? "", cta: s.cta ?? "", link: s.link ?? "" };
+
+            // Optional short video (hero slides). Picked from disk like the
+            // image and uploaded through the same mutation — no URL typing.
+            let video = s.video ?? "";
+            if (s._videoFile) {
+              const { data: uploadedVideo } = await uploadImageMutation({ variables: { file: s._videoFile } });
+              if (uploadedVideo?.uploadImage?.url) {
+                video = uploadedVideo.uploadImage.url;
+                uploaded.push(video);
+              }
+            }
+            if (video.startsWith("blob:")) video = "";
+
+            return { image, video, title: s.title ?? "", subtitle: s.subtitle ?? "", cta: s.cta ?? "", link: s.link ?? "" };
           })
         );
 
@@ -384,7 +397,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       // Saved. Whatever the settings used to point at and no longer do is now
       // unreachable — removed slides, and pictures that were swapped out.
       const keptUrls = [
-        ...[...heroBannerSlides, ...promoBanners].map((slide: any) => slide.image),
+        ...[...heroBannerSlides, ...promoBanners].flatMap((slide: any) => [slide.image, slide.video]),
         brandLogo,
       ].filter(Boolean);
       const droppedUrls = originalImages.current.filter((url) => !keptUrls.includes(url));
@@ -723,6 +736,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         />
         <div className="pt-2" />
         <HeroBannerSlidesEditor
+          allowVideo
           slides={draft.heroBannerSlides ?? []}
           onChange={(slides) => set("heroBannerSlides", slides)}
         />
@@ -901,24 +915,68 @@ const ProductPickerEditor: React.FC<{
    HERO BANNER SLIDES — admin-managed list, add/edit/remove any number.
    ===================================================================== */
 
+type EditableSlide = {
+  image?: string;
+  video?: string;
+  title?: string;
+  subtitle?: string;
+  cta?: string;
+  link?: string;
+  _file?: File;
+  _videoFile?: File;
+};
+
+/** Largest banner video accepted. Keep clips short — every visitor downloads it. */
+const MAX_BANNER_VIDEO_MB = 25;
+
 const HeroBannerSlidesEditor: React.FC<{
-  slides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string; _file?: File }[];
-  onChange: (slides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string; _file?: File }[]) => void;
-}> = ({ slides, onChange }) => {
-  const updateSlide = (idx: number, patch: Partial<{ image: string; title: string; subtitle: string; cta: string; link: string; _file: File }>) => {
+  slides: EditableSlide[];
+  onChange: (slides: EditableSlide[]) => void;
+  /** Hero slides can carry a short video; promo tiles are image-only. */
+  allowVideo?: boolean;
+}> = ({ slides, onChange, allowVideo = false }) => {
+  const dispatch = useAppDispatch();
+  const updateSlide = (idx: number, patch: Partial<EditableSlide>) => {
     onChange(slides.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   };
 
   const removeSlide = (idx: number) => {
     releasePreview(slides[idx]);
+    releaseVideoPreview(slides[idx]);
     // The file on the server, if this slide had a saved image, is deleted when
     // the settings are saved — not now, so backing out changes nothing.
     onChange(slides.filter((_, i) => i !== idx));
   };
 
   /** Drop a preview of a picked-but-never-uploaded file; nothing else frees it. */
-  const releasePreview = (slide?: { image?: string; _file?: File }) => {
+  const releasePreview = (slide?: EditableSlide) => {
     if (slide?._file && slide.image?.startsWith("blob:")) URL.revokeObjectURL(slide.image);
+  };
+
+  const releaseVideoPreview = (slide?: EditableSlide) => {
+    if (slide?._videoFile && slide.video?.startsWith("blob:")) URL.revokeObjectURL(slide.video);
+  };
+
+  const clearSlideVideo = (idx: number) => {
+    releaseVideoPreview(slides[idx]);
+    onChange(slides.map((s, i) => (i === idx ? { ...s, video: "", _videoFile: undefined } : s)));
+  };
+
+  const handleVideoPick = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      dispatch(showMessage({ message: "Please choose a video file (MP4 works everywhere).", type: "error" }));
+      return;
+    }
+    if (file.size > MAX_BANNER_VIDEO_MB * 1024 * 1024) {
+      dispatch(showMessage({ message: `Video is too large — keep it under ${MAX_BANNER_VIDEO_MB} MB.`, type: "error" }));
+      return;
+    }
+    // Preview now; the upload happens on Save, same as the image.
+    releaseVideoPreview(slides[idx]);
+    updateSlide(idx, { video: URL.createObjectURL(file), _videoFile: file });
   };
 
   const clearSlideImage = (idx: number) => {
@@ -987,6 +1045,50 @@ const HeroBannerSlidesEditor: React.FC<{
               )}
             </div>
           </div>
+
+          {allowVideo && (
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <FormField
+                  label="Banner Video (optional — short MP4)"
+                  name={`heroBannerVideo-${idx}`}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/*"
+                  onChange={handleVideoPick(idx)}
+                />
+                <p className="mt-1 px-1 text-xs text-gray-400">
+                  Up to {MAX_BANNER_VIDEO_MB} MB, plays muted. If you add both an image and a video, the banner shows the image first and then the video as the next slide.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Video</label>
+                {slide.video ? (
+                  <div className="relative h-20 w-36">
+                    <video
+                      src={slide.video}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      className="h-20 w-36 rounded-lg border border-gray-200 bg-black object-cover"
+                    />
+                    <button
+                      type="button"
+                      title="Remove video"
+                      onClick={() => clearSlideVideo(idx)}
+                      className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white hover:bg-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex h-20 w-36 items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-400">
+                    No video
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField

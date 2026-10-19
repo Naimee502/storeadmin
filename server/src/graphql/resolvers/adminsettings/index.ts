@@ -56,6 +56,7 @@ const mapPickItems = (items: any[]) =>
 const mapSlides = (slides: any[]) =>
   (slides || []).map((s: any) => ({
     image: s.image || "",
+    video: s.video || "",
     title: s.title || "",
     subtitle: s.subtitle || "",
     cta: s.cta || "",

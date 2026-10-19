@@ -14,7 +14,7 @@ import {
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
 } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
-import { useModuleEnabled } from '../../../../apollo/hooks/admin';
+import { useModuleEnabled, useUserModuleEnabled } from '../../../../apollo/hooks/admin';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
 import { BackHeader, AppImage } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
@@ -177,6 +177,16 @@ export default function OrderDetail() {
     (role === 'party' && (isOwnOrder || (manageDownline && isDownlineOrder)))
   );
   const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
+
+  // Sales Return — salesman / delivery boy, only while the Sales Returns module
+  // is on (business + their own staff modules), and only once there is an
+  // invoice to return against: this screen IS the invoice, or the order has
+  // been converted to one. A cancelled bill has nothing to return.
+  const salesReturnEnabled = useUserModuleEnabled('salesreturn');
+  const returnInvoiceId: string | null = isInvoice ? id : (order?.invoiceid ?? null);
+  const canReturn = salesReturnEnabled && !!order && !!returnInvoiceId && status !== 'Cancelled'
+    && order?.cancelStatus !== 'cancelled'
+    && (role === 'salesman' || role === 'deliveryboy');
   const canDeliver  = canAct && status !== 'Delivered' && status !== 'Cancelled';
 
   const handleConvert = () => {
@@ -533,6 +543,17 @@ export default function OrderDetail() {
             >
               <Icon name="truck-check-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark as Delivered'}</Text>
+            </TouchableOpacity>
+          )}
+          {canReturn && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#ef4444' }]}
+              onPress={() => navigation.navigate('SalesReturnCreate', { invoiceId: returnInvoiceId })}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="keyboard-return" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>Sales Return</Text>
             </TouchableOpacity>
           )}
 

@@ -121,7 +121,9 @@ const startServer = async () => {
   app.use(
     '/graphql',
     cors(corsOptions),
-    graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 1 })
+    // 50 MB: room for a short hero banner video. Images are compressed in the
+    // browser before upload, so they stay far below this.
+    graphqlUploadExpress({ maxFileSize: 50 * 1024 * 1024, maxFiles: 1 })
   );
 
   // Serve uploads folder static files.
@@ -158,7 +160,7 @@ const startServer = async () => {
   // save fails with a 413 the client cannot explain.
   //
   // File uploads do not travel this path — graphqlUploadExpress above handles
-  // multipart before Apollo sees it, capped separately at 10 MB.
+  // multipart before Apollo sees it, capped separately at 50 MB.
   server.applyMiddleware({
     app: app as any,
     bodyParserConfig: { limit: '5mb' },

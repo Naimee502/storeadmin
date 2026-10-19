@@ -3,6 +3,7 @@ import { gql } from "apollo-server-express";
 export const adminSettingsTypeDefs = gql`
   type HeroBannerSlide {
     image: String
+    video: String
     title: String
     subtitle: String
     cta: String
@@ -11,6 +12,7 @@ export const adminSettingsTypeDefs = gql`
 
   input HeroBannerSlideInput {
     image: String
+    video: String
     title: String
     subtitle: String
     cta: String
@@ -77,6 +79,7 @@ export const adminSettingsTypeDefs = gql`
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean
+    deleteInvoiceFromInsideOnly: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String
     autoAdjustAdvanceOnInvoice: Boolean
@@ -304,6 +307,7 @@ export const adminSettingsTypeDefs = gql`
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean
+    deleteInvoiceFromInsideOnly: Boolean
     paymentAutoSettlement: String
     paymentAllocationOrder: String
     autoAdjustAdvanceOnInvoice: Boolean

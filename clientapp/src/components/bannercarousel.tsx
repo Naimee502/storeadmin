@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, UIManager, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import Video from 'react-native-video';
+import { NavigationContext } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme, IMG } from '../config';
 import { AppImage } from './appimage';
@@ -11,6 +13,11 @@ import { AppImage } from './appimage';
 export type BannerSlide = {
   /** Photo background. Wins over `bg` / `gradient`. */
   image?: string | null;
+  /**
+   * Uploaded clip. Plays (muted) over `image`, which stays as the poster
+   * until the first frame arrives. Only the active slide's video plays.
+   */
+  video?: string | null;
   /** Small caps line above the title. */
   eyebrow?: string;
   title?: string;
@@ -38,6 +45,20 @@ type Props = {
 };
 
 const AUTO_ADVANCE_MS = 5000;
+
+/**
+ * Is react-native-video's native view in this build? After `npm install` the
+ * JS is there at once, but the native side only arrives with a full rebuild —
+ * rendering <Video> before that is a red-screen "View config not found for
+ * RCTVideo". Without it, video slides simply show their image instead.
+ */
+const VIDEO_AVAILABLE = (() => {
+  try {
+    return !!UIManager.hasViewManagerConfig?.('RCTVideo');
+  } catch {
+    return false;
+  }
+})();
 
 /** Breathing room between two slides while swiping. */
 const SLIDE_GAP = 12;
@@ -78,8 +99,30 @@ export const BannerCarousel: React.FC<Props> = ({
   // One card plus the gap after it — the distance a single swipe travels.
   const stride = width + SLIDE_GAP;
 
+  // Pause banner videos while another screen covers this one. Read through
+  // the context (not useIsFocused) so the carousel still works if it is ever
+  // rendered outside a navigator.
+  const navigation = useContext(NavigationContext);
+  const [focused, setFocused] = useState(true);
   useEffect(() => {
-    if (slides.length < 2) return;
+    if (!navigation) return;
+    setFocused(navigation.isFocused());
+    const offFocus = navigation.addListener('focus', () => setFocused(true));
+    const offBlur = navigation.addListener('blur', () => setFocused(false));
+    return () => { offFocus(); offBlur(); };
+  }, [navigation]);
+
+  const goTo = (next: number) => {
+    scrollRef.current?.scrollTo({ x: next * stride, animated: true });
+    setActive(next);
+  };
+
+  const activeHasVideo = VIDEO_AVAILABLE && !!slides[active]?.video;
+
+  useEffect(() => {
+    // A video slide holds until its clip ends (onEnd below) instead of being
+    // cut off by the 5s timer.
+    if (slides.length < 2 || activeHasVideo) return;
     const id = setInterval(() => {
       setActive(prev => {
         const next = (prev + 1) % slides.length;
@@ -89,7 +132,7 @@ export const BannerCarousel: React.FC<Props> = ({
     }, AUTO_ADVANCE_MS);
     return () => clearInterval(id);
     // `active` is a dep so a manual swipe restarts the countdown.
-  }, [slides.length, stride, active]);
+  }, [slides.length, stride, active, activeHasVideo]);
 
   if (slides.length === 0) return null;
 
@@ -134,9 +177,28 @@ export const BannerCarousel: React.FC<Props> = ({
               style={i === slides.length - 1 ? undefined : { marginRight: SLIDE_GAP }}
             >
               <View style={[styles.card, { width, height, backgroundColor: s.bg ?? colors.softSurface }]}>
-                {s.image ? (
+                {!!s.image && (
+                  <AppImage uri={s.image} width={IMG.banner} style={styles.image} resizeMode="cover" />
+                )}
+
+                {VIDEO_AVAILABLE && !!s.video && i === active && (
+                  <Video
+                    source={{ uri: s.video }}
+                    style={styles.image}
+                    resizeMode="cover"
+                    muted
+                    repeat={slides.length < 2}
+                    paused={!focused}
+                    playInBackground={false}
+                    disableFocus
+                    shutterColor="transparent"
+                    onEnd={() => { if (slides.length > 1) goTo((active + 1) % slides.length); }}
+                    onError={() => { if (slides.length > 1) goTo((active + 1) % slides.length); }}
+                  />
+                )}
+
+                {s.image || s.video ? (
                   <>
-                    <AppImage uri={s.image} width={IMG.banner} style={styles.image} resizeMode="cover" />
                     {/* Darken only when text sits on the photo; a plain
                         artwork banner is shown as uploaded. */}
                     {!!(s.title || s.eyebrow || s.body || s.cta) && (

@@ -402,6 +402,9 @@ const SalesInvoices = () => {
           onReturn={(row) => navigate(`/salesreturn/addedit?fromInvoice=${row.id}`)}
           onView={(row) => navigate(`/salesinvoice/view/${row.id}`)}
           onEdit={(row) => navigate(`/salesinvoice/addedit/${row.id}`)}
+          // Business Settings → "Delete … only from inside the invoice": the
+          // trash icon moves to the invoice's edit page instead.
+          showDelete={actions.showDelete && !settings?.deleteInvoiceFromInsideOnly}
           onDelete={async (row) => {
             if (
               window.confirm(

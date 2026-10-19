@@ -313,6 +313,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           last payment received; Vendor Outstanding the last payment made.
         </p>
         <Toggle
+          label="Delete Sales / Purchase Invoices only from inside the invoice"
+          checked={!!draft.deleteInvoiceFromInsideOnly}
+          onChange={(v: boolean) => set("deleteInvoiceFromInsideOnly", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 pl-1">
+          On: the delete icon is hidden on the Sales Invoice and Purchase Invoice lists, and a Delete
+          button appears inside the invoice (next to Update Invoice) instead — so a bill can't be deleted
+          by a mis-click on the list. Off: delete stays on the list as usual.
+        </p>
+        <Toggle
           label="App Home browses a catalogue (Category → Sub-category → order sheet with quantity boxes) instead of the storefront"
           checked={!!draft.appCatalogBrowseMode}
           onChange={(v: boolean) => set("appCatalogBrowseMode", v)}

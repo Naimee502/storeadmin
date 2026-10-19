@@ -73,6 +73,9 @@ export const useUserModuleEnabled = (moduleId: string): boolean => {
 export const MODULE_SCREENS: Record<string, string> = {
   ExpenseClaims: 'expensenote',
   Announcements: 'announcements',
+  // Business Modules → Sales → Sales Returns (business + staff level).
+  SalesReturns: 'salesreturn',
+  SalesReturnCreate: 'salesreturn',
 };
 
 /** Which module-gated routes the signed-in user may open right now. */
@@ -98,7 +101,8 @@ export const useModuleScreenGate = () => {
     fetchPolicy: 'cache-and-network',
   });
   const announcementsOn = announcementsModuleOn && (annData as any)?.isAnnouncementsEnabled === true;
-  const on: Record<string, boolean> = { expensenote: expenseOn, announcements: announcementsOn };
+  const salesReturnOn = useUserModuleEnabled('salesreturn');
+  const on: Record<string, boolean> = { expensenote: expenseOn, announcements: announcementsOn, salesreturn: salesReturnOn };
   return (screen?: string) => {
     if (!screen) return true;
     const mod = MODULE_SCREENS[screen];

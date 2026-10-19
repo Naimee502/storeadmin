@@ -218,6 +218,12 @@ const adminSettingsSchema = new mongoose.Schema(
        businesses, noise for the rest. */
     showLastPaymentOnStatement: { type: Boolean, default: false },
 
+    /* Sales / Purchase Invoices: delete only from inside the invoice. On →
+       the trash icon is hidden on the invoice lists and a Delete button
+       appears on the invoice's edit page instead. Off by default, so every
+       other business keeps the delete icon on the list as before. */
+    deleteInvoiceFromInsideOnly: { type: Boolean, default: false },
+
     /* ============================================================
        DIRECT / ON-ACCOUNT SETTLEMENT — how a payment entered as a plain
        amount (no invoice ticked) is spread over the party's open bills.
@@ -495,6 +501,9 @@ const adminSettingsSchema = new mongoose.Schema(
         {
           _id: false,
           image: { type: String, default: "" },
+          // Optional short clip (uploaded file, served from /uploads). When set
+          // it plays in place of the picture; `image` stays as its poster.
+          video: { type: String, default: "" },
           title: { type: String, default: "" },
           subtitle: { type: String, default: "" },
           cta: { type: String, default: "" },

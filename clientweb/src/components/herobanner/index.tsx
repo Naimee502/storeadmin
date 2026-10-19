@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -18,6 +18,8 @@ export interface HeroSlideOverride {
   cta: string;
   link?: string;
   image?: string;
+  /** Uploaded banner video — plays in place of the image (image = poster). */
+  video?: string;
 }
 
 // Every slide and promo tile here is built from this admin's real
@@ -53,6 +55,7 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
         cta: s.cta,
         link: s.link ?? "/shop",
         image: s.image,
+        video: s.video,
         gradFrom: "from-brand-700",
         gradTo: "to-brand-900",
       }));
@@ -66,6 +69,7 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
         cta: "Start Shopping",
         link: "/shop",
         image: undefined as string | undefined,
+        video: undefined as string | undefined,
         gradFrom: "from-brand-700",
         gradTo: "to-brand-900",
       },
@@ -101,15 +105,28 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
     if (active >= slides.length) setActive(0);
   }, [active, slides.length]);
 
+  const slide = slides[active] ?? slides[0];
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Image slides advance every 5s. A video slide holds until its clip ends
+  // (onEnded below) so it is never cut off half-way.
   useEffect(() => {
+    if (slides.length < 2 || slide?.video) return;
     const id = setInterval(() => setActive((a) => (a + 1) % slides.length), 5000);
     return () => clearInterval(id);
-  }, [slides.length]);
+  }, [slides.length, active, slide?.video]);
 
-  const slide = slides[active] ?? slides[0];
+  // Restart the clip each time its slide comes back round.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = 0;
+    v.play().catch(() => {});
+  }, [active]);
   // Image with no title = the picture is the whole banner (artwork with its
   // own text). Show it as-is: no dark overlay, no generated copy on top.
-  const imageOnly = !!slide.image && !slide.title;
+  const hasMedia = !!(slide.image || slide.video);
+  const imageOnly = hasMedia && !slide.title;
   // Admin panel → Settings → General → Hero Banner. Off means the banner runs
   // edge to edge instead of leaving a third of the row to the catalogue.
   const promoTiles = heroBannerShowCategoryTiles ? categories.slice(0, 2) : [];
@@ -123,7 +140,7 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
           className={`relative flex min-h-[280px] flex-col justify-center overflow-hidden rounded-2xl p-8 text-white transition-colors duration-500 sm:min-h-[340px] sm:p-12 ${
             hasTiles ? "lg:col-span-2" : ""
           } ${
-            slide.image ? "bg-slate-100" : `bg-gradient-to-br ${slide.gradFrom} ${slide.gradTo}`
+            slide.video ? "bg-ink-900" : slide.image ? "bg-slate-100" : `bg-gradient-to-br ${slide.gradFrom} ${slide.gradTo}`
           }`}
         >
           {/* A real <img> (not a CSS background) so the browser fetches it at
@@ -145,12 +162,30 @@ export default function HeroBanner({ overrideSlides }: { overrideSlides?: HeroSl
               />
             ) : null
           )}
+          {/* Only the active slide's video is mounted, so visitors download
+              just the clip they are watching. Muted + playsInline is what lets
+              browsers (iOS Safari included) autoplay it. */}
+          {slide.video && (
+            <video
+              key={slide.video + active}
+              ref={videoRef}
+              src={slide.video}
+              poster={slide.image ? bannerSrc(slide.image) : undefined}
+              autoPlay
+              muted
+              playsInline
+              loop={slides.length < 2}
+              preload="auto"
+              onEnded={() => setActive((a) => (a + 1) % slides.length)}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
           {imageOnly && (
             // Whole banner is the link when there is no button on it.
             <Link to={slide.link} className="absolute inset-0 z-[5]" aria-label="Open banner" />
           )}
-          {slide.image && !imageOnly && <div className="absolute inset-0 bg-ink-900/50" />}
-          {!slide.image && (
+          {hasMedia && !imageOnly && <div className="absolute inset-0 bg-ink-900/50" />}
+          {!hasMedia && (
             <>
               <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 right-24 h-40 w-40 rounded-full bg-white/10 blur-2xl" />

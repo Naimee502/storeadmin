@@ -951,6 +951,18 @@ export const salesOrderResolvers = {
       return inv?.billnumber ?? null;
       } catch (e) { return null; }
     },
+    // The invoice this order became — lets the app open it (e.g. to book a
+    // Sales Return). Unlike invoicenumber it is returned in order-only mode
+    // too: it is an internal id, never shown to anyone.
+    invoiceid: async (parent: any) => {
+      try {
+        if (!parent?.isConverted) return null;
+        const inv = await SalesInvoice.findOne({ sourceorderid: parent.id, status: true })
+          .select("_id")
+          .lean() as any;
+        return inv?._id ? String(inv._id) : null;
+      } catch (e) { return null; }
+    },
     // Due on the linked invoice (total − settled). 0 if not yet billed/paid.
     // What is still owed on the invoice this order became. Uses the shared
     // allocation util so the party portal and mobile app quote the same figure

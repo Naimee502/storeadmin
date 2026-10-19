@@ -68,6 +68,7 @@ const stillInUse = async (url: string): Promise<boolean> => {
     AdminSettings.exists({
       $or: [
         { "heroBannerSlides.image": url },
+        { "heroBannerSlides.video": url },
         { "promoBanners.image": url },
         { brandLogo: url },
       ],

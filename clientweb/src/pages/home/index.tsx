@@ -68,15 +68,25 @@ export default function HomePage() {
         // is a finished banner artwork (text already in the picture) — it
         // used to be dropped here, which is why an uploaded banner never
         // showed. Untitled slides get no eyebrow/CTA, only the picture.
-        .filter((s) => s.title || s.image)
-        .map((s) => ({
-          eyebrow: s.title ? "Featured" : "",
-          title: s.title || "",
-          body: s.subtitle || "",
-          cta: s.title ? s.cta || "Shop Now" : "",
-          link: s.link || "/shop",
-          image: s.image || undefined,
-        })),
+        .filter((s) => s.title || s.image || s.video)
+        // A slide with both an image and a video shows both: the image as
+        // its own slide first, then the video as the next one.
+        .flatMap((s) => {
+          const copy = {
+            eyebrow: s.title ? "Featured" : "",
+            title: s.title || "",
+            body: s.subtitle || "",
+            cta: s.title ? s.cta || "Shop Now" : "",
+            link: s.link || "/shop",
+          };
+          if (s.image && s.video) {
+            return [
+              { ...copy, image: s.image, video: undefined },
+              { ...copy, image: undefined, video: s.video },
+            ];
+          }
+          return [{ ...copy, image: s.image || undefined, video: s.video || undefined }];
+        }),
     [tenant.heroBannerSlides]
   );
 

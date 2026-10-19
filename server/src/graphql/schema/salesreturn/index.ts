@@ -39,6 +39,8 @@ export const salesReturnTypeDefs = gql`
     id: ID!
     sourceInvoiceId: ID!
     sourceBillNumber: String
+    # Sales Order the source invoice came from ("000039"), if any.
+    sourceOrderNumber: String
     salesmenid: SimpleRef
     paymenttype: String!
     partyacc: SimpleRef!
@@ -126,7 +128,63 @@ export const salesReturnTypeDefs = gql`
     status: Boolean
   }
 
+  # Mobile app (salesman / delivery boy): invoices this user can book a
+  # return against — only ones with something left to return.
+  type ReturnableSalesInvoice {
+    id: ID!
+    billnumber: String
+    billdate: String
+    totalamount: Float
+    partyId: ID
+    partyName: String
+    partyMobile: String
+    deliveryStatus: String
+    # Sales Order this bill was converted from ("000039"), if any.
+    orderNumber: String
+    returnableQty: Float!
+  }
+
+  type SalesReturnDraftLine {
+    productserviceid: ID!
+    productName: String
+    variantid: ID
+    variantName: String
+    salesunitid: ID
+    unitname: String
+    unitqty: Int
+    gst: Float
+    rate: Float
+    discount: Float
+    invoicedQty: Float!
+    returnedQty: Float!
+    returnableQty: Float!
+  }
+
+  # Everything the app needs to build a return for one invoice, with the
+  # qty still returnable per line worked out server-side (counts every
+  # earlier return, whoever booked it).
+  type SalesReturnDraft {
+    invoiceId: ID!
+    billnumber: String
+    billdate: String
+    orderNumber: String
+    adminid: ID!
+    branchid: ID
+    partyId: ID
+    partyName: String
+    partyMobile: String
+    salesmenid: ID
+    paymenttype: String
+    billtype: String
+    taxorsupplytype: String
+    invoicetype: String
+    isservice: Boolean
+    lines: [SalesReturnDraftLine!]!
+  }
+
   extend type Query {
+    getReturnableSalesInvoices(search: String): [ReturnableSalesInvoice!]!
+    getSalesReturnDraft(sourceInvoiceId: ID!): SalesReturnDraft!
     getSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
     getDeletedSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
     getSalesReturnById(id: ID!, adminid: ID): SalesReturn

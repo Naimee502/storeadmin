@@ -59,6 +59,7 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       heroBannerShowCategoryTiles
       heroBannerSlides {
         image
+        video
         title
         subtitle
         cta

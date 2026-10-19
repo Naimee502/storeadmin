@@ -4,6 +4,50 @@
 import { SalesReturn } from "../../../models/salesreturn";
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
+import { StaffAccount } from "../../../models/staffaccounts";
+import { Account } from "../../../models/accounts";
+import { requireBackofficeTenant } from "../../../utils/tenant";
+import { SalesOrder } from "../../../models/salesorder";
+
+/** orderId → order billnumber, for invoices converted from a Sales Order. */
+async function orderNumbers(orderIds: any[]) {
+  const ids = orderIds.filter(Boolean);
+  if (!ids.length) return {} as Record<string, string>;
+  const orders: any[] = await SalesOrder.find({ _id: { $in: ids } }).select("billnumber").lean();
+  return Object.fromEntries(orders.map((o) => [String(o._id), String(o.billnumber ?? "")])) as Record<string, string>;
+}
+
+/** Same line key validateReturnQuantities uses. */
+const lineKey = (pid: any, vid: any) => `${pid}_${vid ?? ""}`;
+
+/** invoiceId → { lineKey → qty already returned } over every active return. */
+async function returnedQtyByInvoice(invoiceIds: any[]) {
+  const out: Record<string, Record<string, number>> = {};
+  if (!invoiceIds.length) return out;
+  const rets: any[] = await SalesReturn.find({ sourceInvoiceId: { $in: invoiceIds }, status: true })
+    .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
+    .lean();
+  for (const r of rets) {
+    const inv = String(r.sourceInvoiceId);
+    out[inv] = out[inv] || {};
+    for (const l of r.productservice ?? []) {
+      const k = lineKey(l.productserviceid, l.variantid);
+      out[inv][k] = (out[inv][k] || 0) + Number(l.qty || 0);
+    }
+  }
+  return out;
+}
+
+/** invoiced qty per line key for one invoice. */
+const invoicedQtyByLine = (inv: any) => {
+  const m: Record<string, number> = {};
+  for (const l of inv.productservice ?? []) {
+    const pid = l.productserviceid?._id ?? l.productserviceid;
+    const k = lineKey(pid, l.variantid);
+    m[k] = (m[k] || 0) + Number(l.qty || 0);
+  }
+  return m;
+};
 
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
@@ -123,6 +167,137 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
 
 export const salesReturnResolvers = {
   Query: {
+    // Invoices the signed-in user may book a return against, newest first:
+    //   delivery boy → invoices assigned to him
+    //   salesman     → his own bills + every bill of a party linked to him
+    //   admin/branch → the business (branch logins pinned to their branch)
+    // Cancelled bills and bills already fully returned are left out.
+    getReturnableSalesInvoices: async (_: any, { search }: { search?: string }, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const user = context.user;
+      const q: any = { adminid: scope.adminid, status: true, cancelStatus: { $ne: "cancelled" } };
+
+      if (scope.userType === "staff") {
+        const staff: any = await StaffAccount.findById(user?.id).select("role").lean();
+        if (staff?.role === "deliveryboy") {
+          q.deliveryboyid = user.id;
+        } else {
+          const parties = await Account.find({ admin: scope.adminid, salesmanid: user?.id }).select("_id").lean();
+          q.$or = [
+            { salesmenid: user?.id },
+            { createdby_id: user?.id },
+            { partyacc: { $in: parties.map((p: any) => p._id) } },
+          ];
+        }
+      } else if (scope.branchPinned && scope.branchid) {
+        q.branchid = scope.branchid;
+      }
+
+      let invs: any[] = await SalesInvoice.find(q)
+        .sort({ createdAt: -1 })
+        .limit(300)
+        .populate("partyacc", "name accountname mobile")
+        .lean();
+
+      const orderNo = await orderNumbers(invs.map((i) => i.sourceorderid));
+      const term = String(search || "").trim().toLowerCase();
+      if (term) {
+        invs = invs.filter((inv) =>
+          `${inv.billnumber ?? ""} ${orderNo[String(inv.sourceorderid)] ?? ""} ${inv.partyacc?.name ?? inv.partyacc?.accountname ?? ""} ${inv.partyacc?.mobile ?? ""}`
+            .toLowerCase()
+            .includes(term)
+        );
+      }
+
+      const returned = await returnedQtyByInvoice(invs.map((i) => i._id));
+      const rows = invs
+        .map((inv) => {
+          const done = returned[String(inv._id)] || {};
+          const invoiced = invoicedQtyByLine(inv);
+          const returnableQty = Object.keys(invoiced).reduce(
+            (sum, k) => sum + Math.max(0, invoiced[k] - (done[k] || 0)),
+            0
+          );
+          return {
+            id: String(inv._id),
+            billnumber: inv.billnumber,
+            billdate: inv.billdate,
+            totalamount: inv.totalamount,
+            partyId: inv.partyacc?._id ? String(inv.partyacc._id) : null,
+            partyName: inv.partyacc?.name ?? inv.partyacc?.accountname ?? "",
+            partyMobile: inv.partyacc?.mobile ?? "",
+            deliveryStatus: inv.deliveryStatus,
+            orderNumber: inv.sourceorderid ? orderNo[String(inv.sourceorderid)] || null : null,
+            returnableQty,
+          };
+        })
+        .filter((r) => r.returnableQty > 0);
+      return rows.slice(0, 100);
+    },
+
+    getSalesReturnDraft: async (_: any, { sourceInvoiceId }: { sourceInvoiceId: string }, context: any) => {
+      const scope = await requireBackofficeTenant(context);
+      const inv: any = await SalesInvoice.findById(sourceInvoiceId)
+        .populate("partyacc", "name accountname mobile")
+        .populate("productservice.productserviceid", "name productvariants")
+        .populate("productservice.salesunitid", "unitname")
+        .lean();
+      if (!inv || inv.status === false) throw new Error("Invoice not found");
+      if (String(inv.adminid) !== String(scope.adminid)) throw new Error("Invoice not found");
+      if (String(inv.cancelStatus || "") === "cancelled") {
+        throw new Error("This invoice is cancelled — nothing can be returned against it.");
+      }
+
+      const done = (await returnedQtyByInvoice([inv._id]))[String(inv._id)] || {};
+      // Several invoice lines can share one product/variant; earlier returns are
+      // counted against them in order, so each line shows what is left of it.
+      const used: Record<string, number> = {};
+      const lines = (inv.productservice ?? []).map((l: any) => {
+        const product = l.productserviceid;
+        const pid = product?._id ?? l.productserviceid;
+        const k = lineKey(pid, l.variantid);
+        const invoicedQty = Number(l.qty || 0);
+        const pool = Math.max(0, (done[k] || 0) - (used[k] || 0));
+        const returnedQty = Math.min(invoicedQty, pool);
+        used[k] = (used[k] || 0) + returnedQty;
+        const variant = (product?.productvariants ?? []).find((v: any) => String(v._id) === String(l.variantid));
+        return {
+          productserviceid: String(pid),
+          productName: product?.name ?? "Item",
+          variantid: l.variantid ? String(l.variantid) : null,
+          variantName: variant?.name ?? null,
+          salesunitid: l.salesunitid?._id ? String(l.salesunitid._id) : (l.salesunitid ? String(l.salesunitid) : null),
+          unitname: l.salesunitid?.unitname ?? null,
+          unitqty: l.unitqty || 1,
+          gst: Number(l.gst || 0),
+          rate: Number(l.rate || 0),
+          discount: Number(l.discount || 0),
+          invoicedQty,
+          returnedQty,
+          returnableQty: Math.max(0, invoicedQty - returnedQty),
+        };
+      });
+
+      return {
+        invoiceId: String(inv._id),
+        billnumber: inv.billnumber,
+        billdate: inv.billdate,
+        orderNumber: inv.sourceorderid ? (await orderNumbers([inv.sourceorderid]))[String(inv.sourceorderid)] || null : null,
+        adminid: String(inv.adminid),
+        branchid: inv.branchid ? String(inv.branchid) : null,
+        partyId: inv.partyacc?._id ? String(inv.partyacc._id) : null,
+        partyName: inv.partyacc?.name ?? inv.partyacc?.accountname ?? "",
+        partyMobile: inv.partyacc?.mobile ?? "",
+        salesmenid: inv.salesmenid ? String(inv.salesmenid) : null,
+        paymenttype: inv.paymenttype,
+        billtype: inv.billtype,
+        taxorsupplytype: inv.taxorsupplytype,
+        invoicetype: inv.invoicetype,
+        isservice: !!inv.isservice,
+        lines,
+      };
+    },
+
     getSalesReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
       const q: any = { status: true };
       const { user } = context;
@@ -277,4 +452,19 @@ export const salesReturnResolvers = {
       return !!(await SalesReturn.findByIdAndUpdate(id, { status: true }));
     },
   },
+
+  SalesReturn: {
+    // Which Sales Order the returned bill came from — field staff know their
+    // orders by SO number, not by the invoice it became.
+    sourceOrderNumber: async (parent: any) => {
+      try {
+        if (!parent?.sourceInvoiceId) return null;
+        const inv: any = await SalesInvoice.findById(parent.sourceInvoiceId).select("sourceorderid").lean();
+        if (!inv?.sourceorderid) return null;
+        return (await orderNumbers([inv.sourceorderid]))[String(inv.sourceorderid)] || null;
+      } catch {
+        return null;
+      }
+    },
+  }
 };

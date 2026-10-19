@@ -6,6 +6,7 @@ import { useNavigate, useParams, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
+import ReturnItemsTable from "../../../components/returnitemstable";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import {
@@ -304,7 +305,6 @@ const AddEditPurchaseReturn: React.FC = () => {
           const key = `${pid}_${vid}`;
           const alreadyReturned = returnedQtyMap[key] || 0;
           const remainingQty = Math.max(0, invoicedQty - alreadyReturned);
-          const amount = parseFloat(((rate - discount) * remainingQty).toFixed(2));
 
           return {
             productserviceid: p.productserviceid?.id ?? p.productserviceid,
@@ -316,30 +316,42 @@ const AddEditPurchaseReturn: React.FC = () => {
             gst: p.gst || 0,
             rate: rate,
             discount: discount,
-            qty: remainingQty,
+            // Nothing is selected until the user ticks it — see ReturnItemsTable.
+            qty: 0,
             originalQty: remainingQty,
-            amount: amount,
+            amount: 0,
           };
         })
         .filter((l) => l.originalQty > 0) // hide fully-returned items
+        // A one-line invoice can only be returning that line — pre-select it.
+        .map((l, _i, all) =>
+          all.length === 1
+            ? { ...l, qty: l.originalQty, amount: parseFloat(((l.rate - l.discount) * l.originalQty).toFixed(2)) }
+            : l
+        )
     );
   }, [isEdit, sourceInvData, purchaseReturns, sourceInvoiceId]);
 
-  const updateLine = (idx: number, field: keyof Line, value: any) => {
-    setLines((prev) => {
-      const next = [...prev];
-      const line = { ...next[idx], [field]: value };
-      const rate = Number(line.rate) || 0;
-      const discount = Number(line.discount) || 0;
-      const qty = Number(line.qty) || 0;
-      line.amount = parseFloat(((rate - discount) * qty).toFixed(2));
-      next[idx] = line;
-      return next;
-    });
-    if (errors[`qty_${idx}`]) {
+
+
+  // Set the return qty of several lines in one go (row tick, header tick,
+  // or typing a qty) and recompute each one's amount.
+  const setQtys = (updates: Record<number, number>) => {
+    setLines((prev) =>
+      prev.map((line, idx) => {
+        if (!(idx in updates)) return line;
+        const qty = Math.max(0, Number(updates[idx]) || 0);
+        const rate = Number(line.rate) || 0;
+        const discount = Number(line.discount) || 0;
+        return { ...line, qty, amount: parseFloat(((rate - discount) * qty).toFixed(2)) };
+      })
+    );
+    const touched = Object.keys(updates).map((k) => `qty_${k}`);
+    if (touched.some((k) => errors[k]) || errors.lines) {
       setErrors((prev) => {
         const n = { ...prev };
-        delete n[`qty_${idx}`];
+        touched.forEach((k) => delete n[k]);
+        delete n.lines;
         return n;
       });
     }
@@ -388,7 +400,7 @@ const AddEditPurchaseReturn: React.FC = () => {
     if (!returndate) e.returndate = "Return date is required";
     if (!partyacc?.id) e.partyacc = "Party account missing";
     if (!lines.length || lines.every((l) => Number(l.qty) <= 0)) {
-      e.lines = "Enter at least one return quantity > 0";
+      e.lines = "Select at least one item to return (tick it in Return Items)";
     }
     lines.forEach((l, i) => {
       const q = Number(l.qty || 0);
@@ -616,56 +628,13 @@ const AddEditPurchaseReturn: React.FC = () => {
           {/* Return Items */}
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Return Items</legend>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr className="text-left">
-                    <th className="px-3 py-2">Product</th>
-                    <th className="px-3 py-2">Original Qty</th>
-                    <th className="px-3 py-2">Return Qty</th>
-                    <th className="px-3 py-2">Rate</th>
-                    <th className="px-3 py-2">Discount</th>
-                    <th className="px-3 py-2">GST %</th>
-                    <th className="px-3 py-2">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
-                        {sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
-                      </td>
-                    </tr>
-                  )}
-                  {lines.map((l, i) => (
-                    <tr key={`${l.productserviceid}_${l.variantid ?? "v"}_${i}`} className="border-t">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{l.productName}</div>
-                        {l.variantName && <div className="text-xs text-gray-500">{l.variantName}</div>}
-                      </td>
-                      <td className="px-3 py-2">{l.originalQty}</td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          className={`w-24 border rounded px-2 py-1 ${errors[`qty_${i}`] ? "border-red-500" : "border-gray-300"}`}
-                          value={l.qty}
-                          min={0}
-                          max={l.originalQty}
-                          onChange={(e) => updateLine(i, "qty", parseFloat(e.target.value) || 0)}
-                        />
-                        {errors[`qty_${i}`] && (
-                          <div className="text-xs text-red-600 mt-1">{errors[`qty_${i}`]}</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{l.rate}</td>
-                      <td className="px-3 py-2">{l.discount}</td>
-                      <td className="px-3 py-2">{l.gst}</td>
-                      <td className="px-3 py-2">{l.amount.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ReturnItemsTable
+              lines={lines}
+              errors={errors}
+              onSetQtys={setQtys}
+              rowKey={(l: any, i: number) => `${l.productserviceid}_${l.variantid ?? "v"}_${i}`}
+              emptyText={sourceInvoiceId ? "Loading invoice…" : "Select a source invoice to load line items."}
+            />
             {errors.lines && <div className="text-red-600 text-sm">{errors.lines}</div>}
           </fieldset>
 

@@ -13,6 +13,7 @@ import { getLastPartyDocRows } from "../../../utils/helper";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import { showMessage } from "../../../redux/slices/message";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
@@ -26,7 +27,14 @@ const AddEditPurchaseInvoice = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
+  const { addPurchaseInvoiceMutation, editPurchaseInvoiceMutation, deletePurchaseInvoiceMutation } = usePurchaseInvoiceMutations();
+
+  // Business Settings → "Delete Sales / Purchase Invoices only from inside the
+  // invoice". On → the list hides its trash icon and this page carries the
+  // Delete button instead. Still needs the user's own Delete permission.
+  const deleteInsideOnly = useAppSelector((state: any) => !!state.adminsettings.settings?.deleteInvoiceFromInsideOnly);
+  const canDeleteInvoice = useAppSelector(state => selectModuleActions(state, "purchaseinvoice")).showDelete;
+  const [deletingInvoice, setDeletingInvoice] = useState(false);
   const { editPurchaseOrderMutation } = usePurchaseOrderMutations();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -796,6 +804,30 @@ const AddEditPurchaseInvoice = () => {
 
           {/* ===== Action Buttons ===== */}
           <div className="mt-6 flex gap-4 justify-end">
+            {isEdit && deleteInsideOnly && canDeleteInvoice && (
+              <Button
+                type="button"
+                variant="outline"
+                className="!border-red-300 !text-red-600 hover:!bg-red-50 mr-auto"
+                disabled={deletingInvoice}
+                onClick={async () => {
+                  if (!id || !window.confirm("Are you sure you want to delete this invoice?")) return;
+                  setDeletingInvoice(true);
+                  try {
+                    await deletePurchaseInvoiceMutation({ variables: { id } });
+                    dispatch(showMessage({ message: "Invoice deleted successfully.", type: "success" }));
+                    navigate("/purchaseinvoice");
+                  } catch (error) {
+                    console.error("Delete error:", error);
+                    dispatch(showMessage({ message: "Failed to delete invoice.", type: "error" }));
+                  } finally {
+                    setDeletingInvoice(false);
+                  }
+                }}
+              >
+                {deletingInvoice ? "Deleting…" : "Delete"}
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               {isCancelledBill ? "Back" : "Cancel"}
             </Button>

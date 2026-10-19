@@ -1,6 +1,7 @@
 import {
   Login, Signup, ForgotPassword, Splash, Introduction,
   PrivacyPolicy, TermsCondition, Notifications, Support, OTPVerification, ExpenseClaims, Announcements,
+  SalesReturns, SalesReturnCreate,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
   ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry,
@@ -29,6 +30,8 @@ export const Screens: any = {
   Support,
   ExpenseClaims,
   Announcements,
+  SalesReturns,
+  SalesReturnCreate,
   // Party
   PartyHome,
   Catalog,
@@ -198,6 +201,8 @@ export const NavConfig: any = {
       { name: 'SalesmanCreateParty', options: { headerShown: false } },
       { name: 'SalesmanParties', options: { headerShown: false } },
       { name: 'SalesmanLeaderboard', options: { headerShown: false } },
+      { name: 'SalesReturns',      options: { headerShown: false } },
+      { name: 'SalesReturnCreate', options: { headerShown: false } },
     ],
   },
 
@@ -233,6 +238,8 @@ export const NavConfig: any = {
       },
       { name: 'DeliveryCollectPayment', options: { headerShown: false } },
       { name: 'OrderDetail', options: { headerShown: false } },
+      { name: 'SalesReturns',      options: { headerShown: false } },
+      { name: 'SalesReturnCreate', options: { headerShown: false } },
       { name: 'OrderEdit', options: { headerShown: false } },
     ],
   },

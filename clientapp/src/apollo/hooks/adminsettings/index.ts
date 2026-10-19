@@ -131,6 +131,8 @@ export function useProductImageRatio(): number | null {
 // which case the app simply shows nothing (no hardcoded fallback tiles).
 export type PromoBanner = {
   image?: string | null;
+  /** Uploaded banner video (hero slides only); plays in place of `image`. */
+  video?: string | null;
   title?: string | null;
   subtitle?: string | null;
   cta?: string | null;
@@ -167,7 +169,7 @@ export function useHeroBannerSlides(): HeroSlide[] {
   // A slide counts once it has a title OR an image — an image-only slide is a
   // finished banner artwork. Filtering on title alone dropped uploaded
   // banners entirely. A row with neither is an empty draft.
-  return slides.filter(s => s?.title || s?.image);
+  return slides.filter(s => s?.title || s?.image || s?.video);
 }
 
 /**

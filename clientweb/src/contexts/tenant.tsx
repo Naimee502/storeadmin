@@ -101,7 +101,7 @@ interface TenantContextValue {
    */
   heroBannerShowCategoryTiles: boolean;
 
-  heroBannerSlides: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
+  heroBannerSlides: { image?: string; video?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
   promoBanners: { image?: string; title?: string; subtitle?: string; cta?: string; link?: string }[];
 
   // Home page "trust bar" stat tiles (Settings → General on the admin
