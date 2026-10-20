@@ -30,6 +30,7 @@ import { salesOrderResolvers } from "./salesorder";
 import { purchaseOrderResolvers } from "./purchaseorder";
 import { attendanceResolvers } from "./attendance";
 import { salesReturnResolvers } from "./salesreturn";
+import { geocodeResolvers } from "./geocode";
 import { purchaseReturnResolvers } from "./purchasereturn";
 import { adminSettingsResolvers } from "./adminsettings";
 import { permissionsResolvers } from "./permissions";
@@ -73,6 +74,7 @@ export const resolvers = [
   purchaseOrderResolvers,
   attendanceResolvers,
   salesReturnResolvers,
+  geocodeResolvers,
   purchaseReturnResolvers,
   adminSettingsResolvers,
   permissionsResolvers,

@@ -12,7 +12,7 @@ import type { RootState } from '../store/rootreducer';
  * Smart field tracking (Zoho-style), instead of a fix every 45 seconds:
  *
  *   • MOVEMENT-BASED — the OS reports a point only after the phone has moved
- *     MOVE_DISTANCE_M. Sitting in a shop for an hour costs no GPS fixes and
+ *     MOVE_DISTANCE_M (25 m, so turns show on the trail). Sitting in a shop for an hour costs no GPS fixes and
  *     no duplicate rows; driving gives a clean route line.
  *   • HEARTBEAT — while standing still, one low-power fix every
  *     HEARTBEAT_MS, so the admin still sees "here, as of 10 min ago".
@@ -25,11 +25,18 @@ import type { RootState } from '../store/rootreducer';
  *
  * Runs only after PUNCH IN, stops at PUNCH OUT, and only while the app is open.
  */
-const MOVE_DISTANCE_M = 100;
+// A point every ~25 m of movement (was 100 m), so the drawn trail follows the
+// actual turns instead of cutting corners between far-apart points. Uploads
+// are still batched, so this costs GPS fixes, not extra network calls.
+const MOVE_DISTANCE_M = 25;
 const HEARTBEAT_MS = 10 * 60 * 1000;
 const FLUSH_MS = 3 * 60 * 1000;
-const FLUSH_SIZE = 10;
-const MAX_ACCURACY_M = 150;
+const FLUSH_SIZE = 25;
+// Moving fixes must be good (≤ 50 m) — with points this close together a
+// sloppy fix would zig-zag the line and inflate the KM. The low-power
+// stand-still heartbeat keeps the old, looser limit.
+const MAX_ACCURACY_M = 50;
+const HEARTBEAT_MAX_ACCURACY_M = 150;
 // How often we re-check punch state so tracking stops soon after punch-out.
 const PUNCH_POLL_MS = 2 * 60 * 1000;
 
@@ -101,11 +108,11 @@ export function useLocationTracker() {
         .then((l) => { if (l != null && l >= 0) battery.current = Math.round(l * 100); })
         .catch(() => {});
 
-    const record = (pos: any) => {
+    const record = (pos: any, maxAccuracy: number = MAX_ACCURACY_M) => {
       if (cancelled || !pos?.coords) return;
       readBattery();
       const { latitude, longitude, accuracy, speed } = pos.coords;
-      if (accuracy != null && accuracy > MAX_ACCURACY_M) return;
+      if (accuracy != null && accuracy > maxAccuracy) return;
       const at = new Date(pos.timestamp || Date.now());
       lastPingAt.current = at.getTime();
       queue.current.push({
@@ -131,19 +138,21 @@ export function useLocationTracker() {
       await readBattery();
 
       // First point right away (punch-in / app opened).
-      Geolocation.getCurrentPosition(record, () => {}, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+      Geolocation.getCurrentPosition((p: any) => record(p, HEARTBEAT_MAX_ACCURACY_M), () => {}, { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
 
-      watchId = Geolocation.watchPosition(record, (err: any) => console.warn('[tracker] watch error:', err?.message), {
+      watchId = Geolocation.watchPosition((p: any) => record(p), (err: any) => console.warn('[tracker] watch error:', err?.message), {
         enableHighAccuracy: true,
         distanceFilter: MOVE_DISTANCE_M,
-        interval: 60000,
-        fastestInterval: 30000,
-        maximumAge: 30000,
+        // Android: ask for a fix every 10 s (5 s at most) — the 25 m filter
+        // still drops the ones where he has not moved.
+        interval: 10000,
+        fastestInterval: 5000,
+        maximumAge: 5000,
       } as any);
 
       heartbeat = setInterval(() => {
         if (Date.now() - lastPingAt.current < HEARTBEAT_MS) return; // moved recently
-        Geolocation.getCurrentPosition(record, () => {}, { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 });
+        Geolocation.getCurrentPosition((p: any) => record(p, HEARTBEAT_MAX_ACCURACY_M), () => {}, { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 });
       }, HEARTBEAT_MS);
 
       flusher = setInterval(flush, FLUSH_MS);

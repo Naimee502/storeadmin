@@ -169,6 +169,11 @@ export default function SalesmanParties() {
   }, [tradeParties]);
 
   const geo = useGeoFence();
+  // Geo-fencing on + the party has a saved location + the salesman is not
+  // within the radius of it (or has no GPS fix yet) → shown disabled.
+  const isOutOfRange = (p: any) =>
+    geo.enabled && p.latitude != null && p.longitude != null && distOf(p) * 1000 > geo.radiusM;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = q
@@ -176,23 +181,20 @@ export default function SalesmanParties() {
           (p.name || '').toLowerCase().includes(q) || (p.mobile || '').includes(q))
       : tradeParties;
     if (channelFilter) list = list.filter((p: any) => p.channel?.id === channelFilter);
-    // Geo-fencing: only parties within the radius (or with no location saved
-    // yet — those must be located at the shop before an order is allowed).
-    if (geo.enabled) {
-      list = list.filter((p: any) => {
-        if (p.latitude == null || p.longitude == null) return true;
-        return distOf(p) * 1000 <= geo.radiusM;
-      });
-    }
+    // Geo-fencing: parties outside the radius stay LISTED but greyed out and
+    // not tappable (isOutOfRange below), so the salesman still sees his whole
+    // book. They sink below the ones he can act on. A party with no location
+    // yet stays active — its location is captured at the shop first.
+    const o = (p: any) => (isOutOfRange(p) ? 1 : 0);
     // Nearest party first (so the closest stop is on top, no scrolling). When we
     // have no GPS fix yet, fall back to pending-amount order.
     // Visited-today parties always drop below the pending ones, so the next
     // stop to do is the one on top.
     const v = (p: any) => (visitedSet.has(String(p.id)) ? 1 : 0);
     if (!salesmanLoc) {
-      return [...list].sort((a: any, b: any) => v(a) - v(b) || (b.outstanding || 0) - (a.outstanding || 0));
+      return [...list].sort((a: any, b: any) => o(a) - o(b) || v(a) - v(b) || (b.outstanding || 0) - (a.outstanding || 0));
     }
-    return [...list].sort((a: any, b: any) => v(a) - v(b) || distOf(a) - distOf(b));
+    return [...list].sort((a: any, b: any) => o(a) - o(b) || v(a) - v(b) || distOf(a) - distOf(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tradeParties, search, salesmanLoc, channelFilter, geo.enabled, geo.radiusM, visitedSet]);
 
@@ -210,13 +212,17 @@ export default function SalesmanParties() {
     const distKm = (salesmanLoc && hasLoc)
       ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, item.latitude, item.longitude)
       : null;
-    const vm = visited
+    const blocked = isOutOfRange(item);
+    const vm = blocked
+      ? { color: '#94a3b8', icon: 'map-marker-off-outline', label: salesmanLoc ? 'Out of range' : 'No GPS' }
+      : visited
       ? { color: '#22c55e', icon: 'check-circle', label: 'Visited' }
       : { color: '#f59e0b', icon: 'clock-outline', label: 'Pending' };
     return (
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
+        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }, blocked && styles.blocked]}
         onPress={() => openParty(item)}
+        disabled={blocked}
         activeOpacity={0.85}
       >
         <View style={[styles.visitIcon, { backgroundColor: vm.color + '18' }]}>
@@ -292,12 +298,13 @@ export default function SalesmanParties() {
             <View style={[styles.statusPill, { backgroundColor: vm.color + '18' }]}>
               <Text style={[styles.statusPillText, { color: vm.color }]}>{vm.label}</Text>
             </View>
-            <Icon name="chevron-right" size={18} color={colors.subText} />
+            {!blocked && <Icon name="chevron-right" size={18} color={colors.subText} />}
           </View>
           {distKm !== null ? (
             <TouchableOpacity
               style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
               activeOpacity={0.75}
+              disabled={blocked}
               onPress={() => openInMaps(item.latitude, item.longitude, item.name, salesmanLoc)}
             >
               <Icon name="navigation-variant-outline" size={11} color={colors.brand} />
@@ -371,11 +378,7 @@ export default function SalesmanParties() {
         <View style={styles.center}>
           <Icon name="account-off-outline" size={42} color={colors.border} />
           <Text style={[styles.locText, { color: colors.subText }]}>
-            {geo.enabled
-              ? salesmanLoc
-                ? `No parties within ${geo.radiusM} m of you.`
-                : 'Turn on GPS — only parties near you are shown.'
-              : 'No parties found.'}
+            No parties found.
           </Text>
         </View>
       ) : (
@@ -395,6 +398,8 @@ export default function SalesmanParties() {
 }
 
 const styles = StyleSheet.create({
+  // Geo-fenced out: visible, but plainly not available.
+  blocked: { opacity: 0.45 },
   container: { flex: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 18, marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
   searchInput: { flex: 1, fontSize: 14, fontFamily: FONTS.regular, padding: 0 },

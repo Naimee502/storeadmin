@@ -26,16 +26,21 @@ export const locationPingResolvers = {
     },
 
     // Most recent ping per staff — used for a "live location" map.
+    // Only the newest point per staff member. This used to load every ping in
+    // the range and pick the latest in memory; with points now recorded every
+    // ~25 m that is a lot of rows for a table that shows one per salesman. Now
+    // it is one indexed lookup per staff member instead.
     getLatestLocations: async (_: any, { filter = {} }: { filter?: any }) => {
-      const pings = await LocationPing.find(buildQuery(filter))
-        .populate("staffid")
-        .sort({ pingedAt: -1 });
-      const latestByStaff: Record<string, any> = {};
-      for (const p of pings as any[]) {
-        const key = String(p.staffid?._id || p.staffid);
-        if (!latestByStaff[key]) latestByStaff[key] = p;
-      }
-      return Object.values(latestByStaff);
+      const query = buildQuery(filter);
+      const staffIds: any[] = await LocationPing.distinct("staffid", query);
+      const latest = await Promise.all(
+        staffIds.map((sid) =>
+          LocationPing.findOne({ ...query, staffid: sid })
+            .sort({ pingedAt: -1 })
+            .populate("staffid")
+        )
+      );
+      return latest.filter(Boolean);
     },
 
     // Kilometres covered per staff per day (see utils/travel for how GPS

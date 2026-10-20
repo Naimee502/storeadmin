@@ -8,14 +8,14 @@ import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import {
   FONTS, useTheme,
   partyTypeOptions, regionOptions, stateOptions, TYPE_GROUP_MAP, type Option,
 } from '../../../../config';
 import { BackHeader } from '../../../../components';
-import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
+import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS, REVERSE_GEOCODE } from '../../../../apollo/queries/accounts';
 import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { ADD_ACCOUNT } from '../../../../apollo/mutations/accounts';
@@ -100,6 +100,32 @@ export default function StaffCreateParty() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; mobile?: string }>({});
 
+  // Captured location → Address / City / State / Pin Code filled in for the
+  // salesman. Only EMPTY fields are filled, so nothing he already typed is
+  // overwritten, and every field stays editable afterwards.
+  const [reverseGeocode] = useLazyQuery(REVERSE_GEOCODE, { fetchPolicy: 'network-only' });
+  const [filling, setFilling] = useState(false);
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z]/g, '');
+  const fillAddressFrom = async (lat: number, lng: number) => {
+    setFilling(true);
+    try {
+      const res: any = await reverseGeocode({ variables: { latitude: lat, longitude: lng } });
+      const g = res?.data?.reverseGeocode;
+      if (!g) return;
+      if (g.address) setAddress((cur) => cur.trim() ? cur : g.address);
+      if (g.city) setCity((cur) => cur.trim() ? cur : g.city);
+      if (/^\d{6}$/.test(g.pincode || '')) setPincode((cur) => cur.trim() ? cur : g.pincode);
+      if (g.state) {
+        const match = stateOptions.find((o: Option) => o.value && norm(o.label) === norm(g.state));
+        if (match) setStateV((cur) => cur ?? match);
+      }
+    } catch {
+      // Best effort — the fields can always be typed by hand.
+    } finally {
+      setFilling(false);
+    }
+  };
+
   const captureLocation = async () => {
     // Android needs an explicit runtime permission before the first fix.
     if (Platform.OS === 'android') {
@@ -125,7 +151,10 @@ export default function StaffCreateParty() {
     setLocating(true);
     try {
       Geolocation.getCurrentPosition(
-        pos => { setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocating(false); },
+        pos => {
+          setLatitude(pos.coords.latitude); setLongitude(pos.coords.longitude); setLocating(false);
+          fillAddressFrom(pos.coords.latitude, pos.coords.longitude);
+        },
         () => { setLocating(false); Alert.alert('Location', 'Could not get your location. Enable GPS and try again.'); },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
@@ -370,12 +399,8 @@ export default function StaffCreateParty() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Address & Credit</Text>
 
-          <Field colors={colors} label="Address"  value={address} onChange={setAddress} placeholder="Shop / building / street" icon="home-outline" />
-          <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
-          <SelectField colors={colors} label="State" value={stateV?.label} placeholder="Select state" icon="map-outline" onPress={() => setPicker('state')} />
-          <Field colors={colors} label="Pin Code" value={pincode} onChange={setPincode} placeholder="6-digit pin code" icon="map-marker-outline" keyboard="numeric" maxLength={6} />
-
-          {/* GPS capture — lets the routes screen show distance & navigation for this party */}
+          {/* GPS capture first — it fills the address fields below, and lets the routes
+              screen show distance & navigation for this party. */}
           <View style={styles.fieldWrap}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>Shop Location (GPS)</Text>
             <TouchableOpacity
@@ -394,7 +419,15 @@ export default function StaffCreateParty() {
               </Text>
               {latitude != null && !locating && <Icon name="refresh" size={16} color={colors.subText} />}
             </TouchableOpacity>
+            <Text style={[styles.locHint, { color: filling ? colors.brand : colors.subText }]}>
+              {filling ? 'Filling address from location…' : 'Capturing the location fills Address, City, State and Pin Code.'}
+            </Text>
           </View>
+          <Field colors={colors} label="Address"  value={address} onChange={setAddress} placeholder="Shop / building / street" icon="home-outline" />
+          <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
+          <SelectField colors={colors} label="State" value={stateV?.label} placeholder="Select state" icon="map-outline" onPress={() => setPicker('state')} />
+          <Field colors={colors} label="Pin Code" value={pincode} onChange={setPincode} placeholder="6-digit pin code" icon="map-marker-outline" keyboard="numeric" maxLength={6} />
+
           <Field colors={colors} label="Credit Limit" value={creditlimit} onChange={setCreditlimit} placeholder="0" icon="credit-card-outline" keyboard="numeric" />
 
           <Field colors={colors} label="Opening Balance" value={openingbalance} onChange={setOpeningbalance} placeholder="0" icon="cash-multiple" keyboard="numeric" />
@@ -480,6 +513,7 @@ export default function StaffCreateParty() {
 }
 
 const styles = StyleSheet.create({
+  locHint: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 4, marginLeft: 2 },
   container: { flex: 1 },
   scroll:    { paddingHorizontal: 18, paddingBottom: 40, paddingTop: 6 },
 

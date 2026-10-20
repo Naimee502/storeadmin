@@ -595,3 +595,16 @@ export const PREVIEW_ALLOCATION = gql`
     }
   }
 `;
+
+/** GPS point → postal address (server-side, OpenStreetMap). Pre-fills a new party's address. */
+export const REVERSE_GEOCODE = gql`
+  query ReverseGeocode($latitude: Float!, $longitude: Float!) {
+    reverseGeocode(latitude: $latitude, longitude: $longitude) {
+      address
+      city
+      state
+      pincode
+      country
+    }
+  }
+`;

@@ -149,3 +149,16 @@ export const GET_PARTY_OUTSTANDING_SUMMARY = gql`
     }
   }
 `;
+
+/** GPS point → postal address (server-side, OpenStreetMap). Pre-fills a party's address. */
+export const REVERSE_GEOCODE = gql`
+  query ReverseGeocode($latitude: Float!, $longitude: Float!) {
+    reverseGeocode(latitude: $latitude, longitude: $longitude) {
+      address
+      city
+      state
+      pincode
+      country
+    }
+  }
+`;

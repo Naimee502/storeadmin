@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
+import { useLazyQuery } from "@apollo/client";
+import { REVERSE_GEOCODE } from "../../../graphql/queries/accounts";
 import HomeLayout from "../../../layouts/home";
 import {
   FaUser, FaMobileAlt, FaEnvelope, FaLocationArrow, FaCity,
@@ -7,6 +9,7 @@ import {
   FaUniversity, FaCrosshairs, FaMapMarkedAlt, FaTimes
 } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
+import LocationPreviewMap from "../../../components/locationpreviewmap";
 import FormSwitch from "../../../components/formswitch";
 import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -266,6 +269,38 @@ const AddEditAccount = () => {
   const handleChange = (name: string, value: any) => {
     setFormValues(prev => ({ ...prev, [name]: value }));
     setFormErrors(prev => ({ ...prev, [name]: "" }));
+  };
+
+  // Shop location set (captured or pasted) → Address / City / State / Pincode
+  // filled from it, same as the app's Add New Party. Only EMPTY fields are
+  // filled, so nothing already typed is overwritten; all stay editable.
+  const [reverseGeocode] = useLazyQuery(REVERSE_GEOCODE, { fetchPolicy: "network-only" });
+  const [fillingAddress, setFillingAddress] = useState(false);
+  const normState = (v: string) => String(v || "").toLowerCase().replace(/[^a-z]/g, "");
+  const fillAddressFrom = async (lat: string, lng: string) => {
+    const la = Number(lat), lo = Number(lng);
+    if (!lat || !lng || !isFinite(la) || !isFinite(lo)) return;
+    setFillingAddress(true);
+    try {
+      const res: any = await reverseGeocode({ variables: { latitude: la, longitude: lo } });
+      const g = res?.data?.reverseGeocode;
+      if (!g) return;
+      const stateMatch = g.state
+        ? stateOptions.find((o: any) => o.value && normState(o.label) === normState(g.state))
+        : null;
+      setFormValues((prev: any) => ({
+        ...prev,
+        address: String(prev.address || "").trim() ? prev.address : (g.address || prev.address),
+        city: String(prev.city || "").trim() ? prev.city : (g.city || prev.city),
+        pincode: String(prev.pincode || "").trim() ? prev.pincode : (/^\d{6}$/.test(g.pincode || "") ? g.pincode : prev.pincode),
+        state: prev.state ? prev.state : (stateMatch?.value || prev.state),
+      }));
+      setFormErrors((prev: any) => ({ ...prev, address: "", city: "", pincode: "", state: "" }));
+    } catch {
+      // Best effort — the fields can always be typed by hand.
+    } finally {
+      setFillingAddress(false);
+    }
   };
 
   // Parent (upline) party options for downline hierarchy. When a channel is
@@ -569,7 +604,7 @@ const AddEditAccount = () => {
 
             {/* Address Info */}
             {(isFieldEnabled("address") || isFieldEnabled("city") || isFieldEnabled("state") || isFieldEnabled("country") || isFieldEnabled("pincode") || isFieldEnabled("latitude") || isFieldEnabled("longitude")) && (
-              <fieldset className="border rounded-xl p-4">
+              <fieldset className="border rounded-xl p-4 flex flex-col">
                 <legend className="text-sm sm:text-base font-medium px-2">Address Info</legend>
                 <div className="grid grid-cols-1 gap-4 mb-4">
                 {/* Address Info is not rendered directly here anymore since the fields are broken out. Wait, Mobile and Email were duplicated here earlier by me? Actually let's just remove them from Address Info because they belong in Account Info. */}
@@ -592,10 +627,19 @@ const AddEditAccount = () => {
                   <ShopLocationField
                     latitude={formValues.latitude}
                     longitude={formValues.longitude}
-                    onChange={(lat, lng) => { handleChange("latitude", lat); handleChange("longitude", lng); }}
+                    onChange={(lat, lng) => {
+                      handleChange("latitude", lat); handleChange("longitude", lng);
+                      fillAddressFrom(lat, lng);
+                    }}
                   />
                 )}
+                {fillingAddress && <p className="-mt-3 text-xs text-blue-600">Filling address from location…</p>}
               </div>
+              {/* Map of the saved shop location, in the empty space left below
+                  the fields. It fills that space and never grows the card. */}
+              {(isFieldEnabled("latitude") || isFieldEnabled("longitude")) && (
+                <LocationPreviewMap latitude={formValues.latitude} longitude={formValues.longitude} />
+              )}
             </fieldset>
             )}
 

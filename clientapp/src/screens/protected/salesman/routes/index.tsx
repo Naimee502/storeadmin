@@ -170,8 +170,9 @@ function openInMaps(lat: number, lng: number, label: string, fromLoc: LatLng | n
 
 // ── RouteCard ─────────────────────────────────────────────────────────────────
 
-function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate, defaultExpanded, onAddLocation, savingLocId }: {
+function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onManageParty, allRoutes, onNavigate, defaultExpanded, onAddLocation, savingLocId, geo }: {
   route: any; colors: any; salesmanLoc: LatLng | null;
+  geo: { enabled: boolean; radiusM: number };
   onNavigate: (lat: number, lng: number, label: string) => void;
   onPartyPress:   (party: any) => void;
   onAddParty:     (routeId: string, routeName: string, day: string, existingIds: string[], allDayWise: any[], salesmanId: string) => void;
@@ -215,6 +216,16 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
       {/* Day sections */}
       {expanded && route.dayWiseAccounts.map((day: any) => {
         const isToday = dayKey(day.day) === TODAY_DAY;
+        // Geo-fencing on: only TODAY's stops can be visited, and only from
+        // within the radius. Everything else stays listed but greyed out and
+        // not tappable — same look on both counts.
+        const blockOf = (p: any): string | null => {
+          if (!geo.enabled) return null;
+          if (!isToday) return 'Not today';
+          if (p.lat == null || p.lng == null) return null; // located at the shop first
+          if (!salesmanLoc) return 'No GPS';
+          return haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng) > geo.radiusM ? 'Out of range' : null;
+        };
         return (
           <View key={day.day} style={[styles.daySection, { borderTopColor: colors.border }]}>
             <View style={styles.dayHeaderRow}>
@@ -241,8 +252,12 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
 
             {[...day.accounts]
               .sort((a: any, b: any) => {
-                // Pending before visited, then nearest first so the next stop is
-                // on top. No GPS fix → keep the route's planned order.
+                // Available before greyed-out, pending before visited, then
+                // nearest first so the next stop is on top. No GPS fix → keep
+                // the route's planned order.
+                const ba = blockOf(a) ? 1 : 0;
+                const bb = blockOf(b) ? 1 : 0;
+                if (ba !== bb) return ba - bb;
                 const va = a.visitStatus === 'visited' ? 1 : 0;
                 const vb = b.visitStatus === 'visited' ? 1 : 0;
                 if (va !== vb) return va - vb;
@@ -253,7 +268,10 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                 return da - db;
               })
               .map((party: any, idx: number) => {
-              const vm = VISIT_META[party.visitStatus];
+              const block = blockOf(party);
+              const vm = block
+                ? { color: '#94a3b8', icon: 'map-marker-off-outline', label: block }
+                : VISIT_META[party.visitStatus];
               const distKm = (salesmanLoc && party.lat != null && party.lng != null)
                 ? haversineKm(salesmanLoc.lat, salesmanLoc.lng, party.lat, party.lng)
                 : null;
@@ -267,8 +285,9 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                   ]}
                 >
                   <TouchableOpacity
-                    style={styles.partyRowMain}
+                    style={[styles.partyRowMain, !!block && styles.blocked]}
                     onPress={() => onPartyPress({ ...party, routeName: route.routename, routeId: route.id, routeDay: day.day })}
+                    disabled={!!block}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.visitIcon, { backgroundColor: vm.color + '18' }]}>
@@ -346,6 +365,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                       {distKm !== null && (
                         <TouchableOpacity
                           style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
+                          disabled={!!block}
                           onPress={() => onNavigate(party.lat, party.lng, party.name)}
                           activeOpacity={0.75}
                         >
@@ -427,29 +447,11 @@ export default function SalesmanRoutes() {
     [data, visitedSet, myPartyIds],
   );
 
-  // Geo-fencing (Business Settings): only the parties within the allowed
-  // radius of the salesman's live GPS are listed. A party with no saved
-  // location stays listed (its location is captured at the shop first, and an
-  // order is refused until then). No GPS fix = nothing listed.
+  // Geo-fencing (Business Settings): every party stays listed; RouteCard
+  // greys out and disables the ones that are not today's stops or are outside
+  // the allowed radius of the salesman's live GPS.
   const geo = useGeoFence();
-  const routes = useMemo(() => {
-    if (!geo.enabled) return allRoutes;
-    // fullDayWiseAccounts / fullAccounts keep the complete lists so Add /
-    // Manage party never save a route with the hidden parties dropped.
-    return allRoutes.map((r: any) => ({
-      ...r,
-      fullDayWiseAccounts: r.dayWiseAccounts,
-      dayWiseAccounts: (r.dayWiseAccounts || []).map((d: any) => ({
-        ...d,
-        fullAccounts: d.accounts,
-        accounts: (d.accounts || []).filter((p: any) => {
-          if (p.lat == null || p.lng == null) return true;
-          if (!salesmanLoc) return false;
-          return haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng) <= geo.radiusM;
-        }),
-      })),
-    }));
-  }, [allRoutes, geo.enabled, geo.radiusM, salesmanLoc]);
+  const routes = allRoutes;
 
   // Refresh whenever the screen regains focus (e.g. after add / manage party / new order).
   useFocusEffect(useCallback(() => { refetch?.(); refetchOrders?.(); }, [refetch, refetchOrders]));
@@ -566,7 +568,7 @@ export default function SalesmanRoutes() {
         <Text style={[styles.locBarText, { color: locColor }]}>{locTip}</Text>
         <Text style={[styles.locBarSub, { color: colors.subText }]} numberOfLines={1}>
           {geo.enabled
-            ? salesmanLoc ? `· Parties within ${geo.radiusM} m` : '· Turn on GPS to see parties'
+            ? salesmanLoc ? `· Today's stops within ${geo.radiusM} m` : '· Turn on GPS to take orders'
             : '· Distances shown per party'}
         </Text>
         <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
@@ -589,6 +591,7 @@ export default function SalesmanRoutes() {
             defaultExpanded={index === 0}
             onAddLocation={handleAddLocation}
             savingLocId={savingLocId}
+            geo={geo}
           />
         )}
         estimatedItemSize={280}
@@ -610,6 +613,8 @@ export default function SalesmanRoutes() {
 }
 
 const styles = StyleSheet.create({
+  // Not today / out of range: visible, but plainly not available.
+  blocked: { opacity: 0.45 },
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 14 },
 

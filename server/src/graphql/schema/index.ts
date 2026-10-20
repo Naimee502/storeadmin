@@ -29,6 +29,7 @@ import { salesOrderTypeDefs } from "./salesorder";
 import { purchaseOrderTypeDefs } from "./purchaseorder";
 import { attendanceTypeDefs } from "./attendance";
 import { salesReturnTypeDefs } from "./salesreturn";
+import { geocodeTypeDefs } from "./geocode";
 import { purchaseReturnTypeDefs } from "./purchasereturn";
 import { adminSettingsTypeDefs } from "./adminsettings";
 import { permissionsTypeDefs } from "./permissions";
@@ -71,6 +72,7 @@ export const typeDefs = [
   purchaseOrderTypeDefs,
   attendanceTypeDefs,
   salesReturnTypeDefs,
+  geocodeTypeDefs,
   purchaseReturnTypeDefs,
   adminSettingsTypeDefs,
   permissionsTypeDefs,
