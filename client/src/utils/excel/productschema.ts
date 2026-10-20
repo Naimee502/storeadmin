@@ -75,8 +75,16 @@ export const PRODUCT_CODE_HEADER = "Product Code";
 // Same name on every sheet, for consistency. On the other sheets it also
 // accepts the product's Name, for a product whose code was left blank.
 export const PRODUCT_LINK_HEADER = PRODUCT_CODE_HEADER;
-export const VARIANT_REF_HEADER = "VariantRef";
+/**
+ * One "Variant Code" column, right after Product Code on the Variants,
+ * UnitConversions and UnitPrices sheets. It is both the variant's own code and
+ * how the conversion / price rows say which variant they belong to — there
+ * used to be a separate "VariantRef" label as well, which confused people.
+ */
 export const VARIANT_CODE_HEADER = "Variant Code";
+export const VARIANT_REF_HEADER = VARIANT_CODE_HEADER;
+/** Header older files used for the variant link. Still read on import. */
+export const LEGACY_VARIANT_REF_HEADER = "VariantRef";
 /** The product's pictures — one column, same idea as Category Image. */
 export const PRODUCT_IMAGE_HEADER = "Product Image";
 /** Files made before the two image columns were merged. Still read on import. */
@@ -136,17 +144,12 @@ const ALL_COLUMNS: ColumnDef[] = [
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "Variants", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   {
-    header: VARIANT_REF_HEADER, key: "variantref", sheet: "Variants", type: "text",
-    structural: true, width: 14,
-    hint: "Only needed when a product has more than one variant: a short label (1, 2, 3 or the SKU) that the UnitConversions and UnitPrices rows repeat. One variant? Leave it blank everywhere.",
+    header: VARIANT_CODE_HEADER, key: "variantref", sheet: "Variants", type: "text",
+    structural: true, width: 16,
+    hint: "The variant's code. First variant: the same as the Product Code (or blank). Extra variants: their own code (e.g. #PRD0012), or blank for the next #PRD. UnitConversions and UnitPrices repeat this code to say which variant a row belongs to.",
   },
   { header: "Variant Name", key: "name", sheet: "Variants", type: "text", permissionId: "variant_name", width: 24 },
   { header: "SKU", key: "sku", sheet: "Variants", type: "text", permissionId: "sku", width: 18 },
-  {
-    header: VARIANT_CODE_HEADER, key: "productcode", sheet: "Variants", type: "text",
-    permissionId: "productcode", width: 16,
-    hint: "Usually blank. The first variant uses the Product Code from the Products sheet; other variants get the next #PRD code. Fill it only to give an extra variant its own code.",
-  },
   { header: "Batch Number", key: "batchnumber", sheet: "Variants", type: "text", permissionId: "batchnumber", width: 16 },
   { header: "Manufacture Date", key: "manufacturedate", sheet: "Variants", type: "date", permissionId: "manufacturedate", width: 18 },
   { header: "Expiry Date", key: "expirydate", sheet: "Variants", type: "date", permissionId: "expirydate", width: 16 },
@@ -169,8 +172,8 @@ const ALL_COLUMNS: ColumnDef[] = [
   /* ---------------- Unit Conversions ---------------- */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitConversions", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
-  { header: VARIANT_REF_HEADER, key: "variantref", sheet: "UnitConversions", type: "text", structural: true, width: 14,
-    hint: "Leave blank if the product has one variant. Otherwise repeat the VariantRef from the Variants sheet." },
+  { header: VARIANT_CODE_HEADER, key: "variantref", sheet: "UnitConversions", type: "text", structural: true, width: 16,
+    hint: "The variant's code from the Variants sheet. Blank = the product's first (or only) variant." },
   { header: "Unit", key: "unitid", sheet: "UnitConversions", type: "ref", master: "units", permissionId: "unitconversions_unitid", required: true, width: 18 },
   {
     header: "Factor", key: "factor", sheet: "UnitConversions", type: "number",
@@ -181,8 +184,8 @@ const ALL_COLUMNS: ColumnDef[] = [
   /* ---------------- Unit Prices ---------------- */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitPrices", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
-  { header: VARIANT_REF_HEADER, key: "variantref", sheet: "UnitPrices", type: "text", structural: true, width: 14,
-    hint: "Leave blank if the product has one variant. Otherwise repeat the VariantRef from the Variants sheet." },
+  { header: VARIANT_CODE_HEADER, key: "variantref", sheet: "UnitPrices", type: "text", structural: true, width: 16,
+    hint: "The variant's code from the Variants sheet. Blank = the product's first (or only) variant." },
   { header: "Quantity", key: "quantity", sheet: "UnitPrices", type: "integer", permissionId: "quantity", required: true, width: 12 },
   { header: "Unit", key: "unitid", sheet: "UnitPrices", type: "ref", master: "units", permissionId: "unitprices_unitid", required: true, width: 18 },
   { header: "MRP", key: "mrp", sheet: "UnitPrices", type: "number", permissionId: "mrp", width: 12 },

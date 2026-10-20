@@ -14,6 +14,7 @@ import {
   PRODUCT_LINK_HEADER,
   VARIANT_CODE_HEADER,
   VARIANT_REF_HEADER,
+  LEGACY_VARIANT_REF_HEADER,
   type ColumnDef,
   type MasterKey,
   type SheetId,
@@ -657,26 +658,36 @@ const assembleProducts = (
     if (entry) entry.variants.push(row);
   }
 
-  // VariantRef is only needed to tell several variants of one product apart.
-  const variantRefOf = (row: RawRow) => norm(row.values[VARIANT_REF_HEADER]);
+  // "Variant Code" says which variant a row is. Older files had a separate
+  // "VariantRef" label for that; when it is present it still wins.
+  const variantRefOf = (row: RawRow) =>
+    norm(row.values[LEGACY_VARIANT_REF_HEADER]) || norm(row.values[VARIANT_REF_HEADER]);
+  // A Variant Code cell may hold a real code (#PRD0012) or, in older files /
+  // CSVs, just a position label (1, 2, 3). Only a real code becomes the
+  // variant's product code.
+  const isPositionLabel = (v: string) => /^\d{1,3}$/.test(v);
+  // The first variant may leave the code blank — it is the Product Code.
+  const effectiveRef = (entry: ProductEntry, row: RawRow, index: number) =>
+    variantRefOf(row) || (index === 0 ? entry.code : "");
   for (const entry of entries) {
     if (entry.variants.length < 2) continue;
     const seen = new Set<string>();
-    for (const row of entry.variants) {
-      const vRef = variantRefOf(row);
+    entry.variants.forEach((row, index) => {
+      const vRef = effectiveRef(entry, row, index);
       if (!vRef) {
+        if (index === 0) return; // new product, blank code: rows with a blank Variant Code mean this one
         errors.push({
           sheet: "Variants", row: row.row, column: VARIANT_REF_HEADER, value: "", ref: entry.ref,
-          message: "VariantRef is needed here — this product has more than one variant, so each needs its own label (1, 2, 3 or the SKU).",
+          message: "Variant Code is needed here — this product has more than one variant, so each one needs its own code.",
         });
       } else if (seen.has(normKey(vRef))) {
         errors.push({
           sheet: "Variants", row: row.row, column: VARIANT_REF_HEADER, value: vRef, ref: entry.ref,
-          message: `VariantRef "${vRef}" is used twice for this product.`,
+          message: `Variant Code "${vRef}" is used twice for this product.`,
         });
       }
       seen.add(normKey(vRef));
-    }
+    });
   }
 
   // Conversion and price rows, attached to their variant row.
@@ -695,24 +706,19 @@ const assembleProducts = (
       if (!entry || !entry.variants.length) continue; // the product itself is already reported
       const vRef = variantRefOf(row);
       let variant: RawRow | undefined;
-      if (!vRef && entry.variants.length === 1) {
+      if (!vRef) {
+        // Blank = the first (or only) variant.
         variant = entry.variants[0];
-      } else if (!vRef) {
-        errors.push({
-          sheet: sheetId, row: row.row, column: VARIANT_REF_HEADER, value: "", ref: entry.ref,
-          message: "VariantRef is needed here — this product has more than one variant. Repeat the VariantRef from the Variants sheet.",
-        });
-        continue;
       } else {
         variant =
-          entry.variants.find((v) => normKey(variantRefOf(v)) === normKey(vRef)) ??
-          // One variant with no VariantRef of its own: a label here still means it.
-          (entry.variants.length === 1 && !variantRefOf(entry.variants[0]) ? entry.variants[0] : undefined);
+          entry.variants.find((v, i) => normKey(effectiveRef(entry, v, i)) === normKey(vRef)) ??
+          // One variant: any code here still means it.
+          (entry.variants.length === 1 ? entry.variants[0] : undefined);
       }
       if (!variant) {
         errors.push({
           sheet: sheetId, row: row.row, column: VARIANT_REF_HEADER, value: vRef, ref: entry.ref,
-          message: `This product has no variant with VariantRef "${vRef}" on the Variants sheet.`,
+          message: `This product has no variant with Variant Code "${vRef}" on the Variants sheet.`,
         });
         continue;
       }
@@ -750,7 +756,7 @@ const assembleProducts = (
   // Every code the file assigns (Products "Product Code" + Variants "Variant
   // Code"), lower-cased, so two products can't claim the same one.
   const seenProductCodes = new Set<string>();
-  const variantCodeHeader = schema.bySheet("Variants").find((c) => c.key === "productcode")?.header;
+  const variantCodeHeader = VARIANT_CODE_HEADER;
 
   // Headers of the unit columns inside the variant sheets.
   const unitHeader = (sheet: SheetId, key: string) =>
@@ -910,7 +916,11 @@ const assembleProducts = (
       // The first variant carries the product's code from the Products sheet.
       // Its Variant Code cell may be blank or repeat the same code; a
       // different code there would leave it unclear which one is meant.
-      const variantCode = norm(variantFields.productcode);
+      // The Variant Code column is no longer a regular field (it doubles as
+      // the link), so read it here. Position labels are not codes.
+      const typedCode = norm(variantRow.values[VARIANT_CODE_HEADER]);
+      const variantCode = typedCode && !isPositionLabel(typedCode) ? typedCode : "";
+      if (variantCode) variantFields.productcode = variantCode;
       if (vIndex === 0 && entry.code) {
         if (variantCode && normKey(variantCode) !== normKey(entry.code)) {
           errors.push({
@@ -919,7 +929,7 @@ const assembleProducts = (
             column: variantCodeHeader ?? VARIANT_CODE_HEADER,
             value: variantCode,
             ref,
-            message: `Variant Code "${variantCode}" differs from the Product Code "${entry.code}" on the Products sheet. For the first variant leave Variant Code blank — the Product Code is used.`,
+            message: `Variant Code "${variantCode}" differs from the Product Code "${entry.code}" on the Products sheet. The first variant's Variant Code must be the Product Code (or blank).`,
           });
         }
         variantFields.productcode = entry.code;

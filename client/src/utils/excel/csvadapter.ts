@@ -225,7 +225,8 @@ export const csvToSheetRows = (
     const productRef = code || norm(line["ProductRef"]) || norm(line[nameHeader]);
     if (!productRef) return;
 
-    const variantRef = norm(line["VariantRef"]) || norm(line["SKU"]) || "1";
+    const variantRef =
+      norm(line[VARIANT_REF_HEADER]) || norm(line["VariantRef"]) || norm(line["SKU"]) || "1";
 
     if (!seenProducts.has(productRef.toLowerCase())) {
       seenProducts.add(productRef.toLowerCase());

@@ -183,7 +183,7 @@ const writeDataSheet = (
   productListFormula?: string,
   /** Products sheet only: where to write the hidden per-row key the list reads. */
   productKey?: { index: number; codeLetter: string; nameLetter: string },
-  /** Where Product Code / VariantRef sit on the Variants sheet, for the VariantRef dropdown. */
+  /** Where Product Code / Variant Code sit on the Variants sheet, for the Variant Code dropdown. */
   variantsCols?: { productLetter: string; refLetter: string }
 ) => {
   const sheet = workbook.addWorksheet(sheetId, {
@@ -597,19 +597,22 @@ export const productsToSheetRows = (
     });
 
     variants.forEach((variant: any, variantIndex: number) => {
-      // A VariantRef only when there is more than one variant to tell apart.
+      // Variant Code: the first variant carries the Product Code, extra
+      // variants their own code. The conversion / price rows repeat it.
+      // (A saved extra variant always has a code; the SKU / position is only
+      // a fallback so two variants never share a blank.)
       const skuIsUnique =
         !!variant?.sku && variants.filter((v: any) => v?.sku === variant.sku).length === 1;
       const variantRef =
-        variants.length > 1 ? (skuIsUnique ? variant.sku : String(variantIndex + 1)) : "";
+        variantIndex === 0
+          ? productCode || variant.productcode || ""
+          : variant.productcode || (skuIsUnique ? variant.sku : String(variantIndex + 1));
 
       variantRows.push({
         productref: productLink,
         variantref: variantRef,
         name: variant.name ?? "",
         sku: variant.sku ?? "",
-        // The first variant's code is the Product Code on the Products sheet.
-        productcode: variantIndex === 0 ? "" : variant.productcode ?? "",
         batchnumber: variant.batchnumber ?? "",
         manufacturedate: dateOf(variant.manufacturedate),
         expirydate: dateOf(variant.expirydate),
