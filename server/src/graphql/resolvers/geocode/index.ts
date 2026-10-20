@@ -33,19 +33,36 @@ export const geocodeResolvers = {
       lastCallAt = Date.now();
 
       try {
-        const url =
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18` +
-          `&accept-language=en&lat=${latitude}&lon=${longitude}`;
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        const res = await fetch(url, {
-          headers: { "User-Agent": "RudraERP/1.0 (rudra.digisysindiatech.com)" },
-          signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        if (!res.ok) return null;
-        const data: any = await res.json();
+        const nominatim = async (zoom: number) => {
+          const url =
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=${zoom}` +
+            `&accept-language=en&lat=${latitude}&lon=${longitude}`;
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 8000);
+          try {
+            const res = await fetch(url, {
+              headers: { "User-Agent": "RudraERP/1.0 (rudra.digisysindiatech.com)" },
+              signal: ctrl.signal,
+            });
+            if (!res.ok) {
+              console.warn(`[reverseGeocode] zoom ${zoom} HTTP ${res.status}`);
+              return null;
+            }
+            const json: any = await res.json();
+            console.log(
+              `[reverseGeocode] ${latitude},${longitude} zoom ${zoom} →`,
+              JSON.stringify({ display_name: json?.display_name, address: json?.address })
+            );
+            return json;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+
+        const data: any = await nominatim(18);
+        if (!data) return null;
         const a = data?.address ?? {};
+
 
         const city = pick(a.city, a.town, a.village, a.municipality, a.city_district, a.county, a.state_district);
         const street = [pick(a.house_number, a.building), pick(a.road, a.pedestrian, a.street, a.footway, a.path)]
@@ -60,21 +77,10 @@ export const geocodeResolvers = {
           .filter((v, i, arr) => arr.indexOf(v) === i && v !== city)
           .join(", ");
 
-        // Outskirts and villages often have no road / area tags at all. Fall
-        // back to the leading parts of OSM's full label, minus the pieces that
-        // already go into City / State / Pin / Country.
+        // No road / area tags (common on the edge of town): use OSM's full
+        // label as the address instead of leaving it empty.
         if (!address && typeof data?.display_name === "string") {
-          const drop = new Set(
-            [city, a.state, a.state_district, a.county, a.country, a.postcode, a.city_district]
-              .filter(Boolean)
-              .map((v: string) => String(v).trim().toLowerCase())
-          );
-          address = data.display_name
-            .split(",")
-            .map((x: string) => x.trim())
-            .filter((x: string) => x && !drop.has(x.toLowerCase()) && !/^\d{6}$/.test(x) && !/taluka|district/i.test(x))
-            .slice(0, 3)
-            .join(", ");
+          address = data.display_name.trim();
         }
 
         const result = {
@@ -85,8 +91,11 @@ export const geocodeResolvers = {
           country: pick(a.country),
         };
 
+        console.log(`[reverseGeocode] ${latitude},${longitude} result →`, JSON.stringify(result));
         if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
-        cache.set(key, result);
+        // A result with no street-level address is not remembered, so the
+        // next capture at that spot asks OSM again.
+        if (result.address) cache.set(key, result);
         return result;
       } catch (e: any) {
         console.warn("[reverseGeocode] failed:", e?.message);

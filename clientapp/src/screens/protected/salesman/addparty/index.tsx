@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,6 +10,7 @@ import { BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_ACCOUNTS } from '../../../../apollo/queries/accounts';
 import { UPDATE_SALES_ROUTE } from '../../../../apollo/mutations/staffaccounts';
 import type { RootState } from '../../../../store/rootreducer';
+import { isNamedEndUserChannel } from '../../../../utils';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -50,21 +51,53 @@ export default function AddPartyToRoute() {
 
   const [updateRoute] = useMutation(UPDATE_SALES_ROUTE);
 
-  const accounts = (data?.getAccounts ?? []) as any[];
+  const accounts = ((data as any)?.getAccounts ?? []) as any[];
 
-  const alreadyOnDay = new Set<string>(existingAccountIds);
+  // The route as it stands NOW, kept on this screen. The salesman stays here
+  // and adds several parties in a row, so every save must build on the
+  // previous one — saving from the original snapshot each time would drop the
+  // party added a moment ago.
+  const [dayWise, setDayWise] = useState<any[]>(() => {
+    const base = (allDayWiseAccounts ?? []).map((d: any) => ({ ...d, accounts: [...(d.accounts ?? [])] }));
+    // Older callers only passed the ids for the opened day — fold them in.
+    const key = dayKey(preselectedDay);
+    if (key && existingAccountIds.length && !base.some((d: any) => dayKey(d.day) === key)) {
+      base.push({ day: preselectedDay, visitorder: 0, accounts: [...existingAccountIds] });
+    }
+    return base;
+  });
+
+  // Parties already on the SELECTED day (follows the day chips).
+  const alreadyOnDay = useMemo(
+    () => new Set<string>(
+      (dayWise.find((d: any) => dayKey(d.day) === selectedDay)?.accounts ?? []).map((a: any) => String(a?.id ?? a)),
+    ),
+    [dayWise, selectedDay],
+  );
+
+  // Short "Added ✓" banner instead of an OK popup that sent him back.
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const filtered = useMemo(() =>
     accounts.filter((a: any) => {
       const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.mobile?.includes(search);
-      const notAdded    = !alreadyOnDay.has(a.id);
+      const notAdded    = !alreadyOnDay.has(String(a.id));
+      // App / website shoppers are nobody's route stop (same as My Parties).
+      if (isNamedEndUserChannel(a.channel?.channelName)) return false;
       // Only parties this salesman created (salesmanid linked to them).
       // Admin-created parties (no/other salesmanid) must not be addable here,
       // even if the server returned them via route-based scoping.
       const ownParty    = String(a.salesmanid?.id ?? a.salesmanid ?? '') === String(user?.id ?? '');
       return matchSearch && notAdded && ownParty;
     }),
-    [accounts, search, existingAccountIds, user?.id]
+    [accounts, search, alreadyOnDay, user?.id]
   );
 
   const handleAdd = (party: any) => {
@@ -73,44 +106,34 @@ export default function AddPartyToRoute() {
       return;
     }
 
-    Alert.alert(
-      'Add Party to Route',
-      `Add "${party.name}" to ${routeName} on ${selectedDay}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: async () => {
-            setAdding(party.id);
-            try {
-              if (adminid && routeId) {
-                const updatedDayWise = buildUpdatedDayWise(allDayWiseAccounts, selectedDay, party.id);
-                await updateRoute({
-                  variables: {
-                    id: routeId,
-                    input: {
-                      adminid,
-                      routename: routeName,
-                      salesmanid: routeSalesmanId,
-                      dayWiseAccounts: updatedDayWise,
-                    },
-                  },
-                });
-              }
-              Alert.alert(
-                'Party Added',
-                `${party.name} has been added to ${routeName} on ${selectedDay}.`,
-                [{ text: 'OK', onPress: () => navigation.goBack() }],
-              );
-            } catch {
-              Alert.alert('Error', 'Could not add party to route. Please try again.');
-            } finally {
-              setAdding(null);
-            }
-          },
-        },
-      ],
-    );
+    // One tap adds — no confirm, no "OK" that leaves the screen — so several
+    // parties can be added in a row. A wrong add is undone from Manage (⋮).
+    (async () => {
+      setAdding(party.id);
+      try {
+        const updatedDayWise = buildUpdatedDayWise(dayWise, selectedDay, party.id);
+        if (adminid && routeId) {
+          await updateRoute({
+            variables: {
+              id: routeId,
+              input: {
+                adminid,
+                routename: routeName,
+                salesmanid: routeSalesmanId,
+                dayWiseAccounts: updatedDayWise,
+              },
+            },
+          });
+        }
+        setDayWise(updatedDayWise);
+        const dayName = DAYS.find((d) => dayKey(d) === selectedDay) ?? selectedDay;
+        showToast(`${party.name} added to ${dayName}`);
+      } catch {
+        Alert.alert('Error', 'Could not add party to route. Please try again.');
+      } finally {
+        setAdding(null);
+      }
+    })();
   };
 
   const renderItem = ({ item: a }: { item: any }) => (
@@ -181,7 +204,7 @@ export default function AddPartyToRoute() {
             if (!selectedDay) { Alert.alert('Select Day', 'Please choose which day to add the new party to.'); return; }
             navigation.navigate('SalesmanCreateParty', {
               routeId, routeName, day: selectedDay,
-              routeSalesmanId, allDayWiseAccounts,
+              routeSalesmanId, allDayWiseAccounts: dayWise,
             });
           }}
           activeOpacity={0.85}
@@ -255,6 +278,13 @@ export default function AddPartyToRoute() {
           </View>
         }
       />
+      {/* "Added" confirmation — stays on this screen so more can be added. */}
+      {!!toast && (
+        <View pointerEvents="none" style={[styles.toast, { backgroundColor: colors.brand }]}>
+          <Icon name="check-circle" size={16} color={colors.onBrand} />
+          <Text style={[styles.toastText, { color: colors.onBrand }]} numberOfLines={2}>{toast}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -275,6 +305,13 @@ function buildUpdatedDayWise(existing: any[], day: string, newAccountId: string)
 }
 
 const styles = StyleSheet.create({
+  toast: {
+    position: 'absolute', left: 18, right: 18, bottom: 30,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 6,
+  },
+  toastText: { flex: 1, fontSize: 13, fontFamily: FONTS.semiBold },
   container:    { flex: 1 },
   listContent:  { paddingHorizontal: 18, paddingBottom: 40 },
 
