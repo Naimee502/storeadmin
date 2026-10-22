@@ -253,7 +253,7 @@ export default function OrderEdit() {
           <View key={idx} style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={[styles.thumb, { backgroundColor: colors.brandSoft }]}>
               {l.imageUrl
-                ? <AppImage uri={l.imageUrl} width={IMG.product} style={styles.thumbImg} resizeMode="cover" />
+                ? <AppImage uri={l.imageUrl} width={IMG.product} style={styles.thumbImg} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={20} color={colors.brand} />} />
                 : <Icon name="package-variant-closed" size={20} color={colors.brand} />
               }
             </View>

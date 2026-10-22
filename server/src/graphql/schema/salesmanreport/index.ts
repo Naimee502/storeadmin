@@ -139,6 +139,8 @@ export const salesmanReportTypeDefs = gql`
     orderid: ID
     latitude: Float
     longitude: Float
+    "GPS accuracy (metres) of latitude/longitude — used as drift allowance by the geo-fence."
+    accuracy: Float
   }
 
   extend type Query {
@@ -148,7 +150,7 @@ export const salesmanReportTypeDefs = gql`
     getSalesmanDashboard(adminid: ID!, salesmanid: ID!, date: String): SalesmanDashboard!
     # Team ranking for a month (YYYY-MM): achievement % of target, then order value.
     getSalesmanLeaderboard(adminid: ID!, month: String, salesmanid: ID): SalesmanLeaderboard!
-    checkGeoFence(adminid: ID!, partyacc: ID!, latitude: Float, longitude: Float): GeoFenceCheck!
+    checkGeoFence(adminid: ID!, partyacc: ID!, latitude: Float, longitude: Float, accuracy: Float): GeoFenceCheck!
   }
 
   extend type Mutation {

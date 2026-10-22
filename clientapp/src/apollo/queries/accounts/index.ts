@@ -130,6 +130,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       totalamount
       subtotal
       totaldiscount
+      invoicediscount
+      invoicediscounttype
       totalgst
       cancelStatus
       isConverted
@@ -256,6 +258,9 @@ export const GET_ACCOUNT = gql`
       openingbalance
       openingbalancetype
       outstanding
+      shopimage
+      latitude
+      longitude
       accountgroupid { id }
       channel    { id channelName }
       region
@@ -504,6 +509,8 @@ export const GET_ADMIN_SETTINGS = gql`
       geoFenceEnabled
       geoFenceRadiusM
       salesmanLeaderboardEnabled
+      attendanceSelfieRequired
+      salesmanOrderDiscountEnabled
       heroBannerSlides {
         image
         video
@@ -532,6 +539,7 @@ export const GET_CHARGE_RULES = gql`
     getChargeRules(adminid: $adminid) {
       id
       name
+      ledgerid { id ledgername }
       chargeType
       value
       gstpercent

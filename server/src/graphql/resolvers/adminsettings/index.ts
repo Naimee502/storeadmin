@@ -41,6 +41,8 @@ const formatSettings = (s: any) =>
         geoFenceEnabled: !!s.geoFenceEnabled,
         salesmanLeaderboardEnabled: s.salesmanLeaderboardEnabled !== false,
         geoFenceRadiusM: Number(s.geoFenceRadiusM) || 200,
+        attendanceSelfieRequired: !!s.attendanceSelfieRequired,
+        salesmanOrderDiscountEnabled: !!s.salesmanOrderDiscountEnabled,
       }
     : null;
 

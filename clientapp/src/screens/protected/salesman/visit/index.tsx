@@ -7,12 +7,13 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { useQuery, useMutation, useApolloClient } from '@apollo/client/react';
 import { CHECK_GEO_FENCE } from '../../../../apollo/queries/salesmanreport';
 import { MARK_VISIT } from '../../../../apollo/mutations/tracking';
+import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
-import { getCurrentLatLng } from '../../../../utils/geo';
+import { getCurrentLatLng, GEO_ACC_CAP_M } from '../../../../utils/geo';
 import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
-import { BackHeader } from '../../../../components';
+import { BackHeader, AppImage, ProductImageViewer } from '../../../../components';
 import { setCartParty } from '../../../../store/slices';
 import { GET_SALES_ORDERS, GET_ACCOUNT, GET_TRANSACTIONS, GET_PARTY_SALES_INVOICES } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber, ledgerEntryTotals } from '../../../../utils';
@@ -78,6 +79,8 @@ export default function RoutePartyVisit() {
   });
   const ledgerId = (accountData as any)?.getAccountById?.ledgerid?.id ?? null;
   const partyChannel = (accountData as any)?.getAccountById?.channel?.channelName ?? '';
+  const shopImage: string | null = (accountData as any)?.getAccountById?.shopimage || null;
+  const [shopPreview, setShopPreview] = useState(false);
   // Authoritative outstanding = server-computed ledger balance (role-free), same
   // value the admin panel & My Routes use. Falls back to the navigation param.
   const serverOutstanding = (accountData as any)?.getAccountById?.outstanding;
@@ -121,14 +124,24 @@ export default function RoutePartyVisit() {
   const [noOrderNote, setNoOrderNote] = useState('');
   const [savingNoOrder, setSavingNoOrder] = useState(false);
 
+  const [editAccount] = useMutation(EDIT_ACCOUNT);
+
   /** When geo-fencing is on, confirm the salesman is at the party. Returns the fix (or null when allowed without one). */
-  const ensureAtParty = async (): Promise<{ ok: boolean; lat?: number; lng?: number }> => {
+  const ensureAtParty = async (): Promise<{ ok: boolean; lat?: number; lng?: number; acc?: number }> => {
+    // GPS → network/Wi-Fi location → last fix from the list screen (≤ 3 min).
     const here = await getCurrentLatLng({ fresh: geo.enabled });
-    if (!geo.enabled) return { ok: true, lat: here?.lat, lng: here?.lng };
+    if (!geo.enabled) return { ok: true, lat: here?.lat, lng: here?.lng, acc: here?.acc };
+    if (!here) {
+      Alert.alert(
+        'Location not found',
+        'Could not get your location. Make sure Location is ON, step near the shop door for a few seconds, and try again.',
+      );
+      return { ok: false };
+    }
     try {
       const { data } = await apollo.query({
         query: CHECK_GEO_FENCE,
-        variables: { adminid, partyacc: partyId, latitude: here?.lat, longitude: here?.lng },
+        variables: { adminid, partyacc: partyId, latitude: here.lat, longitude: here.lng, accuracy: here.acc },
         fetchPolicy: 'network-only',
       });
       const r = (data as any)?.checkGeoFence;
@@ -136,7 +149,24 @@ export default function RoutePartyVisit() {
         Alert.alert('Not at the party', r.message || 'You must be at the party\'s location.');
         return { ok: false };
       }
-      return { ok: true, lat: here?.lat, lng: here?.lng };
+      // First visit to a party with no saved location: the salesman is at the
+      // shop now, so this fix becomes the party's location (only if precise
+      // enough to be a fair geo-fence centre). Best-effort — never blocks.
+      if (r && !r.partyHasLocation && (here.acc == null || here.acc <= GEO_ACC_CAP_M)) {
+        const acc = (accountData as any)?.getAccountById;
+        editAccount({
+          variables: {
+            id: partyId,
+            input: {
+              name: acc?.name ?? partyName,
+              accountgroupid: acc?.accountgroupid?.id ?? acc?.accountgroupid,
+              latitude: here.lat,
+              longitude: here.lng,
+            },
+          },
+        }).then(() => refetchAccount?.()).catch((e: any) => console.warn('[visit] save party location failed:', e?.message));
+      }
+      return { ok: true, lat: here.lat, lng: here.lng, acc: here.acc };
     } catch (e: any) {
       Alert.alert('Location check failed', e?.message || 'Could not verify your location. Try again.');
       return { ok: false };
@@ -172,6 +202,7 @@ export default function RoutePartyVisit() {
             notes: noOrderNote.trim() || undefined,
             latitude: r.lat,
             longitude: r.lng,
+            accuracy: r.acc,
           },
         },
       });
@@ -210,11 +241,27 @@ export default function RoutePartyVisit() {
           entering={FadeInUp.duration(400).delay(60)}
           style={[styles.partyCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         >
-          <View style={[styles.partyAvatar, { backgroundColor: colors.brandSoft }]}>
-            <Text style={[styles.partyAvatarText, { color: colors.brand }]}>
-              {(partyName ?? 'P').charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {/* Shop photo when saved (tap to view), else the initial. */}
+          <TouchableOpacity
+            style={[styles.partyAvatar, { backgroundColor: colors.brandSoft, overflow: 'hidden' }]}
+            onPress={() => shopImage && setShopPreview(true)}
+            disabled={!shopImage}
+            activeOpacity={0.85}
+          >
+            {shopImage ? (
+              <AppImage
+                uri={shopImage}
+                width={480}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+                fallback={<Text style={[styles.partyAvatarText, { color: colors.brand }]}>{(partyName ?? 'P').charAt(0).toUpperCase()}</Text>}
+              />
+            ) : (
+              <Text style={[styles.partyAvatarText, { color: colors.brand }]}>
+                {(partyName ?? 'P').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={[styles.partyTitle, { color: colors.text }]}>{partyName}</Text>
             {mobile && (
@@ -422,6 +469,12 @@ export default function RoutePartyVisit() {
           </View>
         </View>
       </Modal>
+      <ProductImageViewer
+        visible={shopPreview && !!shopImage}
+        images={shopImage ? [shopImage] : []}
+        title={partyName || 'Shop photo'}
+        onClose={() => setShopPreview(false)}
+      />
     </View>
   );
 }

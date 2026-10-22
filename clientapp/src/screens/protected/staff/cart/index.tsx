@@ -131,7 +131,7 @@ export default function StaffCart() {
       <View style={[styles.itemCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
           {item.imageUrl
-            ? <AppImage uri={item.imageUrl} width={IMG.thumb} style={styles.itemImg} resizeMode="cover" />
+            ? <AppImage uri={item.imageUrl} width={IMG.thumb} style={styles.itemImg} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={20} color={colors.brand} />} />
             : <Icon name="package-variant-closed" size={20} color={colors.brand} />
           }
         </View>

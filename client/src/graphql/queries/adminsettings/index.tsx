@@ -83,6 +83,8 @@ const SETTINGS_FIELDS = `
   geoFenceEnabled
   geoFenceRadiusM
   salesmanLeaderboardEnabled
+  attendanceSelfieRequired
+  salesmanOrderDiscountEnabled
   partyLoginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime

@@ -37,6 +37,7 @@ export const GET_ACCOUNTS = gql`
       duedays
       latitude
       longitude
+      shopimage
       otp
       assignaccountid {
         id
@@ -103,6 +104,7 @@ export const GET_ACCOUNT_BY_ID = gql`
       duedays
       latitude
       longitude
+      shopimage
       otp
       assignaccountid {
         id

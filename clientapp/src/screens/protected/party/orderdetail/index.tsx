@@ -283,6 +283,15 @@ export default function OrderDetail() {
   const subtotal = order?.subtotal    ?? items.reduce((s: number, i: any) => s + (i.amount ?? 0), 0);
   const gstAmt   = order?.totalgst    ?? 0;
   const discount = order?.totaldiscount ?? 0;
+  // Extra order discount (salesman cart / admin "invoice discount"). It is
+  // already inside totaldiscount, so it is split out here, not added again.
+  const itemDisc = items.reduce((s: number, i: any) => s + Number(i.discount || 0) * Number(i.qty || 0), 0);
+  const invVal   = Number(order?.invoicediscount || 0);
+  const invPct   = order?.invoicediscounttype === 'percent';
+  const extraDisc = invVal > 0
+    ? Math.round((invPct ? (subtotal - itemDisc) * invVal / 100 : invVal) * 100) / 100
+    : 0;
+  const lineDisc = extraDisc > 0 ? Math.max(0, discount - extraDisc) : discount;
   const grand    = order?.totalamount ?? (subtotal + gstAmt - discount);
 
   return (
@@ -356,7 +365,7 @@ export default function OrderDetail() {
               ]}>
                 <View style={[styles.itemIcon, { backgroundColor: colors.brandSoft }]}>
                   {item.productserviceid?.imageurl
-                    ? <AppImage uri={item.productserviceid.imageurl} width={IMG.product} style={styles.itemImg} resizeMode="cover" />
+                    ? <AppImage uri={item.productserviceid.imageurl} width={IMG.product} style={styles.itemImg} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={16} color={colors.brand} />} />
                     : <Icon name="package-variant-closed" size={16} color={colors.brand} />
                   }
                 </View>
@@ -364,8 +373,16 @@ export default function OrderDetail() {
                   <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
                     {item.productserviceid?.name ?? 'Product'}
                   </Text>
+                  {/* Variant · unit (e.g. "ATTA-5KG · Kilogram (kg)", "Dove-500ML · Dozen") —
+                      same as the cart line, so a Dozen isn't mistaken for a Piece. */}
+                  {(item.variantid?.name || item.salesunitid?.unitname) ? (
+                    <Text style={[styles.itemVariant, { color: colors.brand }]} numberOfLines={1}>
+                      {[item.variantid?.name, item.salesunitid?.unitname].filter(Boolean).join(' · ')}
+                    </Text>
+                  ) : null}
                   <Text style={[styles.itemVariant, { color: colors.subText }]}>
-                    {item.variantid?.name ?? ''} × {item.qty} @ {formatINR(item.rate)}
+                    {item.qty} × {formatINR(item.rate)}
+                    {Number(item.discount) > 0 ? ` (−${formatINR(item.discount)})` : ''}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
@@ -389,11 +406,19 @@ export default function OrderDetail() {
               <Text style={[styles.priceValue, { color: colors.text }]}>{formatINR(subtotal)}</Text>
             </View>
             <View style={styles.priceRow}>
-              <Text style={[styles.priceLabel, { color: colors.subText }]}>Total Discount</Text>
-              <Text style={[styles.priceValue, { color: discount > 0 ? '#22c55e' : colors.subText }]}>
-                {discount > 0 ? `− ${formatINR(discount)}` : formatINR(0)}
+              <Text style={[styles.priceLabel, { color: colors.subText }]}>{extraDisc > 0 ? 'Item Discount' : 'Total Discount'}</Text>
+              <Text style={[styles.priceValue, { color: lineDisc > 0 ? '#22c55e' : colors.subText }]}>
+                {lineDisc > 0 ? `− ${formatINR(lineDisc)}` : formatINR(0)}
               </Text>
             </View>
+            {extraDisc > 0 && (
+              <View style={styles.priceRow}>
+                <Text style={[styles.priceLabel, { color: colors.subText }]}>
+                  Extra Discount{invPct ? ` (${invVal}%)` : ''}
+                </Text>
+                <Text style={[styles.priceValue, { color: '#22c55e' }]}>− {formatINR(extraDisc)}</Text>
+              </View>
+            )}
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, { color: colors.subText }]}>GST</Text>
               <Text style={[styles.priceValue, { color: colors.text }]}>{formatINR(gstAmt)}</Text>

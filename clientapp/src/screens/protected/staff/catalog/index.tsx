@@ -209,7 +209,7 @@ export default function StaffCatalog() {
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <View style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}>
           {p.imageurl
-            ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" />
+            ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={24} color={colors.brand} />} />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
           {showStock && outOfStock && (

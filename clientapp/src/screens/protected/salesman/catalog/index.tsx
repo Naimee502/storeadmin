@@ -6,7 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
-import { BackHeader, AppImage, AppTextInput, DynamicFlashList } from '../../../../components';
+import { BackHeader, AppImage, AppTextInput, DynamicFlashList, ProductImageViewer, productImages } from '../../../../components';
 import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
@@ -27,6 +27,8 @@ export default function SalesmanCatalog() {
   const { partyId, partyName } = route.params ?? {};
 
   const [search,        setSearch]        = useState('');
+  // Product whose photos are open in the viewer (tap on a thumbnail).
+  const [preview,       setPreview]       = useState<{ images: string[]; title: string } | null>(null);
   const [category,     setCategory]     = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Record<string, number>>({});
 
@@ -104,11 +106,20 @@ export default function SalesmanCatalog() {
     return cats;
   }, [products]);
 
-  const filtered = useMemo(() => products.filter((p: any) => {
-    const matchCat    = !category || p.categoryid?.id === category;
-    const matchSearch = !search   || p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch && p.status !== false;
-  }), [products, category, search]);
+  // Out-of-stock items can't be added (no Add button), so they sink to the
+  // bottom; everything else keeps the server's order (stable sort).
+  const filtered = useMemo(() => {
+    const isOut = (p: any) => (p.productvariants?.[0]?.currentstock === 0 ? 1 : 0);
+    return products
+      .filter((p: any) => {
+        const matchCat    = !category || p.categoryid?.id === category;
+        const matchSearch = !search   || p.name.toLowerCase().includes(search.toLowerCase());
+        return matchCat && matchSearch && p.status !== false;
+      })
+      .map((p: any, i: number) => ({ p, i }))
+      .sort((a: any, b: any) => isOut(a.p) - isOut(b.p) || a.i - b.i)
+      .map((x: any) => x.p);
+  }, [products, category, search]);
 
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
 
@@ -194,15 +205,41 @@ export default function SalesmanCatalog() {
     return (
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         {/* Thumbnail */}
-        <View style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}>
-          {p.imageurl
-            ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" />
-            : <Icon name="package-variant-closed" size={24} color={colors.brand} />
-          }
-          {showStock && outOfStock && (
-            <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
-          )}
-        </View>
+        {/* Tap the photo to see all of the product's photos. */}
+        {(() => {
+          const imgs = productImages(p);
+          const cover = imgs[0];
+          return (
+            <TouchableOpacity
+              style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}
+              onPress={() => cover && setPreview({ images: imgs, title: p.name })}
+              disabled={!cover}
+              activeOpacity={0.8}
+            >
+              {cover
+                // IMG.product (not thumb): same URL as the party app and the
+                // viewer, so it is one cached download shared by all of them.
+                ? <AppImage
+                    uri={cover}
+                    width={IMG.product}
+                    style={styles.img}
+                    resizeMode="cover"
+                    fallback={<Icon name="package-variant-closed" size={24} color={colors.brand} />}
+                  />
+                : <Icon name="package-variant-closed" size={24} color={colors.brand} />
+              }
+              {imgs.length > 1 && (
+                <View style={styles.imgCount}>
+                  <Icon name="image-multiple-outline" size={10} color="#fff" />
+                  <Text style={styles.imgCountText}>{imgs.length}</Text>
+                </View>
+              )}
+              {showStock && outOfStock && (
+                <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* Middle: name, category · variant, units, price */}
         <View style={styles.rowMid}>
@@ -354,6 +391,12 @@ export default function SalesmanCatalog() {
           <Icon name="chevron-right" size={18} color={colors.onBrand} />
         </TouchableOpacity>
       )}
+      <ProductImageViewer
+        visible={!!preview}
+        images={preview?.images ?? []}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
+      />
     </View>
   );
 }
@@ -381,6 +424,8 @@ const styles = StyleSheet.create({
   },
   thumb:   { width: 78, height: 78, borderRadius: 12, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   thumbTop: { alignSelf: 'flex-start' },
+  imgCount: { position: 'absolute', top: 4, right: 4, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8 },
+  imgCountText: { color: '#fff', fontSize: 9, fontFamily: FONTS.semiBold },
   img:     { ...StyleSheet.absoluteFillObject },
   oosTag:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, alignItems: 'center' },
   oosText: { fontSize: 8, fontFamily: FONTS.semiBold, color: '#fff' },

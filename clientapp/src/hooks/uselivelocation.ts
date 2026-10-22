@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { useFocusEffect } from '@react-navigation/native';
-import type { LatLng } from '../utils/geo';
+import { rememberFix, getRecentFix, type LatLng } from '../utils/geo';
 
 export type LiveLocStatus = 'fetching' | 'live' | 'off';
 
@@ -34,7 +34,7 @@ export function useLiveLocation(distanceFilterM = 50) {
   const watchId = useRef<number | null>(null);
 
   const onPos = useCallback((pos: any) => {
-    setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    setLoc(rememberFix(pos));
     setStatus('live');
   }, []);
 
@@ -49,14 +49,29 @@ export function useLiveLocation(distanceFilterM = 50) {
     setStatus((s) => (s === 'live' ? s : 'fetching'));
     const ok = await ensurePermission();
     if (!ok) { setLoc(null); setStatus('off'); return; }
+    // A fix taken in the last 3 min (e.g. on the previous screen) shows the
+    // list straight away instead of a blank "No GPS" state.
+    const recent = getRecentFix();
+    if (recent) { setLoc(recent); setStatus('live'); }
     // Quick fresh fix first so the list is right as soon as the screen opens.
+    // GPS can't get a satellite fix inside shops / basements, so on failure
+    // fall back to network / Wi-Fi location instead of giving up.
+    const lowAccuracyFallback = () => {
+      try {
+        Geolocation.getCurrentPosition(
+          onPos,
+          () => setStatus((s) => (s === 'live' ? s : 'off')),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+        );
+      } catch { setStatus((s) => (s === 'live' ? s : 'off')); }
+    };
     try {
       Geolocation.getCurrentPosition(
         onPos,
-        () => setStatus((s) => (s === 'live' ? s : 'off')),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 },
+        lowAccuracyFallback,
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
       );
-    } catch { setStatus('off'); }
+    } catch { lowAccuracyFallback(); }
     stopWatch();
     try {
       watchId.current = Geolocation.watchPosition(

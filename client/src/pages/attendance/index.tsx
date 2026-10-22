@@ -137,6 +137,14 @@ const Attendance: React.FC = () => {
   const branchId = type === "staff" ? (staff?.branchid?.id || selectedBranchId) : selectedBranchId;
 
   const [tab, setTab] = useState<string>(initialTab || "overview");
+  // Punch-in selfie opened large (click on a thumbnail).
+  const [selfiePreview, setSelfiePreview] = useState<{ url: string; caption: string } | null>(null);
+  const SelfieThumb = ({ url, caption }: { url?: string | null; caption: string }) =>
+    url ? (
+      <button type="button" onClick={() => setSelfiePreview({ url, caption })} title="View selfie" className="block">
+        <img src={url} alt="selfie" loading="lazy" className="w-9 h-9 rounded-full object-cover border-2 border-green-500 hover:opacity-80" />
+      </button>
+    ) : <span className="text-xs text-gray-400">—</span>;
 
   /* ── Attendance date/staff filter ── */
   const [logFilter, setLogFilter] = useState({
@@ -546,6 +554,11 @@ const Attendance: React.FC = () => {
     lastOut:   fmtTime(l.lastPunchOut),
     work:      toHm(l.totalWorkMinutes),
     lateLabel: l.isLate ? `${l.lateByMinutes}m late` : null,
+    // Selfie of the first punch-in of the day (Business Settings → Selfie on Punch In).
+    selfieUrl: (l.punches ?? []).find((p: any) => p?.type === "in" && p?.selfieUrl)?.selfieUrl ?? null,
+  })).map((r: any) => ({
+    ...r,
+    selfieCell: <SelfieThumb url={r.selfieUrl} caption={`${r.staffName} · ${r.dateLabel} · In ${r.firstIn}`} />,
   }));
 
   const renderAttendanceTab = () => (
@@ -600,6 +613,8 @@ const Attendance: React.FC = () => {
           { label: "Date",     key: "dateLabel" },
           { label: "Staff",    key: "staffName" },
           { label: "Code",     key: "staffCode" },
+          // DataTable prints row[key] as-is, so the cell is pre-built in logRows.
+          { label: "Selfie",   key: "selfieCell" },
           {
             label: "Status",   key: "status",
             render: (v: any) => <StatusBadge value={v} />,
@@ -963,7 +978,7 @@ const Attendance: React.FC = () => {
   /* ═══════════════════════════════════════════════════════════════ */
   const punchRows = (punchesQ.data?.getAttendancePunches ?? []).map((p: any, i: number) => ({
     ...p, seqNo: i+1, typeLabel: cap(p.type), sourceLabel: cap(p.source), address: p.address ?? "-", remarks: p.remarks ?? "-", when: fmtDate(p.timestamp) + " " + fmtTime(p.timestamp),
-  }));
+  })).map((r: any) => ({ ...r, selfieCell: <SelfieThumb url={r.selfieUrl} caption={`${r.typeLabel} · ${r.when}`} /> }));
 
   const renderPunchesTab = () => (
     <DataTable requireBranchForAdd={true}
@@ -973,6 +988,7 @@ const Attendance: React.FC = () => {
         { label: "Type",    key: "typeLabel" },
         { label: "When",    key: "when" },
         { label: "Source",  key: "sourceLabel" },
+        { label: "Selfie",  key: "selfieCell" },
         { label: "Address", key: "address" },
         { label: "Remarks", key: "remarks" },
       ]}
@@ -1321,6 +1337,20 @@ const Attendance: React.FC = () => {
             </div>
           </div>
         </Modal>
+        {selfiePreview && (
+          <div
+            className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setSelfiePreview(null)}
+          >
+            <div className="bg-white rounded-2xl shadow-xl p-3 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-sm font-semibold text-gray-700 truncate">{selfiePreview.caption}</span>
+                <button type="button" onClick={() => setSelfiePreview(null)} className="text-gray-500 hover:text-gray-800 text-xl leading-none px-1" aria-label="Close">×</button>
+              </div>
+              <img src={selfiePreview.url} alt="selfie" className="w-full max-h-[60vh] object-contain rounded-xl bg-gray-50" />
+            </div>
+          </div>
+        )}
       </div>
     </HomeLayout>
   );

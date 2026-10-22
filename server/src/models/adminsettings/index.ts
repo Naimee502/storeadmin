@@ -411,6 +411,20 @@ const adminSettingsSchema = new mongoose.Schema(
     geoFenceEnabled: { type: Boolean, default: false },
     geoFenceRadiusM: { type: Number, default: 200 },
 
+    /**
+     * Staff app: a selfie (front camera) is required to Punch In. The photo is
+     * stored on the punch (selfieUrl) and shown in the admin attendance log.
+     * Only mobile self-punches are checked — back-office / manual entries are not.
+     */
+    attendanceSelfieRequired: { type: Boolean, default: false },
+
+    /**
+     * Salesman app: the salesman may give an extra discount on the whole order
+     * (₹ or %) from the cart — stored as the order's invoicediscount. Off by
+     * default; when off the server rejects an app order carrying one.
+     */
+    salesmanOrderDiscountEnabled: { type: Boolean, default: false },
+
     /** Salesman app "Team Leaderboard": salesmen see each other's monthly target & achievement. */
     salesmanLeaderboardEnabled: { type: Boolean, default: true },
 

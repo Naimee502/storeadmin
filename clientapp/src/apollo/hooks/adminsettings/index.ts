@@ -267,3 +267,25 @@ export function useLeaderboardEnabled(): boolean {
   });
   return (data as any)?.getAdminSettings?.salesmanLeaderboardEnabled !== false;
 }
+
+/** Business Settings -> "Selfie on Punch In". Off by default. */
+export function useAttendanceSelfieRequired(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.attendanceSelfieRequired === true;
+}
+
+/** Business Settings -> "Salesman can give an extra discount on the order". Off by default. */
+export function useSalesmanOrderDiscount(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.salesmanOrderDiscountEnabled === true;
+}

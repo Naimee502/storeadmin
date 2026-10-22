@@ -1,9 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Linking, Platform, Alert,
+  View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar, TextInput, Linking, Platform, Alert,
   PermissionsAndroid, ScrollView,
 } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -14,7 +13,7 @@ import { BackHeader, DynamicFlashList } from '../../../../components';
 import { GET_ACCOUNTS, GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
-import { localYMD } from '../../../../utils/geo';
+import { localYMD, isWithinFence, getCurrentLatLng } from '../../../../utils/geo';
 import { useLiveLocation } from '../../../../hooks/uselivelocation';
 import type { RootState } from '../../../../store/rootreducer';
 import { isNamedEndUserChannel } from '../../../../utils';
@@ -88,33 +87,32 @@ export default function SalesmanParties() {
       return;
     }
     setSavingLocId(item.id);
-    Geolocation.getCurrentPosition(
-      async (pos: any) => {
-        try {
-          await editAccount({
-            variables: {
-              id: item.id,
-              input: {
-                name: item.name,
-                accountgroupid: item.accountgroupid?.id ?? item.accountgroupid,
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              },
-            },
-          });
-          await refetch();
-        } catch (e: any) {
-          Alert.alert('Error', e?.message || 'Could not save location.');
-        } finally {
-          setSavingLocId(null);
-        }
-      },
-      () => {
-        setSavingLocId(null);
-        Alert.alert('Location Error', 'Could not get current location. Please enable GPS and try again.');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    // GPS first, then network location; never a stale cached fix, and only a
+    // reasonably precise one — this becomes the party's geo-fence centre.
+    const here = await getCurrentLatLng({ fresh: true, noCache: true, maxAccM: 100 });
+    if (!here) {
+      setSavingLocId(null);
+      Alert.alert('Location Error', 'Could not get an accurate location. Step outside the shop for a moment (or turn on GPS) and try again.');
+      return;
+    }
+    try {
+      await editAccount({
+        variables: {
+          id: item.id,
+          input: {
+            name: item.name,
+            accountgroupid: item.accountgroupid?.id ?? item.accountgroupid,
+            latitude: here.lat,
+            longitude: here.lng,
+          },
+        },
+      });
+      await refetch();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not save location.');
+    } finally {
+      setSavingLocId(null);
+    }
   };
 
   const { data, loading, refetch } = useQuery(GET_ACCOUNTS, {
@@ -171,8 +169,11 @@ export default function SalesmanParties() {
   const geo = useGeoFence();
   // Geo-fencing on + the party has a saved location + the salesman is not
   // within the radius of it (or has no GPS fix yet) → shown disabled.
+  // GPS accuracy is allowed for (isWithinFence) so indoor drift of a few
+  // dozen metres doesn't grey out the shop the salesman is standing in.
   const isOutOfRange = (p: any) =>
-    geo.enabled && p.latitude != null && p.longitude != null && distOf(p) * 1000 > geo.radiusM;
+    geo.enabled && p.latitude != null && p.longitude != null
+    && !isWithinFence(distOf(p) * 1000, salesmanLoc?.acc, geo.radiusM);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -219,11 +220,17 @@ export default function SalesmanParties() {
       ? { color: '#22c55e', icon: 'check-circle', label: 'Visited' }
       : { color: '#f59e0b', icon: 'clock-outline', label: 'Pending' };
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }, blocked && styles.blocked]}
+      // Pressable, not TouchableOpacity: TouchableOpacity animates its own
+      // opacity and FlashList recycles cells, so a cell that was greyed out
+      // (blocked) kept the faded opacity when reused for an available party —
+      // until a pull-to-refresh re-created it. Here opacity is plain style.
+      <Pressable
+        style={({ pressed }) => [
+          styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border },
+          blocked ? styles.blocked : pressed ? styles.pressed : null,
+        ]}
         onPress={() => openParty(item)}
         disabled={blocked}
-        activeOpacity={0.85}
       >
         <View style={[styles.visitIcon, { backgroundColor: vm.color + '18' }]}>
           <Icon name={vm.icon} size={18} color={vm.color} />
@@ -312,7 +319,7 @@ export default function SalesmanParties() {
             </TouchableOpacity>
           ) : null}
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -400,6 +407,7 @@ export default function SalesmanParties() {
 const styles = StyleSheet.create({
   // Geo-fenced out: visible, but plainly not available.
   blocked: { opacity: 0.45 },
+  pressed: { opacity: 0.85 },
   container: { flex: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 18, marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
   searchInput: { flex: 1, fontSize: 14, fontFamily: FONTS.regular, padding: 0 },

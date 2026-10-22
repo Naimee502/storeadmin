@@ -67,8 +67,8 @@ export const salesmanReportResolvers = {
       };
     },
 
-    checkGeoFence: async (_: any, { adminid, partyacc, latitude, longitude }: any) =>
-      checkGeoFence(adminid, partyacc, latitude, longitude),
+    checkGeoFence: async (_: any, { adminid, partyacc, latitude, longitude, accuracy }: any) =>
+      checkGeoFence(adminid, partyacc, latitude, longitude, accuracy),
   },
 
   Mutation: {
@@ -82,7 +82,7 @@ export const salesmanReportResolvers = {
       if (!["productive", "unproductive"].includes(outcome)) throw new Error("outcome must be productive or unproductive");
       if (outcome === "unproductive" && !String(input.reason || "").trim()) throw new Error("Select a reason for no order.");
 
-      const geo = await checkGeoFence(input.adminid, input.partyacc, input.latitude, input.longitude);
+      const geo = await checkGeoFence(input.adminid, input.partyacc, input.latitude, input.longitude, input.accuracy);
       if (!geo.allowed && outcome === "unproductive") throw new Error(geo.message || "You are not at the party's location.");
 
       const visitdate = istYMD();

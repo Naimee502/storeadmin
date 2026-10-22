@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -14,7 +13,7 @@ import { GET_SALES_ORDERS, GET_ACCOUNTS } from '../../../../apollo/queries/accou
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import type { RootState } from '../../../../store/rootreducer';
 import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
-import { localYMD, haversineM } from '../../../../utils/geo';
+import { localYMD, haversineM, isWithinFence, getCurrentLatLng } from '../../../../utils/geo';
 import { useLiveLocation } from '../../../../hooks/uselivelocation';
 
 // Days come in mixed formats: admin panel saves "sun"/"mon", the app used
@@ -79,7 +78,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const TODAY_DAY = dayKey(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
 
 type VisitStatus = 'pending' | 'visited' | 'skipped';
-type LatLng = { lat: number; lng: number };
+type LatLng = { lat: number; lng: number; acc?: number };
 
 // ── dummy data (with location) ──────────────────────────────────────────────
 
@@ -224,7 +223,8 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
           if (!isToday) return 'Not today';
           if (p.lat == null || p.lng == null) return null; // located at the shop first
           if (!salesmanLoc) return 'No GPS';
-          return haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng) > geo.radiusM ? 'Out of range' : null;
+          return isWithinFence(haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng), salesmanLoc.acc, geo.radiusM)
+            ? null : 'Out of range';
         };
         return (
           <View key={day.day} style={[styles.daySection, { borderTopColor: colors.border }]}>
@@ -284,11 +284,12 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     idx === day.accounts.length - 1 && { borderBottomWidth: 0 },
                   ]}
                 >
-                  <TouchableOpacity
-                    style={[styles.partyRowMain, !!block && styles.blocked]}
+                  {/* Pressable: plain-style opacity, so a recycled / re-rendered
+                      row never keeps a stale greyed-out look (TouchableOpacity did). */}
+                  <Pressable
+                    style={({ pressed }) => [styles.partyRowMain, block ? styles.blocked : pressed ? styles.pressed : null]}
                     onPress={() => onPartyPress({ ...party, routeName: route.routename, routeId: route.id, routeDay: day.day })}
                     disabled={!!block}
-                    activeOpacity={0.75}
                   >
                     <View style={[styles.visitIcon, { backgroundColor: vm.color + '18' }]}>
                       <Icon name={vm.icon} size={16} color={vm.color} />
@@ -377,7 +378,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                         <Text style={[styles.statusPillText, { color: vm.color }]}>{vm.label}</Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                   <TouchableOpacity
                     style={[styles.manageBtn, { backgroundColor: colors.raisedSurface }]}
                     onPress={() => onManageParty(
@@ -485,33 +486,32 @@ export default function SalesmanRoutes() {
       }
     }
     setSavingLocId(party.id);
-    Geolocation.getCurrentPosition(
-      async (pos: any) => {
-        try {
-          await editAccount({
-            variables: {
-              id: party.id,
-              input: {
-                name: party.name,
-                accountgroupid: party.accountgroupid,
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              },
-            },
-          });
-          await refetch?.();
-        } catch (e: any) {
-          Alert.alert('Error', e?.message || 'Could not save location.');
-        } finally {
-          setSavingLocId(null);
-        }
-      },
-      () => {
-        setSavingLocId(null);
-        Alert.alert('Location Error', 'Could not get current location. Please enable GPS and try again.');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    // GPS first, then network location; never a stale cached fix, and only a
+    // reasonably precise one — this becomes the party's geo-fence centre.
+    const here = await getCurrentLatLng({ fresh: true, noCache: true, maxAccM: 100 });
+    if (!here) {
+      setSavingLocId(null);
+      Alert.alert('Location Error', 'Could not get an accurate location. Step outside the shop for a moment (or turn on GPS) and try again.');
+      return;
+    }
+    try {
+      await editAccount({
+        variables: {
+          id: party.id,
+          input: {
+            name: party.name,
+            accountgroupid: party.accountgroupid,
+            latitude: here.lat,
+            longitude: here.lng,
+          },
+        },
+      });
+      await refetch?.();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not save location.');
+    } finally {
+      setSavingLocId(null);
+    }
   }, [editAccount, refetch, savingLocId]);
 
   const handlePartyPress = (party: any) => {
@@ -615,6 +615,7 @@ export default function SalesmanRoutes() {
 const styles = StyleSheet.create({
   // Not today / out of range: visible, but plainly not available.
   blocked: { opacity: 0.45 },
+  pressed: { opacity: 0.75 },
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 14 },
 

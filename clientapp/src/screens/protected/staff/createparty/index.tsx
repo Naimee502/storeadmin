@@ -14,7 +14,9 @@ import {
   FONTS, useTheme,
   partyTypeOptions, regionOptions, stateOptions, TYPE_GROUP_MAP, type Option,
 } from '../../../../config';
-import { BackHeader } from '../../../../components';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { BackHeader, AppImage, ProductImageViewer } from '../../../../components';
+import { uploadImage } from '../../../../utils/uploadimage';
 import { GET_ACCOUNT_GROUPS, GET_CHANNELS, GET_ACCOUNTS, GET_ADMIN_SETTINGS, REVERSE_GEOCODE } from '../../../../apollo/queries/accounts';
 import { GET_STAFF_ACCOUNT } from '../../../../apollo/queries/staffaccounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
@@ -97,6 +99,10 @@ export default function StaffCreateParty() {
   const [latitude,  setLatitude]  = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
+  // Shop front photo (optional) — uploaded right away, url saved on the party.
+  const [shopImage, setShopImage] = useState<string | null>(null);
+  const [uploadingShop, setUploadingShop] = useState(false);
+  const [shopPreview, setShopPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; mobile?: string }>({});
 
@@ -124,6 +130,31 @@ export default function StaffCreateParty() {
     } finally {
       setFilling(false);
     }
+  };
+
+  const pickShopPhoto = () => {
+    const handle = async (res: any) => {
+      if (res?.didCancel) return;
+      const asset = res?.assets?.[0];
+      if (res?.errorCode || !asset?.uri) {
+        if (res?.errorCode) Alert.alert('Photo', res?.errorMessage || 'Could not get the photo.');
+        return;
+      }
+      setUploadingShop(true);
+      try {
+        setShopImage(await uploadImage(asset.uri, asset.fileName, asset.type));
+      } catch (e: any) {
+        Alert.alert('Upload failed', e?.message || 'Could not upload the photo. Please try again.');
+      } finally {
+        setUploadingShop(false);
+      }
+    };
+    const opts: any = { mediaType: 'photo', quality: 0.6, maxWidth: 1280, maxHeight: 1280, saveToPhotos: false };
+    Alert.alert('Shop Photo', 'Add a photo of the shop front', [
+      { text: 'Camera',  onPress: () => launchCamera(opts).then(handle).catch(() => {}) },
+      { text: 'Gallery', onPress: () => launchImageLibrary(opts).then(handle).catch(() => {}) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const captureLocation = async () => {
@@ -274,6 +305,7 @@ export default function StaffCreateParty() {
             assignaccountid: (manageDownline && parentParty?.value) ? parentParty.value : null,
             latitude,
             longitude,
+            shopimage: shopImage || null,
             salesmanid: user?.id || null,
             admin: adminid,
             branchid: branchid || null,
@@ -423,6 +455,52 @@ export default function StaffCreateParty() {
               {filling ? 'Filling address from location…' : 'Capturing the location fills Address, City, State and Pin Code.'}
             </Text>
           </View>
+          {/* Shop photo (optional) */}
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Shop Photo</Text>
+            {shopImage ? (
+              <View style={[styles.shopPhotoRow, { borderColor: colors.brand, backgroundColor: colors.raisedSurface }]}>
+                <TouchableOpacity onPress={() => setShopPreview(true)} activeOpacity={0.85}>
+                  <AppImage
+                    uri={shopImage}
+                    width={480}
+                    style={styles.shopThumb}
+                    resizeMode="cover"
+                    fallback={<View style={[styles.shopThumb, styles.center, { backgroundColor: colors.brandSoft }]}><Icon name="storefront-outline" size={22} color={colors.brand} /></View>}
+                  />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.shopPhotoTitle, { color: colors.text }]}>Photo added</Text>
+                  <Text style={[styles.locHint, { color: colors.subText, marginTop: 2 }]}>Tap the photo to view</Text>
+                </View>
+                <TouchableOpacity onPress={pickShopPhoto} disabled={uploadingShop} style={[styles.shopIconBtn, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name={uploadingShop ? 'loading' : 'camera-retake-outline'} size={18} color={colors.brand} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShopImage(null)} style={[styles.shopIconBtn, { backgroundColor: '#ef444418' }]}>
+                  <Icon name="trash-can-outline" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.shopAddBtn, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
+                onPress={pickShopPhoto}
+                disabled={uploadingShop}
+                activeOpacity={0.8}
+              >
+                <Icon name={uploadingShop ? 'loading' : 'camera-plus-outline'} size={20} color={colors.brand} />
+                <Text style={[styles.shopAddText, { color: colors.brand }]}>
+                  {uploadingShop ? 'Uploading photo…' : 'Add shop photo'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <ProductImageViewer
+            visible={shopPreview && !!shopImage}
+            images={shopImage ? [shopImage] : []}
+            title={name.trim() || 'Shop photo'}
+            onClose={() => setShopPreview(false)}
+          />
+
           <Field colors={colors} label="Address"  value={address} onChange={setAddress} placeholder="Shop / building / street" icon="home-outline" />
           <Field colors={colors} label="City"     value={city}    onChange={setCity}    placeholder="City"  icon="city-variant-outline" />
           <SelectField colors={colors} label="State" value={stateV?.label} placeholder="Select state" icon="map-outline" onPress={() => setPicker('state')} />
@@ -513,6 +591,13 @@ export default function StaffCreateParty() {
 }
 
 const styles = StyleSheet.create({
+  shopAddBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, paddingVertical: 14 },
+  shopAddText:   { fontSize: 14, fontFamily: FONTS.semiBold },
+  shopPhotoRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 8 },
+  shopThumb:     { width: 64, height: 64, borderRadius: 10 },
+  shopPhotoTitle:{ fontSize: 13, fontFamily: FONTS.semiBold },
+  center:        { justifyContent: 'center', alignItems: 'center' },
+  shopIconBtn:   { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   locHint: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 4, marginLeft: 2 },
   container: { flex: 1 },
   scroll:    { paddingHorizontal: 18, paddingBottom: 40, paddingTop: 6 },

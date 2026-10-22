@@ -77,6 +77,11 @@ const AddEditSalesOrder = () => {
   const [totalDiscount, setTotalDiscount] = useState(0.0);
   const [taxAmount, setTaxAmount] = useState(0.0);
   const [grandTotal, setGrandTotal] = useState(0.0);
+  // Order-level discount (₹ / %) — the salesman's "extra discount" from the
+  // app, or one the admin sets here. Same maths as the invoice discount.
+  const [invoiceDiscount, setInvoiceDiscount] = useState<number | "">("");
+  const [invoiceDiscountType, setInvoiceDiscountType] = useState("amount");
+  const [invoiceDiscountAmt, setInvoiceDiscountAmt] = useState(0);
 
   const [notes, setNotes] = useState("");
 
@@ -123,6 +128,8 @@ const AddEditSalesOrder = () => {
       setNotes(order.notes || "");
       setOrderType(order.ordertype || "");
       setStatus(order.status ?? true);
+      setInvoiceDiscount(order.invoicediscount || "");
+      setInvoiceDiscountType(order.invoicediscounttype || "amount");
       setIsService(order.isservice ?? false);
 
       const mappedProducts = order.productservice.map((p: any) => ({
@@ -183,11 +190,18 @@ const AddEditSalesOrder = () => {
       grandTotalCalc += lineTotal;
     });
 
+    const invDisc = Number(invoiceDiscount) || 0;
+    const computedInvDisc = Math.min(
+      taxableSubtotal,
+      Math.max(0, invoiceDiscountType === "percent" ? (taxableSubtotal * invDisc) / 100 : invDisc),
+    );
+
     setProductsTotal(productsTotalCalc);
-    setTotalDiscount(totalLineDiscount);
+    setTotalDiscount(totalLineDiscount + computedInvDisc);
     setTaxAmount(totalGSTAmount);
-    setGrandTotal(grandTotalCalc);
-  }, [products]);
+    setInvoiceDiscountAmt(computedInvDisc);
+    setGrandTotal(grandTotalCalc - computedInvDisc);
+  }, [products, invoiceDiscount, invoiceDiscountType]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -235,6 +249,8 @@ const AddEditSalesOrder = () => {
       totaldiscount: totalDiscount,
       totalgst: taxAmount,
       totalamount: grandTotal,
+      invoicediscount: invoiceDiscount ? Number(invoiceDiscount) : 0,
+      invoicediscounttype: invoiceDiscountType,
       isservice: isService,
       productservice: products.map((p) => ({
         productserviceid: p.productserviceid,
@@ -351,6 +367,40 @@ const AddEditSalesOrder = () => {
             navigate={navigate}
             iservice={isService}
           />
+
+          <fieldset className="border rounded-xl p-4">
+            <legend className="text-sm font-medium px-2">Order Discount</legend>
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex gap-2 items-end w-full sm:w-72">
+                <div className="flex-1">
+                  <FormField
+                    label="Extra discount on order"
+                    name="invoiceDiscount"
+                    type="number"
+                    value={invoiceDiscount}
+                    onChange={(e: any) => setInvoiceDiscount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="0"
+                  />
+                </div>
+                <select
+                  className="border rounded p-2 text-sm h-10 mb-1"
+                  value={invoiceDiscountType}
+                  onChange={(e) => setInvoiceDiscountType(e.target.value)}
+                >
+                  <option value="amount">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+              <div className="text-sm text-gray-600 pb-2">
+                {invoiceDiscountAmt > 0 && <span className="text-green-700 mr-4">− ₹{invoiceDiscountAmt.toFixed(2)}</span>}
+                Order total (before extra charges): <span className="font-semibold text-gray-900">₹{grandTotal.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Taken off the value after item discounts, before GST — same as the invoice discount. A salesman's extra
+              discount from the app shows here.
+            </p>
+          </fieldset>
 
           <div className="flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>

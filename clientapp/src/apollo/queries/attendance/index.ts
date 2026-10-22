@@ -26,7 +26,7 @@ export const GET_ATTENDANCE_LOGS = gql`
       firstPunchIn
       lastPunchOut
       totalWorkMinutes
-      punches { id type timestamp latitude longitude isAutoOut }
+      punches { id type timestamp latitude longitude isAutoOut selfieUrl }
     }
   }
 `;
@@ -34,7 +34,7 @@ export const GET_ATTENDANCE_LOGS = gql`
 export const GET_OPEN_PUNCH = gql`
   query getOpenPunch($staffid: ID!) {
     getOpenPunch(staffid: $staffid) {
-      id type timestamp
+      id type timestamp selfieUrl
     }
   }
 `;

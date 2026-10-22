@@ -6,6 +6,7 @@
 // the server adds these same charges on its own at order-creation time.
 
 export type ChargeRule = {
+  ledgerid?: { id?: string; ledgername?: string | null } | null;
   id: string;
   name: string;
   chargeType?: string | null;      // 'flat' | 'percent'
@@ -64,7 +65,10 @@ export function computeAutoCharges(
     const gstamount = +(amount * gstpercent / 100).toFixed(2);
     const totalamount = +(amount + gstamount).toFixed(2);
 
-    result.lines.push({ ruleId: rule.id, name: rule.name, amount, gstamount, totalamount });
+    // Label = the charge's ledger name — what the saved order shows for this
+    // line (Order Detail reads othercharges[].ledgerid.ledgername).
+    const label = rule.ledgerid?.ledgername || rule.name;
+    result.lines.push({ ruleId: rule.id, name: label, amount, gstamount, totalamount });
     result.total += totalamount;
   }
 

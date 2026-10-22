@@ -20,8 +20,8 @@ export const GET_SALESMAN_DASHBOARD = gql`
 
 // Is the salesman (lat/lng) inside the business's geo-fence for this party?
 export const CHECK_GEO_FENCE = gql`
-  query CheckGeoFence($adminid: ID!, $partyacc: ID!, $latitude: Float, $longitude: Float) {
-    checkGeoFence(adminid: $adminid, partyacc: $partyacc, latitude: $latitude, longitude: $longitude) {
+  query CheckGeoFence($adminid: ID!, $partyacc: ID!, $latitude: Float, $longitude: Float, $accuracy: Float) {
+    checkGeoFence(adminid: $adminid, partyacc: $partyacc, latitude: $latitude, longitude: $longitude, accuracy: $accuracy) {
       enabled allowed radiusM distanceM partyHasLocation message
     }
   }

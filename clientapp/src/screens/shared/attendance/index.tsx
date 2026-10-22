@@ -9,8 +9,12 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../config';
-import { AppHeader, DynamicFlashList } from '../../../components';
+import { launchCamera } from 'react-native-image-picker';
+import { AppHeader, DynamicFlashList, AppImage } from '../../../components';
 import { formatDate } from '../../../utils';
+import { uploadImage } from '../../../utils/uploadimage';
+import { getCurrentLatLng, localYMD } from '../../../utils/geo';
+import { useAttendanceSelfieRequired } from '../../../apollo/hooks/adminsettings';
 import {
   useAttendanceSummaryQuery, useAttendanceLogsQuery, useOpenPunchQuery,
   useLeaveRequestsQuery, useLeaveTypesQuery, useAttendanceMutations,
@@ -115,6 +119,15 @@ export default function AttendanceScreen() {
   const isPunchedIn = !!(openData as any)?.getOpenPunch;
 
   const [punching, setPunching] = useState(false);
+  const selfieRequired = useAttendanceSelfieRequired();
+  // Today's selfie, if one was already taken (first punch-in of the day).
+  const todaySelfie: string | null = useMemo(() => {
+    const todayLog = ((logsData as any)?.getAttendanceLogs ?? []).find((l: any) => l?.date === localYMD());
+    return (todayLog?.punches ?? []).find((p: any) => p?.type === 'in' && p?.selfieUrl)?.selfieUrl ?? null;
+  }, [logsData]);
+  // Selfie only for the day's FIRST punch-in; later ones (after a punch-out) skip it.
+  const needSelfie = selfieRequired && !todaySelfie;
+  const openSelfie: string | null = (openData as any)?.getOpenPunch?.selfieUrl ?? todaySelfie;
 
   // apply leave modal state
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -136,35 +149,67 @@ export default function AttendanceScreen() {
     setHalfDay(false); setHalfSession('first'); setReason('');
   };
 
+  /** Send the punch with the current location (best-effort) and an optional selfie. */
+  const sendPunch = (type: 'in' | 'out', selfieUrl?: string) => {
+    if (!user?.id) return;
+    setPunching(true);
+    const doPunch = (latitude: number | null, longitude: number | null) => {
+      punchMutation({
+        variables: { input: {
+          staffid: user.id, type,
+          timestamp: new Date().toISOString(), latitude, longitude, source: 'mobile',
+          ...(selfieUrl ? { selfieUrl } : {}),
+        } },
+      })
+        .then(() => { refetchOpen?.(); refetchLogs?.(); refetchSummary?.(); })
+        .catch((e: any) => Alert.alert('Error', e?.message || 'Punch failed.'))
+        .finally(() => setPunching(false));
+    };
+    // GPS → network location → recent fix; punch goes through even without one.
+    getCurrentLatLng({ timeoutMs: 8000 })
+      .then((here) => doPunch(here?.lat ?? null, here?.lng ?? null))
+      .catch(() => doPunch(null, null));
+  };
+
+  /**
+   * Punch In with a selfie (Business Settings → "Selfie on Punch In"):
+   * front camera opens straight away — taking the photo is the confirmation.
+   * Camera only, never the gallery, so an old photo can't be reused.
+   */
+  const punchInWithSelfie = async () => {
+    try {
+      const res: any = await launchCamera({
+        mediaType: 'photo', cameraType: 'front', quality: 0.6,
+        maxWidth: 800, maxHeight: 800, saveToPhotos: false,
+      } as any);
+      if (res?.didCancel) return;
+      const asset = res?.assets?.[0];
+      if (res?.errorCode || !asset?.uri) {
+        Alert.alert('Camera', res?.errorMessage || 'Could not open the camera. Allow camera access and try again.');
+        return;
+      }
+      setPunching(true);
+      let url: string;
+      try {
+        url = await uploadImage(asset.uri, asset.fileName, asset.type);
+      } catch (e: any) {
+        setPunching(false);
+        Alert.alert('Upload failed', e?.message || 'Could not upload the selfie. Please try again.');
+        return;
+      }
+      sendPunch('in', url);
+    } catch (e: any) {
+      setPunching(false);
+      Alert.alert('Camera', e?.message || 'Could not open the camera.');
+    }
+  };
+
   const handlePunch = () => {
+    if (!isPunchedIn && needSelfie) { punchInWithSelfie(); return; }
     const action = isPunchedIn ? 'Punch Out' : 'Punch In';
     Alert.alert(action, `Confirm ${action.toLowerCase()}?`, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: action,
-        onPress: () => {
-          if (!user?.id) return;
-          setPunching(true);
-          const doPunch = (latitude: number | null, longitude: number | null) => {
-            punchMutation({
-              variables: { input: {
-                staffid: user.id, type: isPunchedIn ? 'out' : 'in',
-                timestamp: new Date().toISOString(), latitude, longitude, source: 'mobile',
-              } },
-            })
-              .then(() => { refetchOpen?.(); refetchLogs?.(); refetchSummary?.(); })
-              .catch((e: any) => Alert.alert('Error', e?.message || 'Punch failed.'))
-              .finally(() => setPunching(false));
-          };
-          try {
-            navigator.geolocation.getCurrentPosition(
-              pos => doPunch(pos.coords.latitude, pos.coords.longitude),
-              ()  => doPunch(null, null),
-              { enableHighAccuracy: false, timeout: 8000 },
-            );
-          } catch { doPunch(null, null); }
-        },
-      },
+      { text: action, onPress: () => sendPunch(isPunchedIn ? 'out' : 'in') },
     ]);
   };
 
@@ -267,6 +312,11 @@ export default function AttendanceScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInUp.duration(400).delay(120)} style={[styles.punchCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
+        {isPunchedIn && openSelfie ? (
+          <View style={[styles.selfieWrap, { borderColor: '#22c55e' }]}>
+            <AppImage uri={openSelfie} width={240} style={styles.selfieImg} resizeMode="cover" />
+          </View>
+        ) : null}
         <View style={{ flex: 1 }}>
           <Text style={[styles.punchTitle, { color: colors.text }]}>Today's Attendance</Text>
           <View style={styles.punchRow}>
@@ -278,8 +328,8 @@ export default function AttendanceScreen() {
           </View>
         </View>
         <TouchableOpacity style={[styles.punchBtn, { backgroundColor: isPunchedIn ? '#ef444422' : colors.brand }]} onPress={handlePunch} disabled={punching}>
-          <Icon name={isPunchedIn ? 'logout' : 'login'} size={18} color={isPunchedIn ? '#ef4444' : colors.onBrand} />
-          <Text style={[styles.punchBtnText, { color: isPunchedIn ? '#ef4444' : colors.onBrand }]}>{punching ? '…' : (isPunchedIn ? 'Punch Out' : 'Punch In')}</Text>
+          <Icon name={isPunchedIn ? 'logout' : (needSelfie ? 'camera-front-variant' : 'login')} size={18} color={isPunchedIn ? '#ef4444' : colors.onBrand} />
+          <Text style={[styles.punchBtnText, { color: isPunchedIn ? '#ef4444' : colors.onBrand }]}>{punching ? (isPunchedIn ? '…' : 'Saving…') : (isPunchedIn ? 'Punch Out' : 'Punch In')}</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -467,6 +517,8 @@ export default function AttendanceScreen() {
 }
 
 const styles = StyleSheet.create({
+  selfieWrap: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, overflow: 'hidden', marginRight: 12 },
+  selfieImg:  { width: '100%', height: '100%' },
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110 },
 

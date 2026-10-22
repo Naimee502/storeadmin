@@ -1,6 +1,7 @@
 import {
   Attendance, Holiday, LeaveType, LeaveRequest, LeaveBalance,
 } from "../../../models/attendance";
+import { AdminSettings } from "../../../models/adminsettings";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { Branch } from "../../../models/branches";
 import { pushNotification } from "../../../models/notifications";
@@ -334,6 +335,19 @@ export const attendanceResolvers = {
         const ts = input.timestamp ? new Date(input.timestamp) : new Date();
         const dateStr = toDateStr(ts);
         const adminid = (staff as any).admin;
+        // Business Settings → "Selfie on Punch In": the FIRST punch-in of the
+        // day from the app must carry a photo. A later punch-in the same day
+        // (after a punch-out, e.g. back from lunch) needs none — the day's
+        // selfie is already on record. Back-office / manual punches are exempt.
+        if (input.type === "in" && input.source === "mobile" && !input.selfieUrl && adminid) {
+          const st: any = await AdminSettings.findOne({ adminid }).select("attendanceSelfieRequired").lean();
+          if (st?.attendanceSelfieRequired) {
+            const todayLog: any = await Attendance.findOne({ adminid, staffid: input.staffid, date: dateStr })
+              .select("punches").lean();
+            const hasSelfie = (todayLog?.punches ?? []).some((p: any) => p?.type === "in" && p?.selfieUrl && p?.status !== false);
+            if (!hasSelfie) throw new Error("Take a selfie to punch in.");
+          }
+        }
         // Prefer the staff's assigned branch; fall back to request context, then
         // to the admin's first active branch (staff created without a branch
         // could otherwise never punch in — attendance requires a branch).

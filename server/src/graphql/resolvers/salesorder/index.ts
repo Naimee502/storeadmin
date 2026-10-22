@@ -600,6 +600,23 @@ export const salesOrderResolvers = {
           productservice: input.productservice,
         });
 
+        // Order-level discount from the apps: a party can never set one; a
+        // salesman only when Business Settings → "Salesman can give order
+        // discount" is on. Never more than the order's taxable value.
+        const invDisc = Number(input.invoicediscount) || 0;
+        if (invDisc < 0) throw new Error("Discount cannot be negative.");
+        if (invDisc > 0 && (input.ordersource === "app" || createdbyData.createdby_type === "party")) {
+          if (createdbyData.createdby_type === "party") throw new Error("Discount cannot be applied to this order.");
+          const st: any = await AdminSettings.findOne({ adminid: input.adminid }).select("salesmanOrderDiscountEnabled").lean();
+          if (!st?.salesmanOrderDiscountEnabled) throw new Error("Order discount is not enabled for salesmen.");
+          if (input.invoicediscounttype === "percent" && invDisc > 100) throw new Error("Discount cannot be more than 100%.");
+          const taxable = (input.productservice || []).reduce(
+            (sum: number, it: any) => sum + (Number(it.rate) - Number(it.discount || 0)) * Number(it.qty || 0), 0);
+          if (input.invoicediscounttype !== "percent" && invDisc > taxable + 0.01) {
+            throw new Error("Discount cannot be more than the order value.");
+          }
+        }
+
         // Auto-apply the admin's dynamic charge rules (delivery/handling/COD,
         // etc.). App and website orders carry no charges of their own, so the
         // engine adds them here based on the configured rules.
@@ -793,6 +810,17 @@ export const salesOrderResolvers = {
       try {
         if (input?.subtotal != null) {
           const existing: any = await SalesOrder.findById(id).lean();
+          // A client that doesn't know about the order discount (older panel /
+          // app build) sends a line-only total: keep the saved discount and
+          // take it off, so an edit never silently drops it.
+          if (existing && input.invoicediscount === undefined && Number(existing.invoicediscount) > 0) {
+            const taxable = (input.productservice || existing.productservice || []).reduce(
+              (sum: number, it: any) => sum + (Number(it.rate) - Number(it.discount || 0)) * Number(it.qty || 0), 0);
+            const v = Number(existing.invoicediscount);
+            const amt = Math.min(taxable, existing.invoicediscounttype === "percent" ? (taxable * v) / 100 : v);
+            input.totalamount = +(Number(input.totalamount || 0) - amt).toFixed(2);
+            input.totaldiscount = +(Number(input.totaldiscount || 0) + amt).toFixed(2);
+          }
           if (existing) {
             const auto = await computeAutoCharges(input, existing.createdby_type || "party");
             const manualCharges = (existing.othercharges || []).filter(

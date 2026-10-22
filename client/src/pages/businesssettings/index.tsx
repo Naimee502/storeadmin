@@ -362,6 +362,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           Leaderboard and "My Rank" are hidden in the app — each salesman sees only his own target.
         </p>
         <Toggle
+          label="Salesman can give an extra discount on the order (salesman app cart)"
+          checked={!!draft.salesmanOrderDiscountEnabled}
+          onChange={(v: boolean) => set("salesmanOrderDiscountEnabled", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
+          On: the salesman sees "Extra discount" in the cart and can take ₹ or % off the whole order (e.g. for a big
+          order). It is saved as the order's invoice discount and carries into the invoice. Off: no discount field in
+          the app, and the server refuses an app order that carries one.
+        </p>
+        <Toggle
           label="Geo-fencing for salesmen (orders only at the party's location)"
           checked={!!draft.geoFenceEnabled}
           onChange={(v: boolean) => set("geoFenceEnabled", v)}
@@ -383,6 +393,16 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           "no order" call can be recorded only from there — so orders cannot be punched from home. A party whose
           location is not saved is still listed, but must have its location saved at the shop before an order is taken.
           100–300 m suits most shops; use more for rural areas with weak GPS.
+        </p>
+        <Toggle
+          label="Selfie on Punch In (staff app)"
+          checked={!!draft.attendanceSelfieRequired}
+          onChange={(v: boolean) => set("attendanceSelfieRequired", v)}
+        />
+        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
+          On: Punch In from the app opens the front camera and the punch is saved only with a selfie (camera only — no
+          gallery). The photo shows next to the punch in Attendance Logs and Punches. Punch Out, and punches recorded
+          here in the panel, need no photo.
         </p>
         <Toggle
           label="Billing panel login needs an email OTP (Admin, Branch & Staff login)"

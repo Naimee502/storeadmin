@@ -15,6 +15,7 @@ import Button from "../../../components/button";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useImageUpload } from "../../../graphql/hooks/uploads";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
@@ -44,6 +45,68 @@ const parseLatLng = (text: string): { lat: number; lng: number } | null => {
   if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   if (lat === 0 && lng === 0) return null;
   return { lat, lng };
+};
+
+// Shop front photo — taken by the salesman in the app, or uploaded here.
+const ShopPhotoField = ({ value, onChange }: { value: string; onChange: (url: string) => void }) => {
+  const { uploadImageMutation } = useImageUpload();
+  const dispatch = useAppDispatch();
+  const [uploading, setUploading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const onFile = async (e: any) => {
+    const file: File | undefined = e?.target?.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { data: up } = await uploadImageMutation({ variables: { file } }, "product");
+      onChange(up?.uploadImage?.url || "");
+    } catch (err: any) {
+      dispatch(showMessage({ message: err?.message || "Photo upload failed.", type: "error" }));
+    } finally {
+      setUploading(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-gray-700">Shop Photo</label>
+      <div className="flex items-center gap-3">
+        {value ? (
+          <button type="button" onClick={() => setOpen(true)} title="View photo"
+            className="w-20 h-20 rounded-lg overflow-hidden border-2 border-green-500 shrink-0 hover:opacity-90">
+            <img src={value} alt="shop" className="w-full h-full object-cover" />
+          </button>
+        ) : (
+          <div className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs text-center shrink-0">
+            No photo
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <label className={`cursor-pointer px-3 py-2 rounded-lg border text-sm font-medium ${uploading ? "opacity-60 pointer-events-none" : "hover:bg-gray-50"}`}>
+            {uploading ? "Uploading…" : value ? "Change photo" : "Upload photo"}
+            <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+          </label>
+          {value && !uploading && (
+            <button type="button" onClick={() => onChange("")}
+              className="px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50">
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      {open && value && (
+        <div className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-3 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-sm font-semibold text-gray-700">Shop photo</span>
+              <button type="button" onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-800 text-xl leading-none px-1" aria-label="Close">×</button>
+            </div>
+            <img src={value} alt="shop" className="w-full max-h-[65vh] object-contain rounded-xl bg-gray-50" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // One "Shop Location (GPS)" field, same as the app: tap the target to capture
@@ -181,6 +244,7 @@ const AddEditAccount = () => {
     channel: "",
     region: "default",
     latitude: "",
+    shopimage: "",
     longitude: "",
   });
 
@@ -262,6 +326,7 @@ const AddEditAccount = () => {
         region: a.region || "default",
         latitude: a.latitude ?? "",
         longitude: a.longitude ?? "",
+        shopimage: a.shopimage ?? "",
       });
     }
   }, [isEdit, existingData]);
@@ -404,6 +469,7 @@ const AddEditAccount = () => {
       region: formValues.region || "default",
       latitude: formValues.latitude !== "" ? Number(formValues.latitude) : null,
       longitude: formValues.longitude !== "" ? Number(formValues.longitude) : null,
+      shopimage: formValues.shopimage || null,
     };
 
     try {
@@ -634,6 +700,7 @@ const AddEditAccount = () => {
                   />
                 )}
                 {fillingAddress && <p className="-mt-3 text-xs text-blue-600">Filling address from location…</p>}
+                <ShopPhotoField value={formValues.shopimage || ""} onChange={(url) => handleChange("shopimage", url)} />
               </div>
               {/* Map of the saved shop location, in the empty space left below
                   the fields. It fills that space and never grows the card. */}

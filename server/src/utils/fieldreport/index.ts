@@ -81,8 +81,18 @@ export const getGeoFence = async (adminid: any) => {
   return { enabled: !!s?.geoFenceEnabled, radiusM: Number(s?.geoFenceRadiusM) || 200 };
 };
 
+/**
+ * GPS drift allowance: the fix's reported accuracy (metres) is taken off the
+ * distance, capped so a very poor fix can never pass on its own. Indoors a
+ * phone at the counter often reads 30-80 m off the shop's saved point.
+ * Keep in sync with GEO_ACC_CAP_M in clientapp/src/utils/geo.ts.
+ */
+export const GEO_ACC_CAP_M = 100;
+
 /** Is the salesman (lat/lng) close enough to the party to record a call / order? */
-export const checkGeoFence = async (adminid: any, partyacc: any, lat?: number | null, lng?: number | null) => {
+export const checkGeoFence = async (
+  adminid: any, partyacc: any, lat?: number | null, lng?: number | null, accuracy?: number | null,
+) => {
   const g = await getGeoFence(adminid);
   const party: any = await Account.findById(partyacc).select("latitude longitude name").lean();
   const partyHasLocation = hasLoc(party);
@@ -90,11 +100,12 @@ export const checkGeoFence = async (adminid: any, partyacc: any, lat?: number | 
   const here = typeof lat === "number" && typeof lng === "number";
   const distanceM = partyHasLocation && here ? r2(haversineM(lat!, lng!, party.latitude, party.longitude)) : null;
   if (!g.enabled) return { ...base, allowed: true, distanceM, message: null };
-  if (!partyHasLocation) {
-    return { ...base, allowed: false, distanceM, message: "This party's location is not saved. Save it from the shop first, then take the order." };
-  }
   if (!here) return { ...base, allowed: false, distanceM, message: "Turn on GPS — orders can only be taken at the party's location." };
-  if (distanceM! > g.radiusM) {
+  // No saved location yet → nothing to fence against. Allowed, same as the
+  // app's party list; the app saves this fix as the party's location.
+  if (!partyHasLocation) return { ...base, allowed: true, distanceM, message: null };
+  const acc = Math.min(Math.max(Number(accuracy) || 0, 0), GEO_ACC_CAP_M);
+  if (distanceM! - acc > g.radiusM) {
     return {
       ...base, allowed: false, distanceM,
       message: `You are ${Math.round(distanceM!)} m away from ${party.name || "the party"}. Orders can be taken only within ${g.radiusM} m.`,

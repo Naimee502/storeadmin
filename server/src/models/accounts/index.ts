@@ -142,6 +142,8 @@ const accountSchema = new mongoose.Schema(
 
     latitude: { type: Number },
     longitude: { type: Number },
+    /** Photo of the shop front — taken by the salesman at the shop or uploaded in the panel. */
+    shopimage: { type: String },
 
     otp: { type: String },
     otpExpiry: { type: Date },

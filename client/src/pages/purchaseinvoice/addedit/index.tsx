@@ -531,7 +531,8 @@ const AddEditPurchaseInvoice = () => {
         {/* fieldset disabled seals every input at once — no field can be missed,
             and no edit can be typed that the server would then refuse. */}
         <form onSubmit={handleSubmit} className="space-y-6">
-        <fieldset disabled={isCancelledBill} className={isCancelledBill ? "opacity-90" : ""}>
+        {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
+        <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* ===== Main Details ===== */}
           {(isFieldEnabled("party") || isFieldEnabled("billdate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("notes") || isFieldEnabled("status")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">

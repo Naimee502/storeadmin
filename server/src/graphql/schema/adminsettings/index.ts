@@ -162,6 +162,10 @@ export const adminSettingsTypeDefs = gql`
     loginEmailOtp: Boolean
     geoFenceEnabled: Boolean
     geoFenceRadiusM: Int
+    # Staff app: selfie required to Punch In. Off by default.
+    attendanceSelfieRequired: Boolean
+    # Salesman app: extra discount on the whole order from the cart. Off by default.
+    salesmanOrderDiscountEnabled: Boolean
     salesmanLeaderboardEnabled: Boolean
     # Party login on the app + website needs an email OTP. Off by default.
     partyLoginEmailOtp: Boolean
@@ -366,6 +370,10 @@ export const adminSettingsTypeDefs = gql`
     loginEmailOtp: Boolean
     geoFenceEnabled: Boolean
     geoFenceRadiusM: Int
+    # Staff app: selfie required to Punch In. Off by default.
+    attendanceSelfieRequired: Boolean
+    # Salesman app: extra discount on the whole order from the cart. Off by default.
+    salesmanOrderDiscountEnabled: Boolean
     salesmanLeaderboardEnabled: Boolean
     partyLoginEmailOtp: Boolean
     autoPunchOutEnabled: Boolean

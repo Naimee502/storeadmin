@@ -71,6 +71,7 @@ export const accountTypeDefs = gql`
     salesmanid: Salesman
     latitude: Float
     longitude: Float
+    shopimage: String
     # Never filled any more — the OTP only goes out by email. Kept so older
     # app builds that still select it do not fail validation.
     otp: String
@@ -111,6 +112,7 @@ export const accountTypeDefs = gql`
     salesmanid: ID
     latitude: Float
     longitude: Float
+    shopimage: String
     otp: String
     status: Boolean
     branchid: ID
