@@ -31,6 +31,7 @@ export const salesmanReportTypeDefs = gql`
     salesmanid: ID!
     salesmanname: String!
     mobile: String
+    routes: [String!]
     plannedCalls: Int!
     productiveCalls: Int!
     unproductiveCalls: Int!
@@ -76,6 +77,33 @@ export const salesmanReportTypeDefs = gql`
     orderNo: String
     orderAmount: Float
     distanceM: Float
+  }
+
+  type SalesmanOrderLine {
+    orderid: ID!
+    billnumber: String
+    date: String!
+    salesmanid: ID!
+    salesmanname: String!
+    routename: String
+    partyid: ID
+    partyname: String
+    partycity: String
+    partymobile: String
+    productid: ID!
+    productname: String!
+    categoryid: ID
+    categoryname: String
+    variantname: String
+    unitname: String
+    baseunitname: String
+    unitqty: Float!
+    qty: Float!
+    baseqty: Float!
+    rate: Float!
+    discount: Float!
+    gst: Float
+    amount: Float!
   }
 
   type SalesmanProductSalesRow {
@@ -147,6 +175,7 @@ export const salesmanReportTypeDefs = gql`
     getSalesmanPerformance(filter: SalesmanReportFilter!): [SalesmanPerformance!]!
     getSalesmanCallLog(filter: SalesmanReportFilter!): [SalesmanCallLogRow!]!
     getSalesmanProductSales(filter: SalesmanReportFilter!): [SalesmanProductSalesRow!]!
+    getSalesmanOrderLines(filter: SalesmanReportFilter!): [SalesmanOrderLine!]!
     getSalesmanDashboard(adminid: ID!, salesmanid: ID!, date: String): SalesmanDashboard!
     # Team ranking for a month (YYYY-MM): achievement % of target, then order value.
     getSalesmanLeaderboard(adminid: ID!, month: String, salesmanid: ID): SalesmanLeaderboard!

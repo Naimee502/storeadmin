@@ -1,7 +1,7 @@
 import { Visit } from "../../../models/visit";
 import { AdminSettings } from "../../../models/adminsettings";
 import {
-  buildPerformance, buildFieldData, buildProductSales, checkGeoFence, istYMD, daysBetween,
+  buildPerformance, buildFieldData, buildProductSales, buildOrderLines, checkGeoFence, istYMD, daysBetween,
 } from "../../../utils/fieldreport";
 
 const populatePaths = ["salesmanid", "partyacc", "routeid"];
@@ -21,6 +21,7 @@ export const salesmanReportResolvers = {
     },
 
     getSalesmanProductSales: async (_: any, { filter }: any) => buildProductSales(filter),
+    getSalesmanOrderLines: async (_: any, { filter }: any) => buildOrderLines(filter),
 
     // Salesman app home: today, this month (target) and the last 7 days.
     getSalesmanDashboard: async (_: any, { adminid, salesmanid, date }: any) => {

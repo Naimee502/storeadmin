@@ -9,7 +9,7 @@ import { CHECK_GEO_FENCE } from '../../../../apollo/queries/salesmanreport';
 import { MARK_VISIT } from '../../../../apollo/mutations/tracking';
 import { EDIT_ACCOUNT } from '../../../../apollo/mutations/accounts';
 import { useGeoFence } from '../../../../apollo/hooks/adminsettings';
-import { getCurrentLatLng, GEO_ACC_CAP_M } from '../../../../utils/geo';
+import { getCurrentLatLng, getRecentFix, GEO_ACC_CAP_M } from '../../../../utils/geo';
 import { usePaymentsEnabled } from '../../../../apollo/hooks/admin';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
@@ -128,9 +128,15 @@ export default function RoutePartyVisit() {
 
   /** When geo-fencing is on, confirm the salesman is at the party. Returns the fix (or null when allowed without one). */
   const ensureAtParty = async (): Promise<{ ok: boolean; lat?: number; lng?: number; acc?: number }> => {
+    // Geo-fencing OFF: no location check and no GPS wait at all — straight
+    // to the order, same as before geo-fencing existed. A recent fix (if the
+    // list screen had one) is attached to the visit, nothing more.
+    if (!geo.enabled) {
+      const recent = getRecentFix();
+      return { ok: true, lat: recent?.lat, lng: recent?.lng, acc: recent?.acc };
+    }
     // GPS → network/Wi-Fi location → last fix from the list screen (≤ 3 min).
-    const here = await getCurrentLatLng({ fresh: geo.enabled });
-    if (!geo.enabled) return { ok: true, lat: here?.lat, lng: here?.lng, acc: here?.acc };
+    const here = await getCurrentLatLng({ fresh: true });
     if (!here) {
       Alert.alert(
         'Location not found',

@@ -5,7 +5,7 @@ import ReportTable, { type ReportColumn } from "../../../components/reporttable"
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { useLatestLocationsQuery, useLocationPingsQuery, useTravelSummaryQuery } from "../../../graphql/hooks/locationping";
 import {
-  GET_SALESMAN_PERFORMANCE, GET_SALESMAN_CALL_LOG, GET_SALESMAN_PRODUCT_SALES,
+  GET_SALESMAN_PERFORMANCE, GET_SALESMAN_CALL_LOG, GET_SALESMAN_ORDER_LINES,
 } from "../../../graphql/queries/salesmanreport";
 import { cumulativeKm } from "../../../utils/travel";
 import LiveTrackingMap from "../../../components/livetrackingmap";
@@ -28,7 +28,7 @@ const TABS = [
   { id: "overview", label: "Overview", icon: <FaChartBar className="text-amber-500" /> },
   { id: "calls", label: "Call Statement", icon: <FaListAlt className="text-blue-500" /> },
   { id: "targets", label: "Target vs Achievement", icon: <FaBullseye className="text-rose-500" /> },
-  { id: "products", label: "Product & Category", icon: <FaBoxes className="text-violet-500" /> },
+  { id: "products", label: "Sales Statement", icon: <FaBoxes className="text-violet-500" /> },
   { id: "live", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
 ];
 
@@ -45,11 +45,13 @@ const n2 = (n: any) => Number(n || 0).toFixed(2);
 
 const geocodeCache: Record<string, string> = {};
 
+// Compact stat tile: every line stays on ONE line (truncated, full text on
+// hover) so nine tiles fit a row without growing tall.
 const Tile: React.FC<{ label: string; value: string; sub?: string; tone?: string }> = ({ label, value, sub, tone }) => (
-  <div className="bg-white border rounded-lg p-3">
-    <div className="text-xs text-gray-500">{label}</div>
-    <div className={`text-xl font-bold ${tone || "text-gray-800"}`}>{value}</div>
-    {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+  <div className="bg-white border rounded-lg px-3 py-2 min-w-0" title={sub ? `${label} — ${sub}` : label}>
+    <div className="text-xs text-gray-500 truncate">{label}</div>
+    <div className={`text-lg font-bold leading-tight truncate ${tone || "text-gray-800"}`}>{value}</div>
+    <div className="text-[11px] text-gray-400 truncate h-4">{sub || "\u00a0"}</div>
   </div>
 );
 
@@ -145,22 +147,17 @@ const SalesmanFieldReport: React.FC = () => {
   const skip = !adminId || !applied.fromDate || !applied.toDate;
 
   const { data: perfLive, previousData: perfPrev, loading: perfLoading } = useQuery(GET_SALESMAN_PERFORMANCE, {
-    variables: { filter: reportFilter }, skip: skip || (tab !== "overview" && tab !== "targets"), fetchPolicy: "cache-and-network",
+    variables: { filter: reportFilter }, skip: skip || (tab !== "overview" && tab !== "targets" && tab !== "products"), fetchPolicy: "cache-and-network",
   });
   const { data: logLive, previousData: logPrev, loading: logLoading } = useQuery(GET_SALESMAN_CALL_LOG, {
     variables: { filter: reportFilter }, skip: skip || tab !== "calls", fetchPolicy: "cache-and-network",
-  });
-  const { data: prodLive, previousData: prodPrev, loading: prodLoading } = useQuery(GET_SALESMAN_PRODUCT_SALES, {
-    variables: { filter: reportFilter }, skip: skip || tab !== "products", fetchPolicy: "cache-and-network",
   });
   // Keep showing the previous result while a new filter loads — no full-screen
   // loader / blank page on every Apply, Reset or quick-date click.
   const perfData = perfLive ?? perfPrev;
   const logData = logLive ?? logPrev;
-  const prodData = prodLive ?? prodPrev;
   const perf: any[] = (perfData as any)?.getSalesmanPerformance || [];
   const callLog: any[] = (logData as any)?.getSalesmanCallLog || [];
-  const prodRows: any[] = (prodData as any)?.getSalesmanProductSales || [];
 
   // ReportTable wants filter state even when we render our own filter bar.
   const [tf, setTf] = useState<{ [k: string]: any }>({});
@@ -196,6 +193,7 @@ const SalesmanFieldReport: React.FC = () => {
     .map((p, i) => ({
       rank: i + 1,
       name: p.salesmanname,
+      route: (p.routes ?? []).join(", ") || "—",
       planned: p.plannedCalls,
       productive: p.productiveCalls,
       unproductive: p.unproductiveCalls,
@@ -219,17 +217,15 @@ const SalesmanFieldReport: React.FC = () => {
   const perfColumns: ReportColumn[] = [
     { label: "Rank", key: "rank" },
     { label: "Salesman", key: "name" },
+    { label: "Route", key: "route" },
     { label: "Planned Calls", key: "planned", numeric: true },
     { label: "Productive", key: "productive", numeric: true },
     { label: "Unproductive", key: "unproductive", numeric: true },
     { label: "Missed", key: "missed", numeric: true },
     { label: "Pending (today)", key: "pending", numeric: true },
-    { label: "Off-route Calls", key: "offRoute", numeric: true },
     { label: "Productivity %", key: "productivity" },
     { label: "Route Coverage %", key: "coverage" },
     { label: "Orders", key: "orders", numeric: true },
-    { label: "On Route", key: "onRoute", numeric: true },
-    { label: "Off Route", key: "offRouteOrders", numeric: true },
     { label: "Order Value (₹)", key: "amount", numeric: true },
     { label: "Avg Order (₹)", key: "aov", numeric: true },
     { label: "Qty", key: "qty", numeric: true },
@@ -326,51 +322,189 @@ const SalesmanFieldReport: React.FC = () => {
   const topSeller = [...perf].sort((a, b) => b.monthAchieved - a.monthAchieved)[0];
 
   // ── Product & category ──
-  const [groupBy, setGroupBy] = useState<"product" | "category" | "salesman-product" | "salesman-category">("product");
-  const prodTable = useMemo(() => {
-    const key = (r: any) => {
-      if (groupBy === "product") return r.productid;
-      if (groupBy === "category") return r.categoryid || "none";
-      if (groupBy === "salesman-product") return `${r.salesmanid}|${r.productid}`;
-      return `${r.salesmanid}|${r.categoryid || "none"}`;
-    };
+  // ── Sales Statement: every order line (product · variant · unit · qty) ──
+  const { data: linesLive, previousData: linesPrev, loading: linesLoading } = useQuery(GET_SALESMAN_ORDER_LINES, {
+    variables: { filter: reportFilter }, skip: skip || tab !== "products", fetchPolicy: "cache-and-network",
+  });
+  const linesAll: any[] = ((linesLive ?? linesPrev) as any)?.getSalesmanOrderLines || [];
+  const [stView, setStView] = useState<"order" | "party" | "product" | "category" | "unit">("order");
+  const unitLabel = (l: any) => l.unitname || l.baseunitname || "—";
+  // One party / category / product / unit picked from the dropdown ("" = all).
+  const [stSel, setStSel] = useState("");
+  useEffect(() => { setStSel(""); }, [stView]);
+  const selKeyOf = (l: any) =>
+    stView === "party" || stView === "order" ? String(l.partyid || l.partyname)
+    : stView === "category" ? String(l.categoryid || "none")
+    : stView === "product" ? String(l.productid)
+    : unitLabel(l);
+  const selLabelOf = (l: any) =>
+    stView === "party" || stView === "order" ? `${l.partyname || "—"}${l.partymobile ? ` (${l.partymobile})` : ""}`
+    : stView === "category" ? (l.categoryname || "Uncategorised")
+    : stView === "product" ? l.productname
+    : unitLabel(l);
+  const stOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    linesAll.forEach((l) => m.set(selKeyOf(l), selLabelOf(l)));
+    return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesAll, stView]);
+  const stSelName = stOptions.find((o) => o.id === stSel)?.name || "";
+  // Order-wise only: pick one order (list follows the chosen party).
+  const [stOrder, setStOrder] = useState("");
+  useEffect(() => { setStOrder(""); }, [stView, stSel]);
+  const stOrderOptions = useMemo(() => {
+    if (stView !== "order") return [];
     const m = new Map<string, any>();
-    prodRows.forEach((r) => {
-      const k = key(r);
-      const x = m.get(k) || {
-        salesman: r.salesmanname, product: r.productname, category: r.categoryname || "Uncategorised",
-        qty: 0, amount: 0, orders: 0, salesmen: new Set<string>(), products: new Set<string>(),
-      };
-      x.qty += r.qty; x.amount += r.amount; x.orders += r.orders;
-      x.salesmen.add(r.salesmanname); x.products.add(r.productid);
-      m.set(k, x);
+    linesAll.filter((l) => !stSel || selKeyOf(l) === stSel).forEach((l) => {
+      const x = m.get(l.orderid) || { id: l.orderid, date: l.date, bill: l.billnumber, party: l.partyname, amount: 0 };
+      x.amount += l.amount; m.set(l.orderid, x);
     });
-    const grand = Array.from(m.values()).reduce((a, x) => a + x.amount, 0) || 1;
-    return Array.from(m.values())
-      .sort((a, b) => b.amount - a.amount)
-      .map((x, i) => ({
-        rank: i + 1,
-        salesman: x.salesman,
-        product: x.product,
-        category: x.category,
-        salesmenCount: x.salesmen.size,
-        productsCount: x.products.size,
-        qty: Number(x.qty.toFixed(2)),
-        orders: x.orders,
-        amount: n2(x.amount),
-        share: `${((x.amount / grand) * 100).toFixed(1)}%`,
-      }));
-  }, [prodRows, groupBy]);
-  const prodColumns: ReportColumn[] = [
-    { label: "Rank", key: "rank" },
-    ...(groupBy.startsWith("salesman") ? [{ label: "Salesman", key: "salesman" }] : []),
-    ...(groupBy.endsWith("product") ? [{ label: "Product", key: "product" }, { label: "Category", key: "category" }] : [{ label: "Category", key: "category" }, { label: "Products", key: "productsCount", numeric: true }]),
-    ...(!groupBy.startsWith("salesman") ? [{ label: "Salesmen", key: "salesmenCount", numeric: true }] : []),
-    { label: "Orders", key: "orders", numeric: true },
-    { label: "Qty", key: "qty", numeric: true },
-    { label: "Sales (₹)", key: "amount", numeric: true },
-    { label: "Share", key: "share" },
-  ];
+    return Array.from(m.values()).sort((a, b) => b.date.localeCompare(a.date) || String(b.bill).localeCompare(String(a.bill)))
+      .map((o) => ({ id: o.id, name: `SO-${o.bill} · ${formatDateDMY(o.date)} · ${o.party} · ${inr(o.amount)}` }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesAll, stView, stSel]);
+  const stLines = useMemo(() => linesAll.filter((l) =>
+    (!stSel || selKeyOf(l) === stSel) && (stView !== "order" || !stOrder || l.orderid === stOrder)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [linesAll, stSel, stView, stOrder]);
+  // One party / category / unit picked → list its products; one product → its orders.
+  const stShow: "order" | "party" | "product" | "category" | "unit" =
+    !stSel ? stView : stView === "product" ? "order" : stView === "order" ? "order" : "product";
+  const stSelLabel = { order: "Party", party: "Party", product: "Product", category: "Category", unit: "Unit" }[stView];
+  const baseLabel = (l: any) => (l.unitqty > 1 && l.baseunitname ? l.baseunitname : "");
+
+  // Header — like the top of the daily sales sheet.
+  const stHead = useMemo(() => {
+    const orders = new Set(stLines.map((l) => l.orderid));
+    const parties = new Set(stLines.map((l) => l.partyid));
+    const routes = new Set<string>();
+    perf.forEach((p) => (p.routes || []).forEach((r: string) => routes.add(r)));
+    const productive = perf.reduce((a, p) => a + p.productiveCalls, 0);
+    const unproductive = perf.reduce((a, p) => a + p.unproductiveCalls, 0);
+    return {
+      salesman: applied.salesmanid ? (salesmen.find((s: any) => s.id === applied.salesmanid)?.name || "—") : "All salesmen",
+      routes: Array.from(routes).join(", ") || "—",
+      tc: productive + unproductive, pc: productive, nc: unproductive,
+      productivity: productive + unproductive ? (productive / (productive + unproductive)) * 100 : 0,
+      orders: orders.size, parties: parties.size,
+      items: new Set(stLines.map((l) => `${l.productid}|${l.variantname}|${l.unitname}`)).size,
+      qty: stLines.reduce((a, l) => a + l.qty, 0),
+      amount: stLines.reduce((a, l) => a + l.amount, 0),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stLines, perf, applied.salesmanid]);
+
+  // One statement, five ways to look at it — all in the standard report table
+  // (search, column filters, totals, Excel / CSV / PDF), same as Target vs Achievement.
+  const stTable = useMemo(() => {
+    const grand = stLines.reduce((a, l) => a + l.amount, 0) || 1;
+    const share = (amt: number) => `${((amt / grand) * 100).toFixed(1)}%`;
+    const group = (keyOf: (l: any) => string, init: (l: any) => any) => {
+      const m = new Map<string, any>();
+      stLines.forEach((l) => {
+        const k = keyOf(l);
+        const x = m.get(k) || { ...init(l), _orders: new Set(), _products: new Set(), _parties: new Set(), qty: 0, baseqty: 0, amount: 0 };
+        x._orders.add(l.orderid); x._products.add(`${l.productid}|${l.variantname}|${l.unitname}`); x._parties.add(l.partyid);
+        x.qty += l.qty; x.baseqty += l.baseqty; x.amount += l.amount;
+        m.set(k, x);
+      });
+      return Array.from(m.values()).sort((a, b) => b.amount - a.amount);
+    };
+    const qtyOf = (x: any) => Number(x.qty.toFixed(2));
+
+    if (stShow === "order") {
+      return {
+        title: "Order-wise statement",
+        file: "SalesStatement_OrderWise",
+        columns: [
+          { label: "#", key: "seqNo" }, { label: "Date", key: "date" }, { label: "Order No", key: "orderNo" },
+          { label: "Salesman", key: "salesman" }, { label: "Route", key: "route" },
+          { label: "Party", key: "party" }, { label: "Mobile", key: "mobile" }, { label: "City", key: "city" },
+          { label: "Category", key: "category" }, { label: "Product", key: "product" }, { label: "Variant", key: "variant" },
+          { label: "Unit", key: "unit" }, { label: "Qty", key: "qty", numeric: true },
+          { label: "Rate (₹)", key: "rate" }, { label: "Disc / unit (₹)", key: "discount" }, { label: "Amount (₹)", key: "amount", numeric: true },
+        ] as ReportColumn[],
+        rows: stLines.map((l, i) => ({
+          seqNo: i + 1, date: formatDateDMY(l.date), orderNo: l.billnumber ? `SO-${l.billnumber}` : "—",
+          salesman: l.salesmanname, route: l.routename || "—",
+          party: l.partyname || "—", mobile: l.partymobile || "—", city: l.partycity || "—",
+          category: l.categoryname || "Uncategorised", product: l.productname, variant: l.variantname || "—",
+          unit: unitLabel(l), qty: l.qty,
+          rate: n2(l.rate), discount: n2(l.discount), amount: n2(l.amount),
+        })),
+      };
+    }
+    if (stShow === "party") {
+      return {
+        title: "Party-wise statement",
+        file: "SalesStatement_PartyWise",
+        columns: [
+          { label: "Rank", key: "rank" }, { label: "Party", key: "party" }, { label: "Mobile", key: "mobile" },
+          { label: "City", key: "city" }, { label: "Salesman", key: "salesman" },
+          { label: "Orders", key: "orders", numeric: true }, { label: "Items", key: "items", numeric: true },
+          { label: "Qty", key: "qty", numeric: true }, { label: "Amount (₹)", key: "amount", numeric: true }, { label: "Share", key: "share" },
+        ] as ReportColumn[],
+        rows: group((l) => l.partyid || l.partyname, (l) => ({ party: l.partyname || "—", mobile: l.partymobile || "—", city: l.partycity || "—", partyKey: l.partyid || l.partyname }))
+          .map((x, i) => ({
+            rank: i + 1, party: x.party, mobile: x.mobile, city: x.city,
+            salesman: Array.from(new Set(stLines.filter((l) => (l.partyid || l.partyname) === x.partyKey).map((l) => l.salesmanname))).join(", ") || "—",
+            orders: x._orders.size, items: x._products.size, qty: qtyOf(x), amount: n2(x.amount), share: share(x.amount),
+          })),
+      };
+    }
+    if (stShow === "product") {
+      return {
+        title: "Product-wise statement",
+        file: "SalesStatement_ProductWise",
+        columns: [
+          { label: "Rank", key: "rank" }, { label: "Category", key: "category" }, { label: "Product", key: "product" },
+          { label: "Variant", key: "variant" }, { label: "Unit", key: "unit" },
+          { label: "Qty", key: "qty", numeric: true },
+          { label: "Parties", key: "parties", numeric: true }, { label: "Orders", key: "orders", numeric: true },
+          { label: "Avg Rate (₹)", key: "rate" }, { label: "Amount (₹)", key: "amount", numeric: true }, { label: "Share", key: "share" },
+        ] as ReportColumn[],
+        rows: group((l) => `${l.productid}|${l.variantname || ""}|${l.unitname || ""}`, (l) => ({
+          category: l.categoryname || "Uncategorised", product: l.productname, variant: l.variantname || "—", unit: unitLabel(l), base: baseLabel(l),
+        })).map((x, i) => ({
+          rank: i + 1, category: x.category, product: x.product, variant: x.variant, unit: x.unit,
+          qty: qtyOf(x),
+          parties: x._parties.size, orders: x._orders.size, rate: n2(x.qty ? x.amount / x.qty : 0),
+          amount: n2(x.amount), share: share(x.amount),
+        })),
+      };
+    }
+    if (stShow === "category") {
+      return {
+        title: "Category-wise statement",
+        file: "SalesStatement_CategoryWise",
+        columns: [
+          { label: "Rank", key: "rank" }, { label: "Category", key: "category" },
+          { label: "Items", key: "items", numeric: true }, { label: "Parties", key: "parties", numeric: true },
+          { label: "Orders", key: "orders", numeric: true }, { label: "Qty", key: "qty", numeric: true },
+          { label: "Amount (₹)", key: "amount", numeric: true }, { label: "Share", key: "share" },
+        ] as ReportColumn[],
+        rows: group((l) => l.categoryid || "none", (l) => ({ category: l.categoryname || "Uncategorised" })).map((x, i) => ({
+          rank: i + 1, category: x.category, items: x._products.size, parties: x._parties.size,
+          orders: x._orders.size, qty: qtyOf(x), amount: n2(x.amount), share: share(x.amount),
+        })),
+      };
+    }
+    return {
+      title: "Unit-wise statement",
+      file: "SalesStatement_UnitWise",
+      columns: [
+        { label: "Rank", key: "rank" }, { label: "Unit", key: "unit" },
+        { label: "Items", key: "items", numeric: true }, { label: "Parties", key: "parties", numeric: true },
+        { label: "Orders", key: "orders", numeric: true }, { label: "Qty", key: "qty", numeric: true },
+        { label: "Amount (₹)", key: "amount", numeric: true }, { label: "Share", key: "share" },
+      ] as ReportColumn[],
+      rows: group((l) => unitLabel(l), (l) => ({ unit: unitLabel(l) })).map((x, i) => ({
+        rank: i + 1, unit: x.unit, items: x._products.size, parties: x._parties.size,
+        orders: x._orders.size, qty: qtyOf(x), amount: n2(x.amount), share: share(x.amount),
+      })),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stLines, stShow]);
 
   // ── Live tracking (own date + salesman, shown ABOVE the map) ──
   const [trkDraft, setTrkDraft] = useState({ date: todayYMD(), salesmanid: "" });
@@ -505,7 +639,7 @@ const SalesmanFieldReport: React.FC = () => {
         </div>
 
         {tab !== "live" && FilterBar}
-        {tab !== "live" && (perfLoading || logLoading || prodLoading) && (
+        {tab !== "live" && (perfLoading || logLoading || linesLoading) && (
           <div className="text-xs text-gray-500 -mt-2 mb-3 flex items-center gap-2">
             <span className="inline-block w-3 h-3 rounded-full border-2 border-gray-300 border-t-slate-700 animate-spin" />
             Updating report…
@@ -514,16 +648,17 @@ const SalesmanFieldReport: React.FC = () => {
 
         {tab === "overview" && (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-              <Tile label="Planned calls" value={String(totals.planned)} sub={`${totals.coverage.toFixed(0)}% route covered`} />
-              <Tile label="Productive calls" value={String(totals.productive)} tone="text-green-700" sub="Visited + order" />
-              <Tile label="Unproductive calls" value={String(totals.unproductive)} tone="text-amber-600" sub="Visited, no order" />
-              <Tile label="Missed calls" value={String(totals.missed)} tone="text-red-600" sub={totals.pending ? `${totals.pending} pending today` : "On route, not visited"} />
-              <Tile label="Productivity" value={`${totals.productivity.toFixed(0)}%`} sub={`${totals.offRoute} off-route calls`} />
+            {/* All 9 tiles in one row on a desktop screen; wraps on smaller ones. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2 mb-4">
+              <Tile label="Planned" value={String(totals.planned)} sub={`${totals.coverage.toFixed(0)}% covered`} />
+              <Tile label="Productive" value={String(totals.productive)} tone="text-green-700" sub="Visited + order" />
+              <Tile label="Unproductive" value={String(totals.unproductive)} tone="text-amber-600" sub="No order" />
+              <Tile label="Missed" value={String(totals.missed)} tone="text-red-600" sub={totals.pending ? `${totals.pending} pending today` : "Not visited"} />
+              <Tile label="Productivity" value={`${totals.productivity.toFixed(0)}%`} sub={`${totals.calls} calls made`} />
               <Tile label="Orders" value={String(totals.orders)} sub={`Avg ${inr(totals.aov)}`} />
-              <Tile label="Order value" value={inr(totals.amount)} tone="text-blue-700" />
-              <Tile label="Collections" value={inr(totals.collections)} tone="text-emerald-700" />
-              <Tile label="Distance travelled" value={`${totals.km.toFixed(1)} km`} />
+              <Tile label="Order value" value={inr(totals.amount)} tone="text-blue-700" sub="Total booked" />
+              <Tile label="Collections" value={inr(totals.collections)} tone="text-emerald-700" sub="Received" />
+              <Tile label="Distance" value={`${totals.km.toFixed(1)} km`} sub="Travelled" />
             </div>
             <DailyChart daily={dailyAll} />
             <ReportTable moduleId="reports.salesmanfield" title="Salesman Performance (ranked by order value)"
@@ -568,17 +703,45 @@ const SalesmanFieldReport: React.FC = () => {
           <>
             <div className="flex flex-wrap gap-2 mb-3">
               {[
-                { k: "product", l: "By product" }, { k: "category", l: "By category" },
-                { k: "salesman-product", l: "Salesman × product" }, { k: "salesman-category", l: "Salesman × category" },
-              ].map((g) => (
-                <button key={g.k} type="button" onClick={() => setGroupBy(g.k as any)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${groupBy === g.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
-                  {g.l}
+                { k: "order", l: "Order-wise" }, { k: "party", l: "Party-wise" }, { k: "product", l: "Product-wise" },
+                { k: "category", l: "Category-wise" }, { k: "unit", l: "Unit-wise" },
+              ].map((v) => (
+                <button key={v.k} type="button" onClick={() => setStView(v.k as any)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${stView === v.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
+                  {v.l}
                 </button>
               ))}
             </div>
-            <ReportTable moduleId="reports.salesmanfield" title="Orders taken by salesmen — product & category wise"
-              columns={prodColumns} data={prodTable} isLoading={false} exportFileName="SalesmanProductSales" showTotals {...tableProps} />
+            <div className="bg-white border rounded-lg px-3 py-2 mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <label className="text-sm text-gray-600 flex items-center gap-2">
+                {stSelLabel}
+                <select className="border rounded-lg px-3 py-1.5 text-sm bg-white min-w-[220px]" value={stSel} onChange={(e) => setStSel(e.target.value)}>
+                  <option value="">All</option>
+                  {stOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </label>
+              {stView === "order" && (
+                <label className="text-sm text-gray-600 flex items-center gap-2">
+                  Order
+                  <select className="border rounded-lg px-3 py-1.5 text-sm bg-white min-w-[260px]" value={stOrder} onChange={(e) => setStOrder(e.target.value)}>
+                    <option value="">All orders</option>
+                    {stOrderOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                </label>
+              )}
+              <div className="text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+                <span>Salesman <b className="text-gray-800">{stHead.salesman}</b></span>
+                <span>Calls <b className="text-gray-800">{stHead.tc}</b></span>
+                <span>Productive <b className="text-green-700">{stHead.pc}</b></span>
+                <span>No order <b className="text-amber-600">{stHead.nc}</b></span>
+                <span>Orders <b className="text-gray-800">{stHead.orders}</b></span>
+                <span>Parties <b className="text-gray-800">{stHead.parties}</b></span>
+                <span>Amount <b className="text-blue-700">{inr(stHead.amount)}</b></span>
+              </div>
+            </div>
+            <ReportTable key={`${stView}|${stSel}|${stOrder}`} moduleId="reports.salesmanfield" title={stOrder ? `Order ${stOrderOptions.find((o) => o.id === stOrder)?.name.split(" · ")[0] || ""}`.trim() : stSel ? `${stSelLabel}: ${stSelName}` : stTable.title}
+              columns={stTable.columns} data={stTable.rows} isLoading={linesLoading && !linesAll.length}
+              exportFileName={stSel ? `${stTable.file}_${stSelName.replace(/[^A-Za-z0-9]+/g, "_")}` : stTable.file} showTotals {...tableProps} />
           </>
         )}
 

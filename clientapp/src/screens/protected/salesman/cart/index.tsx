@@ -130,32 +130,33 @@ export default function SalesmanCart() {
               },
             });
 
-            // Record the productive call (visited + order) with where it was
-            // taken. Best-effort: the order is already saved, never block it.
-            try {
-              // Fix from the Take Order check (≤ 1 min) — no second GPS wait
-              // between "Place order" and the confirmation.
-              const here = getRecentFix(60000) ?? await getCurrentLatLng({ timeoutMs: 6000 });
-              await markVisit({
-                variables: {
-                  input: {
-                    adminid,
-                    branchid: tenant.branchId || undefined,
-                    salesmanid: user?.id,
-                    partyacc: partyId,
-                    routeid: routeId || undefined,
-                    day: routeDay || undefined,
-                    outcome: 'productive',
-                    orderid: (orderRes as any)?.addSalesOrder?.id,
-                    latitude: here?.lat,
-                    longitude: here?.lng,
-                    accuracy: here?.acc,
+            // Record the productive call (visited + order) in the background —
+            // the order is already saved, so the confirmation never waits on GPS.
+            const orderId = (orderRes as any)?.addSalesOrder?.id;
+            (async () => {
+              try {
+                const here = getRecentFix(60000) ?? await getCurrentLatLng({ timeoutMs: 6000 });
+                await markVisit({
+                  variables: {
+                    input: {
+                      adminid,
+                      branchid: tenant.branchId || undefined,
+                      salesmanid: user?.id,
+                      partyacc: partyId,
+                      routeid: routeId || undefined,
+                      day: routeDay || undefined,
+                      outcome: 'productive',
+                      orderid: orderId,
+                      latitude: here?.lat,
+                      longitude: here?.lng,
+                      accuracy: here?.acc,
+                    },
                   },
-                },
-              });
-            } catch (e: any) {
-              console.warn('[visit] record failed:', e?.message);
-            }
+                });
+              } catch (e: any) {
+                console.warn('[visit] record failed:', e?.message);
+              }
+            })();
 
             dispatch(clearCart());
             Alert.alert('Order Placed!', `Order for ${partyName} has been submitted.`, [

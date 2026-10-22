@@ -220,7 +220,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
         // not tappable — same look on both counts.
         const blockOf = (p: any): string | null => {
           if (!geo.enabled) return null;
-          if (!isToday) return 'Not today';
+          // Any day's stop can be visited — only the distance matters.
           if (p.lat == null || p.lng == null) return null; // located at the shop first
           if (!salesmanLoc) return 'No GPS';
           return isWithinFence(haversineM(salesmanLoc.lat, salesmanLoc.lng, p.lat, p.lng), salesmanLoc.acc, geo.radiusM)
@@ -568,7 +568,7 @@ export default function SalesmanRoutes() {
         <Text style={[styles.locBarText, { color: locColor }]}>{locTip}</Text>
         <Text style={[styles.locBarSub, { color: colors.subText }]} numberOfLines={1}>
           {geo.enabled
-            ? salesmanLoc ? `· Today's stops within ${geo.radiusM} m` : '· Turn on GPS to take orders'
+            ? salesmanLoc ? `· Stops within ${geo.radiusM} m` : '· Turn on GPS to take orders'
             : '· Distances shown per party'}
         </Text>
         <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
@@ -613,7 +613,7 @@ export default function SalesmanRoutes() {
 }
 
 const styles = StyleSheet.create({
-  // Not today / out of range: visible, but plainly not available.
+  // Out of range: visible, but plainly not available.
   blocked: { opacity: 0.45 },
   pressed: { opacity: 0.75 },
   container:   { flex: 1 },

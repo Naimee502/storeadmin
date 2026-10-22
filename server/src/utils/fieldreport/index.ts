@@ -9,6 +9,7 @@ import { Account } from "../../models/accounts";
 import { AdminSettings } from "../../models/adminsettings";
 import { ProductService } from "../../models/products";
 import { Category } from "../../models/categories";
+import { Unit } from "../../models/units";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Salesman field analytics — one place that decides what a "call" is, so the
@@ -304,6 +305,8 @@ export const buildPerformance = async (f: ReportFilter) => {
       salesmanid: sid,
       salesmanname: s.name,
       mobile: s.mobile || null,
+      // Names of the routes assigned to this salesman (one "Route" column in the report).
+      routes: data.routes.filter((r: any) => String(r.salesmanid) === sid).map((r: any) => r.routename).filter(Boolean),
       plannedCalls: planned,
       productiveCalls: productive,
       unproductiveCalls: unproductive,
@@ -370,4 +373,79 @@ export const buildProductSales = async (f: ReportFilter) => {
   });
   return Array.from(acc.values()).map((r) => ({ ...r, qty: r2(r.qty), amount: r2(r.amount) }))
     .sort((a, b) => b.amount - a.amount);
+};
+
+
+/**
+ * Every order line booked by salesmen in the period — the "daily sales report"
+ * level of detail: which party, which product, variant and unit, how many,
+ * at what rate. The admin report groups / filters these on screen.
+ * baseqty = qty × unitqty (e.g. 2 Dozen of 12 → 24 pcs) in the variant's base unit.
+ */
+export const buildOrderLines = async (f: ReportFilter) => {
+  const { salesmen, routes, orders } = await buildFieldData({ ...f });
+  const nameOf = new Map(salesmen.map((s) => [String(s._id), s.name]));
+  const routeOf = new Map(routes.map((r: any) => [String(r._id), r.routename]));
+
+  const pIds = new Set<string>(), aIds = new Set<string>(), uIds = new Set<string>();
+  orders.forEach((o) => {
+    if (o.partyacc) aIds.add(String(o.partyacc));
+    (o.productservice || []).forEach((l: any) => {
+      pIds.add(String(l.productserviceid));
+      if (l.salesunitid) uIds.add(String(l.salesunitid));
+    });
+  });
+  const products: any[] = await ProductService.find({ _id: { $in: Array.from(pIds).map(oid) } })
+    .select("name categoryid productvariants._id productvariants.name productvariants.baseunitid").lean();
+  const pMap = new Map(products.map((p) => [String(p._id), p]));
+  products.forEach((p) => (p.productvariants || []).forEach((v: any) => v.baseunitid && uIds.add(String(v.baseunitid))));
+  const cIds = Array.from(new Set(products.map((p) => p.categoryid && String(p.categoryid)).filter(Boolean)));
+  const [cats, units, parties]: any[] = await Promise.all([
+    Category.find({ _id: { $in: cIds.map(oid) } }).select("categoryname").lean(),
+    Unit.find({ _id: { $in: Array.from(uIds).map(oid) } }).select("unitname").lean(),
+    Account.find({ _id: { $in: Array.from(aIds).map(oid) } }).select("name mobile city").lean(),
+  ]);
+  const cMap = new Map(cats.map((c: any) => [String(c._id), c.categoryname]));
+  const uMap = new Map(units.map((u: any) => [String(u._id), u.unitname]));
+  const aMap = new Map(parties.map((a: any) => [String(a._id), a]));
+
+  const rows: any[] = [];
+  orders.forEach((o) => {
+    const sid = String(o.salesmenid);
+    const party: any = aMap.get(String(o.partyacc)) || {};
+    (o.productservice || []).forEach((l: any) => {
+      const p: any = pMap.get(String(l.productserviceid)) || {};
+      const v: any = (p.productvariants || []).find((x: any) => String(x._id) === String(l.variantid)) || {};
+      const cid = p.categoryid ? String(p.categoryid) : null;
+      const qty = Number(l.qty) || 0;
+      const unitqty = Number(l.unitqty) || 1;
+      rows.push({
+        orderid: String(o._id),
+        billnumber: o.billnumber || "",
+        date: String(o.billdate || "").slice(0, 10),
+        salesmanid: sid,
+        salesmanname: nameOf.get(sid) || "",
+        routename: o.routeid ? routeOf.get(String(o.routeid)) || null : null,
+        partyid: o.partyacc ? String(o.partyacc) : null,
+        partyname: party.name || "",
+        partycity: party.city || null,
+        partymobile: party.mobile || null,
+        productid: String(l.productserviceid),
+        productname: p.name || "Deleted product",
+        categoryid: cid,
+        categoryname: cid ? cMap.get(cid) || "Uncategorised" : "Uncategorised",
+        variantname: v.name || null,
+        unitname: l.salesunitid ? uMap.get(String(l.salesunitid)) || null : null,
+        baseunitname: v.baseunitid ? uMap.get(String(v.baseunitid)) || null : null,
+        unitqty,
+        qty: r2(qty),
+        baseqty: r2(qty * unitqty),
+        rate: r2(Number(l.rate) || 0),
+        discount: r2(Number(l.discount) || 0),
+        gst: Number(l.gst) || 0,
+        amount: r2(Number(l.amount) || 0),
+      });
+    });
+  });
+  return rows.sort((a, b) => b.date.localeCompare(a.date) || String(b.billnumber).localeCompare(String(a.billnumber)));
 };
