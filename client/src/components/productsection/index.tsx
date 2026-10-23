@@ -685,7 +685,8 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                   variantid: selectedProduct.variantid,
                   unitid,
                   accountid: partyAccount?.id,
-                  channelid: partyAccount?.channel,
+                  // channel comes back as { id, channelName } — send the id.
+                  channelid: partyAccount?.channel?.id ?? partyAccount?.channel ?? null,
                   region: partyAccount?.region
                 });
               } catch (err) {

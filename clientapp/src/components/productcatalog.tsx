@@ -52,6 +52,8 @@ interface ProductCardProps {
   showStock: boolean;
   multiplier: number;
   unitIdx: number;
+  /** Party price-list rate for the selected unit, or null to use the base price. */
+  priceOverride: number | null;
   cartQty: number;
   /** Another pack may go in the cart ("Restrict quantity by stock"). */
   canAdd: boolean;
@@ -70,14 +72,16 @@ const unitLabel = (u: any) => {
 
 const ProductCard = React.memo(function ProductCard({
   product: p, colors, imgRatio, showPrice, showStock, multiplier,
-  unitIdx, cartQty, canAdd, isLeft, onOpen, onAdd, onQty, onSelectUnit,
+  unitIdx, priceOverride, cartQty, canAdd, isLeft, onOpen, onAdd, onQty, onSelectUnit,
 }: ProductCardProps) {
   const v = p.productvariants?.[0];
   const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
   const unitId = up?.unitid?.id;
-  const price = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+  const basePrice = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
+  // The party's assigned price list wins over the product's own unit price.
+  const price = priceOverride != null ? priceOverride : basePrice;
   const mrp = up?.mrp ?? 0;
-  const hasMrp = mrp > 0;
+  const hasMrp = mrp > 0 && mrp > price;
   // <= 0, not === 0: a negative balance (oversold) is out of stock too, and
   // matches the server's in-stock-first ordering. No variant (a service)
   // has no stock to run out of.
@@ -350,6 +354,51 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
   });
   const partyAccount = (accountData as any)?.getAccountById;
 
+  // Party-specific price list: resolve every product+unit for this party so
+  // the CARD shows the assigned price list rate, not just the cart.
+  type Resolved = { rate: number; discount: number; discounttype?: string } | null;
+  const [priceMap, setPriceMap] = useState<Record<string, Resolved>>({});
+  const priceMapRef = useRef(priceMap);
+  priceMapRef.current = priceMap;
+  const priceKey = (pid: string, vid: string, uid: string) => `${pid}:${vid}:${uid}`;
+
+  // New party / tenant → forget prices resolved for the previous one.
+  useEffect(() => { setPriceMap({}); }, [user?.id, adminid]);
+
+  useEffect(() => {
+    if (!user?.id || !adminid || products.length === 0) return;
+    const channelid = partyAccount?.channel?.id ?? null;
+    const region = partyAccount?.region ?? null;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, Resolved> = {};
+      await Promise.all(products.map(async (p: any) => {
+        const v = p.productvariants?.[0];
+        if (!v) return;
+        await Promise.all((v.unitprices ?? []).map(async (up: any) => {
+          const uid = up?.unitid?.id;
+          if (!uid) return;
+          const key = priceKey(p.id, v.id, uid);
+          if (priceMapRef.current[key] !== undefined) return;
+          try {
+            const { data: pd } = await apolloClient.query({
+              query: RESOLVE_PRICE,
+              variables: { productid: p.id, variantid: v.id, unitid: uid, adminid, accountid: user.id, channelid, region },
+              fetchPolicy: 'network-only',
+            });
+            const rp = (pd as any)?.resolvePrice;
+            updates[key] = rp?.rate != null ? { rate: rp.rate, discount: rp.discount ?? 0, discounttype: rp.discounttype } : null;
+          } catch {
+            updates[key] = null;
+          }
+        }));
+      }));
+      if (!cancelled && Object.keys(updates).length) setPriceMap(prev => ({ ...prev, ...updates }));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, partyAccount, user?.id, adminid]);
+
   // Search and category are already applied server-side; only the inactive
   // guard is left, since the storefront must never show a disabled product.
   const filtered = useMemo(
@@ -393,7 +442,12 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     if (maxPacks(p, v, up) < 1) return;
     const defaultRate = (up?.offerprice ?? 0) > 0 ? up.offerprice : (up?.salesrate ?? 0);
     let rate = defaultRate, disc = up?.discount ?? 0;
-    if (up?.unitid?.id) {
+    // Same rate the card shows, so card and cart never diverge.
+    const mapped = up?.unitid?.id ? priceMap[priceKey(p.id, v.id, up.unitid.id)] : undefined;
+    if (mapped) {
+      rate = mapped.rate;
+      if (mapped.discount != null && mapped.discount > 0) disc = mapped.discount;
+    } else if (up?.unitid?.id) {
       try {
         const { data: pd } = await apolloClient.query({
           query: RESOLVE_PRICE,
@@ -463,6 +517,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     const unitIdx = selectedUnits[p.id] ?? 0;
     const up = v?.unitprices?.[unitIdx] ?? v?.unitprices?.[0];
     const key = v ? `${p.id}|${v.id}|${up?.unitid?.id ?? ''}` : '';
+    const resolved = (v && up?.unitid?.id) ? priceMap[priceKey(p.id, v.id, up.unitid.id)] : undefined;
     return (
       <ProductCard
         product={p}
@@ -472,6 +527,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
         showStock={showStock}
         multiplier={multiplier}
         unitIdx={unitIdx}
+        priceOverride={resolved?.rate ?? null}
         cartQty={cartQtyByKey.get(key) ?? 0}
         canAdd={v ? (cartQtyByKey.get(key) ?? 0) < maxPacks(p, v, up) : false}
         isLeft={index % 2 === 0}
@@ -482,7 +538,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
       />
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUnits, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, cartItems, restrict, onOpen, onAdd, onQty, onSelectUnit]);
+  }, [selectedUnits, priceMap, colors, imgRatio, showPrice, showStock, multiplier, cartQtyByKey, cartItems, restrict, onOpen, onAdd, onQty, onSelectUnit]);
 
   // Height of the list header (banner / search / chips scroll WITH the list on
   // Home). The refresh spinner is placed just below it — at the top of the

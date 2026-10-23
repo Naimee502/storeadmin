@@ -47,7 +47,17 @@ export const priceListResolvers = {
               i.variantid.toString() === variantid && 
               i.unitid.toString() === unitid
           );
-          if (item) return item;
+          if (item) {
+            // Every caller (POS, admin orders, party app, website) treats
+            // `discount` as a rupee amount off the rate. Convert a percentage
+            // discount here so "10%" isn't applied as ₹10.
+            const plain: any = typeof (item as any).toObject === "function" ? (item as any).toObject() : { ...item };
+            if (plain.discounttype === "percentage") {
+              plain.discount = Math.round(((plain.rate || 0) * (plain.discount || 0)) / 100 * 100) / 100;
+              plain.discounttype = "fixed";
+            }
+            return plain;
+          }
         }
       }
       

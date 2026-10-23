@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@apollo/client";
+import apolloClient from "../graphql/client";
+import { GET_ACCOUNT, RESOLVE_PRICE } from "../graphql/queries/accounts";
+import { useAuth } from "../contexts/auth";
 import { Package, type LucideIcon } from "lucide-react";
 import { GET_STORE_CATEGORIES, GET_STORE_PRODUCTS } from "../graphql/queries/catalog";
 import { useTenant } from "../contexts/tenant";
@@ -125,12 +128,90 @@ export function useCatalog() {
     skip: !adminid,
   });
 
-  const products = useMemo<SampleProduct[]>(() => {
+  const baseProducts = useMemo<SampleProduct[]>(() => {
     const list = (prodData as any)?.getProductServices ?? [];
     // Out-of-stock last everywhere the storefront lists products (the server
     // already orders them so; this keeps it true by the card's own rule).
     return inStockFirst(list.filter((p: any) => p && p.status !== false).map(mapProduct));
   }, [prodData]);
+
+  // ---- Party price list -------------------------------------------------
+  // A logged-in party sees the rate from the price list assigned to them
+  // (customer → channel+region → channel → region), on every card and the
+  // detail page — not only once the item is in the cart. Guests keep the
+  // base catalog price.
+  const { account } = useAuth();
+  const { data: accountData } = useQuery(GET_ACCOUNT, {
+    variables: { id: account?.id, adminId: adminid },
+    skip: !account?.id || !adminid,
+  });
+  const partyAccount = (accountData as any)?.getAccountById;
+
+  type Resolved = { rate: number; discount: number } | null;
+  const [priceMap, setPriceMap] = useState<Record<string, Resolved>>({});
+  const priceMapRef = useRef(priceMap);
+  priceMapRef.current = priceMap;
+  const keyOf = (pid: string, vid: string, uid: string) => `${pid}:${vid}:${uid}`;
+
+  // Different party (login/logout) → drop the previous party's prices.
+  useEffect(() => { setPriceMap({}); }, [account?.id, adminid]);
+
+  useEffect(() => {
+    if (!account?.id || !adminid || baseProducts.length === 0) return;
+    const channelid = partyAccount?.channel?.id ?? null;
+    const region = partyAccount?.region ?? null;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, Resolved> = {};
+      await Promise.all(baseProducts.flatMap((p) =>
+        (p.unitPrices ?? []).map(async (u) => {
+          if (!p.variantid || !u.unitid) return;
+          const key = keyOf(p.id, p.variantid, u.unitid);
+          if (priceMapRef.current[key] !== undefined) return;
+          try {
+            // cache-first: every component that calls useCatalog shares the
+            // same Apollo cache, so each product+unit is fetched once.
+            const { data } = await apolloClient.query({
+              query: RESOLVE_PRICE,
+              variables: { productid: p.id, variantid: p.variantid, unitid: u.unitid, adminid, accountid: account.id, channelid, region },
+              fetchPolicy: "cache-first",
+            });
+            const rp = (data as any)?.resolvePrice;
+            updates[key] = rp?.rate != null ? { rate: rp.rate, discount: Number(rp.discount) || 0 } : null;
+          } catch {
+            updates[key] = null;
+          }
+        })
+      ));
+      if (!cancelled && Object.keys(updates).length) setPriceMap((prev) => ({ ...prev, ...updates }));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseProducts, partyAccount, account?.id, adminid]);
+
+  const products = useMemo<SampleProduct[]>(() => {
+    if (!account?.id || Object.keys(priceMap).length === 0) return baseProducts;
+    return baseProducts.map((p) => {
+      if (!p.variantid || !p.unitPrices?.length) return p;
+      let changed = false;
+      const unitPrices = p.unitPrices.map((u) => {
+        const r = u.unitid ? priceMap[keyOf(p.id, p.variantid!, u.unitid)] : undefined;
+        if (!r) return u;
+        changed = true;
+        return {
+          ...u,
+          price: r.rate,
+          mrp: Math.max(u.mrp, r.rate),
+          // Keep the unit's own discount unless the price list sets one.
+          discount: r.discount > 0 ? r.discount : u.discount,
+        };
+      });
+      if (!changed) return p;
+      const first = unitPrices[0];
+      return { ...p, unitPrices, price: first.price, mrp: first.mrp, discount: first.discount ?? 0 };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseProducts, priceMap, account?.id]);
 
   const categories = useMemo<DisplayCategory[]>(() => {
     const list = (catData as any)?.getCategories ?? [];

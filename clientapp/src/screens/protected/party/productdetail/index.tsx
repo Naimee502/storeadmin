@@ -156,7 +156,23 @@ export default function ProductDetail() {
 
   const variant = product.productvariants?.[selectedVariantIdx];
   const unitprice = variant?.unitprices?.[selectedUnitIdx] ?? variant?.unitprices?.[0];
-  const price = resolveUnitPrice(unitprice);
+  // Party's assigned price list rate for the selected unit (customer /
+  // channel / region). Falls back to the product's own unit price.
+  const { data: resolvedData } = useQuery(RESOLVE_PRICE, {
+    variables: {
+      productid: product.id,
+      variantid: variant?.id,
+      unitid: unitprice?.unitid?.id,
+      adminid: adminid || null,
+      accountid: user?.id ?? null,
+      channelid: partyAccount?.channel?.id ?? null,
+      region: partyAccount?.region ?? null,
+    },
+    skip: !fetchedProduct || !variant?.id || !unitprice?.unitid?.id || !user?.id,
+    fetchPolicy: 'network-only',
+  });
+  const resolvedRate = (resolvedData as any)?.resolvePrice?.rate;
+  const price = resolvedRate != null ? resolvedRate : resolveUnitPrice(unitprice);
   const mrp = unitprice?.mrp ?? 0;
   const hasMrp = mrp > 0;
   const hasDiscount = hasMrp && mrp > price;

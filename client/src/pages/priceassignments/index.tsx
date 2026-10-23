@@ -106,7 +106,11 @@ const PriceAssignments = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.pricelistid || !formData.targetid) return alert("All fields are required");
+    if (!formData.pricelistid || !formData.targetid || (Array.isArray(formData.targetid) && formData.targetid.length === 0)) return alert("All fields are required");
+    if (formData.targettype === "channel_region") {
+      const [cid, reg] = String(formData.targetid).split("--");
+      if (!cid || !reg) return alert("Select both Channel and Region");
+    }
 
     try {
       if (editId) {
