@@ -240,7 +240,9 @@ export default function Login({ navigation }: any) {
       }
     } catch (err: any) {
       const msg = err?.message || 'Could not create your account. Try again.';
-      setErrors(e => ({ ...e, mobile: msg }));
+      // Duplicate email belongs under the email box, not the mobile one.
+      if (/email/i.test(msg)) setErrors(e => ({ ...e, email: msg }));
+      else setErrors(e => ({ ...e, mobile: msg }));
     } finally {
       showLoader(false);
     }

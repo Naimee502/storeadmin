@@ -481,8 +481,9 @@ const AddEditAccount = () => {
         dispatch(showMessage({ message: "Account added successfully", type: "success" }));
       }
       navigate("/accounts");
-    } catch (error) {
-      dispatch(showMessage({ message: "Error saving account", type: "error" }));
+    } catch (error: any) {
+      // Show the server's reason (e.g. "This email is already registered…").
+      dispatch(showMessage({ message: error?.message || "Error saving account", type: "error" }));
     }
   };
 

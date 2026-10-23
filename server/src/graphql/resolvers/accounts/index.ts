@@ -149,6 +149,24 @@ export const REGISTRATION_INCOMPLETE = "REGISTRATION_INCOMPLETE";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const DUPLICATE_EMAIL_MSG = "This email is already registered with another party. Please use a different email.";
+
+/**
+ * One email = one party per store. Checked (case-insensitive) on every path
+ * that can put an email on a party: admin add/edit, the app / website
+ * registration, and the "add email" step of party login. Deleted
+ * (status:false) accounts don't count.
+ */
+const assertEmailFree = async (adminId: any, email: any, excludeId?: any) => {
+  const e = String(email || "").trim();
+  if (!adminId || !e) return;
+  const escaped = e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const q: any = { admin: adminId, status: true, email: { $regex: `^${escaped}$`, $options: "i" } };
+  if (excludeId) q._id = { $ne: excludeId };
+  const clash = await Account.findOne(q).select("_id").lean();
+  if (clash) throw new ApolloError(DUPLICATE_EMAIL_MSG, "DUPLICATE_EMAIL");
+};
+
 /**
  * Registration OTP — generated here, saved on the pending signup (or, for an
  * old half-finished signup, on the account), sent ONLY by email. It is never
@@ -468,6 +486,8 @@ export const accountResolvers = {
   Mutation: {
     addAccount: async (_: any, { input }: any, context: any) => {
       try {
+        if (input?.email) input.email = String(input.email).trim().toLowerCase();
+        await assertEmailFree(input?.admin, input?.email);
         const account = new Account(input);
         await account.save();
 
@@ -522,6 +542,10 @@ export const accountResolvers = {
 
     editAccount: async (_: any, { id, input }: any, context: any) => {
       const before: any = await Account.findById(id).select("salesmanid name admin branchid").lean();
+      if (input?.email) {
+        input.email = String(input.email).trim().toLowerCase();
+        await assertEmailFree(input.admin || before?.admin, input.email, id);
+      }
       const updated = await Account.findByIdAndUpdate(id, input, { new: true })
         .populate("admin")
         .populate("accountgroupid")
@@ -599,6 +623,7 @@ export const accountResolvers = {
         if (!EMAIL_RE.test(addEmail)) {
           throw new ApolloError("Enter a valid email address.", "LOGIN_OTP_NO_EMAIL");
         }
+        await assertEmailFree(adminId, addEmail, account._id);
         // Proof this is the party and not just someone who knows the number:
         // the Account Code from Party Accounts (printed on their bills).
         // Checked on BOTH calls — sending the OTP and verifying it — since the
@@ -682,6 +707,9 @@ export const accountResolvers = {
         // retire it and go through the proper pending signup instead.
         await Account.findByIdAndUpdate(existing._id, { status: false });
       }
+      // Checked after retiring a half-finished signup of this same mobile, so
+      // re-registering with your own email isn't blocked by yourself.
+      await assertEmailFree(adminId, email);
 
       const { otp, otpExpiry } = newOtp();
       await PendingRegistration.findOneAndUpdate(
@@ -741,6 +769,13 @@ export const accountResolvers = {
           throw new Error("This mobile number is already registered. Please login instead.");
         }
 
+        // Someone else may have taken this email while the OTP was pending.
+        try {
+          await assertEmailFree(adminId, pending.email);
+        } catch (e) {
+          await PendingRegistration.deleteOne({ _id: pending._id });
+          throw e;
+        }
         const created: any = await createSelfRegisteredAccount(adminId, pending.name, mobile, pending.email);
         await PendingRegistration.deleteOne({ _id: pending._id });
 
