@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator, Modal, FlatList, TextInput, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,6 +16,7 @@ import { apolloClient } from '../../../../apollo/client';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
+import CatalogPicker from './catalogpicker';
 
 type Line = {
   productserviceid: string; productName: string; imageUrl: string | null;
@@ -57,7 +58,6 @@ export default function OrderEdit() {
   const [lines, setLines] = useState<Line[]>([]);
   const [saving, setSaving] = useState(false);
   const [picker, setPicker] = useState(false);
-  const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
@@ -97,6 +97,18 @@ export default function OrderEdit() {
       if (qty <= 0) return prev.filter((_, i) => i !== idx);
       return prev.map((l, i) => i === idx ? { ...l, qty } : l);
     });
+  };
+
+  // Catalog picker reads / changes the order lines by product+variant+unit.
+  const lineIdx = (pid: string, vid: string, uid: string) =>
+    lines.findIndex(l => l.productserviceid === pid && l.variantid === vid && l.salesunitid === uid);
+  const getQty = (pid: string, vid: string, uid: string) => {
+    const i = lineIdx(pid, vid, uid);
+    return i >= 0 ? lines[i].qty : 0;
+  };
+  const setQtyFor = (pid: string, vid: string, uid: string, qty: number) => {
+    const i = lineIdx(pid, vid, uid);
+    if (i >= 0) setQty(i, qty);
   };
 
   // Add a product (with a chosen unit — kg / box / etc.) to the order. Rate is
@@ -154,18 +166,11 @@ export default function OrderEdit() {
         if (idx >= 0) return prev.map((l, i) => i === idx ? { ...l, qty: l.qty + 1 } : l);
         return [...prev, newLine];
       });
-      setPicker(false);
-      setSearch('');
     } finally {
       setAdding(false);
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p: any) => (p.name || '').toLowerCase().includes(q));
-  }, [products, search]);
 
   const handleSave = async () => {
     if (!order) return;
@@ -320,70 +325,22 @@ export default function OrderEdit() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Add-product picker */}
-      <Modal visible={picker} transparent animationType="slide" onRequestClose={() => setPicker(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
-            <View style={styles.modalHead}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Add Product</Text>
-              <TouchableOpacity onPress={() => { setPicker(false); setSearch(''); }}>
-                <Icon name="close" size={22} color={colors.subText} />
-              </TouchableOpacity>
-            </View>
-            <View style={[styles.searchRow, { borderColor: colors.border, backgroundColor: colors.raisedSurface }]}>
-              <Icon name="magnify" size={16} color={colors.subText} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search products…"
-                placeholderTextColor={colors.subText}
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
-            {adding && <ActivityIndicator color={colors.brand} style={{ marginVertical: 8 }} />}
-            <FlatList
-              data={filteredProducts}
-              keyExtractor={(p: any) => p.id}
-              style={{ maxHeight: 380 }}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }: any) => {
-                const v = item.productvariants?.[0];
-                const units = (v?.unitprices ?? []).filter((u: any) => u?.unitid?.id);
-                return (
-                  <View style={[styles.prodRow, { borderColor: colors.border }]}>
-                    <Text style={[styles.prodName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                    {v?.name ? <Text style={[styles.prodMeta, { color: colors.brand }]}>{v.name}</Text> : null}
-                    {/* Unit chips — pick kg / box / etc. (each has its own price) */}
-                    <View style={styles.unitWrap}>
-                      {units.length === 0 && (
-                        <Text style={[styles.prodMeta, { color: colors.subText }]}>No unit price configured</Text>
-                      )}
-                      {units.map((u: any, ui: number) => {
-                        const price = u.offerprice ?? u.salesrate ?? u.mrp;
-                        return (
-                          <TouchableOpacity
-                            key={ui}
-                            style={[styles.unitChip, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
-                            onPress={() => addProduct(item, v, u)}
-                            disabled={adding}
-                            activeOpacity={0.8}
-                          >
-                            <Icon name="plus" size={12} color={colors.brand} />
-                            <Text style={[styles.unitChipText, { color: colors.brand }]}>
-                              {u.unitid?.unitname}{showPrice && price != null ? ` · ${formatINR(price)}` : ''}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              }}
-              ListEmptyComponent={<Text style={[styles.prodMeta, { color: colors.subText, padding: 16 }]}>No products found.</Text>}
-            />
-          </View>
-        </View>
-      </Modal>
+      {/* Add-product picker — same catalogue view as ordering. */}
+      <CatalogPicker
+        visible={picker}
+        onClose={() => setPicker(false)}
+        products={products}
+        adminid={tenant.adminId}
+        partyId={partyId}
+        partyAccount={partyAccount}
+        partyName={order?.partyacc?.name}
+        showPrice={showPrice}
+        itemCount={lines.length}
+        total={grandTotal}
+        getQty={getQty}
+        onAdd={(p, v, up) => { if (!adding) addProduct(p, v, up); }}
+        onQty={setQtyFor}
+      />
     </View>
   );
 }

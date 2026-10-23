@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router";
 import { useQuery, useMutation } from "@apollo/client";
-import { Package, Minus, Plus, Trash2, PlusCircle, Search, X, Save, Lock, ArrowLeft } from "lucide-react";
+import { Package, Minus, Plus, Trash2, PlusCircle, Search, X, Save, Lock, ArrowLeft, Check, Images } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import { useTenant } from "../../contexts/tenant";
 import { useAuth } from "../../contexts/auth";
@@ -12,6 +12,46 @@ import { GET_SALES_ORDER_BY_ID, EDIT_SALES_ORDER, GET_SALES_ORDERS, GET_ACCOUNT,
 import apolloClient from "../../graphql/client";
 import { formatPrice } from "../../utils/format";
 import { canEditOrder, formatBillNumber } from "../../utils/orders";
+import { useImageFallback } from "../../utils/useimagefallback";
+import ProductImageViewer, { productImages } from "../../components/productimageviewer";
+
+/**
+ * Product photo with the package icon as the DEFAULT — the photo replaces it
+ * only once it has actually loaded, so a missing / dead image never shows as a
+ * broken or blank box. Optional photo-count badge and click (→ viewer).
+ */
+function ProductThumb({ url, count = 0, size, onOpen, outOfStock = false }: {
+  url?: string | null; count?: number; size: string; onOpen?: () => void; outOfStock?: boolean;
+}) {
+  const image = useImageFallback(url);
+  const clickable = !!onOpen && !!url;
+  return (
+    <button
+      type="button"
+      onClick={clickable ? onOpen : undefined}
+      disabled={!clickable}
+      className={`relative flex shrink-0 items-center justify-center self-start overflow-hidden rounded-xl bg-brand-50 ${size} ${clickable ? "cursor-zoom-in" : "cursor-default"}`}
+    >
+      {!image.showImage && <Package className="h-6 w-6 text-brand-600" />}
+      {image.mountImage && url && (
+        <img
+          src={url}
+          alt=""
+          {...image.imgProps}
+          className={`absolute inset-0 h-full w-full object-cover ${image.showImage ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+      {count > 1 && (
+        <span className="absolute right-1 top-1 flex items-center gap-0.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <Images className="h-3 w-3" /> {count}
+        </span>
+      )}
+      {outOfStock && (
+        <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[10px] font-semibold text-white">Out</span>
+      )}
+    </button>
+  );
+}
 
 type EditLine = {
   productserviceid: string;
@@ -32,8 +72,8 @@ export default function OrderEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isLoggedIn, account } = useAuth();
-  const { adminid, branchid, displayProductPrice } = useTenant();
-  const { products } = useCatalog();
+  const { adminid, branchid, displayProductPrice, restrictQuantityByStock } = useTenant();
+  const { products, categories } = useCatalog();
   const { isOwnOrDownline, manageDownline } = useDownline();
 
   const { data, loading } = useQuery(GET_SALES_ORDER_BY_ID, {
@@ -63,6 +103,10 @@ export default function OrderEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  // Unit picked on each catalogue card (index into product.unitPrices).
+  const [pickerUnits, setPickerUnits] = useState<Record<string, number>>({});
+  const [preview, setPreview] = useState<{ images: string[]; title: string } | null>(null);
 
   useEffect(() => {
     if (!order) return;
@@ -166,9 +210,14 @@ export default function OrderEditPage() {
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, search]);
+    return products
+      .filter((p) => !pickerCategory || p.category === pickerCategory)
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.categoryName || "").toLowerCase().includes(q));
+  }, [products, search, pickerCategory]);
+
+  // The catalogue's Add / − / + work on the order lines themselves.
+  const lineIndexFor = (productId: string, unitid: string | null | undefined) =>
+    lines.findIndex((l) => l.productserviceid === productId && (l.salesunitid || null) === (unitid || null));
 
   const handleSave = async () => {
     if (!order || !adminid || !branchid) return;
@@ -291,13 +340,7 @@ export default function OrderEditPage() {
         <div className="space-y-3">
           {lines.map((l, idx) => (
             <div key={`${l.productserviceid}-${l.salesunitid}-${idx}`} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-brand-50">
-                {l.imageurl ? (
-                  <img src={l.imageurl} alt="" className="h-full w-full object-contain" />
-                ) : (
-                  <Package className="h-5 w-5 text-brand-600" />
-                )}
-              </div>
+              <ProductThumb url={l.imageurl} size="h-11 w-11" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{l.productName}</p>
                 <p className="text-xs font-medium text-brand-600">{[l.variantName, l.unitName].filter(Boolean).join(" · ") || "—"}</p>
@@ -371,60 +414,152 @@ export default function OrderEditPage() {
         </div>
       </div>
 
-      {/* Add-product picker */}
+      {/* Add-product picker — same catalogue cards as the shop. */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setPickerOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 sm:items-center sm:p-6" onClick={() => setPickerOpen(false)}>
           <div
-            className="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl"
+            className="flex h-full w-full max-w-3xl flex-col overflow-hidden bg-white sm:h-[90vh] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 p-4">
-              <h2 className="text-base font-bold text-ink-900">Add Product</h2>
-              <button onClick={() => setPickerOpen(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-50">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-ink-900">Add Products</h2>
+                {order.partyacc?.name && (
+                  <p className="text-xs text-slate-500">Adding to {formatBillNumber(order)} for {order.partyacc.name}</p>
+                )}
+              </div>
+              <button onClick={() => setPickerOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-50" aria-label="Close">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products…"
-                className="w-full text-sm outline-none placeholder:text-slate-400"
-              />
-            </div>
-            <div className="max-h-[55vh] overflow-y-auto p-4">
-              {filteredProducts.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-400">No products found.</p>
-              ) : (
-                <div className="space-y-3">
-                  {filteredProducts.map((p) => (
-                    <div key={p.id} className="border-b border-slate-100 pb-3 last:border-0">
-                      <p className="text-sm font-semibold text-ink-900">{p.name}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {(p.unitPrices ?? []).length === 0 && (
-                          <span className="text-xs text-slate-400">No unit price configured</span>
-                        )}
-                        {(p.unitPrices ?? []).map((u, ui) => (
-                          <button
-                            key={ui}
-                            onClick={() => addProduct(p, u.label)}
-                            className="flex items-center gap-1 rounded-full border border-brand-300 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
-                          >
-                            <Plus className="h-3 w-3" /> {u.label}
-                            {displayProductPrice && ` · ${formatPrice(u.price)}`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+
+            <div className="space-y-3 border-b border-slate-100 px-5 py-3">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search products…"
+                  className="w-full text-sm outline-none placeholder:text-slate-400"
+                />
+              </div>
+              {categories.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {[{ id: null as string | null, name: "All" }, ...categories.map((c) => ({ id: c.id as string | null, name: c.name }))].map((c) => {
+                    const active = pickerCategory === c.id;
+                    return (
+                      <button
+                        key={c.id ?? "all"}
+                        onClick={() => setPickerCategory(c.id)}
+                        className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold ${
+                          active ? "border-brand-700 bg-brand-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-brand-300"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
+              {filteredProducts.length === 0 ? (
+                <p className="py-16 text-center text-sm text-slate-400">No products found.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {filteredProducts.map((p) => {
+                    const units = p.unitPrices ?? [];
+                    const ui = Math.min(pickerUnits[p.id] ?? 0, Math.max(0, units.length - 1));
+                    const u = units[ui];
+                    const idx = u ? lineIndexFor(p.id, u.unitid) : -1;
+                    const qty = idx >= 0 ? lines[idx].qty : 0;
+                    const stock = p.variantStock;
+                    const outOfStock = typeof stock === "number" && stock <= 0;
+                    const canAdd = !!u && !(restrictQuantityByStock && outOfStock);
+                    const imgs = productImages(p);
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-sm">
+                        <ProductThumb
+                          url={imgs[0]}
+                          count={imgs.length}
+                          size="h-20 w-20"
+                          outOfStock={outOfStock}
+                          onOpen={() => setPreview({ images: imgs, title: p.name })}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-ink-900">{p.name}</p>
+                          {p.categoryName && <p className="truncate text-xs text-slate-500">{p.categoryName}</p>}
+                          {displayProductPrice && u && (
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="text-base font-bold text-brand-700">{formatPrice(u.price)}</span>
+                              {u.mrp > u.price && <span className="text-xs text-slate-400 line-through">{formatPrice(u.mrp)}</span>}
+                            </div>
+                          )}
+                          {units.length > 1 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {units.map((x, i) => (
+                                <button
+                                  key={`${x.unitid ?? i}`}
+                                  onClick={() => setPickerUnits((prev) => ({ ...prev, [p.id]: i }))}
+                                  className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                                    i === ui ? "border-brand-700 bg-brand-700 text-white" : "border-slate-200 text-slate-700 hover:border-brand-300"
+                                  }`}
+                                >
+                                  {x.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0">
+                          {qty > 0 ? (
+                            <div className="flex items-center overflow-hidden rounded-xl border-2 border-brand-700">
+                              <button onClick={() => setQty(idx, qty - 1)} className="bg-brand-50 px-2.5 py-1.5 text-brand-700 hover:bg-brand-100" aria-label="Decrease quantity">
+                                <Minus className="h-4 w-4" />
+                              </button>
+                              <span className="w-8 text-center text-sm font-bold text-brand-700">{qty}</span>
+                              <button onClick={() => setQty(idx, qty + 1)} className="bg-brand-50 px-2.5 py-1.5 text-brand-700 hover:bg-brand-100" aria-label="Increase quantity">
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : canAdd ? (
+                            <button
+                              onClick={() => addProduct(p, u.label)}
+                              className="flex items-center gap-1 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
+                            >
+                              <Plus className="h-4 w-4" /> Add
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 bg-white px-5 py-3">
+              <button
+                onClick={() => setPickerOpen(false)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-3 text-sm font-semibold text-white hover:bg-brand-800"
+              >
+                <Check className="h-4 w-4" />
+                Done · {lines.length} item{lines.length === 1 ? "" : "s"}
+                {displayProductPrice ? ` · ${formatPrice(grandTotal)}` : ""}
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <ProductImageViewer
+        open={!!preview}
+        images={preview?.images ?? []}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 }

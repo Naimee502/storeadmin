@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
@@ -66,10 +66,9 @@ export default function ProductDetailPage() {
   // Quantity to add, only used before the product is actually in the cart —
   // once it's in, the stepper reads/writes the real cart line quantity
   // instead of a separate local counter that always looked reset to 1.
-  const [pendingQty, setPendingQty] = useState(1);
-  useEffect(() => setPendingQty(1), [product, selectedUnit]);
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const { lines, addToCart, updateQty, removeFromCart, remainingFor } = useCart();
+  const navigate = useNavigate();
   const { displayProductPrice, displayStock } = useTenant();
   // Display-only x2 markup (Business Settings -> "Show Double Price"). The
   // Add-to-cart button below is untouched — it hands the cart the real rate.
@@ -114,29 +113,27 @@ export default function ProductDetailPage() {
   // off. Before the first add, the stepper can't be pushed past it either.
   const remaining = remainingFor(product, selectedUnit);
   const blocked = !line && remaining < 1;
-  const atStockLimit = line ? remaining < 1 : pendingQty >= remaining;
-  const displayQty = line ? line.qty : pendingQty;
-
-  const handleAdd = () => {
-    if (blocked) return;
-    addToCart(product, Math.min(pendingQty, remaining), selectedUnit);
-  };
+  const atStockLimit = remaining < 1;
+  // Like the app: the stepper IS the cart — "+" puts the item in the cart
+  // straight away (no separate Add to Cart button), "−" takes it out.
+  const displayQty = line ? line.qty : 0;
 
   const handleIncrement = () => {
-    if (line) {
-      if (!atStockLimit) updateQty(line.lineId, line.qty + 1);
-    } else if (!atStockLimit) {
-      setPendingQty((q) => q + 1);
-    }
+    if (atStockLimit) return;
+    if (line) updateQty(line.lineId, line.qty + 1);
+    else addToCart(product, 1, selectedUnit);
   };
 
   const handleDecrement = () => {
-    if (line) {
-      if (line.qty <= 1) removeFromCart(line.lineId);
-      else updateQty(line.lineId, line.qty - 1);
-    } else {
-      setPendingQty((q) => Math.max(1, q - 1));
-    }
+    if (!line) return;
+    if (line.qty <= 1) removeFromCart(line.lineId);
+    else updateQty(line.lineId, line.qty - 1);
+  };
+
+  // Buy Now with nothing in the cart yet puts one in first, then checks out.
+  const handleBuyNow = () => {
+    if (!line && !blocked) addToCart(product, 1, selectedUnit);
+    navigate("/checkout");
   };
 
   return (
@@ -280,38 +277,34 @@ export default function ProductDetailPage() {
 
             {/* Quantity + actions */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="flex items-center rounded-lg border border-slate-200">
-                <button onClick={handleDecrement} disabled={blocked} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Decrease quantity">
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-10 text-center text-sm font-semibold">{displayQty}</span>
-                <button onClick={handleIncrement} disabled={blocked || atStockLimit} className="p-2.5 hover:bg-slate-50 disabled:opacity-40" aria-label="Increase quantity">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-
-              {line ? (
-                <span className="flex-1 rounded-lg bg-brand-50 px-6 py-3 text-center text-sm font-semibold text-brand-700 sm:flex-none">
-                  Added to Cart ✓
-                </span>
+              {blocked ? (
+                <span className="rounded-lg bg-slate-200 px-6 py-3 text-sm font-semibold text-slate-500">Out of stock</span>
               ) : (
-                <button
-                  onClick={handleAdd}
-                  disabled={blocked}
-                  className={`flex-1 rounded-lg px-6 py-3 text-sm font-semibold text-white transition sm:flex-none ${
-                    blocked ? "bg-slate-300" : "bg-ink-900 hover:bg-brand-700"
-                  }`}
+                <div
+                  className={`flex items-center rounded-lg border-2 ${line ? "border-brand-700" : "border-slate-200"}`}
+                  title={line ? "In your cart" : "Tap + to add to cart"}
                 >
-                  {blocked ? "Unavailable" : "Add to Cart"}
-                </button>
+                  <button onClick={handleDecrement} disabled={!line} className="p-2.5 text-brand-700 hover:bg-brand-50 disabled:text-slate-300 disabled:hover:bg-transparent" aria-label="Decrease quantity">
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className={`w-10 text-center text-sm font-bold ${line ? "text-brand-700" : "text-slate-500"}`}>{displayQty}</span>
+                  <button onClick={handleIncrement} disabled={atStockLimit} className="p-2.5 text-brand-700 hover:bg-brand-50 disabled:text-slate-300" aria-label="Increase quantity">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              {line && (
+                <span className="flex items-center gap-1 text-sm font-semibold text-brand-700">
+                  <Check className="h-4 w-4" /> In cart
+                </span>
               )}
               {!blocked && (
-                <Link
-                  to="/checkout"
+                <button
+                  onClick={handleBuyNow}
                   className="flex-1 rounded-lg bg-accent-600 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-accent-700 sm:flex-none"
                 >
                   Buy Now
-                </Link>
+                </button>
               )}
             </div>
 
