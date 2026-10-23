@@ -178,7 +178,7 @@ export default function OrderEditPage() {
         const rp = pd?.resolvePrice;
         if (rp) {
           if (rp.rate != null) rate = rp.rate;
-          if (rp.discount != null && rp.discount > 0) discount = rp.discount;
+          discount = Number(rp.discount) || 0;
         }
       } catch {
         // fall back to the base unit price

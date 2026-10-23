@@ -348,7 +348,7 @@ export default function POSDashboard() {
           });
           if (resolved && resolved.rate != null) {
             sellPrice = resolved.rate;
-            if (resolved.discount != null && resolved.discount > 0) discount = resolved.discount;
+            discount = Number(resolved.discount) || 0;
           }
         } catch (e) {
           console.error("POS Price resolution error:", e);
@@ -452,7 +452,7 @@ export default function POSDashboard() {
               return {
                 ...c,
                 price: resolved.rate,
-                discount: resolved.discount != null && resolved.discount > 0 ? resolved.discount : baseDisc,
+                discount: Number(resolved.discount) || 0,
               };
             }
           } catch (e) {

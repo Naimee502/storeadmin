@@ -424,6 +424,10 @@ const adminSettingsSchema = new mongoose.Schema(
      * default; when off the server rejects an app order carrying one.
      */
     salesmanOrderDiscountEnabled: { type: Boolean, default: false },
+    // Price-list discount on orders taken by a SALESMAN / staff (app). Off:
+    // their orders get the price-list rate with no discount — the discount is
+    // only for parties ordering themselves (app / website). On = everyone.
+    salesmanPriceListDiscount: { type: Boolean, default: true },
 
     /** Salesman app "Team Leaderboard": salesmen see each other's monthly target & achievement. */
     salesmanLeaderboardEnabled: { type: Boolean, default: true },

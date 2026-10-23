@@ -222,7 +222,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
           // assignment returns a real positive one — a null/zero result must
           // not wipe the product's own discount. Same rule as the app's
           // Catalog screen and the POS.
-          const discount = rp.discount != null && rp.discount > 0 ? rp.discount : baseDiscount;
+          const discount = Number(rp.discount) || 0;
           pushLine(rate, discount);
         })
         .catch(() => pushLine(price, baseDiscount));

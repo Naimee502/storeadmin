@@ -203,7 +203,7 @@ export function useCatalog() {
           price: r.rate,
           mrp: Math.max(u.mrp, r.rate),
           // Keep the unit's own discount unless the price list sets one.
-          discount: r.discount > 0 ? r.discount : u.discount,
+          discount: r.discount,
         };
       });
       if (!changed) return p;

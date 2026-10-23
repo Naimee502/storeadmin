@@ -85,6 +85,7 @@ const SETTINGS_FIELDS = `
   salesmanLeaderboardEnabled
   attendanceSelfieRequired
   salesmanOrderDiscountEnabled
+  salesmanPriceListDiscount
   partyLoginEmailOtp
   autoPunchOutEnabled
   autoPunchOutTime

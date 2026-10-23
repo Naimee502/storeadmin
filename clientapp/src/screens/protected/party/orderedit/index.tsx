@@ -140,7 +140,7 @@ export default function OrderEdit() {
         const rp = (res.data as any)?.resolvePrice;
         if (rp) {
           rate = rp.rate ?? rate;
-          if (rp.discount != null && rp.discount > 0) discount = rp.discount;
+          discount = Number(rp.discount) || 0;
         }
       } catch (e) { /* fall back to unit price */ }
 

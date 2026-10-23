@@ -446,7 +446,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
     const mapped = up?.unitid?.id ? priceMap[priceKey(p.id, v.id, up.unitid.id)] : undefined;
     if (mapped) {
       rate = mapped.rate;
-      if (mapped.discount != null && mapped.discount > 0) disc = mapped.discount;
+      disc = Number(mapped.discount) || 0;
     } else if (up?.unitid?.id) {
       try {
         const { data: pd } = await apolloClient.query({
@@ -468,7 +468,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = React.memo(function
           // real party/channel discount. A null/zero result must NOT wipe the
           // product's own unit discount (otherwise the discount disappears and
           // the total is computed on the full rate).
-          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
+          disc = Number(rp.discount) || 0;
         }
       } catch (e) {
         console.warn('[resolvePrice] error:', e);

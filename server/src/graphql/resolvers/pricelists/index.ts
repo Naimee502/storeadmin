@@ -1,3 +1,4 @@
+import { AdminSettings } from "../../../models/adminsettings";
 import { PriceList } from "../../../models/pricelists";
 import { PriceAssignment } from "../../../models/priceassignments";
 import { ProductService } from "../../../models/products";
@@ -20,7 +21,7 @@ export const priceListResolvers = {
     getDeletedPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
       return await PriceAssignment.find({ adminid, status: false }).populate("pricelistid");
     },
-    resolvePrice: async (_: any, { productid, variantid, unitid, adminid, accountid, channelid, region }: any) => {
+    resolvePrice: async (_: any, { productid, variantid, unitid, adminid, accountid, channelid, region }: any, context: any) => {
       // Scope all lookups to the tenant's adminid when provided
       const base: any = adminid ? { adminid, status: true } : { status: true };
       let assignments = [];
@@ -55,6 +56,12 @@ export const priceListResolvers = {
             if (plain.discounttype === "percentage") {
               plain.discount = Math.round(((plain.rate || 0) * (plain.discount || 0)) / 100 * 100) / 100;
               plain.discounttype = "fixed";
+            }
+            // Business setting: no price-list discount on orders a salesman /
+            // staff member takes (party's own app / website orders keep it).
+            if (String(context?.user?.type || "") === "staff") {
+              const st: any = await AdminSettings.findOne({ adminid: priceList.adminid }).select("salesmanPriceListDiscount").lean();
+              if (st && st.salesmanPriceListDiscount === false) plain.discount = 0;
             }
             return plain;
           }

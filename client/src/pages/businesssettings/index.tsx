@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../layouts/home";
 import loginBg from "../../assets/images/loginbg.jpg";
 import FormField from "../../components/formfiled";
-import FormSwitch from "../../components/formswitch";
 import Button from "../../components/button";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
@@ -228,280 +227,104 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
 
   return (
     <div className="space-y-6">
-      <Section title="Automatic stock movement">
-        <p className="text-xs text-gray-500 mb-3 px-1">
-          Journals are no longer optional — an invoice, expense note or return is an
-          accounting event, so it always posts. How much money changed hands on a bill
-          is set by its <strong>Received</strong> box, not by a switch. Stock is still a
-          choice: a service line moves none, and some businesses bill first and enter
-          their purchases later.
-        </p>
-        <Toggle label="Auto-deduct stock on Sales Invoice" checked={draft.autoCreateStockOnSalesInvoice} onChange={(v) => set("autoCreateStockOnSalesInvoice", v)} />
-        <Toggle label="Auto-add stock on Purchase Invoice" checked={draft.autoCreateStockOnPurchaseInvoice} onChange={(v) => set("autoCreateStockOnPurchaseInvoice", v)} />
-        <Toggle label="Auto-add stock back on Sales Returns" checked={draft.autoCreateStockOnSalesReturn !== false} onChange={(v) => set("autoCreateStockOnSalesReturn", v)} />
-        <Toggle label="Auto-deduct stock on Purchase Returns" checked={draft.autoCreateStockOnPurchaseReturn !== false} onChange={(v) => set("autoCreateStockOnPurchaseReturn", v)} />
+      {/* Grouped by area, 4 switches per row. The longer explanation of each
+          switch is on hover (the ⓘ next to its name), not printed below it. */}
+      <Section title="Stock & Inventory">
+        <Grid>
+          <Toggle label="Auto-deduct stock on Sales Invoice" checked={draft.autoCreateStockOnSalesInvoice} onChange={(v) => set("autoCreateStockOnSalesInvoice", v)} />
+          <Toggle label="Auto-add stock on Purchase Invoice" checked={draft.autoCreateStockOnPurchaseInvoice} onChange={(v) => set("autoCreateStockOnPurchaseInvoice", v)} />
+          <Toggle label="Auto-add stock on Sales Return" checked={draft.autoCreateStockOnSalesReturn !== false} onChange={(v) => set("autoCreateStockOnSalesReturn", v)} />
+          <Toggle label="Auto-deduct stock on Purchase Return" checked={draft.autoCreateStockOnPurchaseReturn !== false} onChange={(v) => set("autoCreateStockOnPurchaseReturn", v)} />
+          <Toggle label="Allow negative stock" hint="On: a bill can be saved even when the quantity is more than the stock on hand. Off (recommended): such a Sales Invoice is refused." checked={!!draft.allowNegativeStock} onChange={(v) => set("allowNegativeStock", v)} />
+          <Toggle label="Restrict customer order qty by stock" hint="A customer (app / website) cannot put more in the cart than the branch has on hand." checked={draft.restrictQuantityByStock !== false} onChange={(v) => set("restrictQuantityByStock", v)} />
+          <Toggle label="Show stock on App / Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />
+        </Grid>
       </Section>
 
-      <Section title="Feature Toggles">
-        <Toggle label="Allow negative stock (bill more than what is on hand)" checked={!!draft.allowNegativeStock} onChange={(v) => set("allowNegativeStock", v)} />
-        <p className="text-xs text-gray-500 -mt-1 mb-2 px-1">
-          Off (recommended): a Sales Invoice whose quantity exceeds the branch's stock is refused,
-          in the panel, the POS and on Convert to Invoice. On: the short lines are still flagged in
-          red, but the bill saves and stock can go below zero — for businesses that bill first and
-          enter their purchases later.
-        </p>
-        <Toggle
-          label="Restrict quantity by stock (customer cannot order more than what is on hand)"
-          checked={draft.restrictQuantityByStock !== false}
-          onChange={(v) => set("restrictQuantityByStock", v)}
-        />
-        <p className="text-xs text-gray-500 -mt-1 mb-2 px-1">
-          On (recommended): a customer ordering from the website or the app cannot put more of a
-          product in their cart than the branch has on hand. Off: they can order past it, and the
-          shortfall is yours to sort out at fulfilment. Applies to customer-placed orders only —
-          your own billing is governed by Allow negative stock above.
-        </p>
-        <Toggle label="GST tracking enabled" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
-        <Toggle label="Display Product Prices on App/Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
-        <Toggle label="Display Product Stock on App/Website" checked={draft.displayStockOnWebsite} onChange={(v) => set("displayStockOnWebsite", v)} />
-        <Toggle label="Encrypt Invoice Prices (Mask actual amounts)" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
-        <Toggle
-          label="Show Double Price on App/Website (display only)"
-          checked={!!draft.doubleDisplayPrice}
-          onChange={(v: boolean) => set("doubleDisplayPrice", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          Every catalogue price the customer sees — Home, Shop / Catalogue and Product Detail, on
-          both the app and the website — is rendered at twice the rate you entered (sales rate,
-          offer price and MRP alike). Display only: the cart lines, cart total, checkout and the
-          order that gets placed all use your real rate, so invoices and accounts are unaffected.
-        </p>
-        <Toggle
-          label="Deliver orders via Delivery Boy (off = salesman delivers on route)"
-          checked={draft.deliveryMode === "deliveryboy"}
-          onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")}
-        />
-        <Toggle
-          label="Party manages downline (channel party handles sub-party orders & payments)"
-          checked={!!draft.partyManagesDownline}
-          onChange={(v: boolean) => set("partyManagesDownline", v)}
-        />
-        <Toggle
-          label="New customer signups need admin approval before they can log in"
-          checked={!!draft.requirePartyApproval}
-          onChange={(v: boolean) => set("requirePartyApproval", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          A customer who signs up on the app or the website is created as <b>Pending</b> and cannot
-          sign in until you approve them from Party Accounts. No OTP is sent while they wait, so they
-          are told to expect approval rather than left staring at an OTP screen. Only affects
-          self-registration — parties you or your salesmen create are approved straight away.
-        </p>
-        <Toggle
-          label="Discount & Commission on Payment settlement (per invoice while collecting)"
-          checked={!!draft.enablePaymentDiscountCommission}
-          onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)}
-        />
-        <Toggle
-          label="Show the party's last payment on Customer / Vendor Outstanding"
-          checked={!!draft.showLastPaymentOnStatement}
-          onChange={(v: boolean) => set("showLastPaymentOnStatement", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          Adds Last Payment columns — date, amount and how many days ago — to the Customer Outstanding
-          and Vendor Outstanding reports, and to their PDF, Excel and CSV. Customer Outstanding shows the
-          last payment received; Vendor Outstanding the last payment made.
-        </p>
-        <Toggle
-          label="Delete Sales / Purchase Invoices only from inside the invoice"
-          checked={!!draft.deleteInvoiceFromInsideOnly}
-          onChange={(v: boolean) => set("deleteInvoiceFromInsideOnly", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          On: the delete icon is hidden on the Sales Invoice and Purchase Invoice lists, and a Delete
-          button appears inside the invoice (next to Update Invoice) instead — so a bill can't be deleted
-          by a mis-click on the list. Off: delete stays on the list as usual.
-        </p>
-        <Toggle
-          label="App Home browses a catalogue (Category → Sub-category → order sheet with quantity boxes) instead of the storefront"
-          checked={!!draft.appCatalogBrowseMode}
-          onChange={(v: boolean) => set("appCatalogBrowseMode", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          For businesses selling many near-identical items — sizes of the same part, say — where a
-          picture grid is useless and a typed quantity per line is the whole job. Party logins only;
-          salesman and staff are unaffected.
-        </p>
-        <Toggle
-          label="Auto-scroll the category row (App Home & Shop + Website Shop by Category)"
-          checked={!!draft.appCategoryAutoScroll}
-          onChange={(v: boolean) => set("appCategoryAutoScroll", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          The category chips above the products slide along by themselves every few seconds and loop
-          back to the start, so customers notice categories that sit off-screen. It pauses while the
-          customer is swiping the row and resumes a few seconds later. Off: the row only moves when swiped.
-        </p>
-        <Toggle
-          label="Auto-scroll the products (App Home & Shop grid + Website Deal of the Day)"
-          checked={!!draft.appProductAutoScroll}
-          onChange={(v: boolean) => set("appProductAutoScroll", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          The product list moves slowly by itself so customers see more of the range. Swiping / scrolling by
-          hand always works; touching the list pauses it and it carries on a few seconds later. Off: products
-          move only when scrolled.
-        </p>
-        <Toggle
-          label="Team Leaderboard in the salesman app (salesmen see each other's target & achievement)"
-          checked={draft.salesmanLeaderboardEnabled !== false}
-          onChange={(v: boolean) => set("salesmanLeaderboardEnabled", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
-          On: every salesman can open Leaderboard and see the whole team's monthly target, sales and rank. Off: the
-          Leaderboard and "My Rank" are hidden in the app — each salesman sees only his own target.
-        </p>
-        <Toggle
-          label="Salesman can give an extra discount on the order (salesman app cart)"
-          checked={!!draft.salesmanOrderDiscountEnabled}
-          onChange={(v: boolean) => set("salesmanOrderDiscountEnabled", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
-          On: the salesman sees "Extra discount" in the cart and can take ₹ or % off the whole order (e.g. for a big
-          order). It is saved as the order's invoice discount and carries into the invoice. Off: no discount field in
-          the app, and the server refuses an app order that carries one.
-        </p>
-        <Toggle
-          label="Geo-fencing for salesmen (orders only at the party's location)"
-          checked={!!draft.geoFenceEnabled}
-          onChange={(v: boolean) => set("geoFenceEnabled", v)}
-        />
-        {draft.geoFenceEnabled && (
-          <div className="max-w-xs pl-1 mb-2">
-            <FormField
-              label="Allowed distance from the party (metres)"
-              type="number"
-              name="geoFenceRadiusM"
-              placeholder="200"
-              value={draft.geoFenceRadiusM ?? 200}
-              onChange={(e: any) => set("geoFenceRadiusM", e.target.value === "" ? 200 : Number(e.target.value))}
-            />
-          </div>
-        )}
-        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
-          On: the salesman app lists only the parties within this distance of the salesman's live GPS, and an order or a
-          "no order" call can be recorded only from there — so orders cannot be punched from home. A party whose
-          location is not saved is still listed, but must have its location saved at the shop before an order is taken.
-          100–300 m suits most shops; use more for rural areas with weak GPS.
-        </p>
-        <Toggle
-          label="Selfie on Punch In (staff app)"
-          checked={!!draft.attendanceSelfieRequired}
-          onChange={(v: boolean) => set("attendanceSelfieRequired", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 mb-2 pl-1">
-          On: Punch In from the app opens the front camera and the punch is saved only with a selfie (camera only — no
-          gallery). The photo shows next to the punch in Attendance Logs and Punches. Punch Out, and punches recorded
-          here in the panel, need no photo.
-        </p>
-        <Toggle
-          label="Billing panel login needs an email OTP (Admin, Branch & Staff login)"
-          checked={!!draft.loginEmailOtp}
-          onChange={(v: boolean) => set("loginEmailOtp", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          After the email and password are accepted, a 6-digit OTP is emailed to that login's email address and the
-          panel opens only once it is entered (valid 10 minutes). Make sure every branch and staff login has a working
-          email before turning this on. The mobile app logins are not affected.
-        </p>
-        <Toggle
-          label="Party login needs an email OTP (Customer login on the App & Website)"
-          checked={!!draft.partyLoginEmailOtp}
-          onChange={(v: boolean) => set("partyLoginEmailOtp", v)}
-        />
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          After the customer enters their mobile number, a 4-digit OTP is emailed to the email saved on their party
-          account and they are logged in only once it is entered (valid 10 minutes). Off: the mobile number alone
-          logs in, as today. A party with no email on file cannot log in while this is on, so add emails first.
-          New-customer registration keeps its own OTP either way.
-        </p>
+      <Section title="Orders & Pricing">
+        <Grid>
+          <Toggle label="GST tracking" checked={draft.enableGst} onChange={(v) => set("enableGst", v)} />
+          <Toggle label="Show prices on App / Website" checked={draft.displayProductPriceOnWebsite} onChange={(v) => set("displayProductPriceOnWebsite", v)} />
+          <Toggle label="Show double price (display only)" hint="Catalogue prices on the app and website show at twice the rate. Cart, checkout and the order use the real rate." checked={!!draft.doubleDisplayPrice} onChange={(v: boolean) => set("doubleDisplayPrice", v)} />
+          <Toggle label="Encrypt invoice prices" checked={draft.encryptInvoicePrices} onChange={(v) => set("encryptInvoicePrices", v)} />
+          <Toggle label="Price-list discount on salesman orders" hint="On: orders a salesman / staff takes get the party's price-list discount. Off: only the party's own App / Website orders get it — salesman orders use the price-list rate with no discount." checked={draft.salesmanPriceListDiscount !== false} onChange={(v: boolean) => set("salesmanPriceListDiscount", v)} />
+          <Toggle label="Salesman extra discount on order" hint="The salesman app cart shows an Extra discount (₹ or %) on the whole order." checked={!!draft.salesmanOrderDiscountEnabled} onChange={(v: boolean) => set("salesmanOrderDiscountEnabled", v)} />
+          <Toggle label="Deliver via Delivery Boy" hint="Off: the salesman delivers on his route." checked={draft.deliveryMode === "deliveryboy"} onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")} />
+          <Toggle label="Party manages downline" hint="A channel party handles its sub-parties' orders and payments." checked={!!draft.partyManagesDownline} onChange={(v: boolean) => set("partyManagesDownline", v)} />
+        </Grid>
       </Section>
 
-      <Section title="Attendance">
-        <Toggle
-          label="Auto punch-out if someone forgets to punch out"
-          checked={draft.autoPunchOutEnabled !== false}
-          onChange={(v: boolean) => set("autoPunchOutEnabled", v)}
-        />
-        {draft.autoPunchOutEnabled !== false && (
-          <div className="flex items-center justify-between text-sm">
-            <span>Auto punch-out time</span>
-            <input
-              type="time"
-              className="border rounded px-2 py-1 text-sm"
-              value={draft.autoPunchOutTime || "22:00"}
-              onChange={(e) => set("autoPunchOutTime", e.target.value || "22:00")}
-            />
+      <Section title="Payments & Accounts">
+        <Grid>
+          <Toggle label="Discount & Commission on payment" hint="Enter a discount / commission per invoice while collecting a payment." checked={!!draft.enablePaymentDiscountCommission} onChange={(v: boolean) => set("enablePaymentDiscountCommission", v)} />
+          <Toggle label="Last payment on Outstanding reports" hint="Adds last payment date, amount and days ago to Customer / Vendor Outstanding and their exports." checked={!!draft.showLastPaymentOnStatement} onChange={(v: boolean) => set("showLastPaymentOnStatement", v)} />
+          <Toggle label="Delete invoice only from inside it" hint="Hides the delete icon on the Sales / Purchase Invoice lists; Delete is inside the invoice instead." checked={!!draft.deleteInvoiceFromInsideOnly} onChange={(v: boolean) => set("deleteInvoiceFromInsideOnly", v)} />
+        </Grid>
+      </Section>
+
+      <Section title="App & Website Display">
+        <Grid>
+          <Toggle label="App Home as catalogue (order sheet)" hint="Category → Sub-category → order sheet with quantity boxes, instead of the storefront. Party logins only." checked={!!draft.appCatalogBrowseMode} onChange={(v: boolean) => set("appCatalogBrowseMode", v)} />
+          <Toggle label="Auto-scroll category row" hint="Category chips slide by themselves (App Home & Shop, Website)." checked={!!draft.appCategoryAutoScroll} onChange={(v: boolean) => set("appCategoryAutoScroll", v)} />
+          <Toggle label="Auto-scroll products" hint="The product list moves slowly by itself (App Home & Shop, Website Deal of the Day)." checked={!!draft.appProductAutoScroll} onChange={(v: boolean) => set("appProductAutoScroll", v)} />
+        </Grid>
+      </Section>
+
+      <Section title="Salesman & Staff">
+        <Grid>
+          <Toggle label="Team Leaderboard (salesman app)" hint="Salesmen see each other's target, sales and rank." checked={draft.salesmanLeaderboardEnabled !== false} onChange={(v: boolean) => set("salesmanLeaderboardEnabled", v)} />
+          <Toggle label="Geo-fencing for salesmen" hint="Orders / no-order calls only within the set distance of the party's saved location." checked={!!draft.geoFenceEnabled} onChange={(v: boolean) => set("geoFenceEnabled", v)} />
+          <Toggle label="Selfie on Punch In" hint="Punch In from the app needs a front-camera selfie." checked={!!draft.attendanceSelfieRequired} onChange={(v: boolean) => set("attendanceSelfieRequired", v)} />
+          <Toggle label="Auto punch-out" hint="Anyone still punched in at this time is punched out automatically." checked={draft.autoPunchOutEnabled !== false} onChange={(v: boolean) => set("autoPunchOutEnabled", v)} />
+        </Grid>
+        {(draft.geoFenceEnabled || draft.autoPunchOutEnabled !== false) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
+            {draft.geoFenceEnabled && (
+              <FormField
+                label="Geo-fence distance (metres)"
+                type="number"
+                name="geoFenceRadiusM"
+                placeholder="200"
+                value={draft.geoFenceRadiusM ?? 200}
+                onChange={(e: any) => set("geoFenceRadiusM", e.target.value === "" ? 200 : Number(e.target.value))}
+              />
+            )}
+            {draft.autoPunchOutEnabled !== false && (
+              <label className="flex flex-col gap-1 text-sm">
+                <span>Auto punch-out time</span>
+                <input
+                  type="time"
+                  className="border rounded px-2 py-2 text-sm"
+                  value={draft.autoPunchOutTime || "22:00"}
+                  onChange={(e) => set("autoPunchOutTime", e.target.value || "22:00")}
+                />
+              </label>
+            )}
           </div>
         )}
-        <p className="text-xs text-gray-400 -mt-1 pl-1">
-          Staff, salesmen and delivery boys still punched in at this time are punched out automatically, stamped at
-          this time, so their worked hours stop there and live location tracking ends. They and you get a notification.
-          Someone who punched in after this time is closed at 11:59 PM that day instead.
-        </p>
+      </Section>
+
+      <Section title="Login & Signup">
+        <Grid>
+          <Toggle label="Panel login email OTP" hint="Admin, Branch & Staff panel login asks for a 6-digit OTP sent to the login's email." checked={!!draft.loginEmailOtp} onChange={(v: boolean) => set("loginEmailOtp", v)} />
+          <Toggle label="Party login email OTP" hint="Customer login on the App & Website asks for a 4-digit OTP sent to the party's email." checked={!!draft.partyLoginEmailOtp} onChange={(v: boolean) => set("partyLoginEmailOtp", v)} />
+          <Toggle label="New signups need approval" hint="Self-registered customers stay Pending and cannot log in until approved from Party Accounts." checked={!!draft.requirePartyApproval} onChange={(v: boolean) => set("requirePartyApproval", v)} />
+        </Grid>
       </Section>
 
       <Section title="Invoice Print">
-        <Toggle
-          label="Show company header (name, address, city, mobile) on print"
-          checked={draft.printShowCompanyHeader !== false}
-          onChange={(v: boolean) => set("printShowCompanyHeader", v)}
-        />
-        <Toggle
-          label={'Show company name in signature ("For, <Company>")'}
-          checked={draft.printShowCompanyNameInSignature !== false}
-          onChange={(v: boolean) => set("printShowCompanyNameInSignature", v)}
-        />
-        <Toggle
-          label="Show Terms & Conditions section on print"
-          checked={draft.printShowTermsAndConditions !== false}
-          onChange={(v: boolean) => set("printShowTermsAndConditions", v)}
-        />
-        <Toggle
-          label="Show party's Previous Balance / Current Balance on Sales & Purchase Invoice print"
-          checked={!!draft.printShowPartyBalance}
-          onChange={(v: boolean) => set("printShowPartyBalance", v)}
-        />
-        <Toggle
-          label="Show E-Way Bill / Distance on print"
-          checked={draft.printShowEwayBillDistance !== false}
-          onChange={(v: boolean) => set("printShowEwayBillDistance", v)}
-        />
-        <Toggle
-          label="Show Delivery / Due Date on print"
-          checked={draft.printShowDeliveryDueDate !== false}
-          onChange={(v: boolean) => set("printShowDeliveryDueDate", v)}
-        />
-        <Toggle
-          label="Show GSTIN No. on print"
-          checked={draft.printShowGstin !== false}
-          onChange={(v: boolean) => set("printShowGstin", v)}
-        />
-        <Toggle
-          label="Show HSN Column on print"
-          checked={draft.printShowHsnColumn !== false}
-          onChange={(v: boolean) => set("printShowHsnColumn", v)}
-        />
-        <Toggle
-          label="Show GST% Column on print"
-          checked={draft.printShowGstColumn !== false}
-          onChange={(v: boolean) => set("printShowGstColumn", v)}
-        />
-        <Toggle
-          label="Show Total GST on print"
-          checked={draft.printShowTotalGst !== false}
-          onChange={(v: boolean) => set("printShowTotalGst", v)}
-        />
+        <Grid>
+          <Toggle label="Company header" checked={draft.printShowCompanyHeader !== false} onChange={(v: boolean) => set("printShowCompanyHeader", v)} />
+          <Toggle label={'Company name in signature'} checked={draft.printShowCompanyNameInSignature !== false} onChange={(v: boolean) => set("printShowCompanyNameInSignature", v)} />
+          <Toggle label="Terms & Conditions" checked={draft.printShowTermsAndConditions !== false} onChange={(v: boolean) => set("printShowTermsAndConditions", v)} />
+          <Toggle label="Party Previous / Current balance" checked={!!draft.printShowPartyBalance} onChange={(v: boolean) => set("printShowPartyBalance", v)} />
+          <Toggle label="E-Way Bill / Distance" checked={draft.printShowEwayBillDistance !== false} onChange={(v: boolean) => set("printShowEwayBillDistance", v)} />
+          <Toggle label="Delivery / Due Date" checked={draft.printShowDeliveryDueDate !== false} onChange={(v: boolean) => set("printShowDeliveryDueDate", v)} />
+          <Toggle label="GSTIN No." checked={draft.printShowGstin !== false} onChange={(v: boolean) => set("printShowGstin", v)} />
+          <Toggle label="HSN column" checked={draft.printShowHsnColumn !== false} onChange={(v: boolean) => set("printShowHsnColumn", v)} />
+          <Toggle label="GST% column" checked={draft.printShowGstColumn !== false} onChange={(v: boolean) => set("printShowGstColumn", v)} />
+          <Toggle label="Total GST" checked={draft.printShowTotalGst !== false} onChange={(v: boolean) => set("printShowTotalGst", v)} />
+        </Grid>
         <div className="pt-1">
           <FormField
             label="Terms & Conditions text (one line per point)"
@@ -1034,9 +857,34 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </div>
 );
 
-const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, checked, onChange }) => (
-  <div className="flex items-center justify-between text-sm">
-    <span>{label}</span>
-    <FormSwitch label="" name={label} checked={!!checked} onChange={(v) => onChange(!!v)} />
-  </div>
+/** 4 switches per row on wide screens, 2 on tablets, 1 on phones. */
+const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">{children}</div>
+);
+
+/**
+ * One switch as a compact tile: the name on the left (ⓘ shows the details on
+ * hover) and a small switch on the right — no "Active / Inactive" text, the
+ * switch colour says it.
+ */
+const Toggle: React.FC<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, hint, checked, onChange }) => (
+  <label
+    className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs ${checked ? "border-green-200 bg-green-50/50" : "border-gray-200"}`}
+    title={hint || label}
+  >
+    <span className="flex min-w-0 items-center gap-1 leading-tight text-gray-700">
+      <span className="truncate">{label}</span>
+      {hint && <span className="shrink-0 cursor-help text-[10px] text-gray-400">ⓘ</span>}
+    </span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={!!checked}
+      aria-label={label}
+      onClick={(e) => { e.preventDefault(); onChange(!checked); }}
+      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-green-600" : "bg-gray-300"}`}
+    >
+      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-3.5" : "translate-x-0.5"}`} />
+    </button>
+  </label>
 );

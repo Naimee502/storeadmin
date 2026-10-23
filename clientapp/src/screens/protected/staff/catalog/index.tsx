@@ -149,7 +149,7 @@ export default function StaffCatalog() {
     const mapped = mappedKey ? priceMap[mappedKey] : undefined;
     if (mapped) {
       rate = mapped.rate;
-      if (mapped.discount != null && mapped.discount > 0) disc = mapped.discount;
+      disc = Number(mapped.discount) || 0;
     } else if (up?.unitid?.id) {
       try {
         const { data: pd } = await apolloClient.query({
@@ -170,7 +170,7 @@ export default function StaffCatalog() {
           // Only override the base unit discount when resolvePrice returns a
           // real party/channel discount — a null/zero result must NOT wipe the
           // product's own unit discount (keeps item-level discount like party).
-          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
+          disc = Number(rp.discount) || 0;
         }
       } catch (e) {
         console.warn('[resolvePrice]', e);

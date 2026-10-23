@@ -224,7 +224,7 @@ export default function ProductDetail() {
           // Only override the base unit discount when resolvePrice returns a
           // real party/channel discount. A null/zero result must NOT wipe the
           // product's own unit discount.
-          if (rp.discount != null && rp.discount > 0) disc = rp.discount;
+          disc = Number(rp.discount) || 0;
         }
       } catch (e) {
         console.warn('[resolvePrice]', e);
