@@ -12,11 +12,12 @@ import {
   CONFIRM_SALES_ORDER, CONVERT_SALES_ORDER_TO_INVOICE,
   MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
   MARK_SALES_ORDER_DISPATCHED, MARK_SALES_INVOICE_DISPATCHED,
+  DELETE_SALES_ORDER,
 } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { useModuleEnabled, useUserModuleEnabled } from '../../../../apollo/hooks/admin';
 import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
-import { BackHeader, AppImage } from '../../../../components';
+import { BackHeader, AppImage, AppModal } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -120,6 +121,7 @@ export default function OrderDetail() {
   const [markInvoiceDelivered]  = useMutation(MARK_SALES_INVOICE_DELIVERED);
   const [markOrderDispatched]   = useMutation(MARK_SALES_ORDER_DISPATCHED);
   const [markInvoiceDispatched] = useMutation(MARK_SALES_INVOICE_DISPATCHED);
+  const [deleteOrder]           = useMutation(DELETE_SALES_ORDER);
   const [marking, setMarking]   = React.useState(false);
 
   // An invoice is always at least "Confirmed"; flag it so the timeline is right.
@@ -177,6 +179,35 @@ export default function OrderDetail() {
     (role === 'party' && (isOwnOrder || (manageDownline && isDownlineOrder)))
   );
   const canDispatch = canAct && (status === 'Pending' || status === 'Confirmed');
+  // Party can delete (soft) its OWN order while it is still Pending — same
+  // rule the server enforces. Deleted orders drop out of My Orders.
+  const canDelete = role === 'party' && isOwnOrder && !isInvoice && !order?.isConverted
+    && order?.cancelStatus !== 'cancelled' && status === 'Pending';
+
+  // Delete always goes through the confirmation modal — never a direct delete.
+  const [showDelete, setShowDelete] = React.useState(false);
+  const handleDelete = () => setShowDelete(true);
+  const confirmDelete = async () => {
+          setShowDelete(false);
+          setMarking(true);
+          try {
+            await deleteOrder({
+              variables: { id },
+              refetchQueries: ['GetSalesOrders'],
+              // My Orders lists come from these queries — drop the cached ones.
+              update: (cache) => {
+                cache.evict({ id: cache.identify({ __typename: 'SalesOrder', id }) });
+                cache.gc();
+              },
+            });
+            Alert.alert('Deleted', 'Your order has been deleted.');
+            navigation.goBack();
+          } catch (e: any) {
+            Alert.alert('Could not delete', e?.message || 'Please try again.');
+          } finally {
+            setMarking(false);
+          }
+  };
 
   // Sales Return — salesman / delivery boy, only while the Sales Returns module
   // is on (business + their own staff modules), and only once there is an
@@ -526,6 +557,28 @@ export default function OrderDetail() {
               <Text style={styles.deliverBtnText}>Edit Order</Text>
             </TouchableOpacity>
           )}
+          {canDelete && (
+            <TouchableOpacity
+              style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#ef4444' }]}
+              onPress={handleDelete}
+              disabled={marking}
+              activeOpacity={0.88}
+            >
+              <Icon name="trash-can-outline" size={18} color="#fff" />
+              <Text style={styles.deliverBtnText}>{marking ? 'Deleting…' : 'Delete Order'}</Text>
+            </TouchableOpacity>
+          )}
+          <AppModal
+            visible={showDelete}
+            onClose={() => setShowDelete(false)}
+            onConfirm={confirmDelete}
+            title="Delete Order?"
+            message={`Are you sure you want to delete order ${billLabel}? It will be removed from My Orders.`}
+            confirmLabel="Yes, Delete"
+            cancelLabel="No, Keep"
+            confirmColor="#ef4444"
+            iconName="trash-can-outline"
+          />
           {canConfirm && (
             <TouchableOpacity
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#3b82f6' }]}

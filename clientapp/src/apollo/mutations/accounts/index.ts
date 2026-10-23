@@ -213,3 +213,9 @@ export const ADD_TRANSACTION = gql`
     }
   }
 `;
+
+export const DELETE_SALES_ORDER = gql`
+  mutation DeleteSalesOrder($id: ID!) {
+    deleteSalesOrder(id: $id)
+  }
+`;

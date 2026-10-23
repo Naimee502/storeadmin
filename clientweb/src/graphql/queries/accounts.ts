@@ -448,3 +448,10 @@ export const GET_PARTY_OUTSTANDING_BILLS = gql`
     }
   }
 `;
+
+// Party soft-deletes its own Pending order (server checks ownership + status).
+export const DELETE_SALES_ORDER = gql`
+  mutation DeleteSalesOrder($id: ID!) {
+    deleteSalesOrder(id: $id)
+  }
+`;

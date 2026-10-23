@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate, Navigate, Link } from "react-router";
 import { useQuery, useMutation } from "@apollo/client";
-import { Package, CheckCircle2, Calendar, Store, Phone, Tag, Pencil, ArrowLeft, FileWarning, FileText, Truck } from "lucide-react";
+import { Package, CheckCircle2, Calendar, Store, Phone, Tag, Pencil, ArrowLeft, FileWarning, FileText, Truck, Trash2 } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
+import ConfirmDialog from "../../components/confirmdialog";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import {
@@ -11,6 +12,7 @@ import {
   CONVERT_SALES_ORDER_TO_INVOICE,
   MARK_SALES_ORDER_DISPATCHED,
   MARK_SALES_ORDER_DELIVERED,
+  DELETE_SALES_ORDER,
 } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
 import { formatBillNumber, formatDate, canEditOrder } from "../../utils/orders";
@@ -100,6 +102,9 @@ export default function OrderDetailPage() {
   const [convertToInvoice] = useMutation(CONVERT_SALES_ORDER_TO_INVOICE);
   const [markDispatched] = useMutation(MARK_SALES_ORDER_DISPATCHED);
   const [markDelivered] = useMutation(MARK_SALES_ORDER_DELIVERED);
+  const [deleteSalesOrder] = useMutation(DELETE_SALES_ORDER);
+  const [deleting, setDeleting] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   const [acting, setActing] = useState<"confirm" | "convert" | "dispatch" | "deliver" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -163,6 +168,32 @@ export default function OrderDetailPage() {
   const canConfirm = !salesInvoiceEnabled && !order.isConverted && status !== "Cancelled" && canAct;
   const canDispatch = canAct && (status === "Pending" || status === "Confirmed");
   const canDeliver = canAct && status !== "Delivered" && status !== "Cancelled";
+  // Own order, still Pending → the party may delete it (soft delete; the
+  // server enforces the same rule).
+  const canDelete = isOwnOrder && canEditOrder(order) && status === "Pending";
+
+  // Delete only runs from the confirmation modal's "Yes, Delete" button.
+  const handleDelete = async () => {
+    setActionError(null);
+    setDeleting(true);
+    try {
+      await deleteSalesOrder({
+        variables: { id: order.id },
+        refetchQueries: ["GetSalesOrders"],
+        update: (cache) => {
+          cache.evict({ id: cache.identify({ __typename: "SalesOrder", id: order.id }) });
+          cache.gc();
+        },
+      });
+      setShowDelete(false);
+      navigate("/account?tab=orders", { replace: true });
+    } catch (err: any) {
+      setShowDelete(false);
+      setActionError(err?.message || "Couldn't delete the order. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const runAction = async (key: "confirm" | "convert" | "dispatch" | "deliver", confirmMsg: string, fn: () => Promise<any>, successMsg?: string) => {
     if (!window.confirm(confirmMsg)) return;
@@ -384,6 +415,26 @@ export default function OrderDetailPage() {
               <Pencil className="h-4 w-4" /> Edit Order
             </button>
           )}
+
+          {canDelete && (
+            <button
+              onClick={() => setShowDelete(true)}
+              disabled={deleting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 py-3 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 className="h-4 w-4" /> {deleting ? "Deleting…" : "Delete Order"}
+            </button>
+          )}
+          <ConfirmDialog
+            open={showDelete}
+            title="Delete Order?"
+            message={`Are you sure you want to delete order ${billLabel}? It will be removed from your orders.`}
+            confirmLabel="Yes, Delete"
+            cancelLabel="No, Keep"
+            loading={deleting}
+            onConfirm={handleDelete}
+            onClose={() => setShowDelete(false)}
+          />
 
           {canConfirm && (
             <button

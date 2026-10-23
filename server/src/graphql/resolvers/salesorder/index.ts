@@ -844,7 +844,26 @@ export const salesOrderResolvers = {
       return updated ? formatOrder(updated) : null;
     },
 
-    deleteSalesOrder: async (_: any, { id }: { id: string }) => {
+    deleteSalesOrder: async (_: any, { id }: { id: string }, context: any) => {
+      // A party (app / website) may soft-delete only its OWN order, and only
+      // while it is still Pending — nothing confirmed, converted to an
+      // invoice, dispatched or cancelled. Admin / staff keep the old rule.
+      const userType = String(context?.user?.type || "");
+      if (userType === "party" || userType === "account") {
+        const existing: any = await SalesOrder.findById(id).lean();
+        if (!existing || existing.status === false) throw new Error("Order not found.");
+        if (String(existing.partyacc || "") !== String(context.user.id || "")) {
+          throw new Error("You can delete only your own orders.");
+        }
+        if (existing.isConverted || existing.cancelStatus === "cancelled"
+          || (existing.orderStatus && existing.orderStatus !== "pending")) {
+          throw new Error("Only pending orders can be deleted. This order is already being processed.");
+        }
+        const updated = await SalesOrder.findByIdAndUpdate(id, { status: false }, { new: true })
+          .populate(populateFields).lean();
+        if (updated) await notifyOrderEvent(updated, context, "deleted by party");
+        return !!updated;
+      }
       return !!(await SalesOrder.findByIdAndUpdate(id, { status: false }));
     },
 
