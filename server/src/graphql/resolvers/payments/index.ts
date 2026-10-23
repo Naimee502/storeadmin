@@ -42,36 +42,18 @@ function applyUserRemark(built: { entries: any[]; totaldebit: number; totalcredi
   return { ...built, entries: built.entries.map((e: any) => ({ ...e, remarks: userRemark })) };
 }
 
-// Build balanced journal entries for a payment/receipt.
-//
-// Plain payment (no concessions): Dr Cash · Cr Party (receipt) or reverse.
-//
-// With per-invoice Discount / Commission (feature-flagged in the UI): the bill
-// is fully cleared while cash received is lower. The receivable/payable cleared
-// (party leg) = sum of settledamount; cash = that minus discount + commission;
-// the difference posts to "Discount Allowed" / "Commission" so the journal still
-// balances. Returns { entries, totaldebit, totalcredit } (totals computed from
-// the entries themselves, so callers never have to recompute).
+// Build balanced journal entries for a payment/receipt — two legs, both at
+// the cash:
+//   Dr Cash    amount        receipt
+//     Cr Party   amount
+// Discount / commission are not journalised; they stay on the payment record
+// and the statements show them in their own columns.
 async function buildPaymentEntries(input: any, partyAccount: any) {
   const partyLedgerId = partyAccount?.ledgerid;
   const cashBankLedgerId = input.ledgerid;
   if (!partyLedgerId || !cashBankLedgerId) return null;
 
   const partyName = partyAccount?.name || "Party";
-
-  // The party's balance moves by the CASH, and the cash is already the net the
-  // form worked out: settle - discount + commission. So the concessions ARE in
-  // this number -- a discount the party got makes it smaller, a commission
-  // charged to them makes it bigger -- which is the whole point: their balance
-  // reflects both directly instead of being knocked off at face value while the
-  // concession sat somewhere else.
-  //
-  // They are therefore not journalised as separate legs. They stay on the
-  // payment record, and the statements print them in their own Discount /
-  // Commission columns beside the row.
-  //
-  //   Dr Cash    amount        receipt
-  //     Cr Party   amount
   const cashLeg = parseFloat((Number(input.amount) || 0).toFixed(2));
 
   const entries: any[] = [];

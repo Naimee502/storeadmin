@@ -19,6 +19,7 @@
 // the module graph circular.
 // ---------------------------------------------------------------------------
 
+import { partyLegAmount } from "../paymentjournal";
 import mongoose from "mongoose";
 import { isBothParty, isCustomerParty, isVendorParty } from "../partytype";
 
@@ -1027,8 +1028,9 @@ export async function getPartyRunningBalance(opts: {
 
   balance += salesInv - salesRet + purchRet - purchInv;
 
-  // Payments move the balance by the CASH that changed hands. A receipt credits
-  // the party (they owe less), a payment-out debits them.
+  // Payments move the balance by everything they settled: the cash, plus the
+  // discount allowed, minus the commission charged on top (cash + disc − comm).
+  // A receipt credits the party (they owe less), a payment-out debits them.
   const payQuery: any = { partyid, status: true };
   if (adminid) payQuery.adminid = adminid;
   if (branchid) payQuery.branchid = branchid;
@@ -1036,11 +1038,11 @@ export async function getPartyRunningBalance(opts: {
   const pays: any[] = await mongoose
     .model("Payment")
     .find(payQuery)
-    .select("amount type")
+    .select("amount type discount commission invoices.discount invoices.commission")
     .lean();
   pays.forEach((p) => {
-    const cash = Number(p.amount) || 0;
-    balance += p.type === "receipt" ? -cash : cash;
+    const moved = partyLegAmount(p);
+    balance += p.type === "receipt" ? -moved : moved;
   });
 
   return round2(balance);

@@ -696,12 +696,13 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // The party's balance moves by the CASH -- which is already
-        // settle - discount + commission, so a discount they got makes it
-        // smaller and a commission charged to them makes it bigger. That is what
-        // puts both on their balance instead of beside it. The columns below
-        // still print each figure so the row shows how the net was reached.
-        const cash = r2(p.amount);
+        // The party's balance moves by everything the payment SETTLED:
+        // cash + discount − commission. A discount we allowed clears the bill
+        // just like cash does (it comes off the balance); a commission charged
+        // on top rode in on the cash but is not a bill payment (it goes back
+        // on). Same figure as the party leg of the journal. The Discount /
+        // Commission columns show how it was reached.
+        const cash = r2(r2(p.amount) + discount - commission);
         const inward = p.type === "receipt";
 
         rows.push({

@@ -226,15 +226,18 @@ const AccountingFinanceReports: React.FC = () => {
                     ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
                     : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
 
-                // Mirrors the server's journal: cash in one leg, the counter
-                // account in the other, both at the cash amount.
+                // Cash/Bank leg moves by the cash. A PARTY leg moves by
+                // everything settled — cash + discount − commission (discount
+                // minus, commission plus on the balance) — the same rule as the
+                // Party Statement. A plain-ledger voucher has no concessions.
+                const counterAmt = viaParty ? r2(cash + discount - commission) : cash;
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        { ...counterLeg, debit: 0, credit: cash },
+                        { ...counterLeg, debit: 0, credit: counterAmt },
                     ]
                     : [
-                        { ...counterLeg, debit: cash, credit: 0 },
+                        { ...counterLeg, debit: counterAmt, credit: 0 },
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 

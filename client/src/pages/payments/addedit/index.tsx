@@ -2224,10 +2224,7 @@ const AddEditPayment = () => {
                 </thead>
                 <tbody>
                   {(() => {
-                    // The counter account moves by the CASH, and the cash is
-                    // already settle − discount + commission — so a concession
-                    // is inside that number rather than posted beside it. That
-                    // is what puts it on the party's own balance.
+                    // Two legs, both at the cash: Cash/Bank and the party.
                     const row = (label: string, dr: boolean) => (
                       <tr>
                         <td className="py-1">{label}</td>
