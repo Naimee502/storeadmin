@@ -50,3 +50,8 @@ server/src/uploads/*
 
 # Firebase service account (push notifications) — never commit
 firebase-service-account.json
+
+# Claude / AI assistant local files — never commit
+.claude/
+**/.claude/
+Claude outputs/
