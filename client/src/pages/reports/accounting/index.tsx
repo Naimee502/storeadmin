@@ -200,7 +200,7 @@ const AccountingFinanceReports: React.FC = () => {
         // net of the concessions (settle - discount + commission), so the
         // running balance reflects them; the Discount / Commission columns
         // beside it show how that net was arrived at.
-        type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number };
+        type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number; delta?: number };
         const rows: Row[] = [];
 
         payments
@@ -231,13 +231,17 @@ const AccountingFinanceReports: React.FC = () => {
                 // minus, commission plus on the balance) — the same rule as the
                 // Party Statement. A plain-ledger voucher has no concessions.
                 const counterAmt = viaParty ? r2(cash + discount - commission) : cash;
+                // Display: the party leg shows the CASH (what was actually
+                // received / paid), like the Party Statement; the balance still
+                // moves by the settled amount via `delta`, so the row reads
+                // balance ∓ cash ∓ discount ± commission.
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        { ...counterLeg, debit: 0, credit: counterAmt },
+                        { ...counterLeg, debit: 0, credit: viaParty ? cash : counterAmt, delta: -counterAmt },
                     ]
                     : [
-                        { ...counterLeg, debit: counterAmt, credit: 0 },
+                        { ...counterLeg, debit: viaParty ? cash : counterAmt, credit: 0, delta: counterAmt },
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 
@@ -246,7 +250,7 @@ const AccountingFinanceReports: React.FC = () => {
                 // party's ledger), so every matching leg is kept, not the first.
                 legs
                     .filter((l: any) => l.id === target.id)
-                    .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005)
+                    .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005 || Math.abs(l.delta || 0) > 0.005)
                     .forEach((l: any) => {
                         rows.push({
                             t: timeOf(p.paymentdate),
@@ -261,11 +265,13 @@ const AccountingFinanceReports: React.FC = () => {
                             remarks: (p.remarks || "").trim() || "-",
                             discount: r2(discount),
                             commission: r2(commission),
+                            ...(l.delta != null ? { delta: r2(l.delta) } : {}),
                         });
                     });
             });
 
         const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
+        const moveOf = (r: Row) => (r.delta != null ? r.delta : r.debit - r.credit);
 
         // Everything before the period is folded into one beginning balance, so
         // the statement opens with what the ledger carried in, not from zero.
@@ -275,7 +281,7 @@ const AccountingFinanceReports: React.FC = () => {
                 : Number(target.openingbalance) || 0;
         valid
             .filter((r) => fromTimestamp && r.t < fromTimestamp)
-            .forEach((r) => { balance += r.debit - r.credit; });
+            .forEach((r) => { balance += moveOf(r); });
 
         const label = (n: number) => `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
 
@@ -300,7 +306,7 @@ const AccountingFinanceReports: React.FC = () => {
                     (!toTimestamp || r.t <= toTimestamp)
             )
             .forEach((r) => {
-                balance += r.debit - r.credit;
+                balance += moveOf(r);
                 out.push({
                     date: formatDateDMY(r.t),
                     txnType: r.type,

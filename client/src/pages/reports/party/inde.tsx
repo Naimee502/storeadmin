@@ -617,6 +617,10 @@ const PartyReports: React.FC = () => {
       t: number; type: string; ref: string; debit: number; credit: number; remarks: string;
       // Only payments carry concessions; invoice / return rows leave these unset.
       discount?: number; commission?: number;
+      // How far the running balance moves (+ = towards Dr). Unset = debit − credit.
+      // A payment shows its real CASH in Debit/Credit, but moves the balance by
+      // cash + discount − commission (see below).
+      delta?: number;
       // Same-day tie-break — see compareStatementRows. Only payments can offer
       // it here, so invoice / return rows keep the position they already had.
       seq?: number;
@@ -696,13 +700,15 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // The party's balance moves by everything the payment SETTLED:
-        // cash + discount − commission. A discount we allowed clears the bill
-        // just like cash does (it comes off the balance); a commission charged
-        // on top rode in on the cash but is not a bill payment (it goes back
-        // on). Same figure as the party leg of the journal. The Discount /
-        // Commission columns show how it was reached.
-        const cash = r2(r2(p.amount) + discount - commission);
+        // Debit / Credit show the CASH actually received / paid (what the
+        // party handed over, commission included). The balance moves by what
+        // the payment SETTLED: cash + discount − commission — a discount we
+        // allowed clears the bill like cash does (comes off), a commission
+        // rode in on the cash but is not a bill payment (goes back on). So the
+        // row reads: balance − Credit − Discount + Commission.
+        //   e.g. 5,820 − 1,685 − 0 + 5 = 4,140
+        const cash = r2(p.amount);
+        const settled = r2(cash + discount - commission);
         const inward = p.type === "receipt";
 
         rows.push({
@@ -712,6 +718,7 @@ const PartyReports: React.FC = () => {
           ref: String(p.paymentcode ?? "-"),
           debit: inward ? 0 : cash,
           credit: inward ? cash : 0,
+          delta: inward ? -settled : settled,
           remarks: (p.remarks || "").trim() || "-",
           discount,
           commission,
@@ -724,7 +731,8 @@ const PartyReports: React.FC = () => {
     // statement opens with what they carried in rather than from zero.
     let balance = getOpeningBalance(a);
     const before = valid.filter((r) => fromTimestamp && r.t < fromTimestamp);
-    before.forEach((r) => { balance += r.debit - r.credit; });
+    const moveOf = (r: Row) => (r.delta != null ? r.delta : r.debit - r.credit);
+    before.forEach((r) => { balance += moveOf(r); });
 
     const label = (n: number) =>
       `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
@@ -754,7 +762,7 @@ const PartyReports: React.FC = () => {
           (!toTimestamp || r.t <= toTimestamp)
       )
       .forEach((r) => {
-        balance += r.debit - r.credit;
+        balance += moveOf(r);
         out.push({
           date: formatDateDMY(r.t),
           txnType: r.type,
