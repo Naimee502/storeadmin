@@ -14,6 +14,7 @@ import mongoose from "mongoose";
 import { ProductBranchStock } from "../productbranchstock";
 import { ProductService } from "../products";
 import { convertToBaseUnit } from "../../utils/unitconversation";
+import { applyInvoiceToPartyStock } from "../../utils/partystock";
 import { Transaction } from "../transactions";
 import { Payment } from "../payments";
 import { getOrCreateAccount } from "../../utils/helper";
@@ -146,7 +147,22 @@ salesReturnSchema.statics.adjustStockAndTransactions = async function (oldRet: a
   // Sales Return ADDS stock back. If editing an existing return, first
   // remove the previously-restored qty, then add the new qty.
   const wantsStock = newRet.autocreate?.stock !== false;
-  if (wantsStock && !newRet.isservice) {
+  // Party stock: if the source bill moved party stock, the return moves it
+  // back (buyer −, selling parent party +). When a parent party sold it, the
+  // company's branch stock was never touched, so it is not restored either.
+  const srcInv: any = newRet.sourceInvoiceId
+    ? await mongoose.model("SalesInvoice").findById(newRet.sourceInvoiceId)
+        .select("partystockapplied partystockseller").lean()
+    : null;
+  const srcPartyStock = !!srcInv?.partystockapplied;
+  const srcSeller = srcInv?.partystockseller ? String(srcInv.partystockseller) : null;
+  if (wantsStock && !newRet.isservice && srcPartyStock) {
+    if (oldRet) {
+      await applyInvoiceToPartyStock({ adminid: oldRet.adminid, buyerId: oldRet.partyacc, sellerId: srcSeller, productservice: oldRet.productservice || [], sign: 1 });
+    }
+    await applyInvoiceToPartyStock({ adminid: newRet.adminid, buyerId: newRet.partyacc, sellerId: srcSeller, productservice: newRet.productservice || [], sign: -1 });
+  }
+  if (wantsStock && !newRet.isservice && !(srcPartyStock && srcSeller)) {
     if (oldRet) {
       for (const item of oldRet.productservice) {
         const product = await ProductService.findById(item.productserviceid);

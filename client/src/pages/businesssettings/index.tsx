@@ -251,6 +251,12 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <Toggle label="Salesman extra discount on order" hint="The salesman app cart shows an Extra discount (₹ or %) on the whole order." checked={!!draft.salesmanOrderDiscountEnabled} onChange={(v: boolean) => set("salesmanOrderDiscountEnabled", v)} />
           <Toggle label="Deliver via Delivery Boy" hint="Off: the salesman delivers on his route." checked={draft.deliveryMode === "deliveryboy"} onChange={(v: boolean) => set("deliveryMode", v ? "deliveryboy" : "salesman")} />
           <Toggle label="Party manages downline" hint="A channel party handles its sub-parties' orders and payments." checked={!!draft.partyManagesDownline} onChange={(v: boolean) => set("partyManagesDownline", v)} />
+          {draft.partyManagesDownline && (
+            <Toggle label="Company sees direct-party orders only" hint="On: Sales Orders shows only orders of your direct parties (no parent party, e.g. Super Stockist). Sub-party orders are handled by their parent party. Off: the whole channel's orders, as before." checked={!!draft.directPartyOrdersOnly} onChange={(v: boolean) => set("directPartyOrdersOnly", v)} />
+          )}
+          {draft.partyManagesDownline && (
+            <Toggle label="Track party stock" hint="Each party gets its own stock. A Sales Invoice to a direct party adds to that party's stock (your stock goes down as usual). When a parent party converts its sub-party's order to an invoice, the parent's stock goes down and the sub-party's goes up — your stock is not touched." checked={!!draft.trackPartyStock} onChange={(v: boolean) => set("trackPartyStock", v)} />
+          )}
         </Grid>
       </Section>
 

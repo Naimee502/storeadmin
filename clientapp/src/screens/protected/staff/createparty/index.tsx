@@ -222,16 +222,29 @@ export default function StaffCreateParty() {
     [staffData],
   );
   const isSalesman = (user?.role || '').toLowerCase() === 'salesman';
+  // A channel PARTY adding its own sub-party (My Parties → Add): the new party
+  // always goes under the logged-in party, and only in a channel its own
+  // channel handles. It is not assigned to any salesman.
+  const isPartyUser = (user?.role || '').toLowerCase() === 'party';
+  const me = useMemo(
+    () => ((accountsData as any)?.getAccounts ?? []).find((a: any) => a.id === user?.id),
+    [accountsData, user?.id],
+  );
 
   const groups: any[] = (groupData as any)?.getAccountGroups ?? [];
   const allChannels = (channelData as any)?.getChannels ?? [];
   // Channel dropdown: salesman → only his assigned channels; others → all.
   const channels: Option[] = useMemo(() => {
-    const list = (isSalesman && myChannelIds.length > 0)
+    let list = (isSalesman && myChannelIds.length > 0)
       ? allChannels.filter((c: any) => myChannelIds.includes(c.id))
       : allChannels;
+    if (isPartyUser) {
+      const mine = allChannels.find((c: any) => c.id === me?.channel?.id);
+      const handled: string[] = (mine?.handlesChannels || []).map((h: any) => h.id);
+      if (handled.length) list = allChannels.filter((c: any) => handled.includes(c.id));
+    }
     return list.map((c: any) => ({ value: c.id, label: c.channelName }));
-  }, [allChannels, isSalesman, myChannelIds]);
+  }, [allChannels, isSalesman, myChannelIds, isPartyUser, me]);
   // Mirror admin: Channel & Region only when the channel feature is in use
   // (channels configured). No channels → hide the section.
   const channelsConfigured = (((channelData as any)?.getChannels ?? []).length) > 0;
@@ -301,11 +314,11 @@ export default function StaffCreateParty() {
             openingbalancetype,
             channel: channel?.value || null,
             region: region?.value || 'default',
-            assignaccountid: (manageDownline && parentParty?.value) ? parentParty.value : null,
+            assignaccountid: isPartyUser ? user?.id : ((manageDownline && parentParty?.value) ? parentParty.value : null),
             latitude,
             longitude,
             shopimage: shopImage || null,
-            salesmanid: user?.id || null,
+            salesmanid: isPartyUser ? null : (user?.id || null),
             admin: adminid,
             branchid: branchid || null,
             status: true,
@@ -414,7 +427,7 @@ export default function StaffCreateParty() {
 
               <SelectField colors={colors} label="Channel" value={channel?.label} placeholder="Select channel (optional)" icon="account-network-outline" onPress={() => setPicker('channel')} />
               <SelectField colors={colors} label="Region"  value={region?.label}  placeholder="Select region" icon="map-marker-radius-outline" onPress={() => setPicker('region')} />
-              {manageDownline && (
+              {manageDownline && !isPartyUser && (
                 <SelectField
                   colors={colors}
                   label="Assign Parent Party"

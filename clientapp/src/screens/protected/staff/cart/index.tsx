@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { useMutation } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
@@ -10,6 +10,7 @@ import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { BackHeader, AppImage, DynamicFlashList } from '../../../../components';
 import { ADD_SALES_ORDER } from '../../../../apollo/mutations/accounts';
 import { formatINR } from '../../../../utils';
+import { useShowProductPrice } from '../../../../apollo/hooks/adminsettings';
 import { clearCart, updateQty } from '../../../../store/slices';
 import { useChargePreview } from '../../../../apollo/hooks/chargerules';
 import type { RootState } from '../../../../store/rootreducer';
@@ -28,6 +29,10 @@ export default function StaffCart() {
 
   const [placing, setPlacing] = useState(false);
   const { blocked: punchBlocked } = usePunchGate();
+  const isPartyUser = (user?.role || '').toLowerCase() === 'party';
+  // A party login follows "Show prices on App / Website", like its own cart.
+  const priceSetting = useShowProductPrice();
+  const showPrice = !isPartyUser || priceSetting;
   const [addSalesOrder] = useMutation(ADD_SALES_ORDER);
 
   const subtotal      = cartItems.reduce((s, i) => s + i.qty * i.rate, 0);
@@ -56,7 +61,7 @@ export default function StaffCart() {
       return;
     }
 
-    Alert.alert('Confirm Order', `Place order of ${formatINR(grandTotal)} for ${partyName}?`, [
+    Alert.alert('Confirm Order', showPrice ? `Place order of ${formatINR(grandTotal)} for ${partyName}?` : `Place this order for ${partyName}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Place Order',
@@ -69,7 +74,9 @@ export default function StaffCart() {
                   adminid,
                   branchid:        tenant.branchId ?? '',
                   partyacc:        partyId,
-                  salesmenid:      user?.id,
+                  // A channel party ordering for its sub-party (My Parties) is
+                  // not a salesman — the order is the party's own booking.
+                  ...(isPartyUser ? {} : { salesmenid: user?.id }),
                   paymenttype:     'cash',
                   billdate:        new Date().toISOString().slice(0, 10),
                   billtype:        'order',
@@ -81,7 +88,7 @@ export default function StaffCart() {
                   totalamount:     total,
                   createdby_id:    user?.id,
                   createdby_name:  user?.name,
-                  createdby_type:  user?.role || 'staff',
+                  createdby_type:  isPartyUser ? 'party' : (user?.role || 'staff'),
                   productservice: cartItems.map(i => ({
                     productserviceid: i.productId,
                     variantid:        i.variantId,
@@ -102,10 +109,20 @@ export default function StaffCart() {
                 text: 'OK',
                 // Tabs are nested under StaffDrawer → MainTabs; target through
                 // parents so navigation from the outer stack doesn't throw.
-                onPress: () => navigation.navigate('StaffDrawer', {
-                  screen: 'MainTabs',
-                  params: { screen: 'StaffOrders' },
-                }),
+                onPress: () => {
+                  if (isPartyUser) {
+                    // Back to the sub-party's page (catalog + cart popped off).
+                    const routes: any[] = navigation.getState?.()?.routes ?? [];
+                    const firstIdx = routes.findIndex((r: any) => r.name === 'StaffCatalog' || r.name === 'StaffCart');
+                    if (firstIdx > 0) navigation.dispatch(StackActions.pop(routes.length - firstIdx));
+                    else navigation.goBack();
+                    return;
+                  }
+                  navigation.navigate('StaffDrawer', {
+                    screen: 'MainTabs',
+                    params: { screen: 'StaffOrders' },
+                  });
+                },
               },
             ]);
           } catch (err: any) {
@@ -140,7 +157,7 @@ export default function StaffCart() {
           <Text style={[styles.itemVariant, { color: colors.brand }]}>
             {[item.variantName, item.unitName].filter(Boolean).join(' · ') || '—'}
           </Text>
-          <Text style={[styles.itemRate, { color: colors.subText }]}>{priceInfo}</Text>
+          {showPrice && <Text style={[styles.itemRate, { color: colors.subText }]}>{priceInfo}</Text>}
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
@@ -152,7 +169,7 @@ export default function StaffCart() {
               <Icon name="plus" size={12} color={colors.brand} />
             </Pressable>
           </View>
-          <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
+          {showPrice && <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>}
         </View>
       </View>
     );
@@ -160,6 +177,7 @@ export default function StaffCart() {
 
   const Footer = () => (
     <View>
+      {showPrice && (
       <View style={[styles.summaryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
         <Text style={[styles.summaryTitle, { color: colors.text }]}>Order Summary</Text>
         <View style={styles.summaryRow}>
@@ -187,6 +205,7 @@ export default function StaffCart() {
           <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grandTotal)}</Text>
         </View>
       </View>
+      )}
 
       <Pressable
         style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }]}
@@ -195,7 +214,7 @@ export default function StaffCart() {
       >
         {placing
           ? <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Placing Order…</Text>
-          : <><Icon name="check-circle-outline" size={18} color={colors.onBrand} /><Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Place Order · {formatINR(grandTotal)}</Text></>
+          : <><Icon name="check-circle-outline" size={18} color={colors.onBrand} /><Text style={[styles.placeBtnText, { color: colors.onBrand }]}>{showPrice ? `Place Order · ${formatINR(grandTotal)}` : 'Place Order'}</Text></>
         }
       </Pressable>
     </View>

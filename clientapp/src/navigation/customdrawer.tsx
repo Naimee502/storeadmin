@@ -10,6 +10,7 @@ import { AnnouncementPopup } from '../components/announcementpopup';
 import { BatteryBadge } from '../components/batterybadge';
 import { useQuery } from '@apollo/client/react';
 import { GET_MY_ANNOUNCEMENTS } from '../apollo/queries/announcements';
+import { GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../apollo/queries/accounts';
 import { useAuth } from './authcontext';
 import { COLORS, FONTS, STRINGS, useTheme } from '../config';
 import { useSelector, useDispatch } from 'react-redux';
@@ -30,6 +31,10 @@ const PARTY_MENU: DrawerMenuItem[] = [
   { label: STRINGS.party.catalog, icon: 'store-outline',          tabScreen: 'Catalog'   },
   { label: STRINGS.party.orders,  icon: 'clipboard-list-outline', tabScreen: 'MyOrders'  },
   { label: 'Payments',            icon: 'cash-multiple',          tabScreen: 'Payments'  },
+  // Only with "Party manages downline" on and parties under this one (see below).
+  { label: 'My Parties',          icon: 'account-group-outline',  screen: 'SubParties' },
+  // Only with "Track party stock" on.
+  { label: 'My Stock',            icon: 'package-variant',        screen: 'PartyStock' },
   { label: STRINGS.party.profile, icon: 'account-circle-outline', tabScreen: 'PartyProfile' },
   { label: 'separator1', icon: '', section: true },
   { label: 'Announcements', icon: 'bullhorn-outline', screen: 'Announcements' },
@@ -117,9 +122,30 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
   // Opt-in modules (Expense Claims, Announcements): no drawer entry while off.
   const moduleAllows = useModuleScreenGate();
   const leaderboardOn = useLeaderboardEnabled();
+  // "My Parties" (party login): the business has "Party manages downline" on
+  // AND this party actually has parties under it — an end-user party has none.
+  const tenantAdminId = useSelector((state: RootState) => (state as any).tenant?.adminId ?? '');
+  const isParty = role === 'party';
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid: tenantAdminId },
+    skip: !isParty || !tenantAdminId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
+  const { data: downData } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+    variables: { partyid: user?.id },
+    skip: !isParty || !manageDownline || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const showSubParties = manageDownline && (((downData as any)?.getDownlinePartyBalances?.length ?? 0) > 0);
+  // "Track party stock" AND "Show stock on App / Website".
+  const showPartyStock = manageDownline && (settingsData as any)?.getAdminSettings?.trackPartyStock === true
+    && (settingsData as any)?.getAdminSettings?.displayStockOnWebsite !== false;
   const menu  = (ROLE_MENUS[role] ?? PARTY_MENU).filter(
     (m) => (paymentsEnabled || !PAYMENT_SCREENS.has(m.tabScreen ?? m.screen ?? '')) && moduleAllows(m.screen)
-      && (leaderboardOn || m.screen !== 'SalesmanLeaderboard'),
+      && (leaderboardOn || m.screen !== 'SalesmanLeaderboard')
+      && (showSubParties || m.screen !== 'SubParties')
+      && (showPartyStock || m.screen !== 'PartyStock'),
   );
   const label = ROLE_LABELS[role] ?? 'User';
 

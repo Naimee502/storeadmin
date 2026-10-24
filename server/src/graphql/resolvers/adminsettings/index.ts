@@ -43,6 +43,8 @@ const formatSettings = (s: any) =>
         geoFenceRadiusM: Number(s.geoFenceRadiusM) || 200,
         attendanceSelfieRequired: !!s.attendanceSelfieRequired,
         salesmanOrderDiscountEnabled: !!s.salesmanOrderDiscountEnabled,
+        directPartyOrdersOnly: !!s.directPartyOrdersOnly,
+        trackPartyStock: !!s.trackPartyStock,
       }
     : null;
 

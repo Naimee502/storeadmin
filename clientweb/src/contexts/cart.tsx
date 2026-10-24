@@ -4,7 +4,7 @@ import type { SampleProduct } from "../data/sampleData";
 import { useAuth } from "./auth";
 import { useTenant } from "./tenant";
 import apolloClient from "../graphql/client";
-import { GET_ACCOUNT, RESOLVE_PRICE } from "../graphql/queries/accounts";
+import { GET_ACCOUNT, RESOLVE_PRICE, GET_DELIVERY_MODE, GET_PARTY_STOCK } from "../graphql/queries/accounts";
 
 export interface CartLine {
   lineId: string;
@@ -62,6 +62,23 @@ interface CartContextValue {
   remainingFor: (product: SampleProduct, unit?: string) => number;
   /** Same, for a line already in the cart. */
   remainingForLine: (lineId: string) => number;
+  /**
+   * My Parties → New Order: the cart is being filled FOR a sub-party of the
+   * logged-in party. Prices resolve for that party and checkout books the
+   * order in its name. null = the logged-in party's own cart.
+   */
+  orderFor: { id: string; name: string } | null;
+  /** Switch the cart to ordering for a sub-party (empties a cart that was for someone else). */
+  startOrderFor: (party: { id: string; name: string }) => void;
+  /** Back to the logged-in party's own cart (empties the sub-party's cart). */
+  stopOrderFor: () => void;
+  /**
+   * Ordering for a sub-party with "Track party stock" on: the goods come out of
+   * MY (logged-in party's) stock, so that — not the company's — decides what
+   * can be added. `mine` / `buyer` are keyed `${productId}:${variantId}`,
+   * base units. null when this does not apply.
+   */
+  partyStock: { mine: Record<string, number>; buyer: Record<string, number>; units: Record<string, string> } | null;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -92,6 +109,63 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
   const { account } = useAuth();
   const { adminid, restrictQuantityByStock } = useTenant();
 
+  const forKey = `${storageKey}_for`;
+  const [orderFor, setOrderFor] = useState<{ id: string; name: string } | null>(() => {
+    try {
+      const raw = localStorage.getItem(forKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (orderFor) localStorage.setItem(forKey, JSON.stringify(orderFor));
+      else localStorage.removeItem(forKey);
+    } catch {
+      // ignore storage errors
+    }
+  }, [orderFor, forKey]);
+  // Logged out / another party signed in → the sub-party cart is not theirs.
+  useEffect(() => {
+    if (!account?.id && orderFor) { setOrderFor(null); setLines([]); }
+  }, [account?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { data: dsData } = useQuery(GET_DELIVERY_MODE, {
+    variables: { adminid }, skip: !adminid || !orderFor, fetchPolicy: "cache-and-network",
+  });
+  const partyStockOn = !!orderFor
+    && dsData?.getAdminSettings?.partyManagesDownline === true
+    && dsData?.getAdminSettings?.trackPartyStock === true;
+  const { data: myStockData } = useQuery(GET_PARTY_STOCK, {
+    variables: { partyid: account?.id }, skip: !partyStockOn || !account?.id, fetchPolicy: "cache-and-network",
+  });
+  const { data: buyerStockData } = useQuery(GET_PARTY_STOCK, {
+    variables: { partyid: orderFor?.id }, skip: !partyStockOn || !orderFor?.id, fetchPolicy: "cache-and-network",
+  });
+  const partyStock = useMemo(() => {
+    if (!partyStockOn || !myStockData) return null;
+    const mine: Record<string, number> = {};
+    const buyer: Record<string, number> = {};
+    const units: Record<string, string> = {};
+    (myStockData?.getPartyStock ?? []).forEach((r: any) => {
+      const k = `${r.productid}:${r.variantid ?? ""}`; mine[k] = Number(r.qty) || 0; if (r.unitname) units[k] = r.unitname;
+    });
+    (buyerStockData?.getPartyStock ?? []).forEach((r: any) => {
+      const k = `${r.productid}:${r.variantid ?? ""}`; buyer[k] = Number(r.qty) || 0; if (r.unitname) units[k] = r.unitname;
+    });
+    return { mine, buyer, units };
+  }, [partyStockOn, myStockData, buyerStockData]);
+
+  const startOrderFor = (party: { id: string; name: string }) => {
+    if (orderFor?.id !== party.id) setLines([]);
+    setOrderFor({ id: party.id, name: party.name });
+  };
+  const stopOrderFor = () => {
+    if (orderFor) setLines([]);
+    setOrderFor(null);
+  };
+
   useEffect(() => {
     try {
       if (lines.length > 0) localStorage.setItem(storageKey, JSON.stringify(stripIcon(lines)));
@@ -104,9 +178,11 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
   // Channel/region for the logged-in party — needed for resolvePrice's
   // channel/channel+region/region fallback tiers, same as clientapp's
   // Catalog screen (which fetches this once via GET_ACCOUNT too).
+  // Ordering for a sub-party → that party's channel/region/own price list.
+  const priceAccountId = orderFor?.id ?? account?.id;
   const { data: accountData } = useQuery(GET_ACCOUNT, {
-    variables: { id: account?.id, adminId: adminid },
-    skip: !account?.id || !adminid,
+    variables: { id: priceAccountId, adminId: adminid },
+    skip: !priceAccountId || !adminid,
   });
   const partyAccount = accountData?.getAccountById;
 
@@ -120,17 +196,22 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
 
   // Packs this line may hold in total, or Infinity when uncapped.
   const capFor = (stock: number | undefined, baseQty: number | undefined, variantKey: string, lineId: string) => {
-    if (!restrictQuantityByStock || typeof stock !== "number") return Infinity;
+    if ((!restrictQuantityByStock && !partyStock) || typeof stock !== "number") return Infinity;
     const perPack = baseQty && baseQty > 0 ? baseQty : 1;
     const free = stock - baseUsedElsewhere(variantKey, lineId);
     return Math.max(0, Math.floor(free / perPack + 1e-9));
   };
 
+  // Stock that limits this product: my party stock when ordering for a
+  // sub-party with party stock on (always enforced — the server checks it on
+  // convert), else the company's variant stock under "Restrict qty by stock".
+  const stockFor = (productId: string, variantid?: string, fallback?: number) =>
+    partyStock ? (partyStock.mine[`${productId}:${variantid ?? ""}`] ?? 0) : fallback;
   const remainingFor = (product: SampleProduct, unit?: string) => {
     const chosenUnit = unit ?? product.units[0];
     const matched = product.unitPrices?.find((u) => u.label === chosenUnit);
     const lineId = `${product.id}-${chosenUnit}`;
-    const cap = capFor(product.variantStock, matched?.baseQty, product.variantid ?? product.id, lineId);
+    const cap = capFor(stockFor(product.id, product.variantid, product.variantStock), matched?.baseQty, product.variantid ?? product.id, lineId);
     const inLine = lines.find((l) => l.lineId === lineId)?.qty ?? 0;
     return cap - inLine;
   };
@@ -138,7 +219,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
   const remainingForLine = (lineId: string) => {
     const line = lines.find((l) => l.lineId === lineId);
     if (!line) return Infinity;
-    return capFor(line.stock, line.baseQty, line.variantid ?? line.productId, lineId) - line.qty;
+    return capFor(stockFor(line.productId, line.variantid, line.stock), line.baseQty, line.variantid ?? line.productId, lineId) - line.qty;
   };
 
   const addToCart = (product: SampleProduct, requestedQty = 1, unit?: string) => {
@@ -205,7 +286,7 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
             variantid: product.variantid,
             unitid: matched.unitid,
             adminid: adminid || null,
-            accountid: account.id,
+            accountid: priceAccountId,
             channelid: partyAccount?.channel?.id ?? null,
             region: partyAccount?.region ?? null,
           },
@@ -264,8 +345,12 @@ export function CartProvider({ storeSlug, children }: { storeSlug: string; child
       clearCart,
       remainingFor,
       remainingForLine,
+      orderFor,
+      startOrderFor,
+      stopOrderFor,
+      partyStock,
     }),
-    [lines, count, subtotal, totaldiscount, account?.id, adminid, partyAccount, restrictQuantityByStock]
+    [lines, count, subtotal, totaldiscount, account?.id, adminid, partyAccount, restrictQuantityByStock, orderFor, partyStock]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

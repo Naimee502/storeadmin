@@ -241,6 +241,7 @@ export const GET_DELIVERY_MODE = gql`
     getAdminSettings(adminid: $adminid) {
       deliveryMode
       partyManagesDownline
+      trackPartyStock
     }
   }
 `;
@@ -256,6 +257,10 @@ export const GET_DOWNLINE_PARTY_BALANCES = gql`
       name
       mobile
       outstanding
+      city
+      channelName
+      parentId
+      parentName
     }
   }
 `;
@@ -453,5 +458,33 @@ export const GET_PARTY_OUTSTANDING_BILLS = gql`
 export const DELETE_SALES_ORDER = gql`
   mutation DeleteSalesOrder($id: ID!) {
     deleteSalesOrder(id: $id)
+  }
+`;
+
+// Stock a party holds (Business Settings → "Track party stock"), base units.
+export const GET_PARTY_STOCK = gql`
+  query GetPartyStock($partyid: ID!) {
+    getPartyStock(partyid: $partyid) {
+      id productid variantid productname variantname productcode unitname qty
+    }
+  }
+`;
+
+// My Parties → Add party (website). Same mutation the app / panel use.
+export const ADD_ACCOUNT = gql`
+  mutation AddAccount($input: AccountInput!) {
+    addAccount(input: $input) { id name }
+  }
+`;
+
+export const GET_ACCOUNT_GROUPS = gql`
+  query GetAccountGroups($adminId: ID) {
+    getAccountGroups(adminId: $adminId) { id accountgroupname category }
+  }
+`;
+
+export const GET_CHANNELS = gql`
+  query GetChannels($adminId: ID) {
+    getChannels(adminId: $adminId) { id channelName handlesChannels { id channelName } }
   }
 `;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -26,6 +26,16 @@ const Accounts = () => {
    * it is dropped rather than shown empty.
    */
   const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
+  // Parent party (party under party) — only meaningful with downline on.
+  const manageDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
+  // "Company sees direct-party orders only": the list opens on direct parties
+  // only (no parent party); sub-parties stay one click away for editing.
+  const directOnlyOn = useAppSelector((s: any) => !!s.adminsettings?.settings?.directPartyOrdersOnly) && manageDownline;
+  const [showSubParties, setShowSubParties] = useState(false);
+  // Parent Party column: only when sub-parties are actually in the list —
+  // downline on, and either the direct-only filter is off or "Show
+  // sub-parties" is pressed. A business without party-under-party never sees it.
+  const showParentColumn = manageDownline && (!directOnlyOn || showSubParties);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,12 +74,18 @@ const Accounts = () => {
     { label: "Type", key: "type" },
     // Channel (End User / Retailer / Wholesaler) only when the module is on.
     ...(channelsEnabled ? [{ label: "Channel", key: "channelname" }] : []),
+    ...(showParentColumn ? [{ label: "Parent Party", key: "parentname" }] : []),
     { label: "City", key: "city" },
     { label: "Outstanding", key: "outstandingLabel" },
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...accountList].reverse().map((acc, index) => {
+  const visibleAccounts = directOnlyOn && !showSubParties
+    ? accountList.filter((acc: any) => !acc.assignaccountid?.id)
+    : accountList;
+  const subPartyCount = accountList.filter((acc: any) => !!acc.assignaccountid?.id).length;
+
+  const tableData = [...visibleAccounts].reverse().map((acc, index) => {
     const ledgerName =
     typeof acc.ledgerid === "string"
       ? "-" // string — not populated
@@ -84,6 +100,7 @@ const Accounts = () => {
         typeof acc.channel === "object" && acc.channel
           ? acc.channel.channelName || "-"
           : "-",
+      parentname: acc.assignaccountid?.name || "-",
       // Masters are often typed in ALL CAPS; the column reads better cased.
       city: acc.city ? toTitleCase(acc.city) : "-",
       // Same basis as the payment screen and the party report: opening still
@@ -174,7 +191,7 @@ const Accounts = () => {
           columns={columns}
           data={tableData}
           {...actions}
-          showView={false}
+          onView={(row) => navigate(`/accounts/view/${row.id}`)}
           onEdit={(row) => navigate(`/accounts/addedit/${row.id}`)}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete account "${row.name}"?`)) {
@@ -201,6 +218,15 @@ const Accounts = () => {
           }}
           onImport={handleImportClick}
           onExport={handleExport}
+          toolbarActions={directOnlyOn && subPartyCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowSubParties((v) => !v)}
+              className={`rounded-md border px-3 py-2 text-sm font-semibold ${showSubParties ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+            >
+              {showSubParties ? "Hide sub-parties" : `Show sub-parties (${subPartyCount})`}
+            </button>
+          ) : undefined}
           onAdd={() => navigate("/accounts/addedit")}
           onShowDeleted={() => navigate("/accounts/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}

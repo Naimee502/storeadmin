@@ -11,7 +11,7 @@ import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/que
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { addToCart, updateQty, setCartParty } from '../../../../store/slices';
-import { useShowProductStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductStock, useShowProductPrice, usePartyStockVisible, usePartyStockTracked, usePartyStockMap } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 const DUMMY_PRODUCTS = [
@@ -35,6 +35,25 @@ export default function StaffCatalog() {
   const cartPartyId = useSelector((s: RootState) => s.cart.partyId);
   const adminid    = tenant.adminId ?? '';
   const showStock  = useShowProductStock();
+  // Channel party ordering for its sub-party (My Parties → New Order):
+  //  • prices follow "Show prices on App / Website", like the party's own shop;
+  //  • with "Track party stock", the goods come out of MY stock — so that is
+  //    what decides "Out", and both stocks are shown (when stock display is on).
+  const user = useSelector((s: RootState) => s.auth.user);
+  const isPartyUser = (user?.role || '').toLowerCase() === 'party';
+  const priceSetting = useShowProductPrice();
+  const showPrice = !isPartyUser || priceSetting;
+  const partyStockVisible = usePartyStockVisible();
+  const partyStockTracked = usePartyStockTracked();
+  const { map: buyerStock } = usePartyStockMap(route.params?.partyId, partyStockVisible);
+  const { map: myStock, loaded: myStockLoaded } = usePartyStockMap(isPartyUser ? user?.id : null, partyStockTracked);
+  const sellFromMyStock = isPartyUser && partyStockTracked && myStockLoaded;
+  const isOutFor = (p: any) => {
+    const v = p.productvariants?.[0];
+    if (!v) return false;
+    if (sellFromMyStock) return (myStock[`${p.id}:${v.id}`]?.qty ?? 0) <= 0;
+    return v.currentstock === 0;
+  };
 
   const { partyId, partyName } = route.params ?? {};
 
@@ -121,11 +140,21 @@ export default function StaffCatalog() {
     return cats;
   }, [products]);
 
-  const filtered = useMemo(() => products.filter((p: any) => {
-    const matchCat    = !category || p.categoryid?.id === category;
-    const matchSearch = !search   || p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch && p.status !== false;
-  }), [products, category, search]);
+  // Out-of-stock items can't be added (no Add button), so they sink to the
+  // bottom; everything else keeps the server's order (stable sort) — same as
+  // the salesman catalogue.
+  const filtered = useMemo(() => {
+    const isOut = (p: any) => (isOutFor(p) ? 1 : 0);
+    return products
+      .filter((p: any) => {
+        const matchCat    = !category || p.categoryid?.id === category;
+        const matchSearch = !search   || p.name.toLowerCase().includes(search.toLowerCase());
+        return matchCat && matchSearch && p.status !== false;
+      })
+      .map((p: any, i: number) => ({ p, i }))
+      .sort((a: any, b: any) => isOut(a.p) - isOut(b.p) || a.i - b.i)
+      .map((x: any) => x.p);
+  }, [products, category, search, sellFromMyStock, myStock]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
 
@@ -202,8 +231,11 @@ export default function StaffCatalog() {
     const mrp      = up?.mrp ?? 0;
     const cartQty  = v ? getCartQty(p.id, v.id, unitId) : 0;
     const hasMrp   = mrp > 0 && mrp > price;
-    const outOfStock = v?.currentstock === 0;
+    const outOfStock = isOutFor(p);
     const multiUnit  = (v?.unitprices?.length ?? 0) > 1;
+    const sk = v ? `${p.id}:${v.id}` : '';
+    const buyerQty = buyerStock[sk];
+    const myQty = myStock[sk];
 
     return (
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -212,7 +244,7 @@ export default function StaffCatalog() {
             ? <AppImage uri={p.imageurl} width={IMG.thumb} style={styles.img} resizeMode="cover" fallback={<Icon name="package-variant-closed" size={24} color={colors.brand} />} />
             : <Icon name="package-variant-closed" size={24} color={colors.brand} />
           }
-          {showStock && outOfStock && (
+          {(showStock || sellFromMyStock) && outOfStock && (
             <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
           )}
         </View>
@@ -225,10 +257,26 @@ export default function StaffCatalog() {
             </Text>
           ) : null}
 
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
-            {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
-          </View>
+          {showPrice && (
+            <View style={styles.priceRow}>
+              <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
+              {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
+            </View>
+          )}
+          {partyStockVisible && v && (
+            <View style={styles.stockLine}>
+              {isPartyUser && (
+                <Text style={[styles.stockText, { color: (myQty?.qty ?? 0) > 0 ? '#16a34a' : '#ef4444' }]} numberOfLines={1}>
+                  You: {(myQty?.qty ?? 0).toLocaleString('en-IN')} {myQty?.unit ?? ''}
+                </Text>
+              )}
+              {!!route.params?.partyId && (
+                <Text style={[styles.stockText, { color: colors.subText }]} numberOfLines={1}>
+                  {partyName ? `${partyName}` : 'Party'}: {(buyerQty?.qty ?? 0).toLocaleString('en-IN')} {buyerQty?.unit ?? ''}
+                </Text>
+              )}
+            </View>
+          )}
 
           <View style={styles.unitSlot}>
             {multiUnit && (
@@ -349,6 +397,8 @@ export default function StaffCatalog() {
 }
 
 const styles = StyleSheet.create({
+  stockLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 2 },
+  stockText: { fontSize: 11, fontFamily: FONTS.semiBold },
   container:   { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
   partyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, padding: 10, marginTop: 10, marginBottom: 4 },

@@ -28,6 +28,8 @@ const SETTINGS_FIELDS = `
   doubleDisplayPrice
   deliveryMode
   partyManagesDownline
+  directPartyOrdersOnly
+  trackPartyStock
   requirePartyApproval
   enablePaymentDiscountCommission
   showLastPaymentOnStatement

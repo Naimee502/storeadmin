@@ -11,7 +11,7 @@ import { GET_PRODUCTS, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/que
 import { apolloClient } from '../../../../apollo/client';
 import { formatINR } from '../../../../utils';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductStock, usePartyStockVisible, usePartyStockMap } from '../../../../apollo/hooks/adminsettings';
 import type { RootState } from '../../../../store/rootreducer';
 
 export default function SalesmanCatalog() {
@@ -25,6 +25,9 @@ export default function SalesmanCatalog() {
   const showStock  = useShowProductStock();
 
   const { partyId, partyName } = route.params ?? {};
+  // "Track party stock" + "Show stock": what the party already holds of each item.
+  const partyStockVisible = usePartyStockVisible();
+  const { map: partyStock } = usePartyStockMap(partyId, partyStockVisible);
 
   const [search,        setSearch]        = useState('');
   // Product whose photos are open in the viewer (tap on a thumbnail).
@@ -253,6 +256,11 @@ export default function SalesmanCatalog() {
             <Text style={[styles.price, { color: colors.brand }]}>{formatINR(price)}</Text>
             {hasMrp && <Text style={[styles.mrp, { color: colors.subText }]}>{formatINR(mrp)}</Text>}
           </View>
+          {partyStockVisible && v && (
+            <Text style={{ fontSize: 11, fontFamily: FONTS.semiBold, color: colors.subText, marginTop: 2 }} numberOfLines={1}>
+              {partyName || 'Party'} has: {(partyStock[`${p.id}:${v.id}`]?.qty ?? 0).toLocaleString('en-IN')} {partyStock[`${p.id}:${v.id}`]?.unit ?? ''}
+            </Text>
+          )}
 
           <View style={styles.unitSlot}>
             {multiUnit && (

@@ -26,13 +26,15 @@ const paymentMethods: { id: PaymentMethod; label: string; desc: string; icon: ty
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { lines, subtotal, clearCart } = useCart();
+  const { lines, subtotal, clearCart, orderFor, stopOrderFor } = useCart();
   const { codOnly } = useBusinessSettings();
   const { adminid, branchid, displayProductPrice } = useTenant();
   const { isLoggedIn, account } = useAuth();
+  // My Parties → New Order: book in the sub-party's name, deliver to its address.
+  const buyerId = orderFor?.id ?? account?.id;
   const { manageDownline } = useDownline();
   const [payment, setPayment] = useState<PaymentMethod>("upi");
-  const [placedOrder, setPlacedOrder] = useState<{ billnumber?: string } | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<{ billnumber?: string; forName?: string } | null>(null);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -43,8 +45,8 @@ export default function CheckoutPage() {
   // admin panel's Add Account "Address Info" section collects. Guests never
   // reach here (isLoggedIn gate below), so this only runs for a real account.
   const { data: accountData, loading: accountLoading, refetch: refetchAccount } = useQuery(GET_ACCOUNT, {
-    variables: { id: account?.id, adminId: adminid },
-    skip: !account?.id || !adminid,
+    variables: { id: buyerId, adminId: adminid },
+    skip: !buyerId || !adminid,
   });
   const fullAccount = accountData?.getAccountById;
   const hasAddress = !!(fullAccount?.address && fullAccount?.city && fullAccount?.state && fullAccount?.pincode);
@@ -91,7 +93,7 @@ export default function CheckoutPage() {
     // registration) can never place an order without a delivery address.
     if (!hasAddress) {
       setEditingAddress(false);
-      setError("Please add your delivery address before placing the order.");
+      setError(orderFor ? `Please add ${orderFor.name}'s delivery address before placing the order.` : "Please add your delivery address before placing the order.");
       return;
     }
 
@@ -103,7 +105,7 @@ export default function CheckoutPage() {
           input: {
             adminid,
             branchid,
-            partyacc: account.id,
+            partyacc: buyerId,
             paymenttype: payment === "cod" ? "cash" : payment,
             billdate: new Date().toISOString().slice(0, 10),
             billtype: "order",
@@ -133,8 +135,9 @@ export default function CheckoutPage() {
           { query: GET_SALES_ORDERS, variables: { adminid, partyacc: account.id, includeDownline: manageDownline } },
         ],
       });
-      setPlacedOrder({ billnumber: data?.addSalesOrder?.billnumber });
+      setPlacedOrder({ billnumber: data?.addSalesOrder?.billnumber, forName: orderFor?.name });
       clearCart();
+      if (orderFor) stopOrderFor();
     } catch (err: any) {
       setError(err?.message || "Failed to place order. Please try again.");
     } finally {
@@ -148,13 +151,13 @@ export default function CheckoutPage() {
         <CheckCircle2 className="h-16 w-16 text-brand-600" />
         <h1 className="mt-4 text-2xl font-bold text-ink-900">Order placed successfully!</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Your order{" "}
+          {placedOrder.forName ? <>Order for <b>{placedOrder.forName}</b>{" "}</> : <>Your order{" "}</>}
           {placedOrder.billnumber && <span className="font-semibold text-ink-900">#{placedOrder.billnumber}</span>} has
           been received and is pending confirmation. You'll get updates as it's confirmed and dispatched.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link to="/account?tab=orders" className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
-            View My Orders
+          <Link to={placedOrder.forName ? "/account?tab=parties" : "/account?tab=orders"} className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+            {placedOrder.forName ? "Back to My Parties" : "View My Orders"}
           </Link>
           <Link to="/shop" className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50">
             Continue Shopping

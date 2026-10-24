@@ -50,6 +50,8 @@ import AdminRegister from "../pages/adminregister";
 import Subscription from "../pages/subscription";
 import SubscriptionReview from "../pages/subscriptionreview";
 import AddEditAccount from "../pages/accounts/addedit";
+import PartyView from "../pages/accounts/view";
+import StaffView from "../pages/staffaccounts/view";
 import AdminList from "../pages/adminregister/list";
 import DeletedAdmins from "../pages/adminregister/deletedentries";
 import SubCategories from "../pages/subcategories";
@@ -393,6 +395,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoutes>
             <AddEditAccount />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/accounts/view/:id"
+        element={
+          <ProtectedRoutes>
+            <PartyView />
+          </ProtectedRoutes>
+        }
+      />
+      <Route
+        path="/staffaccounts/view/:id"
+        element={
+          <ProtectedRoutes>
+            <StaffView />
           </ProtectedRoutes>
         }
       />

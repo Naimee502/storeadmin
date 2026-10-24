@@ -258,6 +258,7 @@ const getDownlinePartyIds = async (rootId: any): Promise<string[]> => {
 import { ChargeRule } from "../../../models/chargerule";
 import { AdminSettings } from "../../../models/adminsettings";
 import { assertSalesStockAvailable, InsufficientStockError } from "../../../utils/stockguard";
+import { partyStockEnabled, sellerPartyOf } from "../../../utils/partystock";
 
 /**
  * Business Settings -> "Restrict quantity by stock": a customer (party) order
@@ -271,10 +272,15 @@ const assertPartyOrderWithinStock = async (opts: {
   adminid: any;
   branchid: any;
   productservice: any[] | undefined;
+  /** The ordering party — a sub-party buys from its parent, not the company. */
+  partyacc?: any;
 }) => {
   if (!opts.isParty || !opts.adminid || !Array.isArray(opts.productservice)) return;
   const settings: any = await AdminSettings.getOrCreateForAdmin(opts.adminid);
   if (settings?.restrictQuantityByStock === false) return;
+  // Party stock on: a sub-party's goods come from its parent party, whose
+  // stock is checked when the parent converts the order — not the company's.
+  if (opts.partyacc && (await partyStockEnabled(opts.adminid)) && (await sellerPartyOf(opts.partyacc))) return;
   try {
     await assertSalesStockAvailable({ branchid: opts.branchid, productservice: opts.productservice });
   } catch (err: any) {
@@ -444,6 +450,31 @@ const formatOrder = (order: any) => ({
   }) ?? []
 });
 
+
+/**
+ * Business Settings → "Company sees direct-party orders only" (with Party
+ * manages downline on): ids of the sub-parties (any party that has a parent
+ * party) whose orders the back office must NOT see. Empty list = no
+ * restriction, which is the default for every business.
+ */
+const hiddenDownlinePartyIds = async (adminid: any, user: any): Promise<any[]> => {
+  if (!adminid || !user) return [];
+  const t = String(user.type || "").toLowerCase();
+  if (t === "staff") {
+    const st: any = await StaffAccount.findById(user.id).select("role").lean();
+    // Salesmen and delivery boys keep their own scoping.
+    if (st?.role === "salesman" || st?.role === "deliveryboy") return [];
+  } else if (t !== "admin" && t !== "branch") {
+    return [];
+  }
+  const set: any = await AdminSettings.findOne({ adminid })
+    .select("partyManagesDownline directPartyOrdersOnly").lean();
+  if (!set?.partyManagesDownline || !set?.directPartyOrdersOnly) return [];
+  const subs = await Account.find({ admin: adminid, assignaccountid: { $nin: [null, undefined] } })
+    .select("_id").lean();
+  return subs.map((a: any) => a._id);
+};
+
 // ✅ GraphQL resolvers
 export const salesOrderResolvers = {
   Query: {
@@ -529,6 +560,13 @@ export const salesOrderResolvers = {
       if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
       if (filter.billtype) query.billtype = filter.billtype;
       if (filter.ordertype) query.ordertype = filter.ordertype;
+      // An explicit party / salesman filter (a View page) asks for exactly those orders.
+      if (!filter.partyacc && !filter.salesmenid) {
+        const hidden = await hiddenDownlinePartyIds(
+          filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null), user,
+        );
+        if (hidden.length) query.partyacc = { $nin: hidden };
+      }
       if (filter.partyacc) {
         if (filter.includeDownline) {
           // Party login with downline management on: show own + sub-party orders.
@@ -598,6 +636,7 @@ export const salesOrderResolvers = {
           adminid: input.adminid,
           branchid: input.branchid,
           productservice: input.productservice,
+          partyacc: input.partyacc,
         });
 
         // Order-level discount from the apps: a party can never set one; a
@@ -798,6 +837,7 @@ export const salesOrderResolvers = {
           adminid: input.adminid ?? current?.adminid,
           branchid: input.branchid ?? current?.branchid,
           productservice: input.productservice,
+          partyacc: input.partyacc ?? current?.partyacc,
         });
       }
 

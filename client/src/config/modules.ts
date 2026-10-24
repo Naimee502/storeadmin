@@ -121,8 +121,11 @@ export const MODULES: ModuleDef[] = [
   // ───────────── Accounts ─────────────
   { id: "accountgroups",  label: "Account Groups",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountledgers", label: "Account Ledgers", section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
-  { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: CRUD_WITH_IMPORT_EXPORT_ACTIONS, inAdminRegister: true },
+  // "view" = the View button on the list: a staff member's parties and the
+  // orders they took / a party's profile, orders, payments and sub-parties.
+  // Like every action added later it stays off until it is ticked.
+  { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: ["view", ...CRUD_ACTIONS], inAdminRegister: true },
+  { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: ["view", ...CRUD_WITH_IMPORT_EXPORT_ACTIONS], inAdminRegister: true },
 
   // ───────────── Sales pipeline ─────────────
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },

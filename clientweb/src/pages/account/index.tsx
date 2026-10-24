@@ -31,6 +31,8 @@ import {
   LayoutDashboard,
   Boxes,
   Pencil,
+  Users,
+  Search,
 } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
@@ -44,21 +46,27 @@ import {
   GET_PAYMENTS,
   GET_DELIVERY_MODE,
   GET_DOWNLINE_PARTY_BALANCES,
+  GET_PARTY_STOCK,
 } from "../../graphql/queries/accounts";
 import { formatPrice } from "../../utils/format";
 import { orderStatus, formatBillNumber, formatDate, titleCase, type FilterKey } from "../../utils/orders";
 import { stateOptions } from "../../utils/states";
 import OrdersSummaryCard from "../../components/orderssummary";
+import SubPartiesPanel from "../../components/subparties";
 import { ALL_TIME, inRange, parseServerDate, rangeLabel, type DateRange } from "../../utils/daterange";
 
 const stateLabel = (value?: string) => (value ? stateOptions.find((s) => s.value === value)?.label : undefined);
 
-type Tab = "dashboard" | "orders" | "payments" | "profile";
+type Tab = "dashboard" | "orders" | "payments" | "parties" | "stock" | "profile";
 
 const navItems: { id: Tab; label: string; icon: typeof Package }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "orders", label: "My Orders", icon: Package },
   { id: "payments", label: "Payments", icon: Wallet },
+  // Only with "Party manages downline" on and parties under this one.
+  { id: "parties", label: "My Parties", icon: Users },
+  // Only with "Track party stock" on.
+  { id: "stock", label: "My Stock", icon: Boxes },
   { id: "profile", label: "Profile", icon: User },
 ];
 
@@ -79,7 +87,7 @@ const STATUS_STYLE: Record<string, { label: string; className: string; icon: typ
   cancelled: { label: "Cancelled", className: "bg-rose-50 text-rose-700", icon: XCircle },
 };
 
-const VALID_TABS: Tab[] = ["dashboard", "orders", "payments", "profile"];
+const VALID_TABS: Tab[] = ["dashboard", "orders", "payments", "parties", "stock", "profile"];
 
 export default function AccountPage() {
   // URL-driven so the header's account dropdown (My Orders/Payments links
@@ -115,8 +123,9 @@ export default function AccountPage() {
   // app uses to keep this hidden for them).
   const [orderScope, setOrderScope] = useState<"mine" | "downline" | "all">("mine");
   const [paymentScope, setPaymentScope] = useState<"mine" | "parties">("mine");
+  const [partySearch, setPartySearch] = useState("");
   const { isLoggedIn, account, logout } = useAuth();
-  const { adminid } = useTenant();
+  const { adminid, branchid } = useTenant();
   const navigate = useNavigate();
   const { products, categories } = useCatalog();
 
@@ -131,8 +140,17 @@ export default function AccountPage() {
     fetchPolicy: "cache-and-network",
   });
   const manageDownline = settingsData?.getAdminSettings?.partyManagesDownline === true;
+  // Party stock is shown only with "Show stock on App / Website" on as well.
+  const { displayStock } = useTenant();
+  const trackStock = manageDownline && settingsData?.getAdminSettings?.trackPartyStock === true && displayStock !== false;
+  const { data: stockData } = useQuery(GET_PARTY_STOCK, {
+    variables: { partyid: account?.id },
+    skip: !account?.id || !trackStock,
+    fetchPolicy: "cache-and-network",
+  });
+  const stockRows: any[] = stockData?.getPartyStock ?? [];
 
-  const { data: downlineBalData } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
+  const { data: downlineBalData, refetch: refetchDownline } = useQuery(GET_DOWNLINE_PARTY_BALANCES, {
     variables: { partyid: account?.id },
     skip: !account?.id || !manageDownline,
     fetchPolicy: "cache-and-network",
@@ -245,7 +263,7 @@ export default function AccountPage() {
             </div>
 
             <nav className="space-y-1 rounded-2xl border border-slate-100 p-2">
-              {navItems.filter(({ id }) => paymentsEnabled || id !== "payments").map(({ id, label, icon: Icon }) => (
+              {navItems.filter(({ id }) => (paymentsEnabled || id !== "payments") && (showDownlineUI || id !== "parties") && (trackStock || id !== "stock")).map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
@@ -683,6 +701,59 @@ export default function AccountPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {tab === "stock" && (() => {
+              const q = partySearch.trim().toLowerCase();
+              const rows = stockRows.filter((r: any) => !q || [r.productname, r.variantname, r.productcode].some((x: any) => String(x || "").toLowerCase().includes(q)));
+              return (
+                <div>
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-xl font-bold text-ink-900">My Stock</h1>
+                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      <input value={partySearch} onChange={(e) => setPartySearch(e.target.value)} placeholder="Search product" className="w-48 text-sm outline-none" />
+                    </label>
+                  </div>
+                  {!trackStock ? (
+                    <p className="py-10 text-center text-sm text-slate-400">Stock tracking is not enabled.</p>
+                  ) : rows.length === 0 ? (
+                    <p className="py-10 text-center text-sm text-slate-400">No stock yet — it is added when an invoice is made for you.</p>
+                  ) : (
+                    <div className="overflow-hidden rounded-2xl border border-slate-100">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-left text-xs text-slate-500">
+                          <tr><th className="px-4 py-2">Product</th><th className="px-4 py-2">Variant</th><th className="px-4 py-2 text-right">Stock</th></tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r: any) => (
+                            <tr key={r.id} className="border-t border-slate-100">
+                              <td className="px-4 py-2.5 font-medium text-ink-900">{r.productname}</td>
+                              <td className="px-4 py-2.5 text-slate-500">{[r.variantname, r.productcode].filter(Boolean).join(" · ") || "—"}</td>
+                              <td className={`px-4 py-2.5 text-right font-bold ${Number(r.qty) < 0 ? "text-rose-600" : "text-ink-900"}`}>
+                                {Number(r.qty).toLocaleString("en-IN")} {r.unitname || ""}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {tab === "parties" && !showDownlineUI && (
+              <p className="py-10 text-center text-sm text-slate-400">No parties under you.</p>
+            )}
+            {tab === "parties" && showDownlineUI && (
+              <SubPartiesPanel
+                me={{ id: account.id, channelId: fullAccount?.channel?.id ?? null }}
+                adminid={adminid}
+                branchid={branchid}
+                parties={downlineParties}
+                trackStock={trackStock}
+                onChanged={() => refetchDownline()}
+              />
             )}
 
             {tab === "profile" && (

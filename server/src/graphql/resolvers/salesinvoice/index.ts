@@ -10,6 +10,7 @@ import {
   getInvoiceOutstanding,
   getPartyTotalDue,
 } from "../../../utils/allocation";
+import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../../../utils/partystock";
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
@@ -550,6 +551,13 @@ export const salesInvoiceResolvers = {
       // from an app/website order, where the catalogue only gates on in/out of
       // stock) never pass through it. Checked here, before anything is written,
       // so a short invoice fails cleanly instead of leaving negative stock.
+      // Party stock: a bill to a sub-party comes out of its parent party's
+      // stock, not the company's — check that instead.
+      const psSeller = autoCreateData.autocreate.stock && !input.isservice && (await partyStockEnabled(input.adminid))
+        ? await sellerPartyOf(input.partyacc) : null;
+      if (psSeller && settings?.allowNegativeStock !== true) {
+        await assertPartyStockAvailable({ sellerId: psSeller, productservice: input.productservice || [] });
+      }
       await assertSalesStockAvailable({
         adminid: input.adminid,
         branchid: input.branchid,
@@ -557,7 +565,7 @@ export const salesInvoiceResolvers = {
         isservice: input.isservice,
         // Business Settings -> "Allow negative stock" is the escape hatch for
         // businesses that bill first and enter purchases later.
-        wantsStock: autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
+        wantsStock: !psSeller && autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
 
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
@@ -894,13 +902,25 @@ export const salesInvoiceResolvers = {
       // Same guard as create, but netting off what this invoice already held —
       // the stock hook restores the old lines before deducting the new ones, so
       // only the increase has to be available.
+      const editSeller = autoCreateData.autocreate.stock && !(input.isservice ?? oldInv.isservice)
+        && (await partyStockEnabled(oldInv.adminid))
+        ? await sellerPartyOf(input.partyacc || oldInv.partyacc) : null;
+      if (editSeller && settings?.allowNegativeStock !== true) {
+        await assertPartyStockAvailable({
+          sellerId: editSeller,
+          productservice: input.productservice || oldInv.productservice || [],
+          // Only credit back what the old version actually took from this seller.
+          oldProductservice: oldInv.partystockapplied && String(oldInv.partystockseller || "") === editSeller
+            && String(oldInv.cancelStatus || "") !== "cancelled" ? oldInv.productservice : [],
+        });
+      }
       await assertSalesStockAvailable({
         adminid: oldInv.adminid,
         branchid: input.branchid || oldInv.branchid,
         productservice: input.productservice || oldInv.productservice || [],
         isservice: input.isservice ?? oldInv.isservice,
         oldInv,
-        wantsStock: autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
+        wantsStock: !editSeller && autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
 
       const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
@@ -961,15 +981,18 @@ export const salesInvoiceResolvers = {
       // them out again — and has to be checked against today's stock, not
       // against what was there when the bill was written.
       const settings = await AdminSettings.getOrCreateForAdmin(oldInv.adminid);
+      const reopenStock = (oldInv.autocreate?.stock ?? settings?.autoCreateStockOnSalesInvoice ?? true) && !oldInv.isservice;
+      const reopenSeller = reopenStock && (await partyStockEnabled(oldInv.adminid)) ? await sellerPartyOf(oldInv.partyacc) : null;
+      if (reopenSeller && settings?.allowNegativeStock !== true) {
+        await assertPartyStockAvailable({ sellerId: reopenSeller, productservice: oldInv.productservice || [] });
+      }
       await assertSalesStockAvailable({
         adminid: oldInv.adminid,
         branchid: oldInv.branchid,
         productservice: oldInv.productservice || [],
         isservice: oldInv.isservice,
         oldInv: null, // a cancelled bill holds no stock to net off
-        wantsStock:
-          (oldInv.autocreate?.stock ?? settings?.autoCreateStockOnSalesInvoice ?? true) &&
-          settings?.allowNegativeStock !== true,
+        wantsStock: !reopenSeller && reopenStock && settings?.allowNegativeStock !== true,
       });
 
       const user = context?.user;

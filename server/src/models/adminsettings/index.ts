@@ -199,6 +199,16 @@ const adminSettingsSchema = new mongoose.Schema(
        on party add. Default off so existing tenants are unaffected.
        ============================================================ */
     partyManagesDownline: { type: Boolean, default: false },
+    // With downline on: the back office (admin / branch / office staff) sees
+    // ONLY orders of its direct parties (no parent party — e.g. Super
+    // Stockist), not the whole channel below them. Sub-party orders are the
+    // parent party's to handle. Off = whole channel, exactly as before.
+    directPartyOrdersOnly: { type: Boolean, default: false },
+    // With downline on: keep a stock figure per PARTY. A Sales Invoice to a
+    // direct party adds to that party's stock (company branch stock goes down
+    // as always); an invoice to a sub-party moves stock from its parent party
+    // to it and leaves the company's stock alone. Off = no party stock at all.
+    trackPartyStock: { type: Boolean, default: false },
     // Self-registered customers land as "pending" and cannot sign in — on the
     // app or the website — until an admin approves them from Party Accounts.
     // Off by default: turning it on is a deliberate choice to gate signups.

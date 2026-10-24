@@ -31,7 +31,9 @@ export default function StaffParties() {
   const [search, setSearch] = useState('');
 
   const { data } = useQuery(GET_ACCOUNTS, {
-    variables: { admin: adminid },
+    // directOnly: with "Company sees direct-party orders only" on, sub-parties
+    // (handled by their parent party) are left out. No effect otherwise.
+    variables: { admin: adminid, directOnly: true },
     skip: !adminid,
   });
 

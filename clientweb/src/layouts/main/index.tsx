@@ -10,6 +10,7 @@ import { AuthProvider } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import ScreenWatermark from "../../components/screenwatermark";
 import ScrollToTop from "../../components/scrolltotop";
+import OrderForBanner from "../../components/orderforbanner";
 
 export default function MainLayout() {
   const tenant = useTenant();
@@ -23,6 +24,7 @@ export default function MainLayout() {
         <div className="flex min-h-screen flex-col bg-white">
           <ScrollToTop />
           <Header />
+          <OrderForBanner />
           <main className="flex-1 pb-16 lg:pb-0">
             <Outlet />
           </main>

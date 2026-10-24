@@ -222,8 +222,8 @@ export const GET_SALES_INVOICE_BY_ID = gql`
 `;
 
 export const GET_ACCOUNTS = gql`
-  query GetAccounts($admin: ID!, $salesmanid: ID) {
-    getAccounts(filter: { admin: $admin, salesmanid: $salesmanid }) {
+  query GetAccounts($admin: ID!, $salesmanid: ID, $directOnly: Boolean) {
+    getAccounts(filter: { admin: $admin, salesmanid: $salesmanid, directOnly: $directOnly }) {
       id
       accountcode
       name
@@ -479,6 +479,10 @@ export const GET_DOWNLINE_PARTY_BALANCES = gql`
       name
       mobile
       outstanding
+      city
+      channelName
+      parentId
+      parentName
     }
   }
 `;
@@ -489,6 +493,7 @@ export const GET_ADMIN_SETTINGS = gql`
       id
       deliveryMode
       partyManagesDownline
+      trackPartyStock
       enablePaymentDiscountCommission
       secureScreenApp
       displayProductPriceOnWebsite
@@ -613,6 +618,15 @@ export const REVERSE_GEOCODE = gql`
       state
       pincode
       country
+    }
+  }
+`;
+
+// Stock a party holds (Business Settings → "Track party stock"), base units.
+export const GET_PARTY_STOCK = gql`
+  query GetPartyStock($partyid: ID!) {
+    getPartyStock(partyid: $partyid) {
+      id productid variantid productname variantname productcode unitname qty
     }
   }
 `;

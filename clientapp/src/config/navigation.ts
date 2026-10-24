@@ -4,7 +4,7 @@ import {
   SalesReturns, SalesReturnCreate,
   // Party
   PartyHome, Catalog, MyOrders, Ledger, LedgerDetail, Payments, PaymentDetail, PartyProfile,
-  ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry,
+  ProductDetail, OrderDetail, OrderEdit, CartScreen, AddLedgerEntry, SubParties, PartyStock, SubPartyDetail,
   // Salesman
   SalesmanDashboard, SalesmanRoutes, SalesmanOrders, SalesmanAttendance, SalesmanProfile,
   RoutePartyVisit, SalesmanCatalog, SalesmanCart, CollectPayment, AddPartyToRoute, ManagePartyRoute, SalesmanCreateParty, SalesmanParties, SalesmanLeaderboard,
@@ -48,6 +48,9 @@ export const Screens: any = {
   OrderEdit,
   CartScreen,
   AddLedgerEntry,
+  SubParties,
+  PartyStock,
+  SubPartyDetail,
   // Salesman
   SalesmanDashboard,
   SalesmanRoutes,
@@ -152,6 +155,13 @@ export const NavConfig: any = {
       { name: 'OrderEdit',     options: { headerShown: false } },
       { name: 'PartyLedgerView',   options: { headerShown: false } },
       { name: 'PartyPaymentsView', options: { headerShown: false } },
+      { name: 'SubParties',        options: { headerShown: false } },
+      { name: 'PartyStock',        options: { headerShown: false } },
+      { name: 'SubPartyDetail',    options: { headerShown: false } },
+      // My Parties → Add party / New order for a sub-party (shared with staff).
+      { name: 'StaffCreateParty',  options: { headerShown: false } },
+      { name: 'StaffCatalog',      options: { headerShown: false } },
+      { name: 'StaffCart',         options: { headerShown: false } },
       { name: 'LedgerDetail',  options: { headerShown: false } },
       { name: 'PaymentDetail', options: { headerShown: false } },
       { name: 'CollectPayment', options: { headerShown: false } },

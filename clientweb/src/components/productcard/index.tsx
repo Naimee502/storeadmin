@@ -25,7 +25,7 @@ export default function ProductCard({
   product: SampleProduct;
   imageRatio?: string;
 }) {
-  const { lines, addToCart, updateQty, removeFromCart, remainingFor } = useCart();
+  const { lines, addToCart, updateQty, removeFromCart, remainingFor, partyStock, orderFor } = useCart();
   const { displayProductPrice, displayStock, homeProductImageRatio } = useTenant();
   // Card prices follow the admin's "Show Double Price" display markup; the
   // Add-to-cart handlers below pass the untouched product through to the cart,
@@ -54,8 +54,14 @@ export default function ProductCard({
   // proportioned uploads still lines up (the photo itself stays object-cover).
   const imageBoxStyle = ratio ? { aspectRatio: ratio.replace(":", " / ") } : undefined;
 
-  const outOfStock = typeof product.stock === "number" && product.stock <= 0;
-  const lowStock = typeof product.stock === "number" && product.stock > 0 && product.stock <= 5;
+  // Ordering for a sub-party with party stock on: MY stock is what I sell
+  // from, so it decides "Out" and both party stocks replace the company figure.
+  const psKey = `${product.id}:${product.variantid ?? ""}`;
+  const myQty = partyStock ? partyStock.mine[psKey] ?? 0 : null;
+  const buyerQty = partyStock ? partyStock.buyer[psKey] ?? 0 : null;
+  const psUnit = partyStock?.units[psKey] ?? "";
+  const outOfStock = myQty !== null ? myQty <= 0 : typeof product.stock === "number" && product.stock <= 0;
+  const lowStock = myQty === null && typeof product.stock === "number" && product.stock > 0 && product.stock <= 5;
 
   // Cart line for whichever unit is currently selected — same lineId scheme
   // as CartProvider (`${productId}-${unit}`), so switching the unit chip
@@ -138,7 +144,12 @@ export default function ProductCard({
         )}
       </div>
 
-      {displayStock && (
+      {displayStock && myQty !== null ? (
+        <p className="mb-1.5 flex flex-wrap gap-x-3 text-[11px] font-semibold">
+          <span className={myQty > 0 ? "text-emerald-600" : "text-rose-600"}>You: {myQty.toLocaleString("en-IN")} {psUnit}</span>
+          <span className="text-slate-500">{orderFor?.name}: {(buyerQty ?? 0).toLocaleString("en-IN")} {psUnit}</span>
+        </p>
+      ) : displayStock && (
         outOfStock ? (
           <p className="mb-1.5 text-[11px] font-semibold text-rose-600">Out of stock</p>
         ) : lowStock ? (

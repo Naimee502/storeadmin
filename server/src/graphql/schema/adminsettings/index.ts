@@ -76,6 +76,8 @@ export const adminSettingsTypeDefs = gql`
     doubleDisplayPrice: Boolean!
     deliveryMode: String
     partyManagesDownline: Boolean
+    directPartyOrdersOnly: Boolean
+    trackPartyStock: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean
@@ -309,6 +311,8 @@ export const adminSettingsTypeDefs = gql`
     doubleDisplayPrice: Boolean
     deliveryMode: String
     partyManagesDownline: Boolean
+    directPartyOrdersOnly: Boolean
+    trackPartyStock: Boolean
     requirePartyApproval: Boolean
     enablePaymentDiscountCommission: Boolean
     showLastPaymentOnStatement: Boolean

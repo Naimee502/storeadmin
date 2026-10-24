@@ -432,7 +432,7 @@ export default function SalesmanRoutes() {
   // This salesman's own parties (same source as the My Parties screen) — used
   // to scope the route to only their parties.
   const { data: myPartiesData } = useQuery(GET_ACCOUNTS, {
-    variables: { admin: adminId, salesmanid: salesmanId },
+    variables: { admin: adminId, salesmanid: salesmanId, directOnly: true },
     skip: !adminId || !salesmanId,
     fetchPolicy: 'cache-and-network',
   });

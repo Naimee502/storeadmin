@@ -7,7 +7,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
-import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS } from '../../../../apollo/queries/accounts';
+import { GET_SALES_ORDER_BY_ID, GET_SALES_INVOICE_BY_ID, GET_ADMIN_SETTINGS, GET_PARTY_STOCK } from '../../../../apollo/queries/accounts';
 import {
   CONFIRM_SALES_ORDER, CONVERT_SALES_ORDER_TO_INVOICE,
   MARK_SALES_ORDER_DELIVERED, MARK_SALES_INVOICE_DELIVERED,
@@ -149,6 +149,22 @@ export default function OrderDetail() {
   // A channel party can manage the status of its DOWNLINE orders (sub-party
   // orders) when downline management is on — but never its own orders.
   const isDownlineOrder = !!order && order?.partyacc?.id && order.partyacc.id !== user?.id;
+  // Track party stock: a parent party looking at its sub-party's order sees
+  // how much of each item it holds — converting takes it out of its stock.
+  const trackStock = manageDownline && (settingsData as any)?.getAdminSettings?.trackPartyStock === true
+    && (settingsData as any)?.getAdminSettings?.displayStockOnWebsite !== false;
+  const showMyStock = role === 'party' && trackStock && !!isDownlineOrder;
+  const { data: myStockData } = useQuery(GET_PARTY_STOCK, {
+    variables: { partyid: user?.id },
+    skip: !showMyStock || !user?.id,
+    fetchPolicy: 'cache-and-network',
+  });
+  const myStockFor = (item: any) => {
+    const rows = ((myStockData as any)?.getPartyStock ?? []) as any[];
+    const pid = item.productserviceid?.id; const vid = item.variantid?.id ?? null;
+    const row = rows.find((r) => r.productid === pid && (r.variantid ?? null) === vid);
+    return { qty: Number(row?.qty) || 0, unit: row?.unitname || '' };
+  };
   const canAct = !!order && (
     role === 'deliveryboy' ? true :
     role === 'salesman'    ? true :
@@ -415,6 +431,14 @@ export default function OrderDetail() {
                     {item.qty} × {formatINR(item.rate)}
                     {Number(item.discount) > 0 ? ` (−${formatINR(item.discount)})` : ''}
                   </Text>
+                  {showMyStock && (() => {
+                    const st = myStockFor(item);
+                    return (
+                      <Text style={[styles.itemVariant, { color: st.qty > 0 ? '#16a34a' : '#ef4444' }]}>
+                        Your stock: {st.qty.toLocaleString('en-IN')} {st.unit}
+                      </Text>
+                    );
+                  })()}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>

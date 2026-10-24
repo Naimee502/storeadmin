@@ -10,6 +10,7 @@ import { AccountLedger } from "../accountledgers";
 import { Account } from "../accounts";
 import { StaffAccount } from "../staffaccounts";
 import { AdminSettings } from "../adminsettings";
+import { partyStockEnabled, sellerPartyOf, applyInvoiceToPartyStock } from "../../utils/partystock";
 
 const salesInvoiceSchema = new mongoose.Schema(
   {
@@ -111,6 +112,14 @@ const salesInvoiceSchema = new mongoose.Schema(
     // series is itself a question an auditor asks), while its stock, journal and
     // counter receipt are all reversed. Cancelling is refused once anything else
     // has been built on the bill -- a return, or a payment collected against it.
+    // Party stock (Business Settings → "Track party stock"): whether this bill
+    // moved party stock, and which parent party sold the goods (null = the
+    // company, whose side is ProductBranchStock). Remembered on the bill so an
+    // edit / cancel reverses exactly what was applied, even if the party is
+    // later moved under someone else.
+    partystockapplied: { type: Boolean, default: false },
+    partystockseller: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null },
+
     cancelStatus: { type: String, enum: ["open", "cancelled"], default: "open" },
     cancelReason: { type: String },
     cancelledAt: { type: Date },
@@ -444,11 +453,22 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
   const partyState = customer?.state || "gujarat";
   const isIgst = companyState.toLowerCase() !== partyState.toLowerCase() && partyState !== "default";
   
+  // ========================= PARTY STOCK (party under party) =================
+  // With "Track party stock" on, a bill to a SUB-party is the parent party
+  // selling from its own stock: the company's branch stock must not move.
+  const partyStockOn = wantsStock && !newInv.isservice && (await partyStockEnabled(newInv.adminid));
+  const newSeller = partyStockOn ? await sellerPartyOf(newInv.partyacc) : null;
+  const oldPartyApplied = !!oldInv?.partystockapplied;
+  const oldSeller = oldInv?.partystockseller ? String(oldInv.partystockseller) : null;
+  // Branch stock is the company's: skip it for the side a parent party sold.
+  const oldTouchedBranch = !(oldPartyApplied && oldSeller);
+  const newTouchesBranch = !(partyStockOn && newSeller);
+
   // ========================= STOCK ADJUSTMENT =========================
   if (wantsStock && !newInv.isservice) {
     // Restore old stock if invoice updated. Skipped when the previous state was
     // already cancelled — that stock came back at cancel time.
-    if (oldInv && !wasCancelled) {
+    if (oldInv && !wasCancelled && oldTouchedBranch) {
       for (const item of oldInv.productservice) {
         const product = await ProductService.findById(item.productserviceid);
         if (!product) {
@@ -477,7 +497,7 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
     }
 
     // Deduct new stock. A cancelled bill sells nothing, so it takes nothing out.
-    for (const item of isCancelled ? [] : newInv.productservice) {
+    for (const item of isCancelled || !newTouchesBranch ? [] : newInv.productservice) {
       const product = await ProductService.findById(item.productserviceid);
       if (!product) {
         console.log("New product not found:", item.productserviceid);
@@ -510,6 +530,26 @@ salesInvoiceSchema.statics.adjustStockAndTransactions = async function (oldInv: 
         { upsert: true }
       );
     }
+  }
+
+  // Party stock: reverse what the old version applied, then apply the new one.
+  if (oldInv && !wasCancelled && oldPartyApplied) {
+    await applyInvoiceToPartyStock({
+      adminid: oldInv.adminid, buyerId: oldInv.partyacc, sellerId: oldSeller,
+      productservice: oldInv.productservice || [], sign: -1,
+    });
+  }
+  if (partyStockOn && !isCancelled) {
+    await applyInvoiceToPartyStock({
+      adminid: newInv.adminid, buyerId: newInv.partyacc, sellerId: newSeller,
+      productservice: newInv.productservice || [], sign: 1,
+    });
+  }
+  if (partyStockOn || oldPartyApplied) {
+    await this.updateOne(
+      { _id: newInv._id },
+      { $set: { partystockapplied: !!partyStockOn, partystockseller: partyStockOn ? newSeller : null } }
+    );
   }
 
   // A cancelled bill must leave nothing behind in the books: no journal, so it

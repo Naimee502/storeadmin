@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, StatusBar, Alert,
   Modal, KeyboardAvoidingView, Platform, ScrollView, TextInput, Switch,
@@ -13,7 +13,7 @@ import { launchCamera } from 'react-native-image-picker';
 import { AppHeader, DynamicFlashList, AppImage } from '../../../components';
 import { formatDate } from '../../../utils';
 import { uploadImage } from '../../../utils/uploadimage';
-import { getCurrentLatLng, getRecentFix, localYMD, type LatLng } from '../../../utils/geo';
+import { getCurrentLatLng, localYMD } from '../../../utils/geo';
 import { useAttendanceSelfieRequired } from '../../../apollo/hooks/adminsettings';
 import {
   useAttendanceSummaryQuery, useAttendanceLogsQuery, useOpenPunchQuery,
@@ -149,65 +149,38 @@ export default function AttendanceScreen() {
     setHalfDay(false); setHalfSession('first'); setReason('');
   };
 
-  /**
-   * Location for the punch. A fix is warmed up when the screen opens, so by the
-   * time the button is pressed (or the selfie is taken) it is usually ready and
-   * the punch never sits waiting on GPS. Capped so a weak signal can't stall it.
-   */
-  const locRef = useRef<Promise<LatLng | null> | null>(null);
-  const warmLocation = useCallback(() => {
-    locRef.current = getCurrentLatLng({ timeoutMs: 6000 }).catch(() => null);
-    return locRef.current;
-  }, []);
-  const getPunchLocation = (): Promise<LatLng | null> => {
-    const recent = getRecentFix();
-    if (recent) return Promise.resolve(recent);
-    const p = locRef.current ?? warmLocation();
-    const cap = new Promise<LatLng | null>((r) => setTimeout(() => r(getRecentFix()), 4000));
-    return Promise.race([p, cap]);
-  };
-
-  useFocusEffect(useCallback(() => { warmLocation(); }, [warmLocation]));
-
-  /** Send the punch with the location (best-effort) and an optional selfie. */
-  const sendPunch = async (type: 'in' | 'out', selfieUrl?: string, locP?: Promise<LatLng | null>) => {
+  /** Send the punch with the current location (best-effort) and an optional selfie. */
+  const sendPunch = (type: 'in' | 'out', selfieUrl?: string) => {
     if (!user?.id) return;
     setPunching(true);
-    try {
-      const here = await (locP ?? getPunchLocation());
-      await punchMutation({
+    const doPunch = (latitude: number | null, longitude: number | null) => {
+      punchMutation({
         variables: { input: {
           staffid: user.id, type,
-          timestamp: new Date().toISOString(),
-          latitude: here?.lat ?? null, longitude: here?.lng ?? null, source: 'mobile',
+          timestamp: new Date().toISOString(), latitude, longitude, source: 'mobile',
           ...(selfieUrl ? { selfieUrl } : {}),
         } },
-      });
-      // Wait only for the open-punch state so the button flips straight to the
-      // new state; logs / summary refresh in the background.
-      await Promise.resolve(refetchOpen?.()).catch(() => {});
-      refetchLogs?.(); refetchSummary?.();
-      warmLocation();
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Punch failed.');
-    } finally {
-      setPunching(false);
-    }
+      })
+        .then(() => { refetchOpen?.(); refetchLogs?.(); refetchSummary?.(); })
+        .catch((e: any) => Alert.alert('Error', e?.message || 'Punch failed.'))
+        .finally(() => setPunching(false));
+    };
+    // GPS → network location → recent fix; punch goes through even without one.
+    getCurrentLatLng({ timeoutMs: 8000 })
+      .then((here) => doPunch(here?.lat ?? null, here?.lng ?? null))
+      .catch(() => doPunch(null, null));
   };
 
   /**
    * Punch In with a selfie (Business Settings → "Selfie on Punch In"):
    * front camera opens straight away — taking the photo is the confirmation.
    * Camera only, never the gallery, so an old photo can't be reused.
-   * The photo is kept small (≈640px, JPEG 0.5 → ~40-80 KB) and the location is
-   * fetched while the camera is open, so saving is just one quick upload.
    */
   const punchInWithSelfie = async () => {
-    const locP = getPunchLocation();
     try {
       const res: any = await launchCamera({
-        mediaType: 'photo', cameraType: 'front', quality: 0.5,
-        maxWidth: 640, maxHeight: 640, saveToPhotos: false, includeBase64: false,
+        mediaType: 'photo', cameraType: 'front', quality: 0.6,
+        maxWidth: 800, maxHeight: 800, saveToPhotos: false,
       } as any);
       if (res?.didCancel) return;
       const asset = res?.assets?.[0];
@@ -224,7 +197,7 @@ export default function AttendanceScreen() {
         Alert.alert('Upload failed', e?.message || 'Could not upload the selfie. Please try again.');
         return;
       }
-      await sendPunch('in', url, locP);
+      sendPunch('in', url);
     } catch (e: any) {
       setPunching(false);
       Alert.alert('Camera', e?.message || 'Could not open the camera.');

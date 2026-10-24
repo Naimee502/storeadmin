@@ -564,7 +564,7 @@ const StaffAccounts = () => {
           {...actions}
           // Inline form replaces the Add button here.
           showAdd={false}
-          showView={false}
+          onView={(row: any) => navigate(`/staffaccounts/view/${row.id}`)}
           onEdit={handleEdit}
           onDelete={async (row: any) => {
             if (window.confirm(`Are you sure you want to delete staff "${row.name}"?`)) {

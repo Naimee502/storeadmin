@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useDispatch, useSelector } from 'react-redux';
-import { GET_ADMIN_SETTINGS } from '../../queries/accounts';
+import { GET_ADMIN_SETTINGS, GET_PARTY_STOCK } from '../../queries/accounts';
 import { setBranding } from '../../../store/slices';
 import type { RootState } from '../../../store/rootreducer';
 import { formatINR } from '../../../utils/formatters';
@@ -288,4 +288,46 @@ export function useSalesmanOrderDiscount(): boolean {
     fetchPolicy: 'cache-and-network',
   });
   return (data as any)?.getAdminSettings?.salesmanOrderDiscountEnabled === true;
+}
+
+
+/**
+ * Party stock is SHOWN only when the business has "Party manages downline",
+ * "Track party stock" AND "Show stock on App / Website" all on. (The stock
+ * itself is kept whenever tracking is on; this only decides display.)
+ */
+export function usePartyStockVisible(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const st = (data as any)?.getAdminSettings;
+  return st?.partyManagesDownline === true && st?.trackPartyStock === true && st?.displayStockOnWebsite !== false;
+}
+
+/** Whether the business tracks party stock at all (display aside). */
+export function usePartyStockTracked(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const st = (data as any)?.getAdminSettings;
+  return st?.partyManagesDownline === true && st?.trackPartyStock === true;
+}
+
+/** A party's stock as a lookup: `${productid}:${variantid}` → { qty, unit }. */
+export function usePartyStockMap(partyId?: string | null, enabled = true) {
+  const { data } = useQuery(GET_PARTY_STOCK, {
+    variables: { partyid: partyId },
+    skip: !partyId || !enabled,
+    fetchPolicy: 'cache-and-network',
+  });
+  const rows = ((data as any)?.getPartyStock ?? []) as any[];
+  const map: Record<string, { qty: number; unit: string }> = {};
+  rows.forEach((r) => { map[`${r.productid}:${r.variantid ?? ''}`] = { qty: Number(r.qty) || 0, unit: r.unitname || '' }; });
+  return { map, loaded: !!data };
 }

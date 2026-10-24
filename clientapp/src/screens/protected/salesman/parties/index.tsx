@@ -116,7 +116,7 @@ export default function SalesmanParties() {
   };
 
   const { data, loading, refetch } = useQuery(GET_ACCOUNTS, {
-    variables: { admin: adminid, salesmanid: user?.id },
+    variables: { admin: adminid, salesmanid: user?.id, directOnly: true },
     skip: !adminid || !user?.id,
     fetchPolicy: 'cache-and-network',
   });

@@ -63,7 +63,7 @@ export default function SalesmanDashboard() {
     fetchPolicy: 'cache-and-network',
   });
   const { data: partyData, refetch: refetchParties } = useQuery(GET_ACCOUNTS, {
-    variables: { admin: adminid, salesmanid: user?.id },
+    variables: { admin: adminid, salesmanid: user?.id, directOnly: true },
     skip: !adminid || !user?.id,
     fetchPolicy: 'cache-and-network',
   });

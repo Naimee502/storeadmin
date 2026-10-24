@@ -14,6 +14,9 @@ import { sendOtpEmail } from "../../../utils/mail";
 import { enforceLoginOtp } from "../../../utils/loginotp";
 import { PendingRegistration } from "../../../models/pendingregistration";
 import { AdminSettings } from "../../../models/adminsettings";
+import { PartyStock } from "../../../models/partystock";
+import { ProductService } from "../../../models/products";
+import { Unit } from "../../../models/units";
 import { resolveTenant } from "../../../utils/tenant";
 import { ApolloError } from "apollo-server-express";
 import { getPartyTotalDue, getPartiesTotalDue } from "../../../utils/allocation";
@@ -314,16 +317,54 @@ const assertApproved = (account: any) => {
 export const accountResolvers = {
   Query: {
     // Downline (sub-party) outstanding summary for a parent party's Ledger tab.
+    // What a party holds, one row per product/variant (base unit). Rows that
+    // have gone back to zero are left out.
+    getPartyStock: async (_: any, { partyid }: { partyid: string }) => {
+      const rows: any[] = await PartyStock.find({ partyid, qty: { $ne: 0 } }).lean();
+      if (!rows.length) return [];
+      const products: any[] = await ProductService.find({ _id: { $in: rows.map((r) => r.productid) } })
+        .select("name productvariants").lean();
+      const pmap = new Map(products.map((p) => [String(p._id), p]));
+      const unitIds = new Set<string>();
+      products.forEach((p) => (p.productvariants || []).forEach((v: any) => v.baseunitid && unitIds.add(String(v.baseunitid))));
+      const units: any[] = unitIds.size ? await Unit.find({ _id: { $in: [...unitIds] } }).select("unitname").lean() : [];
+      const umap = new Map(units.map((u) => [String(u._id), u.unitname]));
+      return rows
+        .map((r) => {
+          const p = pmap.get(String(r.productid));
+          const v = (p?.productvariants || []).find((x: any) => String(x._id) === String(r.variantid || ""))
+            || (p?.productvariants || [])[0];
+          return {
+            id: String(r._id),
+            productid: String(r.productid),
+            variantid: r.variantid ? String(r.variantid) : null,
+            productname: p?.name || "—",
+            variantname: v?.name || null,
+            productcode: v?.productcode || v?.sku || null,
+            unitname: v?.baseunitid ? umap.get(String(v.baseunitid)) || null : null,
+            qty: Number(r.qty) || 0,
+          };
+        })
+        .sort((a, b) => String(a.productname).localeCompare(String(b.productname)));
+    },
     getDownlinePartyBalances: async (_: any, { partyid }: { partyid: string }) => {
       const ids = await collectDownline(partyid);
       if (!ids.length) return [];
-      const parties = await Account.find({ _id: { $in: ids } }).select("name mobile ledgerid").lean();
+      const parties = await Account.find({ _id: { $in: ids } })
+        .select("name mobile city ledgerid channel assignaccountid")
+        .populate("channel", "channelName")
+        .populate("assignaccountid", "name")
+        .lean();
       const result: any[] = [];
       for (const p of parties as any[]) {
         result.push({
           id: p._id.toString(),
           name: p.name,
           mobile: p.mobile || null,
+          city: p.city || null,
+          channelName: p.channel?.channelName || null,
+          parentId: p.assignaccountid?._id ? String(p.assignaccountid._id) : null,
+          parentName: p.assignaccountid?.name || null,
           // Bill-wise due (sum of unsettled sales bills) — same basis as the
           // salesman app & Account.outstanding, so "due" is consistent.
           outstanding: await partyBillOutstanding(p._id),
@@ -399,6 +440,13 @@ export const accountResolvers = {
       if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
       if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
       if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
+      if (filter?.directOnly && filter?.admin && !filter?.assignaccountid) {
+        const st: any = await AdminSettings.findOne({ adminid: filter.admin })
+          .select("partyManagesDownline directPartyOrdersOnly").lean();
+        if (st?.partyManagesDownline && st?.directPartyOrdersOnly) {
+          query.assignaccountid = { $in: [null, undefined] };
+        }
+      }
       // Salesman scoping: parties the salesman created (salesmanid on the
       // account) + parties assigned to them via Sales Routes. Admin-created
       // parties stay hidden until they're assigned to one of their routes.

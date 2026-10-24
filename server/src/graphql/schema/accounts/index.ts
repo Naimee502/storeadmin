@@ -121,6 +121,10 @@ export const accountTypeDefs = gql`
 
   input AccountFilterInput {
     admin: ID
+    # Company-side lists (staff / salesman app, Staff View): when the business
+    # has "Company sees direct-party orders only" on, return only parties with
+    # no parent party. Ignored when that setting is off.
+    directOnly: Boolean
     branchid: ID
     type: String
     channel: ID
@@ -169,9 +173,25 @@ export const accountTypeDefs = gql`
     mobile: String
     city: String
     outstanding: Float
+    channelName: String
+    parentId: ID
+    parentName: String
+  }
+
+  # Stock a party holds (Business Settings → "Track party stock"), base units.
+  type PartyStockRow {
+    id: ID!
+    productid: ID!
+    variantid: ID
+    productname: String
+    variantname: String
+    productcode: String
+    unitname: String
+    qty: Float
   }
 
   type Query {
+    getPartyStock(partyid: ID!): [PartyStockRow!]!
     getAccounts(filter: AccountFilterInput): [Account!]!
     getAccountById(id: ID!, adminId: ID): Account
     getDownlinePartyBalances(partyid: ID!): [PartyBalance!]!
