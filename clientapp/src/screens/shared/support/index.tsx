@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, Pressable, ScrollView,
   StatusBar, Linking,
 } from 'react-native';
 import { useQuery } from '@apollo/client/react';
@@ -62,10 +62,9 @@ function buildContact(settings: any) {
 function FaqItem({ item, colors }: { item: typeof FAQS[0]; colors: any }) {
   const [open, setOpen] = useState(false);
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.faqCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
       onPress={() => setOpen(v => !v)}
-      activeOpacity={0.82}
     >
       <View style={styles.faqRow}>
         <Text style={[styles.faqQ, { color: colors.text, flex: 1 }]}>{item.q}</Text>
@@ -79,7 +78,7 @@ function FaqItem({ item, colors }: { item: typeof FAQS[0]; colors: any }) {
       {open && (
         <Text style={[styles.faqA, { color: colors.subText }]}>{item.a}</Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -108,11 +107,10 @@ export default function Support() {
         <Animated.View entering={FadeInUp.duration(400).delay(60)}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Us</Text>
           {CONTACT.map((c) => (
-            <TouchableOpacity
+            <Pressable
               key={c.label}
               style={[styles.contactCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
               onPress={c.action}
-              activeOpacity={0.82}
             >
               <View style={[styles.contactIcon, { backgroundColor: colors.brandSoft }]}>
                 <Icon name={c.icon} size={20} color={colors.brand} />
@@ -122,7 +120,7 @@ export default function Support() {
                 <Text style={[styles.contactValue, { color: colors.text }]}>{c.value}</Text>
               </View>
               <Icon name="chevron-right" size={18} color={colors.subText} />
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </Animated.View>
 

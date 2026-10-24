@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@apollo/client/react';
@@ -92,9 +92,9 @@ export const TradeOverview: React.FC = React.memo(function TradeOverview() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{STRINGS.party.recentOrders}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyOrders')}>
+          <Pressable onPress={() => navigation.navigate('MyOrders')}>
             <Text style={[styles.viewAll, { color: colors.brand }]}>{STRINGS.party.viewAll}</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {recent.length === 0 ? (
@@ -115,11 +115,10 @@ export const TradeOverview: React.FC = React.memo(function TradeOverview() {
             const label = orderStatus(order);
             const colour = STATUS_COLOR[label] ?? colors.brand;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={order.id}
                 style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-                activeOpacity={0.8}
               >
                 <View style={[styles.statusDot, { backgroundColor: colour }]} />
                 <View style={{ flex: 1 }}>
@@ -133,7 +132,7 @@ export const TradeOverview: React.FC = React.memo(function TradeOverview() {
                   </View>
                 </View>
                 <Icon name="chevron-right" size={16} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             );
           })
         )}

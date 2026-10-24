@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Dimensions, TouchableOpacity, SafeAreaView, StatusBar, DimensionValue,
+  View, Text, StyleSheet, FlatList, Dimensions, Pressable, SafeAreaView, StatusBar, DimensionValue,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
@@ -255,7 +255,7 @@ const Introduction = () => {
             ) : null}
           </View>
           {currentIndex < steps.length - 1 && (
-            <TouchableOpacity
+            <Pressable
               onPress={async () => {
                 try {
                   await finishIntro();
@@ -263,11 +263,10 @@ const Introduction = () => {
                   console.error('Error finishing intro:', error);
                 }
               }}
-              activeOpacity={0.7}
               style={[styles.skipButton, { borderColor: colors.border, backgroundColor: colors.raisedSurface }]}
             >
               <Text style={[styles.skipText, { color: colors.subText }]}>{STRINGS.onboarding.skip}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
 
@@ -289,25 +288,23 @@ const Introduction = () => {
           <Pagination currentIndex={currentIndex} totalSteps={steps.length} colors={colors} />
           <View style={styles.buttonRow}>
             {currentIndex > 0 ? (
-              <TouchableOpacity
+              <Pressable
                 onPress={handlePrevious}
-                activeOpacity={0.7}
                 style={[styles.backButton, { backgroundColor: colors.raisedSurface }]}
               >
                 <Text style={[styles.backButtonText, { color: colors.text }]}>{STRINGS.onboarding.previous}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ) : (
               <View style={{ width: 100 }} />
             )}
-            <TouchableOpacity
+            <Pressable
               onPress={handleNext}
-              activeOpacity={0.8}
               style={[styles.nextButton, { backgroundColor: colors.brand, shadowColor: colors.brand }]}
             >
               <Text style={[styles.nextButtonText, { color: colors.onBrand }]}>
                 {currentIndex === steps.length - 1 ? STRINGS.onboarding.done : STRINGS.onboarding.next}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>

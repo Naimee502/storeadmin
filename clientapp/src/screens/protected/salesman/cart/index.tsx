@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSalesmanOrderDiscount } from '../../../../apollo/hooks/adminsettings';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Alert, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, StackActions } from '@react-navigation/native';
@@ -223,19 +223,19 @@ export default function SalesmanCart() {
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
               onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}
             >
               <Icon name={item.qty <= 1 ? 'trash-can-outline' : 'minus'} size={12} color={item.qty <= 1 ? '#ef4444' : colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
-            <TouchableOpacity
+            <Pressable
               style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
               onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}
             >
               <Icon name="plus" size={12} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
         </View>
@@ -264,7 +264,7 @@ export default function SalesmanCart() {
         </View>
         {discountAllowed && (
           extraAmt > 0 ? (
-            <TouchableOpacity style={styles.summaryRow} onPress={openDiscount} activeOpacity={0.7}>
+            <Pressable style={styles.summaryRow} onPress={openDiscount}>
               <View style={styles.extraLabelWrap}>
                 <Text style={[styles.summaryLabel, { color: colors.subText }]}>
                   Extra discount{extraType === 'percent' ? ` (${extraValue}%)` : ''}
@@ -272,16 +272,15 @@ export default function SalesmanCart() {
                 <Icon name="pencil-outline" size={13} color={colors.brand} />
               </View>
               <Text style={[styles.summaryValue, { color: '#16a34a' }]}>-{formatINR(extraAmt)}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : (
-            <TouchableOpacity
+            <Pressable
               style={[styles.addDiscBtn, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
               onPress={openDiscount}
-              activeOpacity={0.8}
             >
               <Icon name="tag-plus-outline" size={15} color={colors.brand} />
               <Text style={[styles.addDiscText, { color: colors.brand }]}>Add extra discount</Text>
-            </TouchableOpacity>
+            </Pressable>
           )
         )}
         {charges.lines.map((c) => (
@@ -296,17 +295,16 @@ export default function SalesmanCart() {
         </View>
       </View>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }]}
         onPress={handlePlaceOrder}
         disabled={placing}
-        activeOpacity={0.88}
       >
         {placing
           ? <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Placing Order…</Text>
           : <><Icon name="check-circle-outline" size={18} color={colors.onBrand} /><Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Place Order · {formatINR(grandTotal)}</Text></>
         }
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -324,9 +322,9 @@ export default function SalesmanCart() {
           <Text style={[styles.partyBannerText, { color: colors.brand }]}>
             Order for <Text style={{ fontFamily: FONTS.bold }}>{partyName}</Text>
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SalesmanCatalog', { partyId, partyName })} style={{ marginLeft: 'auto' }}>
+          <Pressable onPress={() => navigation.navigate('SalesmanCatalog', { partyId, partyName })} style={{ marginLeft: 'auto' }}>
             <Text style={[styles.addMoreText, { color: colors.brand }]}>+ Add more</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
 
@@ -334,12 +332,12 @@ export default function SalesmanCart() {
         <View style={styles.emptyWrap}>
           <Icon name="cart-off" size={52} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>Cart is empty</Text>
-          <TouchableOpacity
+          <Pressable
             style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]}
             onPress={() => navigation.goBack()}
           >
             <Text style={[styles.browseBtnText, { color: colors.brand }]}>Browse Products</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : (
         <DynamicFlashList
@@ -360,9 +358,9 @@ export default function SalesmanCart() {
               <View style={[styles.grabber, { backgroundColor: colors.border }]} />
               <View style={styles.sheetHead}>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>Extra discount</Text>
-                <TouchableOpacity onPress={() => setDiscOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Pressable onPress={() => setDiscOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Icon name="close" size={20} color={colors.subText} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <Text style={[styles.sheetSub, { color: colors.subText }]}>
                 On order value {formatINR(taxable)} (after item discounts, before GST)
@@ -373,7 +371,7 @@ export default function SalesmanCart() {
                 {(['amount', 'percent'] as const).map((t) => {
                   const on = draftType === t;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={t}
                       style={[styles.segBtn, on && { backgroundColor: colors.brand }]}
                       onPress={() => setDraftType(t)}
@@ -381,7 +379,7 @@ export default function SalesmanCart() {
                       <Text style={[styles.segText, { color: on ? colors.onBrand : colors.text }]}>
                         {t === 'amount' ? '₹ Amount' : '% Percent'}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -403,13 +401,13 @@ export default function SalesmanCart() {
               {/* Quick picks */}
               <View style={styles.quickRow}>
                 {(draftType === 'percent' ? [2, 5, 10, 15] : [50, 100, 200, 500]).map((q) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={q}
                     style={[styles.quickChip, { borderColor: colors.border, backgroundColor: colors.softSurface }]}
                     onPress={() => setDraftText(String(q))}
                   >
                     <Text style={[styles.quickText, { color: colors.text }]}>{draftType === 'percent' ? `${q}%` : `₹${q}`}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
 
@@ -428,17 +426,17 @@ export default function SalesmanCart() {
 
               <View style={styles.sheetBtns}>
                 {extraValue > 0 && (
-                  <TouchableOpacity style={[styles.sheetBtn, { borderWidth: 1, borderColor: '#ef4444' }]} onPress={removeDiscount}>
+                  <Pressable style={[styles.sheetBtn, { borderWidth: 1, borderColor: '#ef4444' }]} onPress={removeDiscount}>
                     <Text style={[styles.sheetBtnText, { color: '#ef4444' }]}>Remove</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
-                <TouchableOpacity
+                <Pressable
                   style={[styles.sheetBtn, { backgroundColor: colors.brand, opacity: draftError ? 0.5 : 1 }]}
                   onPress={applyDiscount}
                   disabled={!!draftError}
                 >
                   <Text style={[styles.sheetBtnText, { color: colors.onBrand }]}>Apply</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </Pressable>
           </Pressable>

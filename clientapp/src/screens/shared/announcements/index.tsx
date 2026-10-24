@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Modal, Image, Linking,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, Modal, Image, Linking,
   KeyboardAvoidingView, Platform, ScrollView, TextInput, ActivityIndicator, Switch,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -134,8 +134,7 @@ export default function AnnouncementsScreen() {
   const renderItem = ({ item: a }: any) => {
     const unread = tab === 'inbox' && !a.read;
     return (
-      <TouchableOpacity
-        activeOpacity={0.8}
+      <Pressable
         onPress={() => openItem(a)}
         style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: unread ? colors.brand : colors.border }]}
       >
@@ -156,7 +155,7 @@ export default function AnnouncementsScreen() {
             </Text>
             {/* Picture stays out of the list (keeps rows small); tap to view it. */}
             {!!a.imageurl && (
-              <TouchableOpacity
+              <Pressable
                 style={styles.attach}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 onPress={() => {
@@ -166,11 +165,11 @@ export default function AnnouncementsScreen() {
               >
                 <Icon name="paperclip" size={13} color={colors.subText} />
                 <Icon name="image-outline" size={14} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -183,9 +182,9 @@ export default function AnnouncementsScreen() {
       {canSend && (
         <View style={[styles.tabs, { backgroundColor: colors.raisedSurface }]}>
           {(['inbox', 'sent'] as const).map(t => (
-            <TouchableOpacity key={t} style={[styles.tab, tab === t && { backgroundColor: colors.brand }]} onPress={() => setTab(t)}>
+            <Pressable key={t} style={[styles.tab, tab === t && { backgroundColor: colors.brand }]} onPress={() => setTab(t)}>
               <Text style={[styles.tabText, { color: tab === t ? colors.onBrand : colors.subText }]}>{t === 'inbox' ? 'Inbox' : 'Sent'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       )}
@@ -204,10 +203,10 @@ export default function AnnouncementsScreen() {
       />
 
       {canSend && (
-        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.brand }]} onPress={() => { resetComposer(); setComposing(true); }}>
+        <Pressable style={[styles.fab, { backgroundColor: colors.brand }]} onPress={() => { resetComposer(); setComposing(true); }}>
           <Icon name="bullhorn" size={20} color={colors.onBrand} />
           <Text style={[styles.fabText, { color: colors.onBrand }]}>New</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Detail */}
@@ -221,17 +220,17 @@ export default function AnnouncementsScreen() {
                 {open?.sendername || SENDER[open?.sendertype] || ''} · {fmt(open?.startAt)}
               </Text>
               {!!open?.imageurl && (
-                <TouchableOpacity onPress={() => setPicture(open.imageurl)} style={[styles.linkRow, { marginTop: 0, marginBottom: 10 }]}>
+                <Pressable onPress={() => setPicture(open.imageurl)} style={[styles.linkRow, { marginTop: 0, marginBottom: 10 }]}>
                   <Icon name="paperclip" size={15} color={colors.brand} />
                   <Text style={[styles.link, { color: colors.brand }]}>View picture</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
               {!!open?.message && <Text style={[styles.detailMsg, { color: colors.text }]}>{open.message}</Text>}
               {!!open?.link && (
-                <TouchableOpacity onPress={() => Linking.openURL(open.link).catch(() => {})} style={styles.linkRow}>
+                <Pressable onPress={() => Linking.openURL(open.link).catch(() => {})} style={styles.linkRow}>
                   <Icon name="open-in-new" size={15} color={colors.brand} />
                   <Text style={[styles.link, { color: colors.brand }]} numberOfLines={1}>{open.link}</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
               {tab === 'sent' && (
                 <Text style={[styles.meta, { color: colors.subText, marginTop: 12 }]}>
@@ -241,13 +240,13 @@ export default function AnnouncementsScreen() {
             </ScrollView>
             <View style={styles.detailBtns}>
               {tab === 'sent' && (
-                <TouchableOpacity onPress={() => onDelete(open)} style={[styles.btn, { borderColor: '#ef444466' }]}>
+                <Pressable onPress={() => onDelete(open)} style={[styles.btn, { borderColor: '#ef444466' }]}>
                   <Text style={{ color: '#ef4444', fontFamily: FONTS.semiBold }}>Delete</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
-              <TouchableOpacity onPress={() => setOpen(null)} style={[styles.btn, { backgroundColor: colors.brand, borderColor: colors.brand }]}>
+              <Pressable onPress={() => setOpen(null)} style={[styles.btn, { backgroundColor: colors.brand, borderColor: colors.brand }]}>
                 <Text style={{ color: colors.onBrand, fontFamily: FONTS.semiBold }}>Close</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -255,21 +254,21 @@ export default function AnnouncementsScreen() {
 
       {/* Picture viewer */}
       <Modal visible={!!picture} transparent animationType="fade" onRequestClose={() => setPicture(null)}>
-        <TouchableOpacity style={styles.pictureWrap} activeOpacity={1} onPress={() => setPicture(null)}>
+        <Pressable style={styles.pictureWrap} onPress={() => setPicture(null)}>
           {!!picture && <Image source={{ uri: resolveMediaUrl(picture) }} style={styles.pictureImg} resizeMode="contain" />}
           <View style={styles.pictureClose}><Icon name="close" size={20} color="#fff" /></View>
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
 
       {/* Composer */}
       <Modal visible={composing} animationType="slide" transparent onRequestClose={() => setComposing(false)}>
         <View style={styles.overlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setComposing(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setComposing(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
             <View style={[styles.sheet, { backgroundColor: colors.background }]}>
               <View style={styles.sheetHeader}>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>New Announcement</Text>
-                <TouchableOpacity onPress={() => setComposing(false)}><Icon name="close" size={20} color={colors.subText} /></TouchableOpacity>
+                <Pressable onPress={() => setComposing(false)}><Icon name="close" size={20} color={colors.subText} /></Pressable>
               </View>
               <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}>
                 <Text style={[styles.label, { color: colors.text }]}>Title</Text>
@@ -283,19 +282,19 @@ export default function AnnouncementsScreen() {
                 {imageurl ? (
                   <View style={styles.composeImgWrap}>
                     <Image source={{ uri: resolveMediaUrl(imageurl, 800) }} style={styles.composeImg} resizeMode="cover" />
-                    <TouchableOpacity style={styles.composeImgRemove} onPress={() => setImageurl('')}>
+                    <Pressable style={styles.composeImgRemove} onPress={() => setImageurl('')}>
                       <Icon name="close" size={14} color="#fff" />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 ) : (
-                  <TouchableOpacity style={[styles.composeImgAdd, { borderColor: colors.border }]} onPress={pickImage} disabled={uploading}>
+                  <Pressable style={[styles.composeImgAdd, { borderColor: colors.border }]} onPress={pickImage} disabled={uploading}>
                     {uploading
                       ? <ActivityIndicator color={colors.brand} />
                       : <>
                           <Icon name="image-plus" size={24} color={colors.subText} />
                           <Text style={[styles.meta, { color: colors.subText }]}>Add offer banner / picture</Text>
                         </>}
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
 
                 <View style={[styles.switchRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -311,14 +310,14 @@ export default function AnnouncementsScreen() {
                     {filtered.slice(0, 200).map(p => {
                       const on = picked.includes(p.id);
                       return (
-                        <TouchableOpacity key={p.id} style={[styles.partyRow, { borderColor: colors.border }]}
+                        <Pressable key={p.id} style={[styles.partyRow, { borderColor: colors.border }]}
                           onPress={() => setPicked(x => (on ? x.filter(i => i !== p.id) : [...x, p.id]))}>
                           <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={20} color={on ? colors.brand : colors.subText} />
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.partyName, { color: colors.text }]}>{p.name}</Text>
                             {!!p.sub && <Text style={[styles.meta, { color: colors.subText }]}>{p.sub}</Text>}
                           </View>
-                        </TouchableOpacity>
+                        </Pressable>
                       );
                     })}
                   </>
@@ -326,10 +325,10 @@ export default function AnnouncementsScreen() {
 
               </ScrollView>
               <View style={{ paddingHorizontal: 20, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
-                <TouchableOpacity style={[styles.sendBtn, { backgroundColor: sending || uploading ? colors.border : colors.brand }]} onPress={send} disabled={sending || uploading}>
+                <Pressable style={[styles.sendBtn, { backgroundColor: sending || uploading ? colors.border : colors.brand }]} onPress={send} disabled={sending || uploading}>
                   <Icon name="send-outline" size={16} color={colors.onBrand} />
                   <Text style={[styles.sendText, { color: colors.onBrand }]}>{sending ? 'Sending…' : 'Send'}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </KeyboardAvoidingView>

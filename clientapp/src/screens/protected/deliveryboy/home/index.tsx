@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -162,17 +162,16 @@ export default function DeliveryDashboard() {
               ...(paymentsEnabled ? [{ icon: 'cash-multiple', label: 'Collections', screen: 'DeliveryCollections', color: '#22c55e' }] : []),
               { icon: 'calendar-check-outline', label: 'Attendance',  screen: 'DeliveryAttendance',  color: '#3b82f6' },
             ].map((a) => (
-              <TouchableOpacity
+              <Pressable
                 key={a.screen}
                 style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => goWithPunch(a.screen)}
-                activeOpacity={0.82}
               >
                 <View style={[styles.actionIcon, { backgroundColor: a.color + '18' }]}>
                   <Icon name={a.icon} size={22} color={a.color} />
                 </View>
                 <Text style={[styles.actionLabel, { color: colors.text }]}>{a.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </Animated.View>
@@ -181,9 +180,9 @@ export default function DeliveryDashboard() {
         <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Deliveries</Text>
-            <TouchableOpacity onPress={() => goWithPunch('DeliveryList')}>
+            <Pressable onPress={() => goWithPunch('DeliveryList')}>
               <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {todaysDeliveries.length === 0 && (
@@ -194,11 +193,10 @@ export default function DeliveryDashboard() {
           {todaysDeliveries.map((d: any) => {
             const meta   = STATUS_META[d.status] ?? STATUS_META.available;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={d.id}
                 style={[styles.deliveryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => goWithPunch('OrderDetail', { invoiceId: d.id })}
-                activeOpacity={0.85}
               >
                 <View style={[styles.deliveryIcon, { backgroundColor: meta.color + '18' }]}>
                   <Icon name="truck-delivery-outline" size={20} color={meta.color} />
@@ -218,7 +216,7 @@ export default function DeliveryDashboard() {
                   </View>
                 </View>
                 <Icon name="chevron-right" size={18} color={colors.subText} style={{ alignSelf: 'center', marginLeft: 2 }} />
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </Animated.View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -144,13 +144,13 @@ export default function StaffCart() {
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}>
+            <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty - 1 }))}>
               <Icon name={item.qty <= 1 ? 'trash-can-outline' : 'minus'} size={12} color={item.qty <= 1 ? '#ef4444' : colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.qtyText, { color: colors.brand }]}>{item.qty}</Text>
-            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}>
+            <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}>
               <Icon name="plus" size={12} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <Text style={[styles.itemAmount, { color: colors.text }]}>{formatINR(item.amount)}</Text>
         </View>
@@ -188,17 +188,16 @@ export default function StaffCart() {
         </View>
       </View>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }]}
         onPress={handlePlaceOrder}
         disabled={placing}
-        activeOpacity={0.88}
       >
         {placing
           ? <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Placing Order…</Text>
           : <><Icon name="check-circle-outline" size={18} color={colors.onBrand} /><Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Place Order · {formatINR(grandTotal)}</Text></>
         }
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -215,9 +214,9 @@ export default function StaffCart() {
           <Text style={[styles.partyBannerText, { color: colors.brand }]}>
             Order for <Text style={{ fontFamily: FONTS.bold }}>{partyName}</Text>
           </Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 'auto' }}>
+          <Pressable onPress={() => navigation.goBack()} style={{ marginLeft: 'auto' }}>
             <Text style={[styles.addMoreText, { color: colors.brand }]}>+ Add more</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
 
@@ -225,9 +224,9 @@ export default function StaffCart() {
         <View style={styles.emptyWrap}>
           <Icon name="cart-off" size={52} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>Cart is empty</Text>
-          <TouchableOpacity style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]} onPress={() => navigation.goBack()}>
+          <Pressable style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]} onPress={() => navigation.goBack()}>
             <Text style={[styles.browseBtnText, { color: colors.brand }]}>Browse Products</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : (
         <DynamicFlashList

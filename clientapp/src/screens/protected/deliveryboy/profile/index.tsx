@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -103,23 +103,22 @@ export default function DeliveryProfile() {
             style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
           >
             {MENU_ITEMS.map((item, i) => (
-              <TouchableOpacity
+              <Pressable
                 key={item.screen}
                 style={[styles.menuRow, i < MENU_ITEMS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
                 onPress={() => navigation.navigate(item.screen)}
-                activeOpacity={0.7}
               >
                 <View style={[styles.menuIcon, { backgroundColor: colors.brandSoft }]}>
                   <Icon name={item.icon} size={16} color={colors.brand} />
                 </View>
                 <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
                 <Icon name="chevron-right" size={16} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </Animated.View>
 
           <Animated.View entering={FadeInUp.duration(400).delay(220)}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.signOutRow, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
               onPress={() => setLogoutModal(true)}
             >
@@ -128,7 +127,7 @@ export default function DeliveryProfile() {
               </View>
               <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
               <Icon name="chevron-right" size={18} color={colors.error} style={{ opacity: 0.5 }} />
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
 
         </ScrollView>

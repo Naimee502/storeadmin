@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, UIManager, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
+  View, Text, ScrollView, Pressable, StyleSheet, Dimensions, UIManager, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Video from 'react-native-video';
@@ -169,9 +169,8 @@ export const BannerCarousel: React.FC<Props> = ({
           const ctaFg        = onDark ? '#111111' : colors.onBrand;
 
           return (
-            <TouchableOpacity
+            <Pressable
               key={i}
-              activeOpacity={onPress ? 0.9 : 1}
               disabled={!onPress}
               onPress={() => onPress?.(s, i)}
               style={i === slides.length - 1 ? undefined : { marginRight: SLIDE_GAP }}
@@ -248,7 +247,7 @@ export const BannerCarousel: React.FC<Props> = ({
                   )}
                 </View>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, Image, ScrollView } from 'react-native';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { FONTS, useTheme, resolveMediaUrl } from '../config';
 import { GET_MY_ANNOUNCEMENTS, MARK_ANNOUNCEMENT_READ } from '../apollo/queries/announcements';
@@ -45,9 +45,9 @@ export const AnnouncementPopup = () => {
             {!!shown.message && <Text style={[styles.msg, { color: colors.text }]}>{shown.message}</Text>}
             {!!shown.sendername && <Text style={[styles.from, { color: colors.subText }]}>— {shown.sendername}</Text>}
           </ScrollView>
-          <TouchableOpacity style={[styles.btn, { backgroundColor: colors.brand }]} onPress={close}>
+          <Pressable style={[styles.btn, { backgroundColor: colors.brand }]} onPress={close}>
             <Text style={[styles.btnText, { color: colors.onBrand }]}>Got it</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </Modal>

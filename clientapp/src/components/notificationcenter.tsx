@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, Pressable,
+  View, Text, StyleSheet, Modal, FlatList, Pressable,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery, useMutation } from '@apollo/client/react';
@@ -109,13 +109,13 @@ export const useNotificationCenter = () => {
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Notifications</Text>
             <View style={styles.headerRight}>
               {badge > 0 && (
-                <TouchableOpacity onPress={handleMarkAll}>
+                <Pressable onPress={handleMarkAll}>
                   <Text style={[styles.markAll, { color: colors.brand }]}>Mark all read</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
-              <TouchableOpacity onPress={() => setOpen(false)} style={styles.closeBtn}>
+              <Pressable onPress={() => setOpen(false)} style={styles.closeBtn}>
                 <Icon name="close" size={20} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
 
@@ -135,10 +135,9 @@ export const useNotificationCenter = () => {
               renderItem={({ item: n }) => {
                 const t = TYPE_ICON[n.ntype] || TYPE_ICON.system;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.row, { borderColor: colors.border }]}
                     onPress={() => handleTap(n)}
-                    activeOpacity={0.7}
                   >
                     <View style={[styles.rowIcon, { backgroundColor: t.color }]}>
                       <Icon name={t.name} size={20} color="#fff" />
@@ -157,7 +156,7 @@ export const useNotificationCenter = () => {
                       </Text>
                     </View>
                     <View style={[styles.unreadDot, { backgroundColor: colors.brand }]} />
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               }}
             />

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -7,9 +7,9 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
-import { AppHeader, DynamicFlashList } from '../../../../components';
+import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
+import { formatINR, formatDate, formatBillNumber, parseServerDate } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
 
 type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
@@ -58,6 +58,8 @@ export default function StaffOrders() {
   const user   = useSelector((s: RootState) => s.auth.user);
   const tenant = useSelector((s: RootState) => s.tenant);
   const [filter, setFilter] = useState<FilterKey>(route.params?.initialFilter ?? 'all');
+  const [range, setRange] = useState<DateRange>(ALL_TIME);
+  const dateActive = range.preset !== 'all';
 
   // Keep the filter in sync when arriving from a home stat card (this is a
   // bottom-tab screen, so it can already be mounted with a stale filter).
@@ -70,7 +72,12 @@ export default function StaffOrders() {
     skip: !tenant.adminId,
   });
   // Newest first — orders come back oldest-first from the server.
-  const allOrders = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
+  const everyOrder = useMemo(() => [...((data as any)?.getSalesOrders ?? [])].reverse(), [data]);
+  // Date range first; the status chips (and their counts) work inside it.
+  const allOrders = useMemo(
+    () => everyOrder.filter((o: any) => inRange(parseServerDate(o.billdate), range)),
+    [everyOrder, range],
+  );
 
   const filtered = useMemo(() => {
     if (filter === 'all') return allOrders;
@@ -90,10 +97,9 @@ export default function StaffOrders() {
     const status = displayStatus(order);
     const colour = STATUS_COLOR[status];
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-        activeOpacity={0.85}
       >
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
@@ -118,7 +124,7 @@ export default function StaffOrders() {
           </View>
         </View>
         <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8, alignSelf: 'center' }} />
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -134,7 +140,7 @@ export default function StaffOrders() {
           const active = filter === f.key;
           const count  = counts[f.key];
           return (
-            <TouchableOpacity
+            <Pressable
               key={f.key}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand,         borderColor: colors.brand }
@@ -148,18 +154,28 @@ export default function StaffOrders() {
                   <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>
 
+      {/* Summary card: date filter on top, what the list adds up to below. */}
+      <OrdersSummaryCard
+        caption={filter === 'all' ? 'All orders' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} orders`}
+        orders={filtered}
+        range={range}
+        onRangeChange={setRange}
+      />
+
       {loading ? <OrderListSkeleton /> : filtered.length === 0 ? (
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.subText }]}>No {filter} orders</Text>
-          <TouchableOpacity onPress={() => setFilter('all')}>
+          <Text style={[styles.emptyText, { color: colors.subText }]}>
+            No {filter === 'all' ? '' : `${filter} `}orders{dateActive ? ` for ${rangeLabel(range)}` : ''}
+          </Text>
+          <Pressable onPress={() => { setFilter('all'); setRange(ALL_TIME); }}>
             <Text style={[styles.clearFilter, { color: colors.brand }]}>Show all orders</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : (
         <DynamicFlashList
@@ -172,14 +188,13 @@ export default function StaffOrders() {
       )}
 
       {/* FAB — New Order */}
-      <TouchableOpacity
+      <Pressable
         style={[styles.fab, { backgroundColor: colors.brand }]}
         onPress={() => navigation.navigate('StaffParties')}
-        activeOpacity={0.88}
       >
         <Icon name="plus" size={20} color={colors.onBrand} />
         <Text style={[styles.fabText, { color: colors.onBrand }]}>New Order</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

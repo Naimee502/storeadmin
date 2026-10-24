@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar,
+  Modal, View, Text, Pressable, StyleSheet, Dimensions, StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -171,9 +171,9 @@ export const AppTour: React.FC<Props> = ({ steps, storageKey, enabled = true }) 
             {last ? (
               <Text style={[styles.skip, { opacity: 0 }]}>Skip</Text>
             ) : (
-              <TouchableOpacity onPress={finish} hitSlop={10}>
+              <Pressable onPress={finish} hitSlop={10}>
                 <Text style={[styles.skip, { color: colors.subText }]}>Skip</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
             <View style={styles.dots}>
               {live.map((_, i) => (
@@ -187,9 +187,9 @@ export const AppTour: React.FC<Props> = ({ steps, storageKey, enabled = true }) 
                 />
               ))}
             </View>
-            <TouchableOpacity onPress={() => go(index + 1)} hitSlop={10}>
+            <Pressable onPress={() => go(index + 1)} hitSlop={10}>
               <Text style={[styles.next, { color: colors.brand }]}>{last ? 'Finish' : 'Next'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </Animated.View>
         </>)}

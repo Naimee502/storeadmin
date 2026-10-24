@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
 import { FONTS, useTheme } from '../config';
@@ -165,7 +165,7 @@ const BillAllocation: React.FC<Props> = ({
               },
             ]}
           >
-            <TouchableOpacity style={styles.cardHead} activeOpacity={0.8} onPress={() => toggle(inv)}>
+            <Pressable style={styles.cardHead} onPress={() => toggle(inv)}>
               <View style={[styles.checkbox, { borderColor: sel ? colors.brand : colors.border, backgroundColor: sel ? colors.brand : 'transparent' }]}>
                 {sel ? <Icon name="check" size={13} color={colors.onBrand} /> : null}
               </View>
@@ -179,7 +179,7 @@ const BillAllocation: React.FC<Props> = ({
                 <Text style={styles.outLabel}>Outstanding</Text>
                 <Text style={styles.outVal}>{money(inv.outstanding)}</Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
 
             {sel && mode === 'record' ? (
               <View style={[styles.amountRow, { borderTopColor: colors.border }]}>
@@ -202,12 +202,12 @@ const BillAllocation: React.FC<Props> = ({
                   />
                 </View>
                 {inv.outstanding > 0 ? (
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.fullChip, { backgroundColor: colors.brandSoft }]}
                     onPress={() => setAmount(inv.id, inv.outstanding)}
                   >
                     <Text style={[styles.fullChipText, { color: colors.brand }]}>Full</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ) : null}
               </View>
             ) : null}

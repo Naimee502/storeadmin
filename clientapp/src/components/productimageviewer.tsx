@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, Pressable, FlatList,
+  View, Text, StyleSheet, Modal, Pressable, FlatList,
   ActivityIndicator, useWindowDimensions, NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -59,13 +59,13 @@ export const ProductImageViewer: React.FC<{
         <Pressable style={[styles.card, { width: cardW, backgroundColor: colors.raisedSurface }]} onPress={() => {}}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title || 'Product photos'}</Text>
-            <TouchableOpacity
+            <Pressable
               style={[styles.closeBtn, { backgroundColor: colors.brandSoft }]}
               onPress={onClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Icon name="close" size={18} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <View style={[styles.stage, { width: imgSize, height: imgSize, backgroundColor: colors.softSurface }]}>
@@ -114,9 +114,8 @@ export const ProductImageViewer: React.FC<{
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.thumbRow}
               renderItem={({ item, index }) => (
-                <TouchableOpacity
+                <Pressable
                   onPress={() => goTo(index)}
-                  activeOpacity={0.8}
                   style={[
                     styles.thumb,
                     { borderColor: index === idx ? colors.brand : colors.border, backgroundColor: colors.softSurface },
@@ -129,7 +128,7 @@ export const ProductImageViewer: React.FC<{
                     resizeMode="cover"
                     fallback={<Icon name="image-off-outline" size={16} color={colors.subText} />}
                   />
-                </TouchableOpacity>
+                </Pressable>
               )}
             />
           )}

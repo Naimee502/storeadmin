@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, KeyboardTypeOptions, ReturnKeyTypeOptions, ViewStyle, TextStyle, TouchableOpacity, StyleProp } from 'react-native';
+import { View, TextInput, Text, StyleSheet, KeyboardTypeOptions, ReturnKeyTypeOptions, ViewStyle, TextStyle, Pressable, StyleProp } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONTS, useTheme } from '../config';
 
@@ -93,13 +93,13 @@ export const AppTextInput: React.FC<AppTextInputProps> = ({
           onBlur={() => setIsFocused(false)}
         />
         {showEyeIcon && (
-          <TouchableOpacity onPress={() => setIsSecure(!isSecure)} style={styles.eyeIcon}>
+          <Pressable onPress={() => setIsSecure(!isSecure)} style={styles.eyeIcon}>
             <Icon
               name={isSecure ? 'eye-outline' : 'eye-off-outline'}
               size={18}
               color={colors.subText}
             />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
       {error && (

@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -125,14 +125,13 @@ export default function StaffDashboard() {
           ].map((s, i) => (
             <React.Fragment key={s.label}>
               {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
-              <TouchableOpacity
+              <Pressable
                 style={styles.stripItem}
                 onPress={() => goWithPunch('StaffOrders', { initialFilter: s.filter })}
-                activeOpacity={0.7}
               >
                 <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1}>{s.value}</Text>
                 <Text style={[styles.stripLabel, { color: colors.subText }]}>{s.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             </React.Fragment>
           ))}
         </Animated.View>
@@ -147,17 +146,16 @@ export default function StaffDashboard() {
               { icon: 'calendar-check-outline', label: 'Attendance', screen: 'StaffAttendance', color: '#22c55e'    },
               { icon: 'account-circle-outline', label: 'Profile',    screen: 'StaffProfile',    color: '#8b5cf6'    },
             ].map((a) => (
-              <TouchableOpacity
+              <Pressable
                 key={a.label}
                 style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => goWithPunch(a.screen)}
-                activeOpacity={0.82}
               >
                 <View style={[styles.actionIcon, { backgroundColor: a.color + '18' }]}>
                   <Icon name={a.icon} size={22} color={a.color} />
                 </View>
                 <Text style={[styles.actionLabel, { color: colors.text }]}>{a.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </Animated.View>
@@ -166,9 +164,9 @@ export default function StaffDashboard() {
         <Animated.View entering={FadeInUp.duration(400).delay(180)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Orders</Text>
-            <TouchableOpacity onPress={() => goWithPunch('StaffOrders')}>
+            <Pressable onPress={() => goWithPunch('StaffOrders')}>
               <Text style={[styles.viewAll, { color: colors.brand }]}>View all</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {recent.length === 0 ? (
@@ -181,11 +179,10 @@ export default function StaffDashboard() {
               const label  = orderLabel(order);
               const colour = STATUS_COLOR[label] ?? colors.brand;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={order.id}
                   style={[styles.orderCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                   onPress={() => goWithPunch('OrderDetail', { orderId: order.id })}
-                  activeOpacity={0.85}
                 >
                   <View style={[styles.statusDot, { backgroundColor: colour }]} />
                   <View style={{ flex: 1 }}>
@@ -202,7 +199,7 @@ export default function StaffDashboard() {
                     </View>
                   </View>
                   <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
+                </Pressable>
               );
             })
           )}

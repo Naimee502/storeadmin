@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -7,7 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { COLORS, FONTS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
-import { AppHeader, DynamicFlashList, DateRangeSheet, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
+import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
 import { GET_SALES_ORDERS } from '../../../../apollo/queries/accounts';
 import { formatINR, formatDate, formatBillNumber, parseServerDate } from '../../../../utils';
 import type { RootState } from '../../../../store/rootreducer';
@@ -40,15 +40,6 @@ const DUMMY_ORDERS = [
   { id: 'o6', billnumber: '000001', billdate: '2024-11-11', totalamount: 9200,  partyacc: { accountname: 'Modi Mart' },       isConverted: true,  cancelStatus: null,        productservice: [{},{},{},{},{},{},{},{}] },
 ];
 
-/** ₹ without paise, and lakh / crore for big numbers so it fits a stat tile. */
-function compactINR(n: number): string {
-  const v = Math.round(n || 0);
-  // Number(x.toFixed(2)) drops trailing zeros: 1.50 → 1.5, 10.00 → 10.
-  if (v >= 1e7) return `₹${Number((v / 1e7).toFixed(2))}Cr`;
-  if (v >= 1e5) return `₹${Number((v / 1e5).toFixed(2))}L`;
-  return `₹${v.toLocaleString('en-IN')}`;
-}
-
 // Real status for the badge (includes delivered/dispatched).
 function displayStatus(o: any): string {
   if (o.cancelStatus === 'cancelled') return 'cancelled';
@@ -69,7 +60,6 @@ export default function SalesmanOrders() {
   const tenant = useSelector((s: RootState) => s.tenant);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [range, setRange] = useState<DateRange>(ALL_TIME);
-  const [dateOpen, setDateOpen] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_SALES_ORDERS, {
     variables: { adminid: tenant.adminId, salesmenid: user?.id },
@@ -93,14 +83,6 @@ export default function SalesmanOrders() {
     return allOrders.filter((o: any) => getStatus(o) === filter);
   }, [allOrders, filter]);
 
-  const totalValue = useMemo(
-    () => filtered.reduce((sum: number, o: any) => sum + (o.cancelStatus === 'cancelled' ? 0 : Number(o.totalamount) || 0), 0),
-    [filtered],
-  );
-
-  const billable = filtered.filter((o: any) => o.cancelStatus !== 'cancelled').length;
-  const avgValue = billable ? totalValue / billable : 0;
-
   const counts = useMemo(() => ({
     all:        allOrders.length,
     pending:    allOrders.filter((o: any) => getStatus(o) === 'pending').length,
@@ -114,10 +96,9 @@ export default function SalesmanOrders() {
     const status = displayStatus(order);
     const colour = STATUS_COLOR[status];
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-        activeOpacity={0.85}
       >
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
         <View style={{ flex: 1 }}>
@@ -142,7 +123,7 @@ export default function SalesmanOrders() {
           </View>
         </View>
         <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8, alignSelf: 'center' }} />
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -158,7 +139,7 @@ export default function SalesmanOrders() {
           const active = filter === f.key;
           const count  = counts[f.key];
           return (
-            <TouchableOpacity
+            <Pressable
               key={f.key}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand,         borderColor: colors.brand }
@@ -172,61 +153,18 @@ export default function SalesmanOrders() {
                   <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>
 
       {/* Summary card: date filter on top, what the list adds up to below. */}
-      <View style={[styles.sumCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-        <View style={styles.sumHead}>
-          <Text style={[styles.sumCaption, { color: colors.subText }]}>
-            {filter === 'all' ? 'All orders' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} orders`}
-          </Text>
-          <TouchableOpacity
-            style={[styles.dateBtn, dateActive
-              ? { backgroundColor: colors.brandSoft, borderColor: colors.brand }
-              : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
-            onPress={() => setDateOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Icon name="calendar-range" size={15} color={colors.brand} />
-            <Text style={[styles.dateBtnText, { color: dateActive ? colors.brand : colors.text }]} numberOfLines={1}>
-              {rangeLabel(range)}
-            </Text>
-            {dateActive ? (
-              <TouchableOpacity onPress={() => setRange(ALL_TIME)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Icon name="close-circle" size={16} color={colors.brand} />
-              </TouchableOpacity>
-            ) : (
-              <Icon name="chevron-down" size={16} color={colors.subText} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.sumDivider, { backgroundColor: colors.border }]} />
-
-        <View style={styles.statRow}>
-          {[
-            { icon: 'clipboard-text-outline', tint: '#3b82f6', value: String(filtered.length), label: filtered.length === 1 ? 'Order' : 'Orders' },
-            { icon: 'currency-inr',           tint: colors.brand, value: compactINR(totalValue), label: 'Order value' },
-            { icon: 'chart-line',             tint: '#f59e0b', value: compactINR(avgValue), label: 'Avg / order' },
-          ].map((st, i) => (
-            <React.Fragment key={st.label}>
-              {i > 0 && <View style={[styles.statSep, { backgroundColor: colors.border }]} />}
-              <View style={styles.stat}>
-                <View style={[styles.statIcon, { backgroundColor: st.tint + '1A' }]}>
-                  <Icon name={st.icon} size={16} color={st.tint} />
-                </View>
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={[styles.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{st.value}</Text>
-                  <Text style={[styles.statLabel, { color: colors.subText }]} numberOfLines={1}>{st.label}</Text>
-                </View>
-              </View>
-            </React.Fragment>
-          ))}
-        </View>
-      </View>
+      <OrdersSummaryCard
+        caption={filter === 'all' ? 'All orders' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} orders`}
+        orders={filtered}
+        range={range}
+        onRangeChange={setRange}
+      />
 
       {loading ? <OrderListSkeleton /> : filtered.length === 0 ? (
         <View style={styles.center}>
@@ -234,9 +172,9 @@ export default function SalesmanOrders() {
           <Text style={[styles.emptyText, { color: colors.subText }]}>
             No {filter === 'all' ? '' : `${filter} `}orders{dateActive ? ` for ${rangeLabel(range)}` : ''}
           </Text>
-          <TouchableOpacity onPress={() => { setFilter('all'); setRange(ALL_TIME); }}>
+          <Pressable onPress={() => { setFilter('all'); setRange(ALL_TIME); }}>
             <Text style={[styles.clearFilter, { color: colors.brand }]}>Show all orders</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : (
         <DynamicFlashList
@@ -247,12 +185,6 @@ export default function SalesmanOrders() {
           showsVerticalScrollIndicator={false}
         />
       )}
-      <DateRangeSheet
-        visible={dateOpen}
-        value={range}
-        onApply={setRange}
-        onClose={() => setDateOpen(false)}
-      />
     </View>
   );
 }
@@ -269,21 +201,7 @@ const styles = StyleSheet.create({
   chipCount:     { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center' },
   chipCountText: { fontSize: 11, fontFamily: FONTS.bold },
 
-  sumCard:     {
-    marginHorizontal: 18, marginBottom: 10, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
-    shadowColor: COLORS.light.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  sumHead:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  sumCaption:  { fontSize: 13, fontFamily: FONTS.semiBold, flexShrink: 1 },
-  sumDivider:  { height: StyleSheet.hairlineWidth, marginVertical: 12 },
-  statRow:     { flexDirection: 'row', alignItems: 'center' },
-  stat:        { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statSep:     { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginHorizontal: 8 },
-  statIcon:    { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  statValue:   { fontSize: 15, fontFamily: FONTS.bold },
-  statLabel:   { fontSize: 11, fontFamily: FONTS.regular, marginTop: 1 },
-  dateBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, maxWidth: '62%' },
-  dateBtnText: { fontSize: 13, fontFamily: FONTS.semiBold, flexShrink: 1 },
+
   listContent: { paddingHorizontal: 18, paddingBottom: 110, paddingTop: 4 },
   card: {
     flexDirection: 'row', alignItems: 'flex-start',

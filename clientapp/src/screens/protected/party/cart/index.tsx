@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Modal, ScrollView,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, Modal, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -170,7 +170,7 @@ export default function CartScreen() {
         {/* Right: qty control + amount (same column, amount below qty like POS) */}
         <View style={styles.itemRight}>
           <View style={[styles.qtyRow, { borderColor: colors.brand }]}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
               onPress={() => item.qty <= 1
                 ? dispatch(removeFromCart({ productId: item.productId, variantId: item.variantId, unitId: item.unitId }))
@@ -182,9 +182,9 @@ export default function CartScreen() {
                 size={13}
                 color={item.qty <= 1 ? '#ef4444' : colors.brand}
               />
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.qtyNum, { color: colors.brand }]}>{item.qty}</Text>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.qtyBtn,
                 { backgroundColor: colors.brandSoft },
@@ -194,7 +194,7 @@ export default function CartScreen() {
               onPress={() => dispatch(updateQty({ productId: item.productId, variantId: item.variantId, unitId: item.unitId, qty: item.qty + 1 }))}
             >
               <Icon name="plus" size={13} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
           {showPrice && (
             <Text style={[styles.itemTotal, { color: colors.text }]}>{formatINR(item.amount)}</Text>
@@ -240,11 +240,10 @@ export default function CartScreen() {
       )}
 
       {/* Place Order button with total — same as POS "Place Order • ₹115.50" */}
-      <TouchableOpacity
+      <Pressable
         style={[styles.placeBtn, { backgroundColor: placing ? colors.border : colors.brand }, !showPrice && { marginTop: 6 }]}
         onPress={handlePlaceOrder}
         disabled={placing}
-        activeOpacity={0.88}
       >
         {placing ? (
           <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>Placing Order…</Text>
@@ -254,7 +253,7 @@ export default function CartScreen() {
             <Text style={[styles.placeBtnText, { color: colors.onBrand }]}>{showPrice ? `Place Order · ${formatINR(grandTotal)}` : 'Place Order'}</Text>
           </>
         )}
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 
@@ -269,12 +268,12 @@ export default function CartScreen() {
         <View style={styles.center}>
           <Icon name="cart-off" size={52} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>Cart is empty</Text>
-          <TouchableOpacity
+          <Pressable
             style={[styles.browseBtn, { backgroundColor: colors.brandSoft }]}
             onPress={() => navigation.goBack()}
           >
             <Text style={[styles.browseBtnText, { color: colors.brand }]}>Browse Products</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : (
         <DynamicFlashList
@@ -296,9 +295,9 @@ export default function CartScreen() {
             <View style={styles.addrHeader}>
               <Icon name="map-marker-outline" size={22} color={colors.brand} />
               <Text style={[styles.addrTitle, { color: colors.text }]}>Add a delivery address</Text>
-              <TouchableOpacity onPress={() => setAddressModalOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Pressable onPress={() => setAddressModalOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Icon name="close" size={22} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
             <Text style={[styles.addrSubtitle, { color: colors.subText }]}>
               We need this to deliver your order — you'll only have to do this once.

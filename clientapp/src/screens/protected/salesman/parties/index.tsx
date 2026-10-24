@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar, TextInput, Linking, Platform, Alert,
+  View, Text, StyleSheet, Pressable, StatusBar, TextInput, Linking, Platform, Alert,
   PermissionsAndroid, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -277,9 +277,8 @@ export default function SalesmanParties() {
             // Still a button: this one saves the salesman's current position as
             // the party's location, which is the whole point of standing there.
             <View style={styles.metaRow}>
-              <TouchableOpacity
+              <Pressable
                 style={styles.metaItem}
-                activeOpacity={0.7}
                 disabled={savingLocId === item.id}
                 onPress={() => handleAddLocation(item)}
               >
@@ -287,7 +286,7 @@ export default function SalesmanParties() {
                 <Text style={[styles.locText, { color: colors.brand }]} numberOfLines={1}>
                   {savingLocId === item.id ? 'Saving location…' : 'Add location'}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
@@ -308,15 +307,14 @@ export default function SalesmanParties() {
             {!blocked && <Icon name="chevron-right" size={18} color={colors.subText} />}
           </View>
           {distKm !== null ? (
-            <TouchableOpacity
+            <Pressable
               style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
-              activeOpacity={0.75}
               disabled={blocked}
               onPress={() => openInMaps(item.latitude, item.longitude, item.name, salesmanLoc)}
             >
               <Icon name="navigation-variant-outline" size={11} color={colors.brand} />
               <Text style={[styles.distText, { color: colors.brand }]}>{fmtDist(distKm)}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : null}
         </View>
       </Pressable>
@@ -340,14 +338,13 @@ export default function SalesmanParties() {
         />
       </View>
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.addRow, { borderColor: colors.brand }]}
         onPress={() => navigation.navigate('SalesmanCreateParty')}
-        activeOpacity={0.85}
       >
         <Icon name="account-plus-outline" size={18} color={colors.brand} />
         <Text style={[styles.addText, { color: colors.brand }]}>Add New Party</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {channels.length > 0 && (
         <ScrollView
@@ -359,7 +356,7 @@ export default function SalesmanParties() {
           {[{ id: null, channelName: 'All' }, ...channels].map((c: any) => {
             const active = channelFilter === c.id;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={c.id ?? 'all'}
                 style={[
                   styles.chip,
@@ -368,12 +365,11 @@ export default function SalesmanParties() {
                     : { backgroundColor: colors.raisedSurface, borderColor: colors.border },
                 ]}
                 onPress={() => setChannelFilter(c.id)}
-                activeOpacity={0.8}
               >
                 <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]} numberOfLines={1}>
                   {c.channelName}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </ScrollView>

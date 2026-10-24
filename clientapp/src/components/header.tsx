@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Image } from 'react-native';
+import { View, StyleSheet, Pressable, Text, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -19,10 +19,9 @@ const LeftSection = ({ type, label, leftIcon, handleLeftPress, onLongPress, colo
   const isAppTypeWithoutMenu = type === 'app' && !showMenuIcon;
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.leftButton, isAppTypeWithoutMenu && { paddingLeft: 0 }]}
       onPress={handleLeftPress}
-      activeOpacity={0.7}
       onLongPress={onLongPress}
       disabled={isAppTypeWithoutMenu}
     >
@@ -42,7 +41,7 @@ const LeftSection = ({ type, label, leftIcon, handleLeftPress, onLongPress, colo
           {label}
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -56,14 +55,13 @@ const CenterLabel = ({ type, label, colors }: any) =>
 const RightSection = ({ rightIcons, colors }: any) => (
   <View style={styles.rightContainer}>
     {rightIcons.map((icon: any) => (
-      <TouchableOpacity
+      <Pressable
         key={icon.id}
         // Optional first-time-guide target (see components/apptour).
         ref={icon.tourId ? (tourRef(icon.tourId) as any) : undefined}
         style={[styles.iconButton, icon.style]}
         onPress={icon.onPress}
         onLongPress={icon.onLongPress}
-        activeOpacity={icon.activeOpacity ?? 0.7}
         disabled={icon.disabled}
       >
         <Icon
@@ -78,7 +76,7 @@ const RightSection = ({ rightIcons, colors }: any) => (
             </Text>
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
     ))}
   </View>
 );

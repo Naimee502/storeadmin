@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Platform, Alert,
+  View, Text, Pressable, StyleSheet, Platform, Alert,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -76,12 +76,11 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
         };
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={route.key}
             onPress={onPress}
             onLongPress={onLongPress}
             style={styles.tabItem}
-            activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
@@ -115,7 +114,7 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
                 {label}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>

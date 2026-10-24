@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -210,11 +210,10 @@ export default function SalesmanCatalog() {
           const imgs = productImages(p);
           const cover = imgs[0];
           return (
-            <TouchableOpacity
+            <Pressable
               style={[styles.thumb, styles.thumbTop, { backgroundColor: colors.brandSoft }]}
               onPress={() => cover && setPreview({ images: imgs, title: p.name })}
               disabled={!cover}
-              activeOpacity={0.8}
             >
               {cover
                 // IMG.product (not thumb): same URL as the party app and the
@@ -237,7 +236,7 @@ export default function SalesmanCatalog() {
               {showStock && outOfStock && (
                 <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         })()}
 
@@ -261,7 +260,7 @@ export default function SalesmanCatalog() {
                 {v.unitprices.map((u: any, ui: number) => {
                   const active = (selectedUnits[p.id] ?? 0) === ui;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={`${u.unitid?.id ?? ui}`}
                       style={[styles.unitChip, active
                         ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -272,7 +271,7 @@ export default function SalesmanCatalog() {
                       <Text style={[styles.unitChipText, { color: active ? colors.onBrand : colors.text }]}>
                         {getUnitLabel(u)}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </ScrollView>
@@ -284,19 +283,19 @@ export default function SalesmanCatalog() {
         <View style={styles.rowRight}>
           {v && !outOfStock && (
             cartQty === 0 ? (
-              <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => handleAdd(p)}>
+              <Pressable style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => handleAdd(p)}>
                 <Icon name="plus" size={14} color={colors.onBrand} />
                 <Text style={[styles.addBtnText, { color: colors.onBrand }]}>Add</Text>
-              </TouchableOpacity>
+              </Pressable>
             ) : (
               <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}>
+                <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty - 1)}>
                   <Icon name="minus" size={13} color={colors.brand} />
-                </TouchableOpacity>
+                </Pressable>
                 <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
-                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}>
+                <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => handleQty(p.id, v.id, unitId, cartQty + 1)}>
                   <Icon name="plus" size={13} color={colors.brand} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )
           )}
@@ -328,7 +327,7 @@ export default function SalesmanCatalog() {
           {[{ id: null, name: 'All' }, ...categories].map((item: any) => {
             const active = category === item.id;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={item.id ?? 'all'}
                 style={[styles.chip, active
                   ? { backgroundColor: colors.brand,         borderColor: colors.brand }
@@ -337,7 +336,7 @@ export default function SalesmanCatalog() {
                 onPress={() => setCategory(item.id)}
               >
                 <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.subText }]}>{item.name}</Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -379,17 +378,16 @@ export default function SalesmanCatalog() {
       )}
 
       {cartCount > 0 && (
-        <TouchableOpacity
+        <Pressable
           style={[styles.cartBar, { backgroundColor: colors.brand }]}
           onPress={() => navigation.navigate('SalesmanCart')}
-          activeOpacity={0.9}
         >
           <View style={[styles.cartBadge, { backgroundColor: colors.onBrand + '40' }]}>
             <Text style={[styles.cartBadgeText, { color: colors.onBrand }]}>{cartCount}</Text>
           </View>
           <Text style={[styles.cartBarText, { color: colors.onBrand }]}>View Cart</Text>
           <Icon name="chevron-right" size={18} color={colors.onBrand} />
-        </TouchableOpacity>
+        </Pressable>
       )}
       <ProductImageViewer
         visible={!!preview}

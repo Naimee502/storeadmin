@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Pressable } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -95,8 +95,7 @@ export default function Ledger() {
     const colour  = isDebit ? '#ef4444' : '#22c55e';
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.8}
+      <Pressable
         onPress={() => navigation.navigate('LedgerDetail', {
           transaction: tx,
           ledgerId,
@@ -128,7 +127,7 @@ export default function Ledger() {
         </View>
 
         <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 4 }} />
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -175,9 +174,9 @@ export default function Ledger() {
           ] as const).map((s) => {
             const active = scope === s.key;
             return (
-              <TouchableOpacity key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)} activeOpacity={0.85}>
+              <Pressable key={s.key} style={[styles.segmentItem, active && { backgroundColor: colors.brand }]} onPress={() => setScope(s.key)}>
                 <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -196,8 +195,7 @@ export default function Ledger() {
             renderItem={({ item }: any) => {
               const due = Math.max(0, item.outstanding || 0);
               return (
-                <TouchableOpacity
-                  activeOpacity={0.85}
+                <Pressable
                   onPress={() => navigation.navigate('PartyLedgerView', { partyId: item.id, partyName: item.name })}
                   style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 >
@@ -218,14 +216,13 @@ export default function Ledger() {
                       <Text style={[styles.rowBal, { color: '#22c55e' }]}>No dues</Text>
                     )}
                   </View>
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.collectBtn, { backgroundColor: colors.brand }]}
-                    activeOpacity={0.85}
                     onPress={() => navigation.navigate('AddLedgerEntry', { partyId: item.id, partyName: item.name })}
                   >
                     <Icon name="book-plus-outline" size={15} color={colors.onBrand} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                  </Pressable>
+                </Pressable>
               );
             }}
             ListEmptyComponent={

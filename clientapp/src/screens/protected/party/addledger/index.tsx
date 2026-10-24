@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, TextInput, Alert, Modal, FlatList,
+  View, Text, StyleSheet, Pressable, ScrollView, StatusBar, TextInput, Alert, Modal, FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -175,10 +175,10 @@ export default function AddLedgerEntry() {
         <Text style={[styles.section, { color: colors.text }]}>Entries</Text>
         {entries.map((e, i) => (
           <View key={i} style={[styles.entryCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-            <TouchableOpacity style={[styles.ledgerSel, { borderColor: colors.border }]} onPress={() => setPickerFor(i)}>
+            <Pressable style={[styles.ledgerSel, { borderColor: colors.border }]} onPress={() => setPickerFor(i)}>
               <Text style={[styles.ledgerSelText, { color: e.ledgerid ? colors.text : colors.subText }]} numberOfLines={1}>{ledgerName(e.ledgerid)}</Text>
               <Icon name="chevron-down" size={16} color={colors.subText} />
-            </TouchableOpacity>
+            </Pressable>
             <View style={styles.drcrRow}>
               <View style={[styles.drcr, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}>
                 <Text style={[styles.drcrLbl, { color: colors.subText }]}>Dr</Text>
@@ -189,17 +189,17 @@ export default function AddLedgerEntry() {
                 <TextInput style={[styles.drcrInput, { color: colors.text }]} value={e.credit} onChangeText={(v) => setEntry(i, 'credit', v)} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.subText} />
               </View>
               {entries.length > 1 && (
-                <TouchableOpacity style={styles.delBtn} onPress={() => removeRow(i)}>
+                <Pressable style={styles.delBtn} onPress={() => removeRow(i)}>
                   <Icon name="trash-can-outline" size={18} color="#ef4444" />
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           </View>
         ))}
-        <TouchableOpacity style={[styles.addRow, { borderColor: colors.brand }]} onPress={addRow}>
+        <Pressable style={[styles.addRow, { borderColor: colors.brand }]} onPress={addRow}>
           <Icon name="plus" size={16} color={colors.brand} />
           <Text style={[styles.addRowText, { color: colors.brand }]}>Add Entry</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={[styles.totals, { borderColor: colors.border }]}>
           <Text style={[styles.totText, { color: balanced ? '#16a34a' : '#ef4444' }]}>
@@ -207,14 +207,14 @@ export default function AddLedgerEntry() {
           </Text>
         </View>
 
-        <TouchableOpacity style={[styles.submit, { backgroundColor: submitting ? colors.border : colors.brand }]} onPress={handleSubmit} disabled={submitting} activeOpacity={0.88}>
+        <Pressable style={[styles.submit, { backgroundColor: submitting ? colors.border : colors.brand }]} onPress={handleSubmit} disabled={submitting}>
           <Icon name="check-circle-outline" size={18} color={colors.onBrand} />
           <Text style={[styles.submitText, { color: colors.onBrand }]}>{submitting ? 'Saving…' : 'Save Ledger Entry'}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
 
       <Modal visible={pickerFor !== null} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setPickerFor(null)}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setPickerFor(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setPickerFor(null)}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select Ledger</Text>
             <FlatList
@@ -222,13 +222,13 @@ export default function AddLedgerEntry() {
               keyExtractor={(l: any) => l.id}
               style={{ maxHeight: 380 }}
               renderItem={({ item }: any) => (
-                <TouchableOpacity style={[styles.sheetRow, { borderBottomColor: colors.border }]} onPress={() => onPickLedger(item.id)}>
+                <Pressable style={[styles.sheetRow, { borderBottomColor: colors.border }]} onPress={() => onPickLedger(item.id)}>
                   <Text style={[styles.sheetRowText, { color: colors.text }]}>{item.ledgername}</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             />
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
     </View>
   );

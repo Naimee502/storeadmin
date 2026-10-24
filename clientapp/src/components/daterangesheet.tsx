@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONTS, useTheme } from '../config';
 
@@ -131,9 +131,9 @@ export const DateRangeSheet: React.FC<{
           <View style={[styles.grabber, { backgroundColor: colors.border }]} />
           <View style={styles.headRow}>
             <Text style={[styles.title, { color: colors.text }]}>Filter by date</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Pressable onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Icon name="close" size={20} color={colors.subText} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
@@ -141,17 +141,16 @@ export const DateRangeSheet: React.FC<{
               {PRESETS.map((p) => {
                 const active = draft.preset === p.key;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={p.key}
                     onPress={() => pickPreset(p.key)}
-                    activeOpacity={0.8}
                     style={[styles.preset, active
                       ? { backgroundColor: colors.brand, borderColor: colors.brand }
                       : { backgroundColor: colors.softSurface, borderColor: colors.border }]}
                   >
                     <Icon name={p.icon} size={15} color={active ? colors.onBrand : colors.brand} />
                     <Text style={[styles.presetText, { color: active ? colors.onBrand : colors.text }]}>{p.label}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -171,19 +170,19 @@ export const DateRangeSheet: React.FC<{
                 </View>
 
                 <View style={styles.monthRow}>
-                  <TouchableOpacity onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} style={styles.navBtn}>
+                  <Pressable onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} style={styles.navBtn}>
                     <Icon name="chevron-left" size={22} color={colors.text} />
-                  </TouchableOpacity>
+                  </Pressable>
                   <Text style={[styles.monthText, { color: colors.text }]}>
                     {MONTHS[month.getMonth()]} {month.getFullYear()}
                   </Text>
-                  <TouchableOpacity
+                  <Pressable
                     disabled={!canNext}
                     onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
                     style={[styles.navBtn, !canNext && { opacity: 0.3 }]}
                   >
                     <Icon name="chevron-right" size={22} color={colors.text} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 <View style={styles.grid}>
@@ -206,7 +205,7 @@ export const DateRangeSheet: React.FC<{
                             isStart && { left: '50%' }, isEnd && { right: '50%' },
                           ]} />
                         )}
-                        <TouchableOpacity
+                        <Pressable
                           disabled={future}
                           onPress={() => pickDay(k)}
                           style={[styles.dayBtn, edge && { backgroundColor: colors.brand },
@@ -218,7 +217,7 @@ export const DateRangeSheet: React.FC<{
                           }]}>
                             {Number(k.slice(8))}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       </View>
                     );
                   })}
@@ -233,19 +232,19 @@ export const DateRangeSheet: React.FC<{
 
           {isCustom && (
             <View style={styles.footer}>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.btn, { borderColor: colors.border, borderWidth: 1 }]}
                 onPress={() => { onApply(ALL_TIME); onClose(); }}
               >
                 <Text style={[styles.btnText, { color: colors.text }]}>Reset</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </Pressable>
+              <Pressable
                 disabled={!draft.from}
                 style={[styles.btn, { backgroundColor: colors.brand, opacity: draft.from ? 1 : 0.5 }]}
                 onPress={() => { onApply({ preset: 'custom', from: draft.from, to: draft.to ?? draft.from }); onClose(); }}
               >
                 <Text style={[styles.btnText, { color: colors.onBrand }]}>Apply</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
         </Pressable>

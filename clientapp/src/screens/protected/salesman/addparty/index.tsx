@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, Alert, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -171,17 +171,16 @@ export default function AddPartyToRoute() {
           <Text style={[styles.accountCode, { color: colors.subText }]}>{a.accountcode}</Text>
         )}
       </View>
-      <TouchableOpacity
+      <Pressable
         style={[styles.addBtn, { backgroundColor: adding === a.id ? colors.border : colors.brand }]}
         onPress={() => handleAdd(a)}
         disabled={adding !== null}
-        activeOpacity={0.8}
       >
         {adding === a.id
           ? <Icon name="loading" size={16} color={colors.onBrand} />
           : <Icon name="plus" size={16} color={colors.onBrand} />
         }
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -198,7 +197,7 @@ export default function AddPartyToRoute() {
         <Text style={[styles.contextText, { color: colors.brand }]}>
           Route: <Text style={{ fontFamily: FONTS.bold }}>{routeName}</Text>
         </Text>
-        <TouchableOpacity
+        <Pressable
           style={[styles.newPartyBtn, { backgroundColor: colors.brand }]}
           onPress={() => {
             if (!selectedDay) { Alert.alert('Select Day', 'Please choose which day to add the new party to.'); return; }
@@ -207,11 +206,10 @@ export default function AddPartyToRoute() {
               routeSalesmanId, allDayWiseAccounts: dayWise,
             });
           }}
-          activeOpacity={0.85}
         >
           <Icon name="account-plus" size={13} color={colors.onBrand} />
           <Text style={[styles.newPartyText, { color: colors.onBrand }]}>New Party</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Day picker */}
@@ -221,7 +219,7 @@ export default function AddPartyToRoute() {
           {DAYS.map(d => {
             const active = selectedDay === dayKey(d);
             return (
-              <TouchableOpacity
+              <Pressable
                 key={d}
                 style={[
                   styles.dayChip,
@@ -234,7 +232,7 @@ export default function AddPartyToRoute() {
                 <Text style={[styles.dayChipText, { color: active ? colors.onBrand : colors.subText }]}>
                   {d.slice(0, 3)}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -252,9 +250,9 @@ export default function AddPartyToRoute() {
           autoCapitalize="none"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <Pressable onPress={() => setSearch('')}>
             <Icon name="close-circle" size={16} color={colors.subText} />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 

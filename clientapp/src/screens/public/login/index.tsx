@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, SafeAreaView, Pressable,
   ScrollView, StatusBar, TextInput, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -433,9 +433,9 @@ export default function Login({ navigation }: any) {
                 </View>
               )}
               {isRegisterMode && (
-                <TouchableOpacity onPress={exitRegisterMode} style={{ marginTop: 6, marginLeft: 2 }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <Pressable onPress={exitRegisterMode} style={{ marginTop: 6, marginLeft: 2 }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Text style={[styles.staffToggleText, { color: colors.brand, fontSize: 12 }]}>Change number</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
 
               {/* Registration fields — Name + Email only, everything else
@@ -585,9 +585,9 @@ export default function Login({ navigation }: any) {
                       onFocus={() => setPasswordFocused(true)}
                       onBlur={() => setPasswordFocused(false)}
                     />
-                    <TouchableOpacity onPress={() => setShowPass(v => !v)} style={styles.eyeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Pressable onPress={() => setShowPass(v => !v)} style={styles.eyeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Icon name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.subText} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                   {!!errors.password && (
                     <View style={styles.errorRow}>
@@ -599,10 +599,9 @@ export default function Login({ navigation }: any) {
               )}
 
               {/* Primary action button */}
-              <TouchableOpacity
+              <Pressable
                 style={[styles.primaryBtn, { marginTop: 20 }]}
                 onPress={isRegisterMode ? handleRegister : isStaffMode ? handleStaffLogin : handleSendOTP}
-                activeOpacity={0.85}
               >
                 <LinearGradient
                   colors={[colors.brandLight, colors.brandDark]}
@@ -619,11 +618,11 @@ export default function Login({ navigation }: any) {
                     style={{ marginLeft: 8 }}
                   />
                 </LinearGradient>
-              </TouchableOpacity>
+              </Pressable>
 
               {/* Staff mode toggle */}
               {!isRegisterMode && (
-                <TouchableOpacity style={styles.staffToggle} onPress={toggleStaffMode} activeOpacity={0.7}>
+                <Pressable style={styles.staffToggle} onPress={toggleStaffMode}>
                   {isStaffMode
                     ? <Animated.View entering={FadeInRight.duration(300)} style={styles.staffToggleInner}>
                       <Icon name="arrow-left" size={16} color={colors.brand} />
@@ -635,7 +634,7 @@ export default function Login({ navigation }: any) {
                       <Icon name="chevron-right" size={16} color={colors.brand} />
                     </Animated.View>
                   }
-                </TouchableOpacity>
+                </Pressable>
               )}
             </Animated.View>
 

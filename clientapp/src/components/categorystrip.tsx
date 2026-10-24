@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, StyleProp, ViewStyle,
+  View, Text, ScrollView, Pressable, StyleSheet, StyleProp, ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@apollo/client/react';
@@ -136,7 +136,7 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
 
         if (!asCircles) {
           return (
-            <TouchableOpacity
+            <Pressable
               key={`${copy}-${item.id ?? 'all'}`}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -147,18 +147,17 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
               <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.categoryLabel }]}>
                 {item.name}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         }
 
         const uri = item.image || (item.id ? imageById[item.id] : null);
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={`${copy}-${item.id ?? 'all'}`}
             style={styles.circleItem}
             onPress={() => onSelect(item.id)}
-            activeOpacity={0.75}
           >
             <View style={[
               styles.circle,
@@ -192,7 +191,7 @@ export const CategoryStrip: React.FC<Props> = React.memo(({
             >
               {item.name}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
   };
 

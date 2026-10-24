@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Modal, Image,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, Modal, Image,
   KeyboardAvoidingView, Platform, ScrollView, TextInput, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -198,15 +198,15 @@ export default function ExpenseClaimsScreen() {
               </Text>
               <View style={styles.actions}>
                 {c.receipts?.length > 0 && (
-                  <TouchableOpacity style={styles.attach} onPress={() => setPreview(c.receipts[0])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Pressable style={styles.attach} onPress={() => setPreview(c.receipts[0])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Icon name="paperclip" size={13} color={colors.subText} />
                     <Text style={[styles.cardMeta, { color: colors.subText }]}>{c.receipts.length}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
                 {c.status === 'pending' && (
-                  <TouchableOpacity onPress={() => onCancel(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Pressable onPress={() => onCancel(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.cancelText}>Cancel</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
             </View>
@@ -233,10 +233,10 @@ export default function ExpenseClaimsScreen() {
       </View>
       <View style={styles.rowBetween}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>My Claims</Text>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => { reset(); setShow(true); }}>
+        <Pressable style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => { reset(); setShow(true); }}>
           <Icon name="plus" size={13} color={colors.onBrand} />
           <Text style={[styles.addBtnText, { color: colors.onBrand }]}>New Claim</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </>
   );
@@ -265,15 +265,15 @@ export default function ExpenseClaimsScreen() {
       {/* New claim */}
       <Modal visible={show} animationType="slide" transparent onRequestClose={() => setShow(false)}>
         <View style={styles.overlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShow(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShow(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
             <View style={[styles.sheet, { backgroundColor: colors.background }]}>
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
               <View style={styles.sheetHeader}>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>New Expense Claim</Text>
-                <TouchableOpacity onPress={() => setShow(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Pressable onPress={() => setShow(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Icon name="close" size={20} color={colors.subText} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetScroll}>
@@ -282,31 +282,31 @@ export default function ExpenseClaimsScreen() {
                   {CATEGORIES.map(c => {
                     const a = c.id === category;
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={c.id}
                         style={[styles.chip, a ? { backgroundColor: c.color, borderColor: c.color } : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
                         onPress={() => setCategory(c.id)}
                       >
                         <Icon name={c.icon} size={15} color={a ? '#fff' : c.color} />
                         <Text style={[styles.chipText, { color: a ? '#fff' : colors.text }]}>{c.label}</Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     );
                   })}
                 </View>
 
                 <Text style={[styles.label, { color: colors.text }]}>Date</Text>
                 <View style={[styles.dateRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-                  <TouchableOpacity style={[styles.arrow, { backgroundColor: colors.raisedSurface }]} onPress={() => setDate(addDays(date, -1))}>
+                  <Pressable style={[styles.arrow, { backgroundColor: colors.raisedSurface }]} onPress={() => setDate(addDays(date, -1))}>
                     <Icon name="chevron-left" size={16} color={colors.text} />
-                  </TouchableOpacity>
+                  </Pressable>
                   <Text style={[styles.dateText, { color: colors.text }]}>{fmtDate(date)}</Text>
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.arrow, { backgroundColor: colors.raisedSurface, opacity: date >= today ? 0.4 : 1 }]}
                     disabled={date >= today}
                     onPress={() => setDate(addDays(date, 1))}
                   >
                     <Icon name="chevron-right" size={16} color={colors.text} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -342,15 +342,15 @@ export default function ExpenseClaimsScreen() {
                   {receipts.map(url => (
                     <View key={url} style={styles.thumbWrap}>
                       <Image source={{ uri: resolveMediaUrl(url, 240) }} style={styles.thumb} />
-                      <TouchableOpacity style={styles.thumbRemove} onPress={() => setReceipts(r => r.filter(x => x !== url))}>
+                      <Pressable style={styles.thumbRemove} onPress={() => setReceipts(r => r.filter(x => x !== url))}>
                         <Icon name="close" size={12} color="#fff" />
-                      </TouchableOpacity>
+                      </Pressable>
                     </View>
                   ))}
                   {receipts.length < MAX_RECEIPTS && (
-                    <TouchableOpacity style={[styles.thumbAdd, { borderColor: colors.border }]} onPress={pickReceipt} disabled={uploading}>
+                    <Pressable style={[styles.thumbAdd, { borderColor: colors.border }]} onPress={pickReceipt} disabled={uploading}>
                       {uploading ? <ActivityIndicator color={colors.brand} /> : <Icon name="camera-plus-outline" size={22} color={colors.subText} />}
-                    </TouchableOpacity>
+                    </Pressable>
                   )}
                 </View>
 
@@ -359,14 +359,14 @@ export default function ExpenseClaimsScreen() {
               {/* Kept outside the ScrollView so it is always on screen, however
                   long the form gets or whatever the keyboard covers. */}
               <View style={[styles.sheetFooter, { borderTopColor: colors.border }]}>
-                <TouchableOpacity
+                <Pressable
                   style={[styles.submit, { backgroundColor: submitting || uploading ? colors.border : selected.color }]}
                   onPress={submit}
                   disabled={submitting || uploading}
                 >
                   <Icon name="send-outline" size={16} color="#fff" />
                   <Text style={styles.submitText}>{submitting ? 'Submitting…' : uploading ? 'Uploading photo…' : 'Submit for Approval'}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -375,9 +375,9 @@ export default function ExpenseClaimsScreen() {
 
       {/* Bill preview */}
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
-        <TouchableOpacity style={styles.previewWrap} activeOpacity={1} onPress={() => setPreview(null)}>
+        <Pressable style={styles.previewWrap} onPress={() => setPreview(null)}>
           {!!preview && <Image source={{ uri: resolveMediaUrl(preview) }} style={styles.previewImg} resizeMode="contain" />}
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
     </View>
   );

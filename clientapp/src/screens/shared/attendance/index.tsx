@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert,
   Modal, KeyboardAvoidingView, Platform, ScrollView, TextInput, Switch,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -13,7 +13,7 @@ import { launchCamera } from 'react-native-image-picker';
 import { AppHeader, DynamicFlashList, AppImage } from '../../../components';
 import { formatDate } from '../../../utils';
 import { uploadImage } from '../../../utils/uploadimage';
-import { getCurrentLatLng, localYMD } from '../../../utils/geo';
+import { getCurrentLatLng, getRecentFix, localYMD, type LatLng } from '../../../utils/geo';
 import { useAttendanceSelfieRequired } from '../../../apollo/hooks/adminsettings';
 import {
   useAttendanceSummaryQuery, useAttendanceLogsQuery, useOpenPunchQuery,
@@ -149,38 +149,65 @@ export default function AttendanceScreen() {
     setHalfDay(false); setHalfSession('first'); setReason('');
   };
 
-  /** Send the punch with the current location (best-effort) and an optional selfie. */
-  const sendPunch = (type: 'in' | 'out', selfieUrl?: string) => {
+  /**
+   * Location for the punch. A fix is warmed up when the screen opens, so by the
+   * time the button is pressed (or the selfie is taken) it is usually ready and
+   * the punch never sits waiting on GPS. Capped so a weak signal can't stall it.
+   */
+  const locRef = useRef<Promise<LatLng | null> | null>(null);
+  const warmLocation = useCallback(() => {
+    locRef.current = getCurrentLatLng({ timeoutMs: 6000 }).catch(() => null);
+    return locRef.current;
+  }, []);
+  const getPunchLocation = (): Promise<LatLng | null> => {
+    const recent = getRecentFix();
+    if (recent) return Promise.resolve(recent);
+    const p = locRef.current ?? warmLocation();
+    const cap = new Promise<LatLng | null>((r) => setTimeout(() => r(getRecentFix()), 4000));
+    return Promise.race([p, cap]);
+  };
+
+  useFocusEffect(useCallback(() => { warmLocation(); }, [warmLocation]));
+
+  /** Send the punch with the location (best-effort) and an optional selfie. */
+  const sendPunch = async (type: 'in' | 'out', selfieUrl?: string, locP?: Promise<LatLng | null>) => {
     if (!user?.id) return;
     setPunching(true);
-    const doPunch = (latitude: number | null, longitude: number | null) => {
-      punchMutation({
+    try {
+      const here = await (locP ?? getPunchLocation());
+      await punchMutation({
         variables: { input: {
           staffid: user.id, type,
-          timestamp: new Date().toISOString(), latitude, longitude, source: 'mobile',
+          timestamp: new Date().toISOString(),
+          latitude: here?.lat ?? null, longitude: here?.lng ?? null, source: 'mobile',
           ...(selfieUrl ? { selfieUrl } : {}),
         } },
-      })
-        .then(() => { refetchOpen?.(); refetchLogs?.(); refetchSummary?.(); })
-        .catch((e: any) => Alert.alert('Error', e?.message || 'Punch failed.'))
-        .finally(() => setPunching(false));
-    };
-    // GPS → network location → recent fix; punch goes through even without one.
-    getCurrentLatLng({ timeoutMs: 8000 })
-      .then((here) => doPunch(here?.lat ?? null, here?.lng ?? null))
-      .catch(() => doPunch(null, null));
+      });
+      // Wait only for the open-punch state so the button flips straight to the
+      // new state; logs / summary refresh in the background.
+      await Promise.resolve(refetchOpen?.()).catch(() => {});
+      refetchLogs?.(); refetchSummary?.();
+      warmLocation();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Punch failed.');
+    } finally {
+      setPunching(false);
+    }
   };
 
   /**
    * Punch In with a selfie (Business Settings → "Selfie on Punch In"):
    * front camera opens straight away — taking the photo is the confirmation.
    * Camera only, never the gallery, so an old photo can't be reused.
+   * The photo is kept small (≈640px, JPEG 0.5 → ~40-80 KB) and the location is
+   * fetched while the camera is open, so saving is just one quick upload.
    */
   const punchInWithSelfie = async () => {
+    const locP = getPunchLocation();
     try {
       const res: any = await launchCamera({
-        mediaType: 'photo', cameraType: 'front', quality: 0.6,
-        maxWidth: 800, maxHeight: 800, saveToPhotos: false,
+        mediaType: 'photo', cameraType: 'front', quality: 0.5,
+        maxWidth: 640, maxHeight: 640, saveToPhotos: false, includeBase64: false,
       } as any);
       if (res?.didCancel) return;
       const asset = res?.assets?.[0];
@@ -197,7 +224,7 @@ export default function AttendanceScreen() {
         Alert.alert('Upload failed', e?.message || 'Could not upload the selfie. Please try again.');
         return;
       }
-      sendPunch('in', url);
+      await sendPunch('in', url, locP);
     } catch (e: any) {
       setPunching(false);
       Alert.alert('Camera', e?.message || 'Could not open the camera.');
@@ -327,19 +354,19 @@ export default function AttendanceScreen() {
             {isPunchedIn && (<><View style={styles.separator} /><View style={[styles.liveDot, { backgroundColor: '#22c55e' }]} /><Text style={[styles.punchMeta, { color: '#22c55e' }]}>Active</Text></>)}
           </View>
         </View>
-        <TouchableOpacity style={[styles.punchBtn, { backgroundColor: isPunchedIn ? '#ef444422' : colors.brand }]} onPress={handlePunch} disabled={punching}>
+        <Pressable style={[styles.punchBtn, { backgroundColor: isPunchedIn ? '#ef444422' : colors.brand }]} onPress={handlePunch} disabled={punching}>
           <Icon name={isPunchedIn ? 'logout' : (needSelfie ? 'camera-front-variant' : 'login')} size={18} color={isPunchedIn ? '#ef4444' : colors.onBrand} />
           <Text style={[styles.punchBtnText, { color: isPunchedIn ? '#ef4444' : colors.onBrand }]}>{punching ? (isPunchedIn ? '…' : 'Saving…') : (isPunchedIn ? 'Punch Out' : 'Punch In')}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
 
       <Animated.View entering={FadeInUp.duration(400).delay(160)}>
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Leave Requests</Text>
-          <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.brand }]} onPress={() => { resetForm(); setShowModal(true); }}>
+          <Pressable style={[styles.applyBtn, { backgroundColor: colors.brand }]} onPress={() => { resetForm(); setShowModal(true); }}>
             <Icon name="plus" size={13} color={colors.onBrand} />
             <Text style={[styles.applyBtnText, { color: colors.onBrand }]}>Apply Leave</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         {leaves.length === 0 ? (
           <View style={[styles.leaveCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -361,9 +388,9 @@ export default function AttendanceScreen() {
                 <Text style={[styles.leaveReason, { color: colors.subText }]} numberOfLines={1}>{lv.reason}</Text>
               </View>
               {lv.status === 'pending' && (
-                <TouchableOpacity style={[styles.cancelBtn, { borderColor: '#ef444466' }]} onPress={() => handleCancelLeave(lv.id)}>
+                <Pressable style={[styles.cancelBtn, { borderColor: '#ef444466' }]} onPress={() => handleCancelLeave(lv.id)}>
                   <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           );
@@ -392,15 +419,15 @@ export default function AttendanceScreen() {
 
       <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowModal(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKAV}>
           <View style={[styles.modalInner, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Apply Leave</Text>
-              <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Pressable onPress={() => { setShowModal(false); resetForm(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Icon name="close" size={20} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.modalScroll}>
@@ -409,7 +436,7 @@ export default function AttendanceScreen() {
                 {leaveTypes.map((t: any) => {
                   const active = (selectedType?.id) === t.id;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={t.id}
                       style={[styles.typeChip, active ? { backgroundColor: t.color, borderColor: t.color } : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
                       onPress={() => { setLeaveTypeId(t.id); setHalfDay(false); }}
@@ -418,7 +445,7 @@ export default function AttendanceScreen() {
                         <Text style={[styles.typeCodeText, { color: active ? '#fff' : t.color }]}>{t.code}</Text>
                       </View>
                       <Text style={[styles.typeName, { color: active ? '#fff' : colors.text }]} numberOfLines={1}>{t.name}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -428,13 +455,13 @@ export default function AttendanceScreen() {
                 <View style={styles.dateRow}>
                   <Text style={[styles.dateLabel, { color: colors.subText }]}>From</Text>
                   <View style={styles.datePicker}>
-                    <TouchableOpacity style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(fromDate, -1); setFromDate(n); if (n > toDate) setToDate(new Date(n)); }}>
+                    <Pressable style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(fromDate, -1); setFromDate(n); if (n > toDate) setToDate(new Date(n)); }}>
                       <Icon name="chevron-left" size={16} color={colors.text} />
-                    </TouchableOpacity>
+                    </Pressable>
                     <Text style={[styles.dateText, { color: colors.text }]}>{fmtDate(fromDate)}</Text>
-                    <TouchableOpacity style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(fromDate, 1); setFromDate(n); if (n > toDate) setToDate(new Date(n)); }}>
+                    <Pressable style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(fromDate, 1); setFromDate(n); if (n > toDate) setToDate(new Date(n)); }}>
                       <Icon name="chevron-right" size={16} color={colors.text} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
                 {!halfDay && (
@@ -443,13 +470,13 @@ export default function AttendanceScreen() {
                     <View style={styles.dateRow}>
                       <Text style={[styles.dateLabel, { color: colors.subText }]}>To</Text>
                       <View style={styles.datePicker}>
-                        <TouchableOpacity style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(toDate, -1); if (n >= fromDate) setToDate(n); }}>
+                        <Pressable style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => { const n = addDays(toDate, -1); if (n >= fromDate) setToDate(n); }}>
                           <Icon name="chevron-left" size={16} color={colors.text} />
-                        </TouchableOpacity>
+                        </Pressable>
                         <Text style={[styles.dateText, { color: colors.text }]}>{fmtDate(toDate)}</Text>
-                        <TouchableOpacity style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => setToDate(addDays(toDate, 1))}>
+                        <Pressable style={[styles.dateArrow, { backgroundColor: colors.raisedSurface }]} onPress={() => setToDate(addDays(toDate, 1))}>
                           <Icon name="chevron-right" size={16} color={colors.text} />
-                        </TouchableOpacity>
+                        </Pressable>
                       </View>
                     </View>
                   </>
@@ -478,9 +505,9 @@ export default function AttendanceScreen() {
                   {(['first', 'second'] as const).map(s => {
                     const a = halfSession === s;
                     return (
-                      <TouchableOpacity key={s} style={[styles.sessionChip, a ? { backgroundColor: selectedType?.color ?? colors.brand, borderColor: selectedType?.color ?? colors.brand } : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]} onPress={() => setHalfSession(s)}>
+                      <Pressable key={s} style={[styles.sessionChip, a ? { backgroundColor: selectedType?.color ?? colors.brand, borderColor: selectedType?.color ?? colors.brand } : { backgroundColor: colors.raisedSurface, borderColor: colors.border }]} onPress={() => setHalfSession(s)}>
                         <Text style={[styles.sessionText, { color: a ? (selectedType?.color != null ? '#fff' : colors.onBrand) : colors.subText }]}>{s === 'first' ? 'First Half' : 'Second Half'}</Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -499,14 +526,14 @@ export default function AttendanceScreen() {
                 />
               </View>
 
-              <TouchableOpacity
+              <Pressable
                 style={[styles.submitBtn, { backgroundColor: submitting ? colors.border : (selectedType?.color ?? colors.brand) }]}
                 onPress={handleSubmitLeave}
                 disabled={submitting}
               >
                 <Icon name="send-outline" size={16} color={selectedType?.color != null ? '#fff' : colors.onBrand} />
                 <Text style={[styles.submitBtnText, { color: selectedType?.color != null ? '#fff' : colors.onBrand }]}>{submitting ? 'Submitting…' : 'Submit Request'}</Text>
-              </TouchableOpacity>
+              </Pressable>
             </ScrollView>
           </View>
           </KeyboardAvoidingView>

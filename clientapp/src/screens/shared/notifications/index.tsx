@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useQuery, useMutation } from '@apollo/client/react';
@@ -80,14 +80,13 @@ export default function Notifications() {
   const renderNotif = ({ item: n }: { item: any }) => {
     const meta = TYPE_META[n.ntype] ?? TYPE_META.system;
     return (
-      <TouchableOpacity
+      <Pressable
         style={[
           styles.card,
           { backgroundColor: colors.cardGlass, borderColor: colors.border },
           !n.read && { borderLeftColor: colors.brand, borderLeftWidth: 3 },
         ]}
         onPress={() => handleTap(n)}
-        activeOpacity={0.82}
       >
         <View style={[styles.iconWrap, { backgroundColor: meta.color }]}>
           <Icon name={meta.icon} size={20} color="#fff" />
@@ -103,7 +102,7 @@ export default function Notifications() {
             <Text style={[styles.time, { color: colors.subText }]}>{timeAgo(n.createdAt)}</Text>
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -117,9 +116,9 @@ export default function Notifications() {
         <View />
       )}
       {unreadCount > 0 && (
-        <TouchableOpacity onPress={handleMarkAll}>
+        <Pressable onPress={handleMarkAll}>
           <Text style={[styles.markAll, { color: colors.brand }]}>Mark all read</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

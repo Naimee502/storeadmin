@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -60,13 +60,13 @@ export default function SalesmanLeaderboard() {
       >
         {/* Month switcher */}
         <View style={[styles.monthBar, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-          <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={10}>
+          <Pressable onPress={() => setMonth(shiftMonth(month, -1))} hitSlop={10}>
             <Icon name="chevron-left" size={22} color={colors.brand} />
-          </TouchableOpacity>
+          </Pressable>
           <Text style={[styles.monthText, { color: colors.text }]}>{label}{isCurrent ? ' · so far' : ''}</Text>
-          <TouchableOpacity onPress={() => !isCurrent && setMonth(shiftMonth(month, 1))} hitSlop={10} disabled={isCurrent}>
+          <Pressable onPress={() => !isCurrent && setMonth(shiftMonth(month, 1))} hitSlop={10} disabled={isCurrent}>
             <Icon name="chevron-right" size={22} color={isCurrent ? colors.border : colors.brand} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* My position */}

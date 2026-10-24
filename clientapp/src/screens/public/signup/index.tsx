@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   StatusBar,
   Alert,
@@ -85,13 +85,13 @@ export default function Signup({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
         >
           <Animated.View entering={FadeInUp.duration(600).delay(100)}>
-            <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
+            <Pressable style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
               <Icon name="chevron-left" size={30} color={colors.text} />
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
 
           <Animated.View entering={FadeInUp.duration(800).delay(200)} style={styles.header}>
-            <TouchableOpacity
+            <Pressable
               onPress={handleSelectImage}
               style={[styles.imagePickerContainer, { borderColor: colors.brand, backgroundColor: colors.raisedSurface }]}
             >
@@ -102,7 +102,7 @@ export default function Signup({ navigation }: any) {
                   <Icon name="camera-plus-outline" size={32} color={colors.brand} />
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.eyebrow, { color: colors.brand }]}>Join the fresh list</Text>
             <Text style={[styles.title, { color: colors.text }]}>Create your account</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>Set up your profile once and make every checkout faster.</Text>
@@ -167,9 +167,9 @@ export default function Signup({ navigation }: any) {
 
           <Animated.View entering={FadeInDown.duration(800).delay(600)} style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.subText }]}>{sText.alreadyHaveAccount}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Pressable onPress={() => navigation.navigate('Login')}>
               <Text style={[styles.signInLinkText, { color: colors.brand }]}>{sText.login}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
         </ScrollView>
       </SafeAreaView>

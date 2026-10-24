@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Dimensions,
+  View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -320,17 +320,16 @@ export default function ProductDetail() {
         {galleryImages.length > 1 && (
           <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.thumbRow}>
             {galleryImages.map((uri, i) => (
-              <TouchableOpacity
+              <Pressable
                 key={`${uri}-${i}`}
                 onPress={() => setActiveImageIdx(i)}
                 style={[
                   styles.thumb,
                   { borderColor: i === activeImageIdx ? colors.brand : colors.border },
                 ]}
-                activeOpacity={0.8}
               >
                 <AppImage uri={uri} width={IMG.product} style={styles.thumbImg} resizeMode="cover" />
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </Animated.View>
         )}
@@ -382,7 +381,7 @@ export default function ProductDetail() {
                 const vUp = v.unitprices?.[0];
                 const vPrice = resolveUnitPrice(vUp);
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={v.id}
                     style={[styles.variantChip, active
                       ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -396,7 +395,7 @@ export default function ProductDetail() {
                         {formatCatalogINR(vPrice)}
                       </Text>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -416,7 +415,7 @@ export default function ProductDetail() {
                 const uMrp = up?.mrp ?? 0;
                 const uHasDisc = uMrp > 0 && uMrp > uPrice;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={`${up.unitid?.id ?? i}-${up.quantity ?? i}`}
                     style={[styles.unitChip, active
                       ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -437,7 +436,7 @@ export default function ProductDetail() {
                         {formatCatalogINR(uMrp)}
                       </Text>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -457,45 +456,43 @@ export default function ProductDetail() {
         {/* Add to cart */}
         <Animated.View entering={FadeInUp.duration(400).delay(200)} style={{ marginTop: 4, marginBottom: 32 }}>
           {cartQty === 0 ? (
-            <TouchableOpacity
+            <Pressable
               style={[styles.addCartBtn, { backgroundColor: canAdd ? colors.brand : colors.border }]}
               onPress={handleAdd}
               disabled={!canAdd}
-              activeOpacity={0.85}
             >
               <Icon name="cart-plus" size={18} color={colors.onBrand} />
               <Text style={[styles.addCartText, { color: colors.onBrand }]}>{canAdd ? 'Add to Cart' : 'Out of Stock'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : (
             <View style={styles.cartControlWrap}>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.cartBtn, { backgroundColor: colors.brandSoft, borderColor: colors.brand }]}
                 onPress={() => handleQty(-1)}
               >
                 <Icon name="minus" size={18} color={colors.brand} />
-              </TouchableOpacity>
+              </Pressable>
               <View style={[styles.cartQtyBox, { backgroundColor: colors.brand }]}>
                 <Text style={[styles.cartQtyText, { color: colors.onBrand }]}>{cartQty}</Text>
                 <Text style={[styles.cartQtyLabel, { color: colors.onBrand + 'CC' }]}>in cart</Text>
               </View>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.cartBtn, { backgroundColor: colors.brandSoft, borderColor: colors.brand }, !canAdd && { opacity: 0.35 }]}
                 onPress={() => handleQty(1)}
                 disabled={!canAdd}
               >
                 <Icon name="plus" size={18} color={colors.brand} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
           {cartQty > 0 && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.goCartBtn, { borderColor: colors.brand }]}
               onPress={() => navigation.navigate('CartScreen')}
-              activeOpacity={0.8}
             >
               <Icon name="cart-outline" size={16} color={colors.brand} />
               <Text style={[styles.goCartText, { color: colors.brand }]}>Go to Cart</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </Animated.View>
 

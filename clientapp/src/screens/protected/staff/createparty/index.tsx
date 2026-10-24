@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert,
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList,
   PermissionsAndroid,
 } from 'react-native';
@@ -49,17 +49,16 @@ const Field = ({ label, value, onChange, placeholder, keyboard = 'default', maxL
 const SelectField = ({ label, value, placeholder, icon, onPress, colors }: any) => (
   <View style={styles.fieldWrap}>
     <Text style={[styles.fieldLabel, { color: colors.text }]}>{label}</Text>
-    <TouchableOpacity
+    <Pressable
       style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       {icon && <Icon name={icon} size={16} color={colors.subText} style={{ marginRight: 8 }} />}
       <Text style={[styles.input, { color: value ? colors.text : colors.subText }]} numberOfLines={1}>
         {value || placeholder}
       </Text>
       <Icon name="chevron-down" size={18} color={colors.subText} />
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -370,7 +369,7 @@ export default function StaffCreateParty() {
             {partyTypeOptions.map(t => {
               const active = type === t.value;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={t.value}
                   style={[styles.typeChip, active
                     ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -386,7 +385,7 @@ export default function StaffCreateParty() {
                   }}
                 >
                   <Text style={[styles.typeChipText, { color: active ? colors.onBrand : colors.subText }]}>{t.label}</Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -435,10 +434,9 @@ export default function StaffCreateParty() {
               screen show distance & navigation for this party. */}
           <View style={styles.fieldWrap}>
             <Text style={[styles.fieldLabel, { color: colors.text }]}>Shop Location (GPS)</Text>
-            <TouchableOpacity
+            <Pressable
               style={[styles.inputRow, { backgroundColor: colors.raisedSurface, borderColor: latitude != null ? colors.brand : colors.border }]}
               onPress={captureLocation}
-              activeOpacity={0.7}
               disabled={locating}
             >
               <Icon name={locating ? 'loading' : (latitude != null ? 'map-marker-check' : 'crosshairs-gps')} size={16} color={colors.brand} style={{ marginRight: 8 }} />
@@ -450,7 +448,7 @@ export default function StaffCreateParty() {
                     : 'Tap to capture current location'}
               </Text>
               {latitude != null && !locating && <Icon name="refresh" size={16} color={colors.subText} />}
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.locHint, { color: filling ? colors.brand : colors.subText }]}>
               {filling ? 'Filling address from location…' : 'Capturing the location fills Address, City, State and Pin Code.'}
             </Text>
@@ -460,7 +458,7 @@ export default function StaffCreateParty() {
             <Text style={[styles.fieldLabel, { color: colors.text }]}>Shop Photo</Text>
             {shopImage ? (
               <View style={[styles.shopPhotoRow, { borderColor: colors.brand, backgroundColor: colors.raisedSurface }]}>
-                <TouchableOpacity onPress={() => setShopPreview(true)} activeOpacity={0.85}>
+                <Pressable onPress={() => setShopPreview(true)}>
                   <AppImage
                     uri={shopImage}
                     width={480}
@@ -468,30 +466,29 @@ export default function StaffCreateParty() {
                     resizeMode="cover"
                     fallback={<View style={[styles.shopThumb, styles.center, { backgroundColor: colors.brandSoft }]}><Icon name="storefront-outline" size={22} color={colors.brand} /></View>}
                   />
-                </TouchableOpacity>
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.shopPhotoTitle, { color: colors.text }]}>Photo added</Text>
                   <Text style={[styles.locHint, { color: colors.subText, marginTop: 2 }]}>Tap the photo to view</Text>
                 </View>
-                <TouchableOpacity onPress={pickShopPhoto} disabled={uploadingShop} style={[styles.shopIconBtn, { backgroundColor: colors.brandSoft }]}>
+                <Pressable onPress={pickShopPhoto} disabled={uploadingShop} style={[styles.shopIconBtn, { backgroundColor: colors.brandSoft }]}>
                   <Icon name={uploadingShop ? 'loading' : 'camera-retake-outline'} size={18} color={colors.brand} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShopImage(null)} style={[styles.shopIconBtn, { backgroundColor: '#ef444418' }]}>
+                </Pressable>
+                <Pressable onPress={() => setShopImage(null)} style={[styles.shopIconBtn, { backgroundColor: '#ef444418' }]}>
                   <Icon name="trash-can-outline" size={18} color="#ef4444" />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             ) : (
-              <TouchableOpacity
+              <Pressable
                 style={[styles.shopAddBtn, { borderColor: colors.brand, backgroundColor: colors.brandSoft }]}
                 onPress={pickShopPhoto}
                 disabled={uploadingShop}
-                activeOpacity={0.8}
               >
                 <Icon name={uploadingShop ? 'loading' : 'camera-plus-outline'} size={20} color={colors.brand} />
                 <Text style={[styles.shopAddText, { color: colors.brand }]}>
                   {uploadingShop ? 'Uploading photo…' : 'Add shop photo'}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
           <ProductImageViewer
@@ -520,7 +517,7 @@ export default function StaffCreateParty() {
               {(['debit', 'credit'] as const).map(bt => {
                 const active = openingbalancetype === bt;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={bt}
                     style={[styles.typeChip, active
                       ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -530,27 +527,26 @@ export default function StaffCreateParty() {
                     <Text style={[styles.typeChipText, { color: active ? colors.onBrand : colors.subText }]}>
                       {bt === 'debit' ? 'Debit (To Receive)' : 'Credit (To Pay)'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
           </View>
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.submitBtn, { backgroundColor: submitting ? colors.border : colors.brand }]}
             onPress={handleSubmit}
             disabled={submitting}
-            activeOpacity={0.88}
           >
             <Icon name={submitting ? 'loading' : 'account-plus-outline'} size={20} color={colors.onBrand} />
             <Text style={[styles.submitBtnText, { color: colors.onBrand }]}>{submitting ? 'Creating…' : 'Create Party'}</Text>
-          </TouchableOpacity>
+          </Pressable>
 
         </ScrollView>
 
         {/* Picker modal */}
         <Modal visible={picker !== null} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setPicker(null)}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
             <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {picker === 'channel' ? 'Select Channel' : picker === 'state' ? 'Select State' : picker === 'parent' ? 'Select Parent Party' : 'Select Region'}
@@ -566,7 +562,7 @@ export default function StaffCreateParty() {
                     : picker === 'parent' ? parentParty?.value === item.value
                     : region?.value === item.value;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       style={styles.modalRow}
                       onPress={() => {
                         if (picker === 'channel') { setChannel(item.value ? item : null); setParentParty(null); }
@@ -578,12 +574,12 @@ export default function StaffCreateParty() {
                     >
                       <Text style={[styles.modalRowText, { color: selected ? colors.brand : colors.text }]}>{item.label}</Text>
                       {selected && <Icon name="check" size={18} color={colors.brand} />}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 }}
               />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </Modal>
       </View>
     </KeyboardAvoidingView>

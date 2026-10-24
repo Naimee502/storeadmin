@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -179,17 +179,16 @@ export default function PartyHome() {
       />
 
       {cartCount > 0 && (
-        <TouchableOpacity
+        <Pressable
           style={[styles.cartBar, { backgroundColor: colors.brand }]}
           onPress={() => navigation.navigate('CartScreen')}
-          activeOpacity={0.9}
         >
           <View style={[styles.cartBadge, { backgroundColor: colors.onBrand + '40' }]}>
             <Text style={[styles.cartBadgeText, { color: colors.onBrand }]}>{cartCount}</Text>
           </View>
           <Text style={[styles.cartBarText, { color: colors.onBrand }]}>View Cart</Text>
           <Icon name="chevron-right" size={18} color={colors.onBrand} />
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

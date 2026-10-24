@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -547,26 +547,24 @@ export default function OrderDetail() {
 
           {/* Fulfilment actions — field staff only */}
           {canEdit && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#6366f1' }]}
               onPress={() => navigation.navigate('OrderEdit', { orderId: id })}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="pencil-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>Edit Order</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           {canDelete && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#ef4444' }]}
               onPress={handleDelete}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="trash-can-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Deleting…' : 'Delete Order'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           <AppModal
             visible={showDelete}
@@ -580,59 +578,54 @@ export default function OrderDetail() {
             iconName="trash-can-outline"
           />
           {canConfirm && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#3b82f6' }]}
               onPress={handleConfirm}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="check-circle-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark Confirmed'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           {canConvert && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#f59e0b' }]}
               onPress={handleConvert}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="file-document-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Convert to Invoice'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           {canDispatch && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#0ea5e9' }]}
               onPress={handleMarkDispatched}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="truck-fast-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark Dispatched'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           {canDeliver && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#22c55e' }]}
               onPress={handleMarkDelivered}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="truck-check-outline" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>{marking ? 'Updating…' : 'Mark as Delivered'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           {canReturn && (
-            <TouchableOpacity
+            <Pressable
               style={[styles.deliverBtn, { backgroundColor: marking ? colors.border : '#ef4444' }]}
               onPress={() => navigation.navigate('SalesReturnCreate', { invoiceId: returnInvoiceId })}
               disabled={marking}
-              activeOpacity={0.88}
             >
               <Icon name="keyboard-return" size={18} color="#fff" />
               <Text style={styles.deliverBtnText}>Sales Return</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
         </ScrollView>

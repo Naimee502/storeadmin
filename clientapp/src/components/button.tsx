@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, StyleProp } from 'react-native';
+import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { COLORS, FONTS, useTheme } from '../config';
 
 type AppButtonProps = {
@@ -62,7 +62,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.button,
         getButtonStyle(),
@@ -70,7 +70,6 @@ export const AppButton: React.FC<AppButtonProps> = ({
         (disabled || loading) && styles.disabled,
       ]}
       onPress={onPress}
-      activeOpacity={0.8}
       disabled={disabled || loading}
     >
       {loading ? (
@@ -82,7 +81,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
           textStyle,
         ]}>{title}</Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

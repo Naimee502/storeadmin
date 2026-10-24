@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, FlatList, RefreshControl, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, StatusBar, TextInput, FlatList, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -61,13 +61,12 @@ export default function SalesReturns() {
   const Seg = ({ id, label }: { id: 'mine' | 'new'; label: string }) => {
     const on = tab === id;
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.segBtn, on && { backgroundColor: colors.brand }]}
         onPress={() => setTab(id)}
-        activeOpacity={0.85}
       >
         <Text style={[styles.segText, { color: on ? colors.onBrand : colors.text }]}>{label}</Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -95,9 +94,9 @@ export default function SalesReturns() {
                 <View style={styles.empty}>
                   <Icon name="keyboard-return" size={40} color={colors.subText} />
                   <Text style={[styles.muted, { color: colors.subText }]}>No returns booked yet.</Text>
-                  <TouchableOpacity onPress={() => setTab('new')}>
+                  <Pressable onPress={() => setTab('new')}>
                     <Text style={[styles.link, { color: colors.brand }]}>Book a return</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               )
             }
@@ -164,10 +163,9 @@ export default function SalesReturns() {
                 )
               }
               renderItem={({ item: inv }: any) => (
-                <TouchableOpacity
+                <Pressable
                   style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                   onPress={() => navigation.navigate('SalesReturnCreate', { invoiceId: inv.id })}
-                  activeOpacity={0.85}
                 >
                   <View style={styles.rowBetween}>
                     <View style={{ flex: 1, marginRight: 8 }}>
@@ -186,7 +184,7 @@ export default function SalesReturns() {
                     <Text style={[styles.amount, { color: colors.text }]}>{inr(inv.totalamount)}</Text>
                     <Icon name="chevron-right" size={20} color={colors.subText} />
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               )}
             />
           </>

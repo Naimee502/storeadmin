@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, Keyboard,
+  View, Text, StyleSheet, Pressable, TextInput, StatusBar, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -181,9 +181,9 @@ export default function OTPVerification({ navigation, route }: any) {
 
       <SafeAreaView style={{ flex: 1 }}>
         <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.navBar}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()}>
+          <Pressable style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()}>
             <Icon name="chevron-left" size={30} color={colors.text} />
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
 
         <View style={styles.content}>
@@ -232,10 +232,10 @@ export default function OTPVerification({ navigation, route }: any) {
                   {sText.timer}<Text style={[styles.boldText, { color: colors.text }]}>{`00:${timer < 10 ? `0${timer}` : timer}`}</Text>
                 </Text>
               ) : (
-                <TouchableOpacity onPress={handleResend} style={styles.resendButton}>
+                <Pressable onPress={handleResend} style={styles.resendButton}>
                   <Icon name="refresh" size={17} color={colors.brand} />
                   <Text style={[styles.resendText, { color: colors.brand }]}>{sText.resend}</Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           </Animated.View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -32,9 +32,9 @@ export default function ForgotPassword({ navigation }: any) {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Animated.View entering={FadeInUp.duration(600).delay(100)}>
-            <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()}>
+            <Pressable style={[styles.backButton, { backgroundColor: colors.raisedSurface }]} onPress={() => navigation.goBack()}>
               <Icon name="chevron-left" size={30} color={colors.text} />
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
 
           <Animated.View entering={FadeInUp.duration(800).delay(180)} style={styles.hero}>
@@ -65,9 +65,9 @@ export default function ForgotPassword({ navigation }: any) {
 
           <Animated.View entering={FadeInDown.duration(800).delay(500)} style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.subText }]}>Remembered it?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Pressable onPress={() => navigation.navigate('Login')}>
               <Text style={[styles.footerLink, { color: colors.brand }]}> Sign in</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
         </ScrollView>
       </SafeAreaView>

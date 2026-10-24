@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TouchableWithoutFeedback } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme } from '../config';
 
@@ -49,19 +49,19 @@ export const AppModal: React.FC<AppModalProps> = ({
               <Text style={[styles.message, { color: colors.subText }]}>{message}</Text>
               
               <View style={styles.buttonRow}>
-                <TouchableOpacity 
+                <Pressable 
                   style={[styles.button, styles.cancelButton, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]} 
                   onPress={onClose}
                 >
                   <Text style={[styles.cancelButtonText, { color: colors.text }]}>{cancelLabel}</Text>
-                </TouchableOpacity>
+                </Pressable>
                 
-                <TouchableOpacity 
+                <Pressable 
                   style={[styles.button, styles.confirmButton, { backgroundColor: finalConfirmColor }]} 
                   onPress={onConfirm}
                 >
                   <Text style={[styles.confirmButtonText, { color: colors.onBrand }]}>{confirmLabel}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </TouchableWithoutFeedback>

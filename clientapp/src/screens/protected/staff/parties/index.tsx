@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -73,14 +73,13 @@ export default function StaffParties() {
               <Text style={[styles.code, { color: colors.subText }]}>{item.accountcode}</Text>
             ) : null}
           </View>
-          <TouchableOpacity
+          <Pressable
             style={[styles.orderBtn, { backgroundColor: colors.brand }]}
             onPress={() => navigation.navigate('StaffCatalog', { partyId: item.id, partyName: item.name })}
-            activeOpacity={0.82}
           >
             <Icon name="clipboard-plus-outline" size={14} color={colors.onBrand} />
             <Text style={[styles.orderBtnText, { color: colors.onBrand }]}>Order</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </Animated.View>
     );
@@ -105,9 +104,9 @@ export default function StaffParties() {
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Pressable onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Icon name="close-circle" size={16} color={colors.subText} />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 
@@ -127,14 +126,13 @@ export default function StaffParties() {
       />
 
       {/* FAB — Add Party */}
-      <TouchableOpacity
+      <Pressable
         style={[styles.fab, { backgroundColor: colors.brand }]}
         onPress={() => navigation.navigate('StaffCreateParty')}
-        activeOpacity={0.88}
       >
         <Icon name="plus" size={22} color={colors.onBrand} />
         <Text style={[styles.fabText, { color: colors.onBrand }]}>Add Party</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

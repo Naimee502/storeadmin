@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -248,11 +248,10 @@ export default function RoutePartyVisit() {
           style={[styles.partyCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         >
           {/* Shop photo when saved (tap to view), else the initial. */}
-          <TouchableOpacity
+          <Pressable
             style={[styles.partyAvatar, { backgroundColor: colors.brandSoft, overflow: 'hidden' }]}
             onPress={() => shopImage && setShopPreview(true)}
             disabled={!shopImage}
-            activeOpacity={0.85}
           >
             {shopImage ? (
               <AppImage
@@ -267,7 +266,7 @@ export default function RoutePartyVisit() {
                 {(partyName ?? 'P').charAt(0).toUpperCase()}
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={[styles.partyTitle, { color: colors.text }]}>{partyName}</Text>
             {mobile && (
@@ -332,33 +331,31 @@ export default function RoutePartyVisit() {
               onPress: handleCollectPayment,
             }] : []),
           ].map((a) => (
-            <TouchableOpacity
+            <Pressable
               key={a.label}
               style={[styles.actionCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
               onPress={a.onPress}
-              activeOpacity={0.82}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: a.color + '18' }]}>
                 <Icon name={a.icon} size={26} color={a.color} />
               </View>
               <Text style={[styles.actionLabel, { color: colors.text }]}>{a.label}</Text>
               <Text style={[styles.actionSub, { color: colors.subText }]}>{a.sub}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </Animated.View>
 
         {/* Active cart banner */}
         {cartCount > 0 && cartPartyId === partyId && (
           <Animated.View entering={FadeInUp.duration(300)}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.cartBanner, { backgroundColor: colors.brand }]}
               onPress={() => navigation.navigate('SalesmanCart')}
-              activeOpacity={0.88}
             >
               <Icon name="cart-outline" size={18} color={colors.onBrand} />
               <Text style={[styles.cartBannerText, { color: colors.onBrand }]}>{cartCount} item{cartCount !== 1 ? 's' : ''} in cart — Review Order</Text>
               <Icon name="chevron-right" size={18} color={colors.onBrand} />
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
         )}
 
@@ -412,11 +409,10 @@ export default function RoutePartyVisit() {
             const label  = orderLabel(order);
             const colour = STATUS_COLOR[label] ?? colors.brand;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={order.id}
                 style={[styles.orderRow, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-                activeOpacity={0.85}
               >
                 <View style={[styles.orderDot, { backgroundColor: colour }]} />
                 <View style={{ flex: 1 }}>
@@ -430,7 +426,7 @@ export default function RoutePartyVisit() {
                   </View>
                 </View>
                 <Icon name="chevron-right" size={16} color={colors.subText} style={{ marginLeft: 6, alignSelf: 'center' }} />
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </Animated.View>
@@ -446,15 +442,14 @@ export default function RoutePartyVisit() {
             {NO_ORDER_REASONS.map((r) => {
               const on = noOrderReason === r;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={r}
                   style={[styles.reasonRow, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandSoft : 'transparent' }]}
                   onPress={() => setNoOrderReason(r)}
-                  activeOpacity={0.8}
                 >
                   <Icon name={on ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={on ? colors.brand : colors.subText} />
                   <Text style={[styles.reasonText, { color: colors.text }]}>{r}</Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
             <TextInput
@@ -465,12 +460,12 @@ export default function RoutePartyVisit() {
               style={[styles.noteInput, { borderColor: colors.border, color: colors.text }]}
             />
             <View style={styles.sheetActions}>
-              <TouchableOpacity style={[styles.sheetBtn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setNoOrderOpen(false)}>
+              <Pressable style={[styles.sheetBtn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setNoOrderOpen(false)}>
                 <Text style={[styles.sheetBtnText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: '#f59e0b' }]} onPress={submitNoOrder} disabled={savingNoOrder}>
+              </Pressable>
+              <Pressable style={[styles.sheetBtn, { backgroundColor: '#f59e0b' }]} onPress={submitNoOrder} disabled={savingNoOrder}>
                 {savingNoOrder ? <ActivityIndicator color="#fff" /> : <Text style={[styles.sheetBtnText, { color: '#fff' }]}>Save visit</Text>}
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>

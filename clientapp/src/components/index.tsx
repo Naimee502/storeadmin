@@ -14,6 +14,7 @@ export { AppModal } from './modal';
 export { ProductImageViewer, productImages } from './productimageviewer';
 export { DateRangeSheet, ALL_TIME, inRange, rangeLabel, presetRange } from './daterangesheet';
 export type { DateRange, DatePreset } from './daterangesheet';
+export { OrdersSummaryCard, compactINR } from './orderssummary';
 export { AddressForm } from './addressform';
 export { default as Skeleton } from './skeleton';
 export { PlaceholderScreen } from './placeholder';

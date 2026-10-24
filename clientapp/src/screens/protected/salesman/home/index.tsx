@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert,
+  View, Text, StyleSheet, Pressable, ScrollView, StatusBar, Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -162,10 +162,10 @@ export default function SalesmanDashboard() {
           ].map((s, i) => (
             <React.Fragment key={s.label}>
               {i > 0 && <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />}
-              <TouchableOpacity style={styles.stripItem} onPress={s.onPress} disabled={!s.onPress} activeOpacity={0.7}>
+              <Pressable style={styles.stripItem} onPress={s.onPress} disabled={!s.onPress}>
                 <Text style={[styles.stripValue, { color: s.color }]} numberOfLines={1} adjustsFontSizeToFit>{s.value}</Text>
                 <Text style={[styles.stripLabel, { color: colors.subText }]} numberOfLines={1}>{s.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             </React.Fragment>
           ))}
         </Animated.View>
@@ -216,10 +216,9 @@ export default function SalesmanDashboard() {
         {/* Today's Route */}
         <Animated.View entering={FadeInUp.duration(400).delay(120)} style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Route</Text>
-          <TouchableOpacity
+          <Pressable
             style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
             onPress={() => goWithPunch('SalesmanRoutes')}
-            activeOpacity={0.82}
           >
             <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
               <Icon name="map-marker-path" size={24} color={colors.brand} />
@@ -229,13 +228,12 @@ export default function SalesmanDashboard() {
               <Text style={[styles.routeCode, { color: colors.subText }]}>Tap to see today's stops</Text>
             </View>
             <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Direct (route-less) ordering — pick any party from your channel */}
-          <TouchableOpacity
+          <Pressable
             style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border, marginTop: 10 }]}
             onPress={() => goWithPunch('SalesmanParties')}
-            activeOpacity={0.82}
           >
             <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
               <Icon name="account-group-outline" size={24} color={colors.brand} />
@@ -245,7 +243,7 @@ export default function SalesmanDashboard() {
               <Text style={[styles.routeCode, { color: colors.subText }]}>Take an order without a route</Text>
             </View>
             <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
 
         {/* Monthly target */}
@@ -253,9 +251,9 @@ export default function SalesmanDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Monthly Target</Text>
             {leaderboardOn && (
-              <TouchableOpacity onPress={() => navigation.navigate('SalesmanLeaderboard')}>
+              <Pressable onPress={() => navigation.navigate('SalesmanLeaderboard')}>
                 <Text style={[styles.viewAll, { color: colors.brand }]}>Leaderboard</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
           <View style={[styles.perfCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -295,9 +293,9 @@ export default function SalesmanDashboard() {
         <Animated.View entering={FadeInUp.duration(400).delay(115)} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Last 7 Days</Text>
-            <TouchableOpacity onPress={() => goWithPunch('SalesmanOrders')}>
+            <Pressable onPress={() => goWithPunch('SalesmanOrders')}>
               <Text style={[styles.viewAll, { color: colors.brand }]}>My orders</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <View style={[styles.perfCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
             <View style={styles.weekTop}>

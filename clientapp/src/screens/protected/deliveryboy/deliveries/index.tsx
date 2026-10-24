@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, Linking, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Alert, Linking, Platform, PermissionsAndroid } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -220,10 +220,9 @@ export default function DeliveryList() {
       ? haversineKm(myLoc.lat, myLoc.lng, item.lat, item.lng)
       : null;
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         onPress={() => navigation.navigate('OrderDetail', { invoiceId: item.id })}
-        activeOpacity={0.85}
       >
         <View style={[styles.iconWrap, { backgroundColor: meta.color + '18' }]}>
           <Icon name="truck-delivery-outline" size={22} color={meta.color} />
@@ -236,17 +235,16 @@ export default function DeliveryList() {
           <Text style={[styles.partyName, { color: colors.text }]} numberOfLines={1}>{item.party}</Text>
 
           {/* tappable address row → opens maps */}
-          <TouchableOpacity
+          <Pressable
             style={styles.addressRow}
             onPress={() => { if (item.lat != null && item.lng != null) openInMaps(item.lat, item.lng, item.party, myLoc); }}
-            activeOpacity={0.7}
           >
             <Icon name="map-marker-outline" size={11} color={colors.brand} style={{ marginRight: 3 }} />
             <Text style={[styles.address, { color: colors.brand }]} numberOfLines={1}>
               {[item.address, item.city].filter(Boolean).join(', ') || (item.mobile ? `+91 ${item.mobile}` : 'No address')}
             </Text>
             {item.lat != null && <Icon name="open-in-new" size={10} color={colors.brand} style={{ marginLeft: 3 }} />}
-          </TouchableOpacity>
+          </Pressable>
 
           <View style={styles.cardBottom}>
             <View style={[styles.statusBadge, { backgroundColor: meta.color + '22' }]}>
@@ -258,50 +256,49 @@ export default function DeliveryList() {
 
             {/* distance badge → opens maps */}
             {distKm !== null && (
-              <TouchableOpacity
+              <Pressable
                 style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
                 onPress={() => openInMaps(item.lat, item.lng, item.party, myLoc)}
-                activeOpacity={0.75}
               >
                 <Icon name="navigation-variant-outline" size={11} color={colors.brand} />
                 <Text style={[styles.distText, { color: colors.brand }]}>{fmtDist(distKm)}</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
 
             {item.status === 'available' && (
-              <TouchableOpacity
+              <Pressable
                 style={[styles.actionBtn, { backgroundColor: colors.brand }]}
                 onPress={() => handleAccept(item)}
               >
                 <Icon name="hand-okay" size={12} color={colors.onBrand} />
                 <Text style={[styles.actionBtnText, { color: colors.onBrand }]}>Accept</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
 
             {item.status === 'out' && (
               <>
-                <TouchableOpacity
+                <Pressable
                   style={[styles.actionBtn, { backgroundColor: colors.brand }]}
                   onPress={() => handleMarkDelivered(item)}
                 >
                   <Icon name="check" size={12} color={colors.onBrand} />
                   <Text style={[styles.actionBtnText, { color: colors.onBrand }]}>Delivered</Text>
-                </TouchableOpacity>
+                </Pressable>
                 {paymentsEnabled && item.outstanding > 0 && (
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.actionBtn, { backgroundColor: '#22c55e' }]}
                     onPress={() => handleCollectPayment(item)}
                   >
                     <Icon name="cash" size={12} color="#fff" />
                     <Text style={[styles.actionBtnText, { color: '#fff' }]}>Collect ₹</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </>
             )}
           </View>
         </View>
         <Icon name="chevron-right" size={18} color={colors.subText} style={{ alignSelf: 'center', marginLeft: 2 }} />
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -317,9 +314,9 @@ export default function DeliveryList() {
         <Icon name={locIcon} size={14} color={locColor} />
         <Text style={[styles.locBarText, { color: locColor }]}>{locTip}</Text>
         <Text style={[styles.locBarSub, { color: colors.subText }]}>· Distance per delivery</Text>
-        <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
+        <Pressable onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
           <Icon name="refresh" size={16} color={colors.brand} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipList} style={styles.chipScroll}>
@@ -327,7 +324,7 @@ export default function DeliveryList() {
           const active = filter === f.key;
           const count  = counts[f.key];
           return (
-            <TouchableOpacity
+            <Pressable
               key={f.key}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand,         borderColor: colors.brand }
@@ -341,7 +338,7 @@ export default function DeliveryList() {
                   <Text style={[styles.chipCountText, { color: active ? colors.onBrand : colors.brand }]}>{count}</Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>

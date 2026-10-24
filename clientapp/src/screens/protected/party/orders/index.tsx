@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -8,8 +8,8 @@ import { useSelector } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { OrderListSkeleton } from '../../../../config/skeletonlayouts';
 import { GET_SALES_ORDERS, GET_ADMIN_SETTINGS, GET_DOWNLINE_PARTY_BALANCES } from '../../../../apollo/queries/accounts';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
-import { AppHeader, DynamicFlashList } from '../../../../components';
+import { formatINR, formatDate, formatBillNumber, parseServerDate } from '../../../../utils';
+import { AppHeader, DynamicFlashList, OrdersSummaryCard, ALL_TIME, inRange, rangeLabel, type DateRange } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
 type FilterKey = 'all' | 'pending' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled';
@@ -58,6 +58,8 @@ export default function MyOrders() {
   const adminid   = tenant.adminId ?? '';
 
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [range, setRange] = useState<DateRange>(ALL_TIME);
+  const dateActive = range.preset !== 'all';
 
   // Downline: when the business lets a channel party manage its sub-parties,
   // this party also sees orders of the parties under it.
@@ -93,11 +95,13 @@ export default function MyOrders() {
   // Scope: own orders vs sub-party (downline) orders. Only meaningful when
   // downline management is on; otherwise everything is "mine".
   const [scope, setScope] = useState<'mine' | 'downline' | 'all'>('mine');
+  // Scope first, then the date range; the status chips (and their counts) work inside both.
   const orders = useMemo(() => {
-    if (!manageDownline || scope === 'all') return allOrders;
-    if (scope === 'mine') return allOrders.filter((o: any) => o.partyacc?.id === user?.id);
-    return allOrders.filter((o: any) => o.partyacc?.id && o.partyacc.id !== user?.id);
-  }, [allOrders, scope, manageDownline, user?.id]);
+    const inDates = allOrders.filter((o: any) => inRange(parseServerDate(o.billdate), range));
+    if (!manageDownline || scope === 'all') return inDates;
+    if (scope === 'mine') return inDates.filter((o: any) => o.partyacc?.id === user?.id);
+    return inDates.filter((o: any) => o.partyacc?.id && o.partyacc.id !== user?.id);
+  }, [allOrders, scope, manageDownline, user?.id, range]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return orders;
@@ -120,10 +124,9 @@ export default function MyOrders() {
     const channel   = order.partyacc?.channelName;
 
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}
         onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
-        activeOpacity={0.85}
       >
         <View style={[styles.statusDot, { backgroundColor: colour }]} />
 
@@ -179,7 +182,7 @@ export default function MyOrders() {
         </View>
 
         <Icon name="chevron-right" size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -207,14 +210,13 @@ export default function MyOrders() {
           ] as const).map((s) => {
             const active = scope === s.key;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={s.key}
                 style={[styles.segmentItem, active && { backgroundColor: colors.brand }]}
                 onPress={() => setScope(s.key)}
-                activeOpacity={0.85}
               >
                 <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -231,7 +233,7 @@ export default function MyOrders() {
           const active = filter === f.key;
           const count  = counts[f.key];
           return (
-            <TouchableOpacity
+            <Pressable
               key={f.key}
               style={[styles.chip, active
                 ? { backgroundColor: colors.brand,         borderColor: colors.brand }
@@ -251,10 +253,18 @@ export default function MyOrders() {
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>
+
+      {/* Summary card: date filter on top, what the list adds up to below. */}
+      <OrdersSummaryCard
+        caption={filter === 'all' ? 'All orders' : `${filter.charAt(0).toUpperCase() + filter.slice(1)} orders`}
+        orders={filtered}
+        range={range}
+        onRangeChange={setRange}
+      />
 
       {loading ? (
         <OrderListSkeleton />
@@ -262,12 +272,14 @@ export default function MyOrders() {
         <View style={styles.center}>
           <Icon name="clipboard-off-outline" size={44} color={colors.border} />
           <Text style={[styles.emptyText, { color: colors.subText }]}>
-            {filter === 'all' ? STRINGS.party.noOrdersYet : `No ${filter} orders`}
+            {filter === 'all' && !dateActive
+              ? STRINGS.party.noOrdersYet
+              : `No ${filter === 'all' ? '' : `${filter} `}orders${dateActive ? ` for ${rangeLabel(range)}` : ''}`}
           </Text>
-          {filter !== 'all' && (
-            <TouchableOpacity onPress={() => setFilter('all')}>
+          {(filter !== 'all' || dateActive) && (
+            <Pressable onPress={() => { setFilter('all'); setRange(ALL_TIME); }}>
               <Text style={[styles.clearFilter, { color: colors.brand }]}>Show all orders</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       ) : (

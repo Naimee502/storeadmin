@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -89,14 +89,13 @@ const ProductCard = React.memo(function ProductCard({
   const multiUnit = (v?.unitprices?.length ?? 0) > 1;
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.card,
         { backgroundColor: colors.cardGlass, borderColor: colors.border },
         isLeft ? { marginRight: 6 } : { marginLeft: 6 },
       ]}
       onPress={() => onOpen(p.id)}
-      activeOpacity={0.88}
     >
       <View>
         <View style={[styles.imgWrap, { backgroundColor: colors.brandSoft }, imgRatio ? { height: undefined, aspectRatio: imgRatio } : null]}>
@@ -130,7 +129,7 @@ const ProductCard = React.memo(function ProductCard({
             {v.unitprices.map((u: any, ui: number) => {
               const active = unitIdx === ui;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={`${u.unitid?.id ?? ui}`}
                   style={[styles.unitChip, active
                     ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -141,7 +140,7 @@ const ProductCard = React.memo(function ProductCard({
                   <Text style={[styles.unitChipText, { color: active ? colors.onBrand : colors.text }]}>
                     {unitLabel(u)}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </ScrollView>
@@ -161,33 +160,33 @@ const ProductCard = React.memo(function ProductCard({
           quantity by stock" on hides it; with the setting off it stays. */}
       {v && (cartQty > 0 || canAdd) && (
         cartQty === 0 ? (
-          <TouchableOpacity
+          <Pressable
             style={[styles.addBtn, { backgroundColor: colors.brand }]}
             onPress={() => onAdd(p)}
           >
             <Icon name="plus" size={14} color={colors.onBrand} />
             <Text style={[styles.addBtnText, { color: colors.onBrand }]}>{STRINGS.party.add}</Text>
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]}
               onPress={() => onQty(p.id, v.id, unitId, cartQty - 1)}
             >
               <Icon name="minus" size={13} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.qtyText, { color: colors.brand }]}>{cartQty}</Text>
-            <TouchableOpacity
+            <Pressable
               style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }, !canAdd && { opacity: 0.35 }]}
               onPress={() => onQty(p.id, v.id, unitId, cartQty + 1)}
               disabled={!canAdd}
             >
               <Icon name="plus" size={13} color={colors.brand} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, Linking, Platform, Alert, PermissionsAndroid } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -193,7 +193,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
     <Animated.View entering={FadeInUp.duration(400)} style={[styles.routeCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
 
       {/* Route header */}
-      <TouchableOpacity style={styles.routeHeader} onPress={() => setExpanded(v => !v)} activeOpacity={0.82}>
+      <Pressable style={styles.routeHeader} onPress={() => setExpanded(v => !v)}>
         <View style={[styles.routeIconWrap, { backgroundColor: colors.brandSoft }]}>
           <Icon name="map-marker-path" size={20} color={colors.brand} />
         </View>
@@ -210,7 +210,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
           <Text style={[styles.progressText, { color: colors.brand }]}>{pct}%</Text>
         </View>
         <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.subText} style={{ marginLeft: 8 }} />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Day sections */}
       {expanded && route.dayWiseAccounts.map((day: any) => {
@@ -236,7 +236,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                 </View>
               )}
               <Text style={[styles.dayCount, { color: colors.subText }]}>{day.accounts.length} parties</Text>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.addPartyBtn, { backgroundColor: colors.brandSoft }]}
                 onPress={() => onAddParty(
                   route.id, route.routename, day.day,
@@ -247,7 +247,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
               >
                 <Icon name="plus" size={13} color={colors.brand} />
                 <Text style={[styles.addPartyText, { color: colors.brand }]}>Add</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {[...day.accounts]
@@ -337,17 +337,16 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                         // Still a button: this saves the salesman's current
                         // position as the party's location.
                         <View style={styles.partyMetaRow}>
-                          <TouchableOpacity
+                          <Pressable
                             style={styles.partyMetaItem}
                             onPress={() => onAddLocation(party)}
-                            activeOpacity={0.7}
                             disabled={savingLocId === party.id}
                           >
                             <Icon name={savingLocId === party.id ? 'loading' : 'map-marker-plus-outline'} size={11} color={colors.brand} />
                             <Text style={[styles.partyCity, { color: colors.brand }]} numberOfLines={1}>
                               {savingLocId === party.id ? 'Saving location…' : 'Add location'}
                             </Text>
-                          </TouchableOpacity>
+                          </Pressable>
                         </View>
                       )}
                       {party.outstanding > 0 ? (
@@ -364,22 +363,21 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     </View>
                     <View style={styles.partyRight}>
                       {distKm !== null && (
-                        <TouchableOpacity
+                        <Pressable
                           style={[styles.distBadge, { backgroundColor: colors.brandSoft }]}
                           disabled={!!block}
                           onPress={() => onNavigate(party.lat, party.lng, party.name)}
-                          activeOpacity={0.75}
                         >
                           <Icon name="navigation-variant-outline" size={12} color={colors.brand} />
                           <Text style={[styles.distText, { color: colors.brand }]}>{fmtDist(distKm)}</Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       )}
                       <View style={[styles.statusPill, { backgroundColor: vm.color + '18' }]}>
                         <Text style={[styles.statusPillText, { color: vm.color }]}>{vm.label}</Text>
                       </View>
                     </View>
                   </Pressable>
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.manageBtn, { backgroundColor: colors.raisedSurface }]}
                     onPress={() => onManageParty(
                       party, route.id, route.routename, day.day,
@@ -388,7 +386,7 @@ function RouteCard({ route, colors, salesmanLoc, onPartyPress, onAddParty, onMan
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                   >
                     <Icon name="dots-vertical" size={16} color={colors.subText} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             })}
@@ -571,9 +569,9 @@ export default function SalesmanRoutes() {
             ? salesmanLoc ? `· Stops within ${geo.radiusM} m` : '· Turn on GPS to take orders'
             : '· Distances shown per party'}
         </Text>
-        <TouchableOpacity onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
+        <Pressable onPress={fetchLocation} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} style={{ marginLeft: 'auto' }}>
           <Icon name="refresh" size={16} color={colors.brand} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <DynamicFlashList

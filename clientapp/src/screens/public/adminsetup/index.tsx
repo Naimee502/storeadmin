@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, StatusBar,
-  TextInput, TouchableOpacity, KeyboardAvoidingView,
+  TextInput, Pressable, KeyboardAvoidingView,
   Platform, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -213,10 +213,9 @@ export default function AdminSetup() {
                 </Animated.View>
               )}
 
-              <TouchableOpacity
+              <Pressable
                 style={styles.button}
                 onPress={handleActivate}
-                activeOpacity={0.85}
                 disabled={loading}
               >
                 <LinearGradient
@@ -228,7 +227,7 @@ export default function AdminSetup() {
                   <Text style={styles.buttonText}>Activate</Text>
                   <Icon name="arrow-right" size={18} color={COLORS.light.onBrand} style={{ marginLeft: 6 }} />
                 </LinearGradient>
-              </TouchableOpacity>
+              </Pressable>
             </Animated.View>
 
             <Animated.View entering={FadeInUp.duration(600).delay(500)} style={styles.helpWrap}>

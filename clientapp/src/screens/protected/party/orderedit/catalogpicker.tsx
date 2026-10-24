@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, ScrollView, StatusBar,
+  View, Text, StyleSheet, Pressable, Modal, FlatList, ScrollView, StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
@@ -150,11 +150,10 @@ export default function CatalogPicker({
 
     return (
       <View style={[styles.row, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
-        <TouchableOpacity
+        <Pressable
           style={[styles.thumb, { backgroundColor: colors.brandSoft }]}
           onPress={() => cover && setPreview({ images: imgs, title: p.name })}
           disabled={!cover}
-          activeOpacity={0.8}
         >
           {cover
             ? <AppImage uri={cover} width={IMG.product} style={styles.img} resizeMode="cover"
@@ -169,7 +168,7 @@ export default function CatalogPicker({
           {showStock && outOfStock && (
             <View style={styles.oosTag}><Text style={styles.oosText}>Out</Text></View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={styles.rowMid}>
           <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{p.name}</Text>
@@ -190,7 +189,7 @@ export default function CatalogPicker({
                 {v.unitprices.map((u: any, ui: number) => {
                   const active = unitIdx === ui;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={`${u.unitid?.id ?? ui}`}
                       style={[styles.unitChip, active
                         ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -198,7 +197,7 @@ export default function CatalogPicker({
                       onPress={() => setSelectedUnits(prev => ({ ...prev, [p.id]: ui }))}
                     >
                       <Text style={[styles.unitChipText, { color: active ? colors.onBrand : colors.text }]}>{unitLabel(u)}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </ScrollView>
@@ -209,19 +208,19 @@ export default function CatalogPicker({
         <View style={styles.rowRight}>
           {qty > 0 ? (
             <View style={[styles.qtyControl, { borderColor: colors.brand }]}>
-              <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => onQty(p.id, v.id, unitId, qty - 1)}>
+              <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => onQty(p.id, v.id, unitId, qty - 1)}>
                 <Icon name="minus" size={13} color={colors.brand} />
-              </TouchableOpacity>
+              </Pressable>
               <Text style={[styles.qtyText, { color: colors.brand }]}>{qty}</Text>
-              <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => onQty(p.id, v.id, unitId, qty + 1)}>
+              <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => onQty(p.id, v.id, unitId, qty + 1)}>
                 <Icon name="plus" size={13} color={colors.brand} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           ) : canAdd ? (
-            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => onAdd(p, v, up)}>
+            <Pressable style={[styles.addBtn, { backgroundColor: colors.brand }]} onPress={() => onAdd(p, v, up)}>
               <Icon name="plus" size={14} color={colors.onBrand} />
               <Text style={[styles.addBtnText, { color: colors.onBrand }]}>Add</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -233,9 +232,9 @@ export default function CatalogPicker({
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Pressable onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Icon name="arrow-left" size={24} color={colors.brand} />
-          </TouchableOpacity>
+          </Pressable>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Add Products</Text>
           <View style={{ width: 24 }} />
         </View>
@@ -270,7 +269,7 @@ export default function CatalogPicker({
                   {[{ id: null, name: 'All' }, ...categories].map((c: any) => {
                     const active = category === c.id;
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={c.id ?? 'all'}
                         style={[styles.chip, active
                           ? { backgroundColor: colors.brand, borderColor: colors.brand }
@@ -278,7 +277,7 @@ export default function CatalogPicker({
                         onPress={() => setCategory(c.id)}
                       >
                         <Text style={[styles.chipText, { color: active ? colors.onBrand : colors.text }]}>{c.name}</Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     );
                   })}
                 </ScrollView>
@@ -294,7 +293,7 @@ export default function CatalogPicker({
         />
 
         {/* Back to the order with everything added above. */}
-        <TouchableOpacity style={[styles.doneBar, { backgroundColor: colors.brand }]} onPress={close} activeOpacity={0.9}>
+        <Pressable style={[styles.doneBar, { backgroundColor: colors.brand }]} onPress={close}>
           <View style={[styles.doneBadge, { backgroundColor: colors.onBrand }]}>
             <Text style={[styles.doneBadgeText, { color: colors.brand }]}>{itemCount}</Text>
           </View>
@@ -302,7 +301,7 @@ export default function CatalogPicker({
             {showPrice ? `Done · ${formatINR(total)}` : 'Done'}
           </Text>
           <Icon name="check" size={20} color={colors.onBrand} />
-        </TouchableOpacity>
+        </Pressable>
 
         <ProductImageViewer
           visible={!!preview}

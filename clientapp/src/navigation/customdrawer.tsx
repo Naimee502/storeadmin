@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLeaderboardEnabled } from '../apollo/hooks/adminsettings';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, Pressable, ScrollView } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -214,11 +214,10 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
           }
           const isActive = item.tabScreen ? item.tabScreen === activeTab : false;
           return (
-            <TouchableOpacity
+            <Pressable
               key={item.label}
               style={[styles.menuItem, isActive && { backgroundColor: colors.brandSoft }]}
               onPress={() => navigateTo(item)}
-              activeOpacity={0.65}
             >
               <View style={[styles.menuIconWrap, { backgroundColor: isActive ? colors.brand + '22' : colors.softSurface }]}>
                 <Icon name={item.icon} size={19} color={isActive ? colors.brand : colors.subText} />
@@ -230,23 +229,22 @@ export const CustomDrawerContent = (props: DrawerContentComponentProps) => {
                 </View>
               )}
               {isActive && <View style={[styles.activeBar, { backgroundColor: colors.brand }]} />}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* Logout */}
-        <TouchableOpacity
+        <Pressable
           style={styles.menuItem}
           onPress={() => setModalVisible(true)}
-          activeOpacity={0.65}
         >
           <View style={[styles.menuIconWrap, { backgroundColor: '#FEF2F2' }]}>
             <Icon name="logout" size={19} color={colors.error} />
           </View>
           <Text style={[styles.menuLabel, { color: colors.error }]}>{STRINGS.party.signOut}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
       </ScrollView>
 

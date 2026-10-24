@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, BackHandler,
+  View, Text, StyleSheet, ScrollView, Pressable, TextInput, StatusBar, BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -462,10 +462,9 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                       textAlign="center"
                     />
 
-                    <TouchableOpacity
+                    <Pressable
                       ref={rowIndex === 0 ? (tourRef('sheet-image') as any) : undefined}
                       style={styles.imgBtn}
-                      activeOpacity={0.7}
                       disabled={!p.imageurl}
                       onPress={() => setPreview(p.imageurl)}
                     >
@@ -474,7 +473,7 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
                         size={28}
                         color={p.imageurl ? colors.brand : colors.placeholder}
                       />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 );
               })
@@ -493,13 +492,13 @@ export default function CatalogBrowse({ navigation, variant = 'home' }: any) {
             ]}
           >
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={goBack} activeOpacity={0.8}>
+              <Pressable style={styles.actionBtn} onPress={goBack}>
                 <Text style={[styles.actionText, { color: colors.onBrand }]}>Cancel</Text>
-              </TouchableOpacity>
+              </Pressable>
               <View style={[styles.actionDivider, { backgroundColor: colors.onBrand }]} />
-              <TouchableOpacity ref={tourRef('sheet-add') as any} style={styles.actionBtn} onPress={addSheetToCart} activeOpacity={0.8}>
+              <Pressable ref={tourRef('sheet-add') as any} style={styles.actionBtn} onPress={addSheetToCart}>
                 <Text style={[styles.actionText, { color: colors.onBrand }]}>Add to Cart</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </>

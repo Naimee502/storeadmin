@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, TextInput,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, TextInput,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -238,7 +238,7 @@ export default function SalesReturnCreate() {
                     <Text style={[styles.cardTitle, { color: colors.text }]}>
                       Items <Text style={[styles.muted, { color: colors.subText }]}>({selectedCount}/{lines.length})</Text>
                     </Text>
-                    <TouchableOpacity style={styles.selectAll} onPress={toggleAll} disabled={visible.length === 0} hitSlop={8}>
+                    <Pressable style={styles.selectAll} onPress={toggleAll} disabled={visible.length === 0} hitSlop={8}>
                       <Text style={[styles.selectAllText, { color: colors.brand }]}>
                         {allVisibleSelected ? 'Clear all' : 'Select all'}
                       </Text>
@@ -247,7 +247,7 @@ export default function SalesReturnCreate() {
                         size={20}
                         color={allVisibleSelected ? colors.brand : colors.subText}
                       />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
 
                   {lines.length > 6 && (
@@ -270,7 +270,7 @@ export default function SalesReturnCreate() {
                     return (
                       <View key={`${l.productserviceid}_${l.variantid ?? ''}_${i}`} style={[styles.line, { borderTopColor: colors.border }]}>
                         <View style={styles.lineHead}>
-                          <TouchableOpacity style={styles.lineTap} onPress={() => toggle(i)} activeOpacity={0.7}>
+                          <Pressable style={styles.lineTap} onPress={() => toggle(i)}>
                             <Icon
                               name={sel ? 'checkbox-marked' : 'checkbox-blank-outline'}
                               size={20}
@@ -286,21 +286,21 @@ export default function SalesReturnCreate() {
                                   : `Returnable ${l.returnableQty}${l.unitname ? ` ${l.unitname}` : ''} · ${inr(l.rate - l.discount)}`}
                               </Text>
                             </View>
-                          </TouchableOpacity>
+                          </Pressable>
                           {sel && (
                             <View style={[styles.stepper, { borderColor: colors.border }]}>
-                              <TouchableOpacity style={styles.stepBtn} onPress={() => setLineQty(i, q - 1)} hitSlop={6}>
+                              <Pressable style={styles.stepBtn} onPress={() => setLineQty(i, q - 1)} hitSlop={6}>
                                 <Icon name="minus" size={16} color={colors.text} />
-                              </TouchableOpacity>
+                              </Pressable>
                               <TextInput
                                 value={String(q)}
                                 onChangeText={(t) => setLineQty(i, Number(t.replace(/[^0-9]/g, '')))}
                                 keyboardType="number-pad"
                                 style={[styles.stepInput, { color: colors.text }]}
                               />
-                              <TouchableOpacity style={styles.stepBtn} onPress={() => setLineQty(i, q + 1)} disabled={q >= l.returnableQty} hitSlop={6}>
+                              <Pressable style={styles.stepBtn} onPress={() => setLineQty(i, q + 1)} disabled={q >= l.returnableQty} hitSlop={6}>
                                 <Icon name="plus" size={16} color={q >= l.returnableQty ? colors.border : colors.text} />
-                              </TouchableOpacity>
+                              </Pressable>
                             </View>
                           )}
                         </View>
@@ -322,13 +322,13 @@ export default function SalesReturnCreate() {
                       {REASONS.map((r) => {
                         const on = reason === r;
                         return (
-                          <TouchableOpacity
+                          <Pressable
                             key={r}
                             onPress={() => setReason(r)}
                             style={[styles.chip, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandSoft : 'transparent' }]}
                           >
                             <Text style={[styles.chipText, { color: on ? colors.brand : colors.text }]}>{r}</Text>
-                          </TouchableOpacity>
+                          </Pressable>
                         );
                       })}
                     </View>
@@ -352,7 +352,7 @@ export default function SalesReturnCreate() {
                       ] as const).map((o) => {
                         const on = refund === o.id;
                         return (
-                          <TouchableOpacity
+                          <Pressable
                             key={o.id}
                             onPress={() => setRefund(o.id)}
                             style={[styles.option, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandSoft : 'transparent' }]}
@@ -362,7 +362,7 @@ export default function SalesReturnCreate() {
                               <Text style={[styles.optTitle, { color: on ? colors.brand : colors.text }]} numberOfLines={1}>{o.title}</Text>
                               <Text style={[styles.lineMeta, { color: colors.subText }]} numberOfLines={1}>{o.sub}</Text>
                             </View>
-                          </TouchableOpacity>
+                          </Pressable>
                         );
                       })}
                     </View>
@@ -379,15 +379,14 @@ export default function SalesReturnCreate() {
                   </Text>
                   <Text style={[styles.total, { color: colors.text }]}>{inr(totals.totalamount)}</Text>
                 </View>
-                <TouchableOpacity
+                <Pressable
                   style={[styles.saveBtn, { backgroundColor: saving || selectedCount === 0 ? colors.border : '#ef4444' }]}
                   onPress={save}
                   disabled={saving || selectedCount === 0}
-                  activeOpacity={0.88}
                 >
                   <Icon name="keyboard-return" size={18} color="#fff" />
                   <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save Return'}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
           </>

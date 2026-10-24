@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert,
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal, FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -285,12 +285,12 @@ export default function CollectPayment() {
               )}
             </View>
             {outstanding > 0 && (
-              <TouchableOpacity
+              <Pressable
                 style={[styles.useOutstandingBtn, { backgroundColor: colors.brandSoft }]}
                 onPress={() => setAmount(String(outstanding))}
               >
                 <Text style={[styles.useOutstandingText, { color: colors.brand }]}>Use full</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
 
@@ -304,15 +304,14 @@ export default function CollectPayment() {
             ] as const).map(s => {
               const active = settleMode === s.id;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={s.id}
                   style={[styles.segmentBtn, active && { backgroundColor: colors.brand }]}
-                  activeOpacity={0.85}
                   onPress={() => { setSettleMode(s.id); if (s.id === 'onaccount') setAllocations([]); }}
                 >
                   <Icon name={s.icon} size={15} color={active ? colors.onBrand : colors.subText} />
                   <Text style={[styles.segmentText, { color: active ? colors.onBrand : colors.subText }]}>{s.label}</Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -340,7 +339,7 @@ export default function CollectPayment() {
             {MODES.map(m => {
               const active = mode === m.id;
               return (
-                <TouchableOpacity
+                <Pressable
                   key={m.id}
                   style={[
                     styles.modeCard,
@@ -350,7 +349,6 @@ export default function CollectPayment() {
                     },
                   ]}
                   onPress={() => setMode(m.id)}
-                  activeOpacity={0.8}
                 >
                   <Icon name={m.icon} size={22} color={active ? m.color : colors.subText} />
                   <Text style={[styles.modeLabel, { color: active ? m.color : colors.subText }]}>{m.label}</Text>
@@ -359,7 +357,7 @@ export default function CollectPayment() {
                       <Icon name="check" size={9} color="#fff" />
                     </View>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -374,17 +372,16 @@ export default function CollectPayment() {
               </Text>
             </View>
           ) : (
-            <TouchableOpacity
+            <Pressable
               style={[styles.inputWrap, { backgroundColor: colors.raisedSurface, borderColor: colors.border }]}
               onPress={() => setLedgerPickerOpen(true)}
-              activeOpacity={0.8}
             >
               <Icon name="bank-outline" size={16} color={colors.subText} style={{ marginRight: 8 }} />
               <Text style={[styles.textInput, { color: selectedLedgerName ? colors.text : colors.subText, paddingVertical: 10 }]} numberOfLines={1}>
                 {selectedLedgerName || 'Select ledger'}
               </Text>
               <Icon name="chevron-down" size={18} color={colors.subText} />
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {/* Amount input — on-account only; in Settle Bills the total comes from allocations */}
@@ -457,14 +454,13 @@ export default function CollectPayment() {
           )}
 
           {/* Submit button */}
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.submitBtn,
               { backgroundColor: submitting ? colors.border : selectedMode.color },
             ]}
             onPress={handleSubmit}
             disabled={submitting}
-            activeOpacity={0.88}
           >
             {submitting ? (
               <Text style={styles.submitBtnText}>Recording…</Text>
@@ -476,13 +472,13 @@ export default function CollectPayment() {
                 </Text>
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
 
         </ScrollView>
 
         {/* Cash / Bank ledger picker */}
         <Modal visible={ledgerPickerOpen} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setLedgerPickerOpen(false)}>
-          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setLedgerPickerOpen(false)}>
+          <Pressable style={styles.backdrop} onPress={() => setLedgerPickerOpen(false)}>
             <View style={[styles.sheet, { backgroundColor: colors.background }]}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Select Cash / Bank Ledger</Text>
               <FlatList
@@ -492,19 +488,19 @@ export default function CollectPayment() {
                 renderItem={({ item }: any) => {
                   const active = ledgerId === item.id;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       style={[styles.sheetRow, { borderBottomColor: colors.border }]}
                       onPress={() => { setLedgerId(item.id); setLedgerPickerOpen(false); }}
                     >
                       <Icon name={item.ledgertype === 'bank' ? 'bank-outline' : 'cash'} size={16} color={active ? colors.brand : colors.subText} style={{ marginRight: 10 }} />
                       <Text style={[styles.sheetRowText, { color: active ? colors.brand : colors.text }]} numberOfLines={1}>{item.ledgername}</Text>
                       {active && <Icon name="check" size={16} color={colors.brand} style={{ marginLeft: 'auto' }} />}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 }}
               />
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </Modal>
       </View>
     </KeyboardAvoidingView>

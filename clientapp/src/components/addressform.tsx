@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useMutation } from '@apollo/client/react';
 import { FONTS, useTheme } from '../config';
@@ -125,17 +125,16 @@ export function AddressForm({ accountId, name, accountGroupId, initial, onSaved,
       />
 
       <Text style={[styles.label, { color: colors.text }]}>State</Text>
-      <TouchableOpacity
+      <Pressable
         style={[styles.selectRow, { borderColor: colors.border, backgroundColor: colors.secondary }]}
         onPress={() => setStatePickerOpen(true)}
-        activeOpacity={0.7}
       >
         <Icon name="map-outline" size={18} color={colors.subText} style={{ marginRight: 10 }} />
         <Text style={[styles.selectText, { color: stateLabel ? colors.text : colors.placeholder }]}>
           {stateLabel || 'Select State'}
         </Text>
         <Icon name="chevron-down" size={18} color={colors.subText} />
-      </TouchableOpacity>
+      </Pressable>
 
       <AppTextInput
         label="Pincode"
@@ -148,17 +147,16 @@ export function AddressForm({ accountId, name, accountGroupId, initial, onSaved,
 
       {!!error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
 
-      <TouchableOpacity
+      <Pressable
         style={[styles.submitBtn, { backgroundColor: !valid || saving || !accountGroupId ? colors.border : colors.brand }]}
         onPress={handleSubmit}
         disabled={!valid || saving || !accountGroupId}
-        activeOpacity={0.85}
       >
         <Text style={[styles.submitBtnText, { color: colors.onBrand }]}>{saving ? 'Saving…' : submitLabel}</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       <Modal visible={statePickerOpen} transparent animationType="slide" onRequestClose={() => setStatePickerOpen(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setStatePickerOpen(false)}>
+        <Pressable style={styles.overlay} onPress={() => setStatePickerOpen(false)}>
           <View style={[styles.sheet, { backgroundColor: colors.cardGlass }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select State</Text>
             <FlatList
@@ -166,7 +164,7 @@ export function AddressForm({ accountId, name, accountGroupId, initial, onSaved,
               keyExtractor={item => item.value}
               style={{ maxHeight: 380 }}
               renderItem={({ item }) => (
-                <TouchableOpacity
+                <Pressable
                   style={styles.sheetItem}
                   onPress={() => {
                     setState(item.value);
@@ -183,11 +181,11 @@ export function AddressForm({ accountId, name, accountGroupId, initial, onSaved,
                     {item.label}
                   </Text>
                   {item.value === state && <Icon name="check" size={16} color={colors.brand} />}
-                </TouchableOpacity>
+                </Pressable>
               )}
             />
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
     </View>
   );

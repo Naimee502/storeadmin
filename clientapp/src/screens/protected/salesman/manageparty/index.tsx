@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ScrollView,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -179,7 +179,7 @@ export default function ManagePartyRoute() {
               {availableRoutes.map((r: any) => {
                 const active = selectedRoute === r.id;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={r.id}
                     style={[
                       styles.routeChip,
@@ -191,14 +191,13 @@ export default function ManagePartyRoute() {
                       setSelectedRoute(r.id);
                       setSelectedDay('');
                     }}
-                    activeOpacity={0.8}
                   >
                     <Icon name="map-marker-path" size={14} color={active ? colors.onBrand : colors.subText} />
                     <Text style={[styles.routeChipText, { color: active ? colors.onBrand : colors.subText }]}>
                       {r.routename}
                     </Text>
                     {active && <Icon name="check" size={13} color={colors.onBrand} />}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -211,7 +210,7 @@ export default function ManagePartyRoute() {
           {DAYS.map(d => {
             const active = selectedDay === dayKey(d);
             return (
-              <TouchableOpacity
+              <Pressable
                 key={d}
                 style={[
                   styles.dayChip,
@@ -224,7 +223,7 @@ export default function ManagePartyRoute() {
                 <Text style={[styles.dayChipText, { color: active ? colors.onBrand : colors.subText }]}>
                   {d.slice(0, 3)}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
@@ -243,32 +242,30 @@ export default function ManagePartyRoute() {
         )}
 
         {/* Save button */}
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.saveBtn,
             { backgroundColor: hasChange && !saving ? colors.brand : colors.border },
           ]}
           onPress={handleSave}
           disabled={!hasChange || saving}
-          activeOpacity={0.88}
         >
           <Icon name="content-save-outline" size={18} color={colors.onBrand} />
           <Text style={[styles.saveBtnText, { color: colors.onBrand }]}>{saving ? 'Saving…' : 'Save Changes'}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Divider */}
         <View style={[styles.divider, { borderColor: colors.border }]} />
 
         {/* Remove button */}
-        <TouchableOpacity
+        <Pressable
           style={[styles.removeBtn, { borderColor: '#ef444466', backgroundColor: '#ef44440d' }]}
           onPress={handleRemove}
           disabled={removing}
-          activeOpacity={0.85}
         >
           <Icon name="trash-can-outline" size={18} color="#ef4444" />
           <Text style={styles.removeBtnText}>{removing ? 'Removing…' : `Remove from ${currentRouteName}`}</Text>
-        </TouchableOpacity>
+        </Pressable>
 
       </ScrollView>
     </View>

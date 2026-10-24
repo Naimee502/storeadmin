@@ -48,6 +48,8 @@ import {
 import { formatPrice } from "../../utils/format";
 import { orderStatus, formatBillNumber, formatDate, titleCase, type FilterKey } from "../../utils/orders";
 import { stateOptions } from "../../utils/states";
+import OrdersSummaryCard from "../../components/orderssummary";
+import { ALL_TIME, inRange, parseServerDate, rangeLabel, type DateRange } from "../../utils/daterange";
 
 const stateLabel = (value?: string) => (value ? stateOptions.find((s) => s.value === value)?.label : undefined);
 
@@ -105,6 +107,8 @@ export default function AccountPage() {
   const [dashboardCategory, setDashboardCategory] = useState<string>("all");
   const [editingProfileAddress, setEditingProfileAddress] = useState(false);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [range, setRange] = useState<DateRange>(ALL_TIME);
+  const dateActive = range.preset !== "all";
   // Scope: own vs sub-party (downline) records — only meaningful when the
   // business has "Party manages downline" on AND this party actually has
   // sub-parties assigned to it (an end-user party has none, same rule the
@@ -151,11 +155,13 @@ export default function AccountPage() {
   // Newest first — both orders and payments come back oldest-first from the
   // server, same as the app (which reverses them client-side too).
   const allOrders: any[] = useMemo(() => [...(ordersData?.getSalesOrders ?? [])].reverse(), [ordersData]);
+  // Scope, then the date range; the status chips (and their counts) work inside both.
   const orders = useMemo(() => {
-    if (!manageDownline || orderScope === "all") return allOrders;
-    if (orderScope === "mine") return allOrders.filter((o: any) => o.partyacc?.id === account?.id);
-    return allOrders.filter((o: any) => o.partyacc?.id && o.partyacc.id !== account?.id);
-  }, [allOrders, orderScope, manageDownline, account?.id]);
+    const inDates = allOrders.filter((o: any) => inRange(parseServerDate(o.billdate || o.createdAt), range));
+    if (!manageDownline || orderScope === "all") return inDates;
+    if (orderScope === "mine") return inDates.filter((o: any) => o.partyacc?.id === account?.id);
+    return inDates.filter((o: any) => o.partyacc?.id && o.partyacc.id !== account?.id);
+  }, [allOrders, orderScope, manageDownline, account?.id, range]);
   const payments: any[] = useMemo(
     () => [...(paymentsData?.getPayments ?? [])].filter((p: any) => p.status !== false).reverse(),
     [paymentsData]
@@ -449,14 +455,31 @@ export default function AccountPage() {
                   })}
                 </div>
 
+                <OrdersSummaryCard
+                  caption={filter === "all" ? "All orders" : `${titleCase(filter)} orders`}
+                  orders={filtered}
+                  range={range}
+                  onRangeChange={setRange}
+                />
+
                 {ordersLoading ? (
                   <p className="py-10 text-center text-sm text-slate-400">Loading orders…</p>
                 ) : filtered.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 py-14 text-center">
                     <Package className="h-9 w-9 text-slate-300" />
                     <p className="text-sm text-slate-500">
-                      {filter === "all" ? "You haven't placed any orders yet." : `No ${filter} orders.`}
+                      {filter === "all" && !dateActive
+                        ? "You haven't placed any orders yet."
+                        : `No ${filter === "all" ? "" : `${filter} `}orders${dateActive ? ` for ${rangeLabel(range)}` : ""}.`}
                     </p>
+                    {(filter !== "all" || dateActive) && (
+                      <button
+                        onClick={() => { setFilter("all"); setRange(ALL_TIME); }}
+                        className="text-sm font-semibold text-brand-700 hover:underline"
+                      >
+                        Show all orders
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">

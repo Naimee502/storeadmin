@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator, ScrollView,
+  View, Text, StyleSheet, Pressable, StatusBar, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -275,13 +275,13 @@ export default function OrderEdit() {
             </View>
             <View style={{ alignItems: 'flex-end', gap: 6 }}>
               <View style={[styles.qtyRow, { borderColor: colors.brand }]}>
-                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => setQty(idx, l.qty - 1)}>
+                <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => setQty(idx, l.qty - 1)}>
                   <Icon name={l.qty <= 1 ? 'trash-can-outline' : 'minus'} size={13} color={l.qty <= 1 ? '#ef4444' : colors.brand} />
-                </TouchableOpacity>
+                </Pressable>
                 <Text style={[styles.qtyNum, { color: colors.brand }]}>{l.qty}</Text>
-                <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => setQty(idx, l.qty + 1)}>
+                <Pressable style={[styles.qtyBtn, { backgroundColor: colors.brandSoft }]} onPress={() => setQty(idx, l.qty + 1)}>
                   <Icon name="plus" size={13} color={colors.brand} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
               {showPrice && (
                 <Text style={[styles.amt, { color: colors.text }]}>{formatINR((l.rate - l.discount) * l.qty)}</Text>
@@ -290,14 +290,13 @@ export default function OrderEdit() {
           </View>
         ))}
 
-        <TouchableOpacity
+        <Pressable
           style={[styles.addBtn, { borderColor: colors.brand }]}
           onPress={() => setPicker(true)}
-          activeOpacity={0.85}
         >
           <Icon name="plus-circle-outline" size={18} color={colors.brand} />
           <Text style={[styles.addText, { color: colors.brand }]}>Add Product</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {showPrice && (
           <View style={[styles.summary, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -314,15 +313,14 @@ export default function OrderEdit() {
           </View>
         )}
 
-        <TouchableOpacity
+        <Pressable
           style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.brand }]}
           onPress={handleSave}
           disabled={saving}
-          activeOpacity={0.88}
         >
           <Icon name="content-save-outline" size={18} color={colors.onBrand} />
           <Text style={[styles.saveText, { color: colors.onBrand }]}>{saving ? 'Saving…' : (showPrice ? `Save Changes · ${formatINR(grandTotal)}` : 'Save Changes')}</Text>
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
 
       {/* Add-product picker — same catalogue view as ordering. */}

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions, StatusBar,
+  View, Text, StyleSheet, Pressable, Modal, Dimensions, StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FONTS, useTheme, IMG } from '../../../../config';
@@ -61,13 +61,12 @@ export const TileGrid: React.FC<{
     <View style={styles.grid}>
       {tiles.map((t) => {
         return (
-          <TouchableOpacity
+          <Pressable
             key={t.id}
             style={[
               styles.tile,
               { width: TILE_W, backgroundColor: colors.brand, borderColor: colors.border },
             ]}
-            activeOpacity={0.8}
             onPress={() => onPress(t)}
           >
             <View style={[styles.tileImgWrap, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
@@ -80,7 +79,7 @@ export const TileGrid: React.FC<{
             <Text style={[styles.tileLabel, { color: colors.onBrand }]} numberOfLines={3}>
               {t.label.toUpperCase()}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
@@ -102,13 +101,12 @@ export const ImageViewer: React.FC<{
     <Modal visible={!!uri} transparent={false} animationType="fade" onRequestClose={onClose}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.brand} />
       <View style={[styles.viewerRoot, { backgroundColor: colors.white }]}>
-        <TouchableOpacity
+        <Pressable
           style={[styles.viewerClose, { backgroundColor: colors.brand }]}
           onPress={onClose}
-          activeOpacity={0.8}
         >
           <Icon name="close" size={22} color={colors.onBrand} />
-        </TouchableOpacity>
+        </Pressable>
         {uri ? (
           <AppImage uri={uri} width={IMG.full} style={styles.viewerImg} resizeMode="contain" />
         ) : null}

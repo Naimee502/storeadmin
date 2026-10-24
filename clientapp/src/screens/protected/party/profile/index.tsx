@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Modal } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -93,9 +93,9 @@ export default function PartyProfile() {
               <View style={{ flex: 1 }}>
                 <InfoRow icon="map-marker-outline" label="Address" value={address} colors={colors} />
               </View>
-              <TouchableOpacity onPress={() => setAddressModal(true)} style={styles.addrEditBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Pressable onPress={() => setAddressModal(true)} style={styles.addrEditBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Icon name={address ? 'pencil-outline' : 'plus-circle-outline'} size={16} color={colors.brand} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
             <InfoRow icon="tag-outline"              label="Channel"      value={account?.channel?.channelName}    colors={colors} />
             <InfoRow icon="map-outline"              label="Region"       value={account?.region}                 colors={colors} />
@@ -120,17 +120,16 @@ export default function PartyProfile() {
 
           {/* Sign out */}
           <Animated.View entering={FadeInUp.duration(400).delay(240)}>
-            <TouchableOpacity
+            <Pressable
               style={[styles.signOutRow, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
               onPress={() => setLogoutModal(true)}
-              activeOpacity={0.75}
             >
               <View style={styles.signOutIconWrap}>
                 <Icon name="logout-variant" size={18} color={colors.error} />
               </View>
               <Text style={[styles.signOutText, { color: colors.error }]}>{STRINGS.party.signOut}</Text>
               <Icon name="chevron-right" size={18} color={colors.error} style={{ opacity: 0.5 }} />
-            </TouchableOpacity>
+            </Pressable>
           </Animated.View>
 
         </ScrollView>
@@ -154,9 +153,9 @@ export default function PartyProfile() {
             <View style={styles.addrHeader}>
               <Icon name="map-marker-outline" size={22} color={colors.brand} />
               <Text style={[styles.addrTitle, { color: colors.text }]}>Delivery Address</Text>
-              <TouchableOpacity onPress={() => setAddressModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Pressable onPress={() => setAddressModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Icon name="close" size={22} color={colors.subText} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               {!!user?.id && (
