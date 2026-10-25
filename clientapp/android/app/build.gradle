@@ -87,16 +87,16 @@ android {
             dimension "app"
             applicationId "com.app.rudraerp"
             signingConfig signingConfigs.release
-            versionCode 2
-            versionName "2.0"
+            versionCode 3
+            versionName "3.0"
         }
         // Powergold Agro Product — #ADM0004
         powergold {
             dimension "app"
             applicationId "com.app.powergoldagroproduct"
             signingConfig signingConfigs.release
-            versionCode 1
-            versionName "1.0"
+            versionCode 2
+            versionName "2.0"
         }
         // Pelican Chocolate Industry — #ADM0005 (signed with the Rudra ERP key)
         pelican {
