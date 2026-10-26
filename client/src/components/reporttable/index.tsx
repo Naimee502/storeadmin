@@ -78,6 +78,9 @@ interface ReportTableProps {
   netTotal?: {
     debitKey: string;
     creditKey: string;
+    /** Extra numeric columns netted with a fixed sign (e.g. discount). */
+    minusKeys?: string[];
+    plusKeys?: string[];
     showInKey?: string;
   };
 }
@@ -114,10 +117,18 @@ const isNumericVal = (v: any) => toNumericVal(v) !== null;
 // when the cash was 5010, and the figure agreed with neither the balance nor
 // the cash. The balance now moves by the cash itself -- the concessions are
 // already inside that net -- so debit minus credit means one thing only.
+//
+// A report whose concessions DO carry one fixed sign for every row (the Party
+// Statement: discount always minus, commission always plus) can opt in with
+// minusKeys / plusKeys so its net still lands on the closing balance.
 const netTotalOf = (
-  spec: { debitKey: string; creditKey: string },
+  spec: { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[] },
   sumKey: (k: string) => number,
-) => sumKey(spec.debitKey) - sumKey(spec.creditKey);
+) =>
+  sumKey(spec.debitKey) -
+  sumKey(spec.creditKey) -
+  (spec.minusKeys || []).reduce((a, k) => a + sumKey(k), 0) +
+  (spec.plusKeys || []).reduce((a, k) => a + sumKey(k), 0);
 
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
@@ -136,6 +147,9 @@ const printReportAsPDF = (
   netTotal?: {
     debitKey: string;
     creditKey: string;
+    /** Extra numeric columns netted with a fixed sign (e.g. discount). */
+    minusKeys?: string[];
+    plusKeys?: string[];
     showInKey?: string;
   },
 ) => {

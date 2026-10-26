@@ -226,22 +226,21 @@ const AccountingFinanceReports: React.FC = () => {
                     ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
                     : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
 
-                // Cash/Bank leg moves by the cash. A PARTY leg moves by
-                // everything settled — cash + discount − commission (discount
-                // minus, commission plus on the balance) — the same rule as the
-                // Party Statement. A plain-ledger voucher has no concessions.
-                const counterAmt = viaParty ? r2(cash + discount - commission) : cash;
-                // Display: the party leg shows the CASH (what was actually
-                // received / paid), like the Party Statement; the balance still
-                // moves by the settled amount via `delta`, so the row reads
-                // balance ∓ cash ∓ discount ± commission.
+                // Cash/Bank leg moves by the cash. A PARTY leg shows the CASH
+                // (what was actually received / paid), like the Party
+                // Statement, and its balance moves by that cash in the usual
+                // direction and then -- for BOTH Payment-In and Payment-Out --
+                // the discount is always subtracted and the commission is
+                // always added:  balance ± cash − discount + commission.
+                // A plain-ledger voucher has no concessions.
+                const concession = viaParty ? r2(commission - discount) : 0;
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        { ...counterLeg, debit: 0, credit: viaParty ? cash : counterAmt, delta: -counterAmt },
+                        { ...counterLeg, debit: 0, credit: cash, delta: r2(-cash + concession) },
                     ]
                     : [
-                        { ...counterLeg, debit: viaParty ? cash : counterAmt, credit: 0, delta: counterAmt },
+                        { ...counterLeg, debit: cash, credit: 0, delta: r2(cash + concession) },
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 
@@ -317,6 +316,11 @@ const AccountingFinanceReports: React.FC = () => {
                     remarks: r.remarks,
                     discount: r.discount ? r.discount.toFixed(2) : "-",
                     commission: r.commission ? r.commission.toFixed(2) : "-",
+                    // Hidden (not a column): how far this row's balance moved
+                    // beyond Debit − Credit, i.e. − discount + commission on a
+                    // party leg, 0 elsewhere. The Totals-row net adds it so it
+                    // lands on the closing Running Balance.
+                    balanceAdjust: r2(moveOf(r) - (r.debit - r.credit)).toFixed(2),
                 });
             });
 
@@ -646,7 +650,7 @@ const AccountingFinanceReports: React.FC = () => {
     let title = "Accounting & Finance Reports";
     let exportFileName = "AccountingReport";
     let netTotal:
-        | { debitKey: string; creditKey: string; showInKey?: string }
+        | { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[]; showInKey?: string }
         | undefined;
     let pdfSubtitle: string[] | undefined;
 
@@ -821,11 +825,12 @@ const AccountingFinanceReports: React.FC = () => {
             // Totals row: the net prints under Remarks. Debit - Credit, with the
             // opening row folded in, is this ledger's CLOSING balance -- so it
             // agrees with the last Running Balance above it and with the Balance
-            // Sheet. Concessions are rows in their own right now, so they are
-            // already inside that net rather than sitting beside it.
+            // Sheet. The hidden balanceAdjust key folds in each party row's
+            // − discount + commission, so the net matches the closing balance.
             netTotal = {
                 debitKey: "debit",
                 creditKey: "credit",
+                plusKeys: ["balanceAdjust"],
                 showInKey: "remarks",
             };
             // A statement is always ONE ledger, so that choice leads the filter

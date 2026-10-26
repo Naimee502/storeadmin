@@ -618,8 +618,9 @@ const PartyReports: React.FC = () => {
       // Only payments carry concessions; invoice / return rows leave these unset.
       discount?: number; commission?: number;
       // How far the running balance moves (+ = towards Dr). Unset = debit − credit.
-      // A payment shows its real CASH in Debit/Credit, but moves the balance by
-      // cash + discount − commission (see below).
+      // A payment shows its real CASH in Debit/Credit; on top of that the
+      // discount always comes OFF the balance and the commission always goes ON
+      // (see below).
       delta?: number;
       // Same-day tie-break — see compareStatementRows. Only payments can offer
       // it here, so invoice / return rows keep the position they already had.
@@ -700,16 +701,16 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // Debit / Credit show the CASH actually received / paid (what the
-        // party handed over, commission included). The balance moves by what
-        // the payment SETTLED: cash + discount − commission — a discount we
-        // allowed clears the bill like cash does (comes off), a commission
-        // rode in on the cash but is not a bill payment (goes back on). So the
-        // row reads: balance − Credit − Discount + Commission.
-        //   e.g. 5,820 − 1,685 − 0 + 5 = 4,140
+        // Debit / Credit show the CASH actually received / paid. The balance
+        // moves by that cash in the usual direction, and then -- for BOTH
+        // Payment-In and Payment-Out -- the discount is always subtracted and
+        // the commission is always added:
+        //   balance ± cash − discount + commission
+        //   e.g. Payment-Out: 7,800 + 535 − 10 + 5  = 8,330
+        //        Payment-In : 8,330 − 55  − 5  + 15 = 8,285
         const cash = r2(p.amount);
-        const settled = r2(cash + discount - commission);
         const inward = p.type === "receipt";
+        const cashMove = inward ? -cash : cash;
 
         rows.push({
           t: timeOf(p.paymentdate),
@@ -718,7 +719,7 @@ const PartyReports: React.FC = () => {
           ref: String(p.paymentcode ?? "-"),
           debit: inward ? 0 : cash,
           credit: inward ? cash : 0,
-          delta: inward ? -settled : settled,
+          delta: r2(cashMove - discount + commission),
           remarks: (p.remarks || "").trim() || "-",
           discount,
           commission,
@@ -860,7 +861,7 @@ const PartyReports: React.FC = () => {
 
   let pdfSubtitle: string[] | undefined;
   let netTotal:
-    | { debitKey: string; creditKey: string; showInKey?: string }
+    | { debitKey: string; creditKey: string; minusKeys?: string[]; plusKeys?: string[]; showInKey?: string }
     | undefined;
 
   switch (activeTab) {
@@ -921,11 +922,13 @@ const PartyReports: React.FC = () => {
       // Totals row: the net prints under Remarks. Debit - Credit, with the
       // opening row folded in, is this party's CLOSING balance -- so it agrees
       // with the last Running Balance above it and with the party's own ledger.
-      // Concessions are rows in their own right now, so they are already
-      // inside that net rather than sitting beside it.
+      // The discount / commission columns fold in with a fixed sign (discount
+      // always minus, commission always plus) -- the same rule the running
+      // balance uses -- so the net lands on the last Running Balance.
       netTotal = {
         debitKey: "debit",
         creditKey: "credit",
+        ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
         showInKey: "remarks",
       };
       break;
