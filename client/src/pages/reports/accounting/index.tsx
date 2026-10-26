@@ -200,7 +200,7 @@ const AccountingFinanceReports: React.FC = () => {
         // net of the concessions (settle - discount + commission), so the
         // running balance reflects them; the Discount / Commission columns
         // beside it show how that net was arrived at.
-        type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number; delta?: number };
+        type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number; conc?: number };
         const rows: Row[] = [];
 
         payments
@@ -229,18 +229,17 @@ const AccountingFinanceReports: React.FC = () => {
                 // Cash/Bank leg moves by the cash. A PARTY leg shows the CASH
                 // (what was actually received / paid), like the Party
                 // Statement, and its balance moves by that cash in the usual
-                // direction and then -- for BOTH Payment-In and Payment-Out --
-                // the discount is always subtracted and the commission is
-                // always added:  balance ± cash − discount + commission.
+                // direction; then the commission always makes the shown balance
+                // bigger and the discount always smaller (see stepOf below).
                 // A plain-ledger voucher has no concessions.
                 const concession = viaParty ? r2(commission - discount) : 0;
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        { ...counterLeg, debit: 0, credit: cash, delta: r2(-cash + concession) },
+                        { ...counterLeg, debit: 0, credit: cash, conc: concession },
                     ]
                     : [
-                        { ...counterLeg, debit: cash, credit: 0, delta: r2(cash + concession) },
+                        { ...counterLeg, debit: cash, credit: 0, conc: concession },
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 
@@ -249,7 +248,7 @@ const AccountingFinanceReports: React.FC = () => {
                 // party's ledger), so every matching leg is kept, not the first.
                 legs
                     .filter((l: any) => l.id === target.id)
-                    .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005 || Math.abs(l.delta || 0) > 0.005)
+                    .filter((l: any) => (l.debit || 0) > 0.005 || (l.credit || 0) > 0.005 || Math.abs(l.conc || 0) > 0.005)
                     .forEach((l: any) => {
                         rows.push({
                             t: timeOf(p.paymentdate),
@@ -264,13 +263,22 @@ const AccountingFinanceReports: React.FC = () => {
                             remarks: (p.remarks || "").trim() || "-",
                             discount: r2(discount),
                             commission: r2(commission),
-                            ...(l.delta != null ? { delta: r2(l.delta) } : {}),
+                            ...(l.conc ? { conc: r2(l.conc) } : {}),
                         });
                     });
             });
 
         const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
-        const moveOf = (r: Row) => (r.delta != null ? r.delta : r.debit - r.credit);
+        // A payment's concession (commission − discount) is applied to the SIZE
+        // of the balance, whichever side it sits on: commission always makes the
+        // shown amount bigger, discount always makes it smaller -- Dr or Cr.
+        //   e.g. ₹318690 Cr, Payment-In 1001800, commission 1800
+        //                → 318690 + 1001800 = 1320490 Cr, + 1800 = ₹1322290 Cr
+        const stepOf = (bal: number, r: Row) => {
+          const b = bal + r.debit - r.credit;
+          const c = r.conc || 0;
+          return b + (b < 0 ? -c : c);
+        };
 
         // Everything before the period is folded into one beginning balance, so
         // the statement opens with what the ledger carried in, not from zero.
@@ -280,7 +288,7 @@ const AccountingFinanceReports: React.FC = () => {
                 : Number(target.openingbalance) || 0;
         valid
             .filter((r) => fromTimestamp && r.t < fromTimestamp)
-            .forEach((r) => { balance += moveOf(r); });
+            .forEach((r) => { balance = stepOf(balance, r); });
 
         const label = (n: number) => `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
 
@@ -305,7 +313,8 @@ const AccountingFinanceReports: React.FC = () => {
                     (!toTimestamp || r.t <= toTimestamp)
             )
             .forEach((r) => {
-                balance += moveOf(r);
+                const prev = balance;
+                balance = stepOf(balance, r);
                 out.push({
                     date: formatDateDMY(r.t),
                     txnType: r.type,
@@ -320,7 +329,7 @@ const AccountingFinanceReports: React.FC = () => {
                     // beyond Debit − Credit, i.e. − discount + commission on a
                     // party leg, 0 elsewhere. The Totals-row net adds it so it
                     // lands on the closing Running Balance.
-                    balanceAdjust: r2(moveOf(r) - (r.debit - r.credit)).toFixed(2),
+                    balanceAdjust: r2(balance - prev - (r.debit - r.credit)).toFixed(2),
                 });
             });
 

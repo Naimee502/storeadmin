@@ -621,7 +621,7 @@ const PartyReports: React.FC = () => {
       // A payment shows its real CASH in Debit/Credit; on top of that the
       // discount always comes OFF the balance and the commission always goes ON
       // (see below).
-      delta?: number;
+      conc?: number;
       // Same-day tie-break — see compareStatementRows. Only payments can offer
       // it here, so invoice / return rows keep the position they already had.
       seq?: number;
@@ -701,16 +701,11 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // Debit / Credit show the CASH actually received / paid. The balance
-        // moves by that cash in the usual direction, and then -- for BOTH
-        // Payment-In and Payment-Out -- the discount is always subtracted and
-        // the commission is always added:
-        //   balance ± cash − discount + commission
-        //   e.g. Payment-Out: 7,800 + 535 − 10 + 5  = 8,330
-        //        Payment-In : 8,330 − 55  − 5  + 15 = 8,285
+        // Debit / Credit show the CASH actually received / paid; the balance
+        // moves by it as usual, then the commission always makes the shown
+        // balance bigger and the discount always smaller (see stepOf below).
         const cash = r2(p.amount);
         const inward = p.type === "receipt";
-        const cashMove = inward ? -cash : cash;
 
         rows.push({
           t: timeOf(p.paymentdate),
@@ -719,7 +714,7 @@ const PartyReports: React.FC = () => {
           ref: String(p.paymentcode ?? "-"),
           debit: inward ? 0 : cash,
           credit: inward ? cash : 0,
-          delta: r2(cashMove - discount + commission),
+          conc: r2(commission - discount),
           remarks: (p.remarks || "").trim() || "-",
           discount,
           commission,
@@ -732,8 +727,17 @@ const PartyReports: React.FC = () => {
     // statement opens with what they carried in rather than from zero.
     let balance = getOpeningBalance(a);
     const before = valid.filter((r) => fromTimestamp && r.t < fromTimestamp);
-    const moveOf = (r: Row) => (r.delta != null ? r.delta : r.debit - r.credit);
-    before.forEach((r) => { balance += moveOf(r); });
+    // A payment's concession (commission − discount) is applied to the SIZE
+    // of the balance, whichever side it sits on: commission always makes the
+    // shown amount bigger, discount always makes it smaller -- Dr or Cr.
+    //   e.g. ₹318690 Cr, Payment-In 1001800, commission 1800
+    //        → 318690 + 1001800 = 1320490 Cr, + 1800 = ₹1322290 Cr
+    const stepOf = (bal: number, r: Row) => {
+      const b = bal + r.debit - r.credit;
+      const c = r.conc || 0;
+      return b + (b < 0 ? -c : c);
+    };
+    before.forEach((r) => { balance = stepOf(balance, r); });
 
     const label = (n: number) =>
       `₹${Math.abs(n).toFixed(2)}(${n < 0 ? "Cr" : "Dr"})`;
@@ -763,7 +767,8 @@ const PartyReports: React.FC = () => {
           (!toTimestamp || r.t <= toTimestamp)
       )
       .forEach((r) => {
-        balance += moveOf(r);
+        const prev = balance;
+        balance = stepOf(balance, r);
         out.push({
           date: formatDateDMY(r.t),
           txnType: r.type,
@@ -774,6 +779,10 @@ const PartyReports: React.FC = () => {
           remarks: r.remarks,
           discount: r.discount ? r.discount.toFixed(2) : "-",
           commission: r.commission ? r.commission.toFixed(2) : "-",
+          // Hidden (not a column): how far the balance moved beyond Debit −
+          // Credit. The Totals-row net adds it so it lands on the closing
+          // Running Balance.
+          balanceAdjust: (balance - prev - (r.debit - r.credit)).toFixed(2),
         });
       });
 
@@ -928,7 +937,7 @@ const PartyReports: React.FC = () => {
       netTotal = {
         debitKey: "debit",
         creditKey: "credit",
-        ...(dcEnabled ? { minusKeys: ["discount"], plusKeys: ["commission"] } : {}),
+        plusKeys: ["balanceAdjust"],
         showInKey: "remarks",
       };
       break;
