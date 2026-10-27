@@ -196,10 +196,10 @@ const AccountingFinanceReports: React.FC = () => {
         // Resolve them by name or those legs can never be selected here.
         const timeOf = timestampOf;
 
-        // One row per payment. Debit / Credit carry the cash, which is already
-        // net of the concessions (settle - discount + commission), so the
-        // running balance reflects them; the Discount / Commission columns
-        // beside it show how that net was arrived at.
+        // One row per payment leg. A party leg's Debit / Credit carry the
+        // amount SETTLED (cash + discount − commission); the cash/bank leg
+        // carries the cash. On the party leg, stepOf then applies commission
+        // + discount in the payment's direction to the running balance.
         type Row = { t: number; seq: number; type: string; ref: string; debit: number; credit: number; remarks: string; discount: number; commission: number; conc?: number };
         const rows: Row[] = [];
 
@@ -217,6 +217,10 @@ const AccountingFinanceReports: React.FC = () => {
                 const commission = Math.max(lineCommission, r2(p.commission));
 
                 const cash = r2(p.amount);
+                // What the party leg shows: the amount SETTLED
+                // (cash + discount − commission); then stepOf applies
+                // commission + discount in the payment's direction.
+                const settled = r2(cash + discount - commission);
 
                 const isReceipt = String(p.type || "").toLowerCase() === "receipt";
                 const viaParty = !!p.partyid?.id;
@@ -226,20 +230,18 @@ const AccountingFinanceReports: React.FC = () => {
                     ? partyLedgerOf[p.partyid.id] || { id: undefined, name: p.partyid?.name || "-" }
                     : { id: p.counterledgerid?.id, name: p.counterledgerid?.ledgername || "-" };
 
-                // Cash/Bank leg moves by the cash. A PARTY leg shows the CASH
-                // (what was actually received / paid), like the Party
-                // Statement, and its balance moves by that cash in the usual
-                // direction; then the commission always makes the shown balance
-                // bigger and the discount always smaller (see stepOf below).
+                // Cash/Bank leg moves by the cash. A PARTY leg shows the amount
+                // SETTLED, like the Party Statement; then stepOf applies
+                // commission + discount in the payment's direction.
                 // A plain-ledger voucher has no concessions.
-                const concession = viaParty ? r2(commission - discount) : 0;
+                const concession = viaParty ? r2(commission + discount) : 0;
                 const legs: any[] = isReceipt
                     ? [
                         { ...cashLeg, debit: cash, credit: 0 },
-                        { ...counterLeg, debit: 0, credit: cash, conc: concession },
+                        { ...counterLeg, debit: 0, credit: viaParty ? settled : cash, conc: concession },
                     ]
                     : [
-                        { ...counterLeg, debit: cash, credit: 0, conc: concession },
+                        { ...counterLeg, debit: viaParty ? settled : cash, credit: 0, conc: concession },
                         { ...cashLeg, debit: 0, credit: cash },
                     ];
 
@@ -269,15 +271,17 @@ const AccountingFinanceReports: React.FC = () => {
             });
 
         const valid = rows.filter((r) => !isNaN(r.t)).sort(compareStatementRows);
-        // A payment's concession (commission − discount) is applied to the SIZE
-        // of the balance, whichever side it sits on: commission always makes the
-        // shown amount bigger, discount always makes it smaller -- Dr or Cr.
-        //   e.g. ₹318690 Cr, Payment-In 1001800, commission 1800
-        //                → 318690 + 1001800 = 1320490 Cr, + 1800 = ₹1322290 Cr
+        // After the SETTLED Debit / Credit, commission + discount move it further
+        // in the payment's own direction: Payment-In towards Cr, Payment-Out
+        // towards Dr — so it moves by settled + commission + discount.
+        //   e.g. ₹1541530 Cr, Payment-In 500000, commission 400
+        //        → 1541530 + 500000 + 400 = ₹2041930 Cr
+        //   e.g. ₹508930 Dr, Payment-In 400000, discount 700
+        //        → 508930 − 400000 − 700 = ₹108230 Dr
         const stepOf = (bal: number, r: Row) => {
           const b = bal + r.debit - r.credit;
           const c = r.conc || 0;
-          return b + (b < 0 ? -c : c);
+          return b + (r.type === "Payment-In" ? -c : c);
         };
 
         // Everything before the period is folded into one beginning balance, so

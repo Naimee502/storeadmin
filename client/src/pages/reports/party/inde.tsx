@@ -617,10 +617,8 @@ const PartyReports: React.FC = () => {
       t: number; type: string; ref: string; debit: number; credit: number; remarks: string;
       // Only payments carry concessions; invoice / return rows leave these unset.
       discount?: number; commission?: number;
-      // How far the running balance moves (+ = towards Dr). Unset = debit − credit.
-      // A payment shows its real CASH in Debit/Credit; on top of that the
-      // discount always comes OFF the balance and the commission always goes ON
-      // (see below).
+      // commission + discount on a payment: after the settled Debit/Credit,
+      // both move it further in the payment's own direction (see stepOf).
       conc?: number;
       // Same-day tie-break — see compareStatementRows. Only payments can offer
       // it here, so invoice / return rows keep the position they already had.
@@ -701,10 +699,11 @@ const PartyReports: React.FC = () => {
           r2(p.commission)
         );
 
-        // Debit / Credit show the CASH actually received / paid; the balance
-        // moves by it as usual, then the commission always makes the shown
-        // balance bigger and the discount always smaller (see stepOf below).
+        // Debit / Credit show what was SETTLED (cash + discount − commission,
+        // e.g. 500400 cash − 400 commission = 500000). The running balance
+        // then moves further by commission + discount in the payment's direction (stepOf).
         const cash = r2(p.amount);
+        const settled = r2(cash + discount - commission);
         const inward = p.type === "receipt";
 
         rows.push({
@@ -712,9 +711,10 @@ const PartyReports: React.FC = () => {
           seq: timeOf(p.createdAt),
           type: inward ? "Payment-In" : "Payment-Out",
           ref: String(p.paymentcode ?? "-"),
-          debit: inward ? 0 : cash,
-          credit: inward ? cash : 0,
-          conc: r2(commission - discount),
+          debit: inward ? 0 : settled,
+          credit: inward ? settled : 0,
+          // commission + discount, applied in the payment's direction (stepOf).
+          conc: r2(commission + discount),
           remarks: (p.remarks || "").trim() || "-",
           discount,
           commission,
@@ -727,15 +727,17 @@ const PartyReports: React.FC = () => {
     // statement opens with what they carried in rather than from zero.
     let balance = getOpeningBalance(a);
     const before = valid.filter((r) => fromTimestamp && r.t < fromTimestamp);
-    // A payment's concession (commission − discount) is applied to the SIZE
-    // of the balance, whichever side it sits on: commission always makes the
-    // shown amount bigger, discount always makes it smaller -- Dr or Cr.
-    //   e.g. ₹318690 Cr, Payment-In 1001800, commission 1800
-    //        → 318690 + 1001800 = 1320490 Cr, + 1800 = ₹1322290 Cr
+    // After the SETTLED Debit / Credit, commission + discount move it further
+    // in the payment's own direction: Payment-In towards Cr, Payment-Out
+    // towards Dr — so it moves by settled + commission + discount.
+    //   e.g. ₹1541530 Cr, Payment-In 500000, commission 400
+    //        → 1541530 + 500000 + 400 = ₹2041930 Cr
+    //   e.g. ₹508930 Dr, Payment-In 400000, discount 700
+    //        → 508930 − 400000 − 700 = ₹108230 Dr
     const stepOf = (bal: number, r: Row) => {
       const b = bal + r.debit - r.credit;
       const c = r.conc || 0;
-      return b + (b < 0 ? -c : c);
+      return b + (r.type === "Payment-In" ? -c : c);
     };
     before.forEach((r) => { balance = stepOf(balance, r); });
 
