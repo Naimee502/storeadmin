@@ -17,6 +17,7 @@ import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { getBelowCostLines } from "../../../utils/rates";
 
 const AddEditSalesOrder = () => {
   const { id } = useParams<{ id?: string }>();
@@ -203,6 +204,11 @@ const AddEditSalesOrder = () => {
     setGrandTotal(grandTotalCalc - computedInvDisc);
   }, [products, invoiceDiscount, invoiceDiscountType]);
 
+  const belowCostLines = useMemo(
+    () => (isService ? new Map<number, string>() : getBelowCostLines(products, salesProductData)),
+    [products, salesProductData, isService]
+  );
+
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
     if (!paymentType) newErrors.paymentType = "Payment type is required";
@@ -217,6 +223,19 @@ const AddEditSalesOrder = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    // Same rule as the Add Products box: no line may sell below its purchase
+    // rate. Catches rates changed inline in the Products List or carried in
+    // from a loaded document — the offending Rate cell is marked in red.
+    if (belowCostLines.size > 0) {
+      dispatch(
+        showMessage({
+          message: `Rate is below purchase rate on ${belowCostLines.size} line(s) — fix the Rate marked in red.`,
+          type: "error",
+        })
+      );
       return;
     }
 
@@ -404,7 +423,14 @@ const AddEditSalesOrder = () => {
 
           <div className="flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            <Button type="submit" variant="outline">Save Order</Button>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={belowCostLines.size > 0}
+              title={belowCostLines.size > 0 ? "Rate is below purchase rate on a line marked in red above." : undefined}
+            >
+              {isEdit ? "Update Order" : "Save Order"}
+            </Button>
           </div>
         </form>
 

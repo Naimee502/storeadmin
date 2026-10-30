@@ -628,18 +628,35 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
         </div>
       </Section>
 
-      <Section title="Website — Shop Page">
-        <div className="text-xs text-gray-400 mb-1 px-1">
-          How the All Products grid on the website's Shop page shows a long catalogue. On: more products load
-          automatically as the shopper scrolls down (infinite scroll). Off: numbered pages at the bottom (pagination).
-        </div>
+      <Section title="App & Website Options">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <FormSwitch
-            label="Infinite Scroll (instead of pagination)"
-            name="websiteShopInfiniteScroll"
-            checked={!!draft.websiteShopInfiniteScroll}
-            onChange={(v) => set("websiteShopInfiniteScroll", !!v)}
-          />
+          <div className="flex flex-col gap-1">
+            <FormSwitch
+              label="Product Image Download"
+              name="allowProductImageDownload"
+              checked={draft.allowProductImageDownload !== false}
+              onChange={(v) => set("allowProductImageDownload", !!v)}
+            />
+            <p className="text-xs text-gray-400">Download button on the product photo (App &amp; Website).</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <FormSwitch
+              label="WhatsApp Chat Button"
+              name="showWhatsappChat"
+              checked={draft.showWhatsappChat !== false}
+              onChange={(v) => set("showWhatsappChat", !!v)}
+            />
+            <p className="text-xs text-gray-400">Floating chat button using the WhatsApp Number above (App &amp; Website).</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <FormSwitch
+              label="Shop Infinite Scroll"
+              name="websiteShopInfiniteScroll"
+              checked={!!draft.websiteShopInfiniteScroll}
+              onChange={(v) => set("websiteShopInfiniteScroll", !!v)}
+            />
+            <p className="text-xs text-gray-400">Website Shop page loads more on scroll instead of page numbers.</p>
+          </div>
         </div>
       </Section>
 

@@ -1202,4 +1202,12 @@ interface SalesInvoiceModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldInvoice: any, newInvoice: any, userContext?: any): Promise<void>;
 }
 
+// Performance indexes (non-unique, so they can never reject existing data):
+// • adminid+createdAt — the bill-number generator's "last invoice" lookup.
+// • adminid+branchid+status — the Manage Sales Invoices listing.
+// • partyacc+status — party outstanding / previous-balance lookups.
+salesInvoiceSchema.index({ adminid: 1, createdAt: -1 });
+salesInvoiceSchema.index({ adminid: 1, branchid: 1, status: 1 });
+salesInvoiceSchema.index({ partyacc: 1, status: 1 });
+
 export const SalesInvoice = mongoose.model<any, SalesInvoiceModel>("SalesInvoice", salesInvoiceSchema);

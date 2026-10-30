@@ -565,6 +565,13 @@ const adminSettingsSchema = new mongoose.Schema(
     websiteShowTrustBar: { type: Boolean, default: true },
     websiteShowPromoBanners: { type: Boolean, default: true },
     websiteShowAppSection: { type: Boolean, default: true },
+    // Download button on the product detail image (website + party app).
+    // Default on; an admin who doesn't want customers saving product photos
+    // turns it off in Settings → General → Product Image Download.
+    allowProductImageDownload: { type: Boolean, default: true },
+    // Floating WhatsApp chat button (website + party app). Opens a chat with
+    // supportWhatsapp; hidden anyway while that number is blank.
+    showWhatsappChat: { type: Boolean, default: true },
 
     businessStats: {
       type: [

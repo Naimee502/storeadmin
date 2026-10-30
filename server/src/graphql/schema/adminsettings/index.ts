@@ -206,6 +206,10 @@ export const adminSettingsTypeDefs = gql`
     websiteShowTrustBar: Boolean
     websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
+    # Download button on the product detail image (website + app). Default on.
+    allowProductImageDownload: Boolean
+    # Floating WhatsApp chat button (website + app). Default on.
+    showWhatsappChat: Boolean
 
     createdAt: String
     updatedAt: String
@@ -277,6 +281,10 @@ export const adminSettingsTypeDefs = gql`
     websiteShowTrustBar: Boolean
     websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
+    # Download button on the product detail image (website + app). Default on.
+    allowProductImageDownload: Boolean
+    # Floating WhatsApp chat button (website + app). Default on.
+    showWhatsappChat: Boolean
   }
 
   # Partial input — only sends fields that changed. Server merges over the
@@ -406,6 +414,10 @@ export const adminSettingsTypeDefs = gql`
     websiteShowTrustBar: Boolean
     websiteShowPromoBanners: Boolean
     websiteShowAppSection: Boolean
+    # Download button on the product detail image (website + app). Default on.
+    allowProductImageDownload: Boolean
+    # Floating WhatsApp chat button (website + app). Default on.
+    showWhatsappChat: Boolean
   }
 
   extend type Query {

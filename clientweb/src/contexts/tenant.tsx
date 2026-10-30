@@ -111,6 +111,10 @@ interface TenantContextValue {
   websiteShowTrustBar: boolean;
   websiteShowPromoBanners: boolean;
   websiteShowAppSection: boolean;
+  /** Download button on the product detail image. Default true. */
+  allowProductImageDownload: boolean;
+  /** Floating WhatsApp chat button. Default true. */
+  showWhatsappChat: boolean;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -250,6 +254,8 @@ export function TenantProvider({
     websiteShowTrustBar: info?.websiteShowTrustBar !== false,
     websiteShowPromoBanners: info?.websiteShowPromoBanners !== false,
     websiteShowAppSection: info?.websiteShowAppSection !== false,
+    allowProductImageDownload: info?.allowProductImageDownload !== false,
+    showWhatsappChat: info?.showWhatsappChat !== false,
   };
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

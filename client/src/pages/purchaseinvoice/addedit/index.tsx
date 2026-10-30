@@ -501,7 +501,9 @@ const AddEditPurchaseInvoice = () => {
         }
         dispatch(showMessage({ message: "Purchase Invoice added successfully", type: "success" }));
       }
-      await refetch();
+      // Refresh product stock in the background — the products query is
+      // cache-and-network, so every screen showing stock re-reads it on mount.
+      refetch().catch(() => {});
       navigate(-1);
     } catch (error: any) {
       console.error("Error:", error);

@@ -1031,6 +1031,14 @@ interface PurchaseInvoiceModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldInvoice: any, newInvoice: any, userContext?: any): Promise<void>;
 }
 
+// Performance indexes (non-unique, so they can never reject existing data):
+// • adminid+billnumber — the bill-number generator's "highest number" lookup.
+// • adminid+branchid+status — the Manage Purchase Invoices listing.
+// • partyacc+status — vendor outstanding / previous-balance lookups.
+purchaseInvoiceSchema.index({ adminid: 1, billnumber: -1 });
+purchaseInvoiceSchema.index({ adminid: 1, branchid: 1, status: 1 });
+purchaseInvoiceSchema.index({ partyacc: 1, status: 1 });
+
 export const PurchaseInvoice = mongoose.model<any, PurchaseInvoiceModel>(
   "PurchaseInvoice",
   purchaseInvoiceSchema

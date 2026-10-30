@@ -5,7 +5,7 @@ import { FaHistory } from "react-icons/fa";
 import FormField from "../formfiled";
 import Button from "../button";
 import { getBaseQuantity, getInvoiceLineBaseQty, formatDateDMY } from "../../utils/helper";
-import { belowCostError } from "../../utils/rates";
+import { belowCostError, getBelowCostLines, lineBelowCostError } from "../../utils/rates";
 import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { getStockShortfalls } from "../../utils/products/stockcheck";
@@ -128,6 +128,15 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, productData, type, iservice, originalProducts]);
+
+  // Lines priced below cost — whether they got there through an inline Rate
+  // edit, a unit change re-pricing the row, or an order loaded for editing.
+  // Sales only; on purchase lines the rate IS the cost.
+  const belowCostByLine = useMemo(() => {
+    if (type !== "sales" || iservice) return new Map<number, string>();
+    return getBelowCostLines(products, normalizedProducts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, productData, type, iservice]);
 
   const defaultModuleId = type === "sales" ? "salesinvoice" : "purchaseinvoice";
   const moduleId = permissionModuleId || defaultModuleId;
@@ -267,6 +276,11 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     selectedProduct?.rate,
     productData,
   ]);
+  // Live error for the Rate cell currently being typed into in Products List.
+  const inlineRateError =
+    type === "sales" && !iservice && editingCell?.field === "rate"
+      ? lineBelowCostError(products[editingCell.rowIndex], normalizedProducts, editingValue) || null
+      : null;
   const { resolvePrice } = usePriceResolvers();
 
   useEffect(() => {
@@ -331,6 +345,17 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const handleCellBlur = (rowIndex: number, field: string, newValue: string) => {
     const numValue = parseFloat(newValue);
     if (isNaN(numValue)) return;
+
+    // Same below-cost rule as the Add Products box. The cell stays open with
+    // the message under it — Esc cancels back to the saved rate.
+    if (
+      field === "rate" &&
+      type === "sales" &&
+      !iservice &&
+      lineBelowCostError(products[rowIndex], normalizedProducts, numValue)
+    ) {
+      return;
+    }
 
     setProducts((prev) =>
       prev.map((p, i) => {
@@ -1120,7 +1145,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Rate - Double-click to edit */}
                     {isFieldEnabled("rate") && (
                       <td
-                        className="border p-2 w-24 cursor-pointer hover:bg-gray-100 text-center"
+                        className={`border p-2 w-24 cursor-pointer hover:bg-gray-100 text-center align-top ${
+                          belowCostByLine.has(i) && !(editingCell?.rowIndex === i && editingCell?.field === "rate")
+                            ? "bg-red-50 text-red-600"
+                            : ""
+                        }`}
+                        title={belowCostByLine.get(i) || undefined}
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "rate" });
                           setEditingValue(String(p.rate));
@@ -1140,12 +1170,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                                 setEditingValue("");
                               }
                             }}
-                            className="w-full border border-gray-300 px-2 py-1 rounded text-gray-700"
+                            className={`w-full border px-2 py-1 rounded text-gray-700 ${
+                              inlineRateError ? "border-red-500" : "border-gray-300"
+                            }`}
                             step="0.01"
                           />
                         ) : (
                           p.rate.toFixed(2)
                         )}
+                        {editingCell?.rowIndex === i && editingCell?.field === "rate"
+                          ? inlineRateError && (
+                              <div className="text-xs text-red-600 mt-1 text-left">{inlineRateError}</div>
+                            )
+                          : belowCostByLine.get(i) && (
+                              <div className="text-xs text-red-600 mt-1 text-left">{belowCostByLine.get(i)}</div>
+                            )}
                       </td>
                     )}
 

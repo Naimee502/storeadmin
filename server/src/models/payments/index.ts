@@ -136,5 +136,10 @@ paymentSchema.pre("save", async function (next) {
 
 // index for fast admin scoped lookup
 paymentSchema.index({ adminid: 1, paymentcode: 1 });
+// Performance indexes (non-unique): auto-receipt lookup on every invoice save,
+// bill-allocation lookups, and a party's advances/outstanding.
+paymentSchema.index({ "autosource.docid": 1, "autosource.docmodel": 1 });
+paymentSchema.index({ "invoices.invoiceid": 1 });
+paymentSchema.index({ adminid: 1, partyid: 1, status: 1 });
 
 export const Payment = mongoose.model("Payment", paymentSchema);

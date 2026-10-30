@@ -1,5 +1,6 @@
 export { AppHeader, BackHeader } from './header';
 export { AppImage } from './appimage';
+export { WhatsAppChatButton, productWhatsappMessage } from './whatsappchat';
 export type { AppImageProps } from './appimage';
 
 export { AppButton } from './button';

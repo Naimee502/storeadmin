@@ -7,7 +7,7 @@ import { useQuery } from '@apollo/client/react';
 import { useSelector } from 'react-redux';
 import { FONTS, STRINGS, useTheme } from '../../../../config';
 import { GET_CATEGORIES } from '../../../../apollo/queries/categories';
-import { AppHeader, AppTextInput, AppTour, CategoryStrip, ProductCatalog, tourRef, useNotificationCenter } from '../../../../components';
+import { AppHeader, AppTextInput, AppTour, CategoryStrip, ProductCatalog, tourRef, useNotificationCenter, WhatsAppChatButton } from '../../../../components';
 import type { CategoryItem, TourStep } from '../../../../components';
 import { HomeBanner } from './homebanner';
 import { useAdminQuery, usePaymentsEnabled } from '../../../../apollo/hooks/admin';
@@ -177,6 +177,10 @@ export default function PartyHome() {
         storageKey={`tour.partyHome.${userId}`}
         enabled={!!userId && !!categoriesData && adminLoaded}
       />
+
+      {/* Floating WhatsApp chat — lifts above the View Cart bar when that
+          bar is showing (bar sits at bottom 20 and is ~54 tall). */}
+      <WhatsAppChatButton bottom={cartCount > 0 ? 88 : 20} />
 
       {cartCount > 0 && (
         <Pressable

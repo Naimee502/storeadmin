@@ -37,6 +37,42 @@ export function useShowProductStock(): boolean {
 }
 
 /**
+ * Settings -> General -> "Product Image Download". Shows the download button
+ * on the Product Detail photo. Defaults to true (server default) so tenants
+ * who haven't touched the setting get the button; an admin can turn it off.
+ */
+export function useAllowProductImageDownload(): boolean {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  return (data as any)?.getAdminSettings?.allowProductImageDownload !== false;
+}
+
+/**
+ * Settings -> General -> "WhatsApp Chat Button". Returns the business's
+ * WhatsApp number as wa.me digits (91 added to a bare 10-digit mobile), or ''
+ * when the button should not show — switched off, or no number saved. Unlike
+ * the Help & Support card there is deliberately NO placeholder number here:
+ * a floating button must never open a chat with a number nobody owns.
+ */
+export function useWhatsappChatNumber(): string {
+  const adminid = useSelector((s: RootState) => s.tenant.adminId) ?? '';
+  const { data } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid },
+    skip: !adminid,
+    fetchPolicy: 'cache-and-network',
+  });
+  const s = (data as any)?.getAdminSettings;
+  if (!s || s.showWhatsappChat === false) return '';
+  let d = String(s.supportWhatsapp || '').replace(/\D/g, '');
+  if (d.length === 10) d = `91${d}`;
+  return d.length >= 8 ? d : '';
+}
+
+/**
  * Business Settings -> "Auto-scroll the category row on the App"
  * (appCategoryAutoScroll). Off by default: only businesses that ask for it get
  * a self-scrolling category strip on Home / Shop; everyone else keeps the

@@ -78,3 +78,35 @@ export const belowCostError = (variant: any, unitid: any, rate: any): string => 
   if (entered + EPSILON >= min) return "";
   return `Rate cannot be below purchase rate (₹${min.toFixed(2)}) for this unit.`;
 };
+
+/**
+ * Below-cost check for a line already sitting in an invoice/order's Products
+ * List. Same rule as the Add Products box, so a rate that the box refuses
+ * can't sneak in through an inline cell edit, a unit change, or a loaded
+ * (edit-mode) document.
+ *
+ * `rate` overrides the line's own rate — used to validate a value while it is
+ * still being typed into the cell.
+ */
+export const lineBelowCostError = (line: any, productData: any[], rate?: any): string => {
+  if (!line) return "";
+  const product = (productData || []).find(
+    (p: any) => idOf(p.id ?? p._id) === idOf(line.productserviceid)
+  );
+  const variant = (product?.productvariants || []).find(
+    (v: any) => idOf(v.id ?? v._id) === idOf(line.variantid)
+  );
+  if (!variant) return "";
+  const unitId = line.salesunitid || variant.baseunitid;
+  return belowCostError(variant, unitId, rate ?? line.rate);
+};
+
+/** Index → error text for every line priced below cost. Empty map = all fine. */
+export const getBelowCostLines = (products: any[], productData: any[]): Map<number, string> => {
+  const map = new Map<number, string>();
+  (products || []).forEach((line, i) => {
+    const err = lineBelowCostError(line, productData);
+    if (err) map.set(i, err);
+  });
+  return map;
+};

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Dimensions,
+  View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Dimensions, Linking,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -11,9 +11,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, useTheme, IMG } from '../../../../config';
 import { GET_PRODUCT_BY_ID, GET_ACCOUNT, RESOLVE_PRICE } from '../../../../apollo/queries/accounts';
 import { apolloClient } from '../../../../apollo/client';
-import { BackHeader, AppImage } from '../../../../components';
+import { BackHeader, AppImage, WhatsAppChatButton, productWhatsappMessage } from '../../../../components';
 import { addToCart, updateQty } from '../../../../store/slices';
-import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock } from '../../../../apollo/hooks/adminsettings';
+import { useShowProductPrice, useShowProductStock, useProductImageRatio, useCatalogPrice, useRestrictQtyByStock, useAllowProductImageDownload, useWhatsappChatNumber } from '../../../../apollo/hooks/adminsettings';
 import { baseQtyOf, maxPacksFor, stockOf } from '../../../../utils/stocklimit';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -73,6 +73,9 @@ export default function ProductDetail() {
   // still sends the real unitprice, so the cart and the order are unaffected.
   const { formatCatalogINR } = useCatalogPrice();
   const showStock = useShowProductStock();
+  const allowImageDownload = useAllowProductImageDownload();
+  // Only reserve room at the bottom when the WhatsApp button will actually show.
+  const whatsappNumber = useWhatsappChatNumber();
   const restrictQty = useRestrictQtyByStock();
   // Auto-fit the hero image to its own aspect ratio (no cropping) instead of
   // forcing every photo into one fixed box shape. Read the real pixel size
@@ -279,7 +282,7 @@ export default function ProductDetail() {
 
       <BackHeader label={product.name} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, whatsappNumber ? { paddingBottom: 96 } : null]}>
 
         {/* Product image */}
         <Animated.View entering={FadeInUp.duration(400).delay(40)} style={[styles.imgCard, { backgroundColor: colors.cardGlass, borderColor: colors.border }]}>
@@ -308,6 +311,34 @@ export default function ProductDetail() {
               : <Icon name="package-variant-closed" size={72} color={colors.brand} />
             }
           </View>
+          {/* Save the photo. Our own uploads get "?download=1" so the server
+              sends the original as an attachment and the phone's browser
+              saves it to Downloads; no extra native module needed. */}
+          {allowImageDownload && !!mainImage && (
+            <Pressable
+              onPress={() => {
+                const isOwnUpload = mainImage.includes('/uploads/');
+                const url = isOwnUpload
+                  ? `${mainImage}${mainImage.includes('?') ? '&' : '?'}download=1`
+                  : mainImage;
+                Linking.openURL(url).catch(() => {});
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Download image"
+              style={({ pressed }) => [
+                styles.downloadBtn,
+                {
+                  backgroundColor: colors.cardGlass,
+                  borderColor: colors.border,
+                  bottom: inStock ? 12 : 44, // sit above the Out of Stock strip
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Icon name="download" size={20} color={colors.brand} />
+            </Pressable>
+          )}
           {!inStock && (
             <View style={styles.oosOverlay}>
               <Text style={styles.oosText}>Out of Stock</Text>
@@ -497,6 +528,11 @@ export default function ProductDetail() {
         </Animated.View>
 
       </ScrollView>
+
+      {/* Floating WhatsApp chat about THIS product. The scroll content gets
+          extra bottom room (see scroll padding) so it never sits on top of
+          the Add to Cart controls at the end of the page. */}
+      <WhatsAppChatButton message={productWhatsappMessage(product.name)} bottom={24} />
     </View>
   );
 }
@@ -519,6 +555,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 8, alignItems: 'center',
   },
   oosText: { fontSize: 13, fontFamily: FONTS.bold, color: '#fff' },
+  downloadBtn: {
+    position: 'absolute', right: 12, width: 40, height: 40, borderRadius: 20, borderWidth: 1,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
+  },
 
   thumbRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   thumb: { width: 56, height: 56, borderRadius: 12, borderWidth: 1.5, overflow: 'hidden' },

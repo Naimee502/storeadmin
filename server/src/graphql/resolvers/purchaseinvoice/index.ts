@@ -40,9 +40,12 @@ const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
 };
 
 // ✅ Fields to populate
-const populateFields = [
+const populateFields: any[] = [
   "partyacc",
-  "productservice.productserviceid",
+  // Only what formatInvoice reads (name + variant names). Populating the whole
+  // product — every variant, price slab, conversion row — for every line of
+  // every invoice made the listing very slow on large accounts.
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
   "productservice.purchaseunitid",
   "productservice.salesaccountid",
   "productservice.purchaseaccountid",
@@ -152,62 +155,71 @@ export const purchaseInvoiceResolvers = {
 
         console.log("✅ Found", invoices.length, "invoices");
 
-        // ✅ Filter out invoices that have been fully returned
-        const PurchaseReturn = require("../../../models/purchasereturn").PurchaseReturn;
+        // ✅ Filter out invoices that have been fully returned.
+        // All returns for the listed invoices come back in ONE query and are
+        // grouped in memory — previously one query ran per invoice.
+        const invoiceIds = invoices.map((inv: any) => inv._id);
+        const allReturns: any[] = invoiceIds.length
+          ? await PurchaseReturn.find({ sourceInvoiceId: { $in: invoiceIds }, status: true })
+              .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
+              .lean()
+          : [];
+        const returnsByInvoice = new Map<string, any[]>();
+        allReturns.forEach((ret: any) => {
+          const key = String(ret.sourceInvoiceId);
+          const list = returnsByInvoice.get(key);
+          if (list) list.push(ret);
+          else returnsByInvoice.set(key, [ret]);
+        });
 
-        const filteredInvoices = await Promise.all(
-          invoices.map(async (inv: any) => {
-            try {
-              // Get all active returns for this invoice
-              const returns = await PurchaseReturn.find({
-                sourceInvoiceId: inv._id,
-                status: true,
-              }).lean();
-
-              if (returns.length === 0) {
-                // No returns yet, include invoice
-                return inv;
-              }
-
-              // Calculate returned quantities per item
-              const returnedByItem: Record<string, number> = {};
-              returns.forEach((ret: any) => {
-                (ret.productservice ?? []).forEach((line: any) => {
-                  // ✅ Convert to string for consistent comparison
-                  const productId = String(line.productserviceid || "");
-                  const variantId = String(line.variantid || "");
-                  const key = `${productId}_${variantId}`;
-                  returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
-                });
-              });
-
-              console.log(`📊 Invoice ${inv.billnumber}: Returned items =`, returnedByItem);
-
-              // Check if ALL items are fully returned
-              const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
-                const productId = String(line.productserviceid || "");
-                const variantId = String(line.variantid || "");
-                const key = `${productId}_${variantId}`;
-                const invoicedQty = Number(line.qty) || 0;
-                const returnedQty = returnedByItem[key] || 0;
-
-                console.log(`  ${key}: invoiced=${invoicedQty}, returned=${returnedQty}, fullReturned=${returnedQty >= invoicedQty}`);
-                return returnedQty >= invoicedQty;
-              });
-
-              console.log(`  → Overall: allFullyReturned=${allFullyReturned}, includeInDropdown=${!allFullyReturned}`);
-
-              // Return invoice only if NOT all items are fully returned
-              return !allFullyReturned ? inv : null;
-            } catch (error: any) {
-              console.error(`❌ Error filtering invoice ${inv.billnumber}:`, error.message);
-              return inv; // Include on error (safe fallback)
-            }
-          })
+        // Source order numbers in one query too (was one per invoice via the
+        // `sourceorderno` field resolver).
+        const orderIds = Array.from(
+          new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String))
         );
+        const orderNoById = new Map<string, string | null>();
+        if (orderIds.length) {
+          try {
+            const orders: any[] = await PurchaseOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
+            orders.forEach((o: any) => orderNoById.set(String(o._id), o.billnumber || null));
+          } catch (e) {
+            /* a label is never worth failing the list over */
+          }
+        }
+
+        const filteredInvoices = invoices.map((inv: any) => {
+          try {
+            const returns = returnsByInvoice.get(String(inv._id)) || [];
+            if (returns.length === 0) return inv;
+
+            const returnedByItem: Record<string, number> = {};
+            returns.forEach((ret: any) => {
+              (ret.productservice ?? []).forEach((line: any) => {
+                const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+                returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
+              });
+            });
+
+            // Key built exactly as before this refactor (behaviour unchanged).
+            const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
+              const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+              return (returnedByItem[key] || 0) >= (Number(line.qty) || 0);
+            });
+
+            return !allFullyReturned ? inv : null;
+          } catch (error: any) {
+            console.error(`❌ Error filtering invoice ${inv.billnumber}:`, error.message);
+            return inv; // Include on error (safe fallback)
+          }
+        });
 
         // Filter out null values
-        const result = filteredInvoices.filter(Boolean).map(formatInvoice);
+        const result = filteredInvoices.filter(Boolean).map((inv: any) => {
+          const out: any = formatInvoice(inv);
+          const oid = refId(inv.sourceorderid);
+          out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
+          return out;
+        });
         console.log("✅ After filtering fully-returned:", result.length, "of", invoices.length, "invoices");
         return result;
       } catch (error: any) {
@@ -641,6 +653,8 @@ export const purchaseInvoiceResolvers = {
     // purchase-order-only business never sees an invoice number, so the payment
     // screen labels the bill with this instead.
     sourceorderno: async (parent: any) => {
+      // Pre-resolved in bulk by getPurchaseInvoices.
+      if (parent && "__sourceorderno" in parent) return parent.__sourceorderno;
       try {
         const oid = refId(parent?.sourceorderid);
         if (!oid) return null;

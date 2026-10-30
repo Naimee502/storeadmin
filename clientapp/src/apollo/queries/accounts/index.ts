@@ -511,6 +511,8 @@ export const GET_ADMIN_SETTINGS = gql`
       appCatalogBrowseMode
       appCategoryAutoScroll
       appProductAutoScroll
+      allowProductImageDownload
+      showWhatsappChat
       geoFenceEnabled
       geoFenceRadiusM
       salesmanLeaderboardEnabled

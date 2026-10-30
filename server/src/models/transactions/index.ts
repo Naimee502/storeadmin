@@ -115,5 +115,10 @@ transactionSchema.index(
   { adminid: 1, branchid: 1, transactioncode: 1 },
   { unique: true }
 );
+// Performance indexes (non-unique). Every invoice save looks up its own
+// journal by source doc, and outstanding/allocation queries look up journals
+// by the invoice they settle — both were full collection scans before.
+transactionSchema.index({ "source.docid": 1, "source.docmodel": 1 });
+transactionSchema.index({ "invoices.invoiceid": 1 });
 
 export const Transaction = mongoose.model("Transaction", transactionSchema);

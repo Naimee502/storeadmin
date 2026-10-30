@@ -134,6 +134,8 @@ const SETTINGS_FIELDS = `
   websiteShowTrustBar
   websiteShowPromoBanners
   websiteShowAppSection
+  allowProductImageDownload
+  showWhatsappChat
 `;
 
 export const GET_ADMIN_SETTINGS = gql`

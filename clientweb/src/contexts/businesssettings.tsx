@@ -10,7 +10,7 @@ const BusinessSettingsContext = createContext<BusinessSettingsContextValue | nul
 
 // Seeds from the real tenant (fetched via storeslug in TenantProvider) but
 // still allows a local override — that's what powers the dev-only
-// BusinessPreview panel, letting you flip COD-only without needing a second
+// (removed) BusinessPreview panel, letting you flip COD-only without needing a second
 // real business set up.
 export function BusinessSettingsProvider({ children }: { children: ReactNode }) {
   const tenant = useTenant();

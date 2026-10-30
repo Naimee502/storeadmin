@@ -19,6 +19,7 @@ import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { getStockShortfalls } from "../../../utils/products/stockcheck";
+import { getBelowCostLines } from "../../../utils/rates";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 
@@ -217,6 +218,10 @@ const AddEditSalesInvoice = () => {
   const stockShortfalls = useMemo(
     () => getStockShortfalls(products, salesProductData, { isService, originalProducts }),
     [products, salesProductData, isService, originalProducts]
+  );
+  const belowCostLines = useMemo(
+    () => (isService ? new Map<number, string>() : getBelowCostLines(products, salesProductData)),
+    [products, salesProductData, isService]
   );
   // Business Settings -> "Allow negative stock": when it's on, short lines are
   // still flagged in red but the bill is allowed through — the server takes the
@@ -471,6 +476,19 @@ const AddEditSalesInvoice = () => {
       return;
     }
 
+    // Same rule as the Add Products box: no line may sell below its purchase
+    // rate. Catches rates changed inline in the Products List or carried in
+    // from a loaded document — the offending Rate cell is marked in red.
+    if (belowCostLines.size > 0) {
+      dispatch(
+        showMessage({
+          message: `Rate is below purchase rate on ${belowCostLines.size} line(s) — fix the Rate marked in red.`,
+          type: "error",
+        })
+      );
+      return;
+    }
+
     // Hard stop on short stock — the server refuses the same invoice, so
     // failing here keeps the message specific and the form editable.
     if (blockOnShortStock) {
@@ -604,7 +622,11 @@ const AddEditSalesInvoice = () => {
         }
         dispatch(showMessage({ message: "Invoice added successfully", type: "success" }));
       }
-      await refetch();
+      // Refresh product stock in the background — the products query is
+      // cache-and-network, so every screen that shows stock re-reads it on
+      // mount anyway. Awaiting the full product list here only kept the user
+      // staring at the Save button.
+      refetch().catch(() => {});
       navigate(-1);
     } catch (error: any) {
       console.error("Error:", error);
@@ -965,10 +987,13 @@ const AddEditSalesInvoice = () => {
               disabled={
                 isCancelledBill ||
                 blockOnShortStock ||
+                belowCostLines.size > 0 ||
                 (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)
               }
               title={
-                blockOnShortStock
+                belowCostLines.size > 0
+                  ? "Rate is below purchase rate on a line marked in red above."
+                  : blockOnShortStock
                   ? "Not enough stock on one or more lines — fix the quantity marked in red above."
                   : !isEdit && Object.keys(validate()).length > 0
                   ? `Still needed: ${Object.values(validate()).join(", ")}`

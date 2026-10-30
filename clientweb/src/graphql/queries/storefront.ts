@@ -79,6 +79,8 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       websiteShowTrustBar
       websiteShowPromoBanners
       websiteShowAppSection
+      allowProductImageDownload
+      showWhatsappChat
     }
   }
 `;

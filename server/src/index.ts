@@ -145,6 +145,34 @@ const startServer = async () => {
   // previous default (max-age=0) every image was re-validated over the network
   // on every app launch before anything could be drawn.
   const uploadsPath = path.join(__dirname, 'uploads');
+
+  // "?download=1" on an upload URL sends the ORIGINAL file as an attachment,
+  // so the browser / phone saves it instead of just showing it. Used by the
+  // product-image download button on the website and the app. Any other URL
+  // (no ?download) falls straight through to the resizer + static below,
+  // exactly as before. Only flat file names inside the uploads folder are
+  // served — same traversal guard the resizer uses.
+  app.use('/uploads', (req, res, next) => {
+    if (req.method !== 'GET' || !req.query.download) return next();
+    let name = '';
+    try {
+      name = decodeURIComponent(req.path.replace(/^\/+/, ''));
+    } catch {
+      return next();
+    }
+    if (!name || name.includes('/') || name.includes('\\') || name.startsWith('.')) return next();
+    const dir = path.resolve(uploadsPath);
+    const file = path.resolve(dir, name);
+    if (!file.startsWith(dir + path.sep)) return next();
+    // Product photos are public anyway (served by express.static below); the
+    // header lets the website fetch the file in the background and save it,
+    // instead of navigating the tab to the file URL.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.download(file, name, (err) => {
+      if (err && !res.headersSent) next();
+    });
+  });
+
   app.use(
     '/uploads',
     imageResizer(uploadsPath),

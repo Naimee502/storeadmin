@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check } from "lucide-react";
+import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check, Download } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
@@ -10,6 +10,7 @@ import { useTenant } from "../../contexts/tenant";
 import { discountPercent } from "../../utils/format";
 import { useCatalogPrice } from "../../utils/catalogprice";
 import { useImageFallback } from "../../utils/useimagefallback";
+import WhatsAppChat, { productWhatsappMessage } from "../../components/whatsappchat";
 
 // Main gallery picture: the placeholder stays until the photo has actually
 // loaded, so a missing/unreachable file never leaves an empty white box.
@@ -44,6 +45,46 @@ function MainImage({ src, alt, placeholder, onBroken }: {
   );
 }
 
+// Save the product photo WITHOUT leaving the page.
+//
+// The file is fetched in the background and handed to the browser as a local
+// blob, so the tab never navigates to the image URL. Navigating to it was what
+// made Chrome show "This site doesn't support a secure connection" whenever
+// the image host was plain http (local/LAN server) — HTTPS-First mode warns on
+// every http navigation. A fetch is not a navigation, so no warning.
+//
+// Our own uploads get "?download=1" (server sends the original + a CORS
+// header). If the fetch fails for any reason (external host without CORS,
+// network), it falls back to opening the image in a new tab.
+async function downloadProductImage(url: string, name: string) {
+  const isOwnUpload = url.includes("/uploads/");
+  const ext = (url.split("?")[0].match(/\.[a-z0-9]+$/i) || [".jpg"])[0];
+  const fileName = `${name.replace(/[^\w\- ]+/g, "").trim() || "product"}${ext}`;
+  const src = isOwnUpload ? `${url}${url.includes("?") ? "&" : "?"}download=1` : url;
+
+  const clickLink = (href: string, opts: { download?: string; newTab?: boolean }) => {
+    const a = document.createElement("a");
+    a.href = href;
+    a.rel = "noopener";
+    if (opts.download) a.download = opts.download;
+    if (opts.newTab) a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  try {
+    const res = await fetch(src, { mode: "cors" });
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    clickLink(objectUrl, { download: fileName });
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+  } catch {
+    clickLink(url, { newTab: true });
+  }
+}
+
 const tabs = ["Description", "Highlights", "Reviews"] as const;
 
 const sampleReviews = [
@@ -69,7 +110,7 @@ export default function ProductDetailPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Description");
   const { lines, addToCart, updateQty, removeFromCart, remainingFor } = useCart();
   const navigate = useNavigate();
-  const { displayProductPrice, displayStock } = useTenant();
+  const { displayProductPrice, displayStock, allowProductImageDownload } = useTenant();
   // Display-only x2 markup (Business Settings -> "Show Double Price"). The
   // Add-to-cart button below is untouched — it hands the cart the real rate.
   const { formatCatalogPrice } = useCatalogPrice();
@@ -138,6 +179,9 @@ export default function ProductDetailPage() {
 
   return (
     <div>
+      <WhatsAppChat
+        message={productWhatsappMessage(product.name, typeof window !== "undefined" ? window.location.href : "")}
+      />
       <Breadcrumb
         items={[
           ...(category ? [{ label: category.name, to: "/shop" }] : []),
@@ -171,6 +215,17 @@ export default function ProductDetailPage() {
                   placeholder
                 );
               })()}
+              {allowProductImageDownload && mainImage && (
+                <button
+                  type="button"
+                  onClick={() => downloadProductImage(mainImage, `${product.name || "product"}-${activeImageIdx + 1}`)}
+                  title="Download image"
+                  aria-label="Download image"
+                  className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:border-brand-400 hover:text-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                  <Download className="h-5 w-5" />
+                </button>
+              )}
               {displayProductPrice && discount > 0 && (
                 <span className="absolute left-3 top-3 rounded-full bg-brand-600 px-2.5 py-1 text-xs font-bold text-white shadow">
                   {discount}% OFF
