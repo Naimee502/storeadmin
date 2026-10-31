@@ -1,3 +1,4 @@
+import { sortLinesByCategory } from "../../../utils/linesort";
 import { SalesOrder } from "../../../models/salesorder";
 import { StaffAccount } from "../../../models/staffaccounts";
 import { SalesInvoice } from "../../../models/salesinvoice";
@@ -680,6 +681,9 @@ export const salesOrderResolvers = {
         // numbers (from a possibly stale list) caused duplicates like SO-000001.
         delete input.billnumber;
 
+        // Bill lines category-wise, then A-Z — whatever order the cart had.
+        if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
+
         const created = await SalesOrder.create({ ...input, ...createdbyData, ...lockedData });
 
         console.log("Created Sales Order:", {
@@ -871,6 +875,9 @@ export const salesOrderResolvers = {
           }
         }
       } catch (e) { /* charge engine is best-effort; never block an edit */ }
+
+      // Re-arrange category-wise / A-Z whenever the lines themselves are sent.
+      if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
 
       const updated = await SalesOrder.findByIdAndUpdate(id, input, { new: true })
         .populate(populateFields)

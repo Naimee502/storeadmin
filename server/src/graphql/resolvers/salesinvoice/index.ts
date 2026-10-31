@@ -1,3 +1,4 @@
+import { sortLinesByCategory } from "../../../utils/linesort";
 import { SalesInvoice } from "../../../models/salesinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
 import { pushNotification } from "../../../models/notifications";
@@ -583,6 +584,9 @@ export const salesInvoiceResolvers = {
         wantsStock: !psSeller && autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
 
+      // Bill lines category-wise, then A-Z (also covers order -> invoice conversion).
+      if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
+
       const created = await SalesInvoice.create({ ...input, ...createdbyData, ...autoCreateData });
       console.log("✅ Created invoice autocreate:", created.autocreate);
 
@@ -944,6 +948,8 @@ export const salesInvoiceResolvers = {
         oldInv,
         wantsStock: !editSeller && autoCreateData.autocreate.stock && settings?.allowNegativeStock !== true,
       });
+
+      if (Array.isArray(input.productservice)) input.productservice = await sortLinesByCategory(input.productservice);
 
       const updated = await SalesInvoice.findByIdAndUpdate(id, { ...input, ...autoCreateData }, { new: true });
 
