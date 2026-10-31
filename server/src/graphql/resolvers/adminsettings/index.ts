@@ -76,6 +76,11 @@ const mapStats = (stats: any[]) =>
     value: s.value || "",
   }));
 
+// Website checkout payment mode, falling back to the older websiteCodOnly
+// switch for settings saved before websitePaymentMode existed.
+const websitePaymentMode = (settings: any): string =>
+  settings?.websitePaymentMode || (settings?.websiteCodOnly ? "cod_only" : "all");
+
 export const adminSettingsResolvers = {
   Query: {
     getAdminSettings: async (_: any, { adminid }: { adminid: string }) => {
@@ -118,7 +123,9 @@ export const adminSettingsResolvers = {
         branchid: branch ? String(branch._id) : null,
         companyName: admin.companyName || admin.name || "",
         address: admin.address || "",
-        codOnly: !!settings.websiteCodOnly,
+        codOnly: websitePaymentMode(settings) === "cod_only",
+        hideCod: websitePaymentMode(settings) === "hide_cod",
+        hidePayment: websitePaymentMode(settings) === "none",
         displayProductPriceOnWebsite: settings.displayProductPriceOnWebsite !== false,
         displayStockOnWebsite: settings.displayStockOnWebsite !== false,
         // Defaults to true for rows predating the flag -- see the model.

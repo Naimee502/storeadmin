@@ -391,11 +391,22 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           </div>
         </div>
         <div className="pt-2">
-          <Toggle
-            label="Cash on Delivery only (hide UPI / Card / Net Banking / Party billing on website checkout)"
-            checked={!!draft.websiteCodOnly}
-            onChange={(v: boolean) => set("websiteCodOnly", v)}
-          />
+          <label className="block text-xs font-medium text-gray-700 mb-1 px-1">Website checkout payment options</label>
+          <select
+            className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-700"
+            value={draft.websitePaymentMode || (draft.websiteCodOnly ? "cod_only" : "all")}
+            onChange={(e) => {
+              const mode = e.target.value;
+              set("websitePaymentMode", mode);
+              // Kept in step for anything still reading the old switch.
+              set("websiteCodOnly", mode === "cod_only");
+            }}
+          >
+            <option value="all">Show all options (UPI / Card / Net Banking / COD / Party billing)</option>
+            <option value="cod_only">Cash on Delivery only</option>
+            <option value="hide_cod">Hide Cash on Delivery (show UPI / Card / Net Banking / Party billing)</option>
+            <option value="none">Hide all payment options (order saved as Cash)</option>
+          </select>
         </div>
       </Section>
 

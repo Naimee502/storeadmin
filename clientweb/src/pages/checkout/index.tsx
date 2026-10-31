@@ -28,7 +28,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { lines, subtotal, clearCart, orderFor, stopOrderFor } = useCart();
   const { codOnly } = useBusinessSettings();
-  const { adminid, branchid, displayProductPrice } = useTenant();
+  const { adminid, branchid, displayProductPrice, hideCod, hidePayment } = useTenant();
   const { isLoggedIn, account } = useAuth();
   // My Parties → New Order: book in the sub-party's name, deliver to its address.
   const buyerId = orderFor?.id ?? account?.id;
@@ -53,11 +53,19 @@ export default function CheckoutPage() {
 
   // Business Settings → "Cash on Delivery only" hides every online method,
   // including party-account billing, and locks the selection to COD.
-  const visibleMethods = codOnly ? paymentMethods.filter((m) => m.id === "cod") : paymentMethods;
+  // "Hide Cash on Delivery" does the opposite: every method except COD.
+  const visibleMethods = codOnly
+    ? paymentMethods.filter((m) => m.id === "cod")
+    : hideCod
+    ? paymentMethods.filter((m) => m.id !== "cod")
+    : paymentMethods;
 
+  // "Hide all payment options": no Payment Method section, and the order is
+  // booked as cash — exactly what the party app's cart sends.
   useEffect(() => {
-    if (codOnly) setPayment("cod");
-  }, [codOnly]);
+    if (codOnly || hidePayment) setPayment("cod");
+    else if (hideCod) setPayment((p) => (p === "cod" ? "upi" : p));
+  }, [codOnly, hideCod, hidePayment]);
 
   // Same arithmetic as the POS cart and the app's party checkout — the unit's
   // own rupee discount, not the MRP gap. The old MRP-derived figure was sent
@@ -285,6 +293,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Payment */}
+            {!hidePayment && (
             <div className="rounded-2xl border border-slate-100 p-5">
               <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-ink-900">
                 <Wallet className="h-4.5 w-4.5 text-brand-600" /> Payment Method
@@ -318,6 +327,7 @@ export default function CheckoutPage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
 
           {/* Order summary */}

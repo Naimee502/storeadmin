@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check, Download } from "lucide-react";
+import { Star, Minus, Plus, ShieldCheck, Truck, RotateCcw, Briefcase, Check, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import SectionHeader from "../../components/sectionheader";
@@ -120,6 +120,20 @@ export default function ProductDetailPage() {
   const markBroken = (url: string) =>
     setBrokenImages((prev) => (prev.includes(url) ? prev : [...prev, url]));
 
+  // Gallery slider refs/effect — declared before the early returns below so
+  // the hook order never changes between renders.
+  const touchStartX = useRef<number | null>(null);
+  // Keep the active thumbnail visible when the slider moves past the strip's edge.
+  // Scrolls only the strip itself (never the page), centring the active thumb.
+  const thumbStripRef = useRef<HTMLDivElement | null>(null);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  useEffect(() => {
+    const strip = thumbStripRef.current;
+    const thumb = thumbRefs.current[activeImageIdx];
+    if (!strip || !thumb) return;
+    strip.scrollTo({ left: thumb.offsetLeft - strip.clientWidth / 2 + thumb.clientWidth / 2, behavior: "smooth" });
+  }, [activeImageIdx]);
+
   if (loading && !product) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-center text-sm text-slate-500">Loading product…</div>;
   }
@@ -144,6 +158,24 @@ export default function ProductDetailPage() {
   const galleryImages = (product.imageurls?.length ? product.imageurls : product.imageurl ? [product.imageurl] : [])
     .filter((url) => !brokenImages.includes(url));
   const mainImage = galleryImages[activeImageIdx] ?? galleryImages[0];
+
+  // Image slider (only when there's more than one photo): arrows, swipe,
+  // dots and thumbnails all move the same index, wrapping at both ends.
+  const imageCount = galleryImages.length;
+  const hasSlider = imageCount > 1;
+  const goToImage = (i: number) => {
+    if (!imageCount) return;
+    setActiveImageIdx(((i % imageCount) + imageCount) % imageCount);
+  };
+  const onGalleryTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  };
+  const onGalleryTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || !hasSlider) return;
+    const dx = (e.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) > 40) goToImage(activeImageIdx + (dx < 0 ? 1 : -1));
+  };
 
   // Cart line for whichever unit is currently selected — same lineId scheme
   // as CartProvider (`${productId}-${unit}`), so the stepper here shows the
@@ -193,7 +225,11 @@ export default function ProductDetailPage() {
         <div className="grid gap-10 lg:grid-cols-2">
           {/* Gallery */}
           <div>
-            <div className="relative mb-4 aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div
+              className="relative mb-4 aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              onTouchStart={onGalleryTouchStart}
+              onTouchEnd={onGalleryTouchEnd}
+            >
               {(() => {
                 const placeholder = (
                   <div
@@ -215,6 +251,39 @@ export default function ProductDetailPage() {
                   placeholder
                 );
               })()}
+              {hasSlider && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => goToImage(activeImageIdx - 1)}
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:border-brand-400 hover:text-brand-600"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => goToImage(activeImageIdx + 1)}
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:border-brand-400 hover:text-brand-600"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">
+                    {galleryImages.map((url, i) => (
+                      <button
+                        key={`dot-${url}-${i}`}
+                        type="button"
+                        onClick={() => goToImage(i)}
+                        aria-label={`Go to image ${i + 1}`}
+                        className={`h-2 rounded-full transition-all ${
+                          i === activeImageIdx ? "w-5 bg-brand-600" : "w-2 bg-slate-300 hover:bg-slate-400"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
               {allowProductImageDownload && mainImage && (
                 <button
                   type="button"
@@ -233,10 +302,11 @@ export default function ProductDetailPage() {
               )}
             </div>
             {galleryImages.length > 1 ? (
-              <div className="flex gap-3 overflow-x-auto pb-1">
+              <div ref={thumbStripRef} className="relative flex gap-3 overflow-x-auto pb-1">
                 {galleryImages.map((url, i) => (
                   <button
                     key={url + i}
+                    ref={(el) => { thumbRefs.current[i] = el; }}
                     onClick={() => setActiveImageIdx(i)}
                     className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 bg-white p-1.5 transition ${
                       i === activeImageIdx ? "border-brand-600 shadow-sm" : "border-slate-200 hover:border-brand-400"

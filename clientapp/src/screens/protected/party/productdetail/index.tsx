@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Dimensions, Linking,
 } from 'react-native';
@@ -146,6 +146,31 @@ export default function ProductDetail() {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   useEffect(() => { setActiveImageIdx(0); }, [product.id]);
   const mainImage = galleryImages[activeImageIdx] ?? galleryImages[0];
+
+  // Image slider: swipe the hero (paging), tap an arrow/dot/thumbnail — all
+  // drive the same index. Only kicks in when there's more than one photo.
+  const hasSlider = galleryImages.length > 1;
+  const sliderRef = useRef<ScrollView>(null);
+  const thumbStripRef = useRef<ScrollView>(null);
+  const goToImage = (i: number, animated = true) => {
+    const n = galleryImages.length;
+    if (!n) return;
+    const next = ((i % n) + n) % n;
+    setActiveImageIdx(next);
+    sliderRef.current?.scrollTo({ x: next * imgBoxWidth, animated });
+  };
+  // Box width can change once the first photo's ratio is measured — keep the
+  // slider on the same page instead of drifting between two photos.
+  useEffect(() => {
+    sliderRef.current?.scrollTo({ x: activeImageIdx * imgBoxWidth, animated: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imgBoxWidth]);
+  // Keep the active thumbnail in view (thumb 56 + gap 10).
+  useEffect(() => {
+    if (!hasSlider) return;
+    thumbStripRef.current?.scrollTo({ x: Math.max(0, activeImageIdx * 66 - cardWidth / 2 + 28), animated: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeImageIdx, hasSlider]);
 
   // New PRODUCT → forget the last one's measured ratio so we don't render it
   // with the wrong box size for a split second before onLoad fires again.
@@ -297,7 +322,36 @@ export default function ProductDetail() {
               },
             ]}
           >
-            {mainImage
+            {hasSlider
+              ? (
+                <ScrollView
+                  ref={sliderRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  style={{ width: imgBoxWidth, height: imgBoxHeight }}
+                  onMomentumScrollEnd={(e) => {
+                    const idx = Math.round(e.nativeEvent.contentOffset.x / imgBoxWidth);
+                    if (idx !== activeImageIdx) setActiveImageIdx(Math.max(0, Math.min(galleryImages.length - 1, idx)));
+                  }}
+                >
+                  {galleryImages.map((uri, i) => (
+                    <View key={`${uri}-${i}`} style={{ width: imgBoxWidth, height: imgBoxHeight, justifyContent: 'center', alignItems: 'center' }}>
+                      <AppImage
+                        uri={uri}
+                        width={IMG.full}
+                        style={styles.img}
+                        resizeMode="cover"
+                        // The box is sized from the FIRST photo only, so swiping
+                        // never makes the hero jump between different shapes.
+                        onAspectRatio={i === 0 ? setImgRatio : undefined}
+                        fallback={<Icon name="package-variant-closed" size={72} color={colors.brand} />}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              )
+              : mainImage
               ? (
                 <AppImage
                   uri={mainImage}
@@ -311,6 +365,36 @@ export default function ProductDetail() {
               : <Icon name="package-variant-closed" size={72} color={colors.brand} />
             }
           </View>
+          {hasSlider && (
+            <>
+              <Pressable
+                onPress={() => goToImage(activeImageIdx - 1)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Previous image"
+                style={({ pressed }) => [styles.sliderArrow, { left: 10, backgroundColor: colors.cardGlass, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+              >
+                <Icon name="chevron-left" size={22} color={colors.brand} />
+              </Pressable>
+              <Pressable
+                onPress={() => goToImage(activeImageIdx + 1)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Next image"
+                style={({ pressed }) => [styles.sliderArrow, { right: 10, backgroundColor: colors.cardGlass, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+              >
+                <Icon name="chevron-right" size={22} color={colors.brand} />
+              </Pressable>
+              <View pointerEvents="none" style={[styles.dotRow, { bottom: inStock ? 12 : 44 }]}>
+                {galleryImages.map((uri, i) => (
+                  <View
+                    key={`dot-${uri}-${i}`}
+                    style={[styles.dot, i === activeImageIdx ? { width: 16, backgroundColor: colors.brand } : { backgroundColor: 'rgba(0,0,0,0.25)' }]}
+                  />
+                ))}
+              </View>
+            </>
+          )}
           {/* Save the photo. Our own uploads get "?download=1" so the server
               sends the original as an attachment and the phone's browser
               saves it to Downloads; no extra native module needed. */}
@@ -349,11 +433,12 @@ export default function ProductDetail() {
         {/* Gallery thumbnails — only worth showing once there's more than
             one photo to switch between. */}
         {galleryImages.length > 1 && (
-          <Animated.View entering={FadeInUp.duration(400).delay(60)} style={styles.thumbRow}>
+          <Animated.View entering={FadeInUp.duration(400).delay(60)}>
+          <ScrollView ref={thumbStripRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
             {galleryImages.map((uri, i) => (
               <Pressable
                 key={`${uri}-${i}`}
-                onPress={() => setActiveImageIdx(i)}
+                onPress={() => goToImage(i)}
                 style={[
                   styles.thumb,
                   { borderColor: i === activeImageIdx ? colors.brand : colors.border },
@@ -362,6 +447,7 @@ export default function ProductDetail() {
                 <AppImage uri={uri} width={IMG.product} style={styles.thumbImg} resizeMode="cover" />
               </Pressable>
             ))}
+          </ScrollView>
           </Animated.View>
         )}
 
@@ -562,6 +648,12 @@ const styles = StyleSheet.create({
   },
 
   thumbRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  sliderArrow: {
+    position: 'absolute', top: '50%', marginTop: -17, width: 34, height: 34, borderRadius: 17,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  dotRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
   thumb: { width: 56, height: 56, borderRadius: 12, borderWidth: 1.5, overflow: 'hidden' },
   thumbImg: { width: '100%', height: '100%' },
 

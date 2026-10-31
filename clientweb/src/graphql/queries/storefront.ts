@@ -10,6 +10,8 @@ export const GET_STOREFRONT_BY_SLUG = gql`
       companyName
       address
       codOnly
+      hideCod
+      hidePayment
       displayProductPriceOnWebsite
       displayStockOnWebsite
       restrictQuantityByStock

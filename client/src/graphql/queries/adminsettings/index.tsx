@@ -61,6 +61,7 @@ const SETTINGS_FIELDS = `
   termsConditionsUrl
   appDownloadUrl
   websiteCodOnly
+  websitePaymentMode
   storeslug
   customDomain
   smtpHost

@@ -121,6 +121,7 @@ export const adminSettingsTypeDefs = gql`
     # Website storefront — whether checkout offers online payments or
     # Cash on Delivery only, and this admin's public website link.
     websiteCodOnly: Boolean
+    websitePaymentMode: String
     storeslug: String
     customDomain: String
     # Own mailbox for OTP mails; the password is never returned.
@@ -225,6 +226,8 @@ export const adminSettingsTypeDefs = gql`
     companyName: String!
     address: String
     codOnly: Boolean!
+    hideCod: Boolean!
+    hidePayment: Boolean!
     displayProductPriceOnWebsite: Boolean!
     displayStockOnWebsite: Boolean!
 
@@ -356,6 +359,7 @@ export const adminSettingsTypeDefs = gql`
     appDownloadUrl: String
 
     websiteCodOnly: Boolean
+    websitePaymentMode: String
     storeslug: String
     customDomain: String
     # Own mailbox for OTP mails. smtpPass: blank = keep the saved one.

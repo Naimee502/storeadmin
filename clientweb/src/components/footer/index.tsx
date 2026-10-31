@@ -30,7 +30,7 @@ const paymentBadges = ["UPI", "RuPay", "Visa", "Mastercard", "Net Banking", "COD
 
 export default function Footer() {
   const tenant = useTenant();
-  const { companyName, address, supportPhone, supportEmail, socialFacebookUrl, socialInstagramUrl, socialTwitterUrl, socialLinkedinUrl, codOnly, websiteTagline, brandLogo } = tenant;
+  const { companyName, address, supportPhone, supportEmail, socialFacebookUrl, socialInstagramUrl, socialTwitterUrl, socialLinkedinUrl, codOnly, hideCod, hidePayment, websiteTagline, brandLogo } = tenant;
   const brandName = companyName || siteConfig.name;
   const tagline =
     websiteTagline ||
@@ -48,7 +48,7 @@ export default function Footer() {
 
   // Cash-on-Delivery-only stores only ever offer COD at checkout, so the
   // other payment badges would be misleading here.
-  const visiblePaymentBadges = codOnly ? ["COD"] : paymentBadges;
+  const visiblePaymentBadges = hidePayment ? [] : codOnly ? ["COD"] : hideCod ? paymentBadges.filter((b) => b !== "COD") : paymentBadges;
 
   return (
     <footer className="bg-ink-900 text-slate-300">

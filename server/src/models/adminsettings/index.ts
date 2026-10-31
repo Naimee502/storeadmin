@@ -112,6 +112,15 @@ const adminSettingsSchema = new mongoose.Schema(
     // When true, clientweb's checkout only offers Cash on Delivery — UPI,
     // Card, Net Banking and Party/Business-account billing are hidden.
     websiteCodOnly: { type: Boolean, default: false },
+    // Which payment options the website checkout shows. Supersedes
+    // websiteCodOnly (still written alongside for older readers):
+    //   "all"      → every method
+    //   "cod_only" → only Cash on Delivery
+    //   "hide_cod" → every method except Cash on Delivery
+    //   "none"     → no payment section at all; the order is saved as cash,
+    //                same as an order placed from the party app's cart
+    // Unset on rows predating it — then websiteCodOnly decides.
+    websitePaymentMode: { type: String, enum: ["all", "cod_only", "hide_cod", "none"] },
 
     // Human-picked, URL-friendly handle for this admin's public website —
     // e.g. "rudra" → yourdomain.com/rudra. Distinct from `admincode`

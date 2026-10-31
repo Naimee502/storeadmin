@@ -15,6 +15,8 @@ interface TenantContextValue {
   companyName: string | null;
   address: string;
   codOnly: boolean;
+  hideCod: boolean;
+  hidePayment: boolean;
   displayProductPrice: boolean;
   displayStock: boolean;
   /**
@@ -206,6 +208,8 @@ export function TenantProvider({
     companyName: info?.companyName ?? null,
     address: info?.address ?? "",
     codOnly: info?.codOnly ?? false,
+    hideCod: info?.hideCod ?? false,
+    hidePayment: info?.hidePayment ?? false,
     displayProductPrice: info?.displayProductPriceOnWebsite ?? true,
     displayStock: info?.displayStockOnWebsite ?? true,
     doubleDisplayPrice: info?.doubleDisplayPrice ?? false,
