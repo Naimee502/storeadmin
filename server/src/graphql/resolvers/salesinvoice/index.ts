@@ -427,7 +427,7 @@ export const salesInvoiceResolvers = {
       }
       // ──────────────────────────────────────────────────────────────────
 
-      const invoices = await SalesInvoice.find(query)
+      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populateFields)
         .lean();
 
@@ -521,7 +521,7 @@ export const salesInvoiceResolvers = {
       if (filter.adminid) query.adminid = filter.adminid;
       if (filter.salesmenid) query.salesmenid = filter.salesmenid;
 
-      const invoices = await SalesInvoice.find(query)
+      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populateFields)
         .lean();
 

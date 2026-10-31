@@ -156,7 +156,7 @@ export const expenseNoteResolvers = {
       if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
 
-      const records = (await ExpenseNote.find(query)
+      const records = (await ExpenseNote.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populatePaths)
         .lean()) as any[];
 

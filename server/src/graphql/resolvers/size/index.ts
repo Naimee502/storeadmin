@@ -6,14 +6,14 @@ export const sizeResolvers = {
     getSizes: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Size.find(filter).populate("admin");
+      return await Size.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get deleted sizes (optionally filtered by admin)
     getDeletedSizes: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await Size.find(filter).populate("admin");
+      return await Size.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get one size by ID (optionally check for admin)

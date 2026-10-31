@@ -9,12 +9,12 @@ export const channelResolvers = {
       // Channels are reference/config data (needed for hierarchy lookups and
       // party add) — return all for the admin; no salesman channel restriction.
 
-      return await Channel.find(filter).populate("admin").populate("handlesChannels");
+      return await Channel.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin").populate("handlesChannels");
     },
     getDeletedChannels: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await Channel.find(filter).populate("admin").populate("handlesChannels");
+      return await Channel.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin").populate("handlesChannels");
     },
     getChannelById: async (_: any, { id }: { id: string }) => {
       return await Channel.findById(id).populate("admin").populate("handlesChannels");

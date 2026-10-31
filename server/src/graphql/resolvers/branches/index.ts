@@ -9,7 +9,7 @@ export const branchResolvers = {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
 
-      return await Branch.find(filter).populate("admin");
+      return await Branch.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get one branch (optionally ensure admin owns it)
@@ -25,7 +25,7 @@ export const branchResolvers = {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
 
-      return await Branch.find(filter).populate("admin");
+      return await Branch.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
   },
 

@@ -6,14 +6,14 @@ export const modelResolvers = {
     getModels: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Model.find(filter).populate("admin");
+      return await Model.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get all soft-deleted models, optionally filtered by admin
     getDeletedModels: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await Model.find(filter).populate("admin");
+      return await Model.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get single model by ID, optionally check admin

@@ -39,7 +39,7 @@ export const staffAccountResolvers = {
         if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
       }
 
-      return await StaffAccount.find(query)
+      return await StaffAccount.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")
@@ -73,7 +73,7 @@ export const staffAccountResolvers = {
         if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
       }
 
-      return await StaffAccount.find(query)
+      return await StaffAccount.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("admin")
         .populate("branchid")
         .populate("accountgroupid")

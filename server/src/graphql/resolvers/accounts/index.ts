@@ -494,7 +494,7 @@ export const accountResolvers = {
           "| sample accounts having ANY salesmanid:", JSON.stringify(anySalesmen.map((a: any) => ({ name: a.name, salesmanid: String(a.salesmanid) }))));
       }
 
-      return await Account.find(query)
+      return await Account.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("admin")
         .populate("accountgroupid") 
         .populate("ledgerid")  

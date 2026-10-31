@@ -583,7 +583,7 @@ export const salesOrderResolvers = {
         if (filter.billdateTo) query.billdate.$lte = filter.billdateTo;
       }
 
-      const orders = await SalesOrder.find(query)
+      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populateFields)
         .lean();
 
@@ -607,7 +607,7 @@ export const salesOrderResolvers = {
       if (filter.branchid) query.branchid = filter.branchid;
       if (filter.adminid) query.adminid = filter.adminid;
 
-      const orders = await SalesOrder.find(query)
+      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populateFields)
         .lean();
 

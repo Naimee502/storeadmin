@@ -6,14 +6,14 @@ export const unitResolvers = {
     getUnits: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Unit.find(filter).populate("admin");
+      return await Unit.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get deleted units (optionally filtered by admin)
     getDeletedUnits: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await Unit.find(filter).populate("admin");
+      return await Unit.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get one unit by ID (optionally filter by admin)

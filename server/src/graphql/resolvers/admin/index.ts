@@ -10,7 +10,7 @@ export const adminResolvers = {
       const query: any = { status: true };
       if (adminId) query._id = adminId;
 
-      return await Admin.find(query);
+      return await Admin.find(query).sort({ createdAt: 1, _id: 1 });
     },
     getAdminById: async (_: any, { id }: { id: string }) => {
       return await Admin.findById(id);
@@ -32,7 +32,7 @@ export const adminResolvers = {
     getDeletedAdmins: async (_: any, { adminId }: { adminId?: string }) => {
       const query: any = { status: false };
       if (adminId) query._id = adminId;
-      return await Admin.find(query);
+      return await Admin.find(query).sort({ createdAt: 1, _id: 1 });
     },
   },
 

@@ -269,7 +269,11 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
+      // Explicit oldest-first order: the client reverses this list to show newest
+      // first. Without a sort MongoDB returns rows in whatever order the chosen
+      // index yields (e.g. grouped by party via {adminid, partyid, status}), so new entries
+      // landed on a later page instead of the top.
+      const result = await Payment.find(query).populate("ledgerid").populate("counterledgerid").populate("partyid").sort({ createdAt: 1, _id: 1 }).lean();
       return result.map(formatPayment);
     },
 
@@ -308,7 +312,7 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).populate("partyid").populate("ledgerid").populate("counterledgerid").lean();
+      const result = await Payment.find(query).populate("partyid").populate("ledgerid").populate("counterledgerid").sort({ createdAt: 1, _id: 1 }).lean();
       return result.map(formatPayment);
     },
 

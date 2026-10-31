@@ -135,7 +135,7 @@ export const purchaseReturnResolvers = {
         if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
         if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
       }
-      const rows = await PurchaseReturn.find(q).populate(populateFields).lean();
+      const rows = await PurchaseReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(populateFields).lean();
       return rows.map(formatReturn);
     },
 
@@ -155,7 +155,7 @@ export const purchaseReturnResolvers = {
 
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
-      const rows = await PurchaseReturn.find(q).populate(populateFields).lean();
+      const rows = await PurchaseReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(populateFields).lean();
       return rows.map(formatReturn);
     },
 

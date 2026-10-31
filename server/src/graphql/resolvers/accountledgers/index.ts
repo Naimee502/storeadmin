@@ -5,7 +5,7 @@ export const accountLedgerResolvers = {
     getAccountLedgers: async (_: any, { adminId }: { adminId?: string }) => {
           const filter: any = { status: true };
           if (adminId) filter.admin = adminId;
-           return await AccountLedger.find(filter)
+           return await AccountLedger.find(filter).sort({ createdAt: 1, _id: 1 })
           .populate("admin")
           .populate("accountgroupid")
           .populate("branchid");
@@ -15,7 +15,7 @@ export const accountLedgerResolvers = {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
 
-      return await AccountLedger.find(filter)
+      return await AccountLedger.find(filter).sort({ createdAt: 1, _id: 1 })
         .populate("admin")
         .populate("accountgroupid")
         .populate("branchid");

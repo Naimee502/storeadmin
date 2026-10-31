@@ -6,14 +6,14 @@ export const accountGroupResolvers = {
     getAccountGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await AccountGroup.find(filter).populate("admin");
+      return await AccountGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get deleted account groups for optional admin
     getDeletedAccountGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await AccountGroup.find(filter).populate("admin");
+      return await AccountGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get one account group by ID for optional admin

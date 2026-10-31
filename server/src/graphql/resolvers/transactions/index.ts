@@ -75,7 +75,7 @@ export const transactionResolvers = {
         if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
       }
 
-      const transactions = await Transaction.find(query)
+      const transactions = await Transaction.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("entries.ledgerid")
         .lean();
 
@@ -122,7 +122,7 @@ export const transactionResolvers = {
         if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
       }
 
-      const transactions = await Transaction.find(query)
+      const transactions = await Transaction.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("entries.ledgerid")
         .lean();
 

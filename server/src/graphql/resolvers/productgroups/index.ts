@@ -6,14 +6,14 @@ export const productGroupResolvers = {
     getProductGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await ProductGroup.find(filter).populate("admin");
+      return await ProductGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get all soft-deleted product groups, optionally filtered by admin
     getDeletedProductGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: false };
       if (adminId) filter.admin = adminId;
-      return await ProductGroup.find(filter).populate("admin");
+      return await ProductGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
 
     // Get one product group by ID, optionally filtered by admin

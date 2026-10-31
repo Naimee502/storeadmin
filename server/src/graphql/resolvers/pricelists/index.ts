@@ -16,10 +16,10 @@ export const priceListResolvers = {
       return await PriceList.findById(id).populate("items.productid").populate("items.unitid");
     },
     getPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
-      return await PriceAssignment.find({ adminid, status: true }).populate("pricelistid");
+      return await PriceAssignment.find({ adminid, status: true }).sort({ createdAt: 1, _id: 1 }).populate("pricelistid");
     },
     getDeletedPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
-      return await PriceAssignment.find({ adminid, status: false }).populate("pricelistid");
+      return await PriceAssignment.find({ adminid, status: false }).sort({ createdAt: 1, _id: 1 }).populate("pricelistid");
     },
     resolvePrice: async (_: any, { productid, variantid, unitid, adminid, accountid, channelid, region }: any, context: any) => {
       // Scope all lookups to the tenant's adminid when provided

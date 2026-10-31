@@ -34,7 +34,7 @@ export const subCategoryResolvers = {
       if (adminId) query.admin = adminId;
       if (categoryId) query.category = categoryId;
 
-      return await SubCategory.find(query).populate("admin").populate("category");
+      return await SubCategory.find(query).sort({ createdAt: 1, _id: 1 }).populate("admin").populate("category");
     },
   },
 

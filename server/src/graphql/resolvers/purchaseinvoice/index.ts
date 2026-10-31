@@ -149,7 +149,7 @@ export const purchaseInvoiceResolvers = {
 
         console.log("   Query:", JSON.stringify(query, null, 2));
 
-        const invoices = await PurchaseInvoice.find(query)
+        const invoices = await PurchaseInvoice.find(query).sort({ createdAt: 1, _id: 1 })
           .populate(populateFields)
           .lean();
 
@@ -246,7 +246,7 @@ export const purchaseInvoiceResolvers = {
       if (filter.adminid) query.adminid = filter.adminid;
       if (filter.supplierid) query.supplierid = filter.supplierid;
 
-      const invoices = await PurchaseInvoice.find(query)
+      const invoices = await PurchaseInvoice.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(populateFields)
         .lean();
       return invoices.map(formatInvoice);

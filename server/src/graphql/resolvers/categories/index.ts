@@ -32,7 +32,7 @@ export const categoryResolvers = {
       const query: any = { status: false };
       if (adminId) query.admin = adminId;
 
-      return await Category.find(query).populate("admin");
+      return await Category.find(query).sort({ createdAt: 1, _id: 1 }).populate("admin");
     },
   },
   Mutation: {
