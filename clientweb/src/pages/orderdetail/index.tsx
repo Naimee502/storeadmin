@@ -341,6 +341,22 @@ export default function OrderDetailPage() {
                 <span>Total Payable</span>
                 <span>{formatPrice(grand)}</span>
               </div>
+              {/* Party Previous / Current Balance — same as the printed Sales
+                  Invoice. Server returns null until the order is converted to
+                  an invoice, or when Invoice Print → "Party Previous / Current
+                  balance" is off. */}
+              {order.isConverted && order.partyPreviousBalance != null && order.partyCurrentBalance != null && (
+                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Previous Balance</span>
+                    <span>{formatPrice(order.partyPreviousBalance)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-ink-900">
+                    <span>Current Balance</span>
+                    <span>{formatPrice(order.partyCurrentBalance)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

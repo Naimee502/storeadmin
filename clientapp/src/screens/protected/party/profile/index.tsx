@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, ScrollView, Modal, ActivityIndicator, Linking, Platform } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useQuery } from '@apollo/client/react';
+import { useQuery, useLazyQuery } from '@apollo/client/react';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, FONTS, STRINGS, useTheme } from '../../../../config';
 import { ProfileSkeleton } from '../../../../config/skeletonlayouts';
-import { GET_ACCOUNT } from '../../../../apollo/queries/accounts';
+import { GET_ACCOUNT, GET_ADMIN_SETTINGS, REVERSE_GEOCODE } from '../../../../apollo/queries/accounts';
+import { getCurrentLatLng, type LatLng } from '../../../../utils/geo';
 import { formatINR } from '../../../../utils';
 import { AppHeader, AppModal, AddressForm } from '../../../../components';
 import { safeLogout } from '../../../../utils/safelogout';
@@ -30,6 +31,71 @@ function InfoRow({ icon, label, value, colors }: { icon: string; label: string; 
   );
 }
 
+/**
+ * Phone's LIVE location (GPS → address), shown under the saved address when
+ * Business Settings → "Live location on Party Profile" is on. Fetched when the
+ * screen opens; tap the refresh icon for a new fix, tap the text to open Maps.
+ */
+function LiveLocationRow({ colors }: { colors: any }) {
+  const [fix, setFix] = useState<LatLng | null>(null);
+  const [place, setPlace] = useState<string | null>(null);
+  const [status, setStatus] = useState<'fetching' | 'live' | 'off'>('fetching');
+  const [reverseGeocode] = useLazyQuery(REVERSE_GEOCODE, { fetchPolicy: 'network-only' });
+
+  const load = React.useCallback(async () => {
+    setStatus('fetching');
+    const f = await getCurrentLatLng({ fresh: true });
+    if (!f) { setStatus('off'); return; }
+    setFix(f);
+    setStatus('live');
+    try {
+      const res: any = await reverseGeocode({ variables: { latitude: f.lat, longitude: f.lng } });
+      const g = res?.data?.reverseGeocode;
+      const label = g ? [g.address, g.city, g.state, g.pincode].filter(Boolean).join(', ') : '';
+      setPlace(label || null);
+    } catch {
+      setPlace(null);
+    }
+  }, [reverseGeocode]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const openMaps = () => {
+    if (!fix) return;
+    const q = `${fix.lat},${fix.lng}`;
+    const url = Platform.OS === 'ios' ? `maps://?q=${q}` : `geo:${q}?q=${q}`;
+    Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps?q=${q}`));
+  };
+
+  const coords = fix ? `${fix.lat.toFixed(6)}, ${fix.lng.toFixed(6)}` : '';
+  const value =
+    status === 'fetching' && !fix ? 'Fetching your location…'
+    : status === 'off' ? 'Location unavailable — turn on GPS and allow location'
+    : place || coords;
+
+  return (
+    <View style={styles.infoRow}>
+      <View style={[styles.infoIcon, { backgroundColor: colors.brandSoft }]}>
+        <Icon name="crosshairs-gps" size={15} color={colors.brand} />
+      </View>
+      <Pressable style={{ flex: 1 }} onPress={openMaps} disabled={!fix}>
+        <Text style={[styles.infoLabel, { color: colors.subText }]}>Current Location</Text>
+        <Text style={[styles.infoValue, { color: status === 'off' ? colors.subText : colors.text }]}>{value}</Text>
+        {!!place && !!coords && (
+          <Text style={[styles.infoLabel, { color: colors.subText, marginTop: 2 }]}>
+            {coords}{fix?.acc ? `  ·  ±${Math.round(fix.acc)} m` : ''}
+          </Text>
+        )}
+      </Pressable>
+      <Pressable onPress={load} disabled={status === 'fetching'} style={styles.addrEditBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        {status === 'fetching'
+          ? <ActivityIndicator size="small" color={colors.brand} />
+          : <Icon name="refresh" size={16} color={colors.brand} />}
+      </Pressable>
+    </View>
+  );
+}
+
 export default function PartyProfile() {
   const [logoutModal, setLogoutModal] = useState(false);
   const [addressModal, setAddressModal] = useState(false);
@@ -46,6 +112,11 @@ export default function PartyProfile() {
   });
 
   const account  = data?.getAccountById;
+  // Business Settings → "Live location on Party Profile".
+  const { data: settingsData } = useQuery(GET_ADMIN_SETTINGS, {
+    variables: { adminid }, skip: !adminid, fetchPolicy: 'cache-and-network',
+  });
+  const showLiveLocation = (settingsData as any)?.getAdminSettings?.showPartyLiveLocation === true;
   const initials = (user?.name ?? 'P').substring(0, 2).toUpperCase();
   const address  = [account?.address, account?.city, account?.state, account?.pincode]
     .filter(Boolean).join(', ') || null;
@@ -97,6 +168,7 @@ export default function PartyProfile() {
                 <Icon name={address ? 'pencil-outline' : 'plus-circle-outline'} size={16} color={colors.brand} />
               </Pressable>
             </View>
+            {showLiveLocation && <LiveLocationRow colors={colors} />}
             <InfoRow icon="tag-outline"              label="Channel"      value={account?.channel?.channelName}    colors={colors} />
             <InfoRow icon="map-outline"              label="Region"       value={account?.region}                 colors={colors} />
             <InfoRow icon="account-tie-outline"      label="Salesman"     value={account?.salesmanid?.name}       colors={colors} />

@@ -1,4 +1,4 @@
-import { requireBackofficeTenant } from "../../../utils/tenant";
+import { requireBackofficeTenant, resolveTenant } from "../../../utils/tenant";
 
 /**
  * Reverse geocoding (GPS point → postal address) through OpenStreetMap's
@@ -19,7 +19,10 @@ const pick = (...vals: any[]) => vals.find((v) => typeof v === "string" && v.tri
 export const geocodeResolvers = {
   Query: {
     reverseGeocode: async (_: any, { latitude, longitude }: { latitude: number; longitude: number }, context: any) => {
-      await requireBackofficeTenant(context);
+      // Back office (new-party form) and logged-in parties (live location on
+      // their Profile). Anonymous visitors are still refused.
+      if (context?.user?.type === "party") await resolveTenant(context);
+      else await requireBackofficeTenant(context);
       if (!isFinite(latitude) || !isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
         return null;
       }

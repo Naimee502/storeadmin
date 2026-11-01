@@ -102,6 +102,8 @@ export const adminSettingsTypeDefs = gql`
     printShowTermsAndConditions: Boolean
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
+    # Party Profile (app + website): show the device's live location under the address.
+    showPartyLiveLocation: Boolean
     printShowEwayBillDistance: Boolean
     printShowDeliveryDueDate: Boolean
     printShowGstin: Boolean
@@ -344,6 +346,8 @@ export const adminSettingsTypeDefs = gql`
     printShowTermsAndConditions: Boolean
     printTermsAndConditions: String
     printShowPartyBalance: Boolean
+    # Party Profile (app + website): show the device's live location under the address.
+    showPartyLiveLocation: Boolean
     printShowEwayBillDistance: Boolean
     printShowDeliveryDueDate: Boolean
     printShowGstin: Boolean

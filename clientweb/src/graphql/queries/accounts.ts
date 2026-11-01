@@ -177,6 +177,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       isConverted
       invoicenumber
       outstanding
+      partyPreviousBalance
+      partyCurrentBalance
       orderStatus
       deliveryStatus
       deliveredAt
@@ -242,6 +244,20 @@ export const GET_DELIVERY_MODE = gql`
       deliveryMode
       partyManagesDownline
       trackPartyStock
+      showPartyLiveLocation
+    }
+  }
+`;
+
+/** GPS point → postal address (server-side, OpenStreetMap). Used for the Profile's live location. */
+export const REVERSE_GEOCODE = gql`
+  query ReverseGeocode($latitude: Float!, $longitude: Float!) {
+    reverseGeocode(latitude: $latitude, longitude: $longitude) {
+      address
+      city
+      state
+      pincode
+      country
     }
   }
 `;

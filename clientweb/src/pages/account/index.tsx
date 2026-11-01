@@ -37,6 +37,7 @@ import {
 import Breadcrumb from "../../components/breadcrumb";
 import ProductCard from "../../components/productcard";
 import AddressForm from "../../components/addressform";
+import LiveLocation from "../../components/livelocation";
 import { useAuth } from "../../contexts/auth";
 import { useTenant } from "../../contexts/tenant";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -140,6 +141,8 @@ export default function AccountPage() {
     fetchPolicy: "cache-and-network",
   });
   const manageDownline = settingsData?.getAdminSettings?.partyManagesDownline === true;
+  // Business Settings → "Live location on Party Profile".
+  const showLiveLocation = settingsData?.getAdminSettings?.showPartyLiveLocation === true;
   // Party stock is shown only with "Show stock on App / Website" on as well.
   const { displayStock } = useTenant();
   const trackStock = manageDownline && settingsData?.getAdminSettings?.trackPartyStock === true && displayStock !== false;
@@ -808,6 +811,7 @@ export default function AccountPage() {
                         .join(", ")}
                     </p>
                   )}
+                  {showLiveLocation && <LiveLocation />}
                 </div>
 
                 {hasFinancial && (

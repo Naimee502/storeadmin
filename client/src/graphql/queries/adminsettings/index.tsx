@@ -82,6 +82,7 @@ const SETTINGS_FIELDS = `
   appCatalogBrowseMode
   appCategoryAutoScroll
   appProductAutoScroll
+  showPartyLiveLocation
   loginEmailOtp
   geoFenceEnabled
   geoFenceRadiusM

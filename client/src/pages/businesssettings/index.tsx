@@ -273,6 +273,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <Toggle label="App Home as catalogue (order sheet)" hint="Category → Sub-category → order sheet with quantity boxes, instead of the storefront. Party logins only." checked={!!draft.appCatalogBrowseMode} onChange={(v: boolean) => set("appCatalogBrowseMode", v)} />
           <Toggle label="Auto-scroll category row" hint="Category chips slide by themselves (App Home & Shop, Website)." checked={!!draft.appCategoryAutoScroll} onChange={(v: boolean) => set("appCategoryAutoScroll", v)} />
           <Toggle label="Auto-scroll products" hint="The product list moves slowly by itself (App Home & Shop, Website Deal of the Day)." checked={!!draft.appProductAutoScroll} onChange={(v: boolean) => set("appProductAutoScroll", v)} />
+          <Toggle label="Live location on Party Profile" hint="Party's Profile (App & Website) shows their current phone / browser location below the address." checked={!!draft.showPartyLiveLocation} onChange={(v: boolean) => set("showPartyLiveLocation", v)} />
         </Grid>
       </Section>
 

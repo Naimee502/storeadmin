@@ -138,6 +138,8 @@ export const GET_SALES_ORDER_BY_ID = gql`
       invoicenumber
       invoiceid
       outstanding
+      partyPreviousBalance
+      partyCurrentBalance
       orderStatus
       deliveryStatus
       deliveredAt
@@ -217,6 +219,8 @@ export const GET_SALES_INVOICE_BY_ID = gql`
         remarks
       }
       createdAt
+      partyPreviousBalance
+      partyCurrentBalance
     }
   }
 `;
@@ -493,6 +497,7 @@ export const GET_ADMIN_SETTINGS = gql`
       id
       deliveryMode
       partyManagesDownline
+      printShowPartyBalance
       trackPartyStock
       enablePaymentDiscountCommission
       secureScreenApp
@@ -511,6 +516,7 @@ export const GET_ADMIN_SETTINGS = gql`
       appCatalogBrowseMode
       appCategoryAutoScroll
       appProductAutoScroll
+      showPartyLiveLocation
       allowProductImageDownload
       showWhatsappChat
       geoFenceEnabled

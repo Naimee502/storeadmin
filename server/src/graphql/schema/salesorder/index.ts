@@ -111,6 +111,10 @@ export const salesOrderTypeDefs = gql`
     # Id of the invoice this order became (null until converted).
     invoiceid: ID
     outstanding: Float
+    # Party Previous / Current Balance (as printed on the invoice). Null until
+    # converted, or when Invoice Print → "Party Previous / Current balance" is off.
+    partyPreviousBalance: Float
+    partyCurrentBalance: Float
     orderStatus: String
     cancelStatus: String
     cancelReason: String

@@ -405,6 +405,13 @@ const adminSettingsSchema = new mongoose.Schema(
     appCategoryAutoScroll: { type: Boolean, default: false },
 
     /**
+     * Party Profile (app + website) shows the device's LIVE location (GPS /
+     * browser geolocation, turned into an address) below the saved address.
+     * Off (default): no location row and no location prompt.
+     */
+    showPartyLiveLocation: { type: Boolean, default: false },
+
+    /**
      * Product list scrolls itself slowly (app Home / Shop grid, website Deal of
      * the Day row) so customers see more of the range without touching the
      * screen. Manual scrolling always works; touching pauses it. Opt-in.

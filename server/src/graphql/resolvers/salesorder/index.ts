@@ -295,7 +295,38 @@ const assertPartyOrderWithinStock = async (opts: {
     throw err;
   }
 };
-import { getInvoiceOutstanding } from "../../../utils/allocation";
+import { getInvoiceOutstanding, getPartyTotalDue } from "../../../utils/allocation";
+
+// Party's Previous / Current Balance for a CONVERTED order — the same figures
+// the admin panel prints on the Sales Invoice (Business Settings → Invoice
+// Print → "Party Previous / Current balance"). Null when the order isn't an
+// invoice yet or the setting is off, so the app/website simply hide the rows.
+// Memoised on the parent so asking for both fields costs one computation.
+const orderPartyBalance = (parent: any): Promise<{ previous: number; current: number } | null> => {
+  if (parent.__partyBal) return parent.__partyBal;
+  parent.__partyBal = (async () => {
+    try {
+      if (!parent?.isConverted) return null;
+      const adminid = adminIdOf(parent.adminid);
+      const st: any = await AdminSettings.findOne({ adminid }).select("printShowPartyBalance").lean();
+      if (st?.printShowPartyBalance !== true) return null;
+      const inv: any = await SalesInvoice.findOne({ sourceorderid: parent.id, status: true })
+        .select("_id partyacc totalamount")
+        .lean();
+      if (!inv) return null;
+      const previous = await getPartyTotalDue({
+        partyid: inv.partyacc,
+        invoicemodel: "SalesInvoice",
+        excludeInvoiceId: inv._id,
+      });
+      const current = parseFloat((previous + Number(inv.totalamount || 0)).toFixed(2));
+      return { previous, current };
+    } catch (e) {
+      return null;
+    }
+  })();
+  return parent.__partyBal;
+};
 
 // Evaluate the admin's active charge rules (Amazon/Flipkart-style) against an
 // incoming order and return the auto-charge lines + their grand total. Used by
@@ -1071,5 +1102,7 @@ export const salesOrderResolvers = {
         return await getInvoiceOutstanding({ invoiceid: inv._id, invoicemodel: "SalesInvoice" });
       } catch (e) { return 0; }
     },
+    partyPreviousBalance: async (parent: any) => (await orderPartyBalance(parent))?.previous ?? null,
+    partyCurrentBalance: async (parent: any) => (await orderPartyBalance(parent))?.current ?? null,
   },
 };

@@ -136,6 +136,10 @@ export default function OrderDetail() {
     variables: { adminid: adminId }, skip: !adminId, fetchPolicy: 'cache-and-network',
   });
   const deliveryByBoy = (settingsData as any)?.getAdminSettings?.deliveryMode === 'deliveryboy';
+  // Party Previous / Current Balance on a confirmed (invoiced) order.
+  const showPartyBalance = (settingsData as any)?.getAdminSettings?.printShowPartyBalance === true
+    && !!order && (isInvoice || !!order.isConverted)
+    && order.partyPreviousBalance != null && order.partyCurrentBalance != null;
   const manageDownline = (settingsData as any)?.getAdminSettings?.partyManagesDownline === true;
 
   // Who may move fulfilment forward:
@@ -497,6 +501,22 @@ export default function OrderDetail() {
               <Text style={[styles.totalLabel, { color: colors.text }]}>Total Payable</Text>
               <Text style={[styles.totalValue, { color: colors.brand }]}>{formatINR(grand)}</Text>
             </View>
+
+            {/* Party Previous / Current Balance — same as the printed Sales
+                Invoice (Business Settings → Invoice Print). Only once the
+                order is an invoice. */}
+            {showPartyBalance && (
+              <View style={[styles.balanceBox, { borderTopColor: colors.border }]}>
+                <View style={styles.priceRow}>
+                  <Text style={[styles.priceLabel, { color: colors.subText }]}>Previous Balance</Text>
+                  <Text style={[styles.priceValue, { color: colors.text }]}>{formatINR(order.partyPreviousBalance)}</Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={[styles.priceLabel, { color: colors.text, fontFamily: FONTS.bold }]}>Current Balance</Text>
+                  <Text style={[styles.priceValue, { color: colors.text, fontFamily: FONTS.bold }]}>{formatINR(order.partyCurrentBalance)}</Text>
+                </View>
+              </View>
+            )}
           </Animated.View>
 
           {/* Transport Details */}
@@ -659,6 +679,11 @@ export default function OrderDetail() {
 }
 
 const styles = StyleSheet.create({
+  balanceBox: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   container: { flex: 1 },
   scroll:    { paddingHorizontal: 18, paddingBottom: 40 },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },

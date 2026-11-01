@@ -30,6 +30,7 @@ interface AdminSettings {
   printShowTermsAndConditions?: boolean;
   printTermsAndConditions?: string;
   printShowPartyBalance?: boolean;
+  showPartyLiveLocation?: boolean;
   deleteInvoiceFromInsideOnly?: boolean;
 }
 
