@@ -82,12 +82,12 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs font-sans flex flex-col justify-between h-80 sm:h-96">
+    <div className="rounded-md border border-slate-200 bg-white p-3 font-sans flex flex-col justify-between h-56 sm:h-64">
       <div>
         <div className="flex items-center justify-between gap-2 mb-1">
-          <h3 className="text-xs font-bold text-[#2c3e50] capitalize tracking-wider truncate">Category Sales</h3>
+          <h3 className="text-[13px] font-semibold text-slate-900 truncate">Category Sales</h3>
           <select
-            className="border border-gray-300 rounded px-2 py-0.5 text-[10px] text-gray-700 bg-white shadow-2xs focus:outline-none"
+            className="border border-gray-300 rounded-md px-1.5 py-0.5 text-[11px] text-slate-700 bg-white focus:outline-none"
             value={selectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
           >
@@ -99,9 +99,9 @@ const CategoryWiseSalesChart: React.FC<Props> = ({
             ))}
           </select>
         </div>
-        <p className="text-[10px] text-gray-500 mb-2">Revenue breakdown by product group</p>
+        <p className="text-[10.5px] text-slate-500 mb-1">Revenue breakdown by product group</p>
       </div>
-      <div className="flex-1 min-h-[200px]">
+      <div className="flex-1 min-h-[140px]">
         <Bar data={filteredChartData} options={options} />
       </div>
     </div>

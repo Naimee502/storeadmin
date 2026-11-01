@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/header';
+import { FormDensityContext } from '../../components/formpage/density';
 import { useAuth } from '../../contexts/auth';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { persistor } from '../../redux/store';
@@ -13,7 +14,9 @@ import { setAdminSettings } from '../../redux/slices/adminsettings';
 const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = ({ children, hideNav }) => {
   const dispatch = useAppDispatch();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isSidebarHovered, setSidebarHovered] = useState(false);
+  // Hover only widens the menu over the page (desktop-app style); the page
+  // itself never reflows, so only the setter is needed.
+  const [, setSidebarHovered] = useState(false);
   const { logout } = useAuth();
 
   const { type, admin, branch, staff } = useAppSelector((state: any) => state.auth);
@@ -134,10 +137,14 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
         {/* Scrollable content area */}
         <main
           className={`flex-1 overflow-y-auto transition-all duration-300 ease-in-out ${
-            !hideNav ? ((isSidebarOpen || isSidebarHovered) ? 'sm:ml-64 pt-[60px]' : 'sm:ml-16 pt-[60px]') : ''
+            !hideNav ? (isSidebarOpen ? 'sm:ml-60 pt-12' : 'sm:ml-14 pt-12') : ''
           }`}
         >
-          <div>{children}</div>
+          {/* Desktop density everywhere: every FormField / FormSwitch in the
+              panel renders compact, including screens with their own forms. */}
+          <FormDensityContext.Provider value="compact">
+            <div>{children}</div>
+          </FormDensityContext.Provider>
         </main>
       </div>
     </div>

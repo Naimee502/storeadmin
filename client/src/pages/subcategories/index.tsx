@@ -363,10 +363,11 @@ const SubCategories = () => {
             actions.showRearrange && categoriesWithSubs.length > 0 ? (
               <button
                 onClick={openReorder}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                title="Change the display order"
               >
-                <FaSort className="!text-white flex-shrink-0" />
-                <span className="!text-white font-bold">Rearrange</span>
+                <FaSort className="text-indigo-600" />
+                Rearrange
               </button>
             ) : null
           }
@@ -413,13 +414,13 @@ const SubCategories = () => {
           resetKey={reorderCategoryId}
           header={
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-gray-700">Category</span>
+              <span className="mb-0.5 block text-[12px] font-medium text-slate-600">Category</span>
               <div className="relative">
                 <FaTags className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 <select
                   value={reorderCategoryId}
                   onChange={(e) => setReorderCategoryId(e.target.value)}
-                  className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="h-8 w-full cursor-pointer appearance-none rounded-md border border-slate-300 bg-white pl-8 pr-8 text-[13px] font-medium text-slate-800 hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   {categoriesWithSubs.map((c: any) => {
                     const count = subCategoryList.filter((s: any) => s.category?.id === c.id).length;

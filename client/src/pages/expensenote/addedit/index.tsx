@@ -18,6 +18,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
+import FormPage from "../../../components/formpage";
 import { FaCalendarAlt, FaFileAlt, FaTrash } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
@@ -454,10 +455,13 @@ const AddEditExpenseNote = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h2 className="text-xl font-bold mb-6">
-          {isEdit ? "Edit Expense Note" : "Add Expense Note"}
-        </h2>
+      <FormPage
+        breadcrumb="Expense Notes"
+        title={isEdit ? "Edit Expense Note" : "Add Expense Note"}
+        onSave={handleSubmit}
+        onCancel={() => navigate("/expensenote")}
+        saveLabel={isEdit ? "Update Expense" : "Add Expense"}
+      >
 
         {/* BASIC INFO */}
         <fieldset className="border rounded-xl p-4 mb-6">
@@ -638,7 +642,7 @@ const AddEditExpenseNote = () => {
 
               <div
                 onClick={() => removeExpenseRow(i)}
-                className="w-9 h-9 flex items-center justify-center border border-red-500 text-red-500 rounded cursor-pointer hover:bg-red-500 hover:text-white"
+                className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
               >
                 <FaTrash />
               </div>
@@ -646,7 +650,7 @@ const AddEditExpenseNote = () => {
           ))}
 
           {isFieldEnabled("add_expense_button") && (<Button variant="outline" onClick={addExpenseRow}>
-            ➕ Add Expense
+            + Add Expense
           </Button>)}
 
           {formErrors.expenses && (
@@ -661,17 +665,7 @@ const AddEditExpenseNote = () => {
             Total: ₹ {formValues.totalamount.toFixed(2)}
           </div>
         </div>
-
-        {/* ACTIONS */}
-        <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => navigate("/expensenote")}>
-            Cancel
-          </Button>
-          <Button variant="outline" onClick={handleSubmit}>
-            {isEdit ? "Update Expense" : "Add Expense"}
-          </Button>
-        </div>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

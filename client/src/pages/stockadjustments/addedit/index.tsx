@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import {
   useCreateStockAdjustment,
   useUpdateStockAdjustment,
@@ -298,13 +298,19 @@ const StockAdjustmentAddEdit: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-10 text-sm">
-        <form onSubmit={handleSubmit} className="space-y-5">
-
-          {/* ── Title ──────────────────────────────────────────────────────── */}
-          <h2 className="text-lg sm:text-2xl font-bold">
-            {isEdit ? "Edit Stock Adjustment" : "Stock Adjustment Entry"}
-          </h2>
+      <FormPage
+        breadcrumb="Stock Adjustments"
+        title={isEdit ? "Edit Stock Adjustment" : "Stock Adjustment Entry"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate("/stockadjustments")}
+        saveLabel={
+          saving
+            ? isEdit ? "Updating…" : "Saving…"
+            : isEdit ? "Update Adjustment" : "Save Adjustment"
+        }
+        saveDisabled={saving}
+      >
+        <div className="space-y-5 text-sm">
 
           {/* ── Voucher Details ─────────────────────────────────────────────── */}
           <fieldset className="border rounded-xl p-4 space-y-4">
@@ -509,24 +515,8 @@ const StockAdjustmentAddEdit: React.FC = () => {
               </div>
             </div>
           </fieldset>
-
-          {/* ── Actions ─────────────────────────────────────────────────────── */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/stockadjustments")}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="outline" disabled={saving}>
-              {saving
-                ? isEdit ? "Updating…" : "Saving…"
-                : isEdit ? "Update Adjustment" : "Save Adjustment"}
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </FormPage>
     </HomeLayout>
   );
 };

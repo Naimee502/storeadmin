@@ -5,6 +5,7 @@ import { FaCalendarAlt, FaFileAlt, FaTrash } from "react-icons/fa";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import BillAllocation, { type Allocation } from "../../../components/billallocation";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -301,10 +302,13 @@ const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Transaction" : "Add Transaction"}
-        </h2>
+      <FormPage
+        breadcrumb="Transactions"
+        title={isEdit ? "Edit Transaction" : "Add Transaction"}
+        saveLabel={isEdit ? "Update Transaction" : "Add Transaction"}
+        onSave={handleSubmit}
+        onCancel={() => navigate("/transactions")}
+      >
 
         <div className="space-y-6">
           {/* Basic Info */}
@@ -485,27 +489,21 @@ const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
                 />)}
                 <div
                     onClick={() => removeEntryRow(index)}
-                    className="flex items-center justify-center w-9 h-9 border border-red-500 text-red-500 rounded cursor-pointer hover:bg-red-500 hover:text-white"
+                    className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
                     >
-                    <FaTrash className="w-4 h-4" />
+                    <FaTrash className="h-3 w-3" />
                 </div>
               </div>
             ))}
             {isFieldEnabled("add_entry_button") && (<Button variant="outline" onClick={addEntryRow}>
-              ➕ Add Entry
+              + Add Entry
             </Button>)}
             {formErrors.entries && (
               <p className="text-red-500 text-sm mt-2">{formErrors.entries}</p>
             )}
           </fieldset>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate("/transactions")}>Cancel</Button>
-            <Button variant="outline" onClick={handleSubmit}>{isEdit ? "Update Transaction" : "Add Transaction"}</Button>
-          </div>
         </div>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

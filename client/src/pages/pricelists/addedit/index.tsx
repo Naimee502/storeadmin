@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
 import { usePriceListByIdQuery, usePriceListMutations } from "../../../graphql/hooks/pricelists";
@@ -143,9 +143,14 @@ const AddEditPriceList = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h2 className="text-2xl font-bold mb-6">{isEdit ? "Edit Price List" : "Create Price List"}</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <FormPage
+        breadcrumb="Price Lists"
+        title={isEdit ? "Edit Price List" : "Create Price List"}
+        saveLabel="Save Price List"
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate("/pricelists")}
+      >
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               label="Price List Name"
@@ -229,15 +234,8 @@ const AddEditPriceList = () => {
               <p className="text-center text-gray-500 py-4">No products added to this list yet.</p>
             )}
           </div>
-
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => navigate("/pricelists")}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="outline">Save Price List</Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </FormPage>
     </HomeLayout>
   );
 };

@@ -11,9 +11,9 @@ import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYM
 import { FaChartBar, FaTruck, FaMapMarkedAlt } from "react-icons/fa";
 
 const reportTabsObj = [
-  { id: "Summary", label: "Summary", icon: <FaChartBar className="text-amber-500" /> },
-  { id: "Day-wise", label: "Day-wise", icon: <FaTruck className="text-blue-500" /> },
-  { id: "Live Tracking", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
+  { id: "Summary", label: "Summary", icon: <FaChartBar className="text-[12px] text-amber-500" /> },
+  { id: "Day-wise", label: "Day-wise", icon: <FaTruck className="text-[12px] text-blue-500" /> },
+  { id: "Live Tracking", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-[12px] text-emerald-500" /> },
 ];
 
 // Reverse-geocoded place names, cached per rounded lat/long across the whole
@@ -284,8 +284,8 @@ const DeliveryBoyReport: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap gap-2 mb-4">
+      <div className="w-full p-4 font-sans">
+        <div className="flex flex-wrap gap-2 mb-3">
           {reportTabsObj.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -293,10 +293,10 @@ const DeliveryBoyReport: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium cursor-pointer ${
                   isActive
-                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
-                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <span>{tab.icon}</span>
@@ -308,31 +308,31 @@ const DeliveryBoyReport: React.FC = () => {
 
         {activeTab === "Live Tracking" ? (
           <>
-            <div className="bg-white border rounded-lg p-4 text-sm text-gray-600 mb-4">
-              <div className="font-semibold text-gray-700 mb-1">Live Location & Route Tracking</div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-[12px] text-gray-600 mb-3">
+              <div className="text-[13px] font-semibold text-slate-800 mb-1">Live Location & Route Tracking</div>
               {trackingAppliedFilters.deliveryboyid
                 ? "Showing the selected delivery boy's full trail for the chosen date (green = punch-in / start, red = latest). Pick a different date to change the day."
                 : "Latest known location per delivery boy shown as pins. Pick a delivery boy to see their full route for the day (punch-in → punch-out)."}
             </div>
 
             {showingTrail && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 {[
                   { label: "Distance covered", value: `${(trailSummary?.km ?? 0).toFixed(2)} km` },
                   { label: "First location", value: trailSummary?.firstAt ? formatDateTimeDMY(trailSummary.firstAt) : "-" },
                   { label: "Last location", value: trailSummary?.lastAt ? formatDateTimeDMY(trailSummary.lastAt) : "-" },
                   { label: "Points recorded", value: String(trailSummary?.points ?? 0) },
                 ].map((c) => (
-                  <div key={c.label} className="bg-white border rounded-lg p-3">
-                    <div className="text-xs text-gray-500">{c.label}</div>
-                    <div className="text-lg font-bold text-gray-800">{c.value}</div>
+                  <div key={c.label} className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5">
+                    <div className="text-[11px] text-slate-500">{c.label}</div>
+                    <div className="text-[15px] font-semibold leading-tight text-gray-800">{c.value}</div>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Live map */}
-            <div className="mb-4">
+            <div className="mb-3">
               <LiveTrackingMap latest={locations} trail={trail} height={440} />
             </div>
 

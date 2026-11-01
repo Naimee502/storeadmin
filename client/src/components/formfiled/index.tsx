@@ -15,6 +15,7 @@ import {
   FaHistory,
 } from 'react-icons/fa';
 import Select, { components, type MultiValue, type SingleValue } from 'react-select';
+import { useIsCompact } from '../formpage/density';
 
 export type InputType =
   | 'text'
@@ -190,6 +191,8 @@ const FormField: React.FC<FormFieldProps> = ({
   noAutofill = false,
 }) => {
   const [lockedForAutofill, setLockedForAutofill] = useState(noAutofill);
+  // Inside a <FormPage>: shorter inputs and smaller labels (desktop density).
+  const compact = useIsCompact();
   // Standalone history panel (opened via the clock icon in the select control)
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -268,7 +271,26 @@ const FormField: React.FC<FormFieldProps> = ({
           menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
           menuPosition="fixed"
           menuShouldScrollIntoView={false}
-          styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
+          styles={{
+            menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+            ...(compact
+              ? {
+                  control: (base: any, st: any) => ({
+                    ...base,
+                    minHeight: 32,
+                    fontSize: 13,
+                    borderRadius: 6,
+                    borderColor: error ? '#ef4444' : st.isFocused ? '#6366f1' : '#cbd5e1',
+                    boxShadow: st.isFocused ? '0 0 0 1px #6366f1' : 'none',
+                  }),
+                  valueContainer: (base: any) => ({ ...base, padding: '0 8px' }),
+                  input: (base: any) => ({ ...base, margin: 0, padding: 0 }),
+                  dropdownIndicator: (base: any) => ({ ...base, padding: 4 }),
+                  clearIndicator: (base: any) => ({ ...base, padding: 4 }),
+                  option: (base: any) => ({ ...base, fontSize: 13, padding: '6px 10px' }),
+                }
+              : {}),
+          }}
         />
         {historyOpen && historyTitle && (
           <div className="absolute left-0 right-0 top-full mt-1 z-[9998] bg-white border border-indigo-200 rounded-lg shadow-lg overflow-hidden">
@@ -307,7 +329,9 @@ const FormField: React.FC<FormFieldProps> = ({
           }}
           disabled={disabled}
           required={required}
-          className={`w-full text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none ${className}`}
+          className={compact
+            ? `w-full h-8 text-[13px] bg-white border border-slate-300 rounded-md px-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${className}`
+            : `w-full text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none ${className}`}
         >
           {!isMultiSelect && <option value="">Select {label}</option>}
           {options.map((opt) => (
@@ -368,7 +392,9 @@ const FormField: React.FC<FormFieldProps> = ({
           multiple={multiple}
           onChange={onChange}
           disabled={disabled}
-          className="w-full text-sm"
+          className={compact
+            ? 'w-full cursor-pointer text-xs text-transparent file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-200'
+            : 'w-full text-sm'}
         />
       );
     }
@@ -443,6 +469,38 @@ const FormField: React.FC<FormFieldProps> = ({
       />
     );
   };
+
+  if (compact) {
+    return (
+      <div className="flex w-full flex-col gap-0.5">
+        {label && (
+          <label htmlFor={name} className="text-[12px] font-medium text-slate-600">
+            {label}
+            {required && <span className="ml-0.5 text-rose-500">*</span>}
+          </label>
+        )}
+        {(isSelect || isMultiSelect || isCheckbox || isRadio) ? (
+          renderInput()
+        ) : (
+          <div
+            className={`flex items-center gap-2 rounded-md border bg-white px-2.5 ${
+              multiline ? 'py-1.5' : 'h-8'
+            } [&_input]:text-[13px] [&_textarea]:text-[13px] ${
+              disabled ? 'bg-slate-50' : ''
+            } ${
+              error
+                ? 'border-rose-400 focus-within:ring-1 focus-within:ring-rose-400'
+                : 'border-slate-300 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500'
+            }`}
+          >
+            {finalIcon && <span className="text-[11px] text-slate-400">{finalIcon}</span>}
+            {renderInput()}
+          </div>
+        )}
+        {error && <p className="text-[11px] leading-tight text-rose-600">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full gap-1">

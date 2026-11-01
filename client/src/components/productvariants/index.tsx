@@ -88,7 +88,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-3">
             {formData.productvariants.map((variant: any, index: number) => (
                 <fieldset key={variant.tempid || index} className="border rounded-xl p-4 mb-4 relative">
                     <legend className="text-sm font-semibold px-2">Product Variant {index + 1}</legend>
@@ -96,7 +96,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     {formData.productvariants.length > 1 && (
                         <button
                             type="button"
-                            className="absolute top-2 right-2 px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
+                            className="absolute top-1.5 right-2 inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
                         onClick={() => removeProductVariant(index)}
                     >
                         Remove Product Variant
@@ -104,7 +104,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                 )}
 
                 {/* Core Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-5 lg:grid-cols-5 gap-3 pt-8 pb-4">
+                <div className="grid grid-cols-1 gap-x-3 gap-y-2 pt-1 pb-3 md:grid-cols-5">
                     {[
                         "name", "sku", "batchnumber", "manufacturedate", "expirydate",
                         "gst", "hsncode", "openingstock", "currentstock",
@@ -186,11 +186,11 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                 </div>
 
                 {/* Unit Conversions */}
-                <div className="border-t pt-4 space-y-2 pb-4">
-                    <h4 className="font-semibold">Unit Conversions</h4>
+                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Unit Conversions</h4>
                     <div className="space-y-2">
                         {(variant.unitconversions || []).map((conv, convIndex) => (
-                            <div key={convIndex} className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded bg-gray-50">
+                            <div key={convIndex} className="grid grid-cols-1 items-end gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-[1fr_1fr_auto]">
                                 {isFieldEnabled("unitconversions_unitid") && (
                                     <FormField
                                         label="Unit"
@@ -216,10 +216,10 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 )}
                                 <button
                                     type="button"
-                                    className="w-10 h-10 mt-6 right-2 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
+                                    title="Remove" className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
                                     onClick={() => removeUnitConversion(index, convIndex)}
                                 >
-                                    ❌
+                                    ✕
                                 </button>
                             </div>
                         ))}
@@ -228,18 +228,18 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         <button
                             type="button"
                             onClick={() => addUnitConversion(index)}
-                            className="px-3 py-1 border rounded text-sm"
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50"
                         >
-                            ➕ Add Unit Conversion
+                            + Add Unit Conversion
                         </button>
                     )}
                 </div>
 
-                <div className="border-t pt-4 space-y-2 pb-4">
-                    <h4 className="font-semibold">Unit Prices</h4>
+                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Unit Prices</h4>
                     <div className="space-y-2">
                         {(variant.unitprices || []).map((up, upIndex) => (
-                            <div key={upIndex} className="grid grid-cols-1 md:grid-cols-8 gap-2 border rounded bg-gray-50 p-2 relative">
+                            <div key={upIndex} className="relative grid grid-cols-1 items-end gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-8">
                                 {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].filter(f => isFieldEnabled(f === "unitid" ? "unitprices_unitid" : f)).map((f) => (
                                     <FormField
                                         key={f}
@@ -276,10 +276,10 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 {variant.unitprices.length > 1 && (
                                     <button
                                         type="button"
-                                        className="w-10 h-10 mt-6 right-2 text-red-600 border border-red-600 rounded hover:bg-red-50 bg-white"
+                                        title="Remove" className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
                                         onClick={() => removeUnitPrice(index, upIndex)}
                                     >
-                                        ❌
+                                        ✕
                                     </button>
                                 )}
                             </div>
@@ -289,24 +289,24 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         <button
                             type="button"
                             onClick={() => addUnitPrice(index)}
-                            className="px-3 py-1 border rounded text-sm mt-2"
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50"
                         >
-                            ➕ Add Unit Price
+                            + Add Unit Price
                         </button>
                     )}
                 </div>
 
                 {/* Serials */}
                 {isserialised && (
-                    <div className="border-t pt-4 space-y-2">
+                    <div className="space-y-2 border-t border-slate-200 pt-3">
                         {(variant.serials || []).map((serial, serialIndex) => (
                             <div
                                 key={serialIndex}
-                                className="grid grid-cols-1 md:grid-cols-5 gap-2 p-2 pt-8 border rounded relative bg-gray-50"
+                                className="relative grid grid-cols-1 gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 pt-9 md:grid-cols-5"
                             >
                                 <button
                                     type="button"
-                                    className="absolute top-2 right-2 text-red-600 border border-red-600 rounded px-2 py-1 hover:bg-red-50 bg-white"
+                                    className="absolute top-1.5 right-2 inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
                                     onClick={() => removeSerial(index, serialIndex)}
                                 >
                                     Remove Serial
@@ -324,14 +324,14 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 ))}
                             </div>
                         ))}
-                        <button type="button" onClick={() => addSerial(index)} className="px-3 py-1 border rounded text-sm">➕ Add Serial</button>
+                        <button type="button" onClick={() => addSerial(index)} className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Serial</button>
                     </div>
                 )}
             </fieldset>
         ))}
 
         {isFieldEnabled("add_product_variant") && (
-            <button type="button" onClick={addProductVariant} className="px-4 py-2 border rounded text-sm">➕ Add Product Variant</button>
+            <button type="button" onClick={addProductVariant} className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Product Variant</button>
         )}
     </div>
   );

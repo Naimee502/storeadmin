@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, type JSX } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
   FaBalanceScale, FaBoxOpen, FaBoxes, FaCodeBranch, FaHome,
   FaLayerGroup, FaMobileAlt, FaRulerCombined, FaTags,
@@ -14,10 +14,12 @@ import {
   FaCalendarCheck,
   FaUndoAlt,
   FaCog,
-  FaBullhorn
+  FaBullhorn,
+  FaSearch,
+  FaChevronDown
 } from 'react-icons/fa';
 import { MdBrandingWatermark } from 'react-icons/md';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import { DEFAULT_ON_MODULE_IDS } from '../../config/modules';
 import { selectModuleActions } from '../../redux/slices/permissions';
@@ -35,12 +37,6 @@ type SidebarLink = {
   moduleId?: string;
 };
 
-type SidebarSection = {
-  label: string;
-  isSection: true;
-};
-
-type SidebarItem = SidebarLink | SidebarSection;
 
 // Sidebar remounts on every route change (each page wraps HomeLayout), which
 // resets the menu scroll to top. Keep the last scroll position at module level
@@ -154,79 +150,154 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
   const homeLink: SidebarLink = {
     to: '/home',
     label: 'Home',
-    icon: <FaHome className="text-cyan-400 text-xl flex-shrink-0" />
+    icon: <FaHome className="text-cyan-400 text-[15px] flex-shrink-0" />
   };
 
   // Dynamic Sidebar Link Registry
   const ALL_LINKS: (SidebarLink & { roles: string[]; section?: string })[] = [
-    { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-amber-400 text-xl flex-shrink-0" />, moduleId: "branches", roles: ["admin"] },
-    { to: '/categories', label: 'Categories', icon: <FaTags className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "categories", roles: ["admin", "branch", "staff"] },
-    { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent className="text-blue-400 text-xl flex-shrink-0" />, moduleId: "subcategories", roles: ["admin", "branch", "staff"] },
-    { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined className="text-purple-400 text-xl flex-shrink-0" />, moduleId: "sizes", roles: ["admin", "branch", "staff"] },
-    { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "brands", roles: ["admin", "branch", "staff"] },
-    { to: '/models', label: 'Models', icon: <FaMobileAlt className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "models", roles: ["admin", "branch", "staff"] },
-    { to: '/productgroups', label: 'Product Groups', icon: <FaLayerGroup className="text-yellow-400 text-xl flex-shrink-0" />, moduleId: "productgroups", roles: ["admin", "branch", "staff"] },
-    { to: '/units', label: 'Units', icon: <FaBalanceScale className="text-orange-400 text-xl flex-shrink-0" />, moduleId: "units", roles: ["admin", "branch", "staff"] },
-    { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers className="text-teal-400 text-xl flex-shrink-0" />, moduleId: "accountgroups", roles: ["admin", "branch", "staff"], section: "Accounts" },
-    { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave className="text-green-400 text-xl flex-shrink-0" />, moduleId: "accountledgers", roles: ["admin", "branch", "staff"], section: "Accounts" },
-    { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "staffaccounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
-    { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-pink-400 text-xl flex-shrink-0" />, moduleId: "accounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
-    { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-amber-500 text-xl flex-shrink-0" />, moduleId: "products", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-cyan-500 text-xl flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-emerald-500 text-xl flex-shrink-0" />, moduleId: "salesinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-rose-500 text-xl flex-shrink-0" />, moduleId: "salesreturn", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-teal-400 text-xl flex-shrink-0" />, moduleId: "purchaseorder", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-blue-500 text-xl flex-shrink-0" />, moduleId: "purchaseinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-red-400 text-xl flex-shrink-0" />, moduleId: "purchasereturn", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-purple-500 text-xl flex-shrink-0" />, moduleId: "transferstock", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/stockadjustments', label: 'Stock Adjustments', icon: <FaWrench className="text-yellow-500 text-xl flex-shrink-0" />, moduleId: "stockadjustments", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "expensenote", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-emerald-500 text-xl flex-shrink-0" />, moduleId: "transactions", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/payments', label: 'Payments', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "payments", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-500 text-xl flex-shrink-0" />, moduleId: "attendance", roles: ["admin", "branch", "staff"], section: "Branch" },
-    { to: '/announcements', label: 'Announcements', icon: <FaBullhorn className="text-pink-500 text-xl flex-shrink-0" />, moduleId: "announcements", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/branches', label: 'Branches', icon: <FaCodeBranch className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "branches", roles: ["admin"] },
+    { to: '/categories', label: 'Categories', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "categories", roles: ["admin", "branch", "staff"] },
+    { to: '/subcategories', label: 'Sub Categories', icon: <FaIndent className="text-blue-400 text-[15px] flex-shrink-0" />, moduleId: "subcategories", roles: ["admin", "branch", "staff"] },
+    { to: '/sizes', label: 'Sizes', icon: <FaRulerCombined className="text-purple-400 text-[15px] flex-shrink-0" />, moduleId: "sizes", roles: ["admin", "branch", "staff"] },
+    { to: '/brands', label: 'Brands', icon: <MdBrandingWatermark className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "brands", roles: ["admin", "branch", "staff"] },
+    { to: '/models', label: 'Models', icon: <FaMobileAlt className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "models", roles: ["admin", "branch", "staff"] },
+    { to: '/productgroups', label: 'Product Groups', icon: <FaLayerGroup className="text-yellow-400 text-[15px] flex-shrink-0" />, moduleId: "productgroups", roles: ["admin", "branch", "staff"] },
+    { to: '/units', label: 'Units', icon: <FaBalanceScale className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "units", roles: ["admin", "branch", "staff"] },
+    { to: '/accountgroups', label: 'Account Groups', icon: <FaUsers className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "accountgroups", roles: ["admin", "branch", "staff"], section: "Accounts" },
+    { to: '/accountledgers', label: 'Account Ledgers', icon: <FaMoneyBillWave className="text-green-400 text-[15px] flex-shrink-0" />, moduleId: "accountledgers", roles: ["admin", "branch", "staff"], section: "Accounts" },
+    { to: '/staffaccounts', label: 'Staff Accounts', icon: <FaUserTie className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "staffaccounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
+    { to: '/accounts', label: 'Party Accounts', icon: <FaUser className="text-pink-400 text-[15px] flex-shrink-0" />, moduleId: "accounts", roles: ["admin", "branch", "staff"], section: "Accounts" },
+    { to: '/products', label: 'Products', icon: <FaBoxOpen className="text-amber-500 text-[15px] flex-shrink-0" />, moduleId: "products", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/salesorder', label: 'Sales Orders', icon: <FaClipboardList className="text-cyan-500 text-[15px] flex-shrink-0" />, moduleId: "salesorder", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/salesinvoice', label: 'Sales Invoices', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "salesinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/salesreturn', label: 'Sales Returns', icon: <FaUndoAlt className="text-rose-500 text-[15px] flex-shrink-0" />, moduleId: "salesreturn", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/purchaseorder', label: 'Purchase Orders', icon: <FaClipboardList className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "purchaseorder", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/purchaseinvoice', label: 'Purchase Invoices', icon: <FaReceipt className="text-blue-500 text-[15px] flex-shrink-0" />, moduleId: "purchaseinvoice", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/purchasereturn', label: 'Purchase Returns', icon: <FaUndoAlt className="text-red-400 text-[15px] flex-shrink-0" />, moduleId: "purchasereturn", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/transferstock', label: 'Transfer Stock', icon: <FaExchangeAlt className="text-purple-500 text-[15px] flex-shrink-0" />, moduleId: "transferstock", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/stockadjustments', label: 'Stock Adjustments', icon: <FaWrench className="text-yellow-500 text-[15px] flex-shrink-0" />, moduleId: "stockadjustments", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/expensenote', label: 'Expense Notes', icon: <FaMoneyCheckAlt className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "expensenote", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/transactions', label: 'Transactions', icon: <FaFileInvoiceDollar className="text-emerald-500 text-[15px] flex-shrink-0" />, moduleId: "transactions", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/payments', label: 'Payments', icon: <FaWallet className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "payments", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-500 text-[15px] flex-shrink-0" />, moduleId: "attendance", roles: ["admin", "branch", "staff"], section: "Branch" },
+    { to: '/announcements', label: 'Announcements', icon: <FaBullhorn className="text-pink-500 text-[15px] flex-shrink-0" />, moduleId: "announcements", roles: ["admin", "branch", "staff"], section: "Branch" },
 
-    { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
-    { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
-    { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },
-    { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-amber-400 text-xl flex-shrink-0" />, moduleId: "priceassignments", roles: ["admin", "branch", "staff"], section: "Distribution" },
-    { to: '/chargerules', label: 'Charge Rules', icon: <FaMoneyBillWave className="text-lime-500 text-xl flex-shrink-0" />, moduleId: "chargerules", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/channels', label: 'Channels', icon: <FaSitemap className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "channels", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/salesroutes', label: 'Sales Routes', icon: <FaRoute className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "salesroutes", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/pricelists', label: 'Price Lists', icon: <FaTags className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "pricelists", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/priceassignments', label: 'Price Assignments', icon: <FaClipboardList className="text-amber-400 text-[15px] flex-shrink-0" />, moduleId: "priceassignments", roles: ["admin", "branch", "staff"], section: "Distribution" },
+    { to: '/chargerules', label: 'Charge Rules', icon: <FaMoneyBillWave className="text-lime-500 text-[15px] flex-shrink-0" />, moduleId: "chargerules", roles: ["admin", "branch", "staff"], section: "Distribution" },
 
-    { to: '/reports/sales', label: 'Sales Reports', icon: <FaChartBar className="text-blue-400 text-xl flex-shrink-0" />, moduleId: "reports.sales", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/purchase', label: 'Purchase Reports', icon: <FaFileAlt className="text-violet-400 text-xl flex-shrink-0" />, moduleId: "reports.purchase", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/stock', label: 'Stock Reports', icon: <FaClipboardList className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "reports.stock", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/gst', label: 'GST Reports', icon: <FaFileInvoiceDollar className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.gst", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/product', label: 'Product Statement', icon: <FaBoxes className="text-rose-400 text-xl flex-shrink-0" />, moduleId: "reports.product", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/accounting', label: 'Accounting / Finance', icon: <FaWallet className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.accounting", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/party', label: 'Party / Vendor', icon: <FaUsers className="text-teal-400 text-xl flex-shrink-0" />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/salesmen', label: 'Staff Reports', icon: <FaUserTie className="text-indigo-400 text-xl flex-shrink-0" />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/salesmanfield', label: 'Salesman Field Report', icon: <FaRoute className="text-cyan-400 text-xl flex-shrink-0" />, moduleId: "reports.salesmanfield", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/deliveryboy', label: 'Delivery Boy Report', icon: <FaExchangeAlt className="text-lime-400 text-xl flex-shrink-0" />, moduleId: "reports.delivery", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine className="text-emerald-400 text-xl flex-shrink-0" />, moduleId: "reports.analytical", roles: ["admin", "branch", "staff"], section: "Reports" },
-    { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-xl flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/sales', label: 'Sales Reports', icon: <FaChartBar className="text-blue-400 text-[15px] flex-shrink-0" />, moduleId: "reports.sales", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/purchase', label: 'Purchase Reports', icon: <FaFileAlt className="text-violet-400 text-[15px] flex-shrink-0" />, moduleId: "reports.purchase", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/stock', label: 'Stock Reports', icon: <FaClipboardList className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "reports.stock", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/gst', label: 'GST Reports', icon: <FaFileInvoiceDollar className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "reports.gst", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/product', label: 'Product Statement', icon: <FaBoxes className="text-rose-400 text-[15px] flex-shrink-0" />, moduleId: "reports.product", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/accounting', label: 'Accounting / Finance', icon: <FaWallet className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "reports.accounting", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/party', label: 'Party / Vendor', icon: <FaUsers className="text-teal-400 text-[15px] flex-shrink-0" />, moduleId: "reports.party", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/salesmen', label: 'Staff Reports', icon: <FaUserTie className="text-indigo-400 text-[15px] flex-shrink-0" />, moduleId: "reports.salesmen", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/salesmanfield', label: 'Salesman Field Report', icon: <FaRoute className="text-cyan-400 text-[15px] flex-shrink-0" />, moduleId: "reports.salesmanfield", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/deliveryboy', label: 'Delivery Boy Report', icon: <FaExchangeAlt className="text-lime-400 text-[15px] flex-shrink-0" />, moduleId: "reports.delivery", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/analytical', label: 'Analytical Reports', icon: <FaChartLine className="text-emerald-400 text-[15px] flex-shrink-0" />, moduleId: "reports.analytical", roles: ["admin", "branch", "staff"], section: "Reports" },
+    { to: '/reports/attendance', label: 'Attendance & Leave', icon: <FaCalendarCheck className="text-orange-400 text-[15px] flex-shrink-0" />, moduleId: "reports.attendance", roles: ["admin", "branch", "staff"], section: "Reports" },
   ];
 
   const filteredLinks = filterLinks(ALL_LINKS.filter(l => l.roles.includes(role || "")));
-  const sidebarItems: SidebarItem[] = [homeLink];
+
+  // Menu groups, desktop-app style. Links without a section are the masters.
+  type Group = { name: string; links: SidebarLink[] };
+  const groups: Group[] = [];
   const mainLinks = filteredLinks.filter(l => !l.section);
-  const sections = Array.from(new Set(filteredLinks.map(l => l.section).filter(Boolean))) as string[];
-
-  sidebarItems.push(...mainLinks);
-
-  sections.forEach(secName => {
-    const secLinks = filteredLinks.filter(l => l.section === secName);
-    if (secLinks.length > 0) {
-      sidebarItems.push({ label: secName, isSection: true });
-      sidebarItems.push(...secLinks);
-    }
+  if (mainLinks.length) groups.push({ name: "Masters", links: mainLinks });
+  Array.from(new Set(filteredLinks.map(l => l.section).filter(Boolean)) as Set<string>).forEach(secName => {
+    const links = filteredLinks.filter(l => l.section === secName);
+    if (links.length) groups.push({ name: secName, links });
   });
-
-  if (isAdmin || isBranch) {
-    sidebarItems.push({ label: "System", isSection: true });
-    sidebarItems.push({ to: "/settings", label: "Settings", icon: <FaCog className="text-gray-400 text-xl flex-shrink-0" /> });
-  }
+  const settingsLink: SidebarLink | null = (isAdmin || isBranch)
+    ? { to: "/settings", label: "Settings", icon: <FaCog className="text-slate-400 text-[15px] flex-shrink-0" /> }
+    : null;
 
   const isExpanded = isOpen || isHovered;
+  const navigate = useNavigate();
+  const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + "/");
+
+  // Collapsible groups, remembered per browser. The group holding the open
+  // page always shows, so the highlighted item is never hidden.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem("sidebar:collapsed") || "{}"); } catch { return {}; }
+  });
+  const toggleGroup = (name: string) =>
+    setCollapsed(prev => {
+      const next = { ...prev, [name]: !prev[name] };
+      try { localStorage.setItem("sidebar:collapsed", JSON.stringify(next)); } catch { /* storage blocked */ }
+      return next;
+    });
+
+  // Menu search — Ctrl/⌘+K, type, Enter opens the highlighted screen.
+  const [query, setQuery] = useState("");
+  const [hit, setHit] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const q = query.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!q) return [] as SidebarLink[];
+    const all = [homeLink, ...groups.flatMap(g => g.links.map(l => ({ ...l, group: g.name }))), ...(settingsLink ? [settingsLink] : [])];
+    return all.filter((l: any) => l.label.toLowerCase().includes(q) || (l.group || "").toLowerCase().includes(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, filteredLinks.length]);
+  useEffect(() => setHit(0), [q]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (!isOpen) toggleSidebar();
+        setTimeout(() => searchRef.current?.focus(), 0);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, toggleSidebar]);
+
+  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setHit(h => Math.min(h + 1, matches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHit(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter" && matches[hit]) {
+      e.preventDefault();
+      navigate(matches[hit].to, { state: { from: location.pathname } });
+      setQuery("");
+    } else if (e.key === "Escape") {
+      e.preventDefault(); // keep a form behind the menu from treating it as Cancel
+      setQuery("");
+      searchRef.current?.blur();
+    }
+  };
+
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+  const renderLink = (item: SidebarLink, highlighted = false) => {
+    const active = isActive(item.to);
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        title={!isExpanded ? item.label : undefined}
+        state={{ from: location.pathname }}
+        className={`group relative flex items-center rounded-md text-[13px] transition-colors ${
+          isExpanded ? "h-8 gap-2.5 px-2.5" : "mx-auto h-9 w-9 justify-center"
+        } ${
+          active
+            ? "bg-cyan-500/15 font-semibold text-white"
+            : highlighted
+              ? "bg-slate-800 text-white"
+              : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
+        }`}
+      >
+        {active && <span className="absolute inset-y-1 left-0 w-[3px] rounded-r bg-cyan-400" />}
+        <span className="flex w-4 shrink-0 items-center justify-center">{item.icon}</span>
+        {isExpanded && <span className="truncate">{item.label}</span>}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -240,51 +311,83 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onHoverChange 
       <aside
           onMouseEnter={() => handleHover(true)}
           onMouseLeave={() => handleHover(false)}
-          className={`fixed top-[60px] left-0 bottom-0 z-40 bg-slate-950 shadow-2xl transition-all duration-300 ease-in-out border-r border-slate-800 flex flex-col ${
-            isExpanded ? 'w-64' : 'w-16'
+          className={`fixed top-12 left-0 bottom-0 z-40 flex flex-col border-r border-slate-800 bg-slate-950 transition-[width] duration-200 ease-out ${
+            isExpanded ? `w-60 ${!isOpen ? 'shadow-2xl' : ''}` : 'w-14'
           } ${isOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}
       >
-        <div
-          ref={scrollRef}
-          onScroll={(e) => { savedSidebarScroll = e.currentTarget.scrollTop; }}
-          className="p-2.5 flex flex-col space-y-1 overflow-x-hidden overflow-y-auto"
-          key={`${businessAllowed?.join(',') || 'all'}_${branchAllowed?.join(',') || 'x'}_${staffAllowed?.join(',') || 'x'}`}
-        >
-          {sidebarItems.map((item: any, index: any) =>
-            'isSection' in item && item.isSection ? (
-              <div key={`section-${index}-${item.label}`} className="mt-4 border-t border-slate-800/80 pt-2.5 px-2">
-                <span
-                  className={`block text-slate-400 uppercase tracking-wider text-[10px] font-bold transition-all duration-200 truncate ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 h-0 overflow-hidden'}`}
-                >
-                  {item.label}
-                </span>
-              </div>
-            ) : (
-              <Link
-                key={item.to}
-                to={item.to}
-                title={!isExpanded ? item.label : undefined}
-                state={{ from: location.pathname }}
-                className={`flex items-center transition-all text-sm font-medium tracking-wide ${
-                  isExpanded
-                    ? 'gap-3 px-3.5 py-2.5 rounded-lg w-full'
-                    : 'justify-center w-10 h-10 mx-auto rounded-lg'
-                } ${
-                  location.pathname === item.to
-                    ? 'bg-slate-800 text-white font-bold border-l-4 border-cyan-400 shadow-md'
-                    : 'text-slate-300 hover:bg-slate-900 hover:text-white'
-                }`}
-              >
-                <span className="flex items-center justify-center text-lg flex-shrink-0">{item.icon}</span>
-                <span
-                  className={`text-white transition-all duration-200 whitespace-nowrap font-medium ${isExpanded ? 'opacity-100 w-auto ml-1' : 'opacity-0 w-0 ml-0 overflow-hidden'}`}
-                >
-                  {item.label}
-                </span>
-              </Link>
-            )
+        {/* Menu search */}
+        <div className="shrink-0 border-b border-slate-800/80 p-2">
+          {isExpanded ? (
+            <div className="relative">
+              <FaSearch className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500" />
+              <input
+                ref={searchRef}
+                data-own-esc
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onSearchKey}
+                placeholder="Search menu…"
+                className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 pl-7 pr-12 text-[13px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-cyan-500"
+              />
+              <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-slate-700 px-1 text-[10px] text-slate-500">
+                {isMac ? "⌘K" : "Ctrl+K"}
+              </kbd>
+            </div>
+          ) : (
+            <button
+              type="button"
+              title={`Search menu (${isMac ? "⌘K" : "Ctrl+K"})`}
+              onClick={() => { toggleSidebar(); setTimeout(() => searchRef.current?.focus(), 0); }}
+              className="mx-auto grid h-8 w-9 place-items-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <FaSearch className="text-xs" />
+            </button>
           )}
         </div>
+
+        <nav
+          ref={scrollRef}
+          onScroll={(e) => { savedSidebarScroll = e.currentTarget.scrollTop; }}
+          className="flex-1 overflow-y-auto overflow-x-hidden p-2"
+          key={`${businessAllowed?.join(',') || 'all'}_${branchAllowed?.join(',') || 'x'}_${staffAllowed?.join(',') || 'x'}`}
+        >
+          {q ? (
+            <div className="space-y-0.5">
+              {matches.length === 0 && <p className="px-2.5 py-2 text-[12px] text-slate-500">No menu matches “{query}”</p>}
+              {matches.map((m, i) => renderLink(m, i === hit))}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-0.5">{renderLink(homeLink)}</div>
+              {groups.map(g => {
+                const holdsActive = g.links.some(l => isActive(l.to));
+                const open = !collapsed[g.name] || holdsActive;
+                return (
+                  <div key={g.name} className="mt-2">
+                    {isExpanded ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(g.name)}
+                        className="flex h-7 w-full items-center gap-1 rounded px-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                      >
+                        <span className="flex-1 text-left">{g.name}</span>
+                        <span className="font-medium normal-case tracking-normal text-slate-600">{g.links.length}</span>
+                        <FaChevronDown className={`text-[9px] transition-transform ${open ? "" : "-rotate-90"}`} />
+                      </button>
+                    ) : (
+                      <div className="mx-3 my-1.5 border-t border-slate-800" />
+                    )}
+                    {(open || !isExpanded) && <div className="space-y-0.5">{g.links.map(l => renderLink(l))}</div>}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </nav>
+
+        {settingsLink && !q && (
+          <div className="shrink-0 border-t border-slate-800/80 p-2">{renderLink(settingsLink)}</div>
+        )}
       </aside>
     </>
   );

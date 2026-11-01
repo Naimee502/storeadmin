@@ -32,7 +32,7 @@ interface TabsListProps {
 
 export const TabsList: React.FC<TabsListProps> = ({ children, className }) => {
   return (
-    <div className={`inline-flex rounded-md bg-gray-100 p-1 space-x-1 ${className || ""}`}>
+    <div className={`inline-flex gap-1 rounded-md bg-slate-100 p-0.5 ${className || ""}`}>
       {children}
     </div>
   );
@@ -55,10 +55,10 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, class
     <button
       onClick={() => ctx.onChange(value)}
       className={`
-        px-4 py-2 text-sm font-medium rounded-md transition-colors
+        inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium transition-colors
         ${isActive
-          ? "bg-white shadow text-blue-600"
-          : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"}
+          ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+          : "text-slate-600 hover:bg-white/70 hover:text-slate-900"}
         ${className || ""}
       `}
     >
@@ -79,5 +79,5 @@ export const TabsContent: React.FC<TabsContentProps> = ({ value, children }) => 
 
   if (ctx.value !== value) return null;
 
-  return <div className="mt-4">{children}</div>;
+  return <div className="mt-3">{children}</div>;
 };

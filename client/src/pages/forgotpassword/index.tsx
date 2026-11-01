@@ -28,11 +28,11 @@ const ForgotPassword = () => {
 
   return (
     <LoginLayout>
-      <div className="flex w-svm flex-col justify-center px-6">
-      <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-6 justify-center text-center">
+      <div className="flex w-full flex-col justify-center sm:w-[24rem]">
+      <h1 className="mb-4 text-center text-2xl font-bold tracking-tight text-slate-900">
         Forgot Password
       </h1>
-      <form onSubmit={handleForgotpaasword} className="w-full max-w-md mx-auto md:mx-0 space-y-6">
+      <form onSubmit={handleForgotpaasword} className="w-full space-y-3">
 
         {/* Email */}
         <FormField
@@ -52,10 +52,10 @@ const ForgotPassword = () => {
 
 
         {/* Submit */}
-        <Button variant="outline" onClick={handleForgotpaasword} className="w-full">Submit</Button>
+        <Button variant="primary" onClick={handleForgotpaasword} className="w-full h-9 font-semibold !mt-5">Submit</Button>
 
         {invalidCredentialError && (
-          <p className="text-xs sm:text-xs md:text-sm text-red-600 text-center">{invalidCredentialError}</p>
+          <p className="text-[12px] text-red-600 text-center">{invalidCredentialError}</p>
         )}
       </form>
       </div>

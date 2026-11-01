@@ -7,9 +7,9 @@ import { normalizeToYMD, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaTrophy, FaHourglassHalf, FaChartLine } from "react-icons/fa";
 
 const reportTabsObj = [
-  { id: "Top Selling Products", label: "Top Selling Products", icon: <FaTrophy className="text-amber-500" /> },
-  { id: "Slow Moving Products", label: "Slow Moving Products", icon: <FaHourglassHalf className="text-blue-500" /> },
-  { id: "Profit Margin Analysis", label: "Profit Margin Analysis", icon: <FaChartLine className="text-emerald-500" /> },
+  { id: "Top Selling Products", label: "Top Selling Products", icon: <FaTrophy className="text-xs text-amber-500" /> },
+  { id: "Slow Moving Products", label: "Slow Moving Products", icon: <FaHourglassHalf className="text-xs text-blue-500" /> },
+  { id: "Profit Margin Analysis", label: "Profit Margin Analysis", icon: <FaChartLine className="text-xs text-emerald-500" /> },
 ];
 
 const AnalyticalReports: React.FC = () => {
@@ -157,8 +157,8 @@ const AnalyticalReports: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap gap-2 mb-4">
+      <div className="w-full p-4 font-sans">
+        <div className="flex flex-wrap gap-2 mb-3">
           {reportTabsObj.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -166,10 +166,10 @@ const AnalyticalReports: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
-                    : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <span>{tab.icon}</span>

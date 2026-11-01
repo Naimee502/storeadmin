@@ -6,7 +6,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import { FaTrash, FaExchangeAlt, FaCalendarAlt, FaFileAlt } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -332,13 +332,14 @@ const TransferStockAddEdit: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-10 text-sm">
-        <form onSubmit={handleSubmit} className="space-y-5">
-
-          {/* ── Title ──────────────────────────────────────────────────────── */}
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-            {isEdit ? "Edit Transfer Stock" : "Add Transfer Stock"}
-          </h2>
+      <FormPage
+        breadcrumb="Transfer Stock"
+        title={isEdit ? "Edit Transfer Stock" : "Add Transfer Stock"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate("/transferstock")}
+        saveLabel={isEdit ? "Update Transfer" : "Save Transfer"}
+      >
+        <div className="space-y-5 text-sm">
 
           {/* ── Voucher Header ──────────────────────────────────────────────── */}
           <fieldset className="border rounded-xl p-4">
@@ -585,18 +586,8 @@ const TransferStockAddEdit: React.FC = () => {
               </div>
             </div>
           </fieldset>
-
-          {/* ── Actions ─────────────────────────────────────────────────────── */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/transferstock")}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="outline">
-              {isEdit ? "Update Transfer" : "Save Transfer"}
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </FormPage>
     </HomeLayout>
   );
 };

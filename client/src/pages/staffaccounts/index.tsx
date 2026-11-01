@@ -11,7 +11,7 @@ import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addStaff } from "../../redux/slices/staffaccounts"; // reducer name unchanged
 import FormField from "../../components/formfiled";
-import Button from "../../components/button";
+import { FormDensityContext } from "../../components/formpage/density";
 import FormSwitch from "../../components/formswitch";
 
 import {
@@ -270,28 +270,7 @@ const StaffAccounts = () => {
 
       await refetch();
 
-      // reset form — pre-fill accountgroupid from auto-resolved group
-      setFormValues({
-        branchid: branchId || "",
-        accountgroupid: staffAccountGroupId,
-        name: "",
-        mobile: "",
-        email: "",
-        password: "",
-        profilepicture: "",
-        imageurl: "",
-        address: "",
-        salary: "",
-        commission: "",
-        target: "",
-        status: true,
-        role: "staff",
-        assignedChannels: [],
-      });
-
-      setSelectedFile(null);
-      setIsEditing(false);
-      setEditingId(null);
+      resetForm();
     } catch (err) {
       dispatch(
         showMessage({
@@ -303,6 +282,32 @@ const StaffAccounts = () => {
 
     dispatch(hideLoading());
   }, [formValues, selectedFile, isEditing, editingId]);
+
+  // Empty form (new staff) — account group pre-filled from the auto-resolved
+  // staff group. Used after a save and by the Cancel button while editing.
+  function resetForm() {
+    setFormValues({
+      branchid: branchId || "",
+      accountgroupid: staffAccountGroupId,
+      name: "",
+      mobile: "",
+      email: "",
+      password: "",
+      profilepicture: "",
+      imageurl: "",
+      address: "",
+      salary: "",
+      commission: "",
+      target: "",
+      status: true,
+      role: "staff",
+      assignedChannels: [],
+    });
+    setFormErrors({});
+    setSelectedFile(null);
+    setIsEditing(false);
+    setEditingId(null);
+  }
 
   // TABLE COLUMNS
   const columns = [
@@ -337,14 +342,40 @@ const StaffAccounts = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+      <div className="w-full space-y-3 p-4">
+        {/* Quick add / edit card — compact, Enter saves (Tally style) */}
+        <FormDensityContext.Provider value="compact">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleFormSubmit();
           }}
+          className="rounded-lg border border-slate-200 bg-white"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {isEditing ? `Edit staff${formValues.name ? ` — ${formValues.name}` : ""}` : "Add staff"}
+            </h2>
+            <div className="ml-auto flex items-center gap-2">
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel edit
+                </button>
+              )}
+              <button
+                type="submit"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-[12px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                {isEditing ? "Update Staff" : "Add Staff"}
+                <kbd className="rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Enter</kbd>
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-x-3 gap-y-2 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
             {/* Name */}
             {isFieldEnabled("name") && (
               <FormField
@@ -421,7 +452,9 @@ const StaffAccounts = () => {
 
             {/* Account Group — auto-selected as "Staff Account", can be overridden */}
             {isFieldEnabled("accountgroupid") && (
-              <div>
+              // The "auto-selected, change if needed" note used to sit under the
+              // box and made the whole first row taller — it is a tooltip now.
+              <div title="Auto-selected (Staff Account) — change if needed">
               <FormField
                 label="Account Group"
                 name="accountgroupid"
@@ -435,13 +468,6 @@ const StaffAccounts = () => {
                 }))}
                 searchable
               />
-              {formValues.accountgroupid && (
-                <p className="text-xs text-green-600 mt-0.5 pl-1">
-                  Auto-selected: <strong>
-                    {(accountGroupList as any[]).find((g: any) => g.id === formValues.accountgroupid)?.accountgroupname || "Staff Account"}
-                  </strong> — change if needed
-                </p>
-              )}
             </div>
             )}
 
@@ -535,27 +561,17 @@ const StaffAccounts = () => {
             )}
 
             {/* Status */}
-            <div className="flex items-center max-w-full space-x-4 mt-4">
-              {isFieldEnabled("status") && (
-                <fieldset className="flex items-center space-x-2">
-                  <legend className="text-sm sm:text-base font-medium">Status</legend>
-                  <FormSwitch
-                    label=""
-                    name="status"
-                    checked={Boolean(formValues.status)}
-                    onChange={(checked) => handleFormChange("status", checked)}
-                  />
-                </fieldset>
-              )}
-
-              <Button variant="outline" type="submit">
-                { isEditing
-                  ? "Update Account"
-                  : "Add Account"}
-              </Button>
-            </div>
+            {isFieldEnabled("status") && (
+              <FormSwitch
+                label="Status"
+                name="status"
+                checked={Boolean(formValues.status)}
+                onChange={(checked) => handleFormChange("status", checked)}
+              />
+            )}
           </div>
         </form>
+        </FormDensityContext.Provider>
 
         <DataTable
           title="Manage Staff Accounts"

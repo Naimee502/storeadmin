@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
@@ -314,12 +314,14 @@ const AddEditPurchaseOrder = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h2 className="text-xl font-bold mb-6">
-          {isEdit ? "Edit Purchase Order" : "Add Purchase Order"}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <FormPage
+        breadcrumb="Purchase Orders"
+        title={isEdit ? "Edit Purchase Order" : "Add Purchase Order"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate(-1)}
+        saveLabel="Save Order"
+      >
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Order Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -397,19 +399,6 @@ const AddEditPurchaseOrder = () => {
             navigate={navigate}
             iservice={isService}
           />
-
-          <div className="flex gap-4 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate(-1)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="outline">
-              Save Order
-            </Button>
-          </div>
         </form>
 
         <PosAddCustomer
@@ -420,7 +409,7 @@ const AddEditPurchaseOrder = () => {
           }}
           mode="vendor"
         />
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

@@ -11,11 +11,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
-  primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+  primary: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm',
   secondary: 'bg-gray-600 hover:bg-gray-700 text-white shadow-sm',
   success: 'bg-green-600 hover:bg-green-700 text-white shadow-sm',
   danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm',
-  outline: 'border border-gray-300 text-gray-700 hover:bg-gray-100',
+  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
   ghost: 'bg-transparent text-gray-700 hover:bg-gray-100',
 };
 
@@ -33,7 +33,7 @@ const Button: React.FC<ButtonProps> = ({
   const isDisabled = disabled || isLoading;
 
   const buttonClass = clsx(
-    'rounded-lg px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors duration-200',
+    'h-8 rounded-md px-3 text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors duration-200',
     variantStyles[variant],
     fullWidth && 'w-full',
     isDisabled && 'opacity-50 cursor-not-allowed',
@@ -66,11 +66,11 @@ const Button: React.FC<ButtonProps> = ({
         </svg>
       )}
       {!isLoading && icon && iconPosition === 'left' && (
-        <span className="mr-2">{icon}</span>
+        <span>{icon}</span>
       )}
       <span>{children}</span>
       {!isLoading && icon && iconPosition === 'right' && (
-        <span className="ml-2">{icon}</span>
+        <span>{icon}</span>
       )}
     </button>
   );

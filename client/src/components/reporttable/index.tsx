@@ -5,7 +5,6 @@ import {
   FaCheck,
   FaFileExcel,
   FaFilePdf,
-  FaFilter,
   FaSearch,
   FaColumns,
 } from "react-icons/fa";
@@ -456,23 +455,23 @@ const ReportTable: React.FC<ReportTableProps> = ({
     <div className="relative">
       {isLoading && <Loader fullScreen />}
 
-      <div className="space-y-4 text-xs sm:text-sm">
+      <div className="space-y-2 text-[13px]">
 
         {/* Title + Financial Year */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
-          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-xs sm:text-sm font-bold border border-indigo-200">
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <span className="inline-flex h-7 items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 text-[12px] font-semibold text-indigo-700">
             {fyInfo()}
           </span>
         </div>
 
         {/* ── Filter panel ── */}
         {filterFields.length > 0 && (
-          <div className="bg-gray-50 border rounded-lg p-4 shadow-sm">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
             {/* Filter inputs */}
-            <div className="flex flex-wrap gap-3 mb-3">
+            <div className="flex flex-wrap items-end gap-3">
               {filterFields.map((field) => (
-                <div key={field.name} className="w-52">
+                <div key={field.name} className="w-48">
                   <FormField
                     label={field.label}
                     name={field.name}
@@ -496,45 +495,45 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   />
                 </div>
               ))}
-            </div>
 
-            {/* Apply + Reset buttons — same row */}
-            <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-gray-200">
+            {/* Apply + Reset — on the same line as the filters */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleApply}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 !bg-slate-900 !text-white rounded-md hover:!bg-black text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-slate-900"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700"
               >
-                <FaCheck className="!text-white flex-shrink-0" size={14} />
-                <span className="!text-white font-bold">Apply Filter</span>
+                <FaCheck size={11} />
+                <span>Apply</span>
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 !bg-gray-600 !text-white rounded-md hover:!bg-gray-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-gray-600"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
               >
-                <FaSync className="!text-white flex-shrink-0" size={14} />
-                <span className="!text-white font-bold">Reset Filter</span>
+                <FaSync size={11} />
+                <span>Reset</span>
               </button>
+            </div>
             </div>
           </div>
         )}
 
         {/* ── Toolbar: entries + export buttons + search ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
           {/* Left: entries selector + export buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1">
-              <span className="text-gray-600">Show</span>
+              <span className="text-slate-500">Show</span>
               <select
                 value={entriesPerPage}
                 onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="border rounded px-2 py-1 text-sm bg-white"
+                className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px]"
               >
                 {entriesOptions.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
-              <span className="text-gray-600">entries</span>
+              <span className="text-slate-500">rows</span>
             </div>
 
             {/* Export buttons with visible icon + text */}
@@ -544,9 +543,9 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   <button
                     type="button"
                     onClick={() => setColMenuOpen((v) => !v)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-md hover:bg-gray-100 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-gray-300"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    <FaColumns className="flex-shrink-0" size={14} />
+                    <FaColumns className="text-slate-500" size={12} />
                     <span>Columns ({columns.length}/{allColumns.length})</span>
                   </button>
                   {colMenuOpen && (
@@ -584,30 +583,30 @@ const ReportTable: React.FC<ReportTableProps> = ({
                 <button
                   type="button"
                   onClick={handleExcelExport}
-                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-emerald-600 !text-white rounded-md hover:!bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-emerald-600"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50" title="Export to Excel"
                 >
-                  <FaFileExcel className="!text-white flex-shrink-0" size={15} />
-                  <span className="!text-white font-bold">Export Excel</span>
+                  <FaFileExcel className="text-emerald-600" size={12} />
+                  <span>Excel</span>
                 </button>
               )}
               {finalShowCsv && (
                 <button
                   type="button"
                   onClick={handleCsvExport}
-                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-teal-600 !text-white rounded-md hover:!bg-teal-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-teal-600"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50" title="Export to CSV"
                 >
-                  <FaFileCsv className="!text-white flex-shrink-0" size={15} />
-                  <span className="!text-white font-bold">Export CSV</span>
+                  <FaFileCsv className="text-teal-600" size={12} />
+                  <span>CSV</span>
                 </button>
               )}
               {finalShowPdf && (
                 <button
                   type="button"
                   onClick={handlePdfExport}
-                  className="flex items-center justify-center gap-2 px-4 py-2 !bg-rose-600 !text-white rounded-md hover:!bg-rose-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-rose-600"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50" title="Export to PDF"
                 >
-                  <FaFilePdf className="!text-white flex-shrink-0" size={15} />
-                  <span className="!text-white font-bold">Export PDF</span>
+                  <FaFilePdf className="text-rose-600" size={12} />
+                  <span>PDF</span>
                 </button>
               )}
             </div>
@@ -615,48 +614,48 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
           {/* Right: global search */}
           <div className="flex items-center gap-2">
-            <span className="text-gray-600 text-sm">Search:</span>
+            
             <div className="relative">
-              <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+              <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400" />
               <input
                 type="text"
                 value={globalSearch}
                 onChange={(e) => { setGlobalSearch(e.target.value); setCurrentPage(1); }}
                 placeholder="Search all columns..."
-                className="pl-6 pr-3 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 w-52"
+                className="h-8 w-56 rounded-md border border-slate-300 bg-white pl-7 pr-3 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
         </div>
 
         {/* ── Table ── */}
-        <div className="overflow-auto border rounded shadow-sm">
-          <table className="min-w-full text-xs sm:text-sm text-left">
-            <thead className="bg-gray-100 text-gray-700">
+        <div className="max-h-[calc(100vh-230px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+          <table className="min-w-full text-left text-[12.5px]">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
               {/* Column headers with filter icon */}
               <tr>
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-3 py-2 whitespace-nowrap font-semibold border-b ${col.numeric ? "text-right" : ""}`}
+                    className={`whitespace-nowrap px-2 pt-2 pb-1 text-[10.5px] font-semibold uppercase ${col.numeric ? "text-right" : ""}`}
                   >
                     <div className={`flex items-center gap-1 ${col.numeric ? "justify-end" : ""}`}>
                       {col.label}
-                      <FaFilter className="text-gray-400 text-xs flex-shrink-0" />
+                      
                     </div>
                   </th>
                 ))}
               </tr>
               {/* Per-column inline filter row */}
-              <tr className="bg-gray-50">
+              <tr className="border-b border-slate-200 bg-slate-50">
                 {columns.map((col) => (
-                  <th key={col.key} className="px-2 py-1 border-b">
+                  <th key={col.key} className="px-2 pb-1.5">
                     <input
                       type="text"
                       value={colFilters[col.key] || ""}
                       onChange={(e) => handleColFilter(col.key, e.target.value)}
                       placeholder={`Filter`}
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400"
+                      className="h-7 w-full min-w-[48px] rounded border border-slate-200 bg-white px-2 text-[12px] font-normal outline-none focus:border-indigo-400"
                     />
                   </th>
                 ))}
@@ -669,12 +668,12 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   {paginatedData.map((row, i) => (
                     <tr
                       key={i}
-                      className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
+                      className={`border-b border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-indigo-50`}
                     >
                       {columns.map((col) => (
                         <td
                           key={col.key}
-                          className={`px-3 py-2 whitespace-nowrap ${col.numeric ? "text-right font-mono" : ""}`}
+                          className={`whitespace-nowrap px-2 py-1.5 text-slate-800 ${col.numeric ? "text-right tabular-nums" : ""}`}
                         >
                           {col.render ? col.render(row) : (row[col.key] ?? "")}
                         </td>
@@ -684,15 +683,15 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
                   {/* Tally-style totals row */}
                   {totalsRow && (
-                    <tr className="border-t-2 border-gray-500 bg-blue-50 font-bold text-gray-800">
+                    <tr className="sticky bottom-0 border-t border-slate-300 bg-indigo-50 font-semibold text-slate-800">
                       {columns.map((col, idx) => {
                         const isNetCell =
                           netTotalInfo != null && col.key === netTotalInfo.key;
                         return (
                           <td
                             key={col.key}
-                            className={`px-3 py-2 whitespace-nowrap ${
-                              col.numeric || isNetCell ? "text-right font-mono" : ""
+                            className={`whitespace-nowrap px-2 py-1.5 ${
+                              col.numeric || isNetCell ? "text-right tabular-nums" : ""
                             }`}
                           >
                             {totalsRow[idx] !== null
@@ -710,7 +709,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="text-center text-gray-400 py-12 text-sm"
+                    className="py-8 text-center text-[13px] text-slate-400"
                   >
                     No records found. Adjust filters and click <strong>Apply</strong>.
                   </td>
@@ -721,7 +720,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
         </div>
 
         {/* ── Pagination footer ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-600">
+        <div className="flex flex-col gap-2 text-[12px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>
             Showing{" "}
             <strong>
@@ -736,17 +735,17 @@ const ReportTable: React.FC<ReportTableProps> = ({
             <button
               onClick={() => changePage("prev")}
               disabled={safePage <= 1}
-              className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               ‹ Prev
             </button>
-            <span className="px-3 py-1 bg-blue-600 text-white rounded font-medium">
+            <span className="inline-flex h-7 items-center rounded bg-indigo-600 px-2.5 font-semibold text-white">
               {safePage} / {totalPages}
             </span>
             <button
               onClick={() => changePage("next")}
               disabled={safePage >= totalPages}
-              className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next ›
             </button>

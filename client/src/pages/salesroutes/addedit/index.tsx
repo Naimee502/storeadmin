@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import {
   useCreateSalesRoute,
   useUpdateSalesRoute,
@@ -245,23 +245,24 @@ const SalesRouteAddEdit: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-10">
-        <form onSubmit={handleSubmit}>
-
-          {/* ── Header ─────────────────────────────────────────────────────────── */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold">
-              {isEdit ? "Edit Sales Route" : "Add Sales Route"}
-            </h2>
-            <div className="flex gap-2 text-sm">
-              <span className="bg-blue-100 text-blue-800 rounded-full px-3 py-1 font-medium">
-                📅 {visitdays.length} Day{visitdays.length !== 1 ? "s" : ""}
-              </span>
-              <span className="bg-green-100 text-green-800 rounded-full px-3 py-1 font-medium">
-                🏪 {totalUniqueParties} Part{totalUniqueParties !== 1 ? "ies" : "y"}
-              </span>
-            </div>
+      <FormPage
+        breadcrumb="Sales Routes"
+        title={isEdit ? "Edit Sales Route" : "Add Sales Route"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate("/salesroutes")}
+        saveLabel={loading ? "Saving..." : isEdit ? "Update Route" : "Save Route"}
+        saveDisabled={loading}
+        actions={
+          <div className="flex gap-2 text-sm">
+            <span className="bg-blue-100 text-blue-800 rounded-full px-3 py-1 font-medium">
+              📅 {visitdays.length} Day{visitdays.length !== 1 ? "s" : ""}
+            </span>
+            <span className="bg-green-100 text-green-800 rounded-full px-3 py-1 font-medium">
+              🏪 {totalUniqueParties} Part{totalUniqueParties !== 1 ? "ies" : "y"}
+            </span>
           </div>
+        }
+      >
 
           <div className="space-y-6">
             {/* ── Section 1: Basic Info ────────────────────────────────────────────── */}
@@ -517,18 +518,8 @@ const SalesRouteAddEdit: React.FC = () => {
               </div>
             </fieldset>
           )}
-          {/* ── Action Buttons ───────────────────────────────────────────────────── */}
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" type="button" onClick={() => navigate("/salesroutes")}>
-              Cancel
-            </Button>
-            <Button variant="outline" type="submit" disabled={loading}>
-              {loading ? "Saving..." : isEdit ? "Update Route" : "Save Route"}
-            </Button>
           </div>
-          </div>
-        </form>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

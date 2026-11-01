@@ -56,7 +56,7 @@ const StatusDropdown: React.FC<{
   }, [open]);
 
   const Badge = (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset ${st.badge}`}>
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${st.badge}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
       {cap(current)}
     </span>
@@ -70,7 +70,7 @@ const StatusDropdown: React.FC<{
         ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset transition hover:brightness-95 ${st.badge}`}
+        className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset transition hover:brightness-95 ${st.badge}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
         {cap(current)}

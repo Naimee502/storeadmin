@@ -65,7 +65,7 @@ const STATUS_COLORS: Record<string, string> = {
 const StatusBadge: React.FC<{ value: string }> = ({ value }) => {
   const cls = STATUS_COLORS[value?.toLowerCase()] || "bg-gray-100 text-gray-700";
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>
       {cap(value)}
     </span>
   );
@@ -74,11 +74,11 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => {
 /* ─── Stat card ────────────────────────────────────────────────────── */
 
 const StatCard: React.FC<{ label: string; value: number | string; color: string; icon?: React.ReactNode }> = ({ label, value, color, icon }) => (
-  <div className={`rounded-xl border p-4 flex items-center gap-3 bg-white`}>
-    {icon && <div className={`text-2xl ${color}`}>{icon}</div>}
+  <div className={`rounded-md border border-slate-200 bg-white px-3 py-2 flex items-center gap-2.5`}>
+    {icon && <div className={`text-base ${color}`}>{icon}</div>}
     <div>
-      <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</div>
-      <div className="text-2xl font-bold text-gray-800">{value}</div>
+      <div className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">{label}</div>
+      <div className="text-[18px] font-semibold leading-tight text-slate-900">{value}</div>
     </div>
   </div>
 );
@@ -92,24 +92,24 @@ const BalanceCard: React.FC<{ type: any; allocated: number; used: number; pendin
   const color    = type?.color || "#3b82f6";
 
   return (
-    <div className="bg-white rounded-xl border p-4 min-w-[200px]">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-        <span className="font-semibold text-sm text-gray-800 truncate">{type?.name || "Leave"}</span>
-        <span className="ml-auto text-xs text-gray-500 font-mono">{type?.code}</span>
+    <div className="bg-white rounded-md border border-slate-200 px-3 py-2 min-w-[190px]">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+        <span className="font-semibold text-[13px] text-slate-800 truncate">{type?.name || "Leave"}</span>
+        <span className="ml-auto text-[11px] text-slate-500 font-mono">{type?.code}</span>
       </div>
       {/* progress bar */}
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2 flex">
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5 flex">
         <div className="h-full rounded-l-full bg-red-400 transition-all" style={{ width: `${usedPct}%` }} />
         <div className="h-full bg-yellow-300 transition-all" style={{ width: `${pendPct}%` }} />
       </div>
-      <div className="grid grid-cols-2 gap-x-3 text-xs text-gray-600">
+      <div className="grid grid-cols-2 gap-x-3 text-[11.5px] text-slate-600">
         <div><span className="font-semibold text-gray-800">{balance}</span> remaining</div>
         <div><span className="font-semibold text-gray-800">{used}</span> used</div>
         <div><span className="font-semibold text-gray-800">{pending}</span> pending</div>
         <div><span className="font-semibold text-gray-800">{carried}</span> C/F</div>
       </div>
-      <div className="mt-1 text-xs text-gray-400">Allocated: {allocated}{carried > 0 ? ` + ${carried} C/F` : ""}</div>
+      <div className="mt-0.5 text-[11px] text-slate-400">Allocated: {allocated}{carried > 0 ? ` + ${carried} C/F` : ""}</div>
     </div>
   );
 };
@@ -142,7 +142,7 @@ const Attendance: React.FC = () => {
   const SelfieThumb = ({ url, caption }: { url?: string | null; caption: string }) =>
     url ? (
       <button type="button" onClick={() => setSelfiePreview({ url, caption })} title="View selfie" className="block">
-        <img src={url} alt="selfie" loading="lazy" className="w-9 h-9 rounded-full object-cover border-2 border-green-500 hover:opacity-80" />
+        <img src={url} alt="selfie" loading="lazy" className="w-7 h-7 rounded-full object-cover border border-green-500 hover:opacity-80" />
       </button>
     ) : <span className="text-xs text-gray-400">—</span>;
 
@@ -440,12 +440,12 @@ const Attendance: React.FC = () => {
   const pendReqs = allReqs.filter((r: any) => r.status === "pending");
 
   const renderOverviewTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-3">
 
       {/* Today's Stats */}
       <div>
-        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Today — {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Today — {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <StatCard label="Present"  value={todayS?.presentDays ?? 0}  color="text-green-600"  icon={<FaUserClock />} />
           <StatCard label="Absent"   value={todayS?.absentDays ?? 0}   color="text-red-500"    icon={<FaTimes />} />
           <StatCard label="On Leave" value={todayS?.leaveDays ?? 0}    color="text-blue-500"   icon={<FaLeaf />} />
@@ -457,29 +457,29 @@ const Attendance: React.FC = () => {
 
       {/* Pending Leave Requests */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Pending Leave Requests
             {pendReqs.length > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500 text-white text-xs font-bold">{pendReqs.length}</span>
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-yellow-500 text-white text-[10px] font-bold">{pendReqs.length}</span>
             )}
           </div>
           {pendReqs.length > 0 && (
-            <button onClick={() => setTab("leaverequests")} className="text-xs text-blue-600 hover:underline">View all</button>
+            <button onClick={() => setTab("leaverequests")} className="text-[12px] font-medium text-indigo-600 hover:underline">View all</button>
           )}
         </div>
 
         {pendReqs.length === 0 ? (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-6 text-center text-green-700 text-sm font-medium">
+          <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-6 text-center text-green-700 text-[13px] font-medium">
             No pending leave requests
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
             {pendReqs.slice(0, 8).map((r: any) => (
-              <div key={r.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div key={r.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-800 text-sm">{r.staffid?.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-2">
+                  <div className="font-semibold text-slate-800 text-[13px]">{r.staffid?.name}</div>
+                  <div className="text-[12px] text-slate-500 flex flex-wrap gap-1.5">
                     <span style={{ color: r.leavetypeid?.color || "#3b82f6" }} className="font-medium">
                       {r.leavetypeid?.name}
                     </span>
@@ -488,25 +488,25 @@ const Attendance: React.FC = () => {
                     <span>·</span>
                     <span className="font-medium">{r.totalDays} day{r.totalDays !== 1 ? "s" : ""}</span>
                   </div>
-                  {r.reason && <div className="text-xs text-gray-400 mt-0.5 truncate">{r.reason}</div>}
+                  {r.reason && <div className="text-[12px] text-slate-400 truncate">{r.reason}</div>}
                 </div>
                 {!isStaff && (
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => handleApprove(r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold border border-green-200 transition"
+                      className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-600 px-2.5 text-[12px] font-medium text-white hover:bg-emerald-700 transition"
                     >
                       <FaCheck size={10} /> Approve
                     </button>
                     <button
                       onClick={() => openModal("rejectLeave", { rejectionReason: "" }, r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold border border-red-200 transition"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 text-[12px] font-medium text-rose-700 hover:bg-rose-50 transition"
                     >
                       <FaTimes size={10} /> Reject
                     </button>
                     <button
                       onClick={() => handleCancel(r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold border border-gray-200 transition"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition"
                     >
                       <FaBan size={10} /> Cancel
                     </button>
@@ -521,8 +521,8 @@ const Attendance: React.FC = () => {
       {/* Quick leave balance summary for staff */}
       {isStaff && (
         <div>
-          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">My Leave Balances</div>
-          <div className="flex flex-wrap gap-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">My Leave Balances</div>
+          <div className="flex flex-wrap gap-2">
             {(leaveBalancesQ.data?.getLeaveBalances ?? [])
               .filter((b: any) => b.year === new Date().getFullYear())
               .map((b: any) => (
@@ -562,10 +562,10 @@ const Attendance: React.FC = () => {
   }));
 
   const renderAttendanceTab = () => (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <FormField label="From Date" name="dateFrom" type="date" value={logFilter.dateFrom}
             onChange={(e: any) => setLogFilter(p => ({ ...p, dateFrom: e.target.value }))} />
           <FormField label="To Date" name="dateTo" type="date" value={logFilter.dateTo}
@@ -597,10 +597,10 @@ const Attendance: React.FC = () => {
             ["Late",     summary.lateDays,      "bg-orange-500"],
             ["OT (h)",   Math.round((summary.overtimeMinutes || 0)/60), "bg-teal-500"],
           ] as [string, number, string][]).map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-lg border border-gray-200 p-2 text-center">
-              <div className={`w-2 h-2 rounded-full ${color} mx-auto mb-1`} />
-              <div className="text-lg font-bold text-gray-800">{value}</div>
-              <div className="text-xs text-gray-500">{label}</div>
+            <div key={label} className="bg-white rounded-md border border-slate-200 px-2 py-1.5 text-center">
+              <div className={`w-1.5 h-1.5 rounded-full ${color} mx-auto mb-0.5`} />
+              <div className="text-[16px] font-semibold leading-tight text-slate-900">{value}</div>
+              <div className="text-[11px] uppercase text-slate-500">{label}</div>
             </div>
           ))}
         </div>
@@ -622,7 +622,7 @@ const Attendance: React.FC = () => {
           {
             label: "Late",     key: "lateLabel",
             render: (v: any) => v ? (
-              <span className="text-xs text-orange-600 font-medium">{v}</span>
+              <span className="text-[12px] text-orange-600 font-medium">{v}</span>
             ) : <span className="text-xs text-gray-400">—</span>,
           },
           { label: "First In", key: "firstIn" },
@@ -683,15 +683,15 @@ const Attendance: React.FC = () => {
   const renderLeaveRequestsTab = () => (
     <div className="space-y-3">
       {/* Status filter */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-wrap gap-1 items-center">
         {(["", "pending", "approved", "rejected", "cancelled"] as const).map(s => (
           <button
             key={s || "all"}
             onClick={() => setLrStatus(s)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+            className={`h-7 px-2.5 rounded-md text-[12px] font-medium border transition ${
               lrStatus === s
-                ? "bg-gray-800 text-white border-gray-800"
-                : "bg-white text-gray-600 border-gray-300 hover:border-gray-500"
+                ? "bg-indigo-50 text-indigo-700 border-indigo-300"
+                : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
             }`}
           >
             {s ? cap(s) : "All"} {!s && `(${(leaveRequestsQ.data?.getLeaveRequests ?? []).length})`}
@@ -708,8 +708,8 @@ const Attendance: React.FC = () => {
           {
             label: "Type",   key: "typeName",
             render: (v: any, row: any) => (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: row.typeColor || "#3b82f6" }} />
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: row.typeColor || "#3b82f6" }} />
                 {v}
               </span>
             ),
@@ -729,21 +729,21 @@ const Attendance: React.FC = () => {
                 <div className="flex gap-1 flex-nowrap">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleApprove(row); }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold border border-green-200"
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-600 px-2.5 text-[12px] font-medium text-white hover:bg-emerald-700"
                     title="Approve"
                   >
                     <FaCheck size={9} /> Approve
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); openModal("rejectLeave", { rejectionReason: "" }, row); }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold border border-red-200"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 text-[12px] font-medium text-rose-700 hover:bg-rose-50"
                     title="Reject"
                   >
                     <FaTimes size={9} /> Reject
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleCancel(row); }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold border border-gray-200"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
                     title="Cancel"
                   >
                     <FaBan size={9} /> Cancel
@@ -805,29 +805,29 @@ const Attendance: React.FC = () => {
   const [balanceView, setBalanceView] = useState<"cards"|"table">("cards");
 
   const renderLeaveBalancesTab = () => (
-    <div className="space-y-4">
-      <div className="flex justify-end gap-2">
+    <div className="space-y-3">
+      <div className="flex justify-end gap-1">
         <button onClick={() => setBalanceView("cards")}
-          className={`px-3 py-1 rounded text-xs font-semibold border ${balanceView === "cards" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-600 border-gray-300"}`}>
+          className={`h-7 px-2.5 rounded-md text-[12px] font-medium border ${balanceView === "cards" ? "bg-indigo-50 text-indigo-700 border-indigo-300" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
           Cards
         </button>
         <button onClick={() => setBalanceView("table")}
-          className={`px-3 py-1 rounded text-xs font-semibold border ${balanceView === "table" ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-600 border-gray-300"}`}>
+          className={`h-7 px-2.5 rounded-md text-[12px] font-medium border ${balanceView === "table" ? "bg-indigo-50 text-indigo-700 border-indigo-300" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
           Table
         </button>
       </div>
 
       {balanceView === "cards" ? (
-        <div className="space-y-6">
+        <div className="space-y-2">
           {balancesByStaff.map(({ staff: s, balances }) => (
-            <div key={s?.id || "unknown"} className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+            <div key={s?.id || "unknown"} className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="font-semibold text-[13px] text-slate-800 mb-2 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[11px] font-bold">
                   {s?.name?.[0] ?? "?"}
                 </div>
-                {s?.name ?? "Unknown"} <span className="text-xs text-gray-400 font-normal">{s?.staffcode}</span>
+                {s?.name ?? "Unknown"} <span className="text-[11px] text-slate-400 font-normal">{s?.staffcode}</span>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {balances.map((b: any) => (
                   <BalanceCard key={b.id}
                     type={b.leavetypeid}
@@ -840,7 +840,7 @@ const Attendance: React.FC = () => {
             </div>
           ))}
           {balancesByStaff.length === 0 && (
-            <div className="text-center text-gray-400 py-12 border border-dashed rounded-xl">
+            <div className="text-center text-slate-400 py-6 text-[13px] border border-dashed border-slate-300 rounded-lg">
               No leave balances found. Add balances for each staff member.
             </div>
           )}
@@ -858,7 +858,7 @@ const Attendance: React.FC = () => {
             { label: "Used",      key: "used" },
             { label: "Pending",   key: "pending" },
             { label: "Balance",   key: "balance",
-              render: (v: any) => <span className={`font-bold ${v > 0 ? "text-green-600" : "text-red-500"}`}>{v}</span> },
+              render: (v: any) => <span className={`font-semibold ${v > 0 ? "text-green-600" : "text-red-500"}`}>{v}</span> },
           ]}
           data={balanceRows}
           {...actions}
@@ -897,7 +897,7 @@ const Attendance: React.FC = () => {
           label: "Type",        key: "type",
           render: (v: any) => {
             const colors: Record<string, string> = { public: "bg-purple-100 text-purple-700", company: "bg-blue-100 text-blue-700", regional: "bg-green-100 text-green-700", optional: "bg-gray-100 text-gray-600" };
-            return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colors[v] || ""}`}>{cap(v)}</span>;
+            return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${colors[v] || ""}`}>{cap(v)}</span>;
           },
         },
         { label: "Description", key: "descriptionLabel" },
@@ -935,7 +935,7 @@ const Attendance: React.FC = () => {
           label: "Name",    key: "name",
           render: (v: any, row: any) => (
             <span className="inline-flex items-center gap-2 font-medium">
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: row.color || "#3b82f6" }} />
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: row.color || "#3b82f6" }} />
               {v}
             </span>
           ),
@@ -944,7 +944,7 @@ const Attendance: React.FC = () => {
         { label: "Days/Yr", key: "totalDaysPerYear" },
         {
           label: "Paid",    key: "isPaid",
-          render: (v: any) => <span className={`text-xs font-semibold ${v ? "text-green-600" : "text-gray-500"}`}>{v ? "Paid" : "Unpaid"}</span>,
+          render: (v: any) => <span className={`text-[12px] font-medium ${v ? "text-green-600" : "text-gray-500"}`}>{v ? "Paid" : "Unpaid"}</span>,
         },
         { label: "Accrual", key: "accrualLabel" },
         {
@@ -1007,12 +1007,12 @@ const Attendance: React.FC = () => {
   const staffList = staffQ.data?.getStaffAccounts ?? [];
   const renderCardsTab = () => (
     <>
-      <div className="flex justify-between items-center mb-3">
-        <div className="text-sm text-gray-600">{staffList.length} staff member{staffList.length !== 1 ? "s" : ""}</div>
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-[13px] text-slate-600">{staffList.length} staff member{staffList.length !== 1 ? "s" : ""}</div>
         <Button variant="outline" icon={<FaPrint />} onClick={() => handlePrintCards(staffList.map((s: any) => s.id))} disabled={!staffList.length}>Print All</Button>
       </div>
       {staffList.length === 0 ? (
-        <div className="text-center text-gray-500 py-12 border border-dashed rounded-lg">No staff members found.</div>
+        <div className="text-center text-slate-500 py-6 text-[13px] border border-dashed border-slate-300 rounded-lg">No staff members found.</div>
       ) : (
         <div className="flex flex-wrap gap-2">
           {staffList.map((s: any) => (
@@ -1110,7 +1110,7 @@ const Attendance: React.FC = () => {
   /* Modal content                                                  */
   /* ═══════════════════════════════════════════════════════════════ */
   const Buttons: React.FC<{ onSubmit: () => void }> = ({ onSubmit }) => (
-    <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+    <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 mt-3">
       <Button variant="outline" onClick={closeModal}>Cancel</Button>
       <Button variant="outline" onClick={onSubmit}>Save</Button>
     </div>
@@ -1173,8 +1173,8 @@ const Attendance: React.FC = () => {
           <FormField label="Carry Forward"    name="carryForward"      type="checkbox" value={form.carryForward}      onChange={onChange} />
           <FormField label="Max C/F Days"     name="maxCarryForward"   type="number"   value={form.maxCarryForward}   onChange={onChange} />
           <div className="flex items-center gap-2 pt-5">
-            <label className="text-xs text-gray-600 font-medium">Color</label>
-            <input type="color" name="color" value={form.color || "#3b82f6"} onChange={onChange} className="w-8 h-8 rounded cursor-pointer border border-gray-300" />
+            <label className="text-[12px] text-slate-600 font-medium">Color</label>
+            <input type="color" name="color" value={form.color || "#3b82f6"} onChange={onChange} className="w-8 h-8 rounded-md cursor-pointer border border-slate-300" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -1196,7 +1196,7 @@ const Attendance: React.FC = () => {
         <FormField label="Leave Type" name="leavetypeid" type="select" options={leaveTypeOptions} value={form.leavetypeid} onChange={onChange} searchable required error={formErrors.leavetypeid} />
         {/* Balance indicator */}
         {selectedBalance && (
-          <div className={`text-xs px-3 py-2 rounded-lg flex items-center gap-2 ${selectedBalance.balance > 0 ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+          <div className={`text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-2 ${selectedBalance.balance > 0 ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
             <span className="font-semibold">{selectedBalance.balance} day{selectedBalance.balance !== 1 ? "s" : ""} available</span>
             <span className="text-gray-400">({selectedBalance.used} used of {selectedBalance.allocated + selectedBalance.carriedForward})</span>
             {selectedBalance.balance === 0 && <span className="font-bold">— Balance exhausted!</span>}
@@ -1220,7 +1220,7 @@ const Attendance: React.FC = () => {
 
     if (modal === "rejectLeave") return (
       <div className="space-y-3">
-        <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
+        <div className="bg-slate-50 rounded-md px-2.5 py-1.5 text-[13px] text-slate-600">
           Rejecting leave for: <strong>{editing?.staffid?.name || editing?.staffName}</strong>
         </div>
         <FormField label="Rejection Reason" name="rejectionReason" value={form.rejectionReason} onChange={onChange} required error={formErrors.rejectionReason} />
@@ -1258,9 +1258,9 @@ const Attendance: React.FC = () => {
   /* ═══════════════════════════════════════════════════════════════ */
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Attendance &amp; Leave</h1>
+      <div className="w-full p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-base font-semibold text-slate-900">Attendance &amp; Leave</h1>
           <div className="flex gap-2">
             <Button variant="outline" icon={<FaQrcode />} onClick={() => { setScanType("in"); setScanBuffer(""); setScanOpen(true); }}>
               Scan Punch
@@ -1272,20 +1272,20 @@ const Attendance: React.FC = () => {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex flex-wrap">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-            <TabsTrigger value="leaverequests">
+          <TabsList className="flex flex-wrap gap-1 bg-slate-100 p-0.5">
+            <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="overview">Overview</TabsTrigger>
+            <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="attendance">Attendance</TabsTrigger>
+            <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="leaverequests">
               Leave Requests
               {pendReqs.length > 0 && !isStaff && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-500 text-white text-[9px] font-bold">{pendReqs.length}</span>
+                <span className="ml-1 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-yellow-500 text-white text-[10px] font-bold">{pendReqs.length}</span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="leavebalances">Leave Balances</TabsTrigger>
-            {!isStaff && <TabsTrigger value="holidays">Holidays</TabsTrigger>}
-            {!isStaff && <TabsTrigger value="leavetypes">Leave Types</TabsTrigger>}
-            {!isStaff && <TabsTrigger value="punches">Punches</TabsTrigger>}
-            {!isStaff && <TabsTrigger value="cards">Staff Cards</TabsTrigger>}
+            <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="leavebalances">Leave Balances</TabsTrigger>
+            {!isStaff && <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="holidays">Holidays</TabsTrigger>}
+            {!isStaff && <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="leavetypes">Leave Types</TabsTrigger>}
+            {!isStaff && <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="punches">Punches</TabsTrigger>}
+            {!isStaff && <TabsTrigger className="h-8 px-3! py-0! text-[13px]!" value="cards">Staff Cards</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview">{renderOverviewTab()}</TabsContent>
@@ -1308,23 +1308,23 @@ const Attendance: React.FC = () => {
           <div className="space-y-3">
             <FormField label="Punch Type" name="scanType" type="select" options={[{ value:"in",label:"Punch In" },{ value:"out",label:"Punch Out" },{ value:"breakstart",label:"Break Start" },{ value:"breakend",label:"Break End" }]} value={scanType} onChange={(e: any) => setScanType(e.target.value)} />
             <div>
-              <label className="text-sm font-medium text-gray-700">Scan or type staff code</label>
+              <label className="text-[12px] font-medium text-slate-600">Scan or type staff code</label>
               <input
                 ref={scanInputRef}
                 value={scanBuffer}
                 onChange={e => setScanBuffer(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleScanSubmit(scanBuffer); setScanBuffer(""); } }}
                 placeholder="Scan barcode or type code, press Enter"
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-1 w-full h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 autoFocus
               />
             </div>
             {scanLog.length > 0 && (
-              <div className="border-t pt-3">
-                <div className="text-sm font-semibold mb-2">Recent scans</div>
+              <div className="border-t border-slate-200 pt-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Recent scans</div>
                 <div className="max-h-48 overflow-auto space-y-1">
                   {scanLog.map((entry, i) => (
-                    <div key={i} className={`text-sm flex justify-between px-2 py-1 rounded ${entry.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+                    <div key={i} className={`text-[12.5px] flex justify-between px-2 py-1 rounded ${entry.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
                       <span>{entry.staff} · {entry.type}</span>
                       <span className="text-xs">{entry.at}</span>
                     </div>
@@ -1339,15 +1339,15 @@ const Attendance: React.FC = () => {
         </Modal>
         {selfiePreview && (
           <div
-            className="fixed inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[1100] bg-black/60 flex items-center justify-center p-4"
             onClick={() => setSelfiePreview(null)}
           >
-            <div className="bg-white rounded-2xl shadow-xl p-3 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-sm font-semibold text-gray-700 truncate">{selfiePreview.caption}</span>
-                <button type="button" onClick={() => setSelfiePreview(null)} className="text-gray-500 hover:text-gray-800 text-xl leading-none px-1" aria-label="Close">×</button>
+            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">
+                <span className="text-base font-semibold text-slate-800 truncate">{selfiePreview.caption}</span>
+                <button type="button" onClick={() => setSelfiePreview(null)} className="text-slate-500 hover:text-slate-800 text-lg leading-none px-1" aria-label="Close">×</button>
               </div>
-              <img src={selfiePreview.url} alt="selfie" className="w-full max-h-[60vh] object-contain rounded-xl bg-gray-50" />
+              <img src={selfiePreview.url} alt="selfie" className="w-full max-h-[60vh] object-contain bg-slate-50 p-4" />
             </div>
           </div>
         )}

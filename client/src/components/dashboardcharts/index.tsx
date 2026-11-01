@@ -291,24 +291,24 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   if (allowedTabs.length === 0) return null;
 
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-lg shadow-xs border border-gray-200 space-y-4 font-sans mt-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
-        <div>
-          <h2 className="text-base font-bold text-[#2c3e50]">Comprehensive Module Analytics</h2>
-          <p className="text-xs text-gray-500">Interactive charts covering financial ledgers, inventory movement, orders, and staff</p>
+    <div className="rounded-lg border border-slate-200 bg-white p-2.5 font-sans">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-2">
+        <div className="min-w-0 lg:flex-1">
+          <h2 className="text-[13px] font-semibold text-slate-900">Comprehensive Module Analytics</h2>
+          <p className="truncate text-[11px] text-slate-500">Interactive charts covering financial ledgers, inventory movement, orders, and staff</p>
         </div>
-        <div className="flex flex-wrap gap-1 bg-gray-50 p-1 rounded border border-gray-200">
+        <div className="flex shrink-0 flex-wrap gap-1 lg:flex-nowrap">
           {allowedTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded transition-all ${
+              className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border px-2 text-[12px] font-medium transition-colors ${
                 activeTab === t.id
-                  ? "!bg-slate-900 !text-white shadow-sm"
-                  : "text-gray-700 hover:text-black hover:bg-gray-200 bg-white border border-gray-200"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              <span className="text-xs">{t.icon}</span>
+              <span className="text-[11px]">{t.icon}</span>
               {t.label}
             </button>
           ))}
@@ -318,7 +318,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       <div>
         {/* Exactly 4 charts in Row 1 */}
         {activeTab === "core" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4.5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             <MonthlySalesChart salesInvoices={invoices} />
             <RevenueAndSalesChart salesInvoices={invoices} />
             <StockInOutDoughnutChart
@@ -334,7 +334,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
 
         {/* Exactly 4 charts in Row 2 */}
         {activeTab === "sales" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4.5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             <DailySalesChart salesInvoices={invoices} />
             <TargetVsSalesChart salesInvoices={invoices} salesOrders={salesOrders} staff={staff} />
             <CategoryWiseSalesChart
@@ -348,47 +348,47 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
 
         {/* Exactly 4 professional visual charts in Row 3 */}
         {activeTab === "orders" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4.5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             {/* Chart 1: Order Conversion Bar Chart */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Order Conversion</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Pending vs invoiced fulfillment</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Order Conversion</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Pending vs invoiced fulfillment</p>
               </div>
-              <div className="flex-1 min-h-[220px]">
+              <div className="flex-1 min-h-[150px]">
                 <Bar data={orderFunnelData} options={orderOptions} />
               </div>
             </div>
 
             {/* Chart 2: Returns Valuation Doughnut Chart */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Return Shipments Share</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Credit notes vs Debit notes share</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Return Shipments Share</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Credit notes vs Debit notes share</p>
               </div>
-              <div className="flex-1 relative min-h-[200px] flex items-center justify-center py-2">
+              <div className="flex-1 relative min-h-[140px] flex items-center justify-center py-2">
                 <Doughnut data={returnsValuationData} options={returnValuationOptions} />
               </div>
             </div>
 
             {/* Chart 3: Monthly Sales Returns Bar Chart */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Sales Returns Trend</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Monthly customer credit note valuation</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Sales Returns Trend</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Monthly customer credit note valuation</p>
               </div>
-              <div className="flex-1 min-h-[220px]">
+              <div className="flex-1 min-h-[150px]">
                 <Bar data={monthlySRData} options={trendOptions} />
               </div>
             </div>
 
             {/* Chart 4: Monthly Purchase Returns Bar Chart */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Purchase Returns Trend</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Monthly supplier debit note claims</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Purchase Returns Trend</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Monthly supplier debit note claims</p>
               </div>
-              <div className="flex-1 min-h-[220px]">
+              <div className="flex-1 min-h-[150px]">
                 <Bar data={monthlyPRData} options={trendOptions} />
               </div>
             </div>
@@ -397,47 +397,47 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
 
         {/* Exactly 4 professional visual charts in Row 4 */}
         {activeTab === "attendance" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4.5 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-stretch">
             {/* Chart 1: Attendance Distribution */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Attendance Breakdown</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Today's active staff presence share</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Attendance Breakdown</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Today's active staff presence share</p>
               </div>
-              <div className="flex-1 relative min-h-[200px] flex items-center justify-center py-2">
+              <div className="flex-1 relative min-h-[140px] flex items-center justify-center py-2">
                 <Doughnut data={attendanceChartData} options={doughnutOptions} />
               </div>
             </div>
 
             {/* Chart 2: Staff Roster Status */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Staff Roster Status</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Active vs inactive personnel accounts</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Staff Roster Status</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Active vs inactive personnel accounts</p>
               </div>
-              <div className="flex-1 relative min-h-[200px] flex items-center justify-center py-2">
+              <div className="flex-1 relative min-h-[140px] flex items-center justify-center py-2">
                 <Doughnut data={staffStatusData} options={doughnutOptions} />
               </div>
             </div>
 
             {/* Chart 3: Leave Applications Status Bar Chart */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Leave Applications</h3>
-                <p className="text-[10px] text-gray-500 mb-2">Approval status of leave requests</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Leave Applications</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">Approval status of leave requests</p>
               </div>
-              <div className="flex-1 min-h-[220px]">
+              <div className="flex-1 min-h-[150px]">
                 <Bar data={leaveBreakdownData} options={trendOptions} />
               </div>
             </div>
 
             {/* Chart 4: Punctuality Share */}
-            <div className="bg-white p-3.5 rounded border border-gray-200 shadow-2xs flex flex-col justify-between h-80 sm:h-96">
+            <div className="rounded-md border border-slate-200 bg-white p-2.5 flex flex-col justify-between h-56 sm:h-64">
               <div>
-                <h3 className="text-xs font-bold text-[#2c3e50] mb-1 capitalize tracking-wider">Punctuality Share</h3>
-                <p className="text-[10px] text-gray-500 mb-2">On-time arrivals vs late instances</p>
+                <h3 className="text-[12px] font-semibold text-slate-900">Punctuality Share</h3>
+                <p className="text-[10.5px] text-slate-500 mb-1">On-time arrivals vs late instances</p>
               </div>
-              <div className="flex-1 relative min-h-[200px] flex items-center justify-center py-2">
+              <div className="flex-1 relative min-h-[140px] flex items-center justify-center py-2">
                 <Doughnut data={punctualityData} options={doughnutOptions} />
               </div>
             </div>

@@ -78,13 +78,13 @@ const BusinessSettings = () => {
   return (
     <HomeLayout hideNav>
       <div 
-        className="min-h-screen bg-cover bg-center py-8 px-4"
+        className="min-h-screen bg-cover bg-center p-4"
         style={{ backgroundImage: `url(${loginBg})` }}
       >
-        <div className="max-w-[95%] mx-auto bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-white/20">
-          <h1 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">Business Settings</h1>
+        <div className="max-w-[95%] mx-auto bg-white/95 backdrop-blur-sm p-4 lg:p-5 rounded-xl shadow-lg border border-white/20 space-y-3">
+          <h1 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-2">Business Settings</h1>
 
-        <div className="bg-white border rounded-lg p-3 mb-6">
+        <div className="rounded-lg border border-slate-200 bg-white p-3">
           <FormField
             label="Select Admin / Business"
             type="select"
@@ -99,15 +99,15 @@ const BusinessSettings = () => {
         {selectedAdminId ? (
           <>
             {/* Tabs */}
-            <div className="flex border-b mb-4 overflow-x-auto">
+            <div className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {visibleTabs.map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setTab(key as TabKey)}
-                  className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+                  className={`h-9 px-3 text-[13px] font-medium whitespace-nowrap outline-none focus-visible:bg-slate-100 rounded-t ${
                     tab === key
-                      ? "border-b-2 border-blue-600 text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "border-b-2 border-indigo-600 text-indigo-700"
+                      : "border-b-2 border-transparent text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {label}
@@ -144,7 +144,7 @@ const BusinessSettings = () => {
             )}
           </>
         ) : (
-          <div className="text-center py-10 bg-white/50 backdrop-blur-sm border rounded-lg text-gray-500">
+          <div className="rounded-lg border border-slate-200 bg-white py-6 text-center text-[13px] text-slate-500">
             Please select an Admin to manage business settings.
           </div>
         )}
@@ -226,7 +226,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Grouped by area, 4 switches per row. The longer explanation of each
           switch is on hover (the ⓘ next to its name), not printed below it. */}
       <Section title="Stock & Inventory">
@@ -285,7 +285,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           <Toggle label="Auto punch-out" hint="Anyone still punched in at this time is punched out automatically." checked={draft.autoPunchOutEnabled !== false} onChange={(v: boolean) => set("autoPunchOutEnabled", v)} />
         </Grid>
         {(draft.geoFenceEnabled || draft.autoPunchOutEnabled !== false) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-x-3 gap-y-2 pt-1">
             {draft.geoFenceEnabled && (
               <FormField
                 label="Geo-fence distance (metres)"
@@ -297,11 +297,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               />
             )}
             {draft.autoPunchOutEnabled !== false && (
-              <label className="flex flex-col gap-1 text-sm">
+              <label className="flex flex-col gap-1 text-[12px] font-medium text-slate-600">
                 <span>Auto punch-out time</span>
                 <input
                   type="time"
-                  className="border rounded px-2 py-2 text-sm"
+                  className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] font-normal text-slate-900"
                   value={draft.autoPunchOutTime || "22:00"}
                   onChange={(e) => set("autoPunchOutTime", e.target.value || "22:00")}
                 />
@@ -345,11 +345,11 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       </Section>
 
       <Section title="Website Storefront">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Controls your customer-facing website (clientweb) link, and which payment methods appear at checkout.
         </div>
         {/* Store handle and custom domain side by side (stacked on small screens). */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2">
           <div>
             <FormField
               label="Website Link (store handle)"
@@ -361,7 +361,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               }
             />
             {draft.storeslug && (
-              <p className="mt-1.5 text-xs text-gray-400">
+              <p className="mt-1 text-[11px] leading-snug text-slate-400">
                 Your website link:{" "}
                 <span className="font-medium text-gray-600">yourdomain.com/{draft.storeslug}</span>{" "}
                 — share this with your customers.
@@ -376,7 +376,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               value={draft.customDomain ?? ""}
               onChange={(e: any) => set("customDomain", e.target.value.toLowerCase().replace(/\s/g, ""))}
             />
-            <p className="mt-1.5 text-xs text-gray-400">
+            <p className="mt-1 text-[11px] leading-snug text-slate-400">
               {draft.customDomain ? (
                 <>
                   Store also opens at{" "}
@@ -391,10 +391,10 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             </p>
           </div>
         </div>
-        <div className="pt-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1 px-1">Website checkout payment options</label>
+        <div className="pt-1">
+          <label className="block text-[12px] font-medium text-slate-600 mb-1">Website checkout payment options</label>
           <select
-            className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-700"
+            className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] text-slate-700"
             value={draft.websitePaymentMode || (draft.websiteCodOnly ? "cod_only" : "all")}
             onChange={(e) => {
               const mode = e.target.value;
@@ -414,13 +414,13 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
       {/* The business's own mailbox for OTP mails. Blank = the platform
           mailbox sends them (with the business name as sender name). */}
       <Section title="Email (SMTP) — OTP mails from your own email">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Registration and login OTP mails for this business are sent from this mailbox (e.g.
           veer@dkmarketing.co.in). Leave the email blank to use the default Rudra mailbox. For a
           Hostinger email use host <span className="font-medium text-gray-600">smtp.hostinger.com</span>,
           port <span className="font-medium text-gray-600">465</span>.
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2">
           <FormField
             label="Email (mailbox)"
             type="email"
@@ -467,14 +467,14 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             }))}
           />
         </div>
-        <p className="mt-1.5 text-xs px-1">
+        <p className="mt-1 text-[11px] leading-snug">
           {draft.smtpUser && draft.smtpHost && (draft.smtpPassSet || draft.smtpPass) ? (
             <span className="text-green-700">OTP mails will be sent from {draft.smtpUser} (after you save).</span>
           ) : (
             <span className="text-gray-400">Not set — OTP mails go from the default Rudra mailbox.</span>
           )}
         </p>
-        <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-end">
+        <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-end">
           <div className="md:w-1/2">
             <FormField
               label="Send a test mail to"
@@ -500,14 +500,14 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
             {testingSmtp ? "Sending…" : "Send Test Mail"}
           </Button>
         </div>
-        <p className="mt-1 text-xs text-gray-400 px-1">Save the settings first — the test uses the saved mailbox.</p>
+        <p className="mt-1 text-[11px] leading-snug text-slate-400">Save the settings first — the test uses the saved mailbox.</p>
       </Section>
 
       {/* What each toggle can ACTUALLY enforce differs a lot by platform, and
           quietly implying "on = safe" would be worse than no feature at all.
           So each row states its own real limit inline. */}
       <Section title="Screen Capture Protection">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Stops someone screen-sharing or recording your product to give an unauthorised demo.
           Turn a switch off when <span className="font-medium text-gray-500">you</span> need to demo that surface.
         </div>
@@ -517,7 +517,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.secureScreenApp}
           onChange={(v: boolean) => set("secureScreenApp", v)}
         />
-        <p className="-mt-1 mb-2 px-1 text-xs text-gray-400">
+        <p className="-mt-1 mb-1 text-[11px] leading-snug text-slate-400">
           <span className="font-medium text-emerald-600">Android: fully enforced.</span> The OS itself
           blacks out screen share, screen recording and screenshots — nothing can bypass it.{" "}
           <span className="font-medium text-amber-600">iOS: best effort.</span> Apple has no equivalent,
@@ -530,7 +530,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.secureScreenAdmin}
           onChange={(v: boolean) => set("secureScreenAdmin", v)}
         />
-        <p className="-mt-1 mb-2 px-1 text-xs text-gray-400">
+        <p className="-mt-1 mb-1 text-[11px] leading-snug text-slate-400">
           <span className="font-medium text-emerald-600">Desktop app: fully enforced</span> on
           Windows 10 (2004) and newer — the window is removed from any capture entirely.{" "}
           <span className="font-medium text-amber-600">In a browser tab: watermark only.</span> No
@@ -544,7 +544,7 @@ const GeneralTab: React.FC<{ adminId?: string; dispatch: any }> = ({
           checked={!!draft.secureScreenWebsite}
           onChange={(v: boolean) => set("secureScreenWebsite", v)}
         />
-        <p className="-mt-1 px-1 text-xs text-gray-400">
+        <p className="-mt-1 text-[11px] leading-snug text-slate-400">
           <span className="font-medium text-amber-600">Watermark only</span> — same browser limit as
           above. Doesn't appear on printed invoices or PDFs.
         </p>
@@ -628,17 +628,17 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
   }, [eligibleModules]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {Object.entries(grouped).map(([section, items]) => (
-        <div key={section} className="bg-white border rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div key={section} className="rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
             </div>
-            <label className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase cursor-pointer">
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 uppercase cursor-pointer">
               <input
                 type="checkbox"
-                className="scale-90"
+                className="h-3.5 w-3.5"
                 checked={items.every((m: any) => draft.includes(m.id))}
                 onChange={() => {
                   setDirty(true);
@@ -654,13 +654,13 @@ const ModulesTab: React.FC<{ adminId?: string; dispatch: any }> = ({
               Select All {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
             </label>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 text-[13px]">
             {items.map((m: any) => {
               const featureOff = featureDisabledIds.has(m.id);
               const enabled = !featureOff && draft.includes(m.id);
               return (
-                <label key={m.id} className={`flex items-center gap-2 px-2 py-1 rounded border ${featureOff ? "bg-gray-100 text-gray-400" : enabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"}`}>
-                  <input type="checkbox" disabled={featureOff} checked={enabled} onChange={() => toggleOne(m.id)} />
+                <label key={m.id} className={`flex h-8 items-center gap-2 px-2.5 rounded-md border ${featureOff ? "bg-slate-100 border-slate-200 text-slate-400" : enabled ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200"}`}>
+                  <input type="checkbox" className="h-3.5 w-3.5" disabled={featureOff} checked={enabled} onChange={() => toggleOne(m.id)} />
                   <span className="font-medium truncate">{m.label}</span>
                 </label>
               );
@@ -765,21 +765,21 @@ const PermissionsTab: React.FC<{
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {Object.entries(visibleModules.reduce<Record<string, typeof MODULES>>((acc, m) => { (acc[m.section] ||= [] as any).push(m); return acc; }, {})).map(([section, items]) => {
         // Find all actions supported by at least one module in this section
         const sectionActions = ALL_ACTIONS.filter(a => items.some(m => m.actions.includes(a)));
 
         return (
-          <div key={section} className="bg-white border rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b">
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div key={section} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
               </div>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase cursor-pointer">
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 uppercase cursor-pointer">
                 <input
                   type="checkbox"
-                  className="scale-90"
+                  className="h-3.5 w-3.5"
                   checked={items.every(m => 
                     m.actions.every(a => !!draft?.[m.id]?.[a])
                   )}
@@ -801,16 +801,16 @@ const PermissionsTab: React.FC<{
               </label>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[12.5px]">
                 <thead>
-                  <tr className="text-left bg-gray-50 border-b">
-                    <th className="px-3 py-2 sticky left-0 bg-gray-50 border-r min-w-[150px]">Module</th>
+                  <tr className="text-left bg-slate-50 border-b border-slate-200 text-[11px] font-semibold uppercase text-slate-500">
+                    <th className="px-2 py-1.5 sticky left-0 bg-slate-50 border-r border-slate-200 min-w-[150px]">Module</th>
                     {sectionActions.map((a) => (
-                      <th key={a} className="px-2 py-2 text-center border-r last:border-r-0">
-                        <div className="flex items-center justify-center gap-1.5 min-w-[70px]">
+                      <th key={a} className="px-2 py-1.5 text-center border-r border-slate-200 last:border-r-0">
+                        <div className="flex items-center justify-center gap-1.5 min-w-[60px]">
                           <input
                             type="checkbox"
-                            className="scale-90"
+                            className="h-3.5 w-3.5"
                             checked={items.every((m) => !m.actions.includes(a) || !!draft?.[m.id]?.[a])}
                             onChange={(e) => {
                               const val = e.target.checked;
@@ -825,7 +825,7 @@ const PermissionsTab: React.FC<{
                               });
                             }}
                           />
-                          <span className="capitalize whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
+                          <span className="whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
                         </div>
                       </th>
                     ))}
@@ -833,15 +833,16 @@ const PermissionsTab: React.FC<{
                 </thead>
                 <tbody>
                   {items.map((m) => (
-                    <tr key={m.id} className="border-t hover:bg-gray-50">
-                      <td className="px-3 py-2 sticky left-0 bg-white border-r font-medium">
+                    <tr key={m.id} className="border-t border-slate-200 hover:bg-slate-50">
+                      <td className="px-2 py-1 sticky left-0 bg-white border-r border-slate-200 text-[13px] font-medium text-slate-800">
                         {m.label}
                       </td>
                       {sectionActions.map((a) => (
-                        <td key={a} className="px-2 py-2 text-center border-r last:border-r-0">
+                        <td key={a} className="px-2 py-1 text-center border-r border-slate-200 last:border-r-0">
                           {m.actions.includes(a) ? (
                             <input
                               type="checkbox"
+                              className="h-3.5 w-3.5"
                               checked={!!draft?.[m.id]?.[a]}
                               onChange={(e) => setDraft((d: any) => ({
                                 ...d,
@@ -869,15 +870,15 @@ const PermissionsTab: React.FC<{
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-white border rounded-lg p-4">
-    <div className="text-sm font-semibold mb-3 text-gray-700">{title}</div>
+  <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="text-[13px] font-semibold mb-2 text-slate-900">{title}</div>
     <div className="space-y-2">{children}</div>
   </div>
 );
 
 /** 4 switches per row on wide screens, 2 on tablets, 1 on phones. */
 const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">{children}</div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5">{children}</div>
 );
 
 /**
@@ -887,10 +888,10 @@ const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
  */
 const Toggle: React.FC<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, hint, checked, onChange }) => (
   <label
-    className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs ${checked ? "border-green-200 bg-green-50/50" : "border-gray-200"}`}
+    className={`flex h-8 cursor-pointer items-center justify-between gap-2 rounded-md border px-2.5 text-[12.5px] ${checked ? "border-green-200 bg-green-50/50" : "border-slate-200"}`}
     title={hint || label}
   >
-    <span className="flex min-w-0 items-center gap-1 leading-tight text-gray-700">
+    <span className="flex min-w-0 items-center gap-1 leading-tight text-slate-700">
       <span className="truncate">{label}</span>
       {hint && <span className="shrink-0 cursor-help text-[10px] text-gray-400">ⓘ</span>}
     </span>

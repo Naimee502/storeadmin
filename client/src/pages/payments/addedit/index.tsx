@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectIsModuleBusinessEnabled } from "../../../redux/slices/permissions";
 import { showMessage } from "../../../redux/slices/message";
@@ -1306,10 +1307,14 @@ const AddEditPayment = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Payment" : "Add Payment"}
-        </h2>
+      <FormPage
+        breadcrumb="Payments"
+        title={isEdit ? "Edit Payment" : "Add Payment"}
+        saveLabel={isEdit ? "Update Payment" : "Save Payment"}
+        saveDisabled={saving}
+        onSave={handleSubmit}
+        onCancel={() => navigate("/payments")}
+      >
 
         <div className="space-y-6">
           {/* ── Section 1: Main Info ─────────────────────────────────── */}
@@ -2255,18 +2260,8 @@ const AddEditPayment = () => {
               )}
             </div>
           )}
-
-          {/* ── Actions ─────────────────────────────────────────────── */}
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate("/payments")}>
-              Cancel
-            </Button>
-            <Button variant="outline" onClick={handleSubmit} disabled={saving}>
-              {saving ? "Saving..." : isEdit ? "Update Payment" : "Save Payment"}
-            </Button>
-          </div>
         </div>
-      </div>
+      </FormPage>
 
       {/* ── Confirm Auto Settlement ────────────────────────────────────────
           Nothing is written until this is approved. It exists so no one can

@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";
 import { FaArrowLeft } from "react-icons/fa";
 import HomeLayout from "../../../layouts/home";
+import { useEscape } from "../../../components/formpage/useescape";
 import { useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import { useStaffByIDQuery } from "../../../graphql/hooks/staffaccounts";
@@ -30,6 +31,8 @@ const GET_STAFF_DELIVERIES = gql`
 const StaffView = () => {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // Esc = back to the list (same as the ← button).
+  useEscape(() => navigate("/staffaccounts"));
   const actions = useAppSelector((s) => selectModuleActions(s, "staffaccounts"));
   const partyActions = useAppSelector((s) => selectModuleActions(s, "accounts"));
   const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
@@ -108,11 +111,18 @@ const StaffView = () => {
 
   return (
     <HomeLayout>
-      <div className="p-3 sm:p-6">
-        <div className="mb-4">
-          <button onClick={() => navigate("/staffaccounts")} className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900">
-            <FaArrowLeft /> Staff Accounts
+      <div className="p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <button onClick={() => navigate("/staffaccounts")} title="Back (Esc)" className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+            <FaArrowLeft className="text-sm" />
           </button>
+          <span className="hidden text-base font-medium text-slate-600 sm:inline">Staff Accounts</span>
+          {member && (
+            <>
+              <span className="hidden text-base text-slate-400 sm:inline">/</span>
+              <h1 className="truncate text-base font-semibold text-slate-900">{member.name}</h1>
+            </>
+          )}
         </div>
 
         {stLoading && !member ? (
@@ -120,19 +130,19 @@ const StaffView = () => {
         ) : !member ? (
           <p className="py-10 text-center text-gray-400">Staff member not found.</p>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-            <aside className="h-fit rounded-xl border border-gray-200 bg-white p-4">
+          <div className="grid gap-3 lg:grid-cols-[300px_1fr]">
+            <aside className="h-fit rounded-lg border border-slate-200 bg-white p-3">
               <div className="mb-3 flex items-center gap-3">
                 {member.imageurl || member.profilepicture ? (
-                  <img src={member.imageurl || member.profilepicture} alt="" className="h-12 w-12 rounded-full object-cover" />
+                  <img src={member.imageurl || member.profilepicture} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-700">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-base font-bold text-indigo-700">
                     {String(member.name || "?").charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-gray-900">{member.name}</p>
-                  <p className="text-xs text-gray-500">{member.role ? toTitleCase(member.role) : "Staff"}{member.staffcode ? ` · #${member.staffcode}` : ""}</p>
+                  <p className="truncate text-[15px] font-semibold text-slate-900">{member.name}</p>
+                  <p className="text-xs text-gray-500">{member.role ? toTitleCase(member.role) : "Staff"}{member.staffcode ? ` · #${String(member.staffcode).replace(/^#+/, "")}` : ""}</p>
                 </div>
               </div>
               <div className="mb-3 grid grid-cols-2 gap-2">
@@ -159,7 +169,7 @@ const StaffView = () => {
               <InfoRow label="Status" value={member.status ? "Active" : "Inactive"} />
             </aside>
 
-            <section className="min-w-0 rounded-xl border border-gray-200 bg-white p-4">
+            <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
               {isDeliveryBoy ? (
                 <>
                   <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">

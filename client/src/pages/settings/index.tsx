@@ -152,8 +152,8 @@ const Settings = () => {
   if (type === "staff") {
     return (
       <HomeLayout>
-        <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-          <div className="bg-white border rounded-lg p-6 text-sm text-gray-600">
+        <div className="w-full p-4 space-y-3">
+          <div className="rounded-lg border border-slate-200 bg-white p-3 text-[13px] text-slate-600">
             You don't have permission to open Settings.
           </div>
         </div>
@@ -163,11 +163,11 @@ const Settings = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h1 className="text-2xl font-semibold mb-4">Settings</h1>
+      <div className="w-full p-4 space-y-3">
+        <h1 className="text-base font-semibold text-slate-900">Settings</h1>
 
         {/* ── GLOBAL Selection Dropdown ── */}
-        <div className="bg-white border rounded-lg p-3 mb-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-3">
           <FormField
             label={isAdmin ? "Select Branch" : "Select Staff Member"}
             type="select"
@@ -179,15 +179,15 @@ const Settings = () => {
           />
         </div>
 
-        <div className="flex border-b mb-4 overflow-x-auto">
+        <div className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleTabs.map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+              className={`h-9 px-3 text-[13px] font-medium whitespace-nowrap outline-none focus-visible:bg-slate-100 rounded-t ${
                 tab === key
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "border-b-2 border-indigo-600 text-indigo-700"
+                  : "border-b-2 border-transparent text-slate-600 hover:text-slate-900"
               }`}
             >
               {label}
@@ -200,7 +200,7 @@ const Settings = () => {
           <WebsiteTab adminId={adminId} dispatch={dispatch} />
         ) : !selectedTargetId ? (
           /* ── Child-management tabs (need target selection) ── */
-          <div className="text-center py-10 bg-white border rounded-lg text-gray-500 text-sm">
+          <div className="rounded-lg border border-slate-200 bg-white py-6 text-center text-[13px] text-slate-500">
             Please select {isAdmin ? "a Branch" : "a Staff member"} above to manage settings.
           </div>
         ) : (
@@ -422,12 +422,12 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <Section title="App and Web Support & Legal">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Drives the mobile app's Help &amp; Support contact cards, the Privacy Policy / Terms &amp; Conditions links, the website footer tagline, the "Get the app" link, and the social icons shown on the website footer.
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-2">
           <FormField
             label="Support Email"
             name="supportEmail"
@@ -521,28 +521,28 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               bar. This replaced a table of palettes hand-written per business
               code, which meant new colours needed a deploy. */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Theme Colour</label>
+            <label className="text-[12px] font-medium text-slate-600">Theme Colour</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 aria-label="Theme colour"
                 value={draft.themeBrandColor || DEFAULT_BRAND_COLOR}
                 onChange={(e) => set("themeBrandColor", e.target.value.toUpperCase())}
-                className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-gray-300 bg-white p-0.5"
+                className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5"
               />
               <input
                 type="text"
                 value={draft.themeBrandColor ?? ""}
                 onChange={(e) => set("themeBrandColor", e.target.value.toUpperCase())}
                 placeholder={`${DEFAULT_BRAND_COLOR} (default)`}
-                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 text-[13px] outline-none focus:border-indigo-500"
               />
               {draft.themeBrandColor ? (
                 <button
                   type="button"
                   title="Back to the default colour"
                   onClick={() => set("themeBrandColor", "")}
-                  className="shrink-0 rounded-lg border border-gray-300 px-2 py-2 text-xs text-gray-500 hover:border-gray-400"
+                  className="inline-flex h-8 shrink-0 items-center rounded-md border border-slate-300 bg-white px-2 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Reset
                 </button>
@@ -555,9 +555,9 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               picker rather than under a "Preview" label — at 32px it costs no
               extra height. */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Business Logo</label>
+            <label className="text-[12px] font-medium text-slate-600">Business Logo</label>
             <div className="flex items-center gap-2">
-              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-gray-400">
+              <label className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-2 text-[13px] text-slate-500 hover:border-slate-400">
                 <span className="text-gray-400">🖼</span>
                 <span className="truncate">{draft.brandLogo ? "Change logo" : "Choose file"}</span>
                 <input type="file" accept="image/*" onChange={handleLogoPick} className="hidden" />
@@ -569,7 +569,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
                       fine against a white panel here and then disappears on
                       the site, which is exactly the surprise worth avoiding. */}
                   <div
-                    className="flex h-9 items-center rounded-lg px-1 ring-1 ring-black/10"
+                    className="flex h-8 items-center rounded-md px-1 ring-1 ring-black/10"
                     style={{
                       backgroundImage:
                         "linear-gradient(45deg,#e5e7eb 25%,transparent 25%),linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e5e7eb 75%),linear-gradient(-45deg,transparent 75%,#e5e7eb 75%)",
@@ -581,7 +581,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
                     <img
                       src={draft.brandLogo}
                       alt="Business logo"
-                      className="h-7 w-auto max-w-[110px] object-contain"
+                      className="h-6 w-auto max-w-[110px] object-contain"
                     />
                   </div>
                   <button
@@ -597,7 +597,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             </div>
           </div>
         </div>
-        <p className="mt-1.5 text-xs text-gray-400">
+        <p className="mt-1 text-[11px] leading-snug text-slate-400">
           Footer tagline: leave blank to keep the default line. Social links: the footer only shows an icon once a URL is filled in here.
           Business logo: shown on the website header, footer and login page, and on the app's login screen — leave it empty to keep the first letter of your business name.
           A wide or square PNG works; transparent backgrounds are fine, but avoid a logo that is entirely white, since it sits on a white plate.
@@ -606,12 +606,12 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="Product Image Ratio (Home / Shop cards)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           The shape of the picture box on product cards. The photo is cropped to fill it, so a catalogue of
           differently sized uploads still lines up. Each surface is set on its own because these grids are not the
           same size — leave one unselected to keep the card height it uses today.
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2">
           {PRODUCT_IMAGE_RATIO_FIELDS.map((f) => (
             <div key={f.key} className="flex flex-col gap-1">
               <FormField
@@ -622,14 +622,14 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
                 value={draft[f.key] ?? ""}
                 onChange={(e: any) => set(f.key, e.target.value)}
               />
-              <p className="text-xs text-gray-400">{f.help}</p>
+              <p className="text-[11px] leading-snug text-slate-400">{f.help}</p>
             </div>
           ))}
         </div>
       </Section>
 
       <Section title="App & Website Options">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2">
           <div className="flex flex-col gap-1">
             <FormSwitch
               label="Product Image Download"
@@ -637,7 +637,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               checked={draft.allowProductImageDownload !== false}
               onChange={(v) => set("allowProductImageDownload", !!v)}
             />
-            <p className="text-xs text-gray-400">Download button on the product photo (App &amp; Website).</p>
+            <p className="text-[11px] leading-snug text-slate-400">Download button on the product photo (App &amp; Website).</p>
           </div>
           <div className="flex flex-col gap-1">
             <FormSwitch
@@ -646,7 +646,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               checked={draft.showWhatsappChat !== false}
               onChange={(v) => set("showWhatsappChat", !!v)}
             />
-            <p className="text-xs text-gray-400">Floating chat button using the WhatsApp Number above (App &amp; Website).</p>
+            <p className="text-[11px] leading-snug text-slate-400">Floating chat button using the WhatsApp Number above (App &amp; Website).</p>
           </div>
           <div className="flex flex-col gap-1">
             <FormSwitch
@@ -655,16 +655,16 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
               checked={!!draft.websiteShopInfiniteScroll}
               onChange={(v) => set("websiteShopInfiniteScroll", !!v)}
             />
-            <p className="text-xs text-gray-400">Website Shop page loads more on scroll instead of page numbers.</p>
+            <p className="text-[11px] leading-snug text-slate-400">Website Shop page loads more on scroll instead of page numbers.</p>
           </div>
         </div>
       </Section>
 
       <Section title="Website Content">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Shown directly on your website's About Us / Privacy Policy / Terms &amp; Conditions pages. Leave blank and the page will say content hasn't been added yet.
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <RichTextEditor
             label="About Us content"
             value={draft.websiteAboutContent ?? ""}
@@ -687,7 +687,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="Featured Products (Home page)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Pick exactly which products show in the Home page's "Featured Products" section. Leave empty to show the live catalog with category tabs instead.
         </div>
         <ProductPickerEditor
@@ -698,7 +698,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="New Arrivals (Home page)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Pick exactly which products show in "New Arrivals". Leave empty and the newest products (by date added) are shown automatically.
         </div>
         <ProductPickerEditor
@@ -714,7 +714,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           checked={draft.dealOfDayEnabled !== false}
           onChange={(v: boolean) => set("dealOfDayEnabled", v)}
         />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2 pt-1">
           <FormField
             label="Title"
             name="dealOfDayTitle"
@@ -732,7 +732,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
             disabled={draft.dealOfDayEnabled === false}
           />
         </div>
-        <div className="pt-3">
+        <div className="pt-2">
           <ProductPickerEditor
             idPrefix="dealofday"
             items={draft.dealOfDayItems ?? []}
@@ -743,7 +743,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
       </Section>
 
       <Section title="Hero Banner (Home page slides)">
-        <div className="text-xs text-gray-400 mb-1 px-1">
+        <div className="text-[11px] leading-snug text-slate-400">
           Manage your own Home page banner slides — add as many as you like, edit or remove any of them. Leave empty to keep the automatic banner built from your categories instead.
         </div>
         <Toggle
@@ -751,7 +751,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           checked={draft.heroBannerShowCategoryTiles !== false}
           onChange={(v: boolean) => set("heroBannerShowCategoryTiles", v)}
         />
-        <div className="pt-2" />
+        <div className="pt-1" />
         <HeroBannerSlidesEditor
           allowVideo
           slides={draft.heroBannerSlides ?? []}
@@ -765,7 +765,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           checked={draft.websiteShowPromoBanners !== false}
           onChange={(v: boolean) => set("websiteShowPromoBanners", v)}
         />
-        <div className="text-xs text-gray-400 mb-1 px-1 pt-2">
+        <div className="text-[11px] leading-snug text-slate-400 pt-1">
           Manage the promo tiles shown between Featured Products and New Arrivals — add as many as you like, edit or remove any of them. Leave empty to keep the default two tiles.
         </div>
         <div className={draft.websiteShowPromoBanners === false ? "opacity-50 pointer-events-none" : ""}>
@@ -782,7 +782,7 @@ const WebsiteTab: React.FC<{ adminId?: string; dispatch: any }> = ({ adminId, di
           checked={draft.websiteShowTrustBar !== false}
           onChange={(v: boolean) => set("websiteShowTrustBar", v)}
         />
-        <div className="text-xs text-gray-400 mb-1 px-1 pt-2">
+        <div className="text-[11px] leading-snug text-slate-400 pt-1">
           The stat tiles shown under "Fast, Reliable Delivery" etc. on the Home page (e.g. "12,400+ / Active retail partners"). Add as many as you like, edit or remove any of them. Leave empty to keep the default placeholder numbers.
         </div>
         <div className={draft.websiteShowTrustBar === false ? "opacity-50 pointer-events-none" : ""}>
@@ -873,7 +873,7 @@ const ProductPickerEditor: React.FC<{
 
   return (
     <div className="space-y-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
         Selected products ({items.length})
       </div>
 
@@ -882,9 +882,9 @@ const ProductPickerEditor: React.FC<{
           {items.map((item, idx) => {
             const { name, unit } = describe(item);
             return (
-              <div key={`${item.productid}-${item.unitid ?? ""}-${idx}`} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-800">{name}</span>
+              <div key={`${item.productid}-${item.unitid ?? ""}-${idx}`} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2.5 py-1">
+                <div className="text-[13px]">
+                  <span className="font-medium text-slate-800">{name}</span>
                   {unit && <span className="ml-2 text-xs text-gray-500">({unit})</span>}
                 </div>
                 <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeItem(idx)} disabled={disabled}>
@@ -1015,17 +1015,17 @@ const HeroBannerSlidesEditor: React.FC<{
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {slides.map((slide, idx) => (
-        <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-3">
+        <div key={idx} className="rounded-lg border border-slate-200 p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Slide {idx + 1}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Slide {idx + 1}</span>
             <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeSlide(idx)}>
               Remove
             </Button>
           </div>
 
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3">
             <FormField
               label="Banner Image"
               name={`heroBannerImage-${idx}`}
@@ -1035,7 +1035,7 @@ const HeroBannerSlidesEditor: React.FC<{
               previewUrl={slide.image}
             />
             <div className="shrink-0">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Preview</label>
+              <label className="mb-1 block text-[12px] font-medium text-slate-600">Preview</label>
               {slide.image ? (
                 <div className="relative h-20 w-36">
                   <img
@@ -1064,7 +1064,7 @@ const HeroBannerSlidesEditor: React.FC<{
           </div>
 
           {allowVideo && (
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3">
               <div className="flex-1">
                 <FormField
                   label="Banner Video (optional — short MP4)"
@@ -1073,12 +1073,12 @@ const HeroBannerSlidesEditor: React.FC<{
                   accept="video/mp4,video/webm,video/quicktime,video/*"
                   onChange={handleVideoPick(idx)}
                 />
-                <p className="mt-1 px-1 text-xs text-gray-400">
+                <p className="mt-1 text-[11px] leading-snug text-slate-400">
                   Up to {MAX_BANNER_VIDEO_MB} MB, plays muted. If you add both an image and a video, the banner shows the image first and then the video as the next slide.
                 </p>
               </div>
               <div className="shrink-0">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Video</label>
+                <label className="mb-1 block text-[12px] font-medium text-slate-600">Video</label>
                 {slide.video ? (
                   <div className="relative h-20 w-36">
                     <video
@@ -1107,7 +1107,7 @@ const HeroBannerSlidesEditor: React.FC<{
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2">
             <FormField
               label="Title"
               name={`heroBannerTitle-${idx}`}
@@ -1176,16 +1176,16 @@ const BusinessStatsEditor: React.FC<{
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {stats.map((stat, idx) => (
-        <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-3">
+        <div key={idx} className="rounded-lg border border-slate-200 p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Stat {idx + 1}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Stat {idx + 1}</span>
             <Button variant="ghost" className="!px-2 !py-1 text-red-600" onClick={() => removeStat(idx)}>
               Remove
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2">
             <FormField
               label="Value"
               name={`businessStatValue-${idx}`}
@@ -1315,18 +1315,18 @@ const SubModulesTab: React.FC<{
   }, [eligibleModules]);
 
   return (
-    <div className="space-y-4">
-      <div className="text-sm text-gray-600 font-medium">{title}</div>
+    <div className="space-y-3">
+      <div className="text-[13px] font-medium text-slate-600">{title}</div>
       {Object.entries(grouped).map(([section, items]) => (
-        <div key={section} className="bg-white border rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div key={section} className="rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
             </div>
-            <label className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase cursor-pointer">
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 uppercase cursor-pointer">
               <input
                 type="checkbox"
-                className="scale-90"
+                className="h-3.5 w-3.5"
                 checked={items.every((m: any) => draft.includes(m.id))}
                 onChange={() => {
                   setDirty(true);
@@ -1342,15 +1342,15 @@ const SubModulesTab: React.FC<{
               Select All {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
             </label>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 text-[13px]">
             {items.map((m: any) => (
               <label
                 key={m.id}
-                className={`flex items-center gap-2 px-2 py-1 rounded border ${
-                  draft.includes(m.id) ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+                className={`flex h-8 items-center gap-2 px-2.5 rounded-md border ${
+                  draft.includes(m.id) ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200"
                 }`}
               >
-                <input type="checkbox" checked={draft.includes(m.id)} onChange={() => toggleOne(m.id)} />
+                <input type="checkbox" className="h-3.5 w-3.5" checked={draft.includes(m.id)} onChange={() => toggleOne(m.id)} />
                 <span className="font-medium truncate">{m.label}</span>
               </label>
             ))}
@@ -1450,22 +1450,22 @@ const PermissionsTab: React.FC<{
   };
 
   return (
-    <div className="space-y-4">
-      <div className="text-sm text-gray-600">{title}</div>
+    <div className="space-y-3">
+      <div className="text-[13px] text-slate-600">{title}</div>
       {Object.entries(visibleModules.reduce<Record<string, typeof MODULES>>((acc, m) => { (acc[m.section] ||= [] as any).push(m); return acc; }, {})).map(([section, items]) => {
         // Find all actions supported by at least one module in this section
         const sectionActions = ALL_ACTIONS.filter(a => items.some(m => m.actions.includes(a)));
 
         return (
-          <div key={section} className="bg-white border rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b">
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div key={section} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 {SECTION_LABELS[section as keyof typeof SECTION_LABELS]}
               </div>
-              <label className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase cursor-pointer">
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 uppercase cursor-pointer">
                 <input
                   type="checkbox"
-                  className="scale-90"
+                  className="h-3.5 w-3.5"
                   checked={items.every(m => m.actions.every(a => !!draft?.[m.id]?.[a]))}
                   onChange={(e) => {
                     const val = e.target.checked;
@@ -1485,16 +1485,16 @@ const PermissionsTab: React.FC<{
               </label>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-[12.5px]">
                 <thead>
-                  <tr className="text-left bg-gray-50 border-b">
-                    <th className="px-3 py-2 sticky left-0 bg-gray-50 border-r min-w-[150px]">Module</th>
+                  <tr className="text-left bg-slate-50 border-b border-slate-200 text-[11px] font-semibold uppercase text-slate-500">
+                    <th className="px-2 py-1.5 sticky left-0 bg-slate-50 border-r border-slate-200 min-w-[150px]">Module</th>
                     {sectionActions.map((a) => (
-                      <th key={a} className="px-2 py-2 text-center border-r last:border-r-0">
-                        <div className="flex items-center justify-center gap-1.5 min-w-[70px]">
+                      <th key={a} className="px-2 py-1.5 text-center border-r border-slate-200 last:border-r-0">
+                        <div className="flex items-center justify-center gap-1.5 min-w-[60px]">
                           <input
                             type="checkbox"
-                            className="scale-90"
+                            className="h-3.5 w-3.5"
                             checked={items.every((m) => !m.actions.includes(a) || !!draft?.[m.id]?.[a])}
                             onChange={(e) => {
                               const val = e.target.checked;
@@ -1509,7 +1509,7 @@ const PermissionsTab: React.FC<{
                               });
                             }}
                           />
-                          <span className="capitalize whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
+                          <span className="whitespace-nowrap">{ACTION_LABELS[a] || a}</span>
                         </div>
                       </th>
                     ))}
@@ -1517,15 +1517,16 @@ const PermissionsTab: React.FC<{
                 </thead>
                 <tbody>
                   {items.map((m) => (
-                    <tr key={m.id} className="border-t hover:bg-gray-50">
-                      <td className="px-3 py-2 sticky left-0 bg-white border-r font-medium">
+                    <tr key={m.id} className="border-t border-slate-200 hover:bg-slate-50">
+                      <td className="px-2 py-1 sticky left-0 bg-white border-r border-slate-200 text-[13px] font-medium text-slate-800">
                         {m.label}
                       </td>
                       {sectionActions.map((a) => (
-                        <td key={a} className="px-2 py-2 text-center border-r last:border-r-0">
+                        <td key={a} className="px-2 py-1 text-center border-r border-slate-200 last:border-r-0">
                           {m.actions.includes(a) ? (
                             <input
                               type="checkbox"
+                              className="h-3.5 w-3.5"
                               checked={!!draft?.[m.id]?.[a]}
                               onChange={(e) => setDraft((d: any) => ({
                                 ...d,
@@ -1566,7 +1567,7 @@ const AccessTab: React.FC<{
   }, [scopeMode, selectedTargetId, load]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PermissionsTab
         scope={scopeMode}
         scopeid={selectedTargetId}
@@ -1580,14 +1581,14 @@ const AccessTab: React.FC<{
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-white border rounded-lg p-4">
-    <div className="text-sm font-semibold mb-3 text-gray-700">{title}</div>
+  <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="text-[13px] font-semibold mb-2 text-slate-900">{title}</div>
     <div className="space-y-2">{children}</div>
   </div>
 );
 
 const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, checked, onChange }) => (
-  <div className="flex items-center justify-between text-sm">
+  <div className="flex items-center justify-between text-[13px]">
     <span>{label}</span>
     <FormSwitch label="" name={label} checked={!!checked} onChange={(v) => onChange(!!v)} />
   </div>

@@ -152,10 +152,11 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
   };
 
   return (
-    <fieldset className="border rounded-xl p-4 space-y-4 mt-6">
+    <fieldset className="border rounded-xl p-4 space-y-4">
       <legend className="text-sm font-medium px-2">Other Charges</legend>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* One line: Ledger · Amount · GST % · Remarks · GST amt · Total · [Add] */}
+      <div className="grid grid-cols-1 items-end gap-x-3 gap-y-2 sm:grid-cols-4 xl:grid-cols-[2fr_1fr_1fr_2fr_auto]">
         {/* Ledger Selection */}
         {isFieldEnabled("ledgeraccount") && (
           <div className="md:col-span-1">
@@ -231,14 +232,12 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
             }
           />
         )}
-      </div>
 
-      <div className="flex gap-4 items-center">
-        <div className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-2 rounded">
-          GST Amount: ₹{selectedCharge.gstamount || 0}
-        </div>
-        <div className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-2 rounded">
-          Total: ₹{selectedCharge.totalamount || 0}
+      <div className="flex items-center gap-2">
+        <div className="flex h-8 items-center gap-2 whitespace-nowrap rounded-md bg-slate-50 px-2 text-[12px] text-slate-500">
+          <span>GST <b className="font-semibold text-slate-800">₹{selectedCharge.gstamount || 0}</b></span>
+          <span className="text-slate-300">|</span>
+          <span>Total <b className="font-semibold text-slate-800">₹{selectedCharge.totalamount || 0}</b></span>
         </div>
         {isFieldEnabled("add_charge_button") && (
           <Button type="button" variant="outline" onClick={handleAddOrUpdate}>
@@ -258,28 +257,29 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
           </Button>
         )}
       </div>
+      </div>
 
       {/* Table — tableLayout:"fixed" + per-column widths, same as the Products
           List. Without it the columns re-measure and jump the moment an inline
           editor replaces the text in a cell. */}
       {otherCharges.length > 0 && (
-        <table className="w-full border mt-4" style={{ tableLayout: "fixed" }}>
+        <table className="w-full border-collapse text-[12.5px]" style={{ tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th className="border p-2 text-left">Ledger</th>
-              <th className="border p-2 text-right w-28">Amount</th>
-              <th className="border p-2 text-right w-20">GST %</th>
-              <th className="border p-2 text-right w-24">GST Amt</th>
-              <th className="border p-2 text-right w-24">Total</th>
-              <th className="border p-2 text-left w-48">Remarks</th>
-              <th className="border p-2 text-center w-32">Action</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-left">Ledger</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-right w-28">Amount</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-right w-20">GST %</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-right w-24">GST Amt</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-right w-24">Total</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-left w-48">Remarks</th>
+              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 text-center w-32">Action</th>
             </tr>
           </thead>
           <tbody>
             {otherCharges.map((c, i) => (
               <tr key={i}>
                 {/* Ledger — double-click for the searchable dropdown */}
-                <td className="border p-2 align-top" style={{ overflow: "visible" }}>
+                <td className="border border-slate-200 px-2 py-1 align-top" style={{ overflow: "visible" }}>
                   {editingCell?.rowIndex === i && editingCell?.field === "ledger" ? (
                     <Select
                       inputId={`charge-ledger-${i}`}
@@ -311,7 +311,7 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
 
                 {/* Amount */}
                 <td
-                  className="border p-2 text-right cursor-pointer hover:bg-gray-100"
+                  className="border border-slate-200 px-2 py-1 text-right cursor-pointer hover:bg-gray-100"
                   onDoubleClick={() => startEdit(i, "amount", String(c.amount), "amount")}
                 >
                   {editingCell?.rowIndex === i && editingCell?.field === "amount" ? (
@@ -335,7 +335,7 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
 
                 {/* GST % */}
                 <td
-                  className="border p-2 text-right cursor-pointer hover:bg-gray-100"
+                  className="border border-slate-200 px-2 py-1 text-right cursor-pointer hover:bg-gray-100"
                   onDoubleClick={() => startEdit(i, "gstpercent", String(c.gstpercent), "other_gst")}
                 >
                   {editingCell?.rowIndex === i && editingCell?.field === "gstpercent" ? (
@@ -358,12 +358,12 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
                 </td>
 
                 {/* GST Amt + Total — derived from Amount and GST %, so read-only */}
-                <td className="border p-2 text-right">{c.gstamount.toFixed(2)}</td>
-                <td className="border p-2 text-right">{c.totalamount.toFixed(2)}</td>
+                <td className="border border-slate-200 px-2 py-1 text-right">{c.gstamount.toFixed(2)}</td>
+                <td className="border border-slate-200 px-2 py-1 text-right">{c.totalamount.toFixed(2)}</td>
 
                 {/* Remarks */}
                 <td
-                  className="border p-2 cursor-pointer hover:bg-gray-100"
+                  className="border border-slate-200 px-2 py-1 cursor-pointer hover:bg-gray-100"
                   onDoubleClick={() => startEdit(i, "remarks", c.remarks ?? "", "remarks")}
                 >
                   {editingCell?.rowIndex === i && editingCell?.field === "remarks" ? (
@@ -383,17 +383,17 @@ const OtherChargesSection: React.FC<OtherChargesSectionProps> = ({
                     c.remarks
                   )}
                 </td>
-                <td className="border p-2 text-center space-x-2">
+                <td className="border border-slate-200 px-2 py-1 text-center space-x-2">
                   <button
                     type="button"
-                    className="text-blue-500"
+                    className="text-[12px] font-medium text-indigo-600"
                     onClick={() => editCharge(i)}
                   >
                     Edit
                   </button>
                   <button
                     type="button"
-                    className="text-red-500"
+                    className="text-[12px] font-medium text-rose-600"
                     onClick={() => removeCharge(i)}
                   >
                     Remove

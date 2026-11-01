@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { selectIsModuleBusinessEnabled, selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
@@ -1211,7 +1211,22 @@ const AddEditProductService = () => {
 
   return (
     <HomeLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 py-6">
+      <FormPage
+        breadcrumb="Products"
+        title={isEdit ? "Edit Product" : "Add Product"}
+        onSave={handleSubmit}
+        onCancel={() => navigate('/products')}
+        saveLabel={isEdit ? 'Update Product Service' : 'Add Product Service'}
+        saveDisabled={hasBlockingError}
+        saveTitle={
+          hasBelowCostError
+            ? "One or more sales rates are below the purchase rate."
+            : hasNegativeStockError
+              ? "Stock values cannot be negative."
+              : undefined
+        }
+      >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* === GENERAL INFO === */}
         <div className="space-y-6">
           {(isFieldEnabled("name") || isFieldEnabled("imageurl") || isFieldEnabled("categoryid") || isFieldEnabled("subcategoryid") || isFieldEnabled("brandid") || isFieldEnabled("groupid") || isFieldEnabled("modelid") || isFieldEnabled("sizeid") || isFieldEnabled("description")) && (
@@ -1392,7 +1407,7 @@ const AddEditProductService = () => {
       </div>
 
       {/* === PRODUCT AND SERVICE === */}
-      <div className="px-4 pb-6 space-y-6">
+      <div className="mt-3 space-y-6">
         {formData.isservice ? (
           <ServiceVariants
             formData={formData}
@@ -1427,29 +1442,6 @@ const AddEditProductService = () => {
         )}
       </div>
 
-      {/* === BUTTONS === */}
-      <div className="flex justify-end gap-4 px-4 py-2 mb-6">
-        <Button variant="outline" onClick={() => navigate('/products')}>
-          Cancel
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleSubmit}
-          // Stays disabled while a sales rate is below its purchase rate or
-          // any stock field is negative.
-          disabled={hasBlockingError}
-          title={
-            hasBelowCostError
-              ? "One or more sales rates are below the purchase rate."
-              : hasNegativeStockError
-                ? "Stock values cannot be negative."
-                : undefined
-          }
-        >
-          {isEdit ? 'Update Product Service' : 'Add Product Service'}
-        </Button>
-      </div>
-
       <Modal
         isOpen={quickAdd.isOpen}
         onClose={() => setQuickAdd(prev => ({ ...prev, isOpen: false }))}
@@ -1459,6 +1451,7 @@ const AddEditProductService = () => {
         parentId={quickAdd.parentId}
         categories={categoryData?.getCategories || []}
       />
+      </FormPage>
     </HomeLayout>
 
   );

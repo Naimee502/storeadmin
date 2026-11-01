@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from "react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import HomeLayout from "../../../layouts/home";
 import { FaStore, FaPhone, FaLock, FaMapMarkerAlt, FaEnvelope, FaCity, FaLocationArrow, FaMobileAlt } from "react-icons/fa";
-import Button from "../../../components/button";
+import FormPage, { FormSection, Span } from "../../../components/formpage";
 import FormField from "../../../components/formfiled";
 import FormSwitch from "../../../components/formswitch";
 import React from "react";
@@ -42,7 +42,7 @@ const AddEditBranch = () => {
   }, [isEdit, data]);
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const { uploadImageMutation, imagedata, loading, error } = useImageUpload();
+  const { uploadImageMutation } = useImageUpload();
 
   const [formData, setFormData] = useState({
     branchname: "",
@@ -107,6 +107,8 @@ const AddEditBranch = () => {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      // Jump to the first field that needs attention.
+      document.getElementById(Object.keys(validationErrors)[0])?.focus();
       return;
     }
 
@@ -158,74 +160,69 @@ const AddEditBranch = () => {
   };
 
 
+  const logoPreview = selectedFile
+    ? URL.createObjectURL(selectedFile)
+    : formData.imageurl || "";
+
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Branch" : "Add Branch"}
-        </h2>
-        <div className="space-y-6">
+      <FormPage
+        breadcrumb="Branches"
+        title={isEdit ? `Edit Branch${formData.branchname ? ` — ${formData.branchname}` : ""}` : "Add Branch"}
+        onSave={handleSubmit}
+        onCancel={() => navigate("/branches")}
+      >
+        <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
+          <div className="space-y-3">
+            <FormSection title="Branch details" cols={3}>
+              <FormField label="Branch Name" name="branchname" required value={formData.branchname} onChange={handleChange} icon={<FaStore />} placeholder="e.g. Tragad" error={errors.branchname} />
+              <FormField label="Mobile Number" name="mobile" required value={formData.mobile} onChange={handleChange} icon={<FaMobileAlt />} placeholder="10-digit mobile" error={errors.mobile} />
+              <FormField label="Email" name="email" type="email" required value={formData.email} onChange={handleChange} icon={<FaEnvelope />} placeholder="branch@email.com" error={errors.email} />
+              <FormField label="Password" name="password" type="password" required value={formData.password} onChange={handleChange} icon={<FaLock />} placeholder="Login password" error={errors.password} noAutofill />
+              <FormField label="Location" name="location" value={formData.location} onChange={handleChange} icon={<FaMapMarkerAlt />} placeholder="Area / locality" />
+              <FormField label="Phone Number" name="phone" type="tel" value={formData.phone} onChange={handleChange} icon={<FaPhone />} placeholder="Landline (optional)" />
+            </FormSection>
 
-          {/* Branch Detail */}
-          <fieldset className="border rounded-xl p-4">
-            <legend className="text-sm sm:text-base font-medium px-2">Branch Detail</legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <FormField label="Branch Name" name="branchname" value={formData.branchname} onChange={handleChange} icon={<FaStore />} placeholder="Branch Name" error={errors.branchname} />
-              <FormField label="Mobile Number" name="mobile" value={formData.mobile} onChange={handleChange} icon={<FaMobileAlt />} placeholder="Mobile Number" error={errors.mobile} />
-              <FormField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} icon={<FaLock />} placeholder="Password" error={errors.password} />
+            <FormSection title="Address" cols={4}>
+              <Span cols={2}>
+                <FormField label="Address" name="address" value={formData.address} onChange={handleChange} icon={<FaLocationArrow />} placeholder="Shop no., building, street" />
+              </Span>
+              <FormField label="City" name="city" value={formData.city} onChange={handleChange} icon={<FaCity />} placeholder="City" />
+              <FormField label="Pincode" name="pincode" value={formData.pincode} onChange={handleChange} icon={<FaLocationArrow />} placeholder="6 digits" />
+            </FormSection>
+          </div>
 
+          {/* Side panel: logo + status */}
+          <FormSection title="Logo & status" cols={2} className="h-fit lg:[&>div]:grid-cols-1">
+            <div className="flex items-center gap-3">
+              <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
+                ) : (
+                  <FaStore className="text-lg text-slate-300" />
+                )}
+              </div>
               <FormField
                 label="Branch Logo"
                 name="logo"
                 type="file"
-                placeholder="Upload Logo"
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setSelectedFile(file);
-                  setFormData((prev) => ({
-                    ...prev,
-                    logo: file.name,
-                  }));
+                  setFormData((prev) => ({ ...prev, logo: file?.name || "" }));
                 }}
-                previewUrl={
-                  selectedFile
-                    ? URL.createObjectURL(selectedFile)
-                    : formData.imageurl
-                      ? formData.imageurl
-                      : ""
-                }
               />
-
-              <FormField label="Location" name="location" value={formData.location} onChange={handleChange} icon={<FaMapMarkerAlt />} placeholder="Location" />
             </div>
-          </fieldset>
-
-          {/* Address */}
-          <fieldset className="border rounded-xl p-4">
-            <legend className="text-sm sm:text-base font-medium px-2">Address</legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <FormField label="Address" name="address" maxLength={200} value={formData.address} onChange={handleChange} icon={<FaLocationArrow />} placeholder="Address" />
-              <FormField label="City" name="city" value={formData.city} onChange={handleChange} icon={<FaCity />} placeholder="City" />
-              <FormField label="Pincode" name="pincode" value={formData.pincode} onChange={handleChange} icon={<FaLocationArrow />} placeholder="Pincode" />
-              <FormField label="Phone Number" name="phone" type="number" value={formData.phone} onChange={handleChange} icon={<FaPhone />} placeholder="Phone Number" />
-              <FormField label="Email" name="email" type="email" value={formData.email} onChange={handleChange} icon={<FaEnvelope />} placeholder="Email" error={errors.email} />
-            </div>
-          </fieldset>
-
-          {/* Status */}
-          <fieldset className="border rounded-xl p-4">
-            <legend className="text-sm sm:text-base font-medium px-2">Branch Status</legend>
-            <FormSwitch label="" name="status" checked={formData.status} onChange={(checked) => setFormData(prev => ({ ...prev, status: checked }))} />
-          </fieldset>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate("/branches")}>Cancel</Button>
-            <Button variant="outline" onClick={handleSubmit}>Save</Button>
-          </div>
+            <FormSwitch
+              label="Branch Status"
+              name="status"
+              checked={formData.status}
+              onChange={(checked) => setFormData((prev) => ({ ...prev, status: checked }))}
+            />
+          </FormSection>
         </div>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

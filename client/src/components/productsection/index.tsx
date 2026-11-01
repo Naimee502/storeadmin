@@ -610,12 +610,13 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   };
 
   return (
-    <fieldset className="border rounded-xl p-4 space-y-4 mt-6">
+    <fieldset className="border rounded-xl p-4 space-y-4">
       <legend className="text-sm font-medium px-2">
         {iservice ? "Add Services" : "Add Products"}
       </legend>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* One line on a desktop: Product (wider) · Unit · Qty · Rate · Disc · GST · [Add] */}
+      <div className="grid grid-cols-1 items-end gap-x-3 gap-y-2 sm:grid-cols-3 lg:grid-cols-8 lg:[&>*:first-child]:col-span-2">
 
         {/* ✅ Product DropDown */}
         {isFieldEnabled("product") && (
@@ -865,10 +866,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }
           />
         )}
-      </div>
 
-      {/* ✅ Buttons */}
-      <div className="flex gap-4">
+      {/* ✅ Buttons — last cell of the same row */}
+      <div className="flex items-end gap-2">
         {isFieldEnabled("add_product_button") && (
           <Button
             type="button"
@@ -894,30 +894,31 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           </Button>
         )}
       </div>
+      </div>
 
       {/* ✅ Table */}
-      <fieldset className="border rounded-xl p-4 mt-4">
+      <fieldset className="border rounded-xl p-4">
         <legend className="text-sm font-medium px-2">
           {iservice ? "Services List" : "Products List"}
         </legend>
 
         {products.length === 0 ? (
-          <div className="text-center text-gray-500">
+          <div className="py-4 text-center text-[13px] text-slate-400">
             No {iservice ? "services" : "products"} added.
           </div>
         ) : (
           <div className="overflow-x-auto border-collapse">
-            <table className="w-full border mt-2 border-collapse" style={{ tableLayout: "fixed", overflow: "visible" }}>
+            <table className="w-full border-collapse text-[12.5px]" style={{ tableLayout: "fixed", overflow: "visible" }}>
               <thead>
                 <tr>
-                  <th className="border p-2 w-80">Name</th>
-                  {type === "sales" && (<th className="border p-2 w-20">Unit</th>)}
-                  {isFieldEnabled("quantity") && (<th className="border p-2 w-16">Qty</th>)}
-                  {isFieldEnabled("rate") && (<th className="border p-2 w-24">Rate</th>)}
-                  {isFieldEnabled("discount") && (<th className="border p-2 w-20">Disc</th>)}
-                  {isFieldEnabled("gst") && (<th className="border p-2 w-16">GST%</th>)}
-                  <th className="border p-2 w-24">Total</th>
-                  <th className="border p-2 w-32">Action</th>
+                  <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-80">Name</th>
+                  {type === "sales" && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-20">Unit</th>)}
+                  {isFieldEnabled("quantity") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-16">Qty</th>)}
+                  {isFieldEnabled("rate") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-24">Rate</th>)}
+                  {isFieldEnabled("discount") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-20">Disc</th>)}
+                  {isFieldEnabled("gst") && (<th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-16">GST%</th>)}
+                  <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-24">Total</th>
+                  <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold uppercase text-slate-500 w-32">Action</th>
                 </tr>
               </thead>
 
@@ -942,7 +943,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     <tr>
                       {/* Product Name */}
                     <td
-                      className={`border p-2 w-80 align-top ${shortfall ? "bg-red-50 text-red-600" : ""}`}
+                      className={`border border-slate-200 px-2 py-1 w-80 align-middle ${shortfall ? "bg-red-50 text-red-600" : ""}`}
                       style={
                         shortfall
                           ? { boxShadow: "inset 0 0 0 2px #ef4444", overflow: "visible" }
@@ -1027,7 +1028,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
                     {/* Unit (Sales only) - Double-click to edit */}
                     {type === "sales" && (
-                      <td className="border p-2 w-20 truncate text-center">
+                      <td className="border border-slate-200 px-2 py-1 w-20 truncate text-center">
                         {editingCell?.rowIndex === i && editingCell?.field === "unit" ? (
                           <select
                             autoFocus
@@ -1108,7 +1109,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Quantity - Double-click to edit */}
                     {isFieldEnabled("quantity") && (
                       <td
-                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-center"
+                        className="border border-slate-200 px-2 py-1 w-16 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "quantity" });
                           setEditingValue(String(p.quantity));
@@ -1145,7 +1146,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Rate - Double-click to edit */}
                     {isFieldEnabled("rate") && (
                       <td
-                        className={`border p-2 w-24 cursor-pointer hover:bg-gray-100 text-center align-top ${
+                        className={`border border-slate-200 px-2 py-1 w-24 cursor-pointer hover:bg-gray-100 text-center align-middle ${
                           belowCostByLine.has(i) && !(editingCell?.rowIndex === i && editingCell?.field === "rate")
                             ? "bg-red-50 text-red-600"
                             : ""
@@ -1191,7 +1192,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* Discount - Double-click to edit */}
                     {isFieldEnabled("discount") && (
                       <td
-                        className="border p-2 w-20 cursor-pointer hover:bg-gray-100 text-center"
+                        className="border border-slate-200 px-2 py-1 w-20 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "discount" });
                           setEditingValue(String(p.discount ?? 0));
@@ -1223,7 +1224,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     {/* GST - Double-click to edit */}
                     {isFieldEnabled("gst") && (
                       <td
-                        className="border p-2 w-16 cursor-pointer hover:bg-gray-100 text-center"
+                        className="border border-slate-200 px-2 py-1 w-16 cursor-pointer hover:bg-gray-100 text-center"
                         onDoubleClick={() => {
                           setEditingCell({ rowIndex: i, field: "gst" });
                           setEditingValue(String(p.gst ?? 0));
@@ -1253,21 +1254,21 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                     )}
 
                     {/* Total - Auto-calculated, read-only */}
-                    <td className="border p-2 w-24 text-center font-medium">{p.total.toFixed(2)}</td>
+                    <td className="border border-slate-200 px-2 py-1 w-24 text-center font-medium">{p.total.toFixed(2)}</td>
 
                     {/* Action Buttons */}
-                    <td className="border p-2 w-32">
+                    <td className="border border-slate-200 px-2 py-1 w-32">
                       <div className="flex gap-2 justify-center">
                         <button
                           type="button"
-                          className="text-blue-500 hover:text-blue-700 font-medium text-sm whitespace-nowrap"
+                          className="whitespace-nowrap text-[12px] font-medium text-indigo-600 hover:text-indigo-800"
                           onClick={() => editProduct(i)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="text-red-500 hover:text-red-700 font-medium text-sm whitespace-nowrap"
+                          className="whitespace-nowrap text-[12px] font-medium text-rose-600 hover:text-rose-800"
                           onClick={() => removeProduct(i)}
                         >
                           Remove
@@ -1285,29 +1286,29 @@ const ProductSection: React.FC<ProductSectionProps> = ({
                 not — a sum of percentages means nothing, so it stays a dash. */}
             {products.length > 0 && (
               <tfoot>
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="border p-2 w-80 text-right">Total</td>
-                  {type === "sales" && <td className="border p-2 w-20 text-center">—</td>}
+                <tr className="bg-indigo-50/60 font-semibold">
+                  <td className="border border-slate-200 px-2 py-1 w-80 text-right">Total</td>
+                  {type === "sales" && <td className="border border-slate-200 px-2 py-1 w-20 text-center">—</td>}
                   {isFieldEnabled("quantity") && (
-                    <td className="border p-2 w-16 text-center">
+                    <td className="border border-slate-200 px-2 py-1 w-16 text-center">
                       {products.reduce((t, x) => t + (Number(x.quantity) || 0), 0).toFixed(2)}
                     </td>
                   )}
                   {isFieldEnabled("rate") && (
-                    <td className="border p-2 w-24 text-center">
+                    <td className="border border-slate-200 px-2 py-1 w-24 text-center">
                       {products.reduce((t, x) => t + (Number(x.rate) || 0), 0).toFixed(2)}
                     </td>
                   )}
                   {isFieldEnabled("discount") && (
-                    <td className="border p-2 w-20 text-center">
+                    <td className="border border-slate-200 px-2 py-1 w-20 text-center">
                       {products.reduce((t, x) => t + (Number(x.discount) || 0), 0).toFixed(2)}
                     </td>
                   )}
-                  {isFieldEnabled("gst") && <td className="border p-2 w-16 text-center">—</td>}
-                  <td className="border p-2 w-24 text-center">
+                  {isFieldEnabled("gst") && <td className="border border-slate-200 px-2 py-1 w-16 text-center">—</td>}
+                  <td className="border border-slate-200 px-2 py-1 w-24 text-center">
                     {products.reduce((t, x) => t + (Number(x.total) || 0), 0).toFixed(2)}
                   </td>
-                  <td className="border p-2 w-32" />
+                  <td className="border border-slate-200 px-2 py-1 w-32" />
                 </tr>
               </tfoot>
             )}

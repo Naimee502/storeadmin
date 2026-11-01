@@ -14,14 +14,14 @@ import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
 
 const reportTabsObj = [
-    { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-blue-600" /> },
-    { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-emerald-600" /> },
-    { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-purple-600" /> },
-    { id: "Cash Flow Statement", label: "Cash Flow Statement", icon: <FaWater className="text-cyan-600" /> },
-    { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-amber-600" /> },
-    { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-rose-600" /> },
-    { id: "Expense Notes", label: "Expense Notes", icon: <FaReceipt className="text-rose-600" /> },
-    { id: "Ledger Statement", label: "Ledger Statement", icon: <FaFileInvoiceDollar className="text-indigo-600" /> },
+    { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-[12px] text-blue-600" /> },
+    { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-[12px] text-emerald-600" /> },
+    { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-[12px] text-purple-600" /> },
+    { id: "Cash Flow Statement", label: "Cash Flow Statement", icon: <FaWater className="text-[12px] text-cyan-600" /> },
+    { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-[12px] text-amber-600" /> },
+    { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-[12px] text-rose-600" /> },
+    { id: "Expense Notes", label: "Expense Notes", icon: <FaReceipt className="text-[12px] text-rose-600" /> },
+    { id: "Ledger Statement", label: "Ledger Statement", icon: <FaFileInvoiceDollar className="text-[12px] text-indigo-600" /> },
 ];
 
 const AccountingFinanceReports: React.FC = () => {
@@ -866,8 +866,8 @@ const AccountingFinanceReports: React.FC = () => {
 
     return (
         <HomeLayout>
-            <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-                <div className="flex flex-wrap gap-2 mb-4">
+            <div className="w-full p-4 font-sans">
+                <div className="flex flex-wrap gap-2 mb-3">
                     {reportTabsObj.map((tab) => {
                         const isActive = activeTab === tab.id;
                         return (
@@ -875,10 +875,10 @@ const AccountingFinanceReports: React.FC = () => {
                                 key={tab.id}
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                                className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium cursor-pointer ${
                                     isActive
-                                        ? "!bg-slate-900 !text-white shadow-sm border border-slate-900"
-                                        : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                                        ? "border-slate-900 bg-slate-900 text-white"
+                                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                                 }`}
                             >
                                 <span>{tab.icon}</span>

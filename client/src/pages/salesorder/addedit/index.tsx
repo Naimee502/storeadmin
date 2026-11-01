@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
@@ -305,12 +305,16 @@ const AddEditSalesOrder = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <h2 className="text-xl font-bold mb-6">
-          {isEdit ? "Edit Sales Order" : "Add Sales Order"}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <FormPage
+        breadcrumb="Sales Orders"
+        title={isEdit ? "Edit Sales Order" : "Add Sales Order"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate(-1)}
+        saveLabel={isEdit ? "Update Order" : "Save Order"}
+        saveDisabled={belowCostLines.size > 0}
+        saveTitle={belowCostLines.size > 0 ? "Rate is below purchase rate on a line marked in red above." : undefined}
+      >
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Order Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -390,7 +394,7 @@ const AddEditSalesOrder = () => {
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-medium px-2">Order Discount</legend>
             <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex gap-2 items-end w-full sm:w-72">
+              <div className="flex gap-1.5 items-end w-full sm:w-72">
                 <div className="flex-1">
                   <FormField
                     label="Extra discount on order"
@@ -402,7 +406,8 @@ const AddEditSalesOrder = () => {
                   />
                 </div>
                 <select
-                  className="border rounded p-2 text-sm h-10 mb-1"
+                  className="h-8 w-14 shrink-0 rounded-md border border-slate-300 bg-white px-1.5 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  title="Discount in ₹ or %"
                   value={invoiceDiscountType}
                   onChange={(e) => setInvoiceDiscountType(e.target.value)}
                 >
@@ -410,28 +415,16 @@ const AddEditSalesOrder = () => {
                   <option value="percent">%</option>
                 </select>
               </div>
-              <div className="text-sm text-gray-600 pb-2">
+              <div className="flex h-8 items-center text-[13px] text-slate-600">
                 {invoiceDiscountAmt > 0 && <span className="text-green-700 mr-4">− ₹{invoiceDiscountAmt.toFixed(2)}</span>}
                 Order total (before extra charges): <span className="font-semibold text-gray-900">₹{grandTotal.toFixed(2)}</span>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="mt-1.5 text-[11px] text-slate-400">
               Taken off the value after item discounts, before GST — same as the invoice discount. A salesman's extra
               discount from the app shows here.
             </p>
           </fieldset>
-
-          <div className="flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={belowCostLines.size > 0}
-              title={belowCostLines.size > 0 ? "Rate is below purchase rate on a line marked in red above." : undefined}
-            >
-              {isEdit ? "Update Order" : "Save Order"}
-            </Button>
-          </div>
         </form>
 
         <PosAddCustomer
@@ -442,7 +435,7 @@ const AddEditSalesOrder = () => {
           }}
           mode="customer"
         />
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

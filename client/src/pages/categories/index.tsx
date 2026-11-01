@@ -287,10 +287,11 @@ const Categories = () => {
             actions.showRearrange && categoryList.length > 1 ? (
               <button
                 onClick={() => setIsReorderOpen(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                title="Change the display order"
               >
-                <FaSort className="!text-white flex-shrink-0" />
-                <span className="!text-white font-bold">Rearrange</span>
+                <FaSort className="text-indigo-600" />
+                Rearrange
               </button>
             ) : null
           }

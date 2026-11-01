@@ -113,55 +113,55 @@ const FormPermissionsTab: React.FC<{
   };
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-3">
       {FORM_PERMISSIONS_CONFIG.map((config) => (
-        <div key={config.moduleId} className="bg-white border rounded-lg overflow-hidden shadow-sm">
-          <div className="bg-gray-50 flex items-center justify-between px-4 py-3 border-b">
-            <div className="text-sm font-bold uppercase tracking-wider text-gray-800">
+        <div key={config.moduleId} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <div className="bg-slate-50 flex items-center justify-between px-3 py-1.5 border-b border-slate-200">
+            <div className="text-[13px] font-semibold text-slate-900">
               {config.label}
             </div>
-            <label className="flex items-center gap-2 text-xs font-bold text-blue-700 uppercase cursor-pointer hover:text-blue-800 transition-colors">
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 uppercase cursor-pointer hover:text-indigo-700 transition-colors">
               <input
                 type="checkbox"
-                className="scale-110 accent-blue-600"
+                className="h-3.5 w-3.5 accent-indigo-600"
                 checked={isAllSelected(config.moduleId)}
                 onChange={(e) => toggleAll(config.moduleId, e.target.checked)}
               />
               Select All Form
             </label>
           </div>
-          <div className="p-4 space-y-5">
+          <div className="p-2.5 space-y-2">
             {config.sections.map((section) => (
-              <div key={section.id} className="border border-gray-200 rounded-md overflow-hidden">
-                 <div className="bg-gray-100/50 flex items-center justify-between px-3 py-2 border-b border-gray-200">
-                    <div className="text-xs font-semibold text-gray-700">
+              <div key={section.id} className="border border-slate-200 rounded-md overflow-hidden">
+                 <div className="bg-slate-50 flex items-center justify-between px-2.5 py-1 border-b border-slate-200">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       {section.label}
                     </div>
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold text-gray-600 uppercase cursor-pointer hover:text-gray-900 transition-colors">
+                    <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 uppercase cursor-pointer hover:text-slate-900 transition-colors">
                       <input
                         type="checkbox"
-                        className="scale-90 accent-gray-600"
+                        className="h-3.5 w-3.5 accent-slate-600"
                         checked={isAllSelected(config.moduleId, section.id)}
                         onChange={(e) => toggleAll(config.moduleId, e.target.checked, section.id)}
                       />
                       Select All Section
                     </label>
                  </div>
-                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-10 gap-2 p-3 text-xs">
+                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1 p-2 text-[12px]">
                     {section.fields.map((field) => (
                       <label
                         key={field.id}
-                        className={`flex items-center gap-1.5 px-1.5 py-1 rounded border cursor-pointer select-none transition-all ${
-                          isSelected(config.moduleId, field.id) ? "bg-blue-50 border-blue-200 hover:bg-blue-100 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 opacity-60 hover:opacity-80"
+                        className={`flex h-7 items-center gap-1.5 px-2 rounded-md border cursor-pointer select-none transition-all ${
+                          isSelected(config.moduleId, field.id) ? "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" : "bg-white border-slate-200 hover:bg-slate-50 opacity-60 hover:opacity-80"
                         }`}
                       >
                         <input
                           type="checkbox"
-                          className="accent-blue-600"
+                          className="h-3.5 w-3.5 accent-indigo-600"
                           checked={isSelected(config.moduleId, field.id)}
                           onChange={(e) => toggleField(config.moduleId, field.id, e.target.checked)}
                         />
-                        <span className="font-medium truncate text-gray-800 text-[12px] leading-tight" title={field.label}>{field.label}</span>
+                        <span className="font-medium truncate text-slate-800 text-[12px] leading-tight" title={field.label}>{field.label}</span>
                       </label>
                     ))}
                  </div>

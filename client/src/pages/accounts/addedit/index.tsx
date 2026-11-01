@@ -11,7 +11,7 @@ import {
 import FormField from "../../../components/formfiled";
 import LocationPreviewMap from "../../../components/locationpreviewmap";
 import FormSwitch from "../../../components/formswitch";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { useAccountMutations, useAccountByIDQuery, useAccountsQuery } from "../../../graphql/hooks/accounts";
@@ -492,10 +492,13 @@ const AddEditAccount = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Account" : "Add Account"}
-        </h2>
+      <FormPage
+        breadcrumb="Party Accounts"
+        title={isEdit ? "Edit Account" : "Add Account"}
+        onSave={handleSubmit}
+        onCancel={() => navigate("/accounts")}
+        saveLabel={isEdit ? "Update Account" : "Add Account"}
+      >
 
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -796,14 +799,8 @@ const AddEditAccount = () => {
               <FormSwitch label="Status" name="status" checked={formValues.status} onChange={(val) => handleChange("status", val)} />
             </div>
           </fieldset>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate("/accounts")}>Cancel</Button>
-            <Button variant="outline" onClick={handleSubmit}>{isEdit ? "Update Account" : "Add Account"}</Button>
-          </div>
         </div>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

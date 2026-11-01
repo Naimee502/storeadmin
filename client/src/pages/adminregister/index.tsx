@@ -103,17 +103,17 @@ const AdminRegister = () => {
 
   return (
     <LoginLayout>
-      <div className="flex flex-col lg:flex-row w-full max-w-6xl mx-auto">
+      <div className="flex w-full max-w-4xl flex-col md:w-[52rem] md:flex-row">
         {/* Left: Form */}
-        <div className="flex flex-col lg:w-1/2 justify-center px-4 sm:px-8 py-6">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 text-center text-gray-800">
+        <div className="flex flex-1 flex-col justify-center md:pr-6">
+          <h1 className="mb-4 text-center text-2xl font-bold tracking-tight text-slate-900">
             Admin Register
           </h1>
 
-          <form onSubmit={handleRegister} className="w-full max-w-md mx-auto space-y-4">
+          <form onSubmit={handleRegister} className="w-full space-y-3">
 
             {/* Row 1: Company Name & Name */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <FormField
                   label="Company Name"
@@ -145,7 +145,7 @@ const AdminRegister = () => {
             </div>
 
             {/* Row 2: Mobile Number & Email */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <FormField
                   label="Mobile Number"
@@ -202,7 +202,7 @@ const AdminRegister = () => {
             />
 
             {/* Split row for Branches and Business Type */}
-            <div className="flex flex-row space-x-4">
+            <div className="flex flex-row gap-3">
               <div className="flex-1">
                 <FormField
                   label="No. of Branches"
@@ -216,9 +216,9 @@ const AdminRegister = () => {
               </div>
 
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700">Business Type</label>
+                <label className="mb-1 block text-[12px] font-medium text-slate-600">Business Type</label>
                 <select
-                  className="w-full mt-1 border px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   value={businesstype}
                   onChange={(e) => setBusinesstype(e.target.value)}
                 >
@@ -233,27 +233,25 @@ const AdminRegister = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="outline" className="w-full mt-6 bg-white text-black p-3">
+            <Button type="submit" variant="primary" className="w-full h-9 font-semibold !mt-5">
               Register Admin
             </Button>
 
             {submitError && (
-              <p className="text-sm text-red-600 text-center">{submitError}</p>
+              <p className="text-[12px] text-red-600 text-center">{submitError}</p>
             )}
           </form>
         </div>
 
         {/* Divider */}
-        <div className="hidden lg:flex flex-col items-center justify-center py-8">
-          <div className="bg-gray-200 w-px h-full min-h-[300px]" />
-        </div>
+        <div className="hidden md:block w-px self-stretch bg-slate-200" />
 
         {/* Right: Image */}
-        <div className="hidden lg:flex flex-col lg:w-1/2 justify-center items-center px-6">
+        <div className="hidden md:flex md:flex-1 md:items-center md:justify-center md:pl-6">
           <img
             src={registerImage}
             alt="Register Visual"
-            className="w-full max-w-md h-auto object-contain"
+            className="h-72 w-full max-w-xs object-contain"
           />
         </div>
       </div>

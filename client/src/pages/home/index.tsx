@@ -111,27 +111,27 @@ const Home: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="p-4 sm:p-6 space-y-5 bg-gray-100 min-h-screen font-sans">
+      <div className="p-4 space-y-3 bg-gray-100 min-h-screen font-sans">
         {/* Executive Summary Header Bar */}
-        <div className="bg-white p-4 rounded-lg shadow-xs border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cloud ERP Pulse</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Cloud ERP Pulse</span>
             </div>
-            <h1 className="text-base font-bold text-[#2c3e50] mt-0.5">
+            <h1 className="text-[13px] font-semibold text-slate-900 leading-tight">
               Business Performance & Operations
             </h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-[11px] text-slate-500">
               Real-time multi-branch ledger summary, inventory status, active orders, and workforce attendance.
             </p>
           </div>
-          <div className="flex items-center gap-4 bg-gray-50 px-3.5 py-2 rounded border border-gray-200 self-start md:self-auto text-xs">
+          <div className="flex items-center gap-3 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 self-start md:self-auto text-[12px]">
             <div className="text-right">
               <span className="text-gray-400 uppercase text-[10px] block font-semibold">Role</span>
               <span className="font-bold text-[#2c3e50] capitalize">{type || "Admin"}</span>
             </div>
-            <div className="h-6 w-px bg-gray-200"></div>
+            <div className="h-5 w-px bg-slate-200"></div>
             <div>
               <span className="text-gray-400 uppercase text-[10px] block font-semibold">Status</span>
               <span className="font-bold text-emerald-600 flex items-center gap-1">

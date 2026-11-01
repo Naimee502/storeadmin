@@ -6,7 +6,6 @@ import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import FormField from "../../components/formfiled";
 import FormSwitch from "../../components/formswitch";
-import Button from "../../components/button";
 import { showMessage } from "../../redux/slices/message";
 import { useChargeRulesQuery, useChargeRuleMutations } from "../../graphql/hooks/chargerules";
 import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
@@ -158,21 +157,44 @@ const ChargeRules = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 space-y-6">
-        {/* Add / Edit form */}
-        <div className="bg-white border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {editingId ? "Edit Charge Rule" : "Add Charge Rule"}
+      <div className="w-full space-y-3 p-4">
+        {/* Add / Edit form — compact card, Save in its header (Enter also saves) */}
+        <div
+          className="rounded-lg border border-slate-200 bg-white"
+          onKeyDown={(e) => {
+            const t = e.target as HTMLElement;
+            if (e.key === "Enter" && !e.defaultPrevented && t.tagName === "INPUT") {
+              e.preventDefault();
+              handleSave();
+            }
+          }}
+        >
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {editingId ? "Edit charge rule" : "Add charge rule"}
             </h2>
-            {editingId && (
-              <button className="text-sm text-gray-500 hover:text-gray-800" onClick={reset}>
-                + New rule
+            <div className="ml-auto flex items-center gap-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel edit
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSave}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-indigo-600 px-3 text-[12px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                {editingId ? "Update Rule" : "Add Rule"}
+                <kbd className="rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Enter</kbd>
               </button>
-            )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <div className="grid grid-cols-1 items-end gap-x-3 gap-y-2 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
             <FormField label="Charge Name" name="name" value={draft.name}
               onChange={(e: any) => set("name", e.target.value)} placeholder="e.g. Delivery Charge" />
 
@@ -207,25 +229,12 @@ const ChargeRules = () => {
             <FormField label="Priority" name="priority" type="number"
               value={draft.priority} onChange={(e: any) => set("priority", e.target.value)} />
 
-            <fieldset className="flex items-center gap-3">
-              <legend className="text-sm font-medium">Only when Delivery Boy</legend>
-              <FormSwitch label="" name="onlyWhenDeliveryBoy"
-                checked={draft.onlyWhenDeliveryBoy}
-                onChange={(v: boolean) => set("onlyWhenDeliveryBoy", v)} />
-            </fieldset>
+            <FormSwitch label="Only when Delivery Boy" name="onlyWhenDeliveryBoy"
+              checked={draft.onlyWhenDeliveryBoy}
+              onChange={(v: boolean) => set("onlyWhenDeliveryBoy", v)} />
 
-            <fieldset className="flex items-center gap-3">
-              <legend className="text-sm font-medium">Active</legend>
-              <FormSwitch label="" name="active" checked={draft.active}
-                onChange={(v: boolean) => set("active", v)} />
-            </fieldset>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            {editingId && <Button type="button" variant="outline" onClick={reset}>Cancel</Button>}
-            <Button type="button" variant="outline" onClick={handleSave}>
-              {editingId ? "Update Rule" : "Add Rule"}
-            </Button>
+            <FormSwitch label="Active" name="active" checked={draft.active}
+              onChange={(v: boolean) => set("active", v)} />
           </div>
         </div>
 

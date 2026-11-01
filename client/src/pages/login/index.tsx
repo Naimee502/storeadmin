@@ -229,21 +229,23 @@ const Login = () => {
 
   return (
     <LoginLayout>
-      <div className="flex flex-col md:flex-row w-full">
+      <div className="flex w-full max-w-4xl flex-col md:w-[52rem] md:flex-row">
         {/* Left: Form */}
-        <div className="flex flex-1 flex-col justify-center px-6">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-6 text-center">
-            Login
-          </h1>
+        <div className="flex flex-1 flex-col justify-center md:pr-6">
+          <div className="mx-auto w-full max-w-sm">
+          <div className="mb-5 text-center">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Login</h1>
+            <p className="mt-1 text-[13px] text-slate-500">Sign in to your account to continue</p>
+          </div>
 
           {/* Tabs */}
-          <div className="flex justify-center mb-6">
+          <div className="mb-5 grid w-full grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
             <button
               type="button"
-              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ${
+              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
                 loginType === "branch"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500"
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
               onClick={() => { setLoginType("branch"); resetOtpStep(); }}
             >
@@ -251,10 +253,10 @@ const Login = () => {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ml-2 sm:ml-4 ${
+              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
                 loginType === "staff"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500"
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
               onClick={() => { setLoginType("staff"); resetOtpStep(); }}
             >
@@ -262,10 +264,10 @@ const Login = () => {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm md:text-base font-medium border-b-2 ml-2 sm:ml-4 ${
+              className={`h-8 w-full rounded-md px-2 text-[13px] font-medium transition-colors ${
                 loginType === "admin"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500"
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
               onClick={() => { setLoginType("admin"); resetOtpStep(); }}
             >
@@ -275,7 +277,7 @@ const Login = () => {
 
           <form
             onSubmit={handleLogin}
-            className="w-full max-w-md mx-auto md:mx-0 space-y-6"
+            className="w-full space-y-3"
           >
             <FormField
               label="Email"
@@ -346,7 +348,7 @@ const Login = () => {
               </div>
             )}
 
-            <Button type="submit" variant="outline" className="w-full" disabled={busy}>
+            <Button type="submit" variant="primary" className="w-full h-9 font-semibold !mt-5" disabled={busy}>
               {busy
                 ? "Please wait…"
                 : otpStep
@@ -360,19 +362,18 @@ const Login = () => {
               </p>
             )}
           </form>
+          </div>
         </div>
 
         {/* Divider */}
-        <div className="flex md:flex-col items-center justify-center px-4 my-6 md:my-0">
-          <div className="bg-gray-300 w-full md:w-px h-px md:h-40" />
-        </div>
+        <div className="hidden md:block w-px self-stretch bg-slate-200" />
 
         {/* Right: Image */}
-        <div className="flex flex-col md:flex-1 md:justify-center md:items-center px-6">
+        <div className="hidden md:flex md:flex-1 md:items-center md:justify-center md:pl-6">
           <img
             src={loginImage}
             alt="Login Visual"
-            className="w-full max-w-md h-auto object-contain"
+            className="h-72 w-full max-w-xs object-contain"
           />
         </div>
       </div>

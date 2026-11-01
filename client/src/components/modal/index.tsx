@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FormDensityContext } from '../formpage/density';
 import FormField from '../formfiled';
 import Button from '../button';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
@@ -213,15 +214,15 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pb-4 pt-[76px] sm:px-6 sm:pb-6">
-          {/* pt clears the fixed 60px top header (z-[1000]), so a tall modal never slides up behind it. */}
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+          {/* Above the app header (z-[1000]) so the whole window dims evenly. */}
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/40"
           />
 
           {/* Modal Content */}
@@ -229,23 +230,26 @@ const Modal: React.FC<ModalProps> = ({
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`relative w-full ${sizeClasses[modalSize]} bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[calc(100vh-100px)]`}
+            transition={{ duration: 0.12 }}
+            role="dialog"
+            aria-modal="true"
+            className={`relative w-full ${sizeClasses[modalSize]} flex max-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-              <h3 className="text-lg font-semibold text-gray-800 capitalize">{modalTitle}</h3>
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
+              <h3 className="text-base font-semibold capitalize text-slate-900">{modalTitle}</h3>
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                title="Close (Esc)"
+                className="grid h-7 w-7 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
               >
-                <FaTimes />
+                <FaTimes className="text-xs" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {renderDynamicContent()}
+            <div className="custom-scrollbar flex-1 overflow-y-auto p-4 text-[13px]">
+              <FormDensityContext.Provider value="compact">{renderDynamicContent()}</FormDensityContext.Provider>
             </div>
           </motion.div>
         </div>

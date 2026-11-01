@@ -190,10 +190,10 @@ const NotificationBell: React.FC = () => {
   return (
     <Menu as="div" className="relative inline-block text-left">
       <Menu.Button
-        className="relative p-2 rounded-md hover:bg-slate-800 transition-colors cursor-pointer bg-slate-900 border border-slate-800 shadow-sm"
+        className="relative grid h-8 w-8 place-items-center rounded-md border border-slate-700 bg-slate-900 transition-colors hover:bg-slate-800"
         title="Notifications"
       >
-        <FaBell className="text-cyan-400 text-base" />
+        <FaBell className="text-sm text-cyan-400" />
         {count > 0 && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-slate-950">
             {count > 9 ? "9+" : count}

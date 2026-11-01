@@ -70,35 +70,35 @@ const Header: React.FC<HeaderProps> = ({
   }, [businessAllowed, localAllowed]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[60px] bg-slate-950 border-b border-slate-800 text-white flex items-center px-4 z-[1000] shadow-md">
+    <header className="fixed top-0 left-0 right-0 z-[1000] flex h-12 items-center border-b border-slate-800 bg-slate-950 px-2 text-white">
       {/* Menu Button */}
       {onMenuClick && (
         <button
-          className="mr-3 sm:mr-5 p-2 rounded-md bg-transparent hover:bg-slate-800 text-white transition-colors cursor-pointer"
+          className="mr-2 grid h-8 w-10 place-items-center rounded-md text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
           onClick={onMenuClick}
           aria-label="Toggle sidebar"
         >
-          <FaBars className="text-cyan-400 text-xl sm:text-2xl transition-transform hover:scale-110" />
+          <FaBars className="text-base text-cyan-400" />
         </button>
       )}
 
       {/* Title */}
-      <h3 className="text-sm sm:text-base font-extrabold tracking-wide truncate max-w-[150px] sm:max-w-[300px] md:max-w-none text-white">
+      <h3 className="max-w-[150px] truncate text-sm font-semibold text-white sm:max-w-[300px] md:max-w-none">
         {title}
       </h3>
 
       {/* Right-side controls */}
-      <div className="ml-auto flex items-center gap-3 sm:gap-5">
+      <div className="ml-auto flex items-center gap-2">
         {/* System notifications */}
         <NotificationBell />
 
         {isPosAllowed && (
           <button
             onClick={() => navigate('/posdashboard')}
-            className="p-2 rounded-md hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 shadow-sm"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 px-2.5 transition-colors hover:bg-slate-800"
             title="POS Dashboard"
           >
-            <FaCashRegister className="text-emerald-400 text-base" />
+            <FaCashRegister className="text-sm text-emerald-400" />
             <span className="hidden sm:inline text-xs font-bold text-emerald-400">POS</span>
           </button>
         )}
@@ -106,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({
         {/* Branch Dropdown */}
         {!isAdmin && (
           <select
-            className="text-white bg-slate-900 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-cyan-400 shadow-sm"
+            className="h-8 max-w-[200px] rounded-md border border-slate-700 bg-slate-900 px-2 text-[13px] font-medium text-white focus:border-cyan-400 focus:outline-none"
             value={selectedBranchId}
             onChange={(e) => onBranchChange?.(e.target.value)}
           >
@@ -121,8 +121,11 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Profile Dropdown */}
         <Menu as="div" className="relative inline-block text-left">
-          <Menu.Button className="flex items-center px-2 py-2 hover:bg-slate-800 rounded-md transition-colors cursor-pointer">
-            <FaChevronDown className="text-cyan-400 text-sm sm:text-base" />
+          <Menu.Button className="flex h-8 items-center gap-1.5 rounded-md px-1.5 transition-colors hover:bg-slate-800" title="Account">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-cyan-600 text-[11px] font-bold uppercase text-white">
+              {(title || "U").trim().charAt(0)}
+            </span>
+            <FaChevronDown className="text-[10px] text-slate-400" />
           </Menu.Button>
 
           <Menu.Items className="absolute right-2 sm:right-0 mt-2 w-48 origin-top-right bg-white divide-y divide-gray-100 rounded-md shadow-lg ring-1 ring-black/5 focus:outline-none z-50 text-sm">

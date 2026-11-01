@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";
 import { FaArrowLeft, FaEdit } from "react-icons/fa";
 import HomeLayout from "../../../layouts/home";
+import { useEscape } from "../../../components/formpage/useescape";
 import { useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import { useAccountByIDQuery, useAccountsQuery, usePartyOutstandingSummaryQuery } from "../../../graphql/hooks/accounts";
@@ -23,6 +24,8 @@ const GET_PARTY_STOCK = gql`
 const PartyView = () => {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // Esc = back to the list (same as the ← button).
+  useEscape(() => navigate("/accounts"));
   const actions = useAppSelector((s) => selectModuleActions(s, "accounts"));
   const manageDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
   const trackStock = useAppSelector((s: any) => !!s.adminsettings?.settings?.trackPartyStock) && manageDownline;
@@ -74,14 +77,22 @@ const PartyView = () => {
 
   return (
     <HomeLayout>
-      <div className="p-3 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <button onClick={() => navigate("/accounts")} className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900">
-            <FaArrowLeft /> Party Accounts
+      <div className="p-4">
+        {/* Same title bar as the add/edit forms */}
+        <div className="mb-3 flex items-center gap-2">
+          <button onClick={() => navigate("/accounts")} title="Back (Esc)" className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+            <FaArrowLeft className="text-sm" />
           </button>
+          <span className="hidden text-base font-medium text-slate-600 sm:inline">Party Accounts</span>
+          {party && (
+            <>
+              <span className="hidden text-base text-slate-400 sm:inline">/</span>
+              <h1 className="truncate text-base font-semibold text-slate-900">{party.name}</h1>
+            </>
+          )}
           {actions.showEdit && party && (
-            <button onClick={() => navigate(`/accounts/addedit/${id}`)} className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-              <FaEdit /> Edit
+            <button onClick={() => navigate(`/accounts/addedit/${id}`)} className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700">
+              <FaEdit className="text-xs" /> Edit
             </button>
           )}
         </div>
@@ -91,16 +102,16 @@ const PartyView = () => {
         ) : !party ? (
           <p className="py-10 text-center text-gray-400">Party not found.</p>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <div className="grid gap-3 lg:grid-cols-[300px_1fr]">
             {/* Left: profile */}
-            <aside className="h-fit rounded-xl border border-gray-200 bg-white p-4">
+            <aside className="h-fit rounded-lg border border-slate-200 bg-white p-3">
               <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-700">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-base font-bold text-indigo-700">
                   {String(party.name || "?").charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-bold text-gray-900">{party.name}</p>
-                  <p className="text-xs text-gray-500">#{party.accountcode} · {party.type ? toTitleCase(party.type) : "Party"}</p>
+                  <p className="truncate text-[15px] font-semibold text-slate-900">{party.name}</p>
+                  <p className="text-[12px] text-slate-500">{party.accountcode ? `#${String(party.accountcode).replace(/^#+/, "")} · ` : ""}{party.type ? toTitleCase(party.type) : "Party"}</p>
                 </div>
               </div>
               <div className="mb-3 grid grid-cols-2 gap-2">
@@ -127,7 +138,7 @@ const PartyView = () => {
             </aside>
 
             {/* Right: tabs */}
-            <section className="min-w-0 rounded-xl border border-gray-200 bg-white p-4">
+            <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatTile label="Total orders" value={orders.length} />
                 <StatTile label="Order value" value={formatINR(orderValue)} tone="text-green-700" />

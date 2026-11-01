@@ -25,11 +25,11 @@ import { FaChartBar, FaListAlt, FaBullseye, FaBoxes, FaMapMarkedAlt } from "reac
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: <FaChartBar className="text-amber-500" /> },
-  { id: "calls", label: "Call Statement", icon: <FaListAlt className="text-blue-500" /> },
-  { id: "targets", label: "Target vs Achievement", icon: <FaBullseye className="text-rose-500" /> },
-  { id: "products", label: "Sales Statement", icon: <FaBoxes className="text-violet-500" /> },
-  { id: "live", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-emerald-500" /> },
+  { id: "overview", label: "Overview", icon: <FaChartBar className="text-[12px] text-amber-500" /> },
+  { id: "calls", label: "Call Statement", icon: <FaListAlt className="text-[12px] text-blue-500" /> },
+  { id: "targets", label: "Target vs Achievement", icon: <FaBullseye className="text-[12px] text-rose-500" /> },
+  { id: "products", label: "Sales Statement", icon: <FaBoxes className="text-[12px] text-violet-500" /> },
+  { id: "live", label: "Live Tracking", icon: <FaMapMarkedAlt className="text-[12px] text-emerald-500" /> },
 ];
 
 const STATUS: Record<string, { label: string; cls: string; bar: string }> = {
@@ -48,10 +48,10 @@ const geocodeCache: Record<string, string> = {};
 // Compact stat tile: every line stays on ONE line (truncated, full text on
 // hover) so nine tiles fit a row without growing tall.
 const Tile: React.FC<{ label: string; value: string; sub?: string; tone?: string }> = ({ label, value, sub, tone }) => (
-  <div className="bg-white border rounded-lg px-3 py-2 min-w-0" title={sub ? `${label} — ${sub}` : label}>
-    <div className="text-xs text-gray-500 truncate">{label}</div>
-    <div className={`text-lg font-bold leading-tight truncate ${tone || "text-gray-800"}`}>{value}</div>
-    <div className="text-[11px] text-gray-400 truncate h-4">{sub || "\u00a0"}</div>
+  <div className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 min-w-0" title={sub ? `${label} — ${sub}` : label}>
+    <div className="text-[11px] text-slate-500 truncate">{label}</div>
+    <div className={`text-[15px] font-semibold leading-tight truncate ${tone || "text-gray-800"}`}>{value}</div>
+    <div className="text-[11px] text-slate-400 truncate h-4">{sub || "\u00a0"}</div>
   </div>
 );
 
@@ -74,10 +74,10 @@ const DailyChart: React.FC<{ daily: any[] }> = ({ daily }) => {
   const maxAmt = Math.max(1, ...daily.map((d) => d.amount));
   if (!daily.length) return null;
   return (
-    <div className="bg-white border rounded-lg p-4 mb-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="font-semibold text-gray-700">Daily calls &amp; order value</div>
-        <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="text-[13px] font-semibold text-slate-800">Daily calls &amp; order value</div>
+        <div className="flex flex-wrap gap-3 text-[12px] text-gray-600">
           {["productive", "unproductive", "missed", "pending"].map((k) => (
             <span key={k} className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm" style={{ background: STATUS[k].bar }} />
@@ -90,7 +90,7 @@ const DailyChart: React.FC<{ daily: any[] }> = ({ daily }) => {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <div className="flex items-end gap-1 h-44" style={{ minWidth: daily.length * 22 }}>
+        <div className="flex items-end gap-1 h-36" style={{ minWidth: daily.length * 22 }}>
           {daily.map((d) => {
             const total = d.productive + d.unproductive + d.missed + d.pending;
             return (
@@ -578,7 +578,7 @@ const SalesmanFieldReport: React.FC = () => {
     { label: showingTrail ? "KM (so far)" : "Today's KM", key: "km" },
   ];
 
-  const inputCls = "border rounded-lg px-3 py-2 text-sm bg-white w-full";
+  const inputCls = "h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] w-full";
   const salesmanSelect = (value: string, onChange: (v: string) => void) => (
     <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">All salesmen</option>
@@ -587,26 +587,26 @@ const SalesmanFieldReport: React.FC = () => {
   );
 
   const FilterBar = (
-    <div className="bg-white border rounded-lg p-4 mb-4">
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-        <label className="text-sm text-gray-600">From Date
+    <div className="rounded-lg border border-slate-200 bg-white p-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+        <label className="text-[12px] font-medium text-slate-600">From Date
           <input type="date" className={inputCls} value={draft.fromDate} onChange={(e) => setDraft({ ...draft, fromDate: e.target.value })} />
         </label>
-        <label className="text-sm text-gray-600">To Date
+        <label className="text-[12px] font-medium text-slate-600">To Date
           <input type="date" className={inputCls} value={draft.toDate} onChange={(e) => setDraft({ ...draft, toDate: e.target.value })} />
         </label>
-        <label className="text-sm text-gray-600">Salesman
+        <label className="text-[12px] font-medium text-slate-600">Salesman
           {salesmanSelect(draft.salesmanid, (v) => setDraft({ ...draft, salesmanid: v }))}
         </label>
         <div className="flex gap-2">
-          <button type="button" className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold" onClick={() => setApplied(draft)}>Apply</button>
-          <button type="button" className="px-4 py-2 rounded-lg bg-gray-500 text-white text-sm font-semibold" onClick={() => {
+          <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700" onClick={() => setApplied(draft)}>Apply</button>
+          <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50" onClick={() => {
             const d = { fromDate: shiftDaysYMD(-29), toDate: todayYMD(), salesmanid: "" };
             setDraft(d); setApplied(d);
           }}>Reset</button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 mt-3 text-xs">
+      <div className="flex flex-wrap gap-1.5 mt-2">
         {[
           { l: "Today", f: todayYMD(), t: todayYMD() },
           { l: "Yesterday", f: shiftDaysYMD(-1), t: shiftDaysYMD(-1) },
@@ -614,7 +614,7 @@ const SalesmanFieldReport: React.FC = () => {
           { l: "This month", f: todayYMD().slice(0, 8) + "01", t: todayYMD() },
           { l: "Last 30 days", f: shiftDaysYMD(-29), t: todayYMD() },
         ].map((q) => (
-          <button key={q.l} type="button" className="px-3 py-1 rounded-full border bg-gray-50 hover:bg-gray-100"
+          <button key={q.l} type="button" className="inline-flex h-7 items-center rounded-full border border-slate-300 bg-white px-2.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
             onClick={() => { const d = { ...draft, fromDate: q.f, toDate: q.t }; setDraft(d); setApplied(d); }}>
             {q.l}
           </button>
@@ -627,12 +627,12 @@ const SalesmanFieldReport: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap gap-2 mb-4">
+      <div className="w-full p-4 font-sans">
+        <div className="flex flex-wrap gap-2 mb-3">
           {TABS.map((t) => (
             <button key={t.id} type="button" onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                tab === t.id ? "!bg-slate-900 !text-white shadow-sm border border-slate-900" : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"}`}>
+              className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium cursor-pointer ${
+                tab === t.id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
               <span>{t.icon}</span><span>{t.label}</span>
             </button>
           ))}
@@ -649,7 +649,7 @@ const SalesmanFieldReport: React.FC = () => {
         {tab === "overview" && (
           <>
             {/* All 9 tiles in one row on a desktop screen; wraps on smaller ones. */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2 mb-3">
               <Tile label="Planned" value={String(totals.planned)} sub={`${totals.coverage.toFixed(0)}% covered`} />
               <Tile label="Productive" value={String(totals.productive)} tone="text-green-700" sub="Visited + order" />
               <Tile label="Unproductive" value={String(totals.unproductive)} tone="text-amber-600" sub="No order" />
@@ -674,7 +674,7 @@ const SalesmanFieldReport: React.FC = () => {
                 { k: "missed", l: "Missed" }, { k: "pending", l: "Pending" }, { k: "offroute", l: "Off route" },
               ].map((c) => (
                 <button key={c.k} type="button" onClick={() => setStatusFilter(c.k)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${statusFilter === c.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium ${statusFilter === c.k ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
                   {c.l} ({callCounts[c.k] ?? 0})
                 </button>
               ))}
@@ -686,7 +686,7 @@ const SalesmanFieldReport: React.FC = () => {
 
         {tab === "targets" && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
               <Tile label="Biggest monthly target" value={biggestTarget ? inr(biggestTarget.monthTarget) : "—"} sub={biggestTarget?.salesmanname} />
               <Tile label="Highest achievement" value={bestAchiever ? `${bestAchiever.monthAchievedPct.toFixed(0)}%` : "—"} tone="text-green-700" sub={bestAchiever?.salesmanname} />
               <Tile label="Top seller this month" value={topSeller ? inr(topSeller.monthAchieved) : "—"} tone="text-blue-700" sub={topSeller?.salesmanname} />
@@ -707,23 +707,23 @@ const SalesmanFieldReport: React.FC = () => {
                 { k: "category", l: "Category-wise" }, { k: "unit", l: "Unit-wise" },
               ].map((v) => (
                 <button key={v.k} type="button" onClick={() => setStView(v.k as any)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${stView === v.k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-gray-700"}`}>
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium ${stView === v.k ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
                   {v.l}
                 </button>
               ))}
             </div>
-            <div className="bg-white border rounded-lg px-3 py-2 mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <label className="text-sm text-gray-600 flex items-center gap-2">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+              <label className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
                 {stSelLabel}
-                <select className="border rounded-lg px-3 py-1.5 text-sm bg-white min-w-[220px]" value={stSel} onChange={(e) => setStSel(e.target.value)}>
+                <select className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] min-w-[220px]" value={stSel} onChange={(e) => setStSel(e.target.value)}>
                   <option value="">All</option>
                   {stOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </label>
               {stView === "order" && (
-                <label className="text-sm text-gray-600 flex items-center gap-2">
+                <label className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
                   Order
-                  <select className="border rounded-lg px-3 py-1.5 text-sm bg-white min-w-[260px]" value={stOrder} onChange={(e) => setStOrder(e.target.value)}>
+                  <select className="h-8 rounded-md border border-slate-300 bg-white px-2 text-[13px] min-w-[260px]" value={stOrder} onChange={(e) => setStOrder(e.target.value)}>
                     <option value="">All orders</option>
                     {stOrderOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                   </select>
@@ -747,17 +747,17 @@ const SalesmanFieldReport: React.FC = () => {
 
         {tab === "live" && (
           <>
-            <div className="bg-white border rounded-lg p-4 mb-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                <label className="text-sm text-gray-600">Date
+            <div className="rounded-lg border border-slate-200 bg-white p-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                <label className="text-[12px] font-medium text-slate-600">Date
                   <input type="date" className={inputCls} value={trkDraft.date} onChange={(e) => setTrkDraft({ ...trkDraft, date: e.target.value })} />
                 </label>
-                <label className="text-sm text-gray-600">Salesman
+                <label className="text-[12px] font-medium text-slate-600">Salesman
                   {salesmanSelect(trkDraft.salesmanid, (v) => setTrkDraft({ ...trkDraft, salesmanid: v }))}
                 </label>
                 <div className="flex gap-2">
-                  <button type="button" className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold" onClick={() => setTrk(trkDraft)}>Apply</button>
-                  <button type="button" className="px-4 py-2 rounded-lg bg-gray-500 text-white text-sm font-semibold" onClick={() => {
+                  <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700" onClick={() => setTrk(trkDraft)}>Apply</button>
+                  <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50" onClick={() => {
                     const d = { date: todayYMD(), salesmanid: "" }; setTrkDraft(d); setTrk(d);
                   }}>Reset</button>
                 </div>
@@ -771,7 +771,7 @@ const SalesmanFieldReport: React.FC = () => {
             </div>
 
             {showingTrail && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 <Tile label="Distance covered" value={`${(trailSummary?.km ?? 0).toFixed(2)} km`} />
                 <Tile label="First location" value={trailSummary?.firstAt ? formatDateTimeDMY(trailSummary.firstAt) : "-"} />
                 <Tile label="Last location" value={trailSummary?.lastAt ? formatDateTimeDMY(trailSummary.lastAt) : "-"} />
@@ -779,7 +779,7 @@ const SalesmanFieldReport: React.FC = () => {
               </div>
             )}
 
-            <div className="mb-4">
+            <div className="mb-3">
               <LiveTrackingMap latest={locations} trail={trail} height={440} />
             </div>
 

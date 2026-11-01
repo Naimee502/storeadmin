@@ -672,30 +672,30 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-xs border border-gray-200 space-y-4 font-sans mt-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
         <div>
-          <h2 className="text-base font-bold text-[#2c3e50]">Multi-Module Activity Records</h2>
-          <p className="text-xs text-gray-500">Latest active entries across invoices, orders, returns, transfers, expenses, payments, and staff</p>
+          <h2 className="text-[13px] font-semibold text-slate-900">Multi-Module Activity Records</h2>
+          <p className="text-[11px] text-slate-500">Latest active entries across invoices, orders, returns, transfers, expenses, payments, and staff</p>
         </div>
       </div>
 
-      <div className="flex overflow-x-auto pb-2 gap-1 scrollbar-none border-b border-gray-200">
+      <div className="flex overflow-x-auto pb-2 gap-1.5 scrollbar-none border-b border-slate-200">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+            className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
               activeTab === tab.id
-                ? "!bg-slate-900 !text-white shadow-sm"
-                : "bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            <span className="text-xs">{tab.icon}</span>
+            <span className="text-[12px]">{tab.icon}</span>
             {tab.label}
             <span
-              className={`px-1.5 py-0.5 text-[9px] rounded font-extrabold ${
-                activeTab === tab.id ? "!bg-white/20 !text-white" : "bg-gray-100 text-gray-700"
+              className={`px-1.5 py-0.5 text-[10.5px] rounded font-semibold leading-none ${
+                activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
               }`}
             >
               {tab.count}

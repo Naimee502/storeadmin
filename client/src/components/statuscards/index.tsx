@@ -170,26 +170,26 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   const displayedStats = activeCategory === "all" ? allowedStats : allowedStats.filter((s) => s.category === activeCategory);
 
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-lg shadow-xs border border-gray-200 space-y-4 font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3">
-        <div>
-          <h2 className="text-base font-bold text-[#2c3e50]">Module Status Overview</h2>
-          <p className="text-xs text-gray-500">Key metrics across accounting, orders, inventory, and staff</p>
+    <div className="rounded-lg border border-slate-200 bg-white p-2.5 font-sans">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-2">
+        <div className="min-w-0 lg:flex-1">
+          <h2 className="text-[13px] font-semibold text-slate-900">Module Status Overview</h2>
+          <p className="truncate text-[11px] text-slate-500">Key metrics across accounting, orders, inventory, and staff</p>
         </div>
-        <div className="flex flex-wrap gap-1 bg-gray-50 p-1 rounded border border-gray-200">
+        <div className="flex shrink-0 flex-wrap gap-1 lg:flex-nowrap">
           {allowedCategories.map((c) => {
             const isActive = activeCategory === c.id;
             return (
               <button
                 key={c.id}
                 onClick={() => setActiveCategory(c.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded transition-all ${
+                className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border px-2 text-[12px] font-medium transition-colors ${
                   isActive
-                    ? "!bg-slate-900 !text-white shadow-sm"
-                    : "text-gray-700 hover:text-black hover:bg-gray-200 bg-white border border-gray-200"
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <span className="text-xs">{c.icon}</span>
+                <span className="text-[11px]">{c.icon}</span>
                 {c.label}
               </button>
             );
@@ -197,19 +197,19 @@ const StatsCards: React.FC<StatsCardsProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-1.5">
         {displayedStats.map((item) => (
           <div
             key={item.label}
             onClick={() => navigate(item.path)}
-            className={`bg-white p-2.5 sm:p-3 rounded border border-gray-200 cursor-pointer hover:shadow-xs transition-all duration-150 flex items-center justify-between gap-1.5 ${item.borderHover}`}
+            className={`rounded-md border border-slate-200 bg-white px-2 py-1.5 cursor-pointer transition-colors duration-150 flex items-center justify-between gap-1.5 ${item.borderHover}`}
           >
             <div className="min-w-0 flex-1 pr-1">
-              <p className="text-xs font-bold text-[#2c3e50] capitalize tracking-tight truncate leading-none">{item.label}</p>
-              <p className="text-sm sm:text-base font-black text-[#2c3e50] my-1.5 truncate leading-none">{item.value}</p>
-              <p className="text-[10px] font-medium text-gray-500 truncate leading-none">{item.sub}</p>
+              <p className="text-[10.5px] font-medium text-slate-500 capitalize leading-tight truncate">{item.label}</p>
+              <p className="text-[14px] font-semibold text-slate-900 truncate leading-tight">{item.value}</p>
+              <p className="text-[10px] text-slate-400 truncate leading-tight">{item.sub}</p>
             </div>
-            <div className={`p-1.5 sm:p-2 rounded text-xs sm:text-sm flex-shrink-0 font-bold ${item.color} ${item.bgIcon}`}>
+            <div className={`h-6 w-6 inline-flex items-center justify-center rounded text-[11px] flex-shrink-0 ${item.color} ${item.bgIcon}`}>
               {item.icon}
             </div>
           </div>

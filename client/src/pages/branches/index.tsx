@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -123,7 +123,7 @@ const Branches = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+      <div className="w-full p-4">
         {/* Hidden file input for .xlsx import */}
         <input
           type="file"
@@ -163,6 +163,7 @@ const Branches = () => {
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading}
+          compact
         />
       </div>
     </HomeLayout>

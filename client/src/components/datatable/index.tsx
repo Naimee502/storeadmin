@@ -19,7 +19,9 @@ import {
     FaTruck,
     FaBoxOpen,
 } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import { FormDensityContext } from "../formpage/density";
+import { isOverlayOpen } from "../formpage/overlay";
 import Loader from "../loader";
 import FormField from "../formfiled";
 import FormSwitch from "../formswitch";
@@ -61,6 +63,16 @@ function useStickyTableState<T>(title: string, field: string, initial: T) {
 
   return [value, setValue] as const;
 }
+
+/**
+ * Several listings can sit on one page (e.g. Expense Notes). Only one of them
+ * may answer the keyboard, or Alt+N would open two forms and ↑/↓ would move
+ * two highlights. The table the user last clicked or tabbed into owns the
+ * keys; until then, the first one on the page does.
+ */
+const mountedTables: string[] = [];
+let activeTable: string | null = null;
+
 
 interface Column {
     label: string;
@@ -143,6 +155,13 @@ interface DataTableProps {
     requireBranchForAdd?: boolean;
     // Extra page-specific buttons, shown first in the toolbar button row.
     toolbarActions?: React.ReactNode;
+    /**
+     * Desktop layout: one-line toolbar, dense rows, sticky header and Actions
+     * column (no sideways scrolling to reach Edit), and keyboard control —
+     * ↑/↓ select a row, Enter edit, Delete delete, ←/→ page, / search,
+     * Alt+N add new. Opt-in per screen while screens move over.
+     */
+    compact?: boolean;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -199,7 +218,22 @@ const DataTable: React.FC<DataTableProps> = ({
     showActionsColumn = true,
     requireBranchForAdd,
     toolbarActions,
+    compact = true,
 }) => {
+    const tableId = useId();
+    useEffect(() => {
+        if (!compact) return;
+        mountedTables.push(tableId);
+        if (!activeTable || !mountedTables.includes(activeTable)) activeTable = tableId;
+        return () => {
+            const i = mountedTables.indexOf(tableId);
+            if (i >= 0) mountedTables.splice(i, 1);
+            if (activeTable === tableId) activeTable = mountedTables[0] ?? null;
+        };
+    }, [compact, tableId]);
+    const claimKeyboard = () => {
+        activeTable = tableId;
+    };
     const [entriesPerPage, setEntriesPerPage] = useStickyTableState(title, "entriesPerPage", defaultEntriesPerPage);
     const [currentPage, setCurrentPage] = useStickyTableState(title, "currentPage", 1);
     const [globalSearch, setGlobalSearch] = useStickyTableState(title, "globalSearch", "");
@@ -244,45 +278,104 @@ const DataTable: React.FC<DataTableProps> = ({
         });
     };
 
-    return (
-        <div className="relative">
-            {isLoading && <Loader fullScreen />}
-            <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
-                <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
+    const handleAdd = useCallback(() => {
+        if (requireBranchForAdd) {
+            const bid = localStorage.getItem("branchid");
+            if (!bid || bid === "all") {
+                alert("Please select a specific branch from the top dropdown to create a new record.");
+                return;
+            }
+        }
+        onAdd?.();
+    }, [requireBranchForAdd, onAdd]);
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                        Show
-                        <select
-                            value={entriesPerPage}
-                            onChange={(e) => setEntriesPerPage(Number(e.target.value))}
-                            className="border rounded px-2 py-1"
-                        >
-                            {entriesOptions.map((num) => (
-                                <option key={num} value={num}>
-                                    {num}
-                                </option>
-                            ))}
-                        </select>
-                        entries
-                    </div>
+    const canEdit = (row: any) => (typeof showEdit === "function" ? showEdit(row) : showEdit);
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
-                        <label className="text-sm">Search:</label>
-                        <div className="relative w-full sm:w-64">
-                            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-                            <input
-                                type="text"
-                                value={globalSearch}
-                                onChange={(e) => setGlobalSearch(e.target.value)}
-                                className="w-full pl-6 pr-3 py-1 border rounded text-xs sm:text-sm focus:outline-none"
-                                placeholder="Search..."
-                            />
-                        </div>
-                    </div>
-                </div>
+    // ---- Keyboard control (compact screens only) ----------------------------
+    const [selectedIdx, setSelectedIdx] = useState(-1);
+    const searchRef = useRef<HTMLInputElement>(null);
+    const tbodyRef = useRef<HTMLTableSectionElement>(null);
 
-                {!showAdd && formFields && formValues && onFormChange && onFormSubmit && (
+    // Keep the highlighted row on the page that is actually showing.
+    useEffect(() => {
+        setSelectedIdx((i) => (i >= paginatedData.length ? paginatedData.length - 1 : i));
+    }, [paginatedData.length]);
+    useEffect(() => setSelectedIdx(-1), [currentPage, globalSearch, filters]);
+
+    useEffect(() => {
+        if (!compact) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.defaultPrevented || activeTable !== tableId || isOverlayOpen()) return;
+            // Alt+N (⌥N on Mac — use the key's position, ⌥N types "˜").
+            if (e.altKey && e.code === "KeyN" && showAdd) {
+                e.preventDefault();
+                handleAdd();
+                return;
+            }
+            const t = e.target as HTMLElement;
+            const typing = t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable;
+            if (typing) {
+                // ↓ from the search box drops into the table.
+                if (e.key === "ArrowDown" && t === searchRef.current && paginatedData.length) {
+                    e.preventDefault();
+                    searchRef.current?.blur();
+                    setSelectedIdx(0);
+                }
+                if (e.key === "Escape" && t === searchRef.current) searchRef.current?.blur();
+                return;
+            }
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            switch (e.key) {
+                case "/":
+                    e.preventDefault();
+                    searchRef.current?.focus();
+                    break;
+                case "ArrowDown":
+                    e.preventDefault();
+                    setSelectedIdx((i) => Math.min(i + 1, paginatedData.length - 1));
+                    break;
+                case "ArrowUp":
+                    e.preventDefault();
+                    setSelectedIdx((i) => Math.max(i - 1, 0));
+                    break;
+                case "ArrowRight":
+                case "PageDown":
+                    e.preventDefault();
+                    changePage("next");
+                    break;
+                case "ArrowLeft":
+                case "PageUp":
+                    e.preventDefault();
+                    changePage("prev");
+                    break;
+                case "Enter": {
+                    const row = paginatedData[selectedIdx];
+                    if (!row) return;
+                    e.preventDefault();
+                    if (onEdit && canEdit(row)) onEdit(row);
+                    else if (showView) onView?.(row);
+                    break;
+                }
+                case "Delete": {
+                    const row = paginatedData[selectedIdx];
+                    if (!row || !showDelete) return;
+                    e.preventDefault();
+                    onDelete?.(row);
+                    break;
+                }
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    });
+
+    // Keep the highlighted row in view while arrowing through a long page.
+    useEffect(() => {
+        if (selectedIdx < 0) return;
+        tbodyRef.current?.children[selectedIdx]?.scrollIntoView({ block: "nearest" });
+    }, [selectedIdx]);
+
+    const inlineForm = !showAdd && formFields && formValues && onFormChange && onFormSubmit && (
                     <div className="flex flex-row gap-4 w-full sm:w-full items-center">
                         {formFields.map((field) => (
                             <FormField
@@ -356,102 +449,85 @@ const DataTable: React.FC<DataTableProps> = ({
                             Save
                         </Button>
                     </div>
-                )}
+                );
 
-                <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full sm:w-auto">
-                    {toolbarActions}
-                    {showImport && (
-                        <button
-                            onClick={onImport}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-sky-600 !text-white rounded-md hover:!bg-sky-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-sky-600"
-                        >
-                            <FaFileImport className="!text-white flex-shrink-0" />
-                            <span className="!text-white font-bold">Import</span>
-                        </button>
-                    )}
-                    {showExport && (
-                        <button
-                            onClick={onExport}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-emerald-600 !text-white rounded-md hover:!bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-emerald-600"
-                        >
-                            <FaFileExport className="!text-white flex-shrink-0" />
-                            <span className="!text-white font-bold">Export</span>
-                        </button>
-                    )}
-                    {showDeleted && (
-                        <button
-                            onClick={onShowDeleted}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-rose-600 !text-white rounded-md hover:!bg-rose-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-rose-600"
-                        >
-                            <FaTrashRestore className="!text-white flex-shrink-0" />
-                            <span className="!text-white font-bold">Deleted Entries</span>
-                        </button>
-                    )}
-                    {showAdd && (
-                        <button
-                            onClick={() => {
-                                if (requireBranchForAdd) {
-                                    const bid = localStorage.getItem("branchid");
-                                    if (!bid || bid === "all") {
-                                        alert("Please select a specific branch from the top dropdown to create a new record.");
-                                        return;
-                                    }
+    // Quick-add row for small masters (Units, Brands, Sizes…): compact fields,
+    // Enter in any box saves — like typing a line in Tally.
+    const compactInlineForm = !showAdd && formFields && formValues && onFormChange && onFormSubmit && (
+        <FormDensityContext.Provider value="compact">
+            <div
+                className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                onKeyDown={(e) => {
+                    const t = e.target as HTMLElement;
+                    if (e.key === "Enter" && !e.defaultPrevented && t.tagName === "INPUT" && (t as HTMLInputElement).type !== "file") {
+                        e.preventDefault();
+                        onFormSubmit();
+                    }
+                }}
+            >
+                {formFields.map((field) => (
+                    <div key={field.name} className="min-w-[160px] flex-1">
+                        <FormField
+                            label={field.label}
+                            name={field.name}
+                            type={field.type as any}
+                            accept={field.accept}
+                            value={field.type === "file" ? undefined : (formValues[field.name] || "")}
+                            onChange={(e: any) => {
+                                if (field.type === "file") {
+                                    const file = e.target?.files?.[0];
+                                    if (file) onFormChange(field.name, file);
+                                } else {
+                                    onFormChange(field.name, e.target.value);
                                 }
-                                if (onAdd) onAdd();
                             }}
-                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
-                        >
-                            <FaPlus className="!text-white flex-shrink-0" />
-                            <span className="!text-white font-bold">Add New</span>
-                        </button>
-                    )}
+                            error={formErrors?.[field.name]}
+                            placeholder={field.placeholder}
+                            options={field.options}
+                            searchable={field.searchable}
+                        />
+                    </div>
+                ))}
+                {(() => {
+                    const fileField = formFields.find((f) => f.type === "file");
+                    const previewUrl = fileField ? formValues[fileField.name] : null;
+                    if (!previewUrl) return null;
+                    return (
+                        <div className="relative h-8 w-8 shrink-0">
+                            <img src={previewUrl} alt="Preview" className="h-8 w-8 rounded-md border border-slate-200 object-cover" />
+                            <button
+                                type="button"
+                                title="Remove image"
+                                onClick={() => onFormChange(fileField!.name, "")}
+                                className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-red-600 text-[9px] font-bold leading-none text-white hover:bg-red-700"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    );
+                })()}
+                <div className="w-28 shrink-0">
+                    <FormSwitch
+                        label="Status"
+                        name="status"
+                        checked={Boolean(formValues.status)}
+                        onChange={(checked: boolean) => onFormChange("status", checked as any)}
+                    />
                 </div>
+                <button
+                    type="button"
+                    onClick={onFormSubmit}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+                >
+                    Save
+                    <kbd className="ml-1 rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Enter</kbd>
+                </button>
+            </div>
+        </FormDensityContext.Provider>
+    );
 
-                <div className="overflow-auto border rounded">
-                    <table className="min-w-full text-xs sm:text-sm text-left">
-                        <thead className="bg-gray-100 text-gray-700">
-                            <tr>
-                                {columns.map((col) => (
-                                    <th
-                                        key={col.key}
-                                        className="px-3 sm:px-4 py-1 sm:py-2 whitespace-nowrap"
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            {col.label}
-                                            <FaFilter className="text-gray-400 text-xs" />
-                                        </div>
-                                    </th>
-                                ))}
-                                {showActionsColumn && <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>}
-                            </tr>
-                            <tr>
-                                {columns.map((col) => (
-                                    <th key={col.key} className="px-3 sm:px-4 py-1">
-                                        <input
-                                            type="text"
-                                            value={filters[col.key] || ""}
-                                            onChange={(e) => handleFilterChange(col.key, e.target.value)}
-                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none"
-                                            placeholder={`Search ${col.label}`}
-                                        />
-                                    </th>
-                                ))}
-                                {showActionsColumn && <th></th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {paginatedData.map((row, idx) => (
-                                <tr key={idx} className="border-t">
-                                    {columns.map((col) => (
-                                        <td
-                                            key={col.key}
-                                            className="px-3 sm:px-4 py-2 whitespace-nowrap"
-                                        >
-                                            {row[col.key]}
-                                        </td>
-                                    ))}
-                                    {showActionsColumn && (
-                                        <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
+    const rowActions = (row: any) => (
+        <>
                                             {showView && (
                                                 <button onClick={() => onView?.(row)} title="View">
                                                     <FaEye />
@@ -527,6 +603,345 @@ const DataTable: React.FC<DataTableProps> = ({
                                                     <FaTrashRestore />
                                                 </button>
                                             )}
+        </>
+    );
+
+    if (compact) {
+        const from = filteredData.length ? (currentPage - 1) * entriesPerPage + 1 : 0;
+        const to = Math.min(currentPage * entriesPerPage, filteredData.length);
+        const pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+            (p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1
+        );
+        // Desktop screens can always show up to 100 rows a page.
+        const pageSizes = entriesOptions.includes(100) ? entriesOptions : [...entriesOptions, 100];
+        const toolBtn =
+            "inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50";
+        return (
+            <div className="relative" onPointerDownCapture={claimKeyboard} onFocusCapture={claimKeyboard}>
+                {isLoading && <Loader fullScreen />}
+                <div className="flex flex-col gap-2 text-[13px]">
+                    {/* One-line toolbar */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="text-base font-semibold text-slate-900">{title}</h1>
+                        <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                            {filteredData.length}
+                        </span>
+                        <div className="relative ml-auto w-full sm:w-64">
+                            <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400" />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                value={globalSearch}
+                                onChange={(e) => {
+                                    setGlobalSearch(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="h-8 w-full rounded-md border border-slate-300 bg-white pl-7 pr-8 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                placeholder="Search…"
+                            />
+                            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded border border-slate-300 px-1 text-[10px] text-slate-400">/</kbd>
+                        </div>
+                        {toolbarActions}
+                        {showImport && (
+                            <button onClick={onImport} className={toolBtn} title="Import from Excel">
+                                <FaFileImport className="text-sky-600" /> Import
+                            </button>
+                        )}
+                        {showExport && (
+                            <button onClick={onExport} className={toolBtn} title="Export to Excel">
+                                <FaFileExport className="text-emerald-600" /> Export
+                            </button>
+                        )}
+                        {showDeleted && (
+                            <button onClick={onShowDeleted} className={toolBtn} title="Deleted entries">
+                                <FaTrashRestore className="text-rose-500" /> Deleted
+                            </button>
+                        )}
+                        {showAdd && (
+                            <button
+                                onClick={handleAdd}
+                                title="Add new (Alt+N)"
+                                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700"
+                            >
+                                <FaPlus className="text-[10px]" /> Add New
+                                <kbd className="ml-1 rounded border border-white/40 px-1 text-[10px] font-medium leading-4 text-white/80">Alt+N</kbd>
+                            </button>
+                        )}
+                    </div>
+
+                    {compactInlineForm}
+
+                    {/* Table — scrolls inside itself, header and Actions stay put */}
+                    <div className="max-h-[calc(100vh-178px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+                        <table className="min-w-full text-left text-[12.5px]">
+                            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
+                                <tr>
+                                    {columns.map((col) => (
+                                        <th key={col.key} className="whitespace-nowrap px-1.5 pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-normal">
+                                            {col.label}
+                                        </th>
+                                    ))}
+                                    {showActionsColumn && (
+                                        <th className="sticky right-0 bg-slate-50 px-2 pt-2 pb-1 shadow-[-6px_0_6px_-6px_rgba(15,23,42,0.15)] text-right text-[10.5px] font-semibold uppercase tracking-normal">
+                                            Actions
+                                        </th>
+                                    )}
+                                </tr>
+                                <tr className="border-b border-slate-200">
+                                    {columns.map((col) => (
+                                        <th key={col.key} className="px-1.5 pb-1.5">
+                                            <input
+                                                type="text"
+                                                value={filters[col.key] || ""}
+                                                onChange={(e) => handleFilterChange(col.key, e.target.value)}
+                                                className="h-7 w-full min-w-[48px] rounded border border-slate-200 bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-slate-700 outline-none focus:border-indigo-400"
+                                                placeholder="Filter"
+                                            />
+                                        </th>
+                                    ))}
+                                    {showActionsColumn && <th className="sticky right-0 bg-slate-50 shadow-[-6px_0_6px_-6px_rgba(15,23,42,0.15)]" />}
+                                </tr>
+                            </thead>
+                            <tbody ref={tbodyRef}>
+                                {paginatedData.length === 0 && (
+                                    <tr>
+                                        <td colSpan={columns.length + (showActionsColumn ? 1 : 0)} className="px-3 py-8 text-center text-slate-400">
+                                            {isLoading ? "Loading…" : "No records found"}
+                                        </td>
+                                    </tr>
+                                )}
+                                {paginatedData.map((row, idx) => {
+                                    const selected = idx === selectedIdx;
+                                    const bg = selected ? "bg-indigo-50" : idx % 2 ? "bg-slate-50" : "bg-white";
+                                    return (
+                                        <tr
+                                            key={row.id ?? idx}
+                                            onClick={() => setSelectedIdx(idx)}
+                                            onDoubleClick={() => (onEdit && canEdit(row) ? onEdit(row) : showView && onView?.(row))}
+                                            className={`group cursor-default border-b border-slate-100 ${bg} hover:bg-indigo-50 ${
+                                                selected ? "shadow-[inset_3px_0_0_#6366f1]" : ""
+                                            }`}
+                                        >
+                                            {columns.map((col) => {
+                                                const v = row[col.key];
+                                                const isStatus = col.key === "status" && (v === "Active" || v === "Inactive");
+                                                const isText = typeof v === "string" || typeof v === "number";
+                                                return (
+                                                    <td
+                                                        key={col.key}
+                                                        title={isText ? String(v) : undefined}
+                                                        className={`whitespace-nowrap px-1.5 py-1.5 text-slate-800 ${isText && !isStatus ? "max-w-[140px] truncate min-[1440px]:max-w-[190px]" : ""}`}
+                                                    >
+                                                        {isStatus ? (
+                                                            <span
+                                                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                                                    v === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                                                                }`}
+                                                            >
+                                                                <span className={`h-1.5 w-1.5 rounded-full ${v === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                                                                {v}
+                                                            </span>
+                                                        ) : (
+                                                            v
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                            {showActionsColumn && (
+                                                <td
+                                                    className={`sticky right-0 whitespace-nowrap px-2 py-1.5 shadow-[-6px_0_6px_-6px_rgba(15,23,42,0.15)] text-right text-blue-600 ${bg} group-hover:bg-indigo-50 [&>button]:ml-2 [&>button]:align-middle`}
+                                                >
+                                                    {rowActions(row)}
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Footer: count, page size, shortcuts, pages */}
+                    <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
+                        <span>
+                            {from}–{to} of {filteredData.length}
+                        </span>
+                        <select
+                            value={entriesPerPage}
+                            onChange={(e) => {
+                                setEntriesPerPage(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="h-7 rounded border border-slate-300 bg-white px-1.5 text-[12px] outline-none"
+                            title="Rows per page"
+                        >
+                            {pageSizes.map((num) => (
+                                <option key={num} value={num}>
+                                    {num} / page
+                                </option>
+                            ))}
+                        </select>
+                        <div className="ml-auto flex items-center gap-1">
+                            <button
+                                onClick={() => changePage("prev")}
+                                disabled={currentPage <= 1}
+                                className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                                ‹ Prev
+                            </button>
+                            {pages.map((p, i) => (
+                                <React.Fragment key={p}>
+                                    {i > 0 && p - pages[i - 1] > 1 && <span className="px-1">…</span>}
+                                    <button
+                                        onClick={() => setCurrentPage(p)}
+                                        className={`h-7 min-w-7 rounded px-2 ${
+                                            p === currentPage ? "bg-indigo-600 font-semibold text-white" : "border border-slate-300 bg-white hover:bg-slate-50"
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                </React.Fragment>
+                            ))}
+                            <button
+                                onClick={() => changePage("next")}
+                                disabled={currentPage >= totalPages}
+                                className="h-7 rounded border border-slate-300 bg-white px-2 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                                Next ›
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative">
+            {isLoading && <Loader fullScreen />}
+            <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
+                <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        Show
+                        <select
+                            value={entriesPerPage}
+                            onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                            className="border rounded px-2 py-1"
+                        >
+                            {entriesOptions.map((num) => (
+                                <option key={num} value={num}>
+                                    {num}
+                                </option>
+                            ))}
+                        </select>
+                        entries
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
+                        <label className="text-sm">Search:</label>
+                        <div className="relative w-full sm:w-64">
+                            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+                            <input
+                                type="text"
+                                value={globalSearch}
+                                onChange={(e) => setGlobalSearch(e.target.value)}
+                                className="w-full pl-6 pr-3 py-1 border rounded text-xs sm:text-sm focus:outline-none"
+                                placeholder="Search..."
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {inlineForm}
+
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full sm:w-auto">
+                    {toolbarActions}
+                    {showImport && (
+                        <button
+                            onClick={onImport}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-sky-600 !text-white rounded-md hover:!bg-sky-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-sky-600"
+                        >
+                            <FaFileImport className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Import</span>
+                        </button>
+                    )}
+                    {showExport && (
+                        <button
+                            onClick={onExport}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-emerald-600 !text-white rounded-md hover:!bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-emerald-600"
+                        >
+                            <FaFileExport className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Export</span>
+                        </button>
+                    )}
+                    {showDeleted && (
+                        <button
+                            onClick={onShowDeleted}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-rose-600 !text-white rounded-md hover:!bg-rose-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-rose-600"
+                        >
+                            <FaTrashRestore className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Deleted Entries</span>
+                        </button>
+                    )}
+                    {showAdd && (
+                        <button
+                            onClick={handleAdd}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-indigo-600 !text-white rounded-md hover:!bg-indigo-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-indigo-600"
+                        >
+                            <FaPlus className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Add New</span>
+                        </button>
+                    )}
+                </div>
+
+                <div className="overflow-auto border rounded">
+                    <table className="min-w-full text-xs sm:text-sm text-left">
+                        <thead className="bg-gray-100 text-gray-700">
+                            <tr>
+                                {columns.map((col) => (
+                                    <th
+                                        key={col.key}
+                                        className="px-3 sm:px-4 py-1 sm:py-2 whitespace-nowrap"
+                                    >
+                                        <div className="flex items-center gap-1">
+                                            {col.label}
+                                            <FaFilter className="text-gray-400 text-xs" />
+                                        </div>
+                                    </th>
+                                ))}
+                                {showActionsColumn && <th className="px-3 sm:px-4 py-1 sm:py-2">Actions</th>}
+                            </tr>
+                            <tr>
+                                {columns.map((col) => (
+                                    <th key={col.key} className="px-3 sm:px-4 py-1">
+                                        <input
+                                            type="text"
+                                            value={filters[col.key] || ""}
+                                            onChange={(e) => handleFilterChange(col.key, e.target.value)}
+                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none"
+                                            placeholder={`Search ${col.label}`}
+                                        />
+                                    </th>
+                                ))}
+                                {showActionsColumn && <th></th>}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paginatedData.map((row, idx) => (
+                                <tr key={idx} className="border-t">
+                                    {columns.map((col) => (
+                                        <td
+                                            key={col.key}
+                                            className="px-3 sm:px-4 py-2 whitespace-nowrap"
+                                        >
+                                            {row[col.key]}
+                                        </td>
+                                    ))}
+                                    {showActionsColumn && (
+                                        <td className="px-3 sm:px-4 py-2 space-x-2 text-blue-600">
+                                            {rowActions(row)}
                                         </td>
                                     )}
                                 </tr>

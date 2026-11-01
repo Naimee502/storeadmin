@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Reorder, motion, useDragControls } from "framer-motion";
 import { GripVertical, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown } from "lucide-react";
 import Modal from "../modal";
-import Button from "../button";
 
 export interface ReorderCategory {
   id: string;
@@ -49,7 +48,7 @@ const Row: React.FC<{
       value={item}
       dragListener={false}
       dragControls={controls}
-      className="relative flex items-center gap-3 px-3 py-2.5 mb-2 bg-white border border-gray-200 rounded-lg select-none"
+      className="relative mb-1.5 flex select-none items-center gap-2.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5"
       whileDrag={{ scale: 1.02, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10 }}
     >
       <button
@@ -61,11 +60,11 @@ const Row: React.FC<{
         <GripVertical size={18} />
       </button>
 
-      <span className="w-7 text-center text-sm font-semibold text-gray-500">{index + 1}</span>
+      <span className="w-6 text-center text-[12px] font-semibold text-slate-500">{index + 1}</span>
 
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-800 truncate">{item.categoryname}</div>
-        {item.categorycode && <div className="text-xs text-gray-400">{item.categorycode}</div>}
+        <div className="truncate text-[13px] font-medium text-slate-800">{item.categoryname}</div>
+        {item.categorycode && <div className="text-[11px] text-slate-400">{item.categorycode}</div>}
       </div>
 
       <div className="flex items-center gap-0.5">
@@ -136,12 +135,12 @@ const CategoryReorder: React.FC<CategoryReorderProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="mb-3 text-[12px] text-slate-500">
         Drag the <GripVertical size={14} className="inline -mt-0.5" /> handle or use the arrows.{" "}
         {hint ?? "This order is used on the app's Home & Shop and on the website."}
       </p>
 
-      {header && <div className="mb-4">{header}</div>}
+      {header && <div className="mb-3">{header}</div>}
 
       {items.length === 0 ? (
         <div className="py-10 text-center text-sm text-gray-400">{emptyText}</div>
@@ -157,13 +156,22 @@ const CategoryReorder: React.FC<CategoryReorderProps> = ({
         </motion.div>
       )}
 
-      <div className="flex justify-end gap-3 pt-4">
-        <Button variant="outline" onClick={onClose}>
+      <div className="flex justify-end gap-2 pt-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+        >
           Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={!changed || saving}>
-          {saving ? "Saving..." : "Save Order"}
-        </Button>
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!changed || saving}
+          className="inline-flex h-8 items-center rounded-md bg-indigo-600 px-3.5 text-[13px] font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save Order"}
+        </button>
       </div>
     </Modal>
   );

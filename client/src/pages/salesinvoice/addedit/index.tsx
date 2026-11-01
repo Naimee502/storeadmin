@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
@@ -640,10 +640,54 @@ const AddEditSalesInvoice = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isCancelledBill ? "Cancelled Sales Invoice" : isEdit ? "Edit Sales Invoice" : "Add Sales Invoice"}
-        </h2>
+      <FormPage
+        breadcrumb="Sales Invoices"
+        title={isCancelledBill ? "Cancelled Sales Invoice" : isEdit ? "Edit Sales Invoice" : "Add Sales Invoice"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate(-1)}
+        cancelLabel={isCancelledBill ? "Back" : "Cancel"}
+        saveLabel={isEdit ? "Update Invoice" : "Save Invoice"}
+        saveTitle={
+          belowCostLines.size > 0
+            ? "Rate is below purchase rate on a line marked in red above."
+            : blockOnShortStock
+            ? "Not enough stock on one or more lines — fix the quantity marked in red above."
+            : !isEdit && Object.keys(validate()).length > 0
+            ? `Still needed: ${Object.values(validate()).join(", ")}`
+            : undefined
+        }
+        saveDisabled={
+          isCancelledBill ||
+          blockOnShortStock ||
+          belowCostLines.size > 0 ||
+          (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)
+        }
+        actions={
+          isEdit && deleteInsideOnly && canDeleteInvoice && (
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-300 bg-white px-3 text-[13px] font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+              disabled={deletingInvoice}
+              onClick={async () => {
+                if (!id || !window.confirm("Are you sure you want to delete this invoice?")) return;
+                setDeletingInvoice(true);
+                try {
+                  await deleteSalesInvoiceMutation({ variables: { id } });
+                  dispatch(showMessage({ message: "Invoice deleted successfully.", type: "success" }));
+                  navigate("/salesinvoice");
+                } catch (error) {
+                  console.error("Delete error:", error);
+                  dispatch(showMessage({ message: "Failed to delete invoice.", type: "error" }));
+                } finally {
+                  setDeletingInvoice(false);
+                }
+              }}
+            >
+              {deletingInvoice ? "Deleting…" : "Delete"}
+            </button>
+          )
+        }
+      >
 
         {isCancelledBill && (
           <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -659,7 +703,7 @@ const AddEditSalesInvoice = () => {
 
         {/* fieldset disabled seals every input at once — no field can be missed,
             and no edit can be typed that the server would then refuse. */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
         {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
         <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* Main Details */}
@@ -832,7 +876,7 @@ const AddEditSalesInvoice = () => {
           {(isFieldEnabled("deliverydate") || isFieldEnabled("duedate") || isFieldEnabled("transportname") || isFieldEnabled("vehiclenumber") || isFieldEnabled("ewaybill") || isFieldEnabled("distance")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Transport & Delivery</legend>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-6">
               {isFieldEnabled("deliverydate") && <FormField
                 label="Delivery Date"
                 name="deliveryDate"
@@ -892,13 +936,13 @@ const AddEditSalesInvoice = () => {
           {(isFieldEnabled("productstotal") || isFieldEnabled("totaldiscount") || isFieldEnabled("taxamount") || isFieldEnabled("summary_othercharges") || isFieldEnabled("invoicediscount") || isFieldEnabled("roundoff") || isFieldEnabled("grandtotal") || isFieldEnabled("received")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Summary</legend>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {isFieldEnabled("productstotal") && <FormField label="Products Total" name="productsTotal" onChange={() => ""} type="text" value={productsTotal.toFixed(2)} disabled />}
               {isFieldEnabled("totaldiscount") && <FormField label="Total Discount" name="totalDiscount" onChange={() => ""} type="text" value={totalDiscount.toFixed(2)} disabled />}
               {isFieldEnabled("taxamount") && <FormField label="Tax Amount" name="taxAmount" onChange={() => ""} type="text" value={taxAmount.toFixed(2)} disabled />}
               {isFieldEnabled("summary_othercharges") && <FormField label="Other Charges" name="otherCharges" onChange={() => ""} type="text" value={otherCharges.reduce((sum, c) => sum + (c.totalamount || 0), 0).toFixed(2)} disabled />}
 
-              {isFieldEnabled("invoicediscount") && <div className="flex gap-2 items-end">
+              {isFieldEnabled("invoicediscount") && <div className="flex gap-1.5 items-end">
                 <div className="flex-1">
                   <FormField
                     label="Invoice Discount"
@@ -909,7 +953,8 @@ const AddEditSalesInvoice = () => {
                   />
                 </div>
                 <select
-                  className="border rounded p-2 text-sm h-10 mb-1"
+                  className="h-8 w-14 shrink-0 rounded-md border border-slate-300 bg-white px-1.5 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  title="Discount in ₹ or %"
                   value={invoiceDiscountType}
                   onChange={(e) => setInvoiceDiscountType(e.target.value)}
                 >
@@ -951,60 +996,8 @@ const AddEditSalesInvoice = () => {
 
           </fieldset>
 
-          <div className="mt-6 flex gap-4 justify-end">
-            {isEdit && deleteInsideOnly && canDeleteInvoice && (
-              <Button
-                type="button"
-                variant="outline"
-                className="!border-red-300 !text-red-600 hover:!bg-red-50 mr-auto"
-                disabled={deletingInvoice}
-                onClick={async () => {
-                  if (!id || !window.confirm("Are you sure you want to delete this invoice?")) return;
-                  setDeletingInvoice(true);
-                  try {
-                    await deleteSalesInvoiceMutation({ variables: { id } });
-                    dispatch(showMessage({ message: "Invoice deleted successfully.", type: "success" }));
-                    navigate("/salesinvoice");
-                  } catch (error) {
-                    console.error("Delete error:", error);
-                    dispatch(showMessage({ message: "Failed to delete invoice.", type: "error" }));
-                  } finally {
-                    setDeletingInvoice(false);
-                  }
-                }}
-              >
-                {deletingInvoice ? "Deleting…" : "Delete"}
-              </Button>
-            )}
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              {isCancelledBill ? "Back" : "Cancel"}
-            </Button>
-            {/* Held shut while any line is short on stock — the red cell in the
-                Products List says which one, and the server refuses it anyway. */}
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={
-                isCancelledBill ||
-                blockOnShortStock ||
-                belowCostLines.size > 0 ||
-                (isEdit ? products.length === 0 : Object.keys(validate()).length > 0)
-              }
-              title={
-                belowCostLines.size > 0
-                  ? "Rate is below purchase rate on a line marked in red above."
-                  : blockOnShortStock
-                  ? "Not enough stock on one or more lines — fix the quantity marked in red above."
-                  : !isEdit && Object.keys(validate()).length > 0
-                  ? `Still needed: ${Object.values(validate()).join(", ")}`
-                  : undefined
-              }
-            >
-              {isEdit ? "Update Invoice" : "Save Invoice"}
-            </Button>
-          </div>
         </form>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

@@ -12,7 +12,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
-import Button from "../../../components/button";
+import FormPage from "../../../components/formpage";
 import ReturnItemsTable from "../../../components/returnitemstable";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -502,12 +502,15 @@ const AddEditSalesReturn: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 text-sm sm:text-base">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-6">
-          {isEdit ? "Edit Sales Return" : "Add Sales Return (Credit Note)"}
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <FormPage
+        breadcrumb="Sales Returns"
+        title={isEdit ? "Edit Sales Return" : "Add Sales Return (Credit Note)"}
+        onSave={() => handleSubmit({ preventDefault() {} } as React.FormEvent)}
+        onCancel={() => navigate(-1)}
+        saveLabel={isEdit ? "Update Return" : "Save Return"}
+        saveDisabled={lines.length === 0 || lines.every((l) => Number(l.qty) <= 0)}
+      >
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
           {/* Main Details */}
           {(isFieldEnabled("sourceinvoice") || isFieldEnabled("returndate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("refundmode") || isFieldEnabled("placeofsupply") || isFieldEnabled("reason") || isFieldEnabled("notes")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
@@ -726,17 +729,8 @@ const AddEditSalesReturn: React.FC = () => {
             </div>
           </fieldset>
           )}
-
-          <div className="mt-6 flex gap-4 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="outline" disabled={lines.length === 0 || lines.every((l) => Number(l.qty) <= 0)}>
-              {isEdit ? "Update Return" : "Save Return"}
-            </Button>
-          </div>
         </form>
-      </div>
+      </FormPage>
     </HomeLayout>
   );
 };

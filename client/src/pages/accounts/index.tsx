@@ -222,7 +222,7 @@ const Accounts = () => {
             <button
               type="button"
               onClick={() => setShowSubParties((v) => !v)}
-              className={`rounded-md border px-3 py-2 text-sm font-semibold ${showSubParties ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+              className={`inline-flex h-8 items-center rounded-md border px-3 text-[13px] font-medium ${showSubParties ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
             >
               {showSubParties ? "Hide sub-parties" : `Show sub-parties (${subPartyCount})`}
             </button>

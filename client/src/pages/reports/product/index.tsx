@@ -22,13 +22,13 @@ import { useActiveStockAdjustments } from "../../../graphql/hooks/stockadjustmen
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 
 const reportTabsObj = [
-  { id: "Complete Statement", label: "Complete Statement", icon: <FaClipboardList className="text-blue-600" /> },
-  { id: "Sales Invoices", label: "Sales Invoices", icon: <FaFileInvoiceDollar className="text-emerald-600" /> },
-  { id: "Purchase Invoices", label: "Purchase Invoices", icon: <FaFileInvoiceDollar className="text-violet-600" /> },
-  { id: "Sales Returns", label: "Sales Returns", icon: <FaUndoAlt className="text-amber-600" /> },
-  { id: "Purchase Returns", label: "Purchase Returns", icon: <FaUndoAlt className="text-orange-600" /> },
-  { id: "Stock Transfers", label: "Stock Transfers", icon: <FaExchangeAlt className="text-cyan-600" /> },
-  { id: "Stock Adjustments", label: "Stock Adjustments", icon: <FaAdjust className="text-pink-600" /> },
+  { id: "Complete Statement", label: "Complete Statement", icon: <FaClipboardList className="text-xs text-blue-600" /> },
+  { id: "Sales Invoices", label: "Sales Invoices", icon: <FaFileInvoiceDollar className="text-xs text-emerald-600" /> },
+  { id: "Purchase Invoices", label: "Purchase Invoices", icon: <FaFileInvoiceDollar className="text-xs text-violet-600" /> },
+  { id: "Sales Returns", label: "Sales Returns", icon: <FaUndoAlt className="text-xs text-amber-600" /> },
+  { id: "Purchase Returns", label: "Purchase Returns", icon: <FaUndoAlt className="text-xs text-orange-600" /> },
+  { id: "Stock Transfers", label: "Stock Transfers", icon: <FaExchangeAlt className="text-xs text-cyan-600" /> },
+  { id: "Stock Adjustments", label: "Stock Adjustments", icon: <FaAdjust className="text-xs text-pink-600" /> },
 ];
 
 const ProductStatementReport: React.FC = () => {
@@ -380,8 +380,8 @@ const ProductStatementReport: React.FC = () => {
 
   return (
     <HomeLayout>
-      <div className="w-full px-2 sm:px-6 pt-4 pb-6 font-sans">
-        <div className="flex flex-wrap gap-2 mb-4">
+      <div className="w-full p-4 font-sans">
+        <div className="flex flex-wrap gap-2 mb-3">
           {reportTabsObj.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -389,8 +389,10 @@ const ProductStatementReport: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                  isActive ? "!bg-slate-900 !text-white shadow-sm border border-slate-900" : "bg-white text-gray-700 hover:text-black hover:bg-gray-100 border border-gray-200"
+                className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors cursor-pointer ${
+                  isActive
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <span>{tab.icon}</span>

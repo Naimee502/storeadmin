@@ -125,10 +125,10 @@ export const ServiceVariants: React.FC<ServiceVariantsProps> = ({
           ))}
           <button
             type="button"
-            className="px-3 py-1 border rounded text-sm"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50"
             onClick={() => addAvailabilitySlot(index)}
           >
-            ➕ Add Slot
+            + Add Slot
           </button>
         </div>
       </fieldset>
@@ -137,9 +137,9 @@ export const ServiceVariants: React.FC<ServiceVariantsProps> = ({
     <button
       type="button"
       onClick={addServiceVariant}
-      className="px-4 py-2 border rounded text-sm"
+      className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50"
     >
-      ➕ Add Service Variant
+      + Add Service Variant
     </button>
   </>
 );

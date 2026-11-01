@@ -1,5 +1,6 @@
 import React from 'react';
 import loginBg from '../../assets/images/loginbg.jpg'
+import { FormDensityContext } from '../../components/formpage/density';
 
 const LoginLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -18,8 +19,11 @@ const LoginLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       */}
 
       {/* Content Container */}
-      <div className="relative bg-white w-svm p-6 sm:p-8 rounded-xl shadow-lg z-10">
-        {children}
+      <div className="relative z-10 rounded-xl bg-white p-6 shadow-xl">
+        {/* Auth screens use the compact desktop form density (32px inputs). */}
+        <FormDensityContext.Provider value="compact">
+          {children}
+        </FormDensityContext.Provider>
       </div>
     </div>
   );
