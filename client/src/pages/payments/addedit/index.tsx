@@ -1142,6 +1142,14 @@ const AddEditPayment = () => {
       } else {
         await addPaymentMutation({ variables: { input } });
         dispatch(showMessage({ message: "Payment saved", type: "success" }));
+        // The list remembers its page across visits. A new entry always lands
+        // on page 1 (newest first), so going back to, say, page 4 made it look
+        // as if the save hadn't worked.
+        try {
+          sessionStorage.removeItem("datatable:/payments:Manage Payments:currentPage");
+        } catch {
+          /* storage unavailable — the list just keeps its old page */
+        }
       }
       navigate("/payments");
     } catch (err: any) {

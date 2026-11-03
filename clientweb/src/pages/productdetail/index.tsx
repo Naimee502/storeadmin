@@ -53,35 +53,49 @@ function MainImage({ src, alt, placeholder, onBroken }: {
 // the image host was plain http (local/LAN server) — HTTPS-First mode warns on
 // every http navigation. A fetch is not a navigation, so no warning.
 //
-// Our own uploads get "?download=1" (server sends the original + a CORS
-// header). If the fetch fails for any reason (external host without CORS,
-// network), it falls back to opening the image in a new tab.
+// Our own uploads get "?download=1" (server sends the original as an
+// attachment + a CORS header). The page NEVER opens a new tab for this — not
+// even as a fallback:
+//   1. fetch → blob → <a download>     (normal path, works everywhere)
+//   2. hidden <iframe> on ?download=1   (own uploads only, if the fetch failed
+//      or timed out). The server answers with Content-Disposition: attachment,
+//      so the browser saves the file and the iframe itself shows nothing.
+//   3. external host without CORS       → a message; it can't be saved from
+//      the page without navigating away.
 async function downloadProductImage(url: string, name: string) {
   const isOwnUpload = url.includes("/uploads/");
   const ext = (url.split("?")[0].match(/\.[a-z0-9]+$/i) || [".jpg"])[0];
   const fileName = `${name.replace(/[^\w\- ]+/g, "").trim() || "product"}${ext}`;
   const src = isOwnUpload ? `${url}${url.includes("?") ? "&" : "?"}download=1` : url;
 
-  const clickLink = (href: string, opts: { download?: string; newTab?: boolean }) => {
-    const a = document.createElement("a");
-    a.href = href;
-    a.rel = "noopener";
-    if (opts.download) a.download = opts.download;
-    if (opts.newTab) a.target = "_blank";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
+  // A host that never answers would otherwise leave the click hanging forever.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const res = await fetch(src, { mode: "cors" });
+    const res = await fetch(src, { mode: "cors", signal: ctrl.signal });
     if (!res.ok) throw new Error(String(res.status));
     const blob = await res.blob();
     const objectUrl = URL.createObjectURL(blob);
-    clickLink(objectUrl, { download: fileName });
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
   } catch {
-    clickLink(url, { newTab: true });
+    if (isOwnUpload) {
+      const frame = document.createElement("iframe");
+      frame.style.display = "none";
+      frame.src = src;
+      document.body.appendChild(frame);
+      setTimeout(() => frame.remove(), 60000);
+    } else {
+      window.alert("This image can't be downloaded right now. Please try again later.");
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 

@@ -26,6 +26,7 @@ import Loader from "../loader";
 import FormField from "../formfiled";
 import FormSwitch from "../formswitch";
 import Button from "../button";
+import { splitPartyLabel } from "../../utils/partylabel";
 
 /**
  * Listing state that survives leaving the page.
@@ -73,6 +74,9 @@ function useStickyTableState<T>(title: string, field: string, initial: T) {
 const mountedTables: string[] = [];
 let activeTable: string | null = null;
 
+
+// Columns whose value is a partyLabel() string ("Name - Mobile - City").
+const PARTY_COLUMN_KEYS = new Set(["partyacc", "partyDisplay"]);
 
 interface Column {
     label: string;
@@ -726,6 +730,19 @@ const DataTable: React.FC<DataTableProps> = ({
                                                 const v = row[col.key];
                                                 const isStatus = col.key === "status" && (v === "Active" || v === "Inactive");
                                                 const isText = typeof v === "string" || typeof v === "number";
+                                                // Party columns carry "Name - Mobile - City". Squeezed into one
+                                                // truncated line the city was always the part cut off, so lay it
+                                                // out on two lines: name on top, mobile · city underneath.
+                                                if (PARTY_COLUMN_KEYS.has(col.key) && typeof v === "string") {
+                                                    const { name, mobile, city } = splitPartyLabel(v);
+                                                    const sub = [mobile, city].filter(Boolean).join(" · ");
+                                                    return (
+                                                        <td key={col.key} title={v} className="min-w-[170px] max-w-[260px] px-1.5 py-1 align-middle text-slate-800">
+                                                            <div className="whitespace-normal break-words font-medium leading-tight">{name || v}</div>
+                                                            {sub && <div className="mt-0.5 whitespace-nowrap text-[11px] leading-tight text-slate-500">{sub}</div>}
+                                                        </td>
+                                                    );
+                                                }
                                                 return (
                                                     <td
                                                         key={col.key}

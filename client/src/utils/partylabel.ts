@@ -67,3 +67,25 @@ export const paymentPartyLabel = (
     city: (acc as any)?.city || null,
   });
 };
+
+/**
+ * Reverse of partyLabel, for list cells that want to lay the parts out on two
+ * lines (name on top, "mobile · city" underneath) instead of one long string
+ * that gets cut off. The mobile is the all-digits segment; whatever comes
+ * before it is the name (names may themselves contain " - "), whatever comes
+ * after is the city. A label without a mobile — a ledger name, a walk-in —
+ * comes back as the name alone, untouched.
+ */
+export const splitPartyLabel = (
+  label: string | null | undefined
+): { name: string; mobile: string; city: string } => {
+  const text = String(label ?? "").trim();
+  const parts = text.split(" - ").map((p) => p.trim());
+  const idx = parts.findIndex((p, i) => i > 0 && /^\+?[\d\s]{7,15}$/.test(p));
+  if (idx === -1) return { name: text, mobile: "", city: "" };
+  return {
+    name: parts.slice(0, idx).join(" - "),
+    mobile: parts[idx],
+    city: parts.slice(idx + 1).join(" - "),
+  };
+};

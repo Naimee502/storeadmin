@@ -17,16 +17,45 @@ import {
 } from "../../queries/payments";
 
 import { useAppSelector } from "../../../redux/hooks";
+import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
 // ----------------- Mutations -----------------
+// Every payment write refreshes the Payments list BEFORE the mutation resolves.
+//
+// The visible bug: save a payment, land back on Payments, and the new entry
+// isn't there until a manual browser refresh. The list is opened straight
+// after the save with the OLD cached rows (cache-and-network), and on a large
+// business (~2000 payments) the background re-fetch takes long enough that the
+// user decides the entry is missing.
+//
+// Refetching by operation NAME alone isn't enough here: Apollo only refetches
+// ACTIVE queries by name, and the Payments list isn't mounted while the form is
+// open. So the list's exact query (same filter it will use) is refetched by
+// document, and awaited, so the cache is already fresh when the form navigates
+// back. The name-based entries still catch any other mounted GetPayments /
+// GetTransactions watcher (Home activity table, reports, other filters).
 export const usePaymentMutations = () => {
-  const [addPaymentMutation] = useMutation(ADD_PAYMENT);
-  const [editPaymentMutation] = useMutation(EDIT_PAYMENT);
-  const [deletePaymentMutation] = useMutation(DELETE_PAYMENT);
-  const [resetPaymentMutation] = useMutation(RESET_PAYMENT);
-  const [reallocatePaymentMutation] = useMutation(REALLOCATE_PAYMENT, {
-    refetchQueries: ["GetPayments"],
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const refreshLists = {
+    refetchQueries: [
+      { query: GET_PAYMENTS, variables: { filter: { adminid, branchid } } },
+      ...PAYMENT_SIDE_EFFECT_QUERIES,
+    ],
+    awaitRefetchQueries: true,
+  };
+
+  const [addPaymentMutation] = useMutation(ADD_PAYMENT, refreshLists);
+  const [editPaymentMutation] = useMutation(EDIT_PAYMENT, refreshLists);
+  const [deletePaymentMutation] = useMutation(DELETE_PAYMENT, refreshLists);
+  const [resetPaymentMutation] = useMutation(RESET_PAYMENT, {
+    ...refreshLists,
+    refetchQueries: [...refreshLists.refetchQueries, "GetDeletedPayments"],
   });
+  const [reallocatePaymentMutation] = useMutation(REALLOCATE_PAYMENT, refreshLists);
 
   return {
     addPaymentMutation,

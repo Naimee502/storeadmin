@@ -41,6 +41,25 @@ const Payment = () => {
     fetchPayments();
   }, [dispatch, refetch]);
 
+  // Payments also arrive from elsewhere — staff and parties on the mobile app,
+  // another admin tab, invoices with auto-receipt. Re-check quietly whenever
+  // this tab comes back into view, so nobody has to hit browser refresh.
+  useEffect(() => {
+    // Switching tabs fires both events; one fetch is enough.
+    let last = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 3000) return;
+      last = Date.now();
+      refetch().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [refetch]);
+
   const columns = [
     { label: "Seq", key: "seqNo" },
     { label: "Code", key: "paymentcode" },
