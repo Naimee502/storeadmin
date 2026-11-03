@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addBranches } from "../../redux/slices/branches";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useBranchesQuery, useBranchMutations } from "../../graphql/hooks/branches";
+import { useBranchesListQuery, useBranchMutations } from "../../graphql/hooks/branches";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions } from "../../redux/slices/permissions";
@@ -16,27 +16,31 @@ const Branches = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data, refetch } = useBranchesQuery();
+  // Lite list query — grid columns + export fields only.
+  const { data, refetch } = useBranchesListQuery();
   const { deleteBranchMutation } = useBranchMutations();
   const branchList = data?.getBranches || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
+  // Mount only. Cached rows → refresh quietly without the blocking loader.
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      const blocking = !data?.getBranches?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.branches) {
-          dispatch(addBranches(data.branches));
+        const { data: fresh } = await refetch();
+        if (fresh?.branches) {
+          dispatch(addBranches(fresh.branches));
         }
       } catch (error) {
         console.error('Error fetching branches:', error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [

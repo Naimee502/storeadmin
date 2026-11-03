@@ -7,14 +7,23 @@ import {
   useCreateStockAdjustment,
   useUpdateStockAdjustment,
   useGetStockAdjustmentById,
+  useStockAdjustmentProductsQuery,
 } from "../../../graphql/hooks/stockadjustments";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+// Header and every row share this template so the columns stay aligned.
+// Boxes match the compact FormField controls used inside FormPage (32px).
+// Written out in full (not built at runtime) so Tailwind generates the class.
+const ROW_GRID_SM =
+  "sm:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_88px_120px_120px_120px_32px]";
+const BOX = "flex items-center h-8 rounded-md border bg-white px-2.5 text-[13px]";
+const MOBILE_LABEL = "sm:hidden block mb-0.5 text-[12px] font-medium text-slate-600";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +32,23 @@ interface Variant {
   name?: string;
   currentstock?: number;
   purchaserate?: number;
+  baseunitid?: { id: string } | null;
+  purchaseunitid?: { id: string } | null;
+  unitconversions?: { unitid?: { id: string } | null; factor?: number }[];
 }
+
+// Adjusted qty is in the BASE unit (the server moves stock by base units), so
+// the default rate must be per base unit too. purchaserate is per PURCHASE
+// unit — e.g. ₹120 per box of 12 → ₹10 per piece. Without this, Amount was
+// overstated by the conversion factor.
+const baseUnitRate = (v?: Variant): number => {
+  const rate = Number(v?.purchaserate) || 0;
+  const pu = v?.purchaseunitid?.id;
+  if (!pu || pu === v?.baseunitid?.id) return rate;
+  const conv = (v?.unitconversions || []).find((u) => u?.unitid?.id === pu);
+  const factor = Number(conv?.factor) || 0;
+  return factor > 0 ? Math.round((rate / factor) * 100) / 100 : rate;
+};
 
 interface Product {
   id: string;
@@ -97,7 +122,8 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const [items, setItems] = useState<AdjItem[]>([emptyItem()]);
 
   // ── Product data ──────────────────────────────────────────────────────────
-  const { data: productData } = useProductServicesQuery(true, 500, 0);
+  // Lite picker query: id/name + variant id/name/currentstock/purchaserate only.
+  const { data: productData } = useStockAdjustmentProductsQuery(true, 500, 0);
   const allProducts: Product[] = productData?.getProductServices ?? [];
 
   // ── Fetch existing record for edit ────────────────────────────────────────
@@ -176,7 +202,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
         variantname: v?.name ?? "",
         systemstock: v?.currentstock ?? 0,
         quantity: 0,
-        rate: v?.purchaserate ?? 0,
+        rate: baseUnitRate(v),
         amount: 0,
         _variants: product.productvariants ?? [],
       };
@@ -351,83 +377,84 @@ const StockAdjustmentAddEdit: React.FC = () => {
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm font-semibold px-2">Stock Items</legend>
 
-            {/* Desktop column headers */}
-            <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_80px_110px_95px_95px_36px] gap-2 mb-2 px-1 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b pb-2">
+            {/* One grid template for header + rows so every column lines up. */}
+            <div className={`hidden sm:grid ${ROW_GRID_SM} gap-2 px-1 pb-2 mb-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide`}>
               <div>Product</div>
               <div>Variant</div>
-              <div className="text-center">Sys. Stock</div>
-              <div className={`text-center font-bold ${qtyColor}`}>
-                {qtySign} Adj. Qty
-              </div>
-              <div className="text-right">Rate (₹)</div>
+              <div className="text-right">Sys. Stock</div>
+              <div className={`text-right ${qtyColor}`}>{qtySign} Adj. Qty</div>
+              <div className="text-right">Rate / Unit (₹)</div>
               <div className="text-right">Amount (₹)</div>
               <div />
             </div>
 
-            {/* Item rows */}
             {items.map((item, rowIdx) => {
               const variantOptions = item._variants.map((v) => ({
                 label: v.name || "Default",
                 value: v.id,
               }));
+              // Shortage larger than what is on hand — flag it before the
+              // server refuses the save.
+              const overShort =
+                adjType === "Shortage" && !!item.productid && item.quantity > (Number(item.systemstock) || 0);
 
               return (
                 <div
                   key={rowIdx}
-                  className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_80px_110px_95px_95px_36px] gap-2 items-end mb-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 last:mb-0"
+                  className={`grid grid-cols-2 ${ROW_GRID_SM} gap-2 items-start py-2 px-1 rounded-md hover:bg-slate-50/70 border-b border-slate-100 last:border-0`}
                 >
-                  {/* Product — FormField searchable select */}
-                  <FormField
-                    label="Product"
-                    name={`productid-${rowIdx}`}
-                    type="select"
-                    searchable
-                    value={item.productid}
-                    onChange={(e: any) => {
-                      const prod = allProducts.find((p) => p.id === e.target.value);
-                      if (prod) applyProduct(rowIdx, prod);
-                      else clearRow(rowIdx);
-                    }}
-                    options={productOptions}
-                    placeholder="Search product…"
-                  />
+                  {/* Product */}
+                  <div className="col-span-2 sm:col-span-1 min-w-0">
+                    <span className={MOBILE_LABEL}>Product</span>
+                    <FormField
+                      label=""
+                      name={`productid-${rowIdx}`}
+                      type="select"
+                      searchable
+                      value={item.productid}
+                      onChange={(e: any) => {
+                        const prod = allProducts.find((p) => p.id === e.target.value);
+                        if (prod) applyProduct(rowIdx, prod);
+                        else clearRow(rowIdx);
+                      }}
+                      options={productOptions}
+                      placeholder="Search product…"
+                    />
+                  </div>
 
-                  {/* Variant — FormField select */}
-                  <FormField
-                    label="Variant"
-                    name={`variantid-${rowIdx}`}
-                    type="select"
-                    searchable={item._variants.length > 6}
-                    value={item.variantid}
-                    onChange={(e: any) => {
-                      const v = item._variants.find((v) => v.id === e.target.value);
-                      const prod = allProducts.find((p) => p.id === item.productid);
-                      if (v && prod) applyProduct(rowIdx, prod, v);
-                    }}
-                    options={variantOptions}
-                    disabled={!item.productid || item._variants.length <= 1}
-                    placeholder="Variant"
-                  />
+                  {/* Variant */}
+                  <div className="col-span-2 sm:col-span-1 min-w-0">
+                    <span className={MOBILE_LABEL}>Variant</span>
+                    <FormField
+                      label=""
+                      name={`variantid-${rowIdx}`}
+                      type="select"
+                      searchable
+                      value={item.variantid}
+                      onChange={(e: any) => {
+                        const v = item._variants.find((v) => v.id === e.target.value);
+                        const prod = allProducts.find((p) => p.id === item.productid);
+                        if (v && prod) applyProduct(rowIdx, prod, v);
+                      }}
+                      options={variantOptions}
+                      disabled={!item.productid || item._variants.length <= 1}
+                      placeholder={item.productid ? "Variant" : "—"}
+                    />
+                  </div>
 
-                  {/* System Stock (read-only display) */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-gray-700 sm:hidden">System Stock</span>
-                    <div className="flex items-center justify-center border border-gray-200 rounded-lg px-2 py-2 bg-gray-50 h-[38px]">
-                      <span className="text-gray-600 font-medium text-sm">{item.systemstock}</span>
+                  {/* System stock (read-only) */}
+                  <div>
+                    <span className={MOBILE_LABEL}>Sys. Stock</span>
+                    <div className={`${BOX} justify-end bg-slate-50 border-slate-200 ${overShort ? "text-rose-600 font-semibold" : "text-slate-600"}`}>
+                      {item.productid ? item.systemstock : "—"}
                     </div>
                   </div>
 
-                  {/* Adjustment Qty — coloured input with sign prefix */}
-                  <div className="flex flex-col gap-1">
-                    <span className={`text-sm font-medium sm:hidden ${qtyColor}`}>
-                      {qtySign} Adj. Qty
-                    </span>
-                    <div
-                      className={`flex items-center gap-1 border rounded-lg px-2 h-[38px] focus-within:ring-2 ${qtyBorder}`}
-                    >
-                      <span className={`font-bold text-base select-none ${qtyColor}`}>
-                        {qtySign}
-                      </span>
+                  {/* Adjusted qty */}
+                  <div>
+                    <span className={`${MOBILE_LABEL} ${qtyColor}`}>{qtySign} Adj. Qty</span>
+                    <div className={`${BOX} gap-1 focus-within:ring-1 ${overShort ? "border-rose-500 focus-within:ring-rose-500" : qtyBorder}`}>
+                      <span className={`font-bold select-none ${qtyColor}`}>{qtySign}</span>
                       <input
                         type="number"
                         min="0"
@@ -436,46 +463,51 @@ const StockAdjustmentAddEdit: React.FC = () => {
                         onChange={(e) => updateField(rowIdx, "quantity", e.target.value)}
                         onFocus={(e) => e.target.select()}
                         placeholder="0"
-                        className={`w-full text-right bg-transparent outline-none text-sm font-bold ${qtyInputColor}`}
+                        className={`w-full min-w-0 text-right bg-transparent outline-none font-semibold ${qtyInputColor}`}
                       />
                     </div>
+                    {overShort && (
+                      <p className="mt-0.5 text-[11px] leading-tight text-rose-600">
+                        Only {item.systemstock} in stock
+                      </p>
+                    )}
                   </div>
 
-                  {/* Rate */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-gray-700 sm:hidden">Rate (₹)</span>
-                    <div className="flex items-center border border-gray-300 rounded-lg px-2 h-[38px] focus-within:ring-2 focus-within:ring-blue-500">
+                  {/* Rate per base unit */}
+                  <div>
+                    <span className={MOBILE_LABEL}>Rate / Unit (₹)</span>
+                    <div className={`${BOX} border-slate-300 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500`}>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
-                        value={item.rate}
+                        value={item.rate === 0 ? "" : item.rate}
                         onChange={(e) => updateField(rowIdx, "rate", e.target.value)}
                         onFocus={(e) => e.target.select()}
-                        className="w-full text-right bg-transparent outline-none text-sm"
+                        placeholder="0.00"
+                        className="w-full min-w-0 text-right bg-transparent outline-none"
                       />
                     </div>
                   </div>
 
-                  {/* Amount (computed, read-only) */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-gray-700 sm:hidden">Amount (₹)</span>
-                    <div className="flex items-center justify-end border border-gray-200 rounded-lg px-3 h-[38px] bg-gray-50">
-                      <span className="text-gray-800 font-semibold text-sm">
-                        {item.amount.toFixed(2)}
-                      </span>
+                  {/* Amount (computed) */}
+                  <div>
+                    <span className={MOBILE_LABEL}>Amount (₹)</span>
+                    <div className={`${BOX} justify-end bg-slate-50 border-slate-200 font-semibold text-slate-800`}>
+                      {item.amount.toFixed(2)}
                     </div>
                   </div>
 
-                  {/* Delete row */}
-                  <div className="flex items-end justify-center">
+                  {/* Remove row */}
+                  <div className="col-span-2 sm:col-span-1 flex justify-end sm:justify-center">
                     <button
                       type="button"
                       onClick={() => removeRow(rowIdx)}
-                      className="w-9 h-9 flex items-center justify-center border border-red-300 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors"
+                      className="h-8 w-8 flex items-center justify-center rounded-md border border-rose-200 text-rose-400 hover:bg-rose-500 hover:border-rose-500 hover:text-white transition-colors"
                       title="Remove row"
+                      aria-label="Remove row"
                     >
-                      <FaTrash size={12} />
+                      <FaTrash size={11} />
                     </button>
                   </div>
                 </div>
@@ -485,9 +517,9 @@ const StockAdjustmentAddEdit: React.FC = () => {
             <button
               type="button"
               onClick={addRow}
-              className="mt-2 text-sm text-indigo-600 hover:text-indigo-800 border border-indigo-300 hover:border-indigo-500 rounded-lg px-4 py-1.5 transition-colors"
+              className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed border-indigo-300 text-[13px] font-medium text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 transition-colors"
             >
-              + Add Row
+              <span className="text-base leading-none">+</span> Add Product Row
             </button>
           </fieldset>
 

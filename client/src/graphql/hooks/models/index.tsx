@@ -8,6 +8,7 @@ import {
 } from '../../mutations/models';
 import {
   GET_MODELS,
+  GET_MODELS_LIST,
   GET_MODEL_BY_ID,
   GET_DELETED_MODELS,
 } from '../../queries/models';
@@ -44,6 +45,21 @@ export const useModelsQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list query for the Models list page (no admin ref).
+export const useModelsListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_MODELS_LIST, {
+    variables: { adminId },
+    skip: !adminId,
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedModelsQuery = () => {

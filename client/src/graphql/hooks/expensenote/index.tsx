@@ -9,6 +9,7 @@ import {
 
 import {
   GET_EXPENSE_NOTES,
+  GET_EXPENSE_NOTES_LIST,
   GET_EXPENSE_NOTE_BY_ID,
   GET_DELETED_EXPENSE_NOTES,
   GET_EXPENSE_CATEGORY_LEDGER,
@@ -58,6 +59,25 @@ export const useExpenseNotesQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
 
   const { data, loading, error, refetch } = useQuery(GET_EXPENSE_NOTES, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
+};
+
+/* =========================
+   EXPENSE NOTES LIST (lite) — list page only
+   ========================= */
+
+export const useExpenseNotesListQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_EXPENSE_NOTES_LIST, {
+    variables: { filter: { adminid, branchid } },
     fetchPolicy,
   });
 

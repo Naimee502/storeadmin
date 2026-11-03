@@ -7,7 +7,7 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useActiveStockAdjustments,
+  useStockAdjustmentsListQuery,
   useDeleteStockAdjustment,
 } from "../../graphql/hooks/stockadjustments";
 import { formatDateDMY } from "../../utils/helper";
@@ -35,7 +35,7 @@ const StockAdjustmentsList: React.FC = () => {
 
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
-  const { data, loading, refetch } = useActiveStockAdjustments({
+  const { data, loading, refetch } = useStockAdjustmentsListQuery({
     adminid: adminId,
     branchid: branchId,
   });
@@ -44,16 +44,20 @@ const StockAdjustmentsList: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getStockAdjustments?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching stock adjustments:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const adjustmentList = data?.getStockAdjustments || [];

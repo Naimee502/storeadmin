@@ -8,6 +8,7 @@ import {
 import {
   GET_BRANCH_BY_ID,
   GET_BRANCHES,
+  GET_BRANCHES_LIST,
   GET_DELETED_BRANCHES,
 } from '../../queries/branches';
 import { LOGIN_BRANCH } from '../../mutations/branches';
@@ -42,6 +43,17 @@ export const useBranchesQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list (Branches page) — same filter as useBranchesQuery, fewer fields.
+export const useBranchesListQuery = () => {
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+
+  const { data, loading, error, refetch } = useQuery(GET_BRANCHES_LIST, {
+    variables: adminId ? { adminId } : {},
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedBranchesQuery = () => {

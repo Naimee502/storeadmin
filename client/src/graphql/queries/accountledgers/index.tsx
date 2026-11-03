@@ -27,6 +27,27 @@ export const GET_ACCOUNTLEDGERS = gql`
   }
 `;
 
+// Account Ledgers list page only: the grid columns plus every field the
+// inline edit form reads from a row. admin/branchid are left out. Same root
+// field/args as GET_ACCOUNTLEDGERS, so both share the normalized cache list.
+export const GET_ACCOUNTLEDGERS_LIST = gql`
+  query GetAccountLedgersList($adminId: ID) {
+    getAccountLedgers(adminId: $adminId) {
+      id
+      ledgercode
+      ledgername
+      ledgertype
+      openingbalance
+      openingbalancetype
+      status
+      accountgroupid {
+        id
+        accountgroupname
+      }
+    }
+  }
+`;
+
 export const GET_DELETED_ACCOUNTLEDGERS = gql`
   query GetDeletedAccountLedgers($adminId: ID) {
     getDeletedAccountLedgers(adminId: $adminId) {

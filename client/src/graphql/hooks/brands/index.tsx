@@ -7,6 +7,7 @@ import {
 } from '../../mutations/brands';
 import {
   GET_BRANDS,
+  GET_BRANDS_LIST,
   GET_DELETED_BRANDS,
   GET_BRAND_BY_ID,
 } from '../../queries/brands';
@@ -42,6 +43,20 @@ export const useBrandsQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list query for the Brands list page (no admin ref).
+export const useBrandsListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_BRANDS_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedBrandsQuery = () => {

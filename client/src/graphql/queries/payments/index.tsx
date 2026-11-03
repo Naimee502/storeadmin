@@ -1,6 +1,43 @@
 import { gql } from "@apollo/client";
 
 // 🔹 Queries
+
+// Listing-only query for the Payments table — no allocation lines, no audit
+// fields. Edit loads the full payment by id. Mutations return the same fields
+// so a saved payment can be written straight into this list's cache.
+export const GET_PAYMENTS_LIST = gql`
+  query GetPaymentsList($filter: PaymentFilterInput) {
+    getPayments(filter: $filter) {
+      id
+      paymentcode
+      paymentdate
+      type
+      mode
+      partyid {
+        id
+        name
+      }
+      ledgerid {
+        id
+        ledgername
+      }
+      counterledgerid {
+        id
+        ledgername
+      }
+      amount
+      unallocatedamount
+      allocationmode
+      transactionid
+      createdby_name
+      createdby_type
+      status
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export const GET_PAYMENTS = gql`
   query GetPayments($filter: PaymentFilterInput) {
     getPayments(filter: $filter) {

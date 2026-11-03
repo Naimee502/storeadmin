@@ -228,6 +228,60 @@ export const productServiceResolvers = {
         const adminId = tenant.adminid;
         const branchId = tenant.branchid;
 
+        // Stock for every variant on this page in ONE aggregate, instead of one
+        // (or two) getStockDetails() aggregates per variant — that was an N+1
+        // that grew with the catalogue. Numbers are the same as before:
+        // getStockDetails(product, admin, branch, variant), and when that
+        // variant's currentstock is 0, the product-wide total for the scope.
+        const stockSums = {
+          openingstock: { $sum: "$openingstock" },
+          closingstock: { $sum: "$closingstock" },
+          currentstock: { $sum: "$currentstock" },
+          openingstockamount: { $sum: "$openingstockamount" },
+          currentstockamount: { $sum: "$currentstockamount" },
+          closingstockamount: { $sum: "$closingstockamount" },
+        };
+        const toStock = (r: any) => ({
+          openingstock: r?.openingstock || 0,
+          closingstock: r?.closingstock || 0,
+          currentstock: r?.currentstock || 0,
+          openingstockamount: r?.openingstockamount || 0,
+          currentstockamount: r?.currentstockamount || 0,
+          closingstockamount: r?.closingstockamount || 0,
+        });
+        const variantStock = new Map<string, any>();
+        const productStock = new Map<string, any>();
+        const stockProductIds = products
+          .filter((p: any) => p?._id && p.productvariants?.length)
+          .map((p: any) => p._id);
+        if (stockProductIds.length) {
+          const stockMatch: any = { productid: { $in: stockProductIds } };
+          if (adminId) stockMatch.adminid = adminId;
+          if (branchId) stockMatch.branchid = branchId;
+          const [facets] = await ProductBranchStock.aggregate([
+            { $match: stockMatch },
+            {
+              $facet: {
+                byVariant: [{ $group: { _id: { p: "$productid", v: "$variantid" }, ...stockSums } }],
+                byProduct: [{ $group: { _id: "$productid", ...stockSums } }],
+              },
+            },
+          ]);
+          for (const r of facets?.byVariant ?? []) {
+            if (r?._id?.p && r?._id?.v) variantStock.set(`${r._id.p}:${r._id.v}`, toStock(r));
+          }
+          for (const r of facets?.byProduct ?? []) {
+            if (r?._id) productStock.set(String(r._id), toStock(r));
+          }
+        }
+        const stockFor = (productId: any, variantId: any) => {
+          const productTotal = productStock.get(String(productId)) ?? toStock(null);
+          // getStockDetails without a variant id summed the whole product.
+          if (!variantId) return productTotal;
+          const own = variantStock.get(`${productId}:${variantId}`) ?? toStock(null);
+          return own.currentstock === 0 ? productTotal : own;
+        };
+
         const convertRef = (obj: any) => {
           if (!obj) return obj;
           const { _id, ...rest } = obj;
@@ -258,9 +312,7 @@ export const productServiceResolvers = {
             if (mapped.productvariants?.length) {
               mapped.productvariants = await Promise.all(
                 mapped.productvariants.map(async (v: any) => {
-                  let stock = await getStockDetails(mapped._id, adminId, branchId, v._id);
-                  if (stock.currentstock === 0)
-                    stock = await getStockDetails(mapped._id, adminId, branchId);
+                  const stock = stockFor(mapped._id, v._id);
 
                   // ✅ Use unified mapping
                   const variantMapped = mapVariantForResponse(v);

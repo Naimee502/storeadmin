@@ -606,8 +606,14 @@ export async function getPartyTotalDue(opts: {
   excludePaymentId?: any;
   /** Leave one bill out entirely — the printed "Previous Balance". */
   excludeInvoiceId?: any;
+  /**
+   * Return the raw signed figure instead of flooring at zero. Used by the
+   * printed Previous / Current Balance, where a negative value (advance /
+   * excess we hold) must show as "−" so the reader knows it is payable.
+   */
+  signed?: boolean;
 }): Promise<number> {
-  const { partyid, adminid, branchid, excludePaymentId, excludeInvoiceId } = opts;
+  const { partyid, adminid, branchid, excludePaymentId, excludeInvoiceId, signed } = opts;
   if (!partyid) return 0;
   const invoicemodel = opts.invoicemodel || "SalesInvoice";
 
@@ -634,7 +640,49 @@ export async function getPartyTotalDue(opts: {
     .lean();
   const advance = round2(advances.reduce((t, p) => t + (Number(p.unallocatedamount) || 0), 0));
 
-  return round2(Math.max(0, openingdue + bills - advance - excess));
+  // Printed "Previous Balance": an advance received BEFORE this bill is
+  // auto-adjusted into the bill when it is saved (autoAdjustAdvances), so its
+  // unallocatedamount drops to 0 and the allocation points at the very bill we
+  // are excluding — the advance would silently vanish from "Previous Balance".
+  // Add back whatever was allocated to the excluded bill from payments that
+  // already existed when the bill was created: that was money we were holding.
+  let priorAdvance = 0;
+  if (excludeInvoiceId) {
+    const inv: any = await mongoose
+      .model(invoicemodel)
+      .findById(excludeInvoiceId)
+      .select("createdAt")
+      .lean();
+    if (inv?.createdAt) {
+      const priorQuery: any = {
+        partyid,
+        status: true,
+        type: invoicemodel === "SalesInvoice" ? "receipt" : "payment",
+        "invoices.invoiceid": excludeInvoiceId,
+        createdAt: { $lt: inv.createdAt },
+      };
+      if (adminid) priorQuery.adminid = adminid;
+      if (excludePaymentId) priorQuery._id = { $ne: excludePaymentId };
+      const priorPays: any[] = await mongoose
+        .model("Payment")
+        .find(priorQuery)
+        .select("invoices")
+        .lean();
+      priorAdvance = round2(
+        priorPays.reduce(
+          (t, p) =>
+            t +
+            (p.invoices || [])
+              .filter((l: any) => String(l.invoiceid) === String(excludeInvoiceId))
+              .reduce((s: number, l: any) => s + (Number(l.settledamount) || 0), 0),
+          0
+        )
+      );
+    }
+  }
+
+  const net = round2(openingdue + bills - advance - excess - priorAdvance);
+  return signed ? net : round2(Math.max(0, net));
 }
 
 /**

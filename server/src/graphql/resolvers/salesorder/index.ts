@@ -318,6 +318,7 @@ const orderPartyBalance = (parent: any): Promise<{ previous: number; current: nu
         partyid: inv.partyacc,
         invoicemodel: "SalesInvoice",
         excludeInvoiceId: inv._id,
+        signed: true,
       });
       const current = parseFloat((previous + Number(inv.totalamount || 0)).toFixed(2));
       return { previous, current };
@@ -433,6 +434,26 @@ const populateFields: any[] = [
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
   "othercharges.ledgerid",
+];
+
+// Listing variant: the same paths, but each populated doc carries ONLY the
+// fields formatOrder copies out (toSimpleRef key lists + `name`, its fallback,
+// + the party's channelName). Used solely by getSalesOrders — the full
+// party / product / ledger / unit documents were being loaded for every line
+// of every order and then thrown away by formatOrder.
+const listPopulateFields: any[] = [
+  { path: "salesmenid", select: "name" },
+  {
+    path: "partyacc",
+    select: "name accountname mobile address city state latitude longitude gstnumber channel",
+    populate: { path: "channel", select: "channelName" },
+  },
+  { path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name" },
+  { path: "productservice.salesunitid", select: "name unitname" },
+  { path: "productservice.salesaccountid", select: "name ledgername" },
+  { path: "productservice.purchaseaccountid", select: "name ledgername" },
+  { path: "productservice.serviceaccountid", select: "name ledgername" },
+  { path: "othercharges.ledgerid", select: "name ledgername" },
 ];
 
 // ✅ Format order function
@@ -616,7 +637,7 @@ export const salesOrderResolvers = {
       }
 
       const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populateFields)
+        .populate(listPopulateFields)
         .lean();
 
       return orders.map(formatOrder);

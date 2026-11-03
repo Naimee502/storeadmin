@@ -15,9 +15,9 @@ import {
 import { useLedgerMovementsLazy } from "../../../graphql/hooks/transactions";
 import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
+import { useSalesInvoicesSettleQuery } from "../../../graphql/hooks/salesinvoice";
+import { usePurchaseInvoicesSettleQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { partyLabel } from "../../../utils/partylabel";
@@ -141,12 +141,13 @@ const AddEditPayment = () => {
   const { data: ledgerData, refetch: refetchLedgers } =
     useAccountLedgersQuery("cache-and-network");
   const { data: accountsData, refetch: refetchAccounts } =
-    useAccountsQuery(true, "cache-and-network");
+    useAccountsLiteQuery(true, "cache-and-network");
   // These sources can be created right before opening this page (e.g. "Convert
   // to Invoice"). Use cache-and-network so the settle-able lists always
   // revalidate from the server on mount instead of showing stale cache.
-  const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesQuery("cache-and-network");
-  const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesQuery("cache-and-network");
+  // Settlement-lite: bill totals + labels only, no line items.
+  const { data: salesInvData, refetch: refetchSalesInv } = useSalesInvoicesSettleQuery("cache-and-network");
+  const { data: purchaseInvData, refetch: refetchPurchaseInv } = usePurchaseInvoicesSettleQuery("cache-and-network");
   // Payment allocations + journal ("Agst Ref") settlements + un-refunded
   // returns, all derived in one shared hook so this page and the Transaction
   // page can never disagree about what a party still owes.

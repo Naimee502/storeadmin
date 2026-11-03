@@ -21,7 +21,11 @@ export const ADD_PAYMENT = gql`
         ledgername
       }
       amount
+      unallocatedamount
+      allocationmode
       transactionid
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt
@@ -50,7 +54,11 @@ export const EDIT_PAYMENT = gql`
         ledgername
       }
       amount
+      unallocatedamount
+      allocationmode
       transactionid
+      createdby_name
+      createdby_type
       status
       createdAt
       updatedAt

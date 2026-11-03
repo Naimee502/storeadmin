@@ -6,7 +6,8 @@ export const productGroupResolvers = {
     getProductGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await ProductGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      // Clients only ever request admin { id name email } on this list.
+      return await ProductGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email");
     },
 
     // Get all soft-deleted product groups, optionally filtered by admin

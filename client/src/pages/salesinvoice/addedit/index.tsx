@@ -6,7 +6,7 @@ import type { InvoiceProduct } from "../../../components/productsection";
 import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { formatDateDMY, todayYMD } from "../../../utils/helper";
@@ -137,10 +137,9 @@ const AddEditSalesInvoice = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Party Accounts
-  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
+  const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   const accountsList = accountData?.getAccounts || [];
   const customerAccounts = accountsList.filter((acc: any) => isCustomerParty(acc.type));
-  console.log("Customer Party Account Data:", JSON.stringify(customerAccounts));
   const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
@@ -184,7 +183,6 @@ const AddEditSalesInvoice = () => {
   // Product List
   const { data: producData, refetch } = useProductServicesQuery();
   const salesProductData = producData?.getProductServices ?? [];
-  console.log("Sales Product Data:", JSON.stringify(salesProductData));
 
   const { settings } = useAppSelector((state: any) => state.adminsettings);
 
@@ -229,11 +227,13 @@ const AddEditSalesInvoice = () => {
   const blockOnShortStock =
     stockShortfalls.length > 0 && !settings?.allowNegativeStock;
 
+  // Refresh the party list once when the form opens (a party added elsewhere
+  // shows up). It used to re-run on every accountData change — i.e. each
+  // refetch triggered another one.
   useEffect(() => {
-    if (accountData?.getAccounts) {
-      accountRefetch();
-    }
-  }, [accountData, refetch]);
+    accountRefetch().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A cancelled bill is still worth opening — it is the only way to see what was
   // on it — but nothing about it may be changed until it is re-opened from the

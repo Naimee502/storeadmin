@@ -10,6 +10,8 @@ import {
 } from '../../mutations/purchaseinvoice';
 import {
   GET_PURCHASE_INVOICES,
+  GET_PURCHASE_INVOICES_SETTLE,
+  GET_PURCHASE_INVOICES_LIST,
   GET_PURCHASE_INVOICE_BY_ID,
   GET_DELETED_PURCHASE_INVOICES
 } from '../../queries/purchaseinvoice';
@@ -113,4 +115,54 @@ export const usePurchaseInvoiceByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+// ----------------- Purchase Invoices LIST (lite) -----------------
+// Same filter as usePurchaseInvoicesQuery, but only the listing columns.
+export const usePurchaseInvoicesListQuery = (
+  fetchPolicy?: WatchQueryFetchPolicy,
+  opts?: { includeCancelled?: boolean }
+) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data: raw, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES_LIST, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  const showCancelled = opts?.includeCancelled === true;
+  const data = useMemo(() => {
+    const list = raw?.getPurchaseInvoices;
+    if (!list || showCancelled) return raw;
+    return { ...raw, getPurchaseInvoices: list.filter((i: any) => i?.cancelStatus !== "cancelled") };
+  }, [raw, showCancelled]);
+
+  return { data, loading, error, refetch };
+};
+
+// ----------------- Purchase Invoices (settlement-lite, Payment form) -----------------
+export const usePurchaseInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data: raw, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES_SETTLE, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  // Cancelled bills owe nothing — same default as the full query.
+  const data = useMemo(() => {
+    const list = raw?.getPurchaseInvoices;
+    if (!list) return raw;
+    return { ...raw, getPurchaseInvoices: list.filter((i: any) => i?.cancelStatus !== "cancelled") };
+  }, [raw]);
+
+  return { data, loading, error, refetch };
 };

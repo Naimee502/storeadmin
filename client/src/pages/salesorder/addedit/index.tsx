@@ -5,7 +5,7 @@ import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { getLastPartyDocRows } from "../../../utils/helper";
@@ -92,7 +92,7 @@ const AddEditSalesOrder = () => {
     (state) => state.salesorder.orders
   );
 
-  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
+  const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   const customerAccounts = accountData?.getAccounts?.filter((acc: any) => isCustomerParty(acc.type)) || [];
   const accountOptions = customerAccounts.map((acc: any) => ({
     value: acc.id,

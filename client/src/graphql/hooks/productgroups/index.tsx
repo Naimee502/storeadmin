@@ -8,6 +8,7 @@ import {
 import {
   GET_DELETED_PRODUCTGROUPS,
   GET_PRODUCTGROUPS,
+  GET_PRODUCTGROUPS_LIST,
   GET_PRODUCTGROUP_BY_ID,
 } from '../../queries/productgroups';
 import { useAppSelector } from '../../../redux/hooks';
@@ -42,6 +43,20 @@ export const useProductGroupsQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite variant for the Product Groups list page (no admin sub-object).
+export const useProductGroupsListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCTGROUPS_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedProductGroupsQuery = () => {

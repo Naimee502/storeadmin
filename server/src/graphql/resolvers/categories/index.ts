@@ -18,7 +18,8 @@ export const categoryResolvers = {
       const query: any = { status: true };
       if (adminId) query.admin = adminId;
 
-      return await Category.find(query).sort(DISPLAY_ORDER).populate("admin");
+      // admin { id name email } is all any client asks of this query.
+      return await Category.find(query).sort(DISPLAY_ORDER).populate("admin", "name email");
     },
 
     getCategoryById: async (_: any, { id, adminId }: { id: string, adminId?: string }) => {

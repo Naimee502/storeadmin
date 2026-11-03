@@ -5,7 +5,7 @@ import ProductSection from "../../../components/productsection";
 import type { InvoiceProduct } from "../../../components/productsection";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import {
   usePurchaseOrderByIDQuery,
@@ -108,7 +108,7 @@ const AddEditPurchaseOrder = () => {
     (state) => state.purchaseorder.orders
   );
 
-  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
+  const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   // For Purchase Order, the party is a vendor / supplier
   const vendorAccounts =
     accountData?.getAccounts?.filter((acc: any) => isVendorParty(acc.type)) || [];

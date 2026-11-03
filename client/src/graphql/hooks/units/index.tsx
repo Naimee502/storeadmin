@@ -7,6 +7,7 @@ import {
 } from '../../mutations/units';
 import {
   GET_UNITS,
+  GET_UNITS_LIST,
   GET_UNIT_BY_ID,
   GET_DELETED_UNITS,
 } from '../../queries/units';
@@ -42,6 +43,20 @@ export const useUnitsQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite variant for the Units list page (no admin sub-object).
+export const useUnitsListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_UNITS_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedUnitsQuery = () => {

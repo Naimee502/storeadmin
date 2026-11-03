@@ -5,7 +5,7 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useUnitsQuery, useUnitMutations } from "../../graphql/hooks/units";
+import { useUnitsListQuery, useUnitMutations } from "../../graphql/hooks/units";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addUnits } from "../../redux/slices/units";
@@ -18,7 +18,8 @@ const Units = () => {
   const fileInputRef = useRef(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  const { data, refetch } = useUnitsQuery();
+  // Lite list query — grid columns + inline-form fields only.
+  const { data, refetch } = useUnitsListQuery();
   const { addUnitMutation, editUnitMutation, deleteUnitMutation } = useUnitMutations();
   const unitList = data?.getUnits || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -49,20 +50,23 @@ const Units = () => {
 
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      // Only block the page when there's nothing cached to show yet.
+      const blocking = !data?.getUnits?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getUnits) {
-          dispatch(addUnits(data.getUnits));
+        const { data: fresh } = await refetch();
+        if (fresh?.getUnits) {
+          dispatch(addUnits(fresh.getUnits));
         }
       } catch (error) {
         console.error("Error fetching units:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

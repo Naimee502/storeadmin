@@ -5,7 +5,7 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useCategoriesQuery, useCategoryMutations, useReorderCategories } from "../../graphql/hooks/categories";
+import { useCategoriesListQuery, useCategoryMutations, useReorderCategories } from "../../graphql/hooks/categories";
 import CategoryReorder from "../../components/categoryreorder";
 import { FaSort } from "react-icons/fa";
 import { useImageUpload } from "../../graphql/hooks/uploads";
@@ -20,7 +20,8 @@ const Categories = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const { data, refetch } = useCategoriesQuery();
+  // Lite list query — grid columns + inline-form fields only.
+  const { data, refetch } = useCategoriesListQuery();
   const categoryList = data?.getCategories || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -111,19 +112,22 @@ const Categories = () => {
     setEditingId(row.id);
   };
 
+  // Mount only. Cached rows → refresh quietly without the blocking loader.
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      const blocking = !data?.getCategories?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching categories:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

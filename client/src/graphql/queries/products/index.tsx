@@ -101,6 +101,44 @@ export const GET_PRODUCT_SERVICES = gql`
   }
 `;
 
+// Lite list query for the Products list page (/products). Same root field and
+// arguments as GET_PRODUCT_SERVICES but only what the table, the low-stock
+// filter and the barcode action read. Export fetches GET_PRODUCT_SERVICES on
+// click. Forms, POS, reports and the apps keep using the full query.
+export const GET_PRODUCT_SERVICES_LIST = gql`
+  query GetProductServicesList($filter: ProductServiceFilterInput, $limit: Int, $offset: Int) {
+    getProductServices(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      isservice
+      name
+      status
+      servicevariants {
+        id
+        name
+        servicecode
+        servicebarcode
+        servicerate
+        uom
+        locationType
+      }
+      productvariants {
+        id
+        productcode
+        currentstock
+        minimumstock
+        unitprices {
+          quantity
+          unitid { id unitname }
+          salesrate
+          discount
+          discounttype
+          productbarcode
+        }
+      }
+    }
+  }
+`;
+
 export const GET_PRODUCT_SERVICE_BY_ID = gql`
   query GetProductServiceById($id: ID!, $adminId: ID, $branchId: ID) {
     getProductServiceById(id: $id, adminId: $adminId, branchId: $branchId) {

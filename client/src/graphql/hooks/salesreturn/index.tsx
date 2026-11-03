@@ -7,6 +7,7 @@ import {
 } from "../../mutations/salesreturn";
 import {
   GET_SALES_RETURNS,
+  GET_SALES_RETURNS_LIST,
   GET_SALES_RETURN_BY_ID,
   GET_DELETED_SALES_RETURNS,
 } from "../../queries/salesreturn";
@@ -21,26 +22,30 @@ export const useSalesReturnMutations = () => {
 
   const [addSalesReturnMutation] = useMutation(ADD_SALES_RETURN, {
     refetchQueries: [
-      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetSalesReturnsList",
+      "GetSalesReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [editSalesReturnMutation] = useMutation(EDIT_SALES_RETURN, {
     refetchQueries: [
-      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetSalesReturnsList",
+      "GetSalesReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [deleteSalesReturnMutation] = useMutation(DELETE_SALES_RETURN, {
     refetchQueries: [
-      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetSalesReturnsList",
+      "GetSalesReturns",
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [resetSalesReturnMutation] = useMutation(RESET_SALES_RETURN, {
     refetchQueries: [
-      { query: GET_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetSalesReturnsList",
+      "GetSalesReturns",
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
@@ -62,6 +67,21 @@ export const useSalesReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache
   const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SALES_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+  return { data, loading, error, refetch };
+};
+
+// Listing (lite) variant of useSalesReturnsQuery — same filter, only the
+// table columns. Used by the Sales Returns list page.
+export const useSalesReturnsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SALES_RETURNS_LIST, {
     variables: { filter: { adminid, branchid } },
     fetchPolicy,
   });

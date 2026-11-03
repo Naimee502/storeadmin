@@ -24,3 +24,11 @@ export function titleCaseIfShouting(name: string): string {
     .toLowerCase()
     .replace(/(^|[^\p{L}])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
 }
+
+/** Party balance with explicit sign: "+" = party has to pay, "-" = advance held. */
+export function formatSignedPrice(amount: number): string {
+  const n = Number(amount) || 0;
+  if (n > 0) return `+${formatPrice(n)}`;
+  if (n < 0) return `-${formatPrice(Math.abs(n))}`;
+  return formatPrice(0);
+}

@@ -5,7 +5,7 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useTransactionsQuery,
+  useTransactionsListQuery,
   useTransactionMutations,
 } from "../../graphql/hooks/transactions";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -16,26 +16,28 @@ const Transaction = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "transactions"));
   const dispatch = useAppDispatch();
-  const { data, refetch } = useTransactionsQuery();
+  const { data, refetch } = useTransactionsListQuery();
   const { deleteTransactionMutation } = useTransactionMutations();
 
   const transactionList = data?.getTransactions || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  console.log("Transaction List:", JSON.stringify(transactionList));
-
   useEffect(() => {
     const fetchTransactions = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getTransactions?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching transactions:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [

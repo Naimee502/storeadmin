@@ -1,6 +1,14 @@
 export const formatINR = (n: number): string =>
   `₹${(n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** Party balance with explicit sign: "+" = party has to pay, "-" = advance held. */
+export const formatSignedINR = (n: number): string => {
+  const v = Number(n) || 0;
+  if (v > 0) return `+${formatINR(v)}`;
+  if (v < 0) return `-${formatINR(Math.abs(v))}`;
+  return formatINR(0);
+};
+
 /**
  * Parse a date value coming from the API. The GraphQL layer serialises Mongo
  * Date fields as epoch-millisecond STRINGS (e.g. "1748649600000"), which

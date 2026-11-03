@@ -9,10 +9,10 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useSalesInvoicesQuery,
+  useSalesInvoicesListQuery,
   useSalesInvoiceMutations,
 } from "../../graphql/hooks/salesinvoice";
-import { GET_SALES_INVOICE_BALANCE } from "../../graphql/queries/salesinvoice";
+import { GET_SALES_INVOICE_BALANCE, GET_SALES_INVOICE_BY_ID } from "../../graphql/queries/salesinvoice";
 import { useSalesReturnsQuery } from "../../graphql/hooks/salesreturn";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
@@ -35,7 +35,9 @@ const SalesInvoices = () => {
   const M = "salesinvoice";
   const actions = useAppSelector(state => selectModuleActions(state, M));
   
-  const { data, refetch } = useSalesInvoicesQuery(undefined, { includeCancelled: true });
+  // Lite listing query — only the table columns. The full bill is fetched by
+  // id on Print / WhatsApp (see loadPrintable).
+  const { data, refetch } = useSalesInvoicesListQuery(undefined, { includeCancelled: true });
   const {
     deleteSalesInvoiceMutation,
     cancelSalesInvoiceMutation,
@@ -184,29 +186,15 @@ const SalesInvoices = () => {
       fileName: `Invoice-INV-${orig.billnumber}.pdf`,
     };
 
-    // Party's Previous/Current Balance (Business Settings → Invoice Print)
-    // — same lazy fetch used for Print, so the shared PDF matches what's
-    // shown on-screen instead of omitting the balance rows.
-    if (!settings?.printShowPartyBalance) {
-      setWaInvoice(row);
-      return;
-    }
+    // The list holds only the table columns — load the full bill (and the
+    // party balance when enabled) for the PDF.
     dispatch(showLoading());
     try {
-      const { data } = await apolloClient.query({
-        query: GET_SALES_INVOICE_BALANCE,
-        variables: { id: row.id, adminid },
-        fetchPolicy: "network-only",
-      });
-      const bal = data?.getSalesInvoiceById;
-      setWaInvoice({
-        ...row,
-        partyPreviousBalance: bal?.partyPreviousBalance,
-        partyCurrentBalance: bal?.partyCurrentBalance,
-      });
-    } catch (e) {
-      console.error("Failed to fetch party balance for WhatsApp share:", e);
-      setWaInvoice(row);
+      setWaInvoice(await loadPrintable(row));
+    } catch (e: any) {
+      console.error("Failed to load invoice for WhatsApp share:", e);
+      waMeta.current = null;
+      dispatch(showMessage({ message: e?.message || "Failed to load invoice.", type: "error" }));
     } finally {
       dispatch(hideLoading());
     }
@@ -272,7 +260,10 @@ const SalesInvoices = () => {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getSalesInvoices?.length;
+      if (blocking) dispatch(showLoading());
       try {
         const { data } = await refetch();
         if (data?.getSalesInvoices) {
@@ -281,10 +272,11 @@ const SalesInvoices = () => {
       } catch (error) {
         console.error("Error fetching invoices:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   // Step 1: When printInvoice is set, trigger readyToPrint
@@ -326,8 +318,8 @@ const SalesInvoices = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = [...invoiceList].reverse().map((invoice: any, index: number) => {
-    const totalqty = invoice.productservice.reduce(
+  const buildRow = (invoice: any, index: number) => {
+    const totalqty = (invoice.productservice || []).reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
@@ -344,7 +336,7 @@ const SalesInvoices = () => {
       // (GST jurisdiction), not the street address.
       placeofsupply: [invoice.partyacc?.city, stateLabel(invoice.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: partyLabel(invoice.partyacc) || "N/A",
-      totalitem: invoice.productservice.length,
+      totalitem: (invoice.productservice || []).length,
       totalqty,
       billdate: formatDateDMY(invoice.billdate),
       billdateRaw: invoice.billdate,
@@ -382,7 +374,43 @@ const SalesInvoices = () => {
         ? "Cancelled"
         : invoice.status ? "Active" : "Inactive",
     };
-  });
+  };
+
+  const tableData = [...invoiceList].reverse().map(buildRow);
+
+  // Print / WhatsApp need the whole bill (lines, charges, transport…), which
+  // the lite listing doesn't carry — fetch it by id, plus the party balance
+  // when Business Settings → Invoice Print asks for it.
+  const loadPrintable = async (row: any) => {
+    const [full, bal] = await Promise.all([
+      apolloClient.query({
+        query: GET_SALES_INVOICE_BY_ID,
+        variables: { id: row.id, adminid },
+        fetchPolicy: "network-only",
+      }),
+      settings?.printShowPartyBalance
+        ? apolloClient
+            .query({
+              query: GET_SALES_INVOICE_BALANCE,
+              variables: { id: row.id, adminid },
+              fetchPolicy: "network-only",
+            })
+            .catch((e) => {
+              console.error("Failed to fetch party balance:", e);
+              return null;
+            })
+        : Promise.resolve(null),
+    ]);
+    const inv = full?.data?.getSalesInvoiceById;
+    if (!inv) throw new Error("Invoice not found.");
+    const printable: any = buildRow(inv, (row.seqNo || 1) - 1);
+    const b = bal?.data?.getSalesInvoiceById;
+    if (b) {
+      printable.partyPreviousBalance = b.partyPreviousBalance;
+      printable.partyCurrentBalance = b.partyCurrentBalance;
+    }
+    return printable;
+  };
 
 
   return (
@@ -436,29 +464,14 @@ const SalesInvoices = () => {
           onAdd={() => navigate("/salesinvoice/addedit")}
           onShowDeleted={() => navigate("/salesinvoice/deletedentries")}
           onPrint={async (row) => {
-            // Party's Previous/Current Balance (Business Settings → Invoice
-            // Print) is expensive to compute, so it's fetched only on Print
-            // click, not baked into the list query.
-            if (!settings?.printShowPartyBalance) {
-              setPrintInvoice(row);
-              return;
-            }
+            // Full bill + (optional) party balance are fetched only on Print
+            // click — the listing query carries just the table columns.
             dispatch(showLoading());
             try {
-              const { data } = await apolloClient.query({
-                query: GET_SALES_INVOICE_BALANCE,
-                variables: { id: row.id, adminid },
-                fetchPolicy: "network-only",
-              });
-              const bal = data?.getSalesInvoiceById;
-              setPrintInvoice({
-                ...row,
-                partyPreviousBalance: bal?.partyPreviousBalance,
-                partyCurrentBalance: bal?.partyCurrentBalance,
-              });
-            } catch (e) {
-              console.error("Failed to fetch party balance for print:", e);
-              setPrintInvoice(row);
+              setPrintInvoice(await loadPrintable(row));
+            } catch (e: any) {
+              console.error("Failed to load invoice for print:", e);
+              dispatch(showMessage({ message: e?.message || "Failed to load invoice.", type: "error" }));
             } finally {
               dispatch(hideLoading());
             }

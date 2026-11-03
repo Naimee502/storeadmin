@@ -138,6 +138,13 @@ export const buildInvoicePdfModel = (
   const encrypt = !!settings?.encryptInvoicePrices;
   const mask = (val: number) => (encrypt ? val / 10 : val);
   const money = (val: number) => mask(val).toFixed(2);
+  // "+" = party has to pay (baki), "−" = advance / excess we hold.
+  const signedMoney = (val: number) => {
+    const m = mask(Number(val) || 0);
+    if (m > 0) return `+${m.toFixed(2)}`;
+    if (m < 0) return `-${Math.abs(m).toFixed(2)}`;
+    return "0.00";
+  };
 
   /* ---- meta grid ---- */
   const metaCells: { label: string; value: string }[] = [
@@ -232,12 +239,12 @@ export const buildInvoicePdfModel = (
   if (showPartyBalance) {
     totals.push({
       label: "Previous Balance",
-      value: money(invoice.partyPreviousBalance || 0),
+      value: signedMoney(invoice.partyPreviousBalance || 0),
       balance: true,
     });
     totals.push({
       label: "Current Balance",
-      value: money(invoice.partyCurrentBalance || 0),
+      value: signedMoney(invoice.partyCurrentBalance || 0),
       balance: true,
     });
   }

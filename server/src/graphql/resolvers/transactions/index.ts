@@ -75,8 +75,9 @@ export const transactionResolvers = {
         if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
       }
 
+      // Only ledgername is read from the populated ledger (see the map below).
       const transactions = await Transaction.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate("entries.ledgerid")
+        .populate("entries.ledgerid", "ledgername")
         .lean();
 
       return transactions.map((r: any) => ({
@@ -122,8 +123,9 @@ export const transactionResolvers = {
         if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
       }
 
+      // Only ledgername is read from the populated ledger (see the map below).
       const transactions = await Transaction.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate("entries.ledgerid")
+        .populate("entries.ledgerid", "ledgername")
         .lean();
 
       return transactions.map((r: any) => ({

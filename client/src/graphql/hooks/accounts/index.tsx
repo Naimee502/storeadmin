@@ -9,6 +9,8 @@ import {
 } from '../../mutations/accounts';
 import {
   GET_ACCOUNTS,
+  GET_ACCOUNTS_LITE,
+  GET_ACCOUNTS_LIST,
   GET_ACCOUNT_BY_ID,
   GET_PARTY_OUTSTANDING_SUMMARY,
 } from '../../queries/accounts';
@@ -31,6 +33,37 @@ export const useAccountMutations = () => {
 };
 
 /** @param fetchPolicy "cache-and-network" where a party may have just been created. */
+// Lite variant for party dropdowns / labels — same filter, fewer fields.
+export const useAccountsLiteQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS_LITE, {
+    variables: { filter: { admin: adminId, status } },
+    skip: !adminId,
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// Party Accounts list page only — same filter as useAccountsQuery, just the
+// fields the grid, its search, the export and the sub-party toggle read.
+export const useAccountsListQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS_LIST, {
+    variables: { filter: { admin: adminId, status } },
+    skip: !adminId,
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
+};
+
 export const useAccountsQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);

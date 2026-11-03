@@ -19,7 +19,12 @@ export const subCategoryResolvers = {
       if (adminId) query.admin = adminId;
       if (categoryId) query.category = categoryId;
 
-      return await SubCategory.find(query).sort(DISPLAY_ORDER).populate("admin").populate("category");
+      // admin { id name email } and category { id categorycode categoryname }
+      // are all any client asks of this query.
+      return await SubCategory.find(query)
+        .sort(DISPLAY_ORDER)
+        .populate("admin", "name email")
+        .populate("category", "categorycode categoryname");
     },
 
     getSubCategoryById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {

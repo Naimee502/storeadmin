@@ -4,10 +4,10 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountLedgersQuery,
+  useAccountLedgersListQuery,
   useAccountLedgerMutations,
 } from "../../graphql/hooks/accountledgers";
-import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
+import { useAccountGroupsListQuery } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addAccountLedgers } from "../../redux/slices/accountledgers";
@@ -21,8 +21,9 @@ const AccountLedgers = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
 
-  const { data, refetch } = useAccountLedgersQuery();
-  const { data: accountGroupsData } = useAccountGroupsQuery();
+  // Lite list queries — grid columns + inline-form fields only.
+  const { data, refetch } = useAccountLedgersListQuery();
+  const { data: accountGroupsData } = useAccountGroupsListQuery();
 
   const {
     addAccountLedgerMutation,
@@ -31,7 +32,6 @@ const AccountLedgers = () => {
   } = useAccountLedgerMutations();
 
   const ledgerList = data?.getAccountLedgers || [];
-  console.log("Ledger List:", JSON.stringify(ledgerList));
   const accountGroupList = accountGroupsData?.getAccountGroups || [];
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -86,21 +86,24 @@ const AccountLedgers = () => {
     setEditingId(row._id || row.id);
   };
 
+  // Mount only. Cached rows → refresh quietly without the blocking loader.
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      const blocking = !data?.getAccountLedgers?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getAccountLedgers) {
-          dispatch(addAccountLedgers(data.getAccountLedgers));
+        const { data: fresh } = await refetch();
+        if (fresh?.getAccountLedgers) {
+          dispatch(addAccountLedgers(fresh.getAccountLedgers));
         }
       } catch (error) {
         console.error("Error fetching account ledgers:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

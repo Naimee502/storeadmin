@@ -36,6 +36,7 @@ const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Pro
     partyid: accountId,
     invoicemodel: "SalesInvoice",
     excludeInvoiceId,
+    signed: true,
   });
 };
 
@@ -100,6 +101,21 @@ const populateFields: any[] = [
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
   "othercharges.ledgerid",
+];
+
+// Listing variant: the same paths, but each populated doc carries ONLY the
+// fields formatInvoice copies out. The full party / salesman / ledger / unit
+// documents were being loaded for every line of ~2000 invoices and then
+// thrown away by formatInvoice.
+const listPopulateFields: any[] = [
+  { path: "salesmenid", select: "name" },
+  { path: "partyacc", select: "name accountname mobile address city state latitude longitude gstnumber" },
+  { path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name" },
+  { path: "productservice.salesunitid", select: "unitname" },
+  { path: "productservice.salesaccountid", select: "ledgername" },
+  { path: "productservice.purchaseaccountid", select: "ledgername" },
+  { path: "productservice.serviceaccountid", select: "ledgername" },
+  { path: "othercharges.ledgerid", select: "ledgername" },
 ];
 
 // Plain "staff" role has no invoice-assignment field (unlike salesman's
@@ -429,7 +445,7 @@ export const salesInvoiceResolvers = {
       // ──────────────────────────────────────────────────────────────────
 
       const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populateFields)
+        .populate(listPopulateFields)
         .lean();
 
       // ✅ Filter out invoices that have been fully returned.

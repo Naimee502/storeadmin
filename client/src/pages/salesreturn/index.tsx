@@ -7,7 +7,7 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useSalesReturnsQuery,
+  useSalesReturnsListQuery,
   useSalesReturnMutations,
 } from "../../graphql/hooks/salesreturn";
 import { formatDateDMY } from "../../utils/helper";
@@ -19,7 +19,8 @@ const SalesReturns = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesreturn"));
   const dispatch = useAppDispatch();
-  const { data, refetch } = useSalesReturnsQuery();
+  // Lite listing query — only the table columns (edit loads the full return).
+  const { data, refetch } = useSalesReturnsListQuery();
   const { deleteSalesReturnMutation } = useSalesReturnMutations();
   const isLoading = useAppSelector((s) => s.loader.isLoading);
 
@@ -27,16 +28,20 @@ const SalesReturns = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getSalesReturns?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (e) {
         console.error("Sales Return fetch error", e);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [

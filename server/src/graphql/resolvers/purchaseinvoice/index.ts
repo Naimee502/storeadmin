@@ -26,6 +26,7 @@ const partyBillOutstanding = async (accountId: any, excludeInvoiceId?: any): Pro
     partyid: accountId,
     invoicemodel: "PurchaseInvoice",
     excludeInvoiceId,
+    signed: true,
   });
 };
 
@@ -51,6 +52,18 @@ const populateFields: any[] = [
   "productservice.purchaseaccountid",
   "productservice.serviceaccountid",
   "othercharges.ledgerid",
+];
+
+// Listing variant — each populated doc carries only what formatInvoice copies
+// out, instead of the whole party / unit / ledger document per line.
+const listPopulateFields: any[] = [
+  { path: "partyacc", select: "name accountname mobile address city state gstnumber" },
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
+  { path: "productservice.purchaseunitid", select: "unitname" },
+  { path: "productservice.salesaccountid", select: "ledgername" },
+  { path: "productservice.purchaseaccountid", select: "ledgername" },
+  { path: "productservice.serviceaccountid", select: "ledgername" },
+  { path: "othercharges.ledgerid", select: "ledgername" },
 ];
 
 // ✅ Format invoice function
@@ -150,7 +163,7 @@ export const purchaseInvoiceResolvers = {
         console.log("   Query:", JSON.stringify(query, null, 2));
 
         const invoices = await PurchaseInvoice.find(query).sort({ createdAt: 1, _id: 1 })
-          .populate(populateFields)
+          .populate(listPopulateFields)
           .lean();
 
         console.log("✅ Found", invoices.length, "invoices");

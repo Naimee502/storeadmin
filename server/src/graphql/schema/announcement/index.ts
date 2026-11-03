@@ -95,6 +95,8 @@ export const announcementTypeDefs = gql`
     isAnnouncementsEnabled: Boolean!
     # Admin panel list (admin: everything, branch: its own, staff: what it sent).
     getAnnouncements: [Announcement!]!
+    # One announcement from the admin-panel list, with its full audience (edit form).
+    getAnnouncement(id: ID!): Announcement
     getDeletedAnnouncements: [Announcement!]!
     # The signed-in staff member's / party's feed.
     getMyAnnouncements: [Announcement!]!

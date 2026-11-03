@@ -13,6 +13,8 @@ import {
 
 import {
   GET_SALES_INVOICES,
+  GET_SALES_INVOICES_SETTLE,
+  GET_SALES_INVOICES_LIST,
   GET_SALES_INVOICE_BY_ID,
   GET_DELETED_SALES_INVOICES
 } from '../../queries/salesinvoice';
@@ -94,6 +96,33 @@ export const useSalesInvoicesQuery = (
   return { data, loading, error, refetch };
 };
 
+// ----------------- Sales Invoices LIST (lite) -----------------
+// Same filter as useSalesInvoicesQuery, but only the listing columns.
+export const useSalesInvoicesListQuery = (
+  fetchPolicy?: WatchQueryFetchPolicy,
+  opts?: { includeCancelled?: boolean }
+) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data: raw, loading, error, refetch } = useQuery(GET_SALES_INVOICES_LIST, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  const showCancelled = opts?.includeCancelled === true;
+  const data = useMemo(() => {
+    const list = raw?.getSalesInvoices;
+    if (!list || showCancelled) return raw;
+    return { ...raw, getSalesInvoices: list.filter((i: any) => i?.cancelStatus !== "cancelled") };
+  }, [raw, showCancelled]);
+
+  return { data, loading, error, refetch };
+};
+
 // ----------------- Deleted Sales Invoices Query -----------------
 export const useDeletedSalesInvoicesQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -120,4 +149,27 @@ export const useSalesInvoiceByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+// ----------------- Sales Invoices (settlement-lite, Payment form) -----------------
+export const useSalesInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data: raw, loading, error, refetch } = useQuery(GET_SALES_INVOICES_SETTLE, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  // Cancelled bills owe nothing — same default as the full query.
+  const data = useMemo(() => {
+    const list = raw?.getSalesInvoices;
+    if (!list) return raw;
+    return { ...raw, getSalesInvoices: list.filter((i: any) => i?.cancelStatus !== "cancelled") };
+  }, [raw]);
+
+  return { data, loading, error, refetch };
 };

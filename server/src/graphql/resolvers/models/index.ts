@@ -6,7 +6,7 @@ export const modelResolvers = {
     getModels: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Model.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      return await Model.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email"); // list: clients only read admin id/name/email
     },
 
     // Get all soft-deleted models, optionally filtered by admin

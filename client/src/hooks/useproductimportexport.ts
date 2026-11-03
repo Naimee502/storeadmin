@@ -60,7 +60,11 @@ const newMasterLines = (
  * for the other master modules later — categories, brands, units and the rest
  * all have the identical import/export stub today.
  */
-export const useProductImportExport = (products: any[]) => {
+export const useProductImportExport = (
+  // Either the rows themselves, or a loader that fetches the full records when
+  // Export is clicked (the products list page only holds lite rows).
+  products: any[] | (() => Promise<any[]>)
+) => {
   const dispatch = useAppDispatch();
 
   const permissions: Record<string, boolean | undefined> = useAppSelector(
@@ -172,7 +176,22 @@ export const useProductImportExport = (products: any[]) => {
 
   const downloadCurrent = useCallback(
     async (format: "xlsx" | "csv") => {
-      const rows = productsToSheetRows(products);
+      let source: any[];
+      if (typeof products === "function") {
+        setBusyMessage("Building your export…");
+        try {
+          source = await products();
+        } catch (err) {
+          setBusyMessage("");
+          console.error("Export fetch error:", err);
+          dispatch(showMessage({ message: "Could not load products for export.", type: "error" }));
+          return;
+        }
+        setBusyMessage("");
+      } else {
+        source = products;
+      }
+      const rows = productsToSheetRows(source);
 
       if (format === "csv") {
         const csv = sheetRowsToCsv(rows, permissions);
@@ -193,7 +212,7 @@ export const useProductImportExport = (products: any[]) => {
       });
       saveAs(blob, "products.xlsx");
     },
-    [products, permissions, ensureMasters, metaFor, adminid]
+    [products, permissions, ensureMasters, metaFor, adminid, dispatch]
   );
 
   /* ---------------- upload + dry run ---------------- */

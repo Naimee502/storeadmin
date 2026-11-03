@@ -48,6 +48,33 @@ export const GET_EXPENSE_NOTES = gql`
   }
 `;
 
+// Listing-page query: only the columns the Expense Notes table renders, no
+// expense lines (expenses[]), notes or staff salary details.
+export const GET_EXPENSE_NOTES_LIST = gql`
+  query GetExpenseNotesList($filter: ExpenseNoteFilterInput) {
+    getExpenseNotes(filter: $filter) {
+      id
+      expensenumber
+      expensedate
+      paymenttype
+      ledgerid { id ledgername }
+      category
+      staffid {
+        id
+        name
+        staffcode
+      }
+      narration
+      totalamount
+      totalgst
+      createdby_name
+      createdby_type
+      status
+      createdAt
+    }
+  }
+`;
+
 export const GET_DELETED_EXPENSE_NOTES = gql`
   query GetDeletedExpenseNotes($filter: ExpenseNoteFilterInput) {
     getDeletedExpenseNotes(filter: $filter) {

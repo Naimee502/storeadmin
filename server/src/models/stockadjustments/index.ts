@@ -21,6 +21,9 @@ export interface IStockAdjustment extends Document {
   createdby_name?: string;
   createdby_type?: string;
   status: boolean;
+  /** True once a delete/cancel has reversed this voucher's stock. Restore only
+   *  re-applies stock when it was actually reversed (legacy deletes weren't). */
+  stockreversed?: boolean;
 }
 
 const stockAdjustmentItemSchema = new mongoose.Schema({
@@ -46,7 +49,8 @@ const stockAdjustmentSchema = new mongoose.Schema(
     createdby_name: { type: String },
     createdby_type: { type: String },
 
-    status: { type: Boolean, default: true }
+    status: { type: Boolean, default: true },
+    stockreversed: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

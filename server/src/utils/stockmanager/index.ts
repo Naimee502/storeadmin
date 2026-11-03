@@ -15,6 +15,9 @@ interface StockManagerParams {
   action: StockAction;
   allowCreate?: boolean;
   rate?: number;
+  /** The given `rate` is already per BASE unit (stock adjustments enter qty in
+   *  base units), so it must not be divided by the purchase-unit factor again. */
+  rateIsBase?: boolean;
 }
 
 function getPurchaseRate(variant: IProductVariant, overrideRate?: number): number {
@@ -45,6 +48,7 @@ export async function manageStock(params: StockManagerParams): Promise<any> {
     action,
     allowCreate = true,
     rate: overrideRate,
+    rateIsBase = false,
   } = params;
 
   if (!variant._id) throw new Error("Variant _id required");
@@ -60,10 +64,40 @@ export async function manageStock(params: StockManagerParams): Promise<any> {
   // Normalize quantity to base unit
   const qtyInBase = convertToBaseUnit(qty, unitId, variant);
 
-  const rate = getPurchaseRate(variant, overrideRate);
+  const rate =
+    rateIsBase && overrideRate != null ? Number(overrideRate) || 0 : getPurchaseRate(variant, overrideRate);
+
+  // TRANSFER_IN / TRANSFER_OUT are used only by Stock Adjustments (Excess /
+  // Shortage). They move stock by a quantity and value it like a perpetual
+  // inventory: incoming at its rate (weighted average), outgoing at the
+  // CURRENT average cost — instead of re-valuing the whole stock at the
+  // voucher's rate (a ₹0 / typo rate used to wipe the stock value).
+  const isMovement = action === "TRANSFER_IN" || action === "TRANSFER_OUT";
 
   if (!stock) {
     if (!allowCreate) return null;
+
+    if (isMovement) {
+      // No row yet: a decrease must create NEGATIVE stock, not +qty, and an
+      // adjustment is not opening stock.
+      const q = action === "TRANSFER_OUT" ? -qtyInBase : qtyInBase;
+      stock = await ProductBranchStock.create({
+        adminid: adminId,
+        productid: productId,
+        variantid: variant._id,
+        branchid: branchId,
+        openingstock: 0,
+        openingstockamount: 0,
+        currentstock: q,
+        currentstockamount: q * rate,
+        closingstock: q,
+        closingstockamount: q * rate,
+        minimumstock: variant.minimumstock || 0,
+        reorderlevel: variant.reorderlevel || 0,
+        averagecost: rate,
+      });
+      return stock;
+    }
 
     stock = await ProductBranchStock.create({
       adminid: adminId,
@@ -104,11 +138,26 @@ export async function manageStock(params: StockManagerParams): Promise<any> {
       throw new Error(`Unknown stock action: ${action}`);
   }
 
-  // Always recalc amounts and closing stock
-  stock.currentstockamount = stock.currentstock * rate;
-  stock.closingstock = stock.currentstock;
-  stock.closingstockamount = stock.currentstock * rate;
-  stock.averagecost = rate;
+  if (isMovement) {
+    const prevAvg = Number(stock.averagecost) > 0 ? Number(stock.averagecost) : rate;
+    let amt = Number(stock.currentstockamount) || 0;
+    if (action === "TRANSFER_IN") amt += qtyInBase * rate;
+    else amt -= qtyInBase * prevAvg;
+    // Nothing (or less than nothing) left on hand: value what remains at the
+    // last average so a zero/negative quantity never carries a stray amount.
+    if (stock.currentstock <= 0) amt = stock.currentstock * prevAvg;
+    amt = Math.round(amt * 100) / 100;
+    stock.currentstockamount = amt;
+    stock.closingstock = stock.currentstock;
+    stock.closingstockamount = amt;
+    stock.averagecost = stock.currentstock > 0 ? amt / stock.currentstock : prevAvg;
+  } else {
+    // Always recalc amounts and closing stock
+    stock.currentstockamount = stock.currentstock * rate;
+    stock.closingstock = stock.currentstock;
+    stock.closingstockamount = stock.currentstock * rate;
+    stock.averagecost = rate;
+  }
 
   await stock.save();
   return stock;

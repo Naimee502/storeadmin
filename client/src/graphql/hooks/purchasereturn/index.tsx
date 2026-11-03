@@ -7,6 +7,7 @@ import {
 } from "../../mutations/purchasereturn";
 import {
   GET_PURCHASE_RETURNS,
+  GET_PURCHASE_RETURNS_LIST,
   GET_PURCHASE_RETURN_BY_ID,
   GET_DELETED_PURCHASE_RETURNS,
 } from "../../queries/purchasereturn";
@@ -21,26 +22,30 @@ export const usePurchaseReturnMutations = () => {
 
   const [addPurchaseReturnMutation] = useMutation(ADD_PURCHASE_RETURN, {
     refetchQueries: [
-      { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetPurchaseReturnsList",
+      "GetPurchaseReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [editPurchaseReturnMutation] = useMutation(EDIT_PURCHASE_RETURN, {
     refetchQueries: [
-      { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetPurchaseReturnsList",
+      "GetPurchaseReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [deletePurchaseReturnMutation] = useMutation(DELETE_PURCHASE_RETURN, {
     refetchQueries: [
-      { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetPurchaseReturnsList",
+      "GetPurchaseReturns",
       { query: GET_DELETED_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
   });
   const [resetPurchaseReturnMutation] = useMutation(RESET_PURCHASE_RETURN, {
     refetchQueries: [
-      { query: GET_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
+      "GetPurchaseReturnsList",
+      "GetPurchaseReturns",
       { query: GET_DELETED_PURCHASE_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
@@ -62,6 +67,21 @@ export const usePurchaseReturnsQuery = (fetchPolicy: WatchQueryFetchPolicy = "ca
   const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+  return { data, loading, error, refetch };
+};
+
+// Lite listing variant of usePurchaseReturnsQuery — same filter / policy,
+// only the table columns (+ sourceInvoiceId for the Purchase Invoices list).
+export const usePurchaseReturnsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS_LIST, {
     variables: { filter: { adminid, branchid } },
     fetchPolicy,
   });

@@ -13,7 +13,7 @@ const DeletedAnnouncements = () => {
   const dispatch = useAppDispatch();
   const actions = useAppSelector((s) => selectModuleActions(s, "announcements"));
   const { data, loading } = useQuery(GET_DELETED_ANNOUNCEMENTS, { fetchPolicy: "cache-and-network" });
-  const [resetMut] = useMutation(RESET_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements", "GetDeletedAnnouncements"] });
+  const [resetMut] = useMutation(RESET_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements", "GetAnnouncementsList", "GetDeletedAnnouncements"] });
 
   const rows = (data?.getDeletedAnnouncements || []).map((a: any, i: number) => ({
     ...a,

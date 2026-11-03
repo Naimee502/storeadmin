@@ -22,11 +22,28 @@ const populateFields = [
   "othercharges.ledgerid",
 ];
 
+// Listing variant — each populated doc carries only what formatReturn copies
+// out (toSimpleRef keys + its `name` fallback; product name + variant names).
+// Used ONLY by getPurchaseReturns; every other resolver keeps populateFields.
+const listPopulateFields: any[] = [
+  { path: "partyacc", select: "name accountname mobile city" },
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
+  { path: "productservice.purchaseunitid", select: "name unitname" },
+  { path: "productservice.salesaccountid", select: "name ledgername" },
+  { path: "productservice.purchaseaccountid", select: "name ledgername" },
+  { path: "productservice.serviceaccountid", select: "name ledgername" },
+  { path: "othercharges.ledgerid", select: "name ledgername" },
+];
+
 const formatReturn = (r: any) => ({
   ...r,
   id: r._id.toString(),
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
-  partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
+  // City is read directly (not via toSimpleRef, which would fall back to the
+  // party NAME when the city is empty) so the list can show "Name · City".
+  partyacc: r.partyacc
+    ? { ...toSimpleRef(r.partyacc, ["accountname", "mobile"]), city: r.partyacc.city ?? null }
+    : null,
   // Journals are no longer optional, so this is always true. Kept in the schema
   // so existing clients querying the field keep working.
   autocreate: true,
@@ -135,7 +152,7 @@ export const purchaseReturnResolvers = {
         if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
         if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
       }
-      const rows = await PurchaseReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(populateFields).lean();
+      const rows = await PurchaseReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(listPopulateFields).lean();
       return rows.map(formatReturn);
     },
 

@@ -8,6 +8,7 @@ import {
 
 import {
   GET_ACCOUNTLEDGERS,
+  GET_ACCOUNTLEDGERS_LIST,
   GET_ACCOUNTLEDGER_BY_ID,
   GET_DELETED_ACCOUNTLEDGERS,
 } from '../../queries/accountledgers';
@@ -53,6 +54,21 @@ export const useAccountLedgersQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
     error,
     refetch,
   };
+};
+
+// Lite list for the Account Ledgers page — same filter as
+// useAccountLedgersQuery, only the grid/inline-form fields.
+export const useAccountLedgersListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTLEDGERS_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedAccountLedgersQuery = () => {

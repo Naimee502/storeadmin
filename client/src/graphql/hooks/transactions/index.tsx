@@ -9,6 +9,7 @@ import {
 
 import {
   GET_TRANSACTIONS,
+  GET_TRANSACTIONS_LIST,
   GET_TRANSACTION_BY_ID,
   GET_DELETED_TRANSACTIONS,
   PREVIEW_INVOICE_JOURNAL,
@@ -61,6 +62,24 @@ export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache
 
   const { data, loading, error, refetch } = useQuery(GET_TRANSACTIONS, {
     variables: { filter: { adminid, branchid } }, // ✅ wrapped in filter
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// ----------------- Transactions LIST (lite) -----------------
+// Same filter as useTransactionsQuery, but only the listing columns (no
+// entries[]). Used by the Transactions list page only.
+export const useTransactionsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_TRANSACTIONS_LIST, {
+    variables: { filter: { adminid, branchid } },
     fetchPolicy,
   });
 

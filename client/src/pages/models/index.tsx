@@ -5,7 +5,7 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useModelsQuery, useModelMutations } from "../../graphql/hooks/models";
+import { useModelsListQuery, useModelMutations } from "../../graphql/hooks/models";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addModels } from "../../redux/slices/models";
@@ -18,11 +18,11 @@ const Models = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  const { data, refetch } = useModelsQuery();
+  // Lite list query — grid columns + inline-form fields only.
+  const { data, refetch } = useModelsListQuery();
   const { addModelMutation, editModelMutation, deleteModelMutation } = useModelMutations();
   const modelList = data?.getModels || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-  console.log("Modal List:", JSON.stringify(modelList));
   
   const [formValues, setFormValues] = useState({ modelname: "", status: true });
   const [formErrors, setFormErrors] = useState<{ modelname?: string }>({});
@@ -50,20 +50,23 @@ const Models = () => {
 
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      // Only block the UI when there is no cached list to show yet.
+      const blocking = !data?.getModels?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getModels) {
-          dispatch(addModels(data.getModels));
+        const { data: fresh } = await refetch();
+        if (fresh?.getModels) {
+          dispatch(addModels(fresh.getModels));
         }
       } catch (error) {
         console.error("Error fetching models:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

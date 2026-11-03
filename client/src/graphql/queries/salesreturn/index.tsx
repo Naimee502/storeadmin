@@ -70,6 +70,31 @@ export const GET_SALES_RETURNS = gql`
   }
 `;
 
+// Listing-only query: just the columns the Sales Returns table shows. Line
+// items are reduced to their qty (item count / total qty); edit loads the full
+// return by id, so the list no longer carries every line, ledger and charge.
+export const GET_SALES_RETURNS_LIST = gql`
+  query GetSalesReturnsList($filter: SalesReturnFilterInput) {
+    getSalesReturns(filter: $filter) {
+      id
+      sourceInvoiceId
+      sourceBillNumber
+      partyacc { id accountname mobile city }
+      returndate
+      billnumber
+      refundMode
+      totalamount
+      productservice {
+        qty
+      }
+      createdby_name
+      createdby_type
+      status
+      createdAt
+    }
+  }
+`;
+
 export const GET_DELETED_SALES_RETURNS = gql`
   query GetDeletedSalesReturns($filter: SalesReturnFilterInput) {
     getDeletedSalesReturns(filter: $filter) {

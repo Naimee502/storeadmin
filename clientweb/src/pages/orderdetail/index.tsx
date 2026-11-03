@@ -14,7 +14,7 @@ import {
   MARK_SALES_ORDER_DELIVERED,
   DELETE_SALES_ORDER,
 } from "../../graphql/queries/accounts";
-import { formatPrice } from "../../utils/format";
+import { formatPrice, formatSignedPrice } from "../../utils/format";
 import { formatBillNumber, formatDate, canEditOrder } from "../../utils/orders";
 import { useDownline } from "../../hooks/useDownline";
 import { useModuleEnabled } from "../../hooks/useModuleEnabled";
@@ -349,11 +349,11 @@ export default function OrderDetailPage() {
                 <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
                   <div className="flex justify-between text-slate-600">
                     <span>Previous Balance</span>
-                    <span>{formatPrice(order.partyPreviousBalance)}</span>
+                    <span>{formatSignedPrice(order.partyPreviousBalance)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-ink-900">
                     <span>Current Balance</span>
-                    <span>{formatPrice(order.partyCurrentBalance)}</span>
+                    <span>{formatSignedPrice(order.partyCurrentBalance)}</span>
                   </div>
                 </div>
               )}

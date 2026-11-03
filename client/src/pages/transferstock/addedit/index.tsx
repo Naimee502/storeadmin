@@ -2,7 +2,7 @@
 // One voucher → multiple product lines
 // From-branch stock is debited; to-branch stock is credited per item.
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -10,12 +10,12 @@ import FormPage from "../../../components/formpage";
 import { FaTrash, FaExchangeAlt, FaCalendarAlt, FaFileAlt } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { useBranchesQuery } from "../../../graphql/hooks/branches";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { todayYMD } from "../../../utils/helper";
 import {
   useTransferStockMutations,
   useTransferStockByIDQuery,
+  useTransferStockProductsQuery,
+  useTransferStockBranchesQuery,
 } from "../../../graphql/hooks/transferstock";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 
@@ -83,7 +83,7 @@ const TransferStockAddEdit: React.FC = () => {
     : type === "staff" ? (staff?.admin?.id || admin?.id || storedAdminId)
     : (admin?.id || storedAdminId);
 
-  const { data: branchesData } = useBranchesQuery();
+  const { data: branchesData } = useTransferStockBranchesQuery();
   // firstBranchId is the rescue for a STAFF account with no branch assigned —
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
@@ -101,7 +101,7 @@ const TransferStockAddEdit: React.FC = () => {
   const branches = branchesData?.getBranches || [];
   const fromBranchName = branches.find((b: any) => b.id === fromBranchId)?.branchname || fromBranchId;
 
-  const { data: productData } = useProductServicesQuery(true, 500, 0);
+  const { data: productData } = useTransferStockProductsQuery(true, 500, 0);
   const allProducts: Product[] = productData?.getProductServices ?? [];
 
   const { addTransferStockMutation, editTransferStockMutation } = useTransferStockMutations();
@@ -120,8 +120,14 @@ const TransferStockAddEdit: React.FC = () => {
   const totalQty = items.reduce((s, i) => s + i.transferqty, 0);
 
   // ── Load edit data ────────────────────────────────────────────────────────
+  // Hydrate once per voucher. The product lookup is cache-and-network, so it
+  // emits a second (new) array when the network answer lands after the cached
+  // one; re-running this effect then wiped whatever the user had already typed.
+  const hydratedIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isEdit || !editData?.getTransferStockById || allProducts.length === 0) return;
+    if (hydratedIdRef.current === id) return;
+    hydratedIdRef.current = id ?? null;
     const doc = editData.getTransferStockById;
 
     setTobranchid(doc.tobranchid || "");
@@ -150,7 +156,7 @@ const TransferStockAddEdit: React.FC = () => {
     });
 
     setItems(mapped.length > 0 ? mapped : [emptyItem()]);
-  }, [isEdit, editData, allProducts]);
+  }, [isEdit, id, editData, allProducts]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -256,9 +262,43 @@ const TransferStockAddEdit: React.FC = () => {
     const validItems = items.filter((i) => i.productid && i.transferqty > 0);
     if (validItems.length === 0) return "Add at least one item with quantity > 0.";
 
+    // Compare in BASE units (stock is kept in base units; a box of 12 is 12),
+    // summed per variant (two lines of one variant draw on the same stock),
+    // and when editing, add back what this voucher already moved out — that
+    // stock is coming back before the new quantities go out.
+    const toBase = (it: TransferItem) => {
+      const v = it._variants.find((x) => x.id === it.variantid);
+      const baseId = typeof v?.baseunitid === "object" ? v?.baseunitid?.id : v?.baseunitid;
+      if (!v || !it.transferunitid || it.transferunitid === baseId) return it.transferqty;
+      const conv = (v.unitconversions || []).find(
+        (u) => (typeof u.unitid === "object" ? u.unitid?.id : u.unitid) === it.transferunitid
+      );
+      const f = Number(conv?.factor) || 0;
+      return f > 0 ? it.transferqty * f : it.transferqty;
+    };
+    const keyOf = (pid: string, vid: string) => `${pid}_${vid || ""}`;
+    const giveBack = new Map<string, number>();
+    const original = isEdit ? editData?.getTransferStockById : null;
+    if (original && original.frombranchid === fromBranchId) {
+      for (const it of original.items || []) {
+        const prod = allProducts.find((p) => p.id === it.productid);
+        const v = prod?.productvariants?.find((x) => x.id === it.variantid);
+        const tmp = { ...emptyItem(), variantid: it.variantid || "", transferunitid: it.transferunitid || "", transferqty: Number(it.transferqty) || 0, _variants: v ? [v] : [] };
+        const k = keyOf(it.productid, it.variantid);
+        giveBack.set(k, (giveBack.get(k) || 0) + toBase(tmp));
+      }
+    }
+    const need = new Map<string, { qty: number; item: TransferItem }>();
     for (const item of validItems) {
-      if (item.transferqty > item.availablestock) {
-        return `"${item.productname}${item.variantname ? ` (${item.variantname})` : ""}" — transfer qty (${item.transferqty}) exceeds available stock (${item.availablestock}).`;
+      const k = keyOf(item.productid, item.variantid);
+      const cur = need.get(k) || { qty: 0, item };
+      cur.qty += toBase(item);
+      need.set(k, cur);
+    }
+    for (const [k, { qty, item }] of need) {
+      const available = (Number(item.availablestock) || 0) + (giveBack.get(k) || 0);
+      if (qty > available) {
+        return `"${item.productname}${item.variantname ? ` (${item.variantname})` : ""}" — transfer qty (${qty} base units) exceeds available stock (${available}).`;
       }
     }
     return null;

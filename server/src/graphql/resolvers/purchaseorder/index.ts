@@ -62,6 +62,21 @@ const populateFields = [
   "othercharges.ledgerid",
 ];
 
+// Listing variant — each populated doc carries only what formatOrder copies
+// out (toSimpleRef keys + its `name` fallback; product name + variant names),
+// instead of the whole party / product / unit / ledger document per line.
+// Used ONLY by getPurchaseOrders; every other resolver keeps populateFields.
+const listPopulateFields: any[] = [
+  { path: "purchasemenid", select: "name" },
+  { path: "partyacc", select: "name accountname mobile address city state gstnumber" },
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
+  { path: "productservice.purchaseunitid", select: "name unitname" },
+  { path: "productservice.salesaccountid", select: "name ledgername" },
+  { path: "productservice.purchaseaccountid", select: "name ledgername" },
+  { path: "productservice.serviceaccountid", select: "name ledgername" },
+  { path: "othercharges.ledgerid", select: "name ledgername" },
+];
+
 // ✅ Format order function
 const formatOrder = (order: any) => ({
   ...order,
@@ -147,7 +162,7 @@ export const purchaseOrderResolvers = {
       }
 
       const orders = await PurchaseOrder.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populateFields)
+        .populate(listPopulateFields)
         .lean();
 
       return orders.map(formatOrder);

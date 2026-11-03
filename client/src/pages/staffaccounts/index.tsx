@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useStaffQuery,
+  useStaffListQuery,
   useStaffMutations,
 } from "../../graphql/hooks/staffaccounts";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -71,7 +71,7 @@ const StaffAccounts = () => {
   };
 
   // HOOKS UPDATED
-  const { data, refetch } = useStaffQuery();
+  const { data, refetch } = useStaffListQuery();
   const { addStaffMutation, editStaffMutation, deleteStaffMutation } =
     useStaffMutations();
 
@@ -194,18 +194,29 @@ const StaffAccounts = () => {
     }
   }, [staffAccountGroupId, isEditing]);
 
+  // Mount only. It used to re-run on every change of the list, so the first
+  // load fetched twice (and flashed the full-screen loader twice) and every
+  // save/delete refetch triggered one more refetch. Cached rows → refresh
+  // quietly without the blocking loader.
   useEffect(() => {
     const fn = async () => {
-      dispatch(showLoading());
-      await refetch();
-      if (data?.getStaffAccounts) {
-        dispatch(addStaff(data.getStaffAccounts)); // reducer name unchanged
+      const blocking = !data?.getStaffAccounts?.length;
+      if (blocking) dispatch(showLoading());
+      try {
+        const { data: fresh } = await refetch();
+        if (fresh?.getStaffAccounts) {
+          dispatch(addStaff(fresh.getStaffAccounts)); // reducer name unchanged
+        }
+      } catch (error) {
+        console.error("Error fetching staff:", error);
+      } finally {
+        if (blocking) dispatch(hideLoading());
       }
-      dispatch(hideLoading());
     };
 
     fn();
-  }, [data?.getStaffAccounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, refetch]);
 
   // UPLOAD IMAGE
   const uploadProfilePicture = useCallback(async () => {

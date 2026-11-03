@@ -16,7 +16,7 @@ import {
 } from '../../../../apollo/mutations/accounts';
 import { usePunchGate } from '../../../../apollo/hooks/attendance';
 import { useModuleEnabled, useUserModuleEnabled } from '../../../../apollo/hooks/admin';
-import { formatINR, formatDate, formatBillNumber } from '../../../../utils';
+import { formatINR, formatSignedINR, formatDate, formatBillNumber } from '../../../../utils';
 import { BackHeader, AppImage, AppModal } from '../../../../components';
 import type { RootState } from '../../../../store/rootreducer';
 
@@ -509,11 +509,11 @@ export default function OrderDetail() {
               <View style={[styles.balanceBox, { borderTopColor: colors.border }]}>
                 <View style={styles.priceRow}>
                   <Text style={[styles.priceLabel, { color: colors.subText }]}>Previous Balance</Text>
-                  <Text style={[styles.priceValue, { color: colors.text }]}>{formatINR(order.partyPreviousBalance)}</Text>
+                  <Text style={[styles.priceValue, { color: colors.text }]}>{formatSignedINR(order.partyPreviousBalance)}</Text>
                 </View>
                 <View style={styles.priceRow}>
                   <Text style={[styles.priceLabel, { color: colors.text, fontFamily: FONTS.bold }]}>Current Balance</Text>
-                  <Text style={[styles.priceValue, { color: colors.text, fontFamily: FONTS.bold }]}>{formatINR(order.partyCurrentBalance)}</Text>
+                  <Text style={[styles.priceValue, { color: colors.text, fontFamily: FONTS.bold }]}>{formatSignedINR(order.partyCurrentBalance)}</Text>
                 </View>
               </View>
             )}

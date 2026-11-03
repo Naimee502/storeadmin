@@ -46,6 +46,27 @@ export const GET_TRANSACTIONS = gql`
   }
 `;
 
+// Listing-page query: only the columns the Transactions table renders, no
+// journal lines (entries[]) or settlement data. Named GetTransactionsList and
+// listed in PAYMENT_SIDE_EFFECT_QUERIES so it refetches with GetTransactions.
+export const GET_TRANSACTIONS_LIST = gql`
+  query GetTransactionsList($filter: TransactionFilterInput) {
+    getTransactions(filter: $filter) {
+      id
+      transactioncode
+      entrytype
+      transactiondate
+      narration
+      totaldebit
+      totalcredit
+      createdby_name
+      createdby_type
+      status
+      createdAt
+    }
+  }
+`;
+
 export const GET_DELETED_TRANSACTIONS = gql`
   query GetDeletedTransactions($filter: TransactionFilterInput) {
     getDeletedTransactions(filter: $filter) {

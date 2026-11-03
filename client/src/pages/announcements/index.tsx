@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { useMutation, useQuery } from "@apollo/client";
+import { useApolloClient, useMutation, useQuery } from "@apollo/client";
 
 import HomeLayout from "../../layouts/home";
 import DataTable from "../../components/datatable";
@@ -14,7 +14,8 @@ import { useImageUpload } from "../../graphql/hooks/uploads";
 import { useBranchesQuery } from "../../graphql/hooks/branches";
 import { formatDateDMY } from "../../utils/helper";
 import {
-  GET_ANNOUNCEMENTS,
+  GET_ANNOUNCEMENTS_LIST,
+  GET_ANNOUNCEMENT,
   GET_ANNOUNCEMENT_TARGETS,
   GET_ANNOUNCEMENT_READERS,
   ADD_ANNOUNCEMENT,
@@ -37,6 +38,13 @@ const ROLE_OPTIONS = [
 const SENDER_LABEL: Record<string, string> = { admin: "Admin", branch: "Branch", staff: "Salesman", party: "Party" };
 
 const ymd = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
+
+/**
+ * Small copy of a picture for the 72px list thumbnail. The server's /uploads
+ * route answers "?w=" with a cached, resized WebP (see imageResizer); any
+ * other URL (hosted elsewhere, already has a query) is used unchanged.
+ */
+const thumbUrl = (url: string) => (/\/uploads\/[^/?#]+$/.test(url) ? `${url}?w=160` : url);
 
 type Form = {
   title: string;
@@ -86,12 +94,13 @@ const Announcements = () => {
   const branches: any[] = (branchesData?.getBranches || []).filter((b: any) => b.status !== false);
   const notify = (message: string, type: "success" | "error" = "success") => dispatch(showMessage({ message, type }));
 
-  const { data, loading } = useQuery(GET_ANNOUNCEMENTS, { fetchPolicy: "cache-and-network" });
+  const client = useApolloClient();
+  const { data, loading } = useQuery(GET_ANNOUNCEMENTS_LIST, { fetchPolicy: "cache-and-network" });
   const [open, setOpen] = useState(false);
   const { data: targetsData } = useQuery(GET_ANNOUNCEMENT_TARGETS, { skip: !open, fetchPolicy: "cache-and-network" });
-  const [addMut] = useMutation(ADD_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements"] });
-  const [editMut] = useMutation(EDIT_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements"] });
-  const [deleteMut] = useMutation(DELETE_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements", "GetDeletedAnnouncements"] });
+  const [addMut] = useMutation(ADD_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncementsList"] });
+  const [editMut] = useMutation(EDIT_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncementsList"] });
+  const [deleteMut] = useMutation(DELETE_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncementsList", "GetDeletedAnnouncements"] });
   const { uploadImageMutation } = useImageUpload();
 
   const [editing, setEditing] = useState<any>(null);
@@ -128,7 +137,16 @@ const Announcements = () => {
     setForm(emptyForm());
     setOpen(true);
   };
-  const openEdit = (row: any) => {
+  const openEdit = async (listRow: any) => {
+    // The list carries no audience ids / link / branch — load the full one.
+    let row: any;
+    try {
+      const { data: one } = await client.query({ query: GET_ANNOUNCEMENT, variables: { id: listRow.id }, fetchPolicy: "network-only" });
+      row = one?.getAnnouncement;
+    } catch (err: any) {
+      return notify(err?.message || "Could not load the announcement.", "error");
+    }
+    if (!row) return notify("Announcement not found.", "error");
     const a = row.audience || {};
     setEditing(row);
     setForm({
@@ -222,7 +240,7 @@ const Announcements = () => {
       // Picture gets its own column — the Title cell stays text only.
       imageCell: a.imageurl ? (
         <button type="button" onClick={() => setPreview(a)} title="View picture" className="block">
-          <img src={a.imageurl} alt="" className="h-10 w-[72px] rounded object-cover border hover:opacity-80" />
+          <img src={thumbUrl(a.imageurl)} alt="" loading="lazy" className="h-10 w-[72px] rounded object-cover border hover:opacity-80" />
         </button>
       ) : (
         <span className="text-gray-400">-</span>

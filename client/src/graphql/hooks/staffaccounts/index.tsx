@@ -8,6 +8,7 @@ import {
 
 import {
   GET_STAFF,
+  GET_STAFF_LIST,
   GET_STAFF_BY_ID,
   GET_DELETED_STAFF,
 } from '../../queries/staffaccounts';
@@ -37,6 +38,20 @@ export const useStaffMutations = () => {
 // ---------------------------------------------
 // STAFF LIST QUERY
 // ---------------------------------------------
+// Staff Accounts list page only — same filter as useStaffQuery, fewer fields.
+export const useStaffListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_STAFF_LIST, {
+    variables: { filter: { adminId } },
+    skip: !adminId,
+  });
+
+  return { data, loading, error, refetch };
+};
+
 export const useStaffQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);

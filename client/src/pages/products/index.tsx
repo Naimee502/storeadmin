@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useApolloClient } from "@apollo/client";
 import { useNavigate, useLocation } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
@@ -9,8 +10,9 @@ import PrintableBarcode from "../../components/printbarcode";
 import { useReactToPrint } from "react-to-print";
 import {
   useProductServiceMutations,
-  useProductServicesQuery,
+  useProductServicesListQuery,
 } from "../../graphql/hooks/products";
+import { GET_PRODUCT_SERVICES } from "../../graphql/queries/products";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import ImportDialog from "../../components/importdialog";
 import { useProductImportExport } from "../../hooks/useproductimportexport";
@@ -19,7 +21,10 @@ const ProductServices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "products"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { data, refetch, loading } = useProductServicesQuery();
+  // Lite list query: only the fields the table, low-stock filter and barcode
+  // action read. Export fetches the full records on click (exportLoader).
+  const { data, refetch, loading, variables } = useProductServicesListQuery();
+  const apolloClient = useApolloClient();
 
   // ?filter=lowstock (from the dashboard "Low Stock Alert" card) —
   // show only products having a variant below its minimum stock
@@ -27,17 +32,22 @@ const ProductServices = () => {
   const isLowStockFilter =
     new URLSearchParams(location.search).get("filter") === "lowstock";
 
+  const applyLowStock = (list: any[]) =>
+    isLowStockFilter
+      ? list.filter(
+          (p: any) =>
+            !p.isservice &&
+            (p.productvariants ?? []).some(
+              (v: any) => (v.currentstock ?? 0) < (v.minimumstock ?? 0)
+            )
+        )
+      : list;
+
   const allProducts = data?.getProductServices ?? [];
-  const productServiceList = isLowStockFilter
-    ? allProducts.filter(
-        (p: any) =>
-          !p.isservice &&
-          (p.productvariants ?? []).some(
-            (v: any) => (v.currentstock ?? 0) < (v.minimumstock ?? 0)
-          )
-      )
-    : allProducts;
-  console.log("ProductServiceList:", JSON.stringify(productServiceList));
+  const productServiceList = applyLowStock(allProducts);
+  // Full-screen loader only on a cold load; with cached rows the
+  // cache-and-network refresh happens quietly in the background.
+  const showBlockingLoader = loading && !allProducts.length;
   const { deleteProductServiceMutation } = useProductServiceMutations();
 
   const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
@@ -123,7 +133,18 @@ const ProductServices = () => {
   // Import and export live in useProductImportExport — it owns the template
   // with its dropdowns, the four-sheet layout, image uploads, the dry run and
   // the error report. The page only opens the dialog and refetches afterwards.
-  const importExport = useProductImportExport(productServiceList);
+  // The list only holds lite rows, so Export pulls the full records (same
+  // scope + the same low-stock filter) when it is clicked.
+  const exportLoader = useCallback(async () => {
+    const { data: full } = await apolloClient.query({
+      query: GET_PRODUCT_SERVICES,
+      variables,
+      fetchPolicy: "network-only",
+    });
+    return applyLowStock(full?.getProductServices ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apolloClient, JSON.stringify(variables), isLowStockFilter]);
+  const importExport = useProductImportExport(exportLoader);
 
   return (
     <HomeLayout>
@@ -220,7 +241,7 @@ const ProductServices = () => {
           onAdd={() => navigate("/products/addedit")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={loading}
+          isLoading={showBlockingLoader}
         />
 
         <ImportDialog

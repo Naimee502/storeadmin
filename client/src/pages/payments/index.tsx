@@ -5,12 +5,12 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  usePaymentsQuery,
+  usePaymentsListQuery,
   usePaymentMutations,
 } from "../../graphql/hooks/payments";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { useAccountsQuery } from "../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../graphql/hooks/accounts";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { paymentPartyLabel } from "../../utils/partylabel";
@@ -19,26 +19,32 @@ const Payment = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "payments"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { data, refetch } = usePaymentsQuery();
+  // Lite listing query — only the table columns.
+  const { data, refetch } = usePaymentsListQuery();
   const { deletePaymentMutation } = usePaymentMutations();
 
   const paymentList = data?.getPayments || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
-  const { data: accountsData, refetch: accountsDataRefetch } = useAccountsQuery();
+  const { data: accountsData, refetch: accountsDataRefetch } = useAccountsLiteQuery();
 
   useEffect(() => {
     const fetchPayments = async () => {
-      dispatch(showLoading());
+      // Rows already in the cache (e.g. straight after a save, which writes
+      // the new payment into it) → refresh quietly instead of blocking the
+      // whole table behind the loader.
+      const blocking = !data?.getPayments?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching payments:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   // Payments also arrive from elsewhere — staff and parties on the mobile app,

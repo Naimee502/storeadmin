@@ -10,6 +10,7 @@ import {
 
 import {
   GET_PAYMENTS,
+  GET_PAYMENTS_LIST,
   GET_PAYMENT_BY_ID,
   GET_DELETED_PAYMENTS,
   GET_PARTY_OUTSTANDING_BILLS,
@@ -40,15 +41,30 @@ export const usePaymentMutations = () => {
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
   const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
 
+  // Speed: the save no longer WAITS for ~2000 payments + every transaction to
+  // be re-downloaded before it returns. Instead the saved payment is written
+  // straight into the Payments list cache (below), so it is on screen the
+  // moment the form navigates back; any mounted list / outstanding / ledger
+  // watcher still refreshes in the background by name.
   const refreshLists = {
-    refetchQueries: [
-      { query: GET_PAYMENTS, variables: { filter: { adminid, branchid } } },
-      ...PAYMENT_SIDE_EFFECT_QUERIES,
-    ],
-    awaitRefetchQueries: true,
+    refetchQueries: ["GetPaymentsList", ...PAYMENT_SIDE_EFFECT_QUERIES],
+    awaitRefetchQueries: false,
   };
+  const listVars = { filter: { adminid, branchid } };
 
-  const [addPaymentMutation] = useMutation(ADD_PAYMENT, refreshLists);
+  const [addPaymentMutation] = useMutation(ADD_PAYMENT, {
+    ...refreshLists,
+    update(cache, { data }) {
+      const created = data?.addPayment;
+      if (!created) return;
+      cache.updateQuery({ query: GET_PAYMENTS_LIST, variables: listVars }, (prev: any) => {
+        if (!prev?.getPayments) return prev;
+        if (prev.getPayments.some((p: any) => p.id === created.id)) return prev;
+        // The list is oldest-first (the page reverses it), so append.
+        return { ...prev, getPayments: [...prev.getPayments, created] };
+      });
+    },
+  });
   const [editPaymentMutation] = useMutation(EDIT_PAYMENT, refreshLists);
   const [deletePaymentMutation] = useMutation(DELETE_PAYMENT, refreshLists);
   const [resetPaymentMutation] = useMutation(RESET_PAYMENT, {
@@ -85,6 +101,22 @@ export const usePartyOutstandingBillsLazy = () => {
 // cache goes stale without the client ever issuing a payment mutation. The
 // outstanding-invoice list is derived from this data, so a stale read shows
 // already-settled invoices as still payable.
+// Lite query for the Payments listing page only.
+export const usePaymentsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PAYMENTS_LIST, {
+    variables: { filter: { adminid, branchid } },
+    fetchPolicy,
+  });
+
+  return { data, loading, error, refetch };
+};
+
 export const usePaymentsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);

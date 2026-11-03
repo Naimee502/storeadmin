@@ -7,7 +7,7 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  usePurchaseReturnsQuery,
+  usePurchaseReturnsListQuery,
   usePurchaseReturnMutations,
 } from "../../graphql/hooks/purchasereturn";
 import { formatDateDMY } from "../../utils/helper";
@@ -19,7 +19,8 @@ const PurchaseReturns = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "purchasereturn"));
   const dispatch = useAppDispatch();
-  const { data, refetch } = usePurchaseReturnsQuery();
+  // Lite listing query — only the table columns.
+  const { data, refetch } = usePurchaseReturnsListQuery();
   const { deletePurchaseReturnMutation } = usePurchaseReturnMutations();
   const isLoading = useAppSelector((s) => s.loader.isLoading);
 
@@ -27,14 +28,18 @@ const PurchaseReturns = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getPurchaseReturns?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [

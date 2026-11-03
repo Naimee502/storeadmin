@@ -9,7 +9,7 @@ import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 
 import {
-  useExpenseNotesQuery,
+  useExpenseNotesListQuery,
   useExpenseNoteMutations,
 } from "../../graphql/hooks/expensenote";
 
@@ -34,7 +34,7 @@ const ExpenseNote = () => {
   const tab = claimsOn ? tabState : "notes";
   const pendingClaims = (claimsData?.getExpenseClaims || []).filter((c: any) => c.status === "pending").length;
 
-  const { data, refetch } = useExpenseNotesQuery();
+  const { data, refetch } = useExpenseNotesListQuery();
   const { deleteExpenseNoteMutation } = useExpenseNoteMutations();
 
   const expenseList = data?.getExpenseNotes || [];
@@ -46,17 +46,21 @@ const ExpenseNote = () => {
 
   useEffect(() => {
     const fetchExpenseNotes = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getExpenseNotes?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching expense notes:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchExpenseNotes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   /* =========================

@@ -7,6 +7,7 @@ import {
 } from '../../mutations/accountgroups';
 import {
   GET_ACCOUNTGROUPS,
+  GET_ACCOUNTGROUPS_LIST,
   GET_ACCOUNTGROUP_BY_ID,
   GET_DELETED_ACCOUNTGROUPS,
 } from '../../queries/accountgroups';
@@ -42,6 +43,21 @@ export const useAccountGroupsQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list (Account Groups page, Account Ledgers group picker) — same filter
+// as useAccountGroupsQuery, fewer fields.
+export const useAccountGroupsListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTGROUPS_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedAccountGroupsQuery = () => {

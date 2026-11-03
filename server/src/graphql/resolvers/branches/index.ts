@@ -9,7 +9,15 @@ export const branchResolvers = {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
 
-      return await Branch.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      // Every Admin field any client asks of this query (client GET_BRANCHES;
+      // isExpiringSoon is not stored, so it resolves null either way). Keeps
+      // the admin's password and other private fields out of the payload.
+      return await Branch.find(filter)
+        .sort({ createdAt: 1, _id: 1 })
+        .populate(
+          "admin",
+          "name email subscriptionType subscribed subscribedAt subscriptionEnd transactionId businesstype isMultibranch isChannelCustomers allowedmodules needsReview rejected"
+        );
     },
 
     // Get one branch (optionally ensure admin owns it)

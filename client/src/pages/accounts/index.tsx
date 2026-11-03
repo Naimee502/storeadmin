@@ -7,13 +7,12 @@ import { addAccounts } from "../../redux/slices/accounts";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountsQuery,
+  useAccountsListQuery,
   useAccountMutations,
   usePartyOutstandingSummaryQuery,
 } from "../../graphql/hooks/accounts";
 import { hideLoading, showLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import { formatINR, toTitleCase } from "../../utils/helper";
 
@@ -39,18 +38,18 @@ const Accounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data, refetch } = useAccountsQuery();
-  const { data: ledgerData } = useAccountLedgersQuery();
+  const { data, refetch } = useAccountsListQuery();
   const { outstandingById } = usePartyOutstandingSummaryQuery();
   const { deleteAccountMutation, approveAccountMutation } = useAccountMutations();
   const accountList = data?.getAccounts || [];
-  console.log("Fetched Accounts:", JSON.stringify(accountList));
-  const ledgerList = ledgerData?.getAccountLedgers || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      // Rows already in the cache → refresh quietly in the background instead
+      // of covering the table with the full-screen loader.
+      const blocking = !data?.getAccounts?.length;
+      if (blocking) dispatch(showLoading());
       try {
         const { data } = await refetch();
         if (data?.getAccounts) {
@@ -59,10 +58,11 @@ const Accounts = () => {
       } catch (error) {
         console.error("Error fetching accounts:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [
@@ -116,13 +116,10 @@ const Accounts = () => {
 
   const handleExport = () => {
     const exportData = [...accountList].reverse().map((acc: any, index: number) => {
-
-      const ledgerId =
-        typeof acc.ledgerid === "string"
-          ? acc.ledgerid
-          : acc.ledgerid?.id || acc.ledgerid?._id;
-
-      const ledger = ledgerList.find((l) => l.id === ledgerId);
+      // ledgerid comes populated ({ id, ledgername }) — same name the grid
+      // shows, so the export no longer needs the whole ledger list fetched.
+      const ledgerName =
+        typeof acc.ledgerid === "object" && acc.ledgerid ? acc.ledgerid.ledgername : "";
 
       return {
         ID: index + 1,
@@ -130,7 +127,7 @@ const Accounts = () => {
         Name: acc.name || "-",
         Mobile: acc.mobile || "-",
         Email: acc.email || "-",
-        Ledger: ledger ? ledger.ledgername : "-",
+        Ledger: ledgerName || "-",
         // The export mirrors the grid's one conditional column. Email stays in
         // the export even though the grid no longer prints it — a spreadsheet
         // of parties is exactly where you want the address.

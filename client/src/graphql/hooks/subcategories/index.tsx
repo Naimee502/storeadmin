@@ -8,6 +8,7 @@ import {
 } from '../../mutations/subcategories';
 import {
   GET_SUBCATEGORIES,
+  GET_SUBCATEGORIES_LIST,
   GET_SUBCATEGORY_BY_ID,
   GET_DELETED_SUBCATEGORIES,
 } from '../../queries/subcategories';
@@ -43,6 +44,21 @@ export const useSubCategoriesQuery = (categoryId?: string) => {
       : undefined;
 
   const { data, loading, error, refetch } = useQuery(GET_SUBCATEGORIES, {
+    variables: { adminId, categoryId },
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// Lite list (Sub Categories page) — same filter as useSubCategoriesQuery,
+// fewer fields.
+export const useSubCategoriesListQuery = (categoryId?: string) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SUBCATEGORIES_LIST, {
     variables: { adminId, categoryId },
   });
 

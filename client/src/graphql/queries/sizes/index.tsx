@@ -16,6 +16,20 @@ export const GET_SIZES = gql`
   }
 `;
 
+// Sizes list page: grid columns plus what the inline edit form reads from a
+// row (no admin ref). Same root field/args as GET_SIZES, so both share the
+// normalized cache list.
+export const GET_SIZES_LIST = gql`
+  query GetSizesList($adminId: ID) {
+    getSizes(adminId: $adminId) {
+      id
+      sizecode
+      sizename
+      status
+    }
+  }
+`;
+
 export const GET_DELETED_SIZES = gql`
   query GetDeletedSizes($adminId: ID) {
     getDeletedSizes(adminId: $adminId) {

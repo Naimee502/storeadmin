@@ -6,7 +6,7 @@ export const sizeResolvers = {
     getSizes: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Size.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      return await Size.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email"); // list: clients only read admin id/name/email
     },
 
     // Get deleted sizes (optionally filtered by admin)

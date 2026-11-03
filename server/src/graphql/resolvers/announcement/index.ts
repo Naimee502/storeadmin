@@ -406,6 +406,17 @@ export const announcementResolvers = {
       return withReadCounts(rows);
     },
 
+    getAnnouncement: async (_: any, { id }: any, context: any) => {
+      const c = await callerOf(context);
+      if (c.kind === "party") return null;
+      if (!Types.ObjectId.isValid(id)) return null;
+      // Same visibility as getAnnouncements.
+      const ann: any = await Announcement.findOne({ _id: oid(id), ...manageQuery(c) }).lean();
+      if (!ann) return null;
+      const [one] = await withReadCounts([ann]);
+      return one;
+    },
+
     getDeletedAnnouncements: async (_: any, __: any, context: any) => {
       const c = await callerOf(context);
       if (c.kind === "party") return [];

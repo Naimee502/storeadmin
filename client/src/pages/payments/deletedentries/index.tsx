@@ -8,7 +8,7 @@ import HomeLayout from "../../../layouts/home";
 import { useDeletedPaymentsQuery, usePaymentMutations } from "../../../graphql/hooks/payments";
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { formatDateDMY } from "../../../utils/helper";
 import { paymentPartyLabel } from "../../../utils/partylabel";
 
@@ -22,7 +22,7 @@ const DeletedPayments = () => {
 
   const deletedPayments = data?.getDeletedPayments || [];
   
-  const { data: accountsData, refetch: accountsDataRefetch } = useAccountsQuery();
+  const { data: accountsData, refetch: accountsDataRefetch } = useAccountsLiteQuery();
 
   useEffect(() => {
     const fetchDeleted = async () => {

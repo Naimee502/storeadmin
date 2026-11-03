@@ -16,6 +16,20 @@ export const GET_MODELS = gql`
   }
 `;
 
+// Models list page: grid columns plus what the inline edit form reads from a
+// row (no admin ref). Same root field/args as GET_MODELS, so both share the
+// normalized cache list.
+export const GET_MODELS_LIST = gql`
+  query GetModelsList($adminId: ID) {
+    getModels(adminId: $adminId) {
+      id
+      modelcode
+      modelname
+      status
+    }
+  }
+`;
+
 export const GET_DELETED_MODELS = gql`
   query GetDeletedModels($adminId: ID) {
     getDeletedModels(adminId: $adminId) {

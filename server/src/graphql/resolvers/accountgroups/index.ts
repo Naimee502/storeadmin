@@ -6,7 +6,8 @@ export const accountGroupResolvers = {
     getAccountGroups: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await AccountGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      // admin { id name email } is all any client asks of this query.
+      return await AccountGroup.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email");
     },
 
     // Get deleted account groups for optional admin

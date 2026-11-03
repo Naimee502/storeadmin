@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useApolloClient } from "@apollo/client";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
@@ -8,9 +9,10 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  usePurchaseOrdersQuery,
+  usePurchaseOrdersListQuery,
   usePurchaseOrderMutations,
 } from "../../graphql/hooks/purchaseorder";
+import { GET_PURCHASE_ORDER_PRINT } from "../../graphql/queries/purchaseorder";
 import { formatDateDMY } from "../../utils/helper";
 import PrintableInvoice from "../../components/printinvoice";
 import { useReactToPrint } from "react-to-print";
@@ -35,7 +37,10 @@ const PurchaseOrders = () => {
   const purchaseInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "purchaseinvoice"));
   const dispatch = useAppDispatch();
 
-  const { data, refetch } = usePurchaseOrdersQuery();
+  // Lite listing query — only the table columns. The full order is fetched
+  // by id on Print / WhatsApp (see loadPrintable).
+  const { data, refetch } = usePurchaseOrdersListQuery();
+  const apolloClient = useApolloClient();
   const {
     deletePurchaseOrderMutation,
     cancelPurchaseOrderMutation,
@@ -136,7 +141,7 @@ const PurchaseOrders = () => {
   const [waOrder, setWaOrder] = useState<any>(null);
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
-  const handleWhatsAppShare = (row: any) => {
+  const handleWhatsAppShare = async (row: any) => {
     const orig = orderList.find((o: any) => o.id === row.id);
     if (!orig) return;
 
@@ -173,7 +178,17 @@ const PurchaseOrders = () => {
       message,
       fileName: `Purchase-Order-PO-${orig.billnumber}.pdf`,
     };
-    setWaOrder(row);
+    // The list holds only the table columns — load the full order for the PDF.
+    dispatch(showLoading());
+    try {
+      setWaOrder(await loadPrintable(row));
+    } catch (e: any) {
+      console.error("Failed to load order for WhatsApp share:", e);
+      waMeta.current = null;
+      dispatch(showMessage({ message: e?.message || "Failed to load order.", type: "error" }));
+    } finally {
+      dispatch(hideLoading());
+    }
   };
 
   useEffect(() => {
@@ -219,16 +234,20 @@ const PurchaseOrders = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      dispatch(showLoading());
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !data?.getPurchaseOrders?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching orders:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const columns = [
@@ -248,8 +267,8 @@ const PurchaseOrders = () => {
   const capitalizeFirst = (text: string) =>
     text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const tableData = [...orderList].reverse().map((order: any, index: number) => {
-    const totalqty = order.productservice.reduce(
+  const buildRow = (order: any, index: number) => {
+    const totalqty = (order.productservice || []).reduce(
       (sum: number, p: any) => sum + (p.qty || 0),
       0
     );
@@ -263,7 +282,7 @@ const PurchaseOrders = () => {
       gstin: order.partyacc?.gstnumber || "",
       placeofsupply: [order.partyacc?.city, stateLabel(order.partyacc?.state)].filter(Boolean).join(" - "),
       partyacc: partyLabel(order.partyacc) || "N/A",
-      totalitem: order.productservice.length,
+      totalitem: (order.productservice || []).length,
       totalqty,
       billdate: formatDateDMY(order.billdate),
       billdateRaw: order.billdate,
@@ -281,7 +300,22 @@ const PurchaseOrders = () => {
       cancelStatus: order.cancelStatus,
       isConverted: order.isConverted,
     };
-  });
+  };
+
+  const tableData = [...orderList].reverse().map(buildRow);
+
+  // Print / WhatsApp need the whole order (lines, charges, transport, party
+  // GSTIN/state…), which the lite listing doesn't carry — fetch it by id.
+  const loadPrintable = async (row: any) => {
+    const { data: full } = await apolloClient.query({
+      query: GET_PURCHASE_ORDER_PRINT,
+      variables: { id: row.id },
+      fetchPolicy: "network-only",
+    });
+    const order = full?.getPurchaseOrderById;
+    if (!order) throw new Error("Order not found.");
+    return buildRow(order, (row.seqNo || 1) - 1);
+  };
 
   return (
     <HomeLayout>
@@ -292,7 +326,19 @@ const PurchaseOrders = () => {
           columns={columns}
           data={tableData}
           showPrint={actions.showPrint}
-          onPrint={(row) => setPrintOrder(row)}
+          onPrint={async (row) => {
+            // Full order is fetched only on Print click — the listing query
+            // carries just the table columns.
+            dispatch(showLoading());
+            try {
+              setPrintOrder(await loadPrintable(row));
+            } catch (e: any) {
+              console.error("Failed to load order for print:", e);
+              dispatch(showMessage({ message: e?.message || "Failed to load order.", type: "error" }));
+            } finally {
+              dispatch(hideLoading());
+            }
+          }}
           showWhatsApp={actions.showWhatsApp}
           onWhatsApp={handleWhatsAppShare}
           onView={(row) => navigate(`/purchaseorder/view/${row.id}`)}

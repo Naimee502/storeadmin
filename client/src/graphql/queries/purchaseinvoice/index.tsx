@@ -1,6 +1,69 @@
 import { gql } from '@apollo/client';
 
 // 🔹 Queries
+// Bill-settlement query for the Payment form — no line items.
+export const GET_PURCHASE_INVOICES_SETTLE = gql`
+  query GetPurchaseInvoicesSettle($filter: PurchaseInvoiceFilterInput) {
+    getPurchaseInvoices(filter: $filter) {
+      id
+      paymenttype
+      partyacc {
+        id
+        accountname
+      }
+      billdate
+      billnumber
+      duedate
+      subtotal
+      totalgst
+      totalamount
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      sourceorderno
+      cancelStatus
+      status
+      createdAt
+    }
+  }
+`;
+
+// Listing-only query: just the columns the Purchase Invoices table shows.
+// Print / WhatsApp fetch the full bill by id when they need it, so the list
+// no longer drags every line item, ledger and transport field over the wire.
+export const GET_PURCHASE_INVOICES_LIST = gql`
+  query GetPurchaseInvoicesList($filter: PurchaseInvoiceFilterInput) {
+    getPurchaseInvoices(filter: $filter) {
+      id
+      paymenttype
+      partyacc {
+        id
+        accountname
+        mobile
+        city
+        state
+        gstnumber
+      }
+      billdate
+      billnumber
+      totalamount
+      productservice {
+        qty
+      }
+      createdby_name
+      createdby_type
+      cancelStatus
+      status
+      createdAt
+    }
+  }
+`;
+
 export const GET_PURCHASE_INVOICES = gql`
   query GetPurchaseInvoices($filter: PurchaseInvoiceFilterInput) {
     getPurchaseInvoices(filter: $filter) {

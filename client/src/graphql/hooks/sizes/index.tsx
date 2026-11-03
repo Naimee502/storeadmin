@@ -7,6 +7,7 @@ import {
 } from '../../mutations/sizes';
 import {
   GET_SIZES,
+  GET_SIZES_LIST,
   GET_SIZE_BY_ID,
   GET_DELETED_SIZES,
 } from '../../queries/sizes';
@@ -42,6 +43,20 @@ export const useSizesQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list query for the Sizes list page (no admin ref).
+export const useSizesListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SIZES_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedSizesQuery = () => {

@@ -12,6 +12,7 @@ import {
 
 import {
   GET_PURCHASE_ORDERS,
+  GET_PURCHASE_ORDERS_LIST,
   GET_PURCHASE_ORDER_BY_ID,
   GET_DELETED_PURCHASE_ORDERS
 } from '../../queries/purchaseorder';
@@ -61,6 +62,34 @@ export const usePurchaseOrdersQuery = () => {
       : selectedBranchId;
 
   const { data, loading, error, refetch } = useQuery(GET_PURCHASE_ORDERS, {
+    variables: { filter: { adminid, branchid } },
+  });
+
+  return { data, loading, error, refetch };
+};
+
+// ----------------- Purchase Orders LIST (lite) -----------------
+// Same filter as usePurchaseOrdersQuery, but only the listing columns.
+export const usePurchaseOrdersListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid =
+    type === 'admin'
+      ? admin?.id
+      : type === 'branch'
+      ? branch?.admin?.id
+      : type === 'staff'
+      ? staff?.admin?.id
+      : undefined;
+  const branchid =
+    type === 'branch'
+      ? branch?.id
+      : type === 'staff'
+      ? staff?.branchid?.id
+      : selectedBranchId;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_ORDERS_LIST, {
     variables: { filter: { adminid, branchid } },
   });
 

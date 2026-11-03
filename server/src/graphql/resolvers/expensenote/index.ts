@@ -98,6 +98,14 @@ const formatExpense = (r: any) => ({
 
 const populatePaths = ["ledgerid", "staffid", "expenses.expenseledgerid"];
 
+// List resolvers only: same paths, but fetch just the fields formatLedgerRef /
+// formatStaffRef read, instead of whole ledger / staff documents per row.
+const listPopulatePaths: any[] = [
+  { path: "ledgerid", select: "ledgername" },
+  { path: "staffid", select: "name staffcode ledgerid salary role" },
+  { path: "expenses.expenseledgerid", select: "ledgername" },
+];
+
 export const expenseNoteResolvers = {
   Query: {
     getExpenseNotes: async (_: any, args: { filter?: any }, context: any) => {
@@ -131,7 +139,7 @@ export const expenseNoteResolvers = {
       }
 
       const records = (await ExpenseNote.find(query)
-        .populate(populatePaths)
+        .populate(listPopulatePaths)
         .sort({ expensedate: -1, createdAt: -1 })
         .lean()) as any[];
 
@@ -157,7 +165,7 @@ export const expenseNoteResolvers = {
       if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
 
       const records = (await ExpenseNote.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populatePaths)
+        .populate(listPopulatePaths)
         .lean()) as any[];
 
       return records.map(formatExpense);

@@ -128,6 +128,14 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const encrypt = !!settings?.encryptInvoicePrices;
     const mask = (val: number) => encrypt ? val / 10 : val;
+    // Party balance with an explicit sign: "+" = party has to pay (baki),
+    // "−" = advance / excess we hold (payable to the party).
+    const signedBal = (val: number) => {
+      const m = mask(Number(val) || 0);
+      if (m > 0) return `+${m.toFixed(2)}`;
+      if (m < 0) return `-${Math.abs(m).toFixed(2)}`;
+      return "0.00";
+    };
 
     // Print layout customisation (Business Settings → Invoice Print)
     const showTerms = settings?.printShowTermsAndConditions !== false;
@@ -501,11 +509,11 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
                 <>
                   <div className="inv-totals-row inv-balance-row">
                     <span className="lbl">Previous Balance</span>
-                    <span>{mask(invoice.partyPreviousBalance || 0).toFixed(2)}</span>
+                    <span>{signedBal(invoice.partyPreviousBalance || 0)}</span>
                   </div>
                   <div className="inv-totals-row inv-balance-row">
                     <span className="lbl">Current Balance</span>
-                    <span>{mask(invoice.partyCurrentBalance || 0).toFixed(2)}</span>
+                    <span>{signedBal(invoice.partyCurrentBalance || 0)}</span>
                   </div>
                 </>
               )}

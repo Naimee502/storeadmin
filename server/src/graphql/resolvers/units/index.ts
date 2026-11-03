@@ -6,7 +6,8 @@ export const unitResolvers = {
     getUnits: async (_: any, { adminId }: { adminId?: string }) => {
       const filter: any = { status: true };
       if (adminId) filter.admin = adminId;
-      return await Unit.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");
+      // Clients only ever request admin { id name email } on this list.
+      return await Unit.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email");
     },
 
     // Get deleted units (optionally filtered by admin)

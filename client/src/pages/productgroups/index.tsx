@@ -5,7 +5,7 @@ import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useProductGroupsQuery, useProductGroupMutations } from "../../graphql/hooks/productgroups";
+import { useProductGroupsListQuery, useProductGroupMutations } from "../../graphql/hooks/productgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { addProductGroups } from "../../redux/slices/productgroups";
@@ -18,11 +18,11 @@ const ProductGroups = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  const { data, refetch } = useProductGroupsQuery();
+  // Lite list query — grid columns + inline-form fields only.
+  const { data, refetch } = useProductGroupsListQuery();
   const { addProductGroupMutation, editProductGroupMutation, deleteProductGroupMutation } = useProductGroupMutations();
   const productGroupList = data?.getProductGroups || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-  console.log("Product Group List:", JSON.stringify(productGroupList));
 
 
   const [formValues, setFormValues] = useState({ productgroupname: "", status: true });
@@ -51,20 +51,23 @@ const ProductGroups = () => {
 
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      // Only block the page when there's nothing cached to show yet.
+      const blocking = !data?.getProductGroups?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getProductGroups) {
-          dispatch(addProductGroups(data.getProductGroups));
+        const { data: fresh } = await refetch();
+        if (fresh?.getProductGroups) {
+          dispatch(addProductGroups(fresh.getProductGroups));
         }
       } catch (error) {
         console.error("Error fetching product groups:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountGroupsQuery,
+  useAccountGroupsListQuery,
   useAccountGroupMutations,
 } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
@@ -23,11 +23,11 @@ const AccountGroups = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
 
-  const { data, refetch } = useAccountGroupsQuery();
+  // Lite list query — grid columns + inline-form fields only.
+  const { data, refetch } = useAccountGroupsListQuery();
   const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } =
     useAccountGroupMutations();
   const accountGroupList = data?.getAccountGroups || [];
-  console.log("Account Groups Data:", JSON.stringify(accountGroupList));
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({
@@ -70,21 +70,24 @@ const AccountGroups = () => {
     setEditingId(row.id);
   };
 
+  // Mount only. Cached rows → refresh quietly without the blocking loader.
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      const blocking = !data?.getAccountGroups?.length;
+      if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getAccountGroups) {
-          dispatch(addAccountGroups(data.getAccountGroups));
+        const { data: fresh } = await refetch();
+        if (fresh?.getAccountGroups) {
+          dispatch(addAccountGroups(fresh.getAccountGroups));
         }
       } catch (error) {
         console.error("Error fetching account groups:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

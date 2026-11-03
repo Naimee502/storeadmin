@@ -6,7 +6,7 @@ import type { InvoiceProduct } from "../../../components/productsection";
 import OtherChargesSection, { type OtherCharge } from "../../../components/othercharges";
 import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { getLastPartyDocRows } from "../../../utils/helper";
@@ -137,10 +137,9 @@ const AddEditPurchaseInvoice = () => {
   const { data: orderData } = usePurchaseOrderByIDQuery(orderId || "");
 
   // Vendor Accounts
-  const { data: accountData, refetch: accountRefetch } = useAccountsQuery();
+  const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   const accountsList = accountData?.getAccounts || [];
   const vendorAccounts = accountsList.filter((acc: any) => isVendorParty(acc.type));
-  console.log("Vendor Account Data:", JSON.stringify(vendorAccounts));
   const accountOptions = vendorAccounts.map((acc: any) => ({
     value: acc.id,
     label: partyLabel(acc),
@@ -156,13 +155,14 @@ const AddEditPurchaseInvoice = () => {
   // Product List
   const { data: productData, refetch } = useProductServicesQuery();
   const purchaseProductData = productData?.getProductServices ?? [];
-  console.log("Purchase Product Data:", JSON.stringify(purchaseProductData));
 
+  // Refresh the party list once when the form opens (a party added elsewhere
+  // shows up). It used to re-run on every accountData change — i.e. each
+  // refetch triggered another one.
   useEffect(() => {
-    if (accountData?.getAccounts) {
-      accountRefetch();
-    }
-  }, [accountData, refetch]);
+    accountRefetch().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A cancelled bill is still worth opening — it is the only way to see what was
   // on it — but nothing about it may be changed until it is re-opened from the

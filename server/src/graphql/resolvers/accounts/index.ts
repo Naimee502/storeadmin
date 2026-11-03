@@ -494,14 +494,17 @@ export const accountResolvers = {
           "| sample accounts having ANY salesmanid:", JSON.stringify(anySalesmen.map((a: any) => ({ name: a.name, salesmanid: String(a.salesmanid) }))));
       }
 
+      // Populated refs carry only what any client asks for (id + label).
+      // The full Admin / Ledger / Branch / Staff docs were loaded for every
+      // party on every list fetch and then discarded by GraphQL.
       return await Account.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate("admin")
-        .populate("accountgroupid") 
-        .populate("ledgerid")  
-        .populate("branchid")
-        .populate("assignaccountid")
-        .populate("salesmanid")
-        .populate("channel");
+        .populate({ path: "admin", select: "name email" })
+        .populate({ path: "accountgroupid", select: "accountgroupname" })
+        .populate({ path: "ledgerid", select: "ledgername openingbalance openingbalancetype" })
+        .populate({ path: "branchid", select: "branchname" })
+        .populate({ path: "assignaccountid", select: "name" })
+        .populate({ path: "salesmanid", select: "name" })
+        .populate({ path: "channel", select: "channelName" });
     },
 
     getAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {

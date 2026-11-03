@@ -8,6 +8,7 @@ import {
 } from '../../mutations/products';
 import {
   GET_PRODUCT_SERVICES,
+  GET_PRODUCT_SERVICES_LIST,
   GET_PRODUCT_SERVICE_BY_ID,
   GET_PRODUCT_IMPORT_MASTERS,
 } from '../../queries/products';
@@ -55,6 +56,44 @@ export const useProductServicesQuery = (
   });
 
   return { data, loading, error, refetch };
+};
+
+/**
+ * Products list page only — same variables/filter as useProductServicesQuery,
+ * but the lite GET_PRODUCT_SERVICES_LIST selection. `variables` is returned so
+ * the page can fetch the full GET_PRODUCT_SERVICES for the same scope on demand
+ * (Export).
+ */
+export const useProductServicesListQuery = (
+  status: boolean = true,
+  limit: number = 0,
+  offset: number = 0
+) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const variables = {
+    filter: {
+      adminid: adminId,
+      branchid,
+      status,
+    },
+    limit,
+    offset,
+  };
+
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCT_SERVICES_LIST, {
+    variables,
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return { data, loading, error, refetch, variables };
 };
 
 export const useProductServiceByIDQuery = (id: string) => {

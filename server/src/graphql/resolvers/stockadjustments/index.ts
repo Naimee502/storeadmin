@@ -13,6 +13,102 @@ function normalizeId(value: any) {
   return null;
 }
 
+// ── Stock-adjustment helpers ────────────────────────────────────────────────
+// Every mutation goes through these so create / edit / delete / restore can
+// never disagree about which rows move stock, in which direction, or when a
+// shortage is allowed.
+
+type AdjRow = { productid: any; variantid: any; quantity: number; rate: number };
+
+/** Product + variant for a row; `strict` rejects rows that can't move stock
+ *  (new/edited vouchers) instead of silently saving them with no effect. */
+async function resolveVariant(row: AdjRow, strict: boolean) {
+  const product: any = row.productid ? await ProductService.findById(row.productid) : null;
+  if (!product) {
+    if (strict) throw new Error("A selected product no longer exists. Please re-select it.");
+    return null;
+  }
+  const variant = row.variantid
+    ? product.productvariants?.find((v: any) => v._id.equals(row.variantid))
+    : null;
+  if (!variant) {
+    if (strict) throw new Error(`Please select a variant for ${product.name}.`);
+    return null;
+  }
+  return { product, variant };
+}
+
+/** Quantity per product+variant — two rows of the same variant must be checked
+ *  against stock TOGETHER, not one by one. */
+function qtyByVariant(rows: AdjRow[], sign: 1 | -1, into = new Map<string, any>()) {
+  for (const r of rows) {
+    if (!r?.productid || !r?.variantid || !(Number(r.quantity) > 0)) continue;
+    const key = `${r.productid.toString()}_${r.variantid.toString()}`;
+    const cur = into.get(key) || { productid: r.productid, variantid: r.variantid, net: 0 };
+    cur.net += sign * Number(r.quantity);
+    into.set(key, cur);
+  }
+  return into;
+}
+
+/** Throw if applying these net changes would take any variant below zero. */
+async function assertNoNegative(net: Map<string, any>, adminid: any, branchid: any, verb: string) {
+  for (const d of net.values()) {
+    if (d.net >= 0) continue;
+    const stock = await getStockDetails(d.productid, adminid, branchid, d.variantid);
+    if (stock.currentstock + d.net < 0) {
+      const product: any = await ProductService.findById(d.productid).select("name").lean();
+      throw new Error(
+        `Insufficient stock to ${verb} for ${product?.name || "a product"}. ` +
+        `Current stock: ${stock.currentstock}, reduction needed: ${Math.abs(d.net)}.`
+      );
+    }
+  }
+}
+
+/** Move stock for every row (Excess = in, Shortage = out). */
+async function applyRows(
+  rows: AdjRow[], adminid: any, branchid: any, action: StockAction, strict: boolean
+) {
+  for (const row of rows) {
+    if (!(Number(row.quantity) > 0)) continue;
+    const found = await resolveVariant(row, strict);
+    if (!found) continue;
+    await manageStock({
+      adminId: adminid,
+      productId: row.productid,
+      branchId: branchid,
+      variant: found.variant as any,
+      qty: Number(row.quantity),
+      unitId: found.variant.baseunitid,
+      action,
+      allowCreate: true,
+      rate: Number(row.rate) || 0,
+      rateIsBase: true,
+    });
+  }
+}
+
+const inAction = (type: string): StockAction => (type === "Excess" ? "TRANSFER_IN" : "TRANSFER_OUT");
+const outAction = (type: string): StockAction => (type === "Excess" ? "TRANSFER_OUT" : "TRANSFER_IN");
+/** Sign of the voucher's effect on stock. */
+const effectSign = (type: string): 1 | -1 => (type === "Excess" ? 1 : -1);
+
+/** Delete & cancel share this: reverse the voucher's stock, then deactivate. */
+async function reverseAndDeactivate(id: any) {
+  const adj: any = await StockAdjustment.findById(id);
+  if (!adj || !adj.status) throw new Error("Adjustment not found or already deleted");
+  // Reversing an Excess takes stock back out — make sure it is still there.
+  const net = qtyByVariant(adj.items, (-effectSign(adj.type)) as 1 | -1);
+  await assertNoNegative(net, adj.adminid, adj.branchid, "delete this adjustment");
+  await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
+  adj.status = false;
+  adj.stockreversed = true;
+  await adj.save();
+  return true;
+}
+
+
 export const stockAdjustmentResolvers = {
   Query: {
     getStockAdjustments: async (_: any, { filter = {}, limit = 0, offset = 0 }: any) => {
@@ -39,10 +135,14 @@ export const stockAdjustmentResolvers = {
           if (filter.createdTo) query.adjustmentdate.$lte = new Date(filter.createdTo);
         }
 
+        // List query: no client (client/, clientapp/, clientweb/) selects
+        // items for getStockAdjustments, and the mapping below only reads the
+        // product's name — so don't pull every product's productvariants
+        // (serials, unit prices…) per line item just to throw them away.
         let dbQuery = StockAdjustment.find(query)
           .populate("adminid", "name")
           .populate("branchid", "branchname")
-          .populate("items.productid", "name productvariants")
+          .populate("items.productid", "name")
           .sort({ createdAt: -1 })
           .lean();
 
@@ -91,7 +191,7 @@ export const stockAdjustmentResolvers = {
         ...adj,
         id: adj._id?.toString(),
         adminid: { id: (adj.adminid as any)?._id?.toString(), name: (adj.adminid as any)?.name },
-        branchid: { id: (adj.branchid as any)?._id?.toString(), name: (adj.branchid as any)?.branchname },
+        branchid: { id: (adj.branchid as any)?._id?.toString(), branchname: (adj.branchid as any)?.branchname },
         items: (adj.items || []).map((item: any) => {
           const product = item.productid;
           return {
@@ -109,85 +209,46 @@ export const stockAdjustmentResolvers = {
       try {
         const adminId = normalizeId(input.adminid);
         const branchId = normalizeId(input.branchid);
-
         if (!adminId || !branchId) throw new Error("Admin ID and Branch ID are required");
 
         const items = (input.items || []).map((item: any) => ({
           ...item,
           productid: normalizeId(item.productid),
-          variantid: normalizeId(item.variantid)
+          variantid: normalizeId(item.variantid),
         }));
+        if (!items.some((i: any) => Number(i.quantity) > 0)) {
+          throw new Error("Add at least one product with a quantity.");
+        }
+
+        // Validate EVERYTHING before the voucher is written — previously the
+        // voucher was saved first, so a failed stock check left an active
+        // voucher (and a used-up number) with no stock effect.
+        for (const item of items) {
+          if (Number(item.quantity) > 0) await resolveVariant(item, true);
+        }
+        if (input.type !== "Excess") {
+          await assertNoNegative(qtyByVariant(items, -1), adminId, branchId, "save this shortage");
+        }
 
         const { user } = context;
         const createdbyData = {
           createdby_id: user?.id,
           createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
+          createdby_type: user?.type || input.createdby_type || "admin",
         };
-
-        console.log("=== Stock Adjustment Create ===");
-        console.log("User from context:", user);
-        console.log("CreatedbyData:", createdbyData);
 
         const newAdj = await StockAdjustment.create({
           ...input,
           adminid: adminId,
           branchid: branchId,
           items,
-          ...createdbyData
+          stockreversed: false,
+          ...createdbyData,
         });
 
-        console.log("Created Stock Adjustment:", {
-          id: newAdj._id,
-          createdby_id: newAdj.createdby_id,
-          createdby_name: newAdj.createdby_name,
-          createdby_type: newAdj.createdby_type
-        });
+        await applyRows(items, adminId, branchId, inAction(input.type), true);
 
-        // Loop over items and adjust stock using manageStock
-        const actionType: StockAction = input.type === "Excess" ? "TRANSFER_IN" : "TRANSFER_OUT";
-
-        // Pre-validate stock for Shortage
-        if (actionType === "TRANSFER_OUT") {
-          for (const item of items) {
-            if (item.quantity > 0) {
-              const product = await ProductService.findById(item.productid);
-              if (product) {
-                const stockDetails = await getStockDetails(item.productid, adminId, branchId, item.variantid);
-                if (stockDetails.currentstock - item.quantity < 0) {
-                  throw new Error(`Insufficient stock for product ${product.name}. Current stock: ${stockDetails.currentstock}, required: ${item.quantity}.`);
-                }
-              }
-            }
-          }
-        }
-
-        for (const item of items) {
-          if (item.quantity > 0) {
-            const product = await ProductService.findById(item.productid);
-            if (product && product.productvariants) {
-              const variant = product.productvariants.find((v: any) => v._id.equals(item.variantid));
-              if (variant) {
-                await manageStock({
-                  adminId: adminId,
-                  productId: item.productid,
-                  branchId: branchId,
-                  variant: variant as any,
-                  qty: item.quantity,
-                  unitId: variant.baseunitid,
-                  action: actionType,
-                  allowCreate: true,
-                  rate: item.rate
-                });
-              }
-            }
-          }
-        }
-
-        return {
-          ...newAdj.toObject(),
-          id: newAdj._id.toString()
-        };
+        return { ...newAdj.toObject(), id: newAdj._id.toString() };
       } catch (err) {
         console.error("Error creating stock adjustment:", err);
         throw err;
@@ -196,11 +257,13 @@ export const stockAdjustmentResolvers = {
 
     updateStockAdjustment: async (_: any, { id, input }: any, context: any) => {
       try {
-        const adj = await StockAdjustment.findById(id);
+        const adj: any = await StockAdjustment.findById(id);
         if (!adj) throw new Error("Stock adjustment not found");
+        // A deleted voucher's stock is already reversed — editing it would
+        // reverse it a second time.
+        if (!adj.status) throw new Error("This adjustment is deleted. Restore it before editing.");
 
         const { user } = context;
-        // Preserve original createdby_name; update only if client sends a new one
         const createdbyUpdate = {
           createdby_name: input.createdby_name || adj.createdby_name || user?.name || user?.email,
         };
@@ -208,101 +271,29 @@ export const stockAdjustmentResolvers = {
         const newItems = (input.items || []).map((item: any) => ({
           ...item,
           productid: normalizeId(item.productid),
-          variantid: normalizeId(item.variantid)
+          variantid: normalizeId(item.variantid),
         }));
-
-        // Pre-validate to ensure update does not cause negative stock
-        const netChanges = new Map<string, { productid: any; variantid: any; netQty: number }>();
-        
-        // 1. Reversal of old items
-        for (const item of adj.items) {
-          if (!item.variantid) continue;
-          const key = `${item.productid.toString()}_${item.variantid.toString()}`;
-          let netQty = 0;
-          if (adj.type === "Excess") netQty -= item.quantity;
-          else netQty += item.quantity;
-          netChanges.set(key, { productid: item.productid, variantid: item.variantid, netQty });
+        if (!newItems.some((i: any) => Number(i.quantity) > 0)) {
+          throw new Error("Add at least one product with a quantity.");
+        }
+        for (const item of newItems) {
+          if (Number(item.quantity) > 0) await resolveVariant(item, true);
         }
 
-        // 2. Application of new items
         const newType = input.type || adj.type;
-        for (const item of newItems) {
-          if (!item.variantid) continue;
-          const key = `${item.productid.toString()}_${item.variantid.toString()}`;
-          let current = netChanges.get(key) || { productid: item.productid, variantid: item.variantid, netQty: 0 };
-          if (newType === "Excess") current.netQty += item.quantity;
-          else current.netQty -= item.quantity;
-          netChanges.set(key, current);
-        }
+        // Net effect per variant = undo old + apply new, checked together.
+        const net = qtyByVariant(adj.items, (-effectSign(adj.type)) as 1 | -1);
+        qtyByVariant(newItems, effectSign(newType), net);
+        await assertNoNegative(net, adj.adminid, adj.branchid, "update this adjustment");
 
-        // 3. Check for any negative stock result
-        for (const [key, data] of netChanges.entries()) {
-          if (data.netQty < 0) {
-            const product = await ProductService.findById(data.productid);
-            if (product) {
-              const stockDetails = await getStockDetails(data.productid, adj.adminid, adj.branchid, data.variantid);
-              if (stockDetails.currentstock + data.netQty < 0) {
-                throw new Error(`Insufficient stock for product ${product.name}. Current stock is ${stockDetails.currentstock}, but the adjustment requires a reduction of ${Math.abs(data.netQty)}.`);
-              }
-            }
-          }
-        }
+        await applyRows(adj.items, adj.adminid, adj.branchid, outAction(adj.type), false);
+        await applyRows(newItems, adj.adminid, adj.branchid, inAction(newType), true);
 
-        // Step 1: Reverse the old stock impact
-        const oldReverseAction: StockAction = adj.type === "Excess" ? "TRANSFER_OUT" : "TRANSFER_IN";
-        for (const item of adj.items) {
-          if (item.quantity > 0) {
-            const product = await ProductService.findById(item.productid);
-            if (product && product.productvariants) {
-              const variant = product.productvariants.find((v: any) => v._id.equals(item.variantid));
-              if (variant) {
-                await manageStock({
-                  adminId: adj.adminid,
-                  productId: item.productid,
-                  branchId: adj.branchid,
-                  variant: variant as any,
-                  qty: item.quantity,
-                  unitId: variant.baseunitid,
-                  action: oldReverseAction,
-                  allowCreate: false,
-                  rate: item.rate
-                });
-              }
-            }
-          }
-        }
-
-        // Step 2: Apply new stock impact
-
-        const newActionType: StockAction = (input.type || adj.type) === "Excess" ? "TRANSFER_IN" : "TRANSFER_OUT";
-        for (const item of newItems) {
-          if (item.quantity > 0) {
-            const product = await ProductService.findById(item.productid);
-            if (product && product.productvariants) {
-              const variant = product.productvariants.find((v: any) => v._id.equals(item.variantid));
-              if (variant) {
-                await manageStock({
-                  adminId: adj.adminid,
-                  productId: item.productid,
-                  branchId: adj.branchid,
-                  variant: variant as any,
-                  qty: item.quantity,
-                  unitId: variant.baseunitid,
-                  action: newActionType,
-                  allowCreate: true,
-                  rate: item.rate
-                });
-              }
-            }
-          }
-        }
-
-        // Step 3: Update the document
         const updated = await StockAdjustment.findByIdAndUpdate(
           id,
           {
             adjustmentdate: input.adjustmentdate ?? adj.adjustmentdate,
-            type: input.type ?? adj.type,
+            type: newType,
             reason: input.reason ?? adj.reason,
             items: newItems,
             totalamount: input.totalamount,
@@ -311,107 +302,37 @@ export const stockAdjustmentResolvers = {
           { new: true }
         );
 
-        return {
-          ...updated!.toObject(),
-          id: updated!._id.toString()
-        };
+        return { ...updated!.toObject(), id: updated!._id.toString() };
       } catch (err) {
         console.error("Error updating stock adjustment:", err);
         throw err;
       }
     },
 
-    deleteStockAdjustment: async (_: any, { id }: any) => {
+    // Delete now REVERSES the stock (it used to only flag the voucher, while
+    // Restore re-applied it — every delete + restore double-counted).
+    deleteStockAdjustment: async (_: any, { id }: any) => reverseAndDeactivate(id),
 
-      // Deleting stock adjustment should theoretically reverse the stock impact.
-      // For now, we simply mark it as inactive.
-      const result = await StockAdjustment.findByIdAndUpdate(id, { status: false }, { new: true });
-      return !!result;
-    },
-
-    cancelStockAdjustment: async (_: any, { id }: any) => {
-      // Complete cancellation logic: reverse the stock changes
-      const adj = await StockAdjustment.findById(id);
-      if (!adj || !adj.status) throw new Error("Adjustment not found or already cancelled");
-
-      const reverseAction: StockAction = adj.type === "Excess" ? "TRANSFER_OUT" : "TRANSFER_IN";
-
-      // Pre-validate stock for cancelling Excess
-      if (adj.type === "Excess") {
-        for (const item of adj.items) {
-          if (item.quantity > 0) {
-            const product = await ProductService.findById(item.productid);
-            if (product) {
-              const stockDetails = await getStockDetails(item.productid, adj.adminid, adj.branchid, item.variantid);
-              if (stockDetails.currentstock - item.quantity < 0) {
-                throw new Error(`Cannot cancel adjustment. Insufficient stock for product ${product.name}. Current stock: ${stockDetails.currentstock}, required to reverse: ${item.quantity}.`);
-              }
-            }
-          }
-        }
-      }
-
-      for (const item of adj.items) {
-        if (item.quantity > 0) {
-          const product = await ProductService.findById(item.productid);
-          if (product && product.productvariants) {
-            const variant = product.productvariants.find((v: any) => v._id.equals(item.variantid));
-            if (variant) {
-              await manageStock({
-                adminId: adj.adminid,
-                productId: item.productid,
-                branchId: adj.branchid,
-                variant: variant as any,
-                qty: item.quantity,
-                unitId: variant.baseunitid,
-                action: reverseAction,
-                allowCreate: false,
-                rate: item.rate
-              });
-            }
-          }
-        }
-      }
-
-      adj.status = false;
-      await adj.save();
-      return true;
-    },
+    cancelStockAdjustment: async (_: any, { id }: any) => reverseAndDeactivate(id),
 
     resetStockAdjustment: async (_: any, { id }: any) => {
-      const adj = await StockAdjustment.findById(id);
+      const adj: any = await StockAdjustment.findById(id);
       if (!adj) throw new Error("Adjustment not found");
       if (adj.status) throw new Error("Adjustment is already active");
 
-      // Re-apply the stock impact
-      const actionType: StockAction = adj.type === "Excess" ? "TRANSFER_IN" : "TRANSFER_OUT";
-
-      for (const item of adj.items) {
-        if (item.quantity > 0) {
-          const product = await ProductService.findById(item.productid);
-          if (product && product.productvariants) {
-            const variant = product.productvariants.find((v: any) => v._id.equals(item.variantid));
-            if (variant) {
-              await manageStock({
-                adminId: adj.adminid,
-                productId: item.productid,
-                branchId: adj.branchid,
-                variant: variant as any,
-                qty: item.quantity,
-                unitId: variant.baseunitid,
-                action: actionType,
-                allowCreate: true,
-                rate: item.rate
-              });
-            }
-          }
+      // Vouchers deleted before this fix never had their stock reversed, so
+      // their effect is still in stock — just re-activate them.
+      if (adj.stockreversed) {
+        if (adj.type !== "Excess") {
+          await assertNoNegative(qtyByVariant(adj.items, -1), adj.adminid, adj.branchid, "restore this shortage");
         }
+        await applyRows(adj.items, adj.adminid, adj.branchid, inAction(adj.type), false);
       }
 
       adj.status = true;
+      adj.stockreversed = false;
       await adj.save();
       return true;
-    }
-  }
+    },
+  },
 };
-

@@ -67,12 +67,30 @@ const populateFields = [
   "othercharges.ledgerid",
 ];
 
+// Listing variant for getSalesReturns: same paths, but each populated doc
+// carries ONLY the fields formatReturn copies out (its toSimpleRef falls back
+// to `name` for every key, so `name` is always selected).
+const listPopulateFields: any[] = [
+  { path: "salesmenid", select: "name" },
+  { path: "partyacc", select: "name accountname mobile city" },
+  { path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" },
+  { path: "productservice.salesunitid", select: "name unitname" },
+  { path: "productservice.salesaccountid", select: "name ledgername" },
+  { path: "productservice.purchaseaccountid", select: "name ledgername" },
+  { path: "productservice.serviceaccountid", select: "name ledgername" },
+  { path: "othercharges.ledgerid", select: "name ledgername" },
+];
+
 const formatReturn = (r: any) => ({
   ...r,
   id: r._id.toString(),
   sourceInvoiceId: r.sourceInvoiceId?.toString?.() ?? r.sourceInvoiceId,
   salesmenid: toSimpleRef(r.salesmenid, ["name"]),
-  partyacc: toSimpleRef(r.partyacc, ["accountname", "mobile"]),
+  // City is read directly (not via toSimpleRef, which would fall back to the
+  // party NAME when the city is empty) so the list can show "Name · City".
+  partyacc: r.partyacc
+    ? { ...toSimpleRef(r.partyacc, ["accountname", "mobile"]), city: r.partyacc.city ?? null }
+    : null,
   // Journals are no longer optional, so this is always true. Kept in the schema
   // so existing clients querying the field keep working.
   autocreate: true,
@@ -323,7 +341,7 @@ export const salesReturnResolvers = {
         if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
         if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
       }
-      const rows = await SalesReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(populateFields).lean();
+      const rows = await SalesReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(listPopulateFields).lean();
       return rows.map(formatReturn);
     },
 

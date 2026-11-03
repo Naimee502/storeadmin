@@ -6,7 +6,7 @@ export const brandResolvers = {
     getBrands: async (_: any, { adminId }: { adminId?: string }) => {
       const query: any = { status: true };
       if (adminId) query.admin = adminId;
-      return await Brand.find(query).sort({ createdAt: 1, _id: 1 }).populate("admin"); // ✅ FIXED
+      return await Brand.find(query).sort({ createdAt: 1, _id: 1 }).populate("admin", "name email"); // list: clients only read admin id/name/email
     },
 
     // Get one brand by id for optional admin

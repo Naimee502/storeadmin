@@ -5,10 +5,12 @@ export const accountLedgerResolvers = {
     getAccountLedgers: async (_: any, { adminId }: { adminId?: string }) => {
           const filter: any = { status: true };
           if (adminId) filter.admin = adminId;
-           return await AccountLedger.find(filter).sort({ createdAt: 1, _id: 1 })
-          .populate("admin")
-          .populate("accountgroupid")
-          .populate("branchid");
+          // Only the ref fields any client (client/, clientapp/, clientweb/)
+          // requests on this query — not whole admin/group/branch documents.
+          return await AccountLedger.find(filter).sort({ createdAt: 1, _id: 1 })
+          .populate("admin", "name email")
+          .populate("accountgroupid", "accountgroupname")
+          .populate("branchid", "branchname");
         },
 
     getDeletedAccountLedgers: async (_: any, { adminId }: { adminId?: string }) => {

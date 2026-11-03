@@ -8,6 +8,7 @@ import {
 } from '../../mutations/categories';
 import {
   GET_CATEGORIES,
+  GET_CATEGORIES_LIST,
   GET_CATEGORY_BY_ID,
   GET_DELETED_CATEGORIES,
 } from '../../queries/categories';
@@ -44,6 +45,21 @@ export const useCategoriesQuery = () => {
     error,
     refetch,
   };
+};
+
+// Lite list (Categories page, Sub Categories page's category picker) — same
+// filter as useCategoriesQuery, fewer fields.
+export const useCategoriesListQuery = () => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_CATEGORIES_LIST, {
+    variables: { adminId },
+  });
+
+  return { data, loading, error, refetch };
 };
 
 export const useDeletedCategoriesQuery = () => {

@@ -150,6 +150,15 @@ async function buildLedgerEntries(input: any) {
   return { entries, totaldebit, totalcredit };
 }
 
+// List queries only ever read the party's name and the ledgers' names (every
+// web/app query asks for { id name } / { id ledgername }). Populating the full
+// Account / Ledger documents for ~2000 payments made the list slow to load.
+const LIST_POPULATE: any[] = [
+  { path: "partyid", select: "name" },
+  { path: "ledgerid", select: "ledgername" },
+  { path: "counterledgerid", select: "ledgername" },
+];
+
 function formatPayment(r: any) {
   return {
     ...r,
@@ -273,7 +282,9 @@ export const paymentResolvers = {
       // first. Without a sort MongoDB returns rows in whatever order the chosen
       // index yields (e.g. grouped by party via {adminid, partyid, status}), so new entries
       // landed on a later page instead of the top.
-      const result = await Payment.find(query).populate("ledgerid").populate("counterledgerid").populate("partyid").sort({ createdAt: 1, _id: 1 }).lean();
+      const result = await Payment.find(query)
+        .populate(LIST_POPULATE)
+        .sort({ createdAt: 1, _id: 1 }).lean();
       return result.map(formatPayment);
     },
 
@@ -312,7 +323,9 @@ export const paymentResolvers = {
         if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
       }
 
-      const result = await Payment.find(query).populate("partyid").populate("ledgerid").populate("counterledgerid").sort({ createdAt: 1, _id: 1 }).lean();
+      const result = await Payment.find(query)
+        .populate(LIST_POPULATE)
+        .sort({ createdAt: 1, _id: 1 }).lean();
       return result.map(formatPayment);
     },
 

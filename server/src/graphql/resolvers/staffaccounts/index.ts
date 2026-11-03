@@ -39,12 +39,13 @@ export const staffAccountResolvers = {
         if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
       }
 
+      // Populated refs carry only what any client asks for (id + label).
       return await StaffAccount.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate("admin")
-        .populate("branchid")
-        .populate("accountgroupid")
-        .populate("ledgerid")
-        .populate("assignedChannels");
+        .populate({ path: "admin", select: "name email" })
+        .populate({ path: "branchid", select: "branchname" })
+        .populate({ path: "accountgroupid", select: "accountgroupname" })
+        .populate({ path: "ledgerid", select: "ledgername" })
+        .populate({ path: "assignedChannels", select: "channelName" });
     },
 
     // ==========================================

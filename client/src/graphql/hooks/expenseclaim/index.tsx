@@ -30,7 +30,7 @@ export const useDeletedExpenseClaimsQuery = () => {
 
 // Approving posts an Expense Note + its journal on the server, so the notes,
 // payments and transactions lists must refetch too.
-const AFTER_APPROVE = ["GetExpenseClaims", "GetExpenseNotes", ...PAYMENT_SIDE_EFFECT_QUERIES];
+const AFTER_APPROVE = ["GetExpenseClaims", "GetExpenseNotes", "GetExpenseNotesList", ...PAYMENT_SIDE_EFFECT_QUERIES];
 
 export const useExpenseClaimMutations = () => {
   const [approveExpenseClaimMutation] = useMutation(APPROVE_EXPENSE_CLAIM, { refetchQueries: AFTER_APPROVE });

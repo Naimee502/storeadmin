@@ -27,6 +27,36 @@ export const GET_ANNOUNCEMENTS = gql`
   query GetAnnouncements { getAnnouncements { ${ANNOUNCEMENT_FIELDS} } }
 `;
 
+/**
+ * Admin-panel list page only — just what the table, the picture preview and
+ * the "Seen by" modal show. The edit form loads the full announcement
+ * (audience ids, link, branch) by id with GET_ANNOUNCEMENT when Edit is
+ * clicked. GET_ANNOUNCEMENTS above is left as is for anything else using it.
+ */
+export const GET_ANNOUNCEMENTS_LIST = gql`
+  query GetAnnouncementsList {
+    getAnnouncements {
+      id
+      title
+      message
+      imageurl
+      priority
+      startAt
+      expireAt
+      audienceLabel
+      sendertype
+      senderid
+      sendername
+      recipientcount
+      readcount
+    }
+  }
+`;
+
+export const GET_ANNOUNCEMENT = gql`
+  query GetAnnouncement($id: ID!) { getAnnouncement(id: $id) { ${ANNOUNCEMENT_FIELDS} } }
+`;
+
 export const GET_DELETED_ANNOUNCEMENTS = gql`
   query GetDeletedAnnouncements { getDeletedAnnouncements { ${ANNOUNCEMENT_FIELDS} } }
 `;

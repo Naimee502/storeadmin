@@ -6,12 +6,12 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useSubCategoriesQuery,
+  useSubCategoriesListQuery,
   useSubCategoryMutations,
 } from "../../graphql/hooks/subcategories";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { useCategoriesQuery } from "../../graphql/hooks/categories";
+import { useCategoriesListQuery } from "../../graphql/hooks/categories";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import CategoryReorder from "../../components/categoryreorder";
@@ -24,12 +24,14 @@ const SubCategories = () => {
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
-  const { data: categoriesList, refetch: categoriesRefetch} = useCategoriesQuery();
+  // Picker + grouping order only need id/name; lite list shares the Categories page cache.
+  const { data: categoriesList, refetch: categoriesRefetch} = useCategoriesListQuery();
   const categoryData = categoriesList?.getCategories || [];
 
   const adminId = admin?.id;
 
-  const { data, refetch } = useSubCategoriesQuery();
+  // Lite list query — grid columns + inline-form/Rearrange fields only.
+  const { data, refetch } = useSubCategoriesListQuery();
   const {
     addSubCategoryMutation,
     editSubCategoryMutation,
@@ -145,19 +147,22 @@ const SubCategories = () => {
     setEditingId(row.id);
   };
 
+  // Mount only. Cached rows → refresh quietly without the blocking loader.
   useEffect(() => {
     const fetchAndDispatch = async () => {
-      dispatch(showLoading());
+      const blocking = !data?.getSubCategories?.length;
+      if (blocking) dispatch(showLoading());
       try {
         await refetch();
       } catch (error) {
         console.error("Error fetching subcategories:", error);
       } finally {
-        dispatch(hideLoading());
+        if (blocking) dispatch(hideLoading());
       }
     };
 
     fetchAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {

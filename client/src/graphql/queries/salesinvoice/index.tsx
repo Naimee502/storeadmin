@@ -86,6 +86,75 @@ export const GET_SALES_INVOICES = gql`
 }
 `;
 
+// Listing-only query: just the columns the Sales Invoices table shows.
+// Print / WhatsApp / Edit fetch the full bill by id when they need it, so the
+// list no longer drags every line item, ledger and transport field of ~2000
+// bills over the wire on every visit.
+export const GET_SALES_INVOICES_LIST = gql`
+  query GetSalesInvoicesList($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) {
+      id
+      paymenttype
+      partyacc {
+        id
+        accountname
+        mobile
+        city
+        state
+        gstnumber
+      }
+      billdate
+      billnumber
+      totalamount
+      productservice {
+        qty
+      }
+      orderedby_name
+      orderedby_type
+      createdby_name
+      createdby_type
+      deliveryStatus
+      cancelStatus
+      status
+      createdAt
+    }
+  }
+`;
+
+// Bill-settlement query for the Payment form: what a bill owes and how it is
+// labelled — no line items. The form only ever needs these to list a party's
+// open bills.
+export const GET_SALES_INVOICES_SETTLE = gql`
+  query GetSalesInvoicesSettle($filter: SalesInvoiceFilterInput) {
+    getSalesInvoices(filter: $filter) {
+      id
+      paymenttype
+      partyacc {
+        id
+        accountname
+      }
+      billdate
+      billnumber
+      duedate
+      subtotal
+      totalgst
+      totalamount
+      othercharges {
+        ledgerid { id ledgername }
+        amount
+        gstpercent
+        gstamount
+        totalamount
+        remarks
+      }
+      sourceorderno
+      cancelStatus
+      status
+      createdAt
+    }
+  }
+`;
+
 export const GET_DELETED_SALES_INVOICES = gql`
   query GetDeletedSalesInvoices($filter: SalesInvoiceFilterInput) {
     getDeletedSalesInvoices(filter: $filter) {

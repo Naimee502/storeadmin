@@ -5,9 +5,13 @@ import DataTable from "../../components/datatable";
 import { showMessage } from "../../redux/slices/message";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
-import { useTransferStockMutations, useTransferStocksQuery } from "../../graphql/hooks/transferstock";
-import { useBranchesQuery } from "../../graphql/hooks/branches";
-import { useProductServicesQuery } from "../../graphql/hooks/products";
+import { showLoading, hideLoading } from "../../redux/slices/loader";
+import {
+  useTransferStockMutations,
+  useTransferStocksListQuery,
+  useTransferStockProductsQuery,
+  useTransferStockBranchesQuery,
+} from "../../graphql/hooks/transferstock";
 import { formatDateDMY } from "../../utils/helper";
 
 const TransferStock = () => {
@@ -15,9 +19,9 @@ const TransferStock = () => {
   const dispatch = useAppDispatch();
   const actions = useAppSelector((state) => selectModuleActions(state, "transferstock"));
 
-  const { data: transfersData, refetch } = useTransferStocksQuery();
-  const { data: branchesData } = useBranchesQuery();
-  const { data: productData } = useProductServicesQuery(true, 500, 0);
+  const { data: transfersData, refetch } = useTransferStocksListQuery();
+  const { data: branchesData } = useTransferStockBranchesQuery();
+  const { data: productData } = useTransferStockProductsQuery(true, 500, 0);
   const { deleteTransferStockMutation } = useTransferStockMutations();
 
   const branches = branchesData?.getBranches || [];
@@ -53,8 +57,22 @@ const TransferStock = () => {
   };
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    const fetchData = async () => {
+      // Already have rows from the cache → refresh quietly in the background
+      // instead of covering the table with the full-screen loader.
+      const blocking = !transfersData?.getTransferStocks?.length;
+      if (blocking) dispatch(showLoading());
+      try {
+        await refetch();
+      } catch (error) {
+        console.error("Error fetching transfer stocks:", error);
+      } finally {
+        if (blocking) dispatch(hideLoading());
+      }
+    };
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, refetch]);
 
   const columns = [
     { label: "Voucher #",     key: "vouchernumber" },
