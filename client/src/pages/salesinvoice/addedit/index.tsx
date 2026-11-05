@@ -707,7 +707,7 @@ const AddEditSalesInvoice = () => {
         {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
         <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* Main Details */}
-          {(isFieldEnabled("party") || isFieldEnabled("invoicedate") || isFieldEnabled("billnumber") || isFieldEnabled("duedays") || isFieldEnabled("salesman") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("shipto") || isFieldEnabled("notes")) && (
+          {(isFieldEnabled("partyacc") || isFieldEnabled("invoicedate") || isFieldEnabled("billnumber") || isFieldEnabled("duedays") || isFieldEnabled("salesman") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("shipto") || isFieldEnabled("notes")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Main Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -19,6 +19,11 @@ import { useProductImportExport } from "../../hooks/useproductimportexport";
 
 const ProductServices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "products"));
+  // Barcode lives with Unit Prices — hide the list barcode action when the
+  // user's form permissions allow none of the unit-price fields.
+  const productFormPerms = useAppSelector((state: any) => state.permissions.permissions?.formPermissions?.products || {});
+  const canSeeBarcode = ["quantity", "unitprices_unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice", "add_unit_price"]
+    .some((f) => productFormPerms[f] !== false);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   // Lite list query: only the fields the table, low-stock filter and barcode
@@ -172,7 +177,7 @@ const ProductServices = () => {
           {...actions}
           showView={false}
           showPrint={false}
-          showBarcode={true}
+          showBarcode={canSeeBarcode}
           requireBranchForAdd={true}
           onEdit={(row) =>
             navigate(`/products/addedit/${row.id}`, {

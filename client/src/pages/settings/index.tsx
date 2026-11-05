@@ -44,12 +44,14 @@ import {
   type ModuleAction,
 } from "../../config/modules";
 import { findSectionPerms, resolveAction } from "../../redux/slices/permissions";
+import FormPermissionsTab from "../businesssettings/formpermissionstab";
 
 type TabKey =
   | "general"
   | "branch_modules"
   | "staff_modules"
-  | "access";
+  | "access"
+  | "formperms";
 
 const Settings = () => {
   const dispatch = useAppDispatch();
@@ -71,7 +73,21 @@ const Settings = () => {
   const { data: branchesData } = useBranchesQuery();
   const { data: staffData } = useStaffQuery();
 
+  // Admin can manage a Branch OR a Staff member directly (a branch login
+  // always manages its own staff).
+  const [targetKind, setTargetKind] = useState<"branch" | "staff">("branch");
+  const manageStaff = isBranch || (isAdmin && targetKind === "staff");
+
   const targetOptions = useMemo(() => {
+    if (isAdmin && targetKind === "staff") {
+      // Same rule as a branch login: only "staff" role (not salesman / delivery boy).
+      return (staffData?.getStaffAccounts ?? [])
+        .filter((s: any) => (s.role ?? '').toString().toLowerCase() === 'staff')
+        .map((s: any) => ({
+          value: s.id,
+          label: s.branchid?.branchname ? `${s.name} (${s.branchid.branchname})` : s.name,
+        }));
+    }
     if (isAdmin) {
       return (branchesData?.getBranches ?? []).map((b: any) => ({
         value: b.id,
@@ -88,13 +104,30 @@ const Settings = () => {
         }));
     }
     return [];
-  }, [isAdmin, isBranch, branchesData, staffData]);
+  }, [isAdmin, isBranch, targetKind, branchesData, staffData]);
 
   const [selectedTargetId, setSelectedTargetId] = useState<string>("");
+  // Switching Branch ↔ Staff clears the pick (ids belong to different lists).
+  useEffect(() => { setSelectedTargetId(""); }, [targetKind]);
+
+  // Admin managing a staff member: that staff's branch is the parent level.
+  const selectedStaffRec = useMemo(
+    () => (manageStaff ? (staffData?.getStaffAccounts ?? []).find((s: any) => s.id === selectedTargetId) : null),
+    [manageStaff, staffData, selectedTargetId]
+  );
+  const staffBranchId: string | undefined = isAdmin ? selectedStaffRec?.branchid?.id : undefined;
 
   // ── Parent-allowed modules (strict hierarchy) ──
   const parentAllowed = useMemo(() => {
-    const list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
+    let list = isAdmin ? admin?.allowedmodules : branch?.allowedmodules;
+    if (isAdmin && targetKind === "staff" && staffBranchId) {
+      const sb = (branchesData?.getBranches ?? []).find((b: any) => b.id === staffBranchId);
+      const bl = sb?.allowedmodules;
+      if (bl) {
+        const adminLower = list ? list.map((x: string) => x.toLowerCase()) : null;
+        list = adminLower ? bl.filter((id: string) => adminLower.includes(id.toLowerCase())) : bl;
+      }
+    }
     if (list === undefined || list === null) return ADMIN_REGISTER_MODULES.map((m) => m.id);
     // Always surface default-on modules (newly added) so they can be granted /
     // permissioned even for tenants whose allowedmodules predate the module.
@@ -102,17 +135,17 @@ const Settings = () => {
       (id) => !list.map((x: string) => x.toLowerCase()).includes(id.toLowerCase())
     );
     return [...list, ...extra];
-  }, [isAdmin, admin, branch]);
+  }, [isAdmin, admin, branch, targetKind, staffBranchId, branchesData]);
 
   // ── Target's effective allowed modules ──
   const targetEffectiveAllowed = useMemo(() => {
     if (!selectedTargetId) return parentAllowed;
 
     let targetAllowed: string[] | null | undefined = undefined;
-    if (isAdmin) {
+    if (isAdmin && targetKind === "branch") {
       const selectedBranch = (branchesData?.getBranches ?? []).find((b: any) => b.id === selectedTargetId);
       targetAllowed = selectedBranch?.allowedmodules;
-    } else if (isBranch) {
+    } else if (manageStaff) {
       const selectedStaff = (staffData?.getStaffAccounts ?? []).find((s: any) => s.id === selectedTargetId);
       targetAllowed = selectedStaff?.allowedmodules;
     }
@@ -120,7 +153,7 @@ const Settings = () => {
     if (targetAllowed === null || targetAllowed === undefined) return parentAllowed;
     const parentLower = parentAllowed.map((p) => p.toLowerCase());
     return targetAllowed.filter((id: string) => parentLower.includes(id.toLowerCase()));
-  }, [selectedTargetId, parentAllowed, isAdmin, isBranch, branchesData, staffData]);
+  }, [selectedTargetId, parentAllowed, isAdmin, manageStaff, targetKind, branchesData, staffData]);
 
   // ── Build visible tabs ──
   // Business tabs: shown to admin when SaaS flags allow (hide ONLY if flag === false)
@@ -128,19 +161,33 @@ const Settings = () => {
   const visibleTabs: Array<[TabKey, string]> = useMemo(() => {
     const tabs: Array<[TabKey, string]> = [];
 
-    if (isAdmin) {
+    if (isAdmin && targetKind === "branch") {
       tabs.push(["general", "General"]);
       // Child-management tabs
       tabs.push(["branch_modules", "Branch Modules"]);
       tabs.push(["access", "Branch Access"]);
-    } else if (isBranch) {
+      tabs.push(["formperms", "Branch Form Permissions"]);
+    } else if (manageStaff) {
       tabs.push(["staff_modules", "Staff Modules"]);
       tabs.push(["access", "Staff Access"]);
+      tabs.push(["formperms", "Staff Form Permissions"]);
     }
     return tabs;
-  }, [isAdmin, isBranch]);
+  }, [isAdmin, targetKind, manageStaff]);
 
   const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.[0] ?? "access");
+
+  // The logged-in user's own effective form permissions: a branch / staff
+  // member can be given at most these fields.
+  const myFormPerms = useAppSelector((s: any) => s.permissions?.permissions?.formPermissions || {});
+  const [loadBranchEff, { data: branchEffData }] = useEffectivePermissionsLazy({ fetchPolicy: "network-only" });
+  useEffect(() => {
+    if (staffBranchId) loadBranchEff({ variables: { scope: "branch", scopeid: staffBranchId } });
+  }, [staffBranchId, loadBranchEff]);
+  const formCeiling =
+    isAdmin && targetKind === "staff"
+      ? (staffBranchId ? branchEffData?.getEffectivePermissions?.permissions?.formPermissions || {} : myFormPerms)
+      : myFormPerms;
 
   // Auto-fix current tab if it becomes hidden
   useEffect(() => {
@@ -168,8 +215,24 @@ const Settings = () => {
 
         {/* ── GLOBAL Selection Dropdown ── */}
         <div className="rounded-lg border border-slate-200 bg-white p-3">
+          {isAdmin && (
+            <div className="mb-2 inline-flex gap-1 rounded-md bg-slate-100 p-0.5">
+              {(["branch", "staff"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTargetKind(k)}
+                  className={`h-7 rounded px-3 text-[12px] font-medium ${
+                    targetKind === k ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {k === "branch" ? "Branch" : "Staff"}
+                </button>
+              ))}
+            </div>
+          )}
           <FormField
-            label={isAdmin ? "Select Branch" : "Select Staff Member"}
+            label={isAdmin && targetKind === "branch" ? "Select Branch" : "Select Staff Member"}
             type="select"
             name="selectedTargetId"
             value={selectedTargetId}
@@ -201,7 +264,7 @@ const Settings = () => {
         ) : !selectedTargetId ? (
           /* ── Child-management tabs (need target selection) ── */
           <div className="rounded-lg border border-slate-200 bg-white py-6 text-center text-[13px] text-slate-500">
-            Please select {isAdmin ? "a Branch" : "a Staff member"} above to manage settings.
+            Please select {isAdmin && targetKind === "branch" ? "a Branch" : "a Staff member"} above to manage settings.
           </div>
         ) : (
           <>
@@ -214,7 +277,7 @@ const Settings = () => {
                 parentAllowed={parentAllowed}
               />
             )}
-            {tab === "staff_modules" && isBranch && (
+            {tab === "staff_modules" && manageStaff && (
               <SubModulesTab
                 scope="staff"
                 title="Configure modules allowed for this Staff member"
@@ -223,11 +286,21 @@ const Settings = () => {
                 parentAllowed={parentAllowed}
               />
             )}
+            {tab === "formperms" && (
+              <FormPermissionsTab
+                key={selectedTargetId}
+                scope={manageStaff ? "staff" : "branch"}
+                scopeid={selectedTargetId}
+                dispatch={dispatch}
+                ceiling={formCeiling}
+                allowedModules={targetEffectiveAllowed}
+              />
+            )}
             {tab === "access" && (
               <AccessTab
                 adminId={adminId}
                 dispatch={dispatch}
-                scopeMode={isAdmin ? "branch" : "staff"}
+                scopeMode={manageStaff ? "staff" : "branch"}
                 selectedTargetId={selectedTargetId}
                 parentAllowed={targetEffectiveAllowed}
               />
@@ -1298,9 +1371,8 @@ const SubModulesTab: React.FC<{
   const eligibleModules = useMemo(
     () =>
       ADMIN_REGISTER_MODULES.filter((m) => {
-        if (scope === "staff") {
-          return ["accounts", "salesorder", "attendance", "posdashboard"].includes(m.id);
-        }
+        // Staff get whatever their branch has (branch ∩ business) — parentAllowed
+        // already carries that chain, so no hard-coded staff list.
         return parentAllowed.map((id) => id.toLowerCase()).includes(m.id.toLowerCase());
       }),
     [parentAllowed, scope]
@@ -1374,7 +1446,10 @@ const PermissionsTab: React.FC<{
   effectiveOverlay?: any;
   parentAllowed?: string[];
 }> = ({ scope, scopeid, title, dispatch, effectiveOverlay, parentAllowed }) => {
-  const [load, { data, loading }] = usePermissionsLazy();
+  // Always read the stored document fresh: Access and Form Permissions save
+  // the same document, so a cached copy from the other tab would write the
+  // other tab's changes back over themselves.
+  const [load, { data, loading }] = usePermissionsLazy({ fetchPolicy: "network-only" });
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
 
@@ -1409,10 +1484,7 @@ const PermissionsTab: React.FC<{
 
   const visibleModules = useMemo(() => {
     let list = MODULES.filter((m) => m.section !== "system");
-    if (scope === "staff") {
-      const allowed = ["accounts", "salesorder", "attendance", "posdashboard"];
-      list = list.filter(m => allowed.includes(m.id));
-    } else if (parentAllowed) {
+    if (parentAllowed) {
       list = list.filter(m => parentAllowed.map(id => id.toLowerCase()).includes(m.id.toLowerCase()));
     }
     return list;

@@ -9,6 +9,7 @@ import {
   stripSensitiveForPublic,
 } from "../../../utils/tenant";
 import { Admin } from "../../../models/admin";
+import { effectiveFormPermissions } from "../../../utils/formpermissions";
 import {
   validateProductInput,
   ProductInputError,
@@ -432,11 +433,14 @@ export const productServiceResolvers = {
         //
         // Field permissions live on Admin.defaultPermissions, so a field
         // switched off in Business Settings is not demanded here either.
-        const adminDoc: any = await Admin.findById(tenant.adminid)
-          .select("defaultPermissions")
-          .lean();
+        // Branch / staff may hide more fields (Settings → Form Permissions):
+        // use the caller's effective set so a hidden field isn't demanded.
         const permissions: Record<string, boolean> =
-          adminDoc?.defaultPermissions?.formPermissions?.products || {};
+          (await effectiveFormPermissions({
+            adminid: tenant.adminid,
+            userType: tenant.userType,
+            userId: tenant.userId,
+          })).products || {};
 
         const issues = validateProductInput(input, permissions);
         if (issues.length) {

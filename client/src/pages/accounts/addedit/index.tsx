@@ -772,9 +772,11 @@ const AddEditAccount = () => {
           </div>
 
           {/* Preferences */}
+          {(isFieldEnabled("billingcycle") || isFieldEnabled("duedays") || isFieldEnabled("status")) && (
           <fieldset className="border rounded-xl p-4">
             <legend className="text-sm sm:text-base font-medium px-2">Preferences</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {isFieldEnabled("billingcycle") && (
               <FormField
                 label="Billing Cycle"
                 name="billingcycle"
@@ -788,6 +790,8 @@ const AddEditAccount = () => {
                 ]}
                 placeholder="Select billing cycle"
               />
+              )}
+              {isFieldEnabled("duedays") && (
               <FormField
                 label="Due Days"
                 name="duedays"
@@ -796,9 +800,13 @@ const AddEditAccount = () => {
                 onChange={(e) => handleChange("duedays", e.target.value === "" ? "" : parseInt(e.target.value))}
                 placeholder="Enter due days"
               />
+              )}
+              {isFieldEnabled("status") && (
               <FormSwitch label="Status" name="status" checked={formValues.status} onChange={(val) => handleChange("status", val)} />
+              )}
             </div>
           </fieldset>
+          )}
         </div>
       </FormPage>
     </HomeLayout>

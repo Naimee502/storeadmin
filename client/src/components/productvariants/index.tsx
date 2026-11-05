@@ -87,13 +87,35 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
         return productFormPermissions[fieldId] !== false;
     };
 
+    // Section visibility — a section (and its header / remove buttons /
+    // barcode) only renders when at least one of its fields is allowed.
+    const PRICE_FIELDS = ["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"];
+    const priceFieldKey = (f: string) => (f === "unitid" ? "unitprices_unitid" : f);
+    const showConvFields = isFieldEnabled("unitconversions_unitid") || isFieldEnabled("factor");
+    const canEditConvRows = isFieldEnabled("add_unit_conversion");
+    const showConv = showConvFields || canEditConvRows;
+    const showPriceFields = PRICE_FIELDS.some((f) => isFieldEnabled(priceFieldKey(f)));
+    const canEditPriceRows = isFieldEnabled("add_unit_price");
+    const showPrices = showPriceFields || canEditPriceRows;
+    const showUnitFields = ["baseunitid", "purchaseunitid", "purchaserate"].some(isFieldEnabled);
+
     return (
         <div className="space-y-3">
-            {formData.productvariants.map((variant: any, index: number) => (
+            {formData.productvariants.map((variant: any, index: number) => {
+                const coreFields = [
+                        "name", "sku", "batchnumber", "manufacturedate", "expirydate",
+                        "gst", "hsncode", "openingstock", "currentstock",
+                        "closingstock", "minimumstock", "reorderlevel", "racklocation",
+                        ...(isEdit ? ["productcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
+                    ].filter(field => isFieldEnabled(field === "name" ? "variant_name" : field));
+                const showCore = coreFields.length > 0 || showUnitFields;
+                // Nothing in this variant is allowed → don't render an empty card.
+                if (!showCore && !showConv && !showPrices) return null;
+                return (
                 <fieldset key={variant.tempid || index} className="border rounded-xl p-4 mb-4 relative">
                     <legend className="text-sm font-semibold px-2">Product Variant {index + 1}</legend>
 
-                    {formData.productvariants.length > 1 && (
+                    {formData.productvariants.length > 1 && isFieldEnabled("add_product_variant") && (
                         <button
                             type="button"
                             className="absolute top-1.5 right-2 inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
@@ -104,13 +126,9 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                 )}
 
                 {/* Core Fields */}
+                {showCore && (
                 <div className="grid grid-cols-1 gap-x-3 gap-y-2 pt-1 pb-3 md:grid-cols-5">
-                    {[
-                        "name", "sku", "batchnumber", "manufacturedate", "expirydate",
-                        "gst", "hsncode", "openingstock", "currentstock",
-                        "closingstock", "minimumstock", "reorderlevel", "racklocation",
-                        ...(isEdit ? ["productcode", "openingstockamount", "currentstockamount", "closingstockamount"] : []),
-                    ].filter(field => isFieldEnabled(field === "name" ? "variant_name" : field)).map((field) => (
+                    {coreFields.map((field) => (
                         <FormField
                             key={field}
                             label={LABELS[field.toLowerCase()] || field}
@@ -184,12 +202,14 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         />
                     )}
                 </div>
+                )}
 
                 {/* Unit Conversions */}
-                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3">
+                {showConv && (
+                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3 first:border-t-0 first:pt-0">
                     <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Unit Conversions</h4>
                     <div className="space-y-2">
-                        {(variant.unitconversions || []).map((conv, convIndex) => (
+                        {showConvFields && (variant.unitconversions || []).map((conv, convIndex) => (
                             <div key={convIndex} className="grid grid-cols-1 items-end gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-[1fr_1fr_auto]">
                                 {isFieldEnabled("unitconversions_unitid") && (
                                     <FormField
@@ -214,6 +234,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                         error={errors?.productvariants?.[index]?.unitconversions?.[convIndex]?.factor}
                                     />
                                 )}
+                                {canEditConvRows && (
                                 <button
                                     type="button"
                                     title="Remove" className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
@@ -221,6 +242,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                 >
                                     ✕
                                 </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -234,13 +256,15 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         </button>
                     )}
                 </div>
+                )}
 
-                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3">
+                {showPrices && (
+                <div className="space-y-2 border-t border-slate-200 pt-3 pb-3 first:border-t-0 first:pt-0">
                     <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Unit Prices</h4>
                     <div className="space-y-2">
-                        {(variant.unitprices || []).map((up, upIndex) => (
+                        {showPriceFields && (variant.unitprices || []).map((up, upIndex) => (
                             <div key={upIndex} className="relative grid grid-cols-1 items-end gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-8">
-                                {["quantity", "unitid", "mrp", "salesrate", "discount", "discounttype", "offerprice"].filter(f => isFieldEnabled(f === "unitid" ? "unitprices_unitid" : f)).map((f) => (
+                                {PRICE_FIELDS.filter(f => isFieldEnabled(priceFieldKey(f))).map((f) => (
                                     <FormField
                                         key={f}
                                         label={LABELS[f.toLowerCase()] || f}
@@ -273,7 +297,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                                         <BarcodeImage value={up.productbarcode} align="start" />
                                     </div>
                                 )}
-                                {variant.unitprices.length > 1 && (
+                                {variant.unitprices.length > 1 && canEditPriceRows && (
                                     <button
                                         type="button"
                                         title="Remove" className="grid h-8 w-8 shrink-0 place-items-center self-end rounded-md border border-rose-200 bg-white text-xs text-rose-500 hover:bg-rose-50"
@@ -295,9 +319,10 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                         </button>
                     )}
                 </div>
+                )}
 
                 {/* Serials */}
-                {isserialised && (
+                {isserialised && showCore && (
                     <div className="space-y-2 border-t border-slate-200 pt-3">
                         {(variant.serials || []).map((serial, serialIndex) => (
                             <div
@@ -328,7 +353,8 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                     </div>
                 )}
             </fieldset>
-        ))}
+                );
+            })}
 
         {isFieldEnabled("add_product_variant") && (
             <button type="button" onClick={addProductVariant} className="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 text-[12px] font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50">+ Add Product Variant</button>

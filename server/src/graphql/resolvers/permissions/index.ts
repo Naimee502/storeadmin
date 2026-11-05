@@ -11,6 +11,7 @@ import { GraphQLScalarType, Kind } from "graphql";
 import { Admin } from "../../../models/admin";
 import { Branch } from "../../../models/branches";
 import { StaffAccount } from "../../../models/staffaccounts";
+import { mergeFormPermissions } from "../../../utils/formpermissions";
 
 // Minimal JSON scalar — we just pass through whatever the client sends
 // as long as it parses. No validation here; module/action keys are open.
@@ -96,6 +97,11 @@ export const permissionsResolvers = {
           admin?.defaultPermissions || {},
           branch?.permissions || {}
         );
+        // Form fields merge field-by-field; a business "off" always wins.
+        merged.formPermissions = mergeFormPermissions(
+          admin?.defaultPermissions?.formPermissions,
+          branch?.permissions?.formPermissions
+        );
         return { scope, scopeid, permissions: merged };
       }
 
@@ -112,6 +118,10 @@ export const permissionsResolvers = {
         const merged = mergePermissions(
           mergePermissions(adminDefaults, branchOverride),
           staffOverride
+        );
+        merged.formPermissions = mergeFormPermissions(
+          mergeFormPermissions(adminDefaults.formPermissions, branchOverride.formPermissions),
+          staffOverride.formPermissions
         );
         return { scope, scopeid, permissions: merged };
       }

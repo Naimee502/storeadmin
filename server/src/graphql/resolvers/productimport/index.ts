@@ -10,6 +10,7 @@ import { ProductGroup } from "../../../models/productgroups";
 import { Unit } from "../../../models/units";
 import { AccountLedger } from "../../../models/accountledgers";
 import { Admin } from "../../../models/admin";
+import { effectiveFormPermissions } from "../../../utils/formpermissions";
 import { manageStock } from "../../../utils/stockmanager";
 import { requireBackofficeTenant, TenantError } from "../../../utils/tenant";
 import { validateProductInput } from "../../../utils/productvalidation";
@@ -256,9 +257,12 @@ export const productImportResolvers = {
       // Field permissions live on Admin.defaultPermissions (see the
       // permissions resolver), so a field switched off in Business Settings is
       // not demanded here either.
-      const adminDoc: any = await Admin.findById(adminid).select("defaultPermissions").lean();
       const permissions: Record<string, boolean> =
-        adminDoc?.defaultPermissions?.formPermissions?.products || {};
+        (await effectiveFormPermissions({
+          adminid,
+          userType: tenant.userType,
+          userId: tenant.userId,
+        })).products || {};
 
       const owned = await loadOwnedIdSets(adminid);
       // Every master of this business, inactive included, for find-or-create.

@@ -62,7 +62,6 @@ const cap = (val: any): string => {
 };
 
 const PurchaseReports: React.FC = () => {
-  const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Default last 30 days — set up front so the first fetch is already ranged.
   const [activeTab, setActiveTab] = useState(reportTabs[0].id);
@@ -461,7 +460,7 @@ const PurchaseReports: React.FC = () => {
           showCsv
           showPdf
           exportFileName={exportFileName}
-          isLoading={isLoading || dataLoading}
+          isLoading={dataLoading}
           showTotals
         />
 

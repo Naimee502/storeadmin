@@ -571,11 +571,11 @@ const AddEditPurchaseInvoice = () => {
         {/* space-y-6: one even gap between every section (the children used to carry their own mixed mt-4 / mt-6 / none). */}
         <fieldset disabled={isCancelledBill} className={`space-y-6 ${isCancelledBill ? "opacity-90" : ""}`}>
           {/* ===== Main Details ===== */}
-          {(isFieldEnabled("party") || isFieldEnabled("billdate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("notes") || isFieldEnabled("status")) && (
+          {(isFieldEnabled("partyacc") || isFieldEnabled("billdate") || isFieldEnabled("billnumber") || isFieldEnabled("paymenttype") || isFieldEnabled("placeofsupply") || isFieldEnabled("billtype") || isFieldEnabled("notes") || isFieldEnabled("status")) && (
           <fieldset className="border rounded-xl p-4 space-y-4">
             <legend className="text-sm font-medium px-2">Main Details</legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
+              {isFieldEnabled("paymenttype") && <FormField
                 label="Payment Type"
                 name="paymentType"
                 type="select"
@@ -592,8 +592,8 @@ const AddEditPurchaseInvoice = () => {
                 ]}
                 error={errors.paymentType}
                 searchable
-              />
-              <div className="flex items-end gap-2">
+              />}
+              {isFieldEnabled("partyacc") && <div className="flex items-end gap-2">
                 <FormField
                   label="Vendor Account (Name - Mobile)"
                   name="partyAccount"
@@ -627,7 +627,7 @@ const AddEditPurchaseInvoice = () => {
                       : "Select a vendor first to see their bill history."
                   }
                 />
-              </div>
+              </div>}
               {isFieldEnabled("placeofsupply") && <FormField
                 label="Tax/Supply Type"
                 name="taxOrSupplyType"

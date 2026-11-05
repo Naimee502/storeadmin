@@ -682,7 +682,10 @@ const PermissionsTab: React.FC<{
   dispatch: any;
   parentAllowed?: string[];
 }> = ({ scope, scopeid, title, dispatch, parentAllowed }) => {
-  const [load, { data, loading }] = usePermissionsLazy();
+  // Always read the stored document fresh: Access and Form Permissions save
+  // the same document, so a cached copy from the other tab would write the
+  // other tab's changes back over themselves.
+  const [load, { data, loading }] = usePermissionsLazy({ fetchPolicy: "network-only" });
   const { setPermissions } = usePermissionsMutations();
   const [draft, setDraft] = useState<any>(null);
 

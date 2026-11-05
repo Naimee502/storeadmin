@@ -533,7 +533,7 @@ const AddEditExpenseNote = () => {
               />
             )}
 
-            <FormField
+            {isFieldEnabled("paymentledger") && <FormField
               label={
                 formValues.paymenttype === "credit"
                   ? "Party Ledger (Payable)"
@@ -550,7 +550,7 @@ const AddEditExpenseNote = () => {
               searchable
               required
               error={formErrors.ledgerid}
-            />
+            />}
 
             {isFieldEnabled("narration") && (<FormField
               label="Narration"
