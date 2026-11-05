@@ -3,6 +3,20 @@ import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
 
+const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Panel login finds staff by email alone (across every business), so two
+// active "staff" accounts must never share an email.
+async function assertStaffEmailFree(email: any, role: any, excludeId?: string) {
+  const e = String(email || "").trim();
+  if (!e || (role && role !== "staff")) return;
+  const q: any = { email: { $regex: `^${escapeRe(e)}$`, $options: "i" }, status: true, role: "staff" };
+  if (excludeId) q._id = { $ne: excludeId };
+  if (await StaffAccount.exists(q)) {
+    throw new Error("This email is already used by another staff account. Please use a different email.");
+  }
+}
+
 export const staffAccountResolvers = {
   Query: {
     // ==========================================
@@ -105,6 +119,7 @@ export const staffAccountResolvers = {
     // ==========================================
     addStaffAccount: async (_: any, { input }: any) => {
       try {
+        await assertStaffEmailFree(input?.email, input?.role || "staff");
         const created = new StaffAccount(input);
         await created.save(); // triggers pre-save hooks
 
@@ -129,6 +144,11 @@ export const staffAccountResolvers = {
         delete input.password;
       }
 
+      if (input?.email !== undefined || input?.role !== undefined) {
+        const current: any = await StaffAccount.findById(id).select("email role").lean();
+        await assertStaffEmailFree(input?.email ?? current?.email, input?.role ?? current?.role, id);
+      }
+
       return await StaffAccount.findByIdAndUpdate(id, input, {
         new: true,
         runValidators: true,
@@ -141,13 +161,20 @@ export const staffAccountResolvers = {
     },
 
     loginStaff: async (_: any, { email, password, otp }: any, { res }: any) => {
-      const staff = await StaffAccount.findOne({ email })
+      // Same email can exist in more than one business (or as an old test
+      // record). Pick the account whose password matches, active first, most
+      // recently updated — never just the first row Mongo returns.
+      const candidates = await StaffAccount.find({
+        email: { $regex: `^${escapeRe(String(email || "").trim())}$`, $options: "i" },
+      })
+        .sort({ status: -1, updatedAt: -1 })
         .populate("admin")
         .populate("branchid")
         .populate("assignedChannels");
-      if (!staff) throw new Error("Staff account not found");
+      if (!candidates.length) throw new Error("Staff account not found");
 
-      if (staff.password !== password) throw new Error("Invalid credentials");
+      const staff = candidates.find((c: any) => c.password === password);
+      if (!staff) throw new Error("Invalid credentials");
       if (!staff.status) throw new Error("Your account is currently disabled.");
 
       // Billing-panel login: Business Settings -> login email OTP (no-op when
