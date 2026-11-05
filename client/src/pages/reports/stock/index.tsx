@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { STOCK_REPORT_PRODUCTS } from "../../../graphql/queries/reports/stock";
+import { GET_TRANSFER_STOCKS, GET_DELETED_TRANSFER_STOCKS } from "../../../graphql/queries/transferstock";
+import { GET_BRANCHES } from "../../../graphql/queries/branches";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { useProductServicesQuery, useDeletedProductServicesQuery } from "../../../graphql/hooks/products";
-import { useTransferStocksQuery, useDeletedTransferStocksQuery } from "../../../graphql/hooks/transferstock";
-import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaBoxes, FaExclamationTriangle, FaChartLine, FaExchangeAlt } from "react-icons/fa";
 
@@ -15,19 +17,47 @@ const reportTabsObj = [
 ];
 
 const StockReports: React.FC = () => {
-  const { data: productData } = useProductServicesQuery();
-  const { data: deletedProductData } = useDeletedProductServicesQuery();
-  const { data: transferData } = useTransferStocksQuery();
-  const { data: deletedTransferData } = useDeletedTransferStocksQuery();
-  const { data: branchData } = useBranchesQuery();
-
-  const products = [...(productData?.getProductServices || [])];
-  const deletedProducts = [...(deletedProductData?.getProductServices || [])];
-  const transfers = [...(transferData?.getTransferStocks || [])].reverse();
-  const deletedTransfers = [...(deletedTransferData?.getDeletedTransferStocks || [])].reverse();
-  const branches = branchData?.getBranches || [];
-
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
+
+  // Same adminid/branchid scoping as useProductServicesQuery /
+  // useTransferStocksQuery / useBranchesQuery.
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+  const authAdminId = useAppSelector((state) => state.auth.admin?.id);
+  const isTransfers = activeTab === "Stock Transfers";
+
+  // Lite product/variant stock (active + deleted) — every tab needs these.
+  const { data: productData } = useQuery(STOCK_REPORT_PRODUCTS, {
+    variables: { filter: { adminid: adminId, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminId,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: deletedProductData } = useQuery(STOCK_REPORT_PRODUCTS, {
+    variables: { filter: { adminid: adminId, branchid, status: false }, limit: 0, offset: 0 },
+    skip: !adminId,
+    fetchPolicy: "cache-and-network",
+  });
+  // Transfers and branch names only on the Stock Transfers tab.
+  const { data: transferData } = useQuery(GET_TRANSFER_STOCKS, {
+    variables: { adminId, frombranchid: branchid },
+    skip: !isTransfers,
+  });
+  const { data: deletedTransferData } = useQuery(GET_DELETED_TRANSFER_STOCKS, {
+    variables: { adminId, frombranchid: branchid },
+    skip: !isTransfers,
+  });
+  const { data: branchData } = useQuery(GET_BRANCHES, {
+    variables: authAdminId ? { adminId: authAdminId } : {},
+    skip: !isTransfers,
+  });
+
+  const products: any[] = useMemo(() => [...(productData?.getProductServices || [])], [productData]);
+  const deletedProducts: any[] = useMemo(() => [...(deletedProductData?.getProductServices || [])], [deletedProductData]);
+  const transfers: any[] = useMemo(() => [...(transferData?.getTransferStocks || [])].reverse(), [transferData]);
+  const deletedTransfers: any[] = useMemo(() => [...(deletedTransferData?.getDeletedTransferStocks || [])].reverse(), [deletedTransferData]);
+  const branches: any[] = useMemo(() => branchData?.getBranches || [], [branchData]);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
@@ -42,14 +72,16 @@ const StockReports: React.FC = () => {
   }, []);
 
   const productOptions = [...products, ...deletedProducts]
-    .filter((p) => !p.isservice)
-    .map((p) => ({ label: p.name, value: p.id }));
+    .filter((p: any) => !p.isservice)
+    .map((p: any) => ({ label: p.name, value: p.id }));
 
   // -----------------------------
   // Prepare stock tables
   // -----------------------------
-  const allProducts = [...products, ...deletedProducts];
-  const currentStock = allProducts.flatMap((p) =>
+  const allProducts = useMemo(() => [...products, ...deletedProducts], [products, deletedProducts]);
+  const currentStock = useMemo(() => {
+    const deletedIds = new Set(deletedProducts.map((dp: any) => dp.id));
+    return allProducts.flatMap((p: any) =>
     (p.productvariants || []).map((v: any) => ({
       productId: p.id,
       productName: p.name,
@@ -59,32 +91,41 @@ const StockReports: React.FC = () => {
       minimumStock: v.minimumstock,
       reorderLevel: v.reorderlevel,
       rackLocation: v.racklocation,
-      status: deletedProducts.some((dp) => dp.id === p.id) ? "Inactive" : (v.currentstock > 0 ? "Active" : "Inactive"),
+      status: deletedIds.has(p.id) ? "Inactive" : (v.currentstock > 0 ? "Active" : "Inactive"),
     }))
   );
+  }, [allProducts, deletedProducts]);
 
-  const lowStock = currentStock.filter((s) => s.currentStock <= (s.reorderLevel || 0));
+  const lowStock = currentStock.filter((s: any) => s.currentStock <= (s.reorderLevel || 0));
   const stockValuation = currentStock;
 
-  const allTransfers = [...transfers, ...deletedTransfers];
-  const stockTransfers = allTransfers.map((t: any) => {
-    const product = allProducts.find((p) => p.id === t.productid);
-    const variant = product?.productvariants?.find((v: any) => v.id === t.variantid);
-    const fromBranch = branches.find((b) => b.id === t.frombranchid);
-    const toBranch = branches.find((b) => b.id === t.tobranchid);
-
-    return {
-      productId: t.productid,
-      productName: product?.name || "-",
-      variantName: variant?.name || "-",
-      fromBranch: fromBranch?.branchname || t.frombranchid,
-      toBranch: toBranch?.branchname || t.tobranchid,
-      qty: t.transferqty,
-      transferDate: formatDateDMY(t.transferdate),
-      transferDateYMD: normalizeToYMD(t.transferdate),
-      status: deletedTransfers.some((dt) => dt.id === t.id) ? "Inactive" : "Active",
-    };
-  });
+  const stockTransfers = useMemo(() => {
+    if (!isTransfers) return [];
+    const allTransfers = [...transfers, ...deletedTransfers];
+    const deletedIds = new Set(deletedTransfers.map((dt: any) => dt.id));
+    // A transfer voucher carries its products in items[] — one row per item.
+    // (Older flat records without items[] still map as a single row.)
+    return allTransfers.flatMap((t: any) => {
+      const items: any[] = Array.isArray(t.items) && t.items.length ? t.items : [t];
+      const fromBranch = branches.find((b: any) => b.id === t.frombranchid);
+      const toBranch = branches.find((b: any) => b.id === t.tobranchid);
+      return items.map((it: any) => {
+        const product = allProducts.find((p: any) => p.id === it.productid);
+        const variant = product?.productvariants?.find((v: any) => v.id === it.variantid);
+        return {
+          productId: it.productid,
+          productName: product?.name || "-",
+          variantName: variant?.name || "-",
+          fromBranch: fromBranch?.branchname || t.frombranchid,
+          toBranch: toBranch?.branchname || t.tobranchid,
+          qty: it.transferqty,
+          transferDate: formatDateDMY(t.transferdate),
+          transferDateYMD: normalizeToYMD(t.transferdate),
+          status: deletedIds.has(t.id) ? "Inactive" : "Active",
+        };
+      });
+    });
+  }, [isTransfers, transfers, deletedTransfers, branches, allProducts]);
 
   const handleApplyFilters = () => setAppliedFilters({ ...filters });
 

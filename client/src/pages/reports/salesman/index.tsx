@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { SALESMAN_REPORT_SALES_INVOICES } from "../../../graphql/queries/reports/salesman";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { normalizeToYMD, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 
@@ -9,17 +11,41 @@ const SalesmanReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  const { data: salesData } = useSalesInvoicesQuery();
+  // Same adminid/branchid scoping as useSalesInvoicesQuery.
+  const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? authStaff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? authStaff?.branchid?.id : undefined;
+  const { data: salesData } = useQuery(SALESMAN_REPORT_SALES_INVOICES, {
+    variables: {
+      // Server now ranges invoices by billdate (text compare, whole To day
+      // included), so only the chosen period is downloaded. The client-side
+      // date filter below stays as a safety net.
+      filter: {
+        adminid,
+        branchid,
+        ...(appliedFilters.fromDate ? { billdateFrom: appliedFilters.fromDate } : {}),
+        ...(appliedFilters.toDate ? { billdateTo: appliedFilters.toDate } : {}),
+      },
+    },
+  });
   const { data: staffData } = useStaffQuery();
 
-  const salesInvoices = salesData?.getSalesInvoices || [];
-  const staff = [...(staffData?.getStaffAccounts || [])].reverse();
+  // Cancelled bills are reversed out of the books — same default as the hook.
+  const salesInvoices: any[] = useMemo(
+    () => (salesData?.getSalesInvoices || []).filter((i: any) => i?.cancelStatus !== "cancelled"),
+    [salesData]
+  );
 
   // All staff who can take orders (salesman role or any staff)
-  const salesmen = staff.filter(
-    (s: any) =>
-      s.role?.toLowerCase() === "salesman" ||
-      s.role?.toLowerCase() === "staff"
+  const salesmen = useMemo(
+    () =>
+      [...(staffData?.getStaffAccounts || [])].reverse().filter(
+        (s: any) =>
+          s.role?.toLowerCase() === "salesman" ||
+          s.role?.toLowerCase() === "staff"
+      ),
+    [staffData]
   );
 
   // Default last 30 days
@@ -35,7 +61,7 @@ const SalesmanReports: React.FC = () => {
     const from = appliedFilters.fromDate;
     const to = appliedFilters.toDate;
 
-    return salesInvoices.filter((inv) => {
+    return salesInvoices.filter((inv: any) => {
       const date = normalizeToYMD(inv.billdate);
       if (!date) return false;
       if (from && date < from) return false;
@@ -53,8 +79,8 @@ const SalesmanReports: React.FC = () => {
       : salesmen;
 
     return activeSalesmen.map((s: any, idx: number) => {
-      const invoices = filteredInvoices.filter((inv) => inv.salesmenid?.id === s.id);
-      const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.totalamount || 0), 0);
+      const invoices = filteredInvoices.filter((inv: any) => inv.salesmenid?.id === s.id);
+      const totalSales = invoices.reduce((sum: number, inv: any) => sum + Number(inv.totalamount || 0), 0);
       const totalInvoices = invoices.length;
       const commissionRate = Number(s.commission) || 0;
       const commissionEarned = (totalSales * commissionRate) / 100;

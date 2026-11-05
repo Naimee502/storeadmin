@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { addSalesInvoices } from "../../../redux/slices/salesinvoice";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
 import HomeLayout from "../../../layouts/home";
-import { showLoading, hideLoading } from "../../../redux/slices/loader";
-import { useSalesInvoicesQuery, useDeletedSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
-import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
+import {
+  GET_SALES_INVOICES_REPORT,
+  GET_DELETED_SALES_INVOICES_REPORT,
+  GET_SALES_ORDERS_REPORT,
+  GET_SALES_RETURNS_REPORT,
+} from "../../../graphql/queries/reports/sales";
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import PrintableInvoice from "../../../components/printinvoice";
@@ -15,21 +17,40 @@ import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 import { partyLabel } from "../../../utils/partylabel";
 
+// Order lifecycle for the report's Status column/filter. `status` on an order
+// is the soft-delete flag (true/false), not its stage — comparing it as text
+// hid every order (sales) or crashed the page (purchase).
+const orderStage = (o: any): "cancelled" | "converted" | "active" =>
+  o?.cancelStatus === "cancelled" || o?.orderStatus === "cancelled"
+    ? "cancelled"
+    : o?.isConverted
+      ? "converted"
+      : "active";
+const STAGE_LABEL = { active: "Active", converted: "Converted", cancelled: "Cancelled" } as const;
+
 const reportTabs = [
   { id: "Sales Order", label: "Sales Order", icon: <FaClipboardList className="text-xs text-amber-600" /> },
   { id: "Sales Invoice", label: "Sales Invoice", icon: <FaFileInvoiceDollar className="text-xs text-blue-600" /> },
   { id: "Sales Return (CN)", label: "Sales Return (CN)", icon: <FaUndoAlt className="text-xs text-rose-600" /> },
 ];
 
-// "Product - Variant, Product2 - Variant2" from a productservice array
-const productNamesOf = (items: any[]) =>
-  (items || [])
-    .map((p: any) => {
-      const n = p.productserviceid?.name || "Unknown";
-      const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-      return `${n}${v}`;
-    })
-    .join(", ") || "-";
+// One entry per line item — "Product - Variant × 2 Box". ReportTable renders an
+// array cell one item per line and exports it joined with "; ".
+const productLinesOf = (items: any[]): string[] => {
+  const lines = (items || []).map((p: any) => {
+    const n = p.productserviceid?.name || "Unknown";
+    const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+    const u = p.salesunitid?.unitname ? ` ${p.salesunitid.unitname}` : "";
+    return `${n}${v} × ${p.qty ?? 0}${u}`;
+  });
+  return lines.length ? lines : ["-"];
+};
+
+// Server-side date bounds. Bill / return dates are stored as "YYYY-MM-DD…"
+// strings and compared as strings, so a bare "YYYY-MM-DD" To bound would drop
+// any value carrying a time part on the To day. "\uffff" sorts after every
+// character — the same inclusive-end trick the server's field report uses.
+const dateTo = (ymd?: string) => (ymd ? `${ymd}\uffff` : undefined);
 
 // Safely capitalize a value that may be string | boolean | null | undefined
 const cap = (val: any): string => {
@@ -40,27 +61,76 @@ const cap = (val: any): string => {
 };
 
 const SalesReports: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [activeTab, setActiveTab] = useState(reportTabs[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  // -- Data
-  const { data: activeData, refetch: refetchActive } = useSalesInvoicesQuery();
-  const { data: deletedData, refetch: refetchDeleted } = useDeletedSalesInvoicesQuery();
-  const { data: ordersData } = useSalesOrdersQuery();
-  const { data: returnsData } = useSalesReturnsQuery();
+  // -- Scope (same derivation as the graphql/hooks sales* hooks)
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const fromDate: string | undefined = appliedFilters.fromDate || undefined;
+  const toDate: string | undefined = appliedFilters.toDate || undefined;
+  // Nothing is fetched until the default date range has been applied.
+  const rangeReady = !!(fromDate || toDate);
+
+  const isInvoiceTab = activeTab === "Sales Invoice";
+  const isOrderTab = activeTab === "Sales Order";
+  const isReturnTab = activeTab === "Sales Return (CN)";
+  const needActiveInvoices = isInvoiceTab && appliedFilters.status !== "Inactive";
+  const needDeletedInvoices = isInvoiceTab && appliedFilters.status !== "Active";
+
+  // -- Data: only the active tab's lite query runs.
+  // NOTE: invoices are NOT date-filtered on the server — getSalesInvoices /
+  // getDeletedSalesInvoices compare the String `billdate` against
+  // `new Date(...)`, which Mongoose casts to "Tue Oct 06 2026 …" and so would
+  // match nothing. The client-side date filter below does the trimming.
+  const invoiceFilter = { adminid, branchid };
+  // Active invoices ARE ranged on the server now (resolver fixed to compare
+  // the text billdate with text). Deleted invoices still filter client-side.
+  const { data: activeData, loading: activeLoading } = useQuery(GET_SALES_INVOICES_REPORT, {
+    variables: { filter: { ...invoiceFilter, billdateFrom: fromDate, billdateTo: dateTo(toDate) } },
+    skip: !rangeReady || !needActiveInvoices,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: deletedData, loading: deletedLoading } = useQuery(GET_DELETED_SALES_INVOICES_REPORT, {
+    variables: { filter: invoiceFilter },
+    skip: !rangeReady || !needDeletedInvoices,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: ordersData, loading: ordersLoading } = useQuery(GET_SALES_ORDERS_REPORT, {
+    variables: { filter: { adminid, branchid, billdateFrom: fromDate, billdateTo: dateTo(toDate) } },
+    skip: !rangeReady || !isOrderTab,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: returnsData, loading: returnsLoading } = useQuery(GET_SALES_RETURNS_REPORT, {
+    variables: { filter: { adminid, branchid, returndateFrom: fromDate, returndateTo: dateTo(toDate) } },
+    skip: !rangeReady || !isReturnTab,
+    fetchPolicy: "cache-and-network",
+  });
+  // Filter dropdown options only.
   const { data: accountData } = useAccountsQuery();
   const { data: productData } = useProductServicesQuery();
 
-  const activeInvoices = [...(activeData?.getSalesInvoices || [])].reverse();
-  const deletedInvoices = [...(deletedData?.getDeletedSalesInvoices || [])].reverse();
-  const salesOrders = [...(ordersData?.getSalesOrders || [])].reverse();
-  const salesReturns = [...(returnsData?.getSalesReturns || [])].reverse();
-  const accountsList = accountData?.getAccounts || [];
-  const productList = productData?.getProductServices ?? [];
+  // Cancelled bills are excluded from active invoices, as useSalesInvoicesQuery does.
+  const activeInvoices = useMemo(
+    () =>
+      [...(activeData?.getSalesInvoices || [])]
+        .filter((i: any) => i?.cancelStatus !== "cancelled")
+        .reverse(),
+    [activeData]
+  );
+  const deletedInvoices = useMemo(
+    () => [...(deletedData?.getDeletedSalesInvoices || [])].reverse(),
+    [deletedData]
+  );
+  const salesOrders = useMemo(() => [...(ordersData?.getSalesOrders || [])].reverse(), [ordersData]);
+  const salesReturns = useMemo(() => [...(returnsData?.getSalesReturns || [])].reverse(), [returnsData]);
+  const accountsList: any[] = accountData?.getAccounts || [];
+  const productList: any[] = productData?.getProductServices ?? [];
 
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
@@ -73,49 +143,34 @@ const SalesReports: React.FC = () => {
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  // Refetch invoices when status filter changes
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      dispatch(showLoading());
-      try {
-        const isDeleted = appliedFilters.status === "Inactive";
-        const { data } = await (isDeleted ? refetchDeleted() : refetchActive());
-        if (data) {
-          const invoices = isDeleted ? data.getDeletedSalesInvoices : data.getSalesInvoices;
-          dispatch(addSalesInvoices(invoices));
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        dispatch(hideLoading());
-      }
-    };
-    fetchInvoices();
-  }, [dispatch, appliedFilters.status, refetchActive, refetchDeleted]);
+  // Global loader follows the active tab's query (Apollo refetches on its own
+  // when the applied range / status / tab changes — no manual refetch).
+  const tabLoading =
+    (needActiveInvoices && activeLoading) ||
+    (needDeletedInvoices && deletedLoading) ||
+    (isOrderTab && ordersLoading) ||
+    (isReturnTab && returnsLoading);
 
   // ── Sales Invoice Data ──
-  const invoiceList =
-    appliedFilters.status === "Inactive"
-      ? deletedInvoices
-      : appliedFilters.status === "Active"
-      ? activeInvoices
-      : [...activeInvoices, ...deletedInvoices];
+  const invoiceList = useMemo(
+    () =>
+      appliedFilters.status === "Inactive"
+        ? deletedInvoices
+        : appliedFilters.status === "Active"
+        ? activeInvoices
+        : [...activeInvoices, ...deletedInvoices],
+    [appliedFilters.status, activeInvoices, deletedInvoices]
+  );
 
   const invoiceTableData = useMemo(() => {
     return invoiceList
-      .map((inv, idx) => {
+      .map((inv: any, idx: number) => {
         const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
         const partyAccObj = inv.partyacc;
         const partyaccStr = partyAccObj
           ? partyLabel(partyAccObj) || "Unknown"
           : "Unknown";
-        const productNames = (inv.productservice ?? [])
-          .map((p: any) => {
-            const prodName = p.productserviceid?.name || "Unknown";
-            const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-            return `${prodName}${variantName}`;
-          })
-          .join(", ");
+        const productNames = productLinesOf(inv.productservice);
         const productIds = (inv.productservice ?? []).map((p: any) => p.productserviceid?.id);
 
         return {
@@ -167,7 +222,7 @@ const SalesReports: React.FC = () => {
         if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
         if (appliedFilters.partyacc && o.partyacc?.id !== appliedFilters.partyacc) return false;
         if (appliedFilters.paymenttype && o.paymenttype?.toLowerCase() !== appliedFilters.paymenttype.toLowerCase()) return false;
-        if (appliedFilters.orderStatus && o.status?.toLowerCase() !== appliedFilters.orderStatus.toLowerCase()) return false;
+        if (appliedFilters.orderStatus && orderStage(o) !== String(appliedFilters.orderStatus).toLowerCase()) return false;
         return true;
       })
       .map((o: any, idx: number) => {
@@ -179,14 +234,14 @@ const SalesReports: React.FC = () => {
           partyName: o.partyacc
             ? partyLabel(o.partyacc) || "-"
             : "-",
-          products: productNamesOf(o.productservice),
+          products: productLinesOf(o.productservice),
           paymentType: cap(o.paymenttype),
           totalItems: (o.productservice || []).length,
           totalQty,
           discount: Number(o.totaldiscount || 0).toFixed(2),
           gst: Number(o.totalgst || 0).toFixed(2),
           totalAmount: Number(o.totalamount || 0).toFixed(2),
-          status: cap(o.status),
+          status: STAGE_LABEL[orderStage(o)],
         };
       });
   }, [salesOrders, appliedFilters]);
@@ -212,7 +267,7 @@ const SalesReports: React.FC = () => {
             ? partyLabel(r.partyacc) || "-"
             : "-",
           paymentType: cap(r.paymenttype),
-          products: productNamesOf(r.productservice),
+          products: productLinesOf(r.productservice),
           totalItems: (r.productservice || []).length,
           totalQty,
           discount: Number(r.totaldiscount || 0).toFixed(2),
@@ -226,8 +281,22 @@ const SalesReports: React.FC = () => {
   }, [salesReturns, appliedFilters]);
 
   // ── Per-tab config ──
-  const partyOptions = accountsList.map((a) => ({ label: a.accountname || a.name, value: a.id }));
-  const productOptions = productList.map((p) => ({ label: p.name, value: p.id }));
+  const partyOptions = useMemo(
+    // Sales go to customers — the Party dropdown lists Customer and Both
+    // accounts only (no vendors / expense ledgers).
+    () =>
+      accountsList
+        .filter((a: any) => {
+          const t = String(a.type || "").toLowerCase();
+          return t === "customer" || t === "both";
+        })
+        .map((a: any) => ({ label: a.accountname || a.name, value: a.id })),
+    [accountsList]
+  );
+  const productOptions = useMemo(
+    () => productList.map((p: any) => ({ label: p.name, value: p.id })),
+    [productList]
+  );
 
   let tableData: any[] = [];
   let columns: any[] = [];
@@ -371,7 +440,7 @@ const SalesReports: React.FC = () => {
           showCsv
           showPdf
           exportFileName={exportFileName}
-          isLoading={isLoading}
+          isLoading={tabLoading}
           showTotals
         />
 

@@ -3,7 +3,6 @@ import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
 import { formatDateDMY, todayYMD, shiftDaysYMD, normalizeToYMD } from "../../../utils/helper";
 import {
-  FaBoxes,
   FaFileInvoiceDollar,
   FaUndoAlt,
   FaExchangeAlt,
@@ -11,15 +10,19 @@ import {
   FaClipboardList
 } from "react-icons/fa";
 
-// Hooks for all required data
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
-import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
-import { useTransferStocksQuery } from "../../../graphql/hooks/transferstock";
-import { useActiveStockAdjustments } from "../../../graphql/hooks/stockadjustments";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { partyLabel } from "../../../utils/partylabel";
+import {
+  PRODUCT_REPORT_PRODUCT_OPTIONS,
+  PRODUCT_REPORT_SALES_INVOICES,
+  PRODUCT_REPORT_PURCHASE_INVOICES,
+  PRODUCT_REPORT_SALES_RETURNS,
+  PRODUCT_REPORT_PURCHASE_RETURNS,
+  PRODUCT_REPORT_TRANSFER_STOCKS,
+  PRODUCT_REPORT_BRANCHES,
+  PRODUCT_REPORT_STOCK_ADJUSTMENTS,
+} from "../../../graphql/queries/reports/product";
 
 const reportTabsObj = [
   { id: "Complete Statement", label: "Complete Statement", icon: <FaClipboardList className="text-xs text-blue-600" /> },
@@ -36,27 +39,82 @@ const ProductStatementReport: React.FC = () => {
   const [filters, setFilters] = useState({});
   const [appliedFilters, setAppliedFilters] = useState({} as any);
 
-  const { data: productData } = useProductServicesQuery();
+  // Same adminid/branchid scoping as the existing hooks (products, invoices,
+  // returns, transfers).
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  // Every tab is empty until a product is picked, so nothing but the picker
+  // loads before that; after it, only the sources the active tab shows.
+  const selected = !!appliedFilters.product;
+  const all = activeTab === "Complete Statement";
+  const need = (tab: string) => selected && (all || activeTab === tab);
+
+  const { data: productData } = useQuery(PRODUCT_REPORT_PRODUCT_OPTIONS, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminid,
+    fetchPolicy: "cache-and-network",
+  });
   // Cancelled bills are wanted HERE, unlike everywhere else: this report is
   // the product's movement history, and a cancellation is a movement — the
   // goods came back. Leaving it out would show a sale with no matching
   // return and a stock figure nobody could reconcile.
-  const { data: salesData } = useSalesInvoicesQuery(undefined, { includeCancelled: true });
-  const { data: purchaseData } = usePurchaseInvoicesQuery(undefined, { includeCancelled: true });
-  const { data: salesReturnData } = useSalesReturnsQuery();
-  const { data: purchaseReturnData } = usePurchaseReturnsQuery();
-  const { data: transferData } = useTransferStocksQuery();
-  const { data: adjustmentData } = useActiveStockAdjustments();
-  const { data: accountsData } = useAccountsQuery();
+  // (No server date filter on invoices: a cancellation reversal is dated on
+  // cancelledAt, which can fall in range for a bill dated before it.)
+  const { data: salesData } = useQuery(PRODUCT_REPORT_SALES_INVOICES, {
+    variables: { filter: { adminid, branchid } },
+    skip: !need("Sales Invoices"),
+  });
+  const { data: purchaseData } = useQuery(PRODUCT_REPORT_PURCHASE_INVOICES, {
+    variables: { filter: { adminid, branchid } },
+    skip: !need("Purchase Invoices"),
+  });
+  const { data: salesReturnData } = useQuery(PRODUCT_REPORT_SALES_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+    skip: !need("Sales Returns"),
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: purchaseReturnData } = useQuery(PRODUCT_REPORT_PURCHASE_RETURNS, {
+    variables: { filter: { adminid, branchid } },
+    skip: !need("Purchase Returns"),
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: transferData } = useQuery(PRODUCT_REPORT_TRANSFER_STOCKS, {
+    variables: { adminId: adminid, frombranchid: branchid },
+    skip: !need("Stock Transfers"),
+  });
+  const { data: branchData } = useQuery(PRODUCT_REPORT_BRANCHES, {
+    variables: { adminId: adminid },
+    skip: !adminid || !need("Stock Transfers"),
+  });
+  // Scoped to this admin/branch like every other source on the page.
+  const { data: adjustmentData } = useQuery(PRODUCT_REPORT_STOCK_ADJUSTMENTS, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !need("Stock Adjustments"),
+  });
 
-  const products = productData?.getProductServices || [];
-  const salesInvoices = [...(salesData?.getSalesInvoices || [])].reverse();
-  const purchaseInvoices = [...(purchaseData?.getPurchaseInvoices || [])].reverse();
-  const salesReturns = [...(salesReturnData?.getSalesReturns || [])].reverse();
-  const purchaseReturns = [...(purchaseReturnData?.getPurchaseReturns || [])].reverse();
-  const transfers = [...(transferData?.getTransferStocks || [])].reverse();
-  const adjustments = [...(adjustmentData?.getStockAdjustments || [])].reverse();
-  const accounts = accountsData?.getAccounts || [];
+  const products: any[] = productData?.getProductServices || [];
+  const salesInvoices = useMemo(() => [...(salesData?.getSalesInvoices || [])].reverse(), [salesData]);
+  const purchaseInvoices = useMemo(() => [...(purchaseData?.getPurchaseInvoices || [])].reverse(), [purchaseData]);
+  const salesReturns = useMemo(() => [...(salesReturnData?.getSalesReturns || [])].reverse(), [salesReturnData]);
+  const purchaseReturns = useMemo(() => [...(purchaseReturnData?.getPurchaseReturns || [])].reverse(), [purchaseReturnData]);
+  const transfers = useMemo(() => [...(transferData?.getTransferStocks || [])].reverse(), [transferData]);
+  const adjustments = useMemo(() => [...(adjustmentData?.getStockAdjustments || [])].reverse(), [adjustmentData]);
+  const branchNames = useMemo(() => {
+    const m = new Map<string, string>();
+    (branchData?.getBranches || []).forEach((b: any) => m.set(b.id, b.branchname));
+    return m;
+  }, [branchData]);
+  // Variant names of the selected product (transfer/adjustment lines only
+  // carry the variant id).
+  const variantNames = useMemo(() => {
+    const m = new Map<string, string>();
+    const p = products.find((x: any) => x.id === appliedFilters.product);
+    (p?.productvariants || []).forEach((v: any) => m.set(v.id, v.name));
+    return m;
+  }, [products, appliedFilters.product]);
 
   useEffect(() => {
     const to = todayYMD();
@@ -65,7 +123,7 @@ const ProductStatementReport: React.FC = () => {
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  const productOptions = products.map((p) => ({
+  const productOptions = products.map((p: any) => ({
     label: p.name,
     value: p.id,
   }));
@@ -86,7 +144,7 @@ const ProductStatementReport: React.FC = () => {
           invoiceNo: inv.billnumber,
           date: formatDateDMY(inv.billdate),
           dateYMD: normalizeToYMD(inv.billdate),
-          party: inv.partyacc?.accountname || "-",
+          party: partyLabel(inv.partyacc) || "-",
           quantity: productItem.qty || 0,
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
@@ -106,7 +164,7 @@ const ProductStatementReport: React.FC = () => {
             invoiceNo: inv.billnumber,
             date: formatDateDMY(inv.cancelledAt || inv.billdate),
             dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
-            party: inv.partyacc?.accountname || "-",
+            party: partyLabel(inv.partyacc) || "-",
             quantity: -(productItem.qty || 0),
             rate: productItem.rate || 0,
             amount: -(productItem.amount || 0),
@@ -134,7 +192,7 @@ const ProductStatementReport: React.FC = () => {
           invoiceNo: inv.billnumber,
           date: formatDateDMY(inv.billdate),
           dateYMD: normalizeToYMD(inv.billdate),
-          party: inv.partyacc?.accountname || "-",
+          party: partyLabel(inv.partyacc) || "-",
           quantity: productItem.qty || 0,
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
@@ -151,7 +209,7 @@ const ProductStatementReport: React.FC = () => {
             invoiceNo: inv.billnumber,
             date: formatDateDMY(inv.cancelledAt || inv.billdate),
             dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
-            party: inv.partyacc?.accountname || "-",
+            party: partyLabel(inv.partyacc) || "-",
             quantity: -(productItem.qty || 0),
             rate: productItem.rate || 0,
             amount: -(productItem.amount || 0),
@@ -175,15 +233,15 @@ const ProductStatementReport: React.FC = () => {
         if (!productItem) return [];
         return [{
           transactionType: "Sales Return",
-          invoiceNo: ret.returnNumber || ret.id,
-          date: formatDateDMY(ret.returnDate || ret.createdAt),
-          dateYMD: normalizeToYMD(ret.returnDate || ret.createdAt),
-          party: ret.partyacc?.accountname || "-",
+          invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
+          date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
+          dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
+          party: partyLabel(ret.partyacc) || "-",
           quantity: productItem.qty || 0,
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
           variant: productItem.variantid?.name || "-",
-          remarks: ret.remarks || "-",
+          remarks: ret.remarks || ret.reason || "-",
         }];
       });
   }, [salesReturns, appliedFilters.product]);
@@ -200,54 +258,63 @@ const ProductStatementReport: React.FC = () => {
         if (!productItem) return [];
         return [{
           transactionType: "Purchase Return",
-          invoiceNo: ret.returnNumber || ret.id,
-          date: formatDateDMY(ret.returnDate || ret.createdAt),
-          dateYMD: normalizeToYMD(ret.returnDate || ret.createdAt),
-          party: ret.partyacc?.accountname || "-",
+          invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
+          date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
+          dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
+          party: partyLabel(ret.partyacc) || "-",
           quantity: productItem.qty || 0,
           rate: productItem.rate || 0,
           amount: productItem.amount || 0,
           variant: productItem.variantid?.name || "-",
-          remarks: ret.remarks || "-",
+          remarks: ret.remarks || ret.reason || "-",
         }];
       });
   }, [purchaseReturns, appliedFilters.product]);
 
   const productTransfers = useMemo(() => {
     if (!appliedFilters.product) return [];
-    return transfers
-      .filter((t: any) => t.productid === appliedFilters.product)
-      .map((t: any) => ({
-        transactionType: "Stock Transfer",
-        invoiceNo: t.id,
-        date: formatDateDMY(t.transferdate),
-        dateYMD: normalizeToYMD(t.transferdate),
-        party: `${t.frombranchid} → ${t.tobranchid}`,
-        quantity: t.transferqty || 0,
-        rate: "-",
-        amount: "-",
-        variant: t.variantid || "-",
-        remarks: t.remarks || "-",
-      }));
-  }, [transfers, appliedFilters.product]);
+    // A transfer voucher keeps its products in items[] — one row per
+    // matching line.
+    return transfers.flatMap((t: any) =>
+      (t.items || [])
+        .filter((it: any) => it.productid === appliedFilters.product)
+        .map((it: any) => ({
+          transactionType: "Stock Transfer",
+          invoiceNo: t.vouchernumber || t.id,
+          date: formatDateDMY(t.transferdate),
+          dateYMD: normalizeToYMD(t.transferdate),
+          party: `${branchNames.get(t.frombranchid) || t.frombranchid} → ${branchNames.get(t.tobranchid) || t.tobranchid}`,
+          quantity: it.transferqty || 0,
+          rate: it.rate ?? "-",
+          amount: it.amount ?? "-",
+          variant: (it.variantid && variantNames.get(it.variantid)) || it.variantid || "-",
+          remarks: t.narration || "-",
+        }))
+    );
+  }, [transfers, appliedFilters.product, branchNames, variantNames]);
 
   const productAdjustments = useMemo(() => {
     if (!appliedFilters.product) return [];
-    return adjustments
-      .filter((adj: any) => adj.productid === appliedFilters.product)
-      .map((adj: any) => ({
-        transactionType: "Stock Adjustment",
-        invoiceNo: adj.id,
-        date: formatDateDMY(adj.adjustmentdate),
-        dateYMD: normalizeToYMD(adj.adjustmentdate),
-        party: "-",
-        quantity: adj.adjustmentqty || 0,
-        rate: "-",
-        amount: "-",
-        variant: adj.variantid || "-",
-        remarks: adj.reason || "-",
-      }));
-  }, [adjustments, appliedFilters.product]);
+    // One row per matching line item. Signed by direction (Excess = in,
+    // Shortage = out) so the Adjustment Qty total is the net stock change.
+    return adjustments.flatMap((adj: any) => {
+      const sign = adj.type === "Shortage" ? -1 : 1;
+      return (adj.items || [])
+        .filter((it: any) => it?.productid?.id === appliedFilters.product)
+        .map((it: any) => ({
+          transactionType: `Stock Adjustment${adj.type ? ` (${adj.type})` : ""}`,
+          invoiceNo: adj.vouchernumber || adj.id,
+          date: formatDateDMY(adj.adjustmentdate || adj.createdAt),
+          dateYMD: normalizeToYMD(adj.adjustmentdate || adj.createdAt),
+          party: "-",
+          quantity: sign * (it.quantity || 0),
+          rate: it.rate ?? "-",
+          amount: sign * (it.amount || 0),
+          variant: (it.variantid && variantNames.get(it.variantid)) || it.variantid || "-",
+          remarks: [adj.type, adj.reason].filter(Boolean).join(" — ") || "-",
+        }));
+    });
+  }, [adjustments, appliedFilters.product, variantNames]);
 
   const completeStatement = useMemo(() => {
     const combined = [

@@ -428,8 +428,11 @@ export const salesInvoiceResolvers = {
       // Bill date range filter
       if (filter.billdateFrom || filter.billdateTo) {
         query.billdate = {};
-        if (filter.billdateFrom) query.billdate.$gte = new Date(filter.billdateFrom);
-        if (filter.billdateTo) query.billdate.$lte = new Date(filter.billdateTo);
+        // billdate is stored as text ("YYYY-MM-DD…"), so compare text with text —
+        // a Date here is cast to "Wed Nov 05 2026 …" and the range matched nothing.
+        // \uffff after the To day keeps every bill dated on that day.
+        if (filter.billdateFrom) query.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
+        if (filter.billdateTo) query.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
       }
 
       // ── TEMP DELIVERY DIAGNOSTIC ──────────────────────────────────────

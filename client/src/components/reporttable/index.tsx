@@ -8,13 +8,13 @@ import {
   FaSearch,
   FaColumns,
 } from "react-icons/fa";
-import Loader from "../loader";
 import FormField from "../formfiled";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { getFinancialYear, formatDateDMY, todayYMD, shiftDaysYMD } from "../../utils/helper";
 import { useAppSelector } from "../../redux/hooks";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import { splitPartyLabel } from "../../utils/partylabel";
 
 /* Current financial year label, e.g. "FY 2026-27 (01-04-2026 → 31-03-2027)" */
 const fyInfo = () => {
@@ -31,6 +31,8 @@ export type ReportFilterField = {
   type: "text" | "select" | "multiselect" | "date";
   options?: { label: string; value: any }[];
   searchable?: boolean;
+  /** Short placeholder; defaults to "Select <label>". */
+  placeholder?: string;
 };
 
 export type ReportColumn = {
@@ -129,9 +131,47 @@ const netTotalOf = (
   (spec.minusKeys || []).reduce((a, k) => a + sumKey(k), 0) +
   (spec.plusKeys || []).reduce((a, k) => a + sumKey(k), 0);
 
+/** A cell may hold a list (one product per line) — exports join it. */
+const cellText = (v: any): any => (Array.isArray(v) ? v.join("; ") : v ?? "");
+
+/** Columns whose text is "Name - Mobile - City" (partyLabel) → 2-line cell. */
+const PARTY_COL = /party|vendor|customer|supplier/i;
+
+/**
+ * Default cell renderer (when a column has no render of its own):
+ *  - arrays  → one item per line (e.g. every product of a bill with its qty),
+ *    so a multi-item bill is never squashed into "a, b, c";
+ *  - party   → name on top, "mobile · city" underneath in grey, so the column
+ *    stays narrow and the table needs no sideways scroll.
+ */
+const renderCell = (col: ReportColumn, value: any): React.ReactNode => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "-";
+    return (
+      <div className="flex flex-col gap-0.5 leading-tight">
+        {value.map((v, i) => (
+          <span key={i} className="whitespace-nowrap">{v}</span>
+        ))}
+      </div>
+    );
+  }
+  if (typeof value === "string" && (PARTY_COL.test(col.key) || PARTY_COL.test(col.label))) {
+    const { name, mobile, city } = splitPartyLabel(value);
+    if (mobile) {
+      return (
+        <div className="leading-tight">
+          <div className="font-medium">{name}</div>
+          <div className="text-[11px] text-slate-500">{[mobile, city].filter(Boolean).join(" · ")}</div>
+        </div>
+      );
+    }
+  }
+  return value ?? "";
+};
+
 const buildExportRow = (row: any, columns: ReportColumn[]) => {
   const obj: Record<string, any> = {};
-  columns.forEach((col) => { obj[col.label] = row[col.key] ?? ""; });
+  columns.forEach((col) => { obj[col.label] = cellText(row[col.key]); });
   return obj;
 };
 
@@ -158,7 +198,7 @@ const printReportAsPDF = (
   const bodyRows = data
     .map((row, i) => {
       const cells = columns.map((col) => {
-        const val = row[col.key] ?? "";
+        const val = cellText(row[col.key]);
         const align = col.numeric ? "text-align:right;" : "";
         return `<td style="${align}">${val}</td>`;
       }).join("");
@@ -453,7 +493,8 @@ const ReportTable: React.FC<ReportTableProps> = ({
   /* ── Render ── */
   return (
     <div className="relative">
-      {isLoading && <Loader fullScreen />}
+      {/* No full-screen overlay: the table stays visible and a thin bar runs
+          on top of it while the next tab / date range loads (desktop feel). */}
 
       <div className="space-y-2 text-[13px]">
 
@@ -483,6 +524,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                     }
                     options={field.options}
                     searchable={field.searchable}
+                    placeholder={field.placeholder}
                     onChange={(e: any) =>
                       setFilters((prev) => ({
                         ...prev,
@@ -629,7 +671,12 @@ const ReportTable: React.FC<ReportTableProps> = ({
         </div>
 
         {/* ── Table ── */}
-        <div className="max-h-[calc(100vh-230px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+        <div className="relative max-h-[calc(100vh-230px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+          {isLoading && (
+            <div className="sticky top-0 left-0 z-20 h-0.5 w-full overflow-hidden bg-indigo-100">
+              <div className="h-full w-1/3 animate-[reportbar_1s_ease-in-out_infinite] bg-indigo-500" />
+            </div>
+          )}
           <table className="min-w-full text-left text-[12.5px]">
             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
               {/* Column headers with filter icon */}
@@ -673,9 +720,9 @@ const ReportTable: React.FC<ReportTableProps> = ({
                       {columns.map((col) => (
                         <td
                           key={col.key}
-                          className={`whitespace-nowrap px-2 py-1.5 text-slate-800 ${col.numeric ? "text-right tabular-nums" : ""}`}
+                          className={`whitespace-nowrap px-2 py-1.5 align-top text-slate-800 ${col.numeric ? "text-right tabular-nums" : ""}`}
                         >
-                          {col.render ? col.render(row) : (row[col.key] ?? "")}
+                          {col.render ? col.render(row) : renderCell(col, row[col.key])}
                         </td>
                       ))}
                     </tr>
@@ -711,7 +758,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                     colSpan={columns.length}
                     className="py-8 text-center text-[13px] text-slate-400"
                   >
-                    No records found. Adjust filters and click <strong>Apply</strong>.
+                    {isLoading ? "Loading…" : <>No records found. Adjust filters and click <strong>Apply</strong>.</>}
                   </td>
                 </tr>
               )}

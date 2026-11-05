@@ -46,8 +46,10 @@ const cap = (s?: string | null) =>
 /* ── Component ── */
 const AttendanceReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+  // Seeded with the default range on the first render so the date-scoped
+  // queries never fire once unfiltered before the effect below runs.
+  const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
   // Resolve scope from auth
   const { type, admin, branch, staff } = useAppSelector((s: any) => s.auth);

@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
-import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { addPurchaseInvoices } from "../../../redux/slices/purchaseinvoice";
+import React, { useRef, useState, useMemo } from "react";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
 import HomeLayout from "../../../layouts/home";
-import { showLoading, hideLoading } from "../../../redux/slices/loader";
-import { usePurchaseInvoicesQuery, useDeletedPurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { usePurchaseOrdersQuery } from "../../../graphql/hooks/purchaseorder";
-import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
-import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import {
+  GET_PURCHASE_INVOICES_REPORT,
+  GET_DELETED_PURCHASE_INVOICES_REPORT,
+  GET_PURCHASE_ORDERS_REPORT,
+  GET_PURCHASE_RETURNS_REPORT,
+  GET_PURCHASE_REPORT_PARTIES,
+  GET_PURCHASE_REPORT_PRODUCTS,
+} from "../../../graphql/queries/reports/purchase";
 import PrintableInvoice from "../../../components/printinvoice";
 import type { ReportFilterField } from "../../../components/reporttable";
 import ReportTable from "../../../components/reporttable";
@@ -15,21 +17,41 @@ import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD } from "../../../
 import { FaClipboardList, FaFileInvoiceDollar, FaUndoAlt } from "react-icons/fa";
 import { partyLabel } from "../../../utils/partylabel";
 
+// Order lifecycle for the report's Status column/filter. `status` on an order
+// is the soft-delete flag (true/false), not its stage — comparing it as text
+// hid every order (sales) or crashed the page (purchase).
+const orderStage = (o: any): "cancelled" | "converted" | "active" =>
+  o?.cancelStatus === "cancelled" || o?.orderStatus === "cancelled"
+    ? "cancelled"
+    : o?.isConverted
+      ? "converted"
+      : "active";
+const STAGE_LABEL = { active: "Active", converted: "Converted", cancelled: "Cancelled" } as const;
+
 const reportTabs = [
   { id: "Purchase Order", label: "Purchase Order", icon: <FaClipboardList className="text-xs text-amber-600" /> },
   { id: "Purchase Invoice", label: "Purchase Invoice", icon: <FaFileInvoiceDollar className="text-xs text-blue-600" /> },
   { id: "Purchase Return (DN)", label: "Purchase Return (DN)", icon: <FaUndoAlt className="text-xs text-indigo-600" /> },
 ];
 
-// "Product - Variant, Product2 - Variant2" from a productservice array
-const productNamesOf = (items: any[]) =>
-  (items || [])
-    .map((p: any) => {
-      const n = p.productserviceid?.name || "Unknown";
-      const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-      return `${n}${v}`;
-    })
-    .join(", ") || "-";
+// One line per line item: "Product - Variant × Qty". ReportTable renders an
+// array one item per line and exports it joined with "; ".
+const productLine = (p: any, name?: string) => {
+  const n = name || p.productserviceid?.name || "Unknown";
+  const v = p.variantid?.name ? ` - ${p.variantid.name}` : "";
+  return `${n}${v} × ${p.qty ?? 0}`;
+};
+const productNamesOf = (items: any[]): string[] => {
+  const lines = (items || []).map((p: any) => productLine(p));
+  return lines.length ? lines : ["-"];
+};
+
+// "YYYY-MM-DD" shifted by N days on the local calendar.
+const shiftYMD = (ymd: string, days: number): string | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || "");
+  if (!m) return null;
+  return normalizeToYMD(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+};
 
 // Safely capitalize a value that may be string | boolean | null | undefined
 const cap = (val: any): string => {
@@ -40,88 +62,136 @@ const cap = (val: any): string => {
 };
 
 const PurchaseReports: React.FC = () => {
-  const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
+  // Default last 30 days — set up front so the first fetch is already ranged.
   const [activeTab, setActiveTab] = useState(reportTabs[0].id);
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+  const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
-  // -- Data
-  const { data: activeData, refetch: refetchActive } = usePurchaseInvoicesQuery();
-  const { data: deletedData, refetch: refetchDeleted } = useDeletedPurchaseInvoicesQuery();
-  const { data: ordersData } = usePurchaseOrdersQuery();
-  const { data: returnsData } = usePurchaseReturnsQuery();
-  const { data: accountData } = useAccountsQuery();
-  const { data: productData } = useProductServicesQuery();
+  // -- Scope (same derivation as the purchase hooks)
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
 
-  const activeInvoices = [...(activeData?.getPurchaseInvoices || [])].reverse();
-  const deletedInvoices = [...(deletedData?.getDeletedPurchaseInvoices || [])].reverse();
-  const purchaseOrders = [...(ordersData?.getPurchaseOrders || [])].reverse();
-  const purchaseReturns = [...(returnsData?.getPurchaseReturns || [])].reverse();
-  const accountsList = accountData?.getAccounts || [];
-  const productList = productData?.getProductServices ?? [];
+  // Server-side date range for orders / returns. billdate / returndate are
+  // stored as "YYYY-MM-DD…" strings and compared as strings, so the To bound
+  // gets a "\uffff" suffix to keep anything stamped on the To day. The range is
+  // widened by a day each side (timestamps saved in UTC); the exact range is
+  // still applied client-side below.
+  // Invoices are NOT ranged on the server: getPurchaseInvoices compares the
+  // string billdate against `new Date(...)`, which never matches.
+  const serverFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : null;
+  const serverToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : null;
+  const serverTo = serverToDay ? `${serverToDay}\uffff` : null;
+
+  const isInvoiceTab = activeTab === "Purchase Invoice";
+  const isOrderTab = activeTab === "Purchase Order";
+  const isReturnTab = activeTab === "Purchase Return (DN)";
+
+  // -- Data (only the active tab's documents are fetched)
+  // Active invoices are ranged on the server too (resolver now compares text).
+  const { data: activeData, loading: activeLoading } = useQuery(GET_PURCHASE_INVOICES_REPORT, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        ...(serverFrom ? { billdateFrom: serverFrom } : {}),
+        ...(serverTo ? { billdateTo: serverTo } : {}),
+      },
+    },
+    skip: !adminid || !isInvoiceTab || appliedFilters.status === "Inactive",
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: deletedData, loading: deletedLoading } = useQuery(GET_DELETED_PURCHASE_INVOICES_REPORT, {
+    variables: { filter: { adminid, branchid } },
+    skip: !adminid || !isInvoiceTab || appliedFilters.status === "Active",
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: ordersData, loading: ordersLoading } = useQuery(GET_PURCHASE_ORDERS_REPORT, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        ...(serverFrom ? { billdateFrom: serverFrom } : {}),
+        ...(serverTo ? { billdateTo: serverTo } : {}),
+      },
+    },
+    skip: !adminid || !isOrderTab,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: returnsData, loading: returnsLoading } = useQuery(GET_PURCHASE_RETURNS_REPORT, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        ...(serverFrom ? { returndateFrom: serverFrom } : {}),
+        ...(serverTo ? { returndateTo: serverTo } : {}),
+      },
+    },
+    skip: !adminid || !isReturnTab,
+    fetchPolicy: "cache-and-network",
+  });
+  // Dropdown options only (Party / Product filters).
+  const { data: accountData } = useQuery(GET_PURCHASE_REPORT_PARTIES, {
+    variables: { filter: { admin: adminid, status: true } },
+    skip: !adminid,
+  });
+  const { data: productData } = useQuery(GET_PURCHASE_REPORT_PRODUCTS, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminid || !isInvoiceTab,
+  });
+
+  const dataLoading =
+    (isInvoiceTab && (activeLoading || deletedLoading)) ||
+    (isOrderTab && ordersLoading) ||
+    (isReturnTab && returnsLoading);
+
+  // Cancelled bills are left out, as usePurchaseInvoicesQuery does by default.
+  const activeInvoices = useMemo(
+    () =>
+      [...(activeData?.getPurchaseInvoices || [])]
+        .filter((i: any) => i?.cancelStatus !== "cancelled")
+        .reverse(),
+    [activeData]
+  );
+  const deletedInvoices = useMemo(() => [...(deletedData?.getDeletedPurchaseInvoices || [])].reverse(), [deletedData]);
+  const purchaseOrders = useMemo(() => [...(ordersData?.getPurchaseOrders || [])].reverse(), [ordersData]);
+  const purchaseReturns = useMemo(() => [...(returnsData?.getPurchaseReturns || [])].reverse(), [returnsData]);
+  const accountsList: any[] = useMemo(() => accountData?.getAccounts || [], [accountData]);
+  const productList: any[] = useMemo(() => productData?.getProductServices ?? [], [productData]);
 
   const componentRef = useRef<HTMLDivElement>(null);
   const [printInvoice, setPrintInvoice] = useState<any>(null);
 
-  // Default last 30 days
-  useEffect(() => {
-    const to = todayYMD();
-    const from = shiftDaysYMD(-30);
-    setFilters({ fromDate: from, toDate: to });
-    setAppliedFilters({ fromDate: from, toDate: to });
-  }, []);
-
-  // Refetch invoices when status filter changes
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      dispatch(showLoading());
-      try {
-        const isDeleted = appliedFilters.status === "Inactive";
-        const { data } = await (isDeleted ? refetchDeleted() : refetchActive());
-        if (data) {
-          const invoices = isDeleted ? data.getDeletedPurchaseInvoices : data.getPurchaseInvoices;
-          dispatch(addPurchaseInvoices(invoices));
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        dispatch(hideLoading());
-      }
-    };
-    fetchInvoices();
-  }, [dispatch, appliedFilters.status, refetchActive, refetchDeleted]);
-
   // ── Purchase Invoice Data ──
-  const invoiceList =
-    appliedFilters.status === "Inactive"
-      ? deletedInvoices
-      : appliedFilters.status === "Active"
-      ? activeInvoices
-      : [...activeInvoices, ...deletedInvoices];
+  const invoiceList = useMemo(
+    () =>
+      appliedFilters.status === "Inactive"
+        ? deletedInvoices
+        : appliedFilters.status === "Active"
+        ? activeInvoices
+        : [...activeInvoices, ...deletedInvoices],
+    [appliedFilters.status, activeInvoices, deletedInvoices]
+  );
+
+  const accountById = useMemo(() => new Map(accountsList.map((a: any) => [a.id, a])), [accountsList]);
+  const productNameById = useMemo(() => new Map(productList.map((p: any) => [p.id, p.name])), [productList]);
 
   const invoiceTableData = useMemo(() => {
     return invoiceList
-      .map((inv, idx) => {
+      .map((inv: any, idx: number) => {
         const totalqty = inv.productservice?.reduce((s: number, p: any) => s + (p.qty ?? 0), 0) ?? 0;
-        const partyAccObj = accountsList.find(
-          (a) => a.id === (inv.partyacc?.id || inv.partyacc)
-        );
+        const partyAccObj = accountById.get(inv.partyacc?.id || inv.partyacc);
         const partyaccStr = partyAccObj
           ? partyLabel(partyAccObj) || "Unknown"
           : inv.partyacc?.accountname
           ? partyLabel(inv.partyacc) || "Unknown"
           : "Unknown";
-        const productNames = (inv.productservice ?? [])
-          .map((p: any) => {
-            const prodName =
-              productList.find((pr) => pr.id === (p.productserviceid?.id || p.productserviceid))?.name ||
-              p.productserviceid?.name || "Unknown";
-            const variantName = p.variantid?.name ? ` - ${p.variantid.name}` : "";
-            return `${prodName}${variantName}`;
-          })
-          .join(", ");
+        const productNames: string[] = (inv.productservice ?? []).map((p: any) =>
+          productLine(p, productNameById.get(p.productserviceid?.id || p.productserviceid))
+        );
         const productIds = (inv.productservice ?? []).map(
           (p: any) => p.productserviceid?.id || p.productserviceid
         );
@@ -164,7 +234,7 @@ const PurchaseReports: React.FC = () => {
         if (appliedFilters.toDate) ok = ok && row.billdateYMD <= appliedFilters.toDate;
         return ok;
       });
-  }, [invoiceList, appliedFilters, accountsList, productList]);
+  }, [invoiceList, appliedFilters, accountById, productNameById]);
 
   // ── Purchase Order Data ──
   const orderTableData = useMemo(() => {
@@ -175,7 +245,7 @@ const PurchaseReports: React.FC = () => {
         if (appliedFilters.toDate && date > appliedFilters.toDate) return false;
         if (appliedFilters.partyacc && o.partyacc?.id !== appliedFilters.partyacc) return false;
         if (appliedFilters.paymenttype && o.paymenttype?.toLowerCase() !== appliedFilters.paymenttype.toLowerCase()) return false;
-        if (appliedFilters.orderStatus && o.status?.toLowerCase() !== appliedFilters.orderStatus.toLowerCase()) return false;
+        if (appliedFilters.orderStatus && orderStage(o) !== String(appliedFilters.orderStatus).toLowerCase()) return false;
         return true;
       })
       .map((o: any, idx: number) => {
@@ -194,7 +264,7 @@ const PurchaseReports: React.FC = () => {
           discount: Number(o.totaldiscount || 0).toFixed(2),
           gst: Number(o.totalgst || 0).toFixed(2),
           totalAmount: Number(o.totalamount || 0).toFixed(2),
-          status: cap(o.status),
+          status: STAGE_LABEL[orderStage(o)],
         };
       });
   }, [purchaseOrders, appliedFilters]);
@@ -234,8 +304,20 @@ const PurchaseReports: React.FC = () => {
   }, [purchaseReturns, appliedFilters]);
 
   // ── Per-tab config ──
-  const partyOptions = accountsList.map((a) => ({ label: a.accountname || a.name, value: a.id }));
-  const productOptions = productList.map((p) => ({ label: p.name, value: p.id }));
+  // Purchase is bought from vendors — the Party dropdown lists Vendor and
+  // Both accounts only (customers / expense ledgers are left out). The full
+  // accountsList is still used for labels, so old bills keep their party name.
+  const partyOptions = useMemo(
+    () =>
+      accountsList
+        .filter((a: any) => {
+          const t = String(a.type || "").toLowerCase();
+          return t === "vendor" || t === "both";
+        })
+        .map((a: any) => ({ label: a.accountname || a.name, value: a.id })),
+    [accountsList]
+  );
+  const productOptions = useMemo(() => productList.map((p: any) => ({ label: p.name, value: p.id })), [productList]);
 
   let tableData: any[] = [];
   let columns: any[] = [];
@@ -263,7 +345,7 @@ const PurchaseReports: React.FC = () => {
         { label: "Status", key: "status" },
       ];
       filterFields = [
-        { name: "partyacc", label: "Party A/c (Vendor)", type: "select", options: partyOptions, searchable: true },
+        { name: "partyacc", label: "Party A/c (Vendor)", placeholder: "Select Party A/c", type: "select", options: partyOptions, searchable: true },
         { name: "productIds", label: "Product", type: "select", options: productOptions, searchable: true },
         { name: "paymenttype", label: "Payment Type", type: "select", options: [
           { label: "Cash", value: "Cash" },
@@ -379,7 +461,7 @@ const PurchaseReports: React.FC = () => {
           showCsv
           showPdf
           exportFileName={exportFileName}
-          isLoading={isLoading}
+          isLoading={isLoading || dataLoading}
           showTotals
         />
 

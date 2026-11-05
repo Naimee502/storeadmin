@@ -5,13 +5,12 @@ import { useAccountsQuery } from "../../../graphql/hooks/accounts";
 import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useOutstanding } from "../../../graphql/hooks/shared/useoutstanding";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { useSalesReturnsQuery } from "../../../graphql/hooks/salesreturn";
 import { usePurchaseReturnsQuery } from "../../../graphql/hooks/purchasereturn";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
-import { useMutation } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
+import { PARTY_REPORT_SALES_INVOICES, PARTY_REPORT_PURCHASE_INVOICES } from "../../../graphql/queries/reports/party";
 import { SEND_OUTSTANDING_REMINDER } from "../../../graphql/queries/notifications";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
@@ -145,8 +144,33 @@ const PartyReports: React.FC = () => {
   const { data: accountsData } = useAccountsQuery();
   const { data: paymentsData } = usePaymentsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
-  const { data: salesInvData } = useSalesInvoicesQuery();
-  const { data: purchaseInvData } = usePurchaseInvoicesQuery();
+  // Lite invoice lists, only for the side(s) the active tab reads.
+  // Scoped exactly like useSalesInvoicesQuery / usePurchaseInvoicesQuery.
+  const selectedBranchId = useAppSelector((state: any) => state.selectedBranch.branchId);
+  const invAdminid = adminid;
+  const invBranchid =
+    auth.type === "admin" ? selectedBranchId : auth.type === "branch" ? auth.branch?.id : auth.type === "staff" ? auth.staff?.branchid?.id : undefined;
+  const stmtType = activeTab === "Party Statement"
+    ? (accountsData?.getAccounts || []).find((x: any) => x.id === appliedFilters.partyid)?.type
+    : undefined;
+  // Statement: same rule as statementData (vendor side → purchases; customer
+  // side, or anything not specifically a vendor → sales).
+  const needPurchaseInv =
+    activeTab === "Vendor Outstanding" ||
+    activeTab === "Receivable / Payable Aging" ||
+    (activeTab === "Party Statement" && !!stmtType && isVendorParty(stmtType));
+  const needSalesInv =
+    activeTab === "Customer Outstanding" ||
+    activeTab === "Receivable / Payable Aging" ||
+    (activeTab === "Party Statement" && !!stmtType && (isCustomerParty(stmtType) || !isVendorParty(stmtType)));
+  const { data: salesInvData } = useQuery(PARTY_REPORT_SALES_INVOICES, {
+    variables: { filter: { adminid: invAdminid, branchid: invBranchid } },
+    skip: !needSalesInv,
+  });
+  const { data: purchaseInvData } = useQuery(PARTY_REPORT_PURCHASE_INVOICES, {
+    variables: { filter: { adminid: invAdminid, branchid: invBranchid } },
+    skip: !needPurchaseInv,
+  });
   // Returns show on a statement as Credit / Debit Notes.
   const { data: salesRetData } = useSalesReturnsQuery();
   const { data: purchaseRetData } = usePurchaseReturnsQuery();
@@ -160,15 +184,22 @@ const PartyReports: React.FC = () => {
   // (The stored key still says "OnStatement" so saved settings carry over.)
   const showLastPayment = !!adminSettingsData?.getAdminSettings?.showLastPaymentOnStatement;
 
-  const accounts = [...(accountsData?.getAccounts || [])].reverse();
+  const accounts = useMemo(() => [...(accountsData?.getAccounts || [])].reverse(), [accountsData]);
   const payments = paymentsData?.getPayments || [];
 
   const { outstandingOf, excessCreditOf } = useOutstanding();
   const ledgers = ledgerData?.getAccountLedgers || [];
   const salesReturns = salesRetData?.getSalesReturns || [];
   const purchaseReturns = purchaseRetData?.getPurchaseReturns || [];
-  const salesInvoices = salesInvData?.getSalesInvoices || [];
-  const purchaseInvoices = purchaseInvData?.getPurchaseInvoices || [];
+  // Cancelled bills are reversed out of the books — same default as the hooks.
+  const salesInvoices = useMemo(
+    () => (salesInvData?.getSalesInvoices || []).filter((i: any) => i?.cancelStatus !== "cancelled"),
+    [salesInvData]
+  );
+  const purchaseInvoices = useMemo(
+    () => (purchaseInvData?.getPurchaseInvoices || []).filter((i: any) => i?.cancelStatus !== "cancelled"),
+    [purchaseInvData]
+  );
 
   // -----------------------------
   // Default filters = last 30 days
@@ -551,7 +582,7 @@ const PartyReports: React.FC = () => {
               : creditLimit > 0 && used > creditLimit
                 ? "Limit Crossed"
                 : "OK",
-          account: partyLabelOf(a),
+          party: partyLabelOf(a),
           ledger: a.ledgerid?.ledgername || "-",
           type: a.type.charAt(0).toUpperCase() + a.type.slice(1),
           outstanding: fmtAmt(outstanding),
@@ -887,7 +918,7 @@ const PartyReports: React.FC = () => {
     case "Receivable / Payable Aging":
       tableData = agingData;
       columns = [
-        { label: "Account", key: "account" },
+        { label: "Account", key: "party" },
         { label: "Ledger", key: "ledger" },
         { label: "Type", key: "type" },
         { label: "Outstanding (₹)", key: "outstanding", numeric: true },

@@ -5,11 +5,28 @@ import { formatDateDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaCalculator, FaMoneyCheckAlt, FaFileInvoiceDollar, FaBoxes, FaFileAlt, FaFileContract } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import {
+  GST_REPORT_SALES_INVOICES,
+  GST_REPORT_PURCHASE_INVOICES,
+  GST_REPORT_TRANSACTIONS,
+} from "../../../graphql/queries/reports/gst";
+import { PRODUCT_REPORT_PRODUCT_OPTIONS } from "../../../graphql/queries/reports/product";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
+import { partyLabel } from "../../../utils/partylabel";
+
+// Tabs that read sales / purchase invoices — the other side is not fetched.
+const SALES_TABS = ["GST Summary", "GST Receivable", "GST by Product", "GSTR-1"];
+const PURCHASE_TABS = ["GST Payable", "GST by Product", "GSTR-2"];
+
+/** "YYYY-MM-DD" shifted by n days (UTC, no timezone drift). */
+const shiftYMD = (ymd: string, n: number) => {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  if (isNaN(d.getTime())) return undefined;
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 const reportTabsObj = [
   { id: "GST Summary", label: "GST Summary", icon: <FaCalculator className="text-xs text-blue-600" /> },
@@ -22,19 +39,86 @@ const reportTabsObj = [
 
 const GSTReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState(reportTabsObj[0].id);
-  const [filters, setFilters] = useState({});
-  const [appliedFilters, setAppliedFilters] = useState({} as any);
+  // Seeded with the default range on the first render so the date-scoped
+  // journal query is never fired once unfiltered before the effect below runs.
+  const [filters, setFilters] = useState<any>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
+  const [appliedFilters, setAppliedFilters] = useState<any>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
   const { data: accountsData } = useAccountsQuery();
-  const { data: salesData } = useSalesInvoicesQuery();
-  const { data: purchaseData } = usePurchaseInvoicesQuery();
-  const { data: productData } = useProductServicesQuery();
-  const { data: transactionsData } = useTransactionsQuery();
+
+  // Same adminid/branchid scoping as useSalesInvoicesQuery & co.
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const needSales = SALES_TABS.includes(activeTab);
+  const needPurchase = PURCHASE_TABS.includes(activeTab);
+
+  // Lite invoice lists, only for the side the active tab shows. (No server
+  // billdate filter: see queries/reports/gst.ts — dates are filtered below.)
+  const { data: salesData } = useQuery(GST_REPORT_SALES_INVOICES, {
+    variables: {
+      // Server now ranges invoices by billdate (text compare, whole To day
+      // included), so only the chosen period is downloaded. The client-side
+      // date filter below stays as a safety net.
+      filter: {
+        adminid,
+        branchid,
+        ...(appliedFilters.fromDate ? { billdateFrom: appliedFilters.fromDate } : {}),
+        ...(appliedFilters.toDate ? { billdateTo: appliedFilters.toDate } : {}),
+      },
+    },
+    skip: !needSales,
+  });
+  const { data: purchaseData } = useQuery(GST_REPORT_PURCHASE_INVOICES, {
+    variables: {
+      // Server now ranges invoices by billdate (text compare, whole To day
+      // included), so only the chosen period is downloaded. The client-side
+      // date filter below stays as a safety net.
+      filter: {
+        adminid,
+        branchid,
+        ...(appliedFilters.fromDate ? { billdateFrom: appliedFilters.fromDate } : {}),
+        ...(appliedFilters.toDate ? { billdateTo: appliedFilters.toDate } : {}),
+      },
+    },
+    skip: !needPurchase,
+  });
+  // Product picker only on "GST by Product".
+  const { data: productData } = useQuery(PRODUCT_REPORT_PRODUCT_OPTIONS, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminid || activeTab !== "GST by Product",
+    fetchPolicy: "cache-and-network",
+  });
+  // Journals for the applied date range only (an invoice's journal is dated on
+  // its bill date). A day of slack each side absorbs timezone casting; extra
+  // journals are harmless because they are looked up by source document id.
+  const trxDateFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : undefined;
+  const trxDateToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : undefined;
+  const { data: transactionsData } = useQuery(GST_REPORT_TRANSACTIONS, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        dateFrom: trxDateFrom,
+        dateTo: trxDateToDay ? `${trxDateToDay}T23:59:59.999Z` : undefined,
+      },
+    },
+    fetchPolicy: "cache-and-network",
+  });
 
   const accounts = accountsData?.getAccounts || [];
-  const salesInvoices = [...(salesData?.getSalesInvoices || [])].reverse();
-  const purchaseInvoices = [...(purchaseData?.getPurchaseInvoices || [])].reverse();
-  const products = productData?.getProductServices || [];
+  // Cancelled bills are reversed out of the books — same default as the hooks.
+  const salesInvoices = useMemo(
+    () => [...(salesData?.getSalesInvoices || [])].filter((i: any) => i?.cancelStatus !== "cancelled").reverse(),
+    [salesData]
+  );
+  const purchaseInvoices = useMemo(
+    () => [...(purchaseData?.getPurchaseInvoices || [])].filter((i: any) => i?.cancelStatus !== "cancelled").reverse(),
+    [purchaseData]
+  );
+  const products: any[] = useMemo(() => productData?.getProductServices || [], [productData]);
 
   // Default Date Range
   useEffect(() => {
@@ -94,7 +178,7 @@ const GSTReports: React.FC = () => {
       );
 
       return {
-        productId: product?.id,
+        productId: product?.id || ps.productserviceid?.id,
         productName: product?.name || ps.productserviceid?.name || "Unknown",
         quantity: ps.qty || 0,
         taxable: productTaxable,
@@ -127,7 +211,7 @@ const GSTReports: React.FC = () => {
 
         return true;
       })
-      .map((inv) => {
+      .map((inv: any) => {
         const trxGST = gstFromTransactions[inv.id] || {
           cgst: 0,
           sgst: 0,
@@ -141,7 +225,7 @@ const GSTReports: React.FC = () => {
         return {
           invoiceNo: inv.billnumber,
           invoiceDate: formatDateDMY(inv.billdate),
-          partyName: inv.partyacc?.accountname || "",
+          partyName: partyLabel(inv.partyacc),
           gstin: inv.partyacc?.gstnumber || "",
           taxable,
           cgst: trxGST.cgst,
@@ -180,7 +264,7 @@ const GSTReports: React.FC = () => {
 
         return true;
       })
-      .map((inv) => {
+      .map((inv: any) => {
         const trxGST = gstFromTransactions[inv.id] || {
           cgst: 0,
           sgst: 0,
@@ -194,7 +278,7 @@ const GSTReports: React.FC = () => {
         return {
           invoiceNo: inv.billnumber,
           invoiceDate: formatDateDMY(inv.billdate),
-          partyName: inv.partyacc?.accountname || "",
+          partyName: partyLabel(inv.partyacc),
           gstin: inv.partyacc?.gstnumber || "",
           taxable,
           cgst: trxGST.cgst,
@@ -216,7 +300,7 @@ const GSTReports: React.FC = () => {
   // --------------------------------------------
   // GSTR-1
   // --------------------------------------------
-  const gstr1 = gstSalesReport.map((r) => ({
+  const gstr1 = useMemo(() => gstSalesReport.map((r: any) => ({
     invoiceNo: r.invoiceNo,
     invoiceDate: r.invoiceDate,
     customer: r.partyName,
@@ -227,12 +311,12 @@ const GSTReports: React.FC = () => {
     igst: r.igst,
     totalGst: r.totalGst,
     invoiceAmount: r.totalAmount,
-  }));
+  })), [gstSalesReport]);
 
   // --------------------------------------------
   // GSTR-2
   // --------------------------------------------
-  const gstr2 = gstPurchaseReport.map((r) => ({
+  const gstr2 = useMemo(() => gstPurchaseReport.map((r: any) => ({
     invoiceNo: r.invoiceNo,
     invoiceDate: r.invoiceDate,
     vendor: r.partyName,
@@ -243,7 +327,7 @@ const GSTReports: React.FC = () => {
     igst: r.igst,
     totalGst: r.totalGst,
     invoiceAmount: r.totalAmount,
-  }));
+  })), [gstPurchaseReport]);
 
   // --------------------------------------------
   // Filter Dropdown Options (FIXED)
@@ -262,7 +346,7 @@ const GSTReports: React.FC = () => {
       value: a.name,
     }));
 
-  const productOptions = products.map((p) => ({
+  const productOptions = products.map((p: any) => ({
     label: p.name,
     value: p.id, // FIXED
   }));

@@ -110,3 +110,5 @@ select:not([multiple]):not([size]):disabled {
   border-color: #e2e8f0;
 }
 .formpage-body h4 { font-size: 12px; }
+/* Thin loading bar on report tables */
+@keyframes reportbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }

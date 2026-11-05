@@ -3,7 +3,7 @@ import { useQuery } from "@apollo/client";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportColumn } from "../../../components/reporttable";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { useLatestLocationsQuery, useLocationPingsQuery, useTravelSummaryQuery } from "../../../graphql/hooks/locationping";
+import { GET_LOCATION_PINGS, GET_LATEST_LOCATIONS, GET_TRAVEL_SUMMARY } from "../../../graphql/queries/locationping";
 import {
   GET_SALESMAN_PERFORMANCE, GET_SALESMAN_CALL_LOG, GET_SALESMAN_ORDER_LINES,
 } from "../../../graphql/queries/salesmanreport";
@@ -515,9 +515,25 @@ const SalesmanFieldReport: React.FC = () => {
     dateFrom: trk.date || undefined,
     dateTo: trk.date || undefined,
   }), [trk]);
-  const { data: locationsData } = useLatestLocationsQuery(locFilter);
-  const { data: trailData } = useLocationPingsQuery(locFilter);
-  const { data: dayTravelData } = useTravelSummaryQuery(locFilter);
+  // Same variables as the locationping hooks (admin-scoped only), but only on
+  // the Live tab — and the full trail only once a salesman is picked (it was
+  // fetched for everyone on every tab and then discarded).
+  const isLive = tab === "live";
+  const { data: locationsData } = useQuery(GET_LATEST_LOCATIONS, {
+    variables: { filter: { adminid: adminId, ...locFilter } },
+    skip: !adminId || !isLive,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: trailData } = useQuery(GET_LOCATION_PINGS, {
+    variables: { filter: { adminid: adminId, ...locFilter } },
+    skip: !adminId || !isLive || !trk.salesmanid,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: dayTravelData } = useQuery(GET_TRAVEL_SUMMARY, {
+    variables: { filter: { adminid: adminId, ...locFilter } },
+    skip: !adminId || !isLive,
+    fetchPolicy: "cache-and-network",
+  });
   const dayTravel: any[] = (dayTravelData as any)?.getTravelSummary || [];
   const locations = (locationsData as any)?.getLatestLocations || [];
   const trail = trk.salesmanid ? ((trailData as any)?.getLocationPings || []) : [];

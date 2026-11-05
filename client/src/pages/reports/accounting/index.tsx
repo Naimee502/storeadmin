@@ -1,27 +1,29 @@
 import React, { useEffect, useState, useMemo } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { FaBookOpen, FaChartPie, FaBalanceScale, FaWater, FaListUl, FaHandHoldingUsd, FaReceipt, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaBookOpen, FaChartPie, FaBalanceScale, FaWater, FaListUl, FaHandHoldingUsd, FaReceipt } from "react-icons/fa";
 
 import { useAccountsQuery } from "../../../graphql/hooks/accounts";
-import { useTransactionsQuery } from "../../../graphql/hooks/transactions";
-import { usePaymentsQuery } from "../../../graphql/hooks/payments";
 import { useAccountGroupsQuery } from "../../../graphql/hooks/accountgroups";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
-import { useExpenseNotesQuery } from "../../../graphql/hooks/expensenote";
-import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { GET_TRANSACTIONS } from "../../../graphql/queries/transactions";
+import { GET_PAYMENTS } from "../../../graphql/queries/payments";
+import { GET_EXPENSE_NOTES } from "../../../graphql/queries/expensenote";
+import { GET_STAFF } from "../../../graphql/queries/staffaccounts";
 import { useAdminSettingsQuery } from "../../../graphql/hooks/adminsettings";
 import { normalizeToYMD, formatDateDMY, todayYMD, shiftDaysYMD, timestampOf, compareStatementRows } from "../../../utils/helper";
 
 const reportTabsObj = [
-    { id: "Ledger", label: "Ledger", icon: <FaBookOpen className="text-[12px] text-blue-600" /> },
+    // Ledger Statement first. The old "Ledger" tab showed the same thing, so it was removed.
+    { id: "Ledger Statement", label: "Ledger Statement", icon: <FaBookOpen className="text-[12px] text-blue-600" /> },
     { id: "Profit & Loss", label: "Profit & Loss", icon: <FaChartPie className="text-[12px] text-emerald-600" /> },
     { id: "Balance Sheet", label: "Balance Sheet", icon: <FaBalanceScale className="text-[12px] text-purple-600" /> },
     { id: "Cash Flow Statement", label: "Cash Flow Statement", icon: <FaWater className="text-[12px] text-cyan-600" /> },
     { id: "Transactions Summary", label: "Transactions Summary", icon: <FaListUl className="text-[12px] text-amber-600" /> },
     { id: "Payments / Receipts", label: "Payments / Receipts", icon: <FaHandHoldingUsd className="text-[12px] text-rose-600" /> },
     { id: "Expense Notes", label: "Expense Notes", icon: <FaReceipt className="text-[12px] text-rose-600" /> },
-    { id: "Ledger Statement", label: "Ledger Statement", icon: <FaFileInvoiceDollar className="text-[12px] text-indigo-600" /> },
 ];
 
 const AccountingFinanceReports: React.FC = () => {
@@ -35,19 +37,51 @@ const AccountingFinanceReports: React.FC = () => {
     const { data: accountsData } = useAccountsQuery();
     const { data: accountsGroupData } = useAccountGroupsQuery();
     const { data: accountLedgerData } = useAccountLedgersQuery();
-    const { data: transactionsData } = useTransactionsQuery();
-    const { data: paymentsData } = usePaymentsQuery();
-    const { data: expenseData } = useExpenseNotesQuery();
-    const { data: staffData } = useStaffQuery();
+    // The heavy collections are fetched only for the tabs that read them.
+    // Same query documents + variables as useTransactionsQuery /
+    // usePaymentsQuery / useExpenseNotesQuery / useStaffQuery, so the cache is
+    // shared with the rest of the app.
+    const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+    const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? authStaff?.admin?.id : undefined;
+    const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? authStaff?.branchid?.id : undefined;
+
+    // Ledger: transactions + payments/expense notes (source remarks).
+    // P&L / Balance Sheet / Transactions Summary: transactions only.
+    // Ledger Statement / Cash Flow / Payments: payments only.
+    // Expense Notes: expense notes + staff picker.
+    const needTransactions = ["Ledger", "Profit & Loss", "Balance Sheet", "Transactions Summary"].includes(activeTab);
+    const needPayments = ["Ledger", "Ledger Statement", "Cash Flow Statement", "Payments / Receipts"].includes(activeTab);
+    const needExpenses = ["Ledger", "Expense Notes"].includes(activeTab);
+    const needStaff = activeTab === "Expense Notes";
+
+    const { data: transactionsData } = useQuery(GET_TRANSACTIONS, {
+        variables: { filter: { adminid, branchid } },
+        fetchPolicy: "cache-and-network",
+        skip: !needTransactions,
+    });
+    const { data: paymentsData } = useQuery(GET_PAYMENTS, {
+        variables: { filter: { adminid, branchid } },
+        fetchPolicy: "cache-and-network",
+        skip: !needPayments,
+    });
+    const { data: expenseData } = useQuery(GET_EXPENSE_NOTES, {
+        variables: { filter: { adminid, branchid } },
+        skip: !needExpenses,
+    });
+    const { data: staffData } = useQuery(GET_STAFF, {
+        variables: { filter: { adminId: adminid } },
+        skip: !adminid || !needStaff,
+    });
     const { data: adminSettingsData } = useAdminSettingsQuery();
 
-    const accounts = accountsData?.getAccounts || [];
-    const accountsGroup = accountsGroupData?.getAccountGroups || [];
-    const ledgers = accountLedgerData?.getAccountLedgers || [];
-    const transactions = [...(transactionsData?.getTransactions || [])].reverse();
-    const payments = [...(paymentsData?.getPayments || [])].reverse();
-    const expenseNotes = expenseData?.getExpenseNotes || [];
-    const staff = staffData?.getStaffAccounts || [];
+    const accounts: any[] = useMemo(() => accountsData?.getAccounts || [], [accountsData]);
+    const accountsGroup: any[] = useMemo(() => accountsGroupData?.getAccountGroups || [], [accountsGroupData]);
+    const ledgers: any[] = useMemo(() => accountLedgerData?.getAccountLedgers || [], [accountLedgerData]);
+    const transactions: any[] = useMemo(() => [...(transactionsData?.getTransactions || [])].reverse(), [transactionsData]);
+    const payments: any[] = useMemo(() => [...(paymentsData?.getPayments || [])].reverse(), [paymentsData]);
+    const expenseNotes: any[] = useMemo(() => expenseData?.getExpenseNotes || [], [expenseData]);
+    const staff: any[] = staffData?.getStaffAccounts || [];
 
     // Per-business feature flag: "Discount & Commission on Payment settlement".
     // Off means the business never collects a concession, so the four-column

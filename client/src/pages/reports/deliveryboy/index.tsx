@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField, type ReportColumn } from "../../../components/reporttable";
 import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
-import { useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
-import { usePaymentsQuery } from "../../../graphql/hooks/payments";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { DELIVERYBOY_REPORT_SALES_ORDERS, DELIVERYBOY_REPORT_PAYMENTS } from "../../../graphql/queries/reports/deliveryboy";
+import { GET_LOCATION_PINGS, GET_LATEST_LOCATIONS, GET_TRAVEL_SUMMARY } from "../../../graphql/queries/locationping";
 import LiveTrackingMap from "../../../components/livetrackingmap";
-import { useLatestLocationsQuery, useLocationPingsQuery, useTravelSummaryQuery } from "../../../graphql/hooks/locationping";
 import { cumulativeKm } from "../../../utils/travel";
 import { normalizeToYMD, formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaTruck, FaMapMarkedAlt } from "react-icons/fa";
@@ -21,6 +22,14 @@ const reportTabsObj = [
 // spot that's already been resolved.
 const geocodeCache: Record<string, string> = {};
 
+/** "YYYY-MM-DD" shifted by n days (UTC, no timezone drift). */
+const shiftYMD = (ymd: string, n: number) => {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  if (isNaN(d.getTime())) return undefined;
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
 /**
  * Delivery Boy Report — field overview per delivery boy:
  *  • Orders assigned / delivered / pending
@@ -30,8 +39,10 @@ const geocodeCache: Record<string, string> = {};
  */
 const DeliveryBoyReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(reportTabsObj[0].id);
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+  // Seeded with the default range on the first render so the date-scoped
+  // queries never fire once unfiltered before the effect below runs.
+  const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
   // Live Tracking has its own filter set (single Date instead of a From/To
   // range) — kept separate from the Summary / Day-wise filters above.
@@ -39,12 +50,52 @@ const DeliveryBoyReport: React.FC = () => {
   const [trackingAppliedFilters, setTrackingAppliedFilters] = useState<{ [key: string]: any }>({});
 
   const { data: staffData } = useStaffQuery();
+
+  // Same adminid/branchid scoping as useSalesOrdersQuery / usePaymentsQuery /
+  // the locationping hooks (those are admin-scoped only).
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const isTracking = activeTab === "Live Tracking";
+  const isSummaryTab = activeTab === "Summary";
+
   // includeConverted: once a delivery order is invoiced (isConverted: true),
   // the default query (isConverted: false) hides it — but it's still a real
   // delivery that must show up here (deliveryboyid/deliveryStatus carry over
   // to the invoice via syncInvoiceFromOrder on the server).
-  const { data: ordersData } = useSalesOrdersQuery({ includeConverted: true });
-  const { data: paymentsData } = usePaymentsQuery();
+  // Lite + server-side date range (string compare on "YYYY-MM-DD", To day
+  // inclusive); the client-side range check below stays as a safety net.
+  const { data: ordersData } = useQuery(DELIVERYBOY_REPORT_SALES_ORDERS, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        includeConverted: true,
+        billdateFrom: appliedFilters.fromDate || undefined,
+        billdateTo: appliedFilters.toDate || undefined,
+      },
+    },
+    skip: isTracking,
+  });
+  // Collections only feed the Summary tab. paymentdate is a Date on the
+  // server, so the range is padded a day each side (timezone) and the exact
+  // local-day check below decides.
+  const payFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : undefined;
+  const payToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : undefined;
+  const { data: paymentsData } = useQuery(DELIVERYBOY_REPORT_PAYMENTS, {
+    variables: {
+      filter: {
+        adminid,
+        branchid,
+        dateFrom: payFrom,
+        dateTo: payToDay ? `${payToDay}T23:59:59.999Z` : undefined,
+      },
+    },
+    fetchPolicy: "cache-and-network",
+    skip: !isSummaryTab,
+  });
 
   // Live-tracking data honours its own single-date filter, and picking a
   // delivery boy fetches their ordered trail (punch-in → punch-out) for that day.
@@ -54,22 +105,45 @@ const DeliveryBoyReport: React.FC = () => {
     dateFrom: trackingAppliedFilters.date || undefined,
     dateTo: trackingAppliedFilters.date || undefined,
   }), [trackingAppliedFilters]);
-  const { data: locationsData } = useLatestLocationsQuery(locFilter);
-  const { data: trailData } = useLocationPingsQuery(locFilter);
+  // Tracking queries only on the Live Tracking tab; the trail only once a
+  // delivery boy is picked (it was fetched for everyone and then discarded).
+  const { data: locationsData } = useQuery(GET_LATEST_LOCATIONS, {
+    variables: { filter: { adminid, ...locFilter } },
+    skip: !adminid || !isTracking,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: trailData } = useQuery(GET_LOCATION_PINGS, {
+    variables: { filter: { adminid, ...locFilter } },
+    skip: !adminid || !isTracking || !trackingAppliedFilters.deliveryboyid,
+    fetchPolicy: "cache-and-network",
+  });
   // KM per delivery boy per day: Live Tracking day + Summary range.
-  const { data: dayTravelData } = useTravelSummaryQuery(locFilter);
-  const { data: rangeTravelData } = useTravelSummaryQuery({
-    role: "deliveryboy",
-    dateFrom: appliedFilters.fromDate || undefined,
-    dateTo: appliedFilters.toDate || undefined,
+  const { data: dayTravelData } = useQuery(GET_TRAVEL_SUMMARY, {
+    variables: { filter: { adminid, ...locFilter } },
+    skip: !adminid || !isTracking,
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: rangeTravelData } = useQuery(GET_TRAVEL_SUMMARY, {
+    variables: {
+      filter: {
+        adminid,
+        role: "deliveryboy",
+        dateFrom: appliedFilters.fromDate || undefined,
+        dateTo: appliedFilters.toDate || undefined,
+      },
+    },
+    skip: !adminid || !isSummaryTab,
+    fetchPolicy: "cache-and-network",
   });
   const dayTravel: any[] = (dayTravelData as any)?.getTravelSummary || [];
   const rangeTravel: any[] = (rangeTravelData as any)?.getTravelSummary || [];
 
-  const staffList = [...(staffData?.getStaffAccounts || [])].reverse();
-  const deliveryBoys = staffList.filter((s: any) => s.role?.toLowerCase() === "deliveryboy");
-  const orders = ordersData?.getSalesOrders || [];
-  const payments = paymentsData?.getPayments || [];
+  const deliveryBoys = useMemo(
+    () => [...(staffData?.getStaffAccounts || [])].reverse().filter((s: any) => s.role?.toLowerCase() === "deliveryboy"),
+    [staffData]
+  );
+  const orders: any[] = useMemo(() => ordersData?.getSalesOrders || [], [ordersData]);
+  const payments: any[] = useMemo(() => paymentsData?.getPayments || [], [paymentsData]);
   const locations = locationsData?.getLatestLocations || [];
   // Full ordered trail (punch-in → punch-out) only when a single delivery boy is picked.
   const trail = trackingAppliedFilters.deliveryboyid ? ((trailData as any)?.getLocationPings || []) : [];

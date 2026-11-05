@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import HomeLayout from "../../../layouts/home";
 import ReportTable, { type ReportFilterField } from "../../../components/reporttable";
-import { useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
-import { useProductServicesQuery } from "../../../graphql/hooks/products";
+import { useQuery } from "@apollo/client";
+import { useAppSelector } from "../../../redux/hooks";
+import { ANALYTICS_REPORT_SALES_INVOICES, ANALYTICS_REPORT_PRODUCT_COSTS } from "../../../graphql/queries/reports/analytics";
+import { PRODUCT_REPORT_PRODUCT_OPTIONS } from "../../../graphql/queries/reports/product";
 import { normalizeToYMD, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaTrophy, FaHourglassHalf, FaChartLine } from "react-icons/fa";
 
@@ -18,11 +20,54 @@ const AnalyticalReports: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
   // Fetch data
-  const { data: salesData } = useSalesInvoicesQuery();
-  const { data: productData } = useProductServicesQuery();
+  // Same adminid/branchid scoping as useSalesInvoicesQuery.
+  const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? authStaff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? authStaff?.branchid?.id : undefined;
+  const { data: salesData } = useQuery(ANALYTICS_REPORT_SALES_INVOICES, {
+    variables: {
+      // Server now ranges invoices by billdate (text compare, whole To day
+      // included), so only the chosen period is downloaded. The client-side
+      // date filter below stays as a safety net.
+      filter: {
+        adminid,
+        branchid,
+        ...(appliedFilters.fromDate ? { billdateFrom: appliedFilters.fromDate } : {}),
+        ...(appliedFilters.toDate ? { billdateTo: appliedFilters.toDate } : {}),
+      },
+    },
+  });
+  // Product list is only read by "Slow Moving Products".
+  const { data: productData } = useQuery(PRODUCT_REPORT_PRODUCT_OPTIONS, {
+    variables: { filter: { adminid, branchid, status: true }, limit: 0, offset: 0 },
+    skip: !adminid || activeTab !== "Slow Moving Products",
+    fetchPolicy: "cache-and-network",
+  });
 
-  const salesInvoices = salesData?.getSalesInvoices || [];
-  const products = productData?.getProductServices || [];
+  // Purchase rates are only read by "Profit Margin Analysis". No status filter:
+  // a product deactivated since it was sold still needs its cost.
+  const { data: costData } = useQuery(ANALYTICS_REPORT_PRODUCT_COSTS, {
+    variables: { filter: { adminid, branchid }, limit: 0, offset: 0 },
+    skip: !adminid || activeTab !== "Profit Margin Analysis",
+    fetchPolicy: "cache-and-network",
+  });
+
+  // Cancelled bills are reversed out of the books — same default as the hook.
+  const salesInvoices: any[] = useMemo(
+    () => (salesData?.getSalesInvoices || []).filter((i: any) => i?.cancelStatus !== "cancelled"),
+    [salesData]
+  );
+  const products: any[] = useMemo(() => productData?.getProductServices || [], [productData]);
+
+  // productId -> variants (with purchase rate + unit conversions).
+  const variantsByProduct = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (costData?.getProductServices || []).forEach((p: any) => {
+      if (p?.id) map[p.id] = p.productvariants || [];
+    });
+    return map;
+  }, [costData]);
 
   // Initialize date filter (last 30 days)
   useEffect(() => {
@@ -75,6 +120,31 @@ const AnalyticalReports: React.FC = () => {
   }, [salesInvoices, products, appliedFilters]);
 
   // ── Profit Margin Analysis ──
+  // Invoice lines keep no purchase-cost snapshot, so a line is costed at the
+  // variant's CURRENT purchaserate (an approximation: past bills are valued at
+  // today's rate, not the rate/average cost at the time of sale). Units follow
+  // the server's stock maths: qty × unitqty is converted to base units via the
+  // sales unit's factor, and purchaserate (per purchase unit) is divided by the
+  // purchase unit's factor. A missing / zero rate means "unknown cost".
+  const lineCost = useCallback((p: any): number | null => {
+    const variants = variantsByProduct[p.productserviceid?.id];
+    if (!variants?.length) return null;
+    const variantId = p.variantid?.id;
+    const variant = variantId
+      ? variants.find((v: any) => v?.id === variantId)
+      : variants.length === 1 ? variants[0] : null;
+    const rate = Number(variant?.purchaserate);
+    if (!variant || !Number.isFinite(rate) || rate <= 0) return null;
+    const factorOf = (unitId?: string): number => {
+      if (!unitId || unitId === variant.baseunitid?.id) return 1;
+      const f = Number(variant.unitconversions?.find((u: any) => u?.unitid?.id === unitId)?.factor);
+      return Number.isFinite(f) && f > 0 ? f : 1;
+    };
+    const baseQty = (Number(p.qty) || 0) * (Number(p.unitqty) || 1) * factorOf(p.salesunitid?.id);
+    const baseRate = rate / factorOf(variant.purchaseunitid?.id);
+    return baseQty * baseRate;
+  }, [variantsByProduct]);
+
   const profitMarginData = useMemo(() => {
     const marginMap: Record<string, any> = {};
     salesInvoices.forEach((inv) => {
@@ -86,19 +156,30 @@ const AnalyticalReports: React.FC = () => {
         const prodId = p.productserviceid?.id;
         const prodName = p.productserviceid?.name;
         if (!marginMap[prodId]) {
-          marginMap[prodId] = { productName: prodName, revenue: 0, cost: 0 };
+          marginMap[prodId] = { productName: prodName, revenue: 0, cost: 0, costUnknown: false };
         }
-        marginMap[prodId].revenue += p.amount || 0;
-        marginMap[prodId].cost += p.purchaseamount || 0;
+        marginMap[prodId].revenue += Number(p.amount) || 0;
+        const c = lineCost(p);
+        if (c === null) marginMap[prodId].costUnknown = true;
+        else marginMap[prodId].cost += c;
       });
     });
-    return Object.values(marginMap).map((m) => ({
-      ...m,
-      profit: m.revenue - m.cost,
-      profitMargin:
-        m.revenue ? (((m.revenue - m.cost) / m.revenue) * 100).toFixed(2) + "%" : "-",
-    }));
-  }, [salesInvoices, appliedFilters]);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    // Any line without a known cost makes the product's cost/profit/margin
+    // unknown ("-", which ReportTable leaves out of the Totals row) rather
+    // than a misleading partial figure.
+    return Object.values(marginMap).map(({ costUnknown, ...m }) => {
+      if (costUnknown) return { ...m, revenue: round2(m.revenue), cost: "-", profit: "-", profitMargin: "-" };
+      const profit = m.revenue - m.cost;
+      return {
+        ...m,
+        revenue: round2(m.revenue),
+        cost: round2(m.cost),
+        profit: round2(profit),
+        profitMargin: m.revenue > 0 ? ((profit / m.revenue) * 100).toFixed(2) + "%" : "-",
+      };
+    });
+  }, [salesInvoices, appliedFilters, lineCost]);
 
   // ── Tab Config ──
   let tableData: any[] = [];
