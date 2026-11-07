@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@apollo/client";
 import {
   GET_SALES_ROUTES,
+  GET_SALES_ROUTES_PAGE,
   GET_SALES_ROUTE_BY_ID,
 } from "../queries/salesroutes";
 import {
@@ -22,6 +23,35 @@ export const useSalesRoutesQuery = (
     skip,
     fetchPolicy: "network-only",
   });
+};
+
+export const useSalesRoutesPageQuery = (
+  filter: any,
+  {
+    page,
+    pageSize,
+    search,
+    columnFilters = [],
+  }: {
+    page: number;
+    pageSize: number;
+    search: string;
+    columnFilters?: { key: string; value: string }[];
+  }
+) => {
+  const { data, loading, error, refetch } = useQuery(GET_SALES_ROUTES_PAGE, {
+    variables: { filter: { ...filter, status: true }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getSalesRoutesPage?.items ?? [],
+    total: data?.getSalesRoutesPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };
 
 export const useDeletedSalesRoutesQuery = (

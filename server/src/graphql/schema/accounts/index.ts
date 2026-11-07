@@ -190,9 +190,17 @@ export const accountTypeDefs = gql`
     qty: Float
   }
 
+  # One page of the Party Accounts list. subPartyCount counts parties with a parent in the whole list.
+  type AccountPage {
+    items: [Account!]!
+    total: Int!
+    subPartyCount: Int!
+  }
+
   type Query {
     getPartyStock(partyid: ID!): [PartyStockRow!]!
     getAccounts(filter: AccountFilterInput): [Account!]!
+    getAccountsPage(filter: AccountFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!], directPartiesOnly: Boolean): AccountPage!
     getAccountById(id: ID!, adminId: ID): Account
     getDownlinePartyBalances(partyid: ID!): [PartyBalance!]!
     # Batched "what does each party still owe" for list screens. Same basis as

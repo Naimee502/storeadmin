@@ -15,6 +15,8 @@ import {
   getPartyRunningBalance,
   type InvoiceModel,
 } from "../../../utils/allocation";
+import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
+import { activeText, dmyOrDash, fixed2, num, searchAndFilterClauses, textOr } from "../transactions/listtext";
 
 // Recursively collect party ids under a root party (assignaccountid chain),
 // for channel downline payment visibility.
@@ -240,43 +242,149 @@ async function prepareAllocation(input: any, excludePaymentId?: any) {
   };
 }
 
+/** Role and filter scope of the payments list (getPayments and its page query). */
+async function buildPaymentQuery(filter: any, context: any): Promise<any> {
+  const query: any = { status: true };
+  const { user } = context;
+
+  if (user?.type === "branch") {
+    query.$or = [
+      { createdby_type: "branch", createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id },
+    ];
+  } else if (user?.type === "staff") {
+    query.createdby_id = user?.id;
+  }
+
+  if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
+  if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
+  if (filter.type) query.type = filter.type;
+  if (filter.partyid) {
+    if (filter.includeDownline) {
+      const downline = await getDownlinePartyIds(filter.partyid);
+      query.partyid = { $in: [filter.partyid, ...downline].map((x: any) => new mongoose.Types.ObjectId(x)) };
+    } else {
+      query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+    }
+  }
+  if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
+  if (filter.counterledgerid)
+    query.counterledgerid = new mongoose.Types.ObjectId(filter.counterledgerid);
+  if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
+  if (typeof filter.status === "boolean") query.status = filter.status;
+  if (filter.dateFrom || filter.dateTo) {
+    query.paymentdate = {};
+    if (filter.dateFrom) query.paymentdate.$gte = new Date(filter.dateFrom);
+    if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
+  }
+  return query;
+}
+
+// Columns of the Payments list the server can search and filter.
+const PAYMENT_TEXT_KEYS = [
+  "paymentcode", "type", "partyDisplay", "mode", "paymentdate", "ledgername",
+  "amount", "unallocatedDisplay", "settlementDisplay", "createdByDisplay", "status",
+];
+
+/** Ledger ids of this business whose name contains the term. */
+const ledgerIdsMatching = (term: string, adminid?: any) => {
+  const q: any = { ledgername: containsRx(term) };
+  if (adminid) q.admin = adminid;
+  return AccountLedger.find(q).distinct("_id");
+};
+
+/**
+ * "Party / Ledger" cell (paymentPartyLabel on the client): an active party of
+ * this business shows "Name - Mobile - City", any other party its name, and a
+ * payment without a named party shows its counter ledger, else "-".
+ */
+async function partyDisplayClause(term: string, adminid?: any): Promise<any> {
+  const trimmed = (f: string) => ({ $trim: { input: { $ifNull: [{ $toString: f }, ""] } } });
+  const parts = ["$name", "$mobile", "$city"].map(trimmed);
+  const joined = {
+    $reduce: {
+      input: { $filter: { input: parts, cond: { $gt: [{ $strLenCP: "$$this" }, 0] } } },
+      initialValue: "",
+      in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", " - ", "$$this"] }] },
+    },
+  };
+  const scope: any = {};
+  if (adminid) scope.admin = new mongoose.Types.ObjectId(String(adminid));
+  // The client only knows mobile/city for active accounts of this business.
+  const label = adminid
+    ? { $cond: [{ $eq: ["$status", true] }, joined, trimmed("$name")] }
+    : trimmed("$name");
+  const partyIds = await Account.find({
+    ...scope,
+    $and: [
+      { $expr: { $gt: [{ $strLenCP: trimmed("$name") }, 0] } },
+      textMatch(label, term),
+    ],
+  }).distinct("_id");
+
+  // Counter-ledger fallback, only for payments whose party has no name.
+  const ledgerIds = await ledgerIdsMatching(term, adminid);
+  const ledgerOr: any[] = [{ counterledgerid: { $in: ledgerIds } }];
+  if ("-".includes(term)) ledgerOr.push({ counterledgerid: null });
+  const candidateScope: any = { $or: ledgerOr, partyid: { $ne: null } };
+  if (adminid) candidateScope.adminid = new mongoose.Types.ObjectId(String(adminid));
+  const candidateParties = await Payment.find(candidateScope).distinct("partyid");
+  const namedParties = candidateParties.length
+    ? await Account.find({
+        _id: { $in: candidateParties },
+        $expr: { $gt: [{ $strLenCP: trimmed("$name") }, 0] },
+      }).distinct("_id")
+    : [];
+
+  return {
+    $or: [
+      { partyid: { $in: partyIds } },
+      { $and: [{ $or: ledgerOr }, { partyid: { $nin: namedParties } }] },
+    ],
+  };
+}
+
+/** Clause matching the text one Payments list column shows. */
+const paymentColumnClause = (adminid?: any) => async (key: string, term: string): Promise<any | null> => {
+  switch (key) {
+    case "paymentcode":
+      return { paymentcode: containsRx(term) };
+    case "type":
+      return textMatch(textOr("$type", "-"), term);
+    case "partyDisplay":
+      return partyDisplayClause(term, adminid);
+    case "mode":
+      return textMatch(textOr("$mode", "-"), term);
+    case "paymentdate":
+      return textMatch(dmyOrDash("$paymentdate"), term);
+    case "ledgername": {
+      const or: any[] = [{ ledgerid: { $in: await ledgerIdsMatching(term, adminid) } }];
+      if ("-".includes(term)) or.push({ ledgerid: null });
+      return { $or: or };
+    }
+    case "amount":
+      return textMatch(fixed2("$amount"), term);
+    case "unallocatedDisplay":
+      return textMatch({
+        $cond: [{ $gt: [num("$unallocatedamount"), 0] }, fixed2("$unallocatedamount"), "-"],
+      }, term);
+    case "settlementDisplay":
+      return textMatch({
+        $cond: [{ $in: ["$allocationmode", ["auto_fifo", "on_account"]] }, "Direct / On Account", "Invoice-wise"],
+      }, term);
+    case "createdByDisplay":
+      return textMatch(textOr("$createdby_name", "N/A"), term);
+    case "status":
+      return textMatch(activeText(), term);
+  }
+  return null;
+};
+
 export const paymentResolvers = {
   Query: {
     getPayments: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
-      const query: any = { status: true };
-      const { user } = context;
-
-      if (user?.type === "branch") {
-        query.$or = [
-          { createdby_type: "branch", createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id },
-        ];
-      } else if (user?.type === "staff") {
-        query.createdby_id = user?.id;
-      }
-
-      if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
-      if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
-      if (filter.type) query.type = filter.type;
-      if (filter.partyid) {
-        if (filter.includeDownline) {
-          const downline = await getDownlinePartyIds(filter.partyid);
-          query.partyid = { $in: [filter.partyid, ...downline].map((x: any) => new mongoose.Types.ObjectId(x)) };
-        } else {
-          query.partyid = new mongoose.Types.ObjectId(filter.partyid);
-        }
-      }
-      if (filter.ledgerid) query.ledgerid = new mongoose.Types.ObjectId(filter.ledgerid);
-      if (filter.counterledgerid)
-        query.counterledgerid = new mongoose.Types.ObjectId(filter.counterledgerid);
-      if (filter.paymentcode) query.paymentcode = { $regex: filter.paymentcode, $options: "i" };
-      if (typeof filter.status === "boolean") query.status = filter.status;
-      if (filter.dateFrom || filter.dateTo) {
-        query.paymentdate = {};
-        if (filter.dateFrom) query.paymentdate.$gte = new Date(filter.dateFrom);
-        if (filter.dateTo) query.paymentdate.$lte = new Date(filter.dateTo);
-      }
+      const query = await buildPaymentQuery(filter, context);
 
       // Explicit oldest-first order: the client reverses this list to show newest
       // first. Without a sort MongoDB returns rows in whatever order the chosen
@@ -288,9 +396,34 @@ export const paymentResolvers = {
       return result.map(formatPayment);
     },
 
+    // One page of getPayments, newest first (the list used to reverse it).
+    getPaymentsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }:
+        { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const f = filter || {};
+      const clauses: any[] = [await buildPaymentQuery(f, context)];
+      clauses.push(...(await searchAndFilterClauses(search, columnFilters, PAYMENT_TEXT_KEYS, paymentColumnClause(f.adminid))));
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+
+      const [total, rows] = await Promise.all([
+        Payment.countDocuments(query),
+        Payment.find(query)
+          .populate(LIST_POPULATE)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+      return { items: rows.map(formatPayment), total };
+    },
+
     getDeletedPayments: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       const { user } = context;
 
       if (user?.type === "branch") {

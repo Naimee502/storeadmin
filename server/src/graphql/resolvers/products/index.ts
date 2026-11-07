@@ -14,6 +14,14 @@ import {
   validateProductInput,
   ProductInputError,
 } from "../../../utils/productvalidation";
+import {
+  activeFilters,
+  containsRx,
+  notCleared,
+  pageWindow,
+  textMatch,
+  type ColumnFilter,
+} from "../../../utils/listquery";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -94,85 +102,259 @@ function mapVariantForResponse(v: any) {
   return variant;
 }
 
+/** Tenant, status and branch scoping shared by the product lists. */
+async function buildProductListQuery(filter: any, context: any) {
+  // Tenant comes from the verified token for a back-office caller; the
+  // adminid the client sent is discarded. A public storefront caller
+  // (clientweb, no login) may name the store it is browsing, but only
+  // gets active records with cost fields stripped.
+  const tenant = await resolveTenant(context, {
+    requestedAdminId: filter.adminid,
+    requestedBranchId: filter.branchid,
+  });
+  const isPublic = tenant.mode === "public";
+
+  const query: any = {};
+  query.status = isPublic
+    ? true
+    : (typeof filter.status === "boolean" ? filter.status : true);
+
+  // NOTE: "branchid" intentionally excluded here — a product's own branchid
+  // only records the branch it was created in. We resolve branch visibility
+  // separately below so transferred-in stock (which lives in
+  // productbranchstocks, not on the product) also surfaces in that branch.
+  // "adminid" is deliberately NOT in this list — it is stamped from the
+  // resolved tenant below, never taken from the client payload.
+  const directKeys = [
+    "vendorid", "productcode", "productbarcode",
+    "servicecode", "servicebarcode", "isservice", "isfeatured", "isshowinpos",
+    "categoryid", "subcategoryid", "groupid", "modelid", "brandid", "sizeid"
+  ];
+
+  directKeys.forEach((key) => {
+    if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
+  });
+
+  query.adminid = tenant.adminid;
+
+  if (filter.name_contains) {
+    query.name = { $regex: filter.name_contains, $options: "i" };
+  }
+
+  if (filter.createdFrom || filter.createdTo) {
+    query.createdAt = {};
+    if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+    if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+  }
+
+  // Branch-aware visibility: a product shows in a branch if it was created
+  // there (product.branchid) OR it has any stock record in that branch
+  // (e.g. received via a stock transfer).
+  if (tenant.branchid) {
+    const branchFilterId = tenant.branchid;
+    const stockProductIds = await ProductBranchStock.find({ branchid: branchFilterId })
+      .distinct("productid");
+    query.$or = [
+      { branchid: branchFilterId },
+      { _id: { $in: stockProductIds } },
+    ];
+  }
+  // Entries hidden with Clear never show in the deleted list again.
+  if (query.status === false) Object.assign(query, notCleared);
+  return { query, tenant, isPublic };
+}
+
+/** Product list find with the refs every list populates, newest first. */
+const buildProductsQuery = (q: any) => ProductService.find(q)
+    .populate({ path: "categoryid", select: "id categoryname image" })
+    .populate({ path: "subcategoryid", select: "id subcategoryname image" })
+    .populate({ path: "groupid", select: "id productgroupname" })
+    .populate({ path: "modelid", select: "id modelname" })
+    .populate({ path: "brandid", select: "id brandname" })
+    .populate({ path: "sizeid", select: "id sizename" })
+
+    .populate({ path: "productvariants.baseunitid", select: "id unitname" })
+    .populate({ path: "productvariants.purchaseunitid", select: "id unitname" })
+    .populate({ path: "productvariants.unitconversions.unitid", select: "id unitname" })
+    .populate({ path: "productvariants.unitprices.unitid", select: "id unitname" })
+    .populate({ path: "salesaccountid", select: "id ledgername" })
+    .populate({ path: "purchaseaccountid", select: "id ledgername" })
+    .populate({ path: "serviceaccountid", select: "id ledgername" })
+    .lean()
+    .sort({ createdAt: -1, _id: -1 });
+
+/** Per-variant stock lookup for a set of products, in one aggregate. */
+async function stockLookup(products: any[], adminId: any, branchId: any) {
+  // Stock for every variant on this page in ONE aggregate, instead of one
+  // (or two) getStockDetails() aggregates per variant — that was an N+1
+  // that grew with the catalogue. Numbers are the same as before:
+  // getStockDetails(product, admin, branch, variant), and when that
+  // variant's currentstock is 0, the product-wide total for the scope.
+  const stockSums = {
+    openingstock: { $sum: "$openingstock" },
+    closingstock: { $sum: "$closingstock" },
+    currentstock: { $sum: "$currentstock" },
+    openingstockamount: { $sum: "$openingstockamount" },
+    currentstockamount: { $sum: "$currentstockamount" },
+    closingstockamount: { $sum: "$closingstockamount" },
+  };
+  const toStock = (r: any) => ({
+    openingstock: r?.openingstock || 0,
+    closingstock: r?.closingstock || 0,
+    currentstock: r?.currentstock || 0,
+    openingstockamount: r?.openingstockamount || 0,
+    currentstockamount: r?.currentstockamount || 0,
+    closingstockamount: r?.closingstockamount || 0,
+  });
+  const variantStock = new Map<string, any>();
+  const productStock = new Map<string, any>();
+  const stockProductIds = products
+    .filter((p: any) => p?._id && p.productvariants?.length)
+    .map((p: any) => p._id);
+  if (stockProductIds.length) {
+    const stockMatch: any = { productid: { $in: stockProductIds } };
+    if (adminId) stockMatch.adminid = adminId;
+    if (branchId) stockMatch.branchid = branchId;
+    const [facets] = await ProductBranchStock.aggregate([
+      { $match: stockMatch },
+      {
+        $facet: {
+          byVariant: [{ $group: { _id: { p: "$productid", v: "$variantid" }, ...stockSums } }],
+          byProduct: [{ $group: { _id: "$productid", ...stockSums } }],
+        },
+      },
+    ]);
+    for (const r of facets?.byVariant ?? []) {
+      if (r?._id?.p && r?._id?.v) variantStock.set(`${r._id.p}:${r._id.v}`, toStock(r));
+    }
+    for (const r of facets?.byProduct ?? []) {
+      if (r?._id) productStock.set(String(r._id), toStock(r));
+    }
+  }
+  const stockFor = (productId: any, variantId: any) => {
+    const productTotal = productStock.get(String(productId)) ?? toStock(null);
+    // getStockDetails without a variant id summed the whole product.
+    if (!variantId) return productTotal;
+    const own = variantStock.get(`${productId}:${variantId}`) ?? toStock(null);
+    return own.currentstock === 0 ? productTotal : own;
+  };
+  return stockFor;
+}
+
+/** Adds stock to each variant and shapes products for the response. */
+async function mapProductsWithStock(products: any[], tenant: any, isPublic: boolean) {
+  const adminId = tenant.adminid;
+  const branchId = tenant.branchid;
+  const stockFor = await stockLookup(products, adminId, branchId);
+
+  const convertRef = (obj: any) => {
+    if (!obj) return obj;
+    const { _id, ...rest } = obj;
+    return { id: _id?.toString(), ...rest };
+  };
+
+  const response = await Promise.all(
+    products.map(async (p: any) => {
+      const mapped: any = {
+        ...p,
+        id: p._id?.toString(),
+        _id: p._id // ✅ keep _id for stock lookup
+      };
+
+      // top-level refs
+      mapped.categoryid = convertRef(mapped.categoryid);
+      mapped.subcategoryid = convertRef(mapped.subcategoryid);
+      mapped.groupid = convertRef(mapped.groupid);
+      mapped.modelid = convertRef(mapped.modelid);
+      mapped.brandid = convertRef(mapped.brandid);
+      mapped.sizeid = convertRef(mapped.sizeid);
+
+      mapped.salesaccountid = convertRef(mapped.salesaccountid);
+      mapped.purchaseaccountid = convertRef(mapped.purchaseaccountid);
+      mapped.serviceaccountid = convertRef(mapped.serviceaccountid);
+
+      // ✅ Product Variant Mapping
+      if (mapped.productvariants?.length) {
+        mapped.productvariants = await Promise.all(
+          mapped.productvariants.map(async (v: any) => {
+            const stock = stockFor(mapped._id, v._id);
+
+            // ✅ Use unified mapping
+            const variantMapped = mapVariantForResponse(v);
+            return { ...variantMapped, ...stock };
+          })
+        );
+      }
+
+      return mapped;
+    })
+  );
+
+  return isPublic ? response.map(stripSensitiveForPublic) : response;
+}
+
+/** Code column: first variant's product/service code, "-" when blank. */
+const productCodeText = (() => {
+  const first = (arr: string, field: string) => ({
+    $let: { vars: { v: { $arrayElemAt: [{ $ifNull: [arr, []] }, 0] } }, in: `$$v.${field}` },
+  });
+  return {
+    $let: {
+      vars: {
+        c: { $cond: ["$isservice", first("$servicevariants", "servicecode"), first("$productvariants", "productcode")] },
+      },
+      in: { $cond: [{ $eq: [{ $ifNull: ["$$c", ""] }, ""] }, "-", { $toString: "$$c" }] },
+    },
+  };
+})();
+
+const productStatusText = { $cond: ["$status", "Active", "Inactive"] };
+
+/** Search across the text columns of the products list. */
+function productSearchClause(term: string) {
+  return {
+    $or: [
+      { name: containsRx(term) },
+      textMatch(productCodeText, term),
+      textMatch(productStatusText, term),
+    ],
+  };
+}
+
+/** Column filters, matched against the text each column shows in the list. */
+function productColumnFilterClauses(filters?: ColumnFilter[] | null) {
+  const clauses: any[] = [];
+  for (const f of activeFilters(filters)) {
+    if (f.key === "code") clauses.push(textMatch(productCodeText, f.value));
+    else if (f.key === "name") clauses.push({ name: containsRx(f.value) });
+    else if (f.key === "status") clauses.push(textMatch(productStatusText, f.value));
+  }
+  return clauses;
+}
+
+/** Products with a variant below its minimum stock, same rule as the list page. */
+async function lowStockProductIds(query: any, tenant: any) {
+  const rows: any[] = await ProductService.find(query)
+    .select("_id isservice productvariants._id productvariants.minimumstock")
+    .lean();
+  const candidates = rows.filter((p: any) => !p.isservice && p.productvariants?.length);
+  const stockFor = await stockLookup(candidates, tenant.adminid, tenant.branchid);
+  return candidates
+    .filter((p: any) =>
+      p.productvariants.some(
+        (v: any) => (stockFor(p._id, v._id).currentstock ?? 0) < (v.minimumstock ?? 0)
+      )
+    )
+    .map((p: any) => p._id);
+}
+
 export const productServiceResolvers = {
   Query: {
     getProductServices: async (_: any, { filter = {}, limit = 0, offset = 0 }: any, context: any) => {
       try {
-        // Tenant comes from the verified token for a back-office caller; the
-        // adminid the client sent is discarded. A public storefront caller
-        // (clientweb, no login) may name the store it is browsing, but only
-        // gets active records with cost fields stripped.
-        const tenant = await resolveTenant(context, {
-          requestedAdminId: filter.adminid,
-          requestedBranchId: filter.branchid,
-        });
-        const isPublic = tenant.mode === "public";
-
-        const query: any = {};
-        query.status = isPublic
-          ? true
-          : (typeof filter.status === "boolean" ? filter.status : true);
-
-        // NOTE: "branchid" intentionally excluded here — a product's own branchid
-        // only records the branch it was created in. We resolve branch visibility
-        // separately below so transferred-in stock (which lives in
-        // productbranchstocks, not on the product) also surfaces in that branch.
-        // "adminid" is deliberately NOT in this list — it is stamped from the
-        // resolved tenant below, never taken from the client payload.
-        const directKeys = [
-          "vendorid", "productcode", "productbarcode",
-          "servicecode", "servicebarcode", "isservice", "isfeatured", "isshowinpos",
-          "categoryid", "subcategoryid", "groupid", "modelid", "brandid", "sizeid"
-        ];
-
-        directKeys.forEach((key) => {
-          if (filter[key] !== undefined && filter[key] !== "") query[key] = filter[key];
-        });
-
-        query.adminid = tenant.adminid;
-
-        if (filter.name_contains) {
-          query.name = { $regex: filter.name_contains, $options: "i" };
-        }
-
-        if (filter.createdFrom || filter.createdTo) {
-          query.createdAt = {};
-          if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
-          if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
-        }
-
-        // Branch-aware visibility: a product shows in a branch if it was created
-        // there (product.branchid) OR it has any stock record in that branch
-        // (e.g. received via a stock transfer).
-        if (tenant.branchid) {
-          const branchFilterId = tenant.branchid;
-          const stockProductIds = await ProductBranchStock.find({ branchid: branchFilterId })
-            .distinct("productid");
-          query.$or = [
-            { branchid: branchFilterId },
-            { _id: { $in: stockProductIds } },
-          ];
-        }
+        const { query, tenant, isPublic } = await buildProductListQuery(filter, context);
 
         const totalCount = await ProductService.countDocuments(query);
-
-        const buildProductsQuery = (q: any) => ProductService.find(q)
-          .populate({ path: "categoryid", select: "id categoryname image" })
-          .populate({ path: "subcategoryid", select: "id subcategoryname image" })
-          .populate({ path: "groupid", select: "id productgroupname" })
-          .populate({ path: "modelid", select: "id modelname" })
-          .populate({ path: "brandid", select: "id brandname" })
-          .populate({ path: "sizeid", select: "id sizename" })
-
-          .populate({ path: "productvariants.baseunitid", select: "id unitname" })
-          .populate({ path: "productvariants.purchaseunitid", select: "id unitname" })
-          .populate({ path: "productvariants.unitconversions.unitid", select: "id unitname" })
-          .populate({ path: "productvariants.unitprices.unitid", select: "id unitname" })
-          .populate({ path: "salesaccountid", select: "id ledgername" })
-          .populate({ path: "purchaseaccountid", select: "id ledgername" })
-          .populate({ path: "serviceaccountid", select: "id ledgername" })
-          .lean()
-          .sort({ createdAt: -1, _id: -1 });
 
         // Deterministic order is NOT optional here. Every caller pages this with
         // its own limit (storefront 200, app shop 100, app home 24), and without
@@ -226,110 +408,37 @@ export const productServiceResolvers = {
           products = await productsQuery.exec();
         }
 
-        const adminId = tenant.adminid;
-        const branchId = tenant.branchid;
-
-        // Stock for every variant on this page in ONE aggregate, instead of one
-        // (or two) getStockDetails() aggregates per variant — that was an N+1
-        // that grew with the catalogue. Numbers are the same as before:
-        // getStockDetails(product, admin, branch, variant), and when that
-        // variant's currentstock is 0, the product-wide total for the scope.
-        const stockSums = {
-          openingstock: { $sum: "$openingstock" },
-          closingstock: { $sum: "$closingstock" },
-          currentstock: { $sum: "$currentstock" },
-          openingstockamount: { $sum: "$openingstockamount" },
-          currentstockamount: { $sum: "$currentstockamount" },
-          closingstockamount: { $sum: "$closingstockamount" },
-        };
-        const toStock = (r: any) => ({
-          openingstock: r?.openingstock || 0,
-          closingstock: r?.closingstock || 0,
-          currentstock: r?.currentstock || 0,
-          openingstockamount: r?.openingstockamount || 0,
-          currentstockamount: r?.currentstockamount || 0,
-          closingstockamount: r?.closingstockamount || 0,
-        });
-        const variantStock = new Map<string, any>();
-        const productStock = new Map<string, any>();
-        const stockProductIds = products
-          .filter((p: any) => p?._id && p.productvariants?.length)
-          .map((p: any) => p._id);
-        if (stockProductIds.length) {
-          const stockMatch: any = { productid: { $in: stockProductIds } };
-          if (adminId) stockMatch.adminid = adminId;
-          if (branchId) stockMatch.branchid = branchId;
-          const [facets] = await ProductBranchStock.aggregate([
-            { $match: stockMatch },
-            {
-              $facet: {
-                byVariant: [{ $group: { _id: { p: "$productid", v: "$variantid" }, ...stockSums } }],
-                byProduct: [{ $group: { _id: "$productid", ...stockSums } }],
-              },
-            },
-          ]);
-          for (const r of facets?.byVariant ?? []) {
-            if (r?._id?.p && r?._id?.v) variantStock.set(`${r._id.p}:${r._id.v}`, toStock(r));
-          }
-          for (const r of facets?.byProduct ?? []) {
-            if (r?._id) productStock.set(String(r._id), toStock(r));
-          }
-        }
-        const stockFor = (productId: any, variantId: any) => {
-          const productTotal = productStock.get(String(productId)) ?? toStock(null);
-          // getStockDetails without a variant id summed the whole product.
-          if (!variantId) return productTotal;
-          const own = variantStock.get(`${productId}:${variantId}`) ?? toStock(null);
-          return own.currentstock === 0 ? productTotal : own;
-        };
-
-        const convertRef = (obj: any) => {
-          if (!obj) return obj;
-          const { _id, ...rest } = obj;
-          return { id: _id?.toString(), ...rest };
-        };
-
-        const response = await Promise.all(
-          products.map(async (p: any) => {
-            const mapped: any = {
-              ...p,
-              id: p._id?.toString(),
-              _id: p._id // ✅ keep _id for stock lookup
-            };
-
-            // top-level refs
-            mapped.categoryid = convertRef(mapped.categoryid);
-            mapped.subcategoryid = convertRef(mapped.subcategoryid);
-            mapped.groupid = convertRef(mapped.groupid);
-            mapped.modelid = convertRef(mapped.modelid);
-            mapped.brandid = convertRef(mapped.brandid);
-            mapped.sizeid = convertRef(mapped.sizeid);
-
-            mapped.salesaccountid = convertRef(mapped.salesaccountid);
-            mapped.purchaseaccountid = convertRef(mapped.purchaseaccountid);
-            mapped.serviceaccountid = convertRef(mapped.serviceaccountid);
-
-            // ✅ Product Variant Mapping
-            if (mapped.productvariants?.length) {
-              mapped.productvariants = await Promise.all(
-                mapped.productvariants.map(async (v: any) => {
-                  const stock = stockFor(mapped._id, v._id);
-
-                  // ✅ Use unified mapping
-                  const variantMapped = mapVariantForResponse(v);
-                  return { ...variantMapped, ...stock };
-                })
-              );
-            }
-
-            return mapped;
-          })
-        );
-
-        return isPublic ? response.map(stripSensitiveForPublic) : response;
+        return await mapProductsWithStock(products, tenant, isPublic);
 
       } catch (err) {
         console.error("❌ Error in getProductServices:", err);
+        throw new Error("Failed to fetch products / services");
+      }
+    },
+
+    getProductServicesPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [], lowStock = false }: any,
+      context: any
+    ) => {
+      try {
+        const { query, tenant, isPublic } = await buildProductListQuery(filter, context);
+        const clauses: any[] = [query];
+        if (lowStock) clauses.push({ _id: { $in: await lowStockProductIds(query, tenant) } });
+        const term = String(search || "").trim();
+        if (term) clauses.push(productSearchClause(term));
+        clauses.push(...productColumnFilterClauses(columnFilters));
+
+        const pageQuery = { $and: clauses };
+        const { skip, limit } = pageWindow(page, pageSize);
+        const [total, rows] = await Promise.all([
+          ProductService.countDocuments(pageQuery),
+          buildProductsQuery(pageQuery).skip(skip).limit(limit).exec(),
+        ]);
+        const items = await mapProductsWithStock(rows, tenant, isPublic);
+        return { items, total };
+      } catch (err) {
+        console.error("Error in getProductServicesPage:", err);
         throw new Error("Failed to fetch products / services");
       }
     },

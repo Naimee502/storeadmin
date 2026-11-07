@@ -1,47 +1,32 @@
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
+import { useApolloClient } from "@apollo/client";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { addBranches } from "../../redux/slices/branches";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useBranchesListQuery, useBranchMutations } from "../../graphql/hooks/branches";
-import { hideLoading, showLoading } from "../../redux/slices/loader";
+import { useBranchesPageQuery, useBranchMutations } from "../../graphql/hooks/branches";
+import { GET_BRANCHES_LIST } from "../../graphql/queries/branches";
 import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions } from "../../redux/slices/permissions";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter (Seq Number is per page).
+const SERVER_FILTER_KEYS = ["branchcode", "name", "email", "mobile", "location", "address", "status"];
 
 const Branches = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "branches"));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Lite list query — grid columns + export fields only.
-  const { data, refetch } = useBranchesListQuery();
+  // One page from the server; Export fetches the full list on click.
+  const table = useServerTable("branches", SERVER_FILTER_KEYS);
+  const { items: branchList, total, loading, refetch, listVariables } = useBranchesPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const apolloClient = useApolloClient();
   const { deleteBranchMutation } = useBranchMutations();
-  const branchList = data?.getBranches || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-
-  // Mount only. Cached rows → refresh quietly without the blocking loader.
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      const blocking = !data?.getBranches?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.branches) {
-          dispatch(addBranches(fresh.branches));
-        }
-      } catch (error) {
-        console.error('Error fetching branches:', error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
@@ -54,16 +39,28 @@ const Branches = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...branchList].reverse().map((branch: any, index: any) => ({
+  const tableData = branchList.map((branch: any, index: any) => ({
     ...branch,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     name: branch.branchname,
     status: branch.status ? "Active" : "Inactive",
   }));
 
   // 📤 Export branches to .xlsx file
-  const handleExport = () => {
-    const exportData = [...branchList].reverse().map((branch: any, index: any) => ({
+  const handleExport = async () => {
+    let allBranches: any[];
+    try {
+      const { data: full } = await apolloClient.query({
+        query: GET_BRANCHES_LIST,
+        variables: listVariables,
+        fetchPolicy: "network-only",
+      });
+      allBranches = full?.getBranches || [];
+    } catch (error: any) {
+      dispatch(showMessage({ message: error?.message || "Failed to export branches.", type: "error" }));
+      return;
+    }
+    const exportData = [...allBranches].reverse().map((branch: any, index: any) => ({
       ID: index + 1,
       BranchCode: branch.branchcode || "-",
       BranchName: branch.branchname || "-",
@@ -166,7 +163,8 @@ const Branches = () => {
           onShowDeleted={() =>navigate("/branches/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          serverPaging={serverPaging}
+          isLoading={loading || isLoading}
           compact
         />
       </div>

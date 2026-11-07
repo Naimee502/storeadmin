@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -6,13 +6,16 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountGroupsListQuery,
+  useAccountGroupsPageQuery, useAccountGroupsExportList,
   useAccountGroupMutations,
 } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addAccountGroups } from "../../redux/slices/accountgroups";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["accountgroupcode", "accountgroupname", "category", "status"];
 
 const AccountGroups = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accountgroups"));
@@ -23,11 +26,13 @@ const AccountGroups = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
 
-  // Lite list query — grid columns + inline-form fields only.
-  const { data, refetch } = useAccountGroupsListQuery();
+  // Server-paged list: one page of rows at a time.
+  const table = useServerTable("accountgroups", SERVER_FILTER_KEYS);
+  const { items: accountGroupList, total, loading, refetch } = useAccountGroupsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const fetchExportList = useAccountGroupsExportList();
   const { addAccountGroupMutation, editAccountGroupMutation, deleteAccountGroupMutation } =
     useAccountGroupMutations();
-  const accountGroupList = data?.getAccountGroups || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({
@@ -69,26 +74,6 @@ const AccountGroups = () => {
     setIsEditing(true);
     setEditingId(row.id);
   };
-
-  // Mount only. Cached rows → refresh quietly without the blocking loader.
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      const blocking = !data?.getAccountGroups?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getAccountGroups) {
-          dispatch(addAccountGroups(fresh.getAccountGroups));
-        }
-      } catch (error) {
-        console.error("Error fetching account groups:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -140,15 +125,24 @@ const AccountGroups = () => {
   const capitalize = (str: string) =>
   str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
-  const tableData = [...accountGroupList].reverse().map((ag: any, index: number) => ({
+  const tableData = accountGroupList.map((ag: any, index: number) => ({
     ...ag,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     category: capitalize(ag.category || "assets"),
     status: ag.status ? "Active" : "Inactive",
   }));
 
-  const handleExport = () => {
-    const exportData = [...accountGroupList].reverse().map((ag: any, index: number) => ({
+  const handleExport = async () => {
+    // Export still covers every row, not just the page on screen.
+    let fullList: any[] = [];
+    try {
+      fullList = await fetchExportList();
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to export. Please try again.", type: "error" }));
+      return;
+    }
+    const exportData = [...fullList].reverse().map((ag: any, index: number) => ({
       ID: index + 1,
       AccountGroupName: ag.accountgroupname || "-",
       Category: ag.category || "assets",
@@ -208,6 +202,7 @@ const AccountGroups = () => {
           title="Manage Account Groups"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button here.
           showAdd={false}
@@ -231,7 +226,7 @@ const AccountGroups = () => {
           onAdd={() => navigate("/accountgroups")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             {
               name: "accountgroupname",

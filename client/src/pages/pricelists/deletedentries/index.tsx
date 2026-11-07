@@ -9,6 +9,7 @@ import {
 } from "../../../graphql/hooks/pricelists";
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedPriceLists = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const DeletedPriceLists = () => {
   const { data: deletedData, refetch } = useDeletedPriceListQuery();
   const deletedList = deletedData?.getDeletedPriceLists ?? [];
   const { resetPriceList } = usePriceListMutations();
+  const clear = useClearDeleted("pricelists", refetch, "price list");
 
   useEffect(() => {
     refetch();
@@ -81,6 +83,7 @@ const DeletedPriceLists = () => {
           showAdd={false}
           showReset={actions.canReset}
           onReset={handleReset}
+          {...clear}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
         />

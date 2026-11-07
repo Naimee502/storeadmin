@@ -65,3 +65,25 @@ export const GET_ACCOUNTGROUP_BY_ID = gql`
     }
   }
 `;
+
+// Account Groups list page: one server page with search and column filters.
+export const GET_ACCOUNTGROUPS_PAGE = gql`
+  query GetAccountGroupsPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getAccountGroupsPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        accountgroupcode
+        accountgroupname
+        category
+        status
+      }
+    }
+  }
+`;

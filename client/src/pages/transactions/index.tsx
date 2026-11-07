@@ -5,28 +5,36 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useTransactionsListQuery,
+  useTransactionsPageQuery,
   useTransactionMutations,
 } from "../../graphql/hooks/transactions";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { formatDateDMY } from "../../utils/helper";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter (Seq is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "transactioncode", "entrytype", "transactiondate", "narration",
+  "totaldebit", "totalcredit", "createdByDisplay", "status",
+];
 
 const Transaction = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "transactions"));
   const dispatch = useAppDispatch();
-  const { data, refetch } = useTransactionsListQuery();
+  const table = useServerTable("transactions", SERVER_FILTER_KEYS);
+  const { items: transactionList, total, loading, refetch } = useTransactionsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { deleteTransactionMutation } = useTransactionMutations();
 
-  const transactionList = data?.getTransactions || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   useEffect(() => {
     const fetchTransactions = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getTransactions?.length;
+      const blocking = !transactionList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -52,7 +60,7 @@ const Transaction = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...transactionList].reverse().map((txn: any, index: number) => {
+  const tableData = transactionList.map((txn: any, index: number) => {
     // 🔹 Convert string timestamp to number and format
     let formattedDate = "-";
     if (txn.transactiondate) {
@@ -71,7 +79,7 @@ const Transaction = () => {
 
     return {
       ...txn,
-      seqNo: index + 1,
+      seqNo: table.offset + index + 1,
       transactiondate: formattedDate,
       entrytype: capitalizeFirstLetter(txn.entrytype),
       totaldebit: txn.totaldebit?.toFixed(2) || "0.00",
@@ -89,12 +97,7 @@ const Transaction = () => {
           title="Manage Transactions"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
+          serverPaging={serverPaging}
           onEdit={(row) => navigate(`/transactions/addedit/${row.id}`)}
           onDelete={async (row: any) => {
             if (window.confirm(`Delete transaction ${row.transactioncode}?`)) {
@@ -122,7 +125,7 @@ const Transaction = () => {
           onShowDeleted={() => navigate("/transactions/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

@@ -11,6 +11,7 @@ import {
   useResetStockAdjustment,
 } from "../../../graphql/hooks/stockadjustments";
 import { formatDateDMY } from "../../../utils/helper";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedStockAdjustments: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const DeletedStockAdjustments: React.FC = () => {
     adminid: adminId,
     branchid: branchId,
   });
+  const clear = useClearDeleted("stockadjustments", refetch, "stock adjustment");
 
   const { resetStockAdjustment } = useResetStockAdjustment();
 
@@ -115,6 +117,7 @@ const DeletedStockAdjustments: React.FC = () => {
           title="Deleted Stock Adjustments"
           columns={columns}
           data={tableData}
+          {...clear}
           showView={false}
           showEdit={false}
           showDelete={false}

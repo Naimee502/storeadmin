@@ -7,6 +7,7 @@ import { Payment } from "../../../models/payments";
 import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
 import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
+import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 // NOTE: local settled-amount helper removed — see utils/allocation.
 
@@ -528,113 +529,231 @@ const hiddenDownlinePartyIds = async (adminid: any, user: any): Promise<any[]> =
   return subs.map((a: any) => a._id);
 };
 
+// ---- Server-paged list: each expression rebuilds the text a list column shows ----
+
+/** Non-empty parts joined with a separator, like [..].filter(Boolean).join(sep). */
+const joinNonEmpty = (parts: any[], sep: string) => ({
+  $let: {
+    vars: { p: { $filter: { input: parts, as: "x", cond: { $ne: ["$$x", ""] } } } },
+    in: {
+      $reduce: {
+        input: "$$p",
+        initialValue: "",
+        in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", sep, "$$this"] }] },
+      },
+    },
+  },
+});
+
+/** Party label as partyLabel() builds it from the list's partyacc (name - mobile - city). */
+const orderPartyLabelExpr = joinNonEmpty(
+  [{ $trim: { input: asText("$name") } }, { $trim: { input: asText("$mobile") } }, { $trim: { input: asText("$city") } }],
+  " - "
+);
+
+/** Order ids whose party cell contains the term ("N/A" covers orders with no party). */
+async function orderPartyClause(term: string, adminid?: any): Promise<any> {
+  const scope: any = { ...textMatch(orderPartyLabelExpr, term) };
+  if (adminid) scope.admin = adminid;
+  const or: any[] = [{ partyacc: { $in: await Account.find(scope).distinct("_id") } }];
+  if (adminid && "n/a".includes(term.toLowerCase())) {
+    const known = await Account.find({ admin: adminid }).distinct("_id");
+    const blank = await Account.find({ admin: adminid, $expr: { $eq: [orderPartyLabelExpr, ""] } }).distinct("_id");
+    or.push({ partyacc: { $nin: known } }, { partyacc: { $in: blank } });
+  }
+  return or.length === 1 ? or[0] : { $or: or };
+}
+
+/** formatDateDMY on a text date: DD-MM-YYYY kept, YYYY-MM-DD flipped, empty shows "-". */
+const dmyCellExpr = (field: string) => ({
+  $let: {
+    vars: { s: { $trim: { input: asText(field) } } },
+    in: {
+      $switch: {
+        branches: [
+          { case: { $eq: ["$$s", ""] }, then: "-" },
+          { case: { $regexMatch: { input: "$$s", regex: "^\\d{2}-\\d{2}-\\d{4}" } }, then: { $substrCP: ["$$s", 0, 10] } },
+        ],
+        default: dmyFromText(field),
+      },
+    },
+  },
+});
+
+/** "Ordered By" cell: "Name (Role)", the role alone when the name is an email, else "—". */
+const orderedByExpr = {
+  $let: {
+    vars: { n: asText("$createdby_name"), t: asText("$createdby_type") },
+    in: {
+      $cond: [
+        { $and: [{ $ne: ["$$n", ""] }, { $eq: [{ $indexOfCP: ["$$n", "@"] }, -1] }] },
+        { $cond: [{ $ne: ["$$t", ""] }, { $concat: ["$$n", " (", "$$t", ")"] }, "$$n"] },
+        { $cond: [{ $ne: ["$$t", ""] }, "$$t", "—"] },
+      ],
+    },
+  },
+};
+
+/** Same status deriveOrderStatus returns, shown on the status dropdown. */
+const orderStatusExpr = {
+  $switch: {
+    branches: [
+      { case: { $ne: [{ $ifNull: ["$orderStatus", ""] }, ""] }, then: { $toString: "$orderStatus" } },
+      { case: { $eq: ["$cancelStatus", "cancelled"] }, then: "cancelled" },
+      { case: { $eq: ["$deliveryStatus", "delivered"] }, then: "delivered" },
+      { case: { $eq: ["$deliveryStatus", "dispatched"] }, then: "dispatched" },
+      { case: { $eq: ["$isConverted", true] }, then: "confirmed" },
+    ],
+    default: "pending",
+  },
+};
+
+/** Filter clause for one list column, matched against the text the column shows. */
+async function orderColumnClause(key: string, term: string, adminid?: any): Promise<any | null> {
+  switch (key) {
+    case "paymenttype":
+      return textMatch(asText("$paymenttype"), term);
+    case "partyacc":
+      return orderPartyClause(term, adminid);
+    case "totalitem":
+      return textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term);
+    case "totalqty":
+      return textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term);
+    case "billdate":
+      return textMatch(dmyCellExpr("$billdate"), term);
+    case "billtype_billnumber":
+      return textMatch({ $concat: ["SO-", asText("$billnumber")] }, term);
+    case "totalamount":
+      return textMatch(asText("$totalamount"), term);
+    case "orderedByDisplay":
+      return textMatch(orderedByExpr, term);
+    case "orderStatusCell":
+      return textMatch(orderStatusExpr, term);
+    case "activeStatus":
+      return textMatch({ $cond: ["$status", "Active", "Inactive"] }, term);
+    default:
+      return null;
+  }
+}
+
+const ORDER_COLUMN_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "orderedByDisplay", "orderStatusCell", "activeStatus",
+];
+
+/** Role, delivery and party filters shared by the sales order lists (moved out of getSalesOrders unchanged). */
+async function buildOrderQuery(filter: any, context: any): Promise<any> {
+  const query: any = { status: true };
+  const { user } = context;
+
+  // In order-only mode every confirmed order is converted behind the
+  // scenes, so the default "hide converted" filter would empty the list the
+  // admin actually works in. Keep them visible there — the invoice is an
+  // internal document, the order is the record they manage.
+  const orderOnly = await isSalesOrderOnlyMode(
+    filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
+  );
+
+  // includeConverted: true → show all orders (pending + confirmed) for mobile app order history
+  // otherwise default to showing only non-converted orders (admin sales order list)
+  if (filter.isConverted !== undefined) {
+    query.isConverted = filter.isConverted;
+  } else if (!filter.includeConverted && !orderOnly) {
+    query.isConverted = false;
+  }
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    query.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    // Delivery boys see orders by delivery assignment, not by who created them.
+    const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
+    if (staff?.role === 'salesman') {
+      // Salesman sees: own orders + orders assigned to them + orders of
+      // THEIR parties (covers admin-punched orders for a party the
+      // salesman manages — with or without salesmenid set on the order).
+      const myParties = await Account.find({ salesmanid: user.id, status: true })
+        .select('_id').lean();
+      const partyIds = myParties.map((p: any) => p._id);
+      query.$or = [
+        { createdby_id: user.id },
+        { salesmenid: user.id },
+        ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
+      ];
+    } else if (staff?.role !== 'deliveryboy') {
+      // Plain staff: strictly own-created orders only (never other
+      // staff members' or salesmen's orders).
+      query.createdby_id = user?.id;
+    }
+  }
+
+  // ── Delivery filters ──────────────────────────────────────────────
+  if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
+  if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
+  if (filter.unassignedDelivery) {
+    // Available pool: end-user (party/website) orders not yet picked up.
+    query.deliveryboyid = { $in: [null, undefined] };
+    query.createdby_type = 'party';
+    query.cancelStatus = { $ne: 'cancelled' };
+    if (query.deliveryStatus === undefined) query.deliveryStatus = { $ne: 'delivered' };
+  }
+
+  if (filter.branchid) query.branchid = filter.branchid;
+  if (filter.adminid) query.adminid = filter.adminid;
+  // Skip when role-based $or scoping already covers the salesman —
+  // ANDing salesmenid on top would hide their parties' admin-punched orders.
+  // When only the explicit filter is present (e.g. the app's access token
+  // expired so context.user is null), expand it the same way the role-based
+  // scoping does: own orders + assigned orders + orders of their parties.
+  if (filter.salesmenid && !query.$or) {
+    const myParties = await Account.find({ salesmanid: filter.salesmenid, status: true })
+      .select('_id').lean();
+    const partyIds = myParties.map((p: any) => p._id);
+    query.$or = [
+      { createdby_id: filter.salesmenid },
+      { salesmenid: filter.salesmenid },
+      ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
+    ];
+  }
+  if (filter.routeid) query.routeid = filter.routeid;
+  if (filter.ordersource) query.ordersource = filter.ordersource;
+  if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+  if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
+  if (filter.billtype) query.billtype = filter.billtype;
+  if (filter.ordertype) query.ordertype = filter.ordertype;
+  // An explicit party / salesman filter (a View page) asks for exactly those orders.
+  if (!filter.partyacc && !filter.salesmenid) {
+    const hidden = await hiddenDownlinePartyIds(
+      filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null), user,
+    );
+    if (hidden.length) query.partyacc = { $nin: hidden };
+  }
+  if (filter.partyacc) {
+    if (filter.includeDownline) {
+      // Party login with downline management on: show own + sub-party orders.
+      const downline = await getDownlinePartyIds(filter.partyacc);
+      query.partyacc = { $in: [filter.partyacc, ...downline] };
+    } else {
+      query.partyacc = filter.partyacc;
+    }
+  }
+
+  if (filter.billdateFrom || filter.billdateTo) {
+    query.billdate = {};
+    if (filter.billdateFrom) query.billdate.$gte = filter.billdateFrom;
+    if (filter.billdateTo) query.billdate.$lte = filter.billdateTo;
+  }
+  return query;
+}
+
 // ✅ GraphQL resolvers
 export const salesOrderResolvers = {
   Query: {
     getSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: true };
-      const { user } = context;
-
-      // In order-only mode every confirmed order is converted behind the
-      // scenes, so the default "hide converted" filter would empty the list the
-      // admin actually works in. Keep them visible there — the invoice is an
-      // internal document, the order is the record they manage.
-      const orderOnly = await isSalesOrderOnlyMode(
-        filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
-      );
-
-      // includeConverted: true → show all orders (pending + confirmed) for mobile app order history
-      // otherwise default to showing only non-converted orders (admin sales order list)
-      if (filter.isConverted !== undefined) {
-        query.isConverted = filter.isConverted;
-      } else if (!filter.includeConverted && !orderOnly) {
-        query.isConverted = false;
-      }
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        // Delivery boys see orders by delivery assignment, not by who created them.
-        const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
-        if (staff?.role === 'salesman') {
-          // Salesman sees: own orders + orders assigned to them + orders of
-          // THEIR parties (covers admin-punched orders for a party the
-          // salesman manages — with or without salesmenid set on the order).
-          const myParties = await Account.find({ salesmanid: user.id, status: true })
-            .select('_id').lean();
-          const partyIds = myParties.map((p: any) => p._id);
-          query.$or = [
-            { createdby_id: user.id },
-            { salesmenid: user.id },
-            ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
-          ];
-        } else if (staff?.role !== 'deliveryboy') {
-          // Plain staff: strictly own-created orders only (never other
-          // staff members' or salesmen's orders).
-          query.createdby_id = user?.id;
-        }
-      }
-
-      // ── Delivery filters ──────────────────────────────────────────────
-      if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
-      if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
-      if (filter.unassignedDelivery) {
-        // Available pool: end-user (party/website) orders not yet picked up.
-        query.deliveryboyid = { $in: [null, undefined] };
-        query.createdby_type = 'party';
-        query.cancelStatus = { $ne: 'cancelled' };
-        if (query.deliveryStatus === undefined) query.deliveryStatus = { $ne: 'delivered' };
-      }
-
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-      // Skip when role-based $or scoping already covers the salesman —
-      // ANDing salesmenid on top would hide their parties' admin-punched orders.
-      // When only the explicit filter is present (e.g. the app's access token
-      // expired so context.user is null), expand it the same way the role-based
-      // scoping does: own orders + assigned orders + orders of their parties.
-      if (filter.salesmenid && !query.$or) {
-        const myParties = await Account.find({ salesmanid: filter.salesmenid, status: true })
-          .select('_id').lean();
-        const partyIds = myParties.map((p: any) => p._id);
-        query.$or = [
-          { createdby_id: filter.salesmenid },
-          { salesmenid: filter.salesmenid },
-          ...(partyIds.length ? [{ partyacc: { $in: partyIds } }] : []),
-        ];
-      }
-      if (filter.routeid) query.routeid = filter.routeid;
-      if (filter.ordersource) query.ordersource = filter.ordersource;
-      if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-      if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
-      if (filter.billtype) query.billtype = filter.billtype;
-      if (filter.ordertype) query.ordertype = filter.ordertype;
-      // An explicit party / salesman filter (a View page) asks for exactly those orders.
-      if (!filter.partyacc && !filter.salesmenid) {
-        const hidden = await hiddenDownlinePartyIds(
-          filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null), user,
-        );
-        if (hidden.length) query.partyacc = { $nin: hidden };
-      }
-      if (filter.partyacc) {
-        if (filter.includeDownline) {
-          // Party login with downline management on: show own + sub-party orders.
-          const downline = await getDownlinePartyIds(filter.partyacc);
-          query.partyacc = { $in: [filter.partyacc, ...downline] };
-        } else {
-          query.partyacc = filter.partyacc;
-        }
-      }
-
-      if (filter.billdateFrom || filter.billdateTo) {
-        query.billdate = {};
-        if (filter.billdateFrom) query.billdate.$gte = filter.billdateFrom;
-        if (filter.billdateTo) query.billdate.$lte = filter.billdateTo;
-      }
+      const query = await buildOrderQuery(filter, context);
 
       const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(listPopulateFields)
@@ -643,8 +762,43 @@ export const salesOrderResolvers = {
       return orders.map(formatOrder);
     },
 
+    getSalesOrdersPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const clauses: any[] = [await buildOrderQuery(filter, context)];
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of ORDER_COLUMN_KEYS) {
+          const clause = await orderColumnClause(key, term, filter.adminid);
+          if (clause) any.push(clause);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of activeFilters(columnFilters)) {
+        const clause = await orderColumnClause(f.key, f.value, filter.adminid);
+        if (clause) clauses.push(clause);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        SalesOrder.countDocuments(query),
+        SalesOrder.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+      return { items: rows.map(formatOrder), total };
+    },
+
     getDeletedSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering

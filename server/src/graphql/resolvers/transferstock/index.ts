@@ -3,6 +3,105 @@ import { TransferStock } from "../../../models/transferstock";
 import { ProductService } from "../../../models/products";
 import { ProductBranchStock } from "../../../models/productbranchstock";
 import { convertToBaseUnit } from "../../../utils/unitconversation";
+import { Branch } from "../../../models/branches";
+import { asText, containsRx, dmyFromText, escapeRegex, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
+import { fixed2, searchAndFilterClauses, textOr } from "../transactions/listtext";
+
+/** Role and filter scope of the active transfer list (getTransferStocks and its page query). */
+function buildTransferQuery(adminId: any, frombranchid: any, context: any): any {
+  const filter: any = { status: true };
+  const { user } = context;
+
+  if (user?.type === "branch") {
+    filter.$or = [
+      { createdby_type: "branch", createdby_id: user?.id },
+      { frombranchid: user?.branch_id || user?.id },
+    ];
+  } else if (user?.type === "staff") {
+    filter.createdby_id = user?.id;
+  }
+
+  if (adminId) filter.admin = new mongoose.Types.ObjectId(adminId);
+  if (frombranchid) filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
+  return filter;
+}
+
+// Columns of the Transfer Stock list the server can search and filter.
+// productCell is search-only: the list resolves product names on the client.
+const TRANSFER_TEXT_KEYS = [
+  "vouchernumber", "fromBranchName", "toBranchName", "totalamountDisplay",
+  "transferdate", "createdByDisplay", "status", "productCell",
+];
+
+/** formatDateDMY of the stored text date: DD-MM-YYYY kept, YYYY-MM-DD turned round. */
+const transferDateText = {
+  $let: {
+    vars: { d: { $trim: { input: asText("$transferdate") } } },
+    in: {
+      $switch: {
+        branches: [
+          { case: { $eq: ["$$d", ""] }, then: "-" },
+          { case: { $regexMatch: { input: "$$d", regex: "^\\d{2}-\\d{2}-\\d{4}" } }, then: { $substrCP: ["$$d", 0, 10] } },
+          { case: { $regexMatch: { input: "$$d", regex: "^\\d{4}-\\d{2}-\\d{2}" } }, then: dmyFromText("$transferdate") },
+        ],
+        default: "$$d",
+      },
+    },
+  },
+};
+
+/**
+ * Branch cell: the active branch's name, else the raw branch id (as the list
+ * shows when the branch is not in its branch list).
+ */
+async function branchCellClause(field: "frombranchid" | "tobranchid", term: string, adminId?: any): Promise<any> {
+  const scope: any = { status: true };
+  if (adminId) scope.admin = new mongoose.Types.ObjectId(String(adminId));
+  const named: any[] = await Branch.find({ ...scope, branchname: { $nin: [null, ""] } }).select("_id branchname").lean();
+  const rx = containsRx(term);
+  const matching = named.filter((b) => rx.test(String(b.branchname))).map((b) => b._id);
+  return {
+    $or: [
+      { [field]: { $in: matching } },
+      { $and: [{ [field]: { $nin: named.map((b) => b._id) } }, textMatch(asText(`$${field}`), term)] },
+    ],
+  };
+}
+
+/** Clause matching the text one Transfer Stock list column shows. */
+const transferColumnClause = (adminId?: any) => async (key: string, term: string): Promise<any | null> => {
+  switch (key) {
+    case "vouchernumber":
+      return { vouchernumber: containsRx(term) };
+    case "fromBranchName":
+      return branchCellClause("frombranchid", term, adminId);
+    case "toBranchName":
+      return branchCellClause("tobranchid", term, adminId);
+    case "totalamountDisplay":
+      return textMatch({ $concat: ["₹", fixed2("$totalamount")] }, term);
+    case "transferdate":
+      return textMatch(transferDateText, term);
+    case "createdByDisplay":
+      return textMatch(textOr("$createdby_name", "N/A"), term);
+    case "status":
+      return textMatch({ $cond: ["$status", "Active", "Inactive"] }, term);
+    case "productCell": {
+      // Product or variant name of any line.
+      const scope: any = adminId ? { adminid: adminId } : {};
+      const rx = new RegExp(escapeRegex(term), "i");
+      const products: any[] = await ProductService.find({
+        ...scope,
+        $or: [{ name: rx }, { "productvariants.name": rx }],
+      }).select("_id name productvariants._id productvariants.name").lean();
+      const productIds = products.filter((p) => rx.test(String(p.name || ""))).map((p) => p._id);
+      const variantIds = products.flatMap((p) =>
+        (p.productvariants || []).filter((v: any) => rx.test(String(v.name || ""))).map((v: any) => v._id)
+      );
+      return { $or: [{ "items.productid": { $in: productIds } }, { "items.variantid": { $in: variantIds } }] };
+    }
+  }
+  return null;
+};
 
 // ── Stock validation ────────────────────────────────────────────────────────
 // Net stock change per branch + product + variant, in BASE units. Add / edit /
@@ -65,20 +164,7 @@ export const transferStockResolvers = {
       { adminId, frombranchid }: { adminId?: string; frombranchid?: string },
       context: any
     ) => {
-      const filter: any = { status: true };
-      const { user } = context;
-
-      if (user?.type === "branch") {
-        filter.$or = [
-          { createdby_type: "branch", createdby_id: user?.id },
-          { frombranchid: user?.branch_id || user?.id },
-        ];
-      } else if (user?.type === "staff") {
-        filter.createdby_id = user?.id;
-      }
-
-      if (adminId) filter.admin = new mongoose.Types.ObjectId(adminId);
-      if (frombranchid) filter.frombranchid = new mongoose.Types.ObjectId(frombranchid);
+      const filter = buildTransferQuery(adminId, frombranchid, context);
 
       // Clients only read admin { id name email } on the list documents; a bare
       // populate("admin") pulled the whole admin record (password hash,
@@ -88,12 +174,35 @@ export const transferStockResolvers = {
         .sort({ createdAt: -1 });
     },
 
+    // One page of getTransferStocks, newest first.
+    getTransferStocksPage: async (
+      _: any,
+      { adminId, frombranchid, page = 1, pageSize = 10, search = "", columnFilters = [] }:
+        { adminId?: string; frombranchid?: string; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const clauses: any[] = [buildTransferQuery(adminId, frombranchid, context)];
+      clauses.push(...(await searchAndFilterClauses(search, columnFilters, TRANSFER_TEXT_KEYS, transferColumnClause(adminId))));
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+
+      const [total, items] = await Promise.all([
+        TransferStock.countDocuments(query),
+        TransferStock.find(query)
+          .populate({ path: "admin", select: "name email" })
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit),
+      ]);
+      return { items, total };
+    },
+
     getDeletedTransferStocks: async (
       _: any,
       { adminId, frombranchid }: { adminId?: string; frombranchid?: string },
       context: any
     ) => {
-      const filter: any = { status: false };
+      const filter: any = { status: false, ...notCleared };
       const { user } = context;
 
       if (user?.type === "branch") {

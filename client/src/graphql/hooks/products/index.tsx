@@ -9,6 +9,7 @@ import {
 import {
   GET_PRODUCT_SERVICES,
   GET_PRODUCT_SERVICES_LIST,
+  GET_PRODUCT_SERVICES_PAGE,
   GET_PRODUCT_SERVICE_BY_ID,
   GET_PRODUCT_IMPORT_MASTERS,
 } from '../../queries/products';
@@ -94,6 +95,49 @@ export const useProductServicesListQuery = (
   });
 
   return { data, loading, error, refetch, variables };
+};
+
+/**
+ * Products list page: one page from the server. `listVariables` is the scope of
+ * the full list (as useProductServicesListQuery) so Export can fetch every row.
+ */
+export const useProductServicesPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  lowStock = false,
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  lowStock?: boolean;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid =
+    type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const filter = { adminid: adminId, branchid, status: true };
+  const { data, loading, error, refetch } = useQuery(GET_PRODUCT_SERVICES_PAGE, {
+    variables: { filter, page, pageSize, search, columnFilters, lowStock },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getProductServicesPage?.items ?? [],
+    total: data?.getProductServicesPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+    listVariables: { filter, limit: 0, offset: 0 },
+  };
 };
 
 export const useProductServiceByIDQuery = (id: string) => {

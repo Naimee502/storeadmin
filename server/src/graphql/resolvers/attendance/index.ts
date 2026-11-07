@@ -7,6 +7,7 @@ import { Branch } from "../../../models/branches";
 import { pushNotification } from "../../../models/notifications";
 import { Admin } from "../../../models/admin";
 import { recomputeAttendanceTotals } from "../../../utils/attendancetotals";
+import { notCleared } from "../../../utils/listquery";
 
 // Display name for the acting user. Branch/admin tokens only carry an email,
 // so look the proper name up from the DB; staff tokens get their staff name.
@@ -286,7 +287,7 @@ export const attendanceResolvers = {
       return list.map(formatLeaveBalance);
     },
     getDeletedAttendanceLogs: async (_: any, { filter = {} }: any) => {
-      const q: any = { status_active: false };
+      const q: any = { status_active: false, ...notCleared };
       if (filter.adminid) q.adminid = filter.adminid;
       if (filter.branchid) q.branchid = filter.branchid;
       if (filter.staffid) q.staffid = filter.staffid;
@@ -445,7 +446,8 @@ export const attendanceResolvers = {
             // attendance for a previously soft-deleted (staff, date) row
             // would update the existing soft-deleted document and leave it
             // hidden from getAttendanceLogs (which filters status_active:true).
-            status_active: true } },
+            status_active: true,
+            cleared: false } },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       ).populate("staffid").lean();
 
@@ -616,6 +618,7 @@ export const attendanceResolvers = {
               date: dateStr,
               status: "leave",
               status_active: true,
+              cleared: false,
             },
           },
           { upsert: true, new: true, setDefaultsOnInsert: true }

@@ -7,6 +7,8 @@ import { PurchaseOrder } from "../../../models/purchaseorder";
 import { refId } from "../../../utils/ordermode";
 import { PurchaseReturn } from "../../../models/purchasereturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
+import { Account } from "../../../models/accounts";
+import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -104,6 +106,154 @@ const formatInvoice = (inv: any) => ({
   }) ?? []
 });
 
+/** Role and filter scoping shared by every purchase invoice list. */
+function buildPurchaseInvoiceQuery(filter: any, context: any): any {
+  const query: any = { status: true };
+  const { user } = context;
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    query.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff' && !filter.partyacc) {
+    // Party-scoped (collecting/settling a party's bills) must show ALL of
+    // that party's invoices, like the admin panel — not just own-created.
+    query.createdby_id = user?.id;
+  }
+
+  if (filter.branchid) query.branchid = filter.branchid;
+  if (filter.adminid) query.adminid = filter.adminid;
+  if (filter.supplierid) query.supplierid = filter.supplierid;
+  if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+  if (filter.partyacc) query.partyacc = filter.partyacc;
+  if (filter.billtype) query.billtype = filter.billtype;
+  if (filter.invoicetype) query.invoicetype = filter.invoicetype;
+  if (filter.billdateFrom || filter.billdateTo) {
+    query.billdate = {};
+    // billdate is stored as text ("YYYY-MM-DD…"), so compare text with text —
+    // a Date here is cast to "Wed Nov 05 2026 …" and the range matched nothing.
+    // \uffff after the To day keeps every bill dated on that day.
+    if (filter.billdateFrom) query.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
+    if (filter.billdateTo) query.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
+  }
+  return query;
+}
+
+/**
+ * Ids of in-scope invoices that getPurchaseInvoices hides as fully returned.
+ * Same returns query, same populate and same per-line check as that resolver,
+ * so the paged list hides exactly the same bills.
+ */
+async function hiddenReturnedInvoiceIds(base: any): Promise<any[]> {
+  const scopeIds = await PurchaseInvoice.distinct("_id", base);
+  if (!scopeIds.length) return [];
+  const allReturns: any[] = await PurchaseReturn.find({ sourceInvoiceId: { $in: scopeIds }, status: true })
+    .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
+    .lean();
+  if (!allReturns.length) return [];
+  const returnsByInvoice = new Map<string, any[]>();
+  allReturns.forEach((ret: any) => {
+    const key = String(ret.sourceInvoiceId);
+    const list = returnsByInvoice.get(key);
+    if (list) list.push(ret);
+    else returnsByInvoice.set(key, [ret]);
+  });
+  // Lines are checked on the populated product, exactly like the list does.
+  const candidates: any[] = await PurchaseInvoice.find({ _id: { $in: Array.from(returnsByInvoice.keys()) } })
+    .select("productservice.productserviceid productservice.variantid productservice.qty")
+    .populate({ path: "productservice.productserviceid", select: "name productvariants._id productvariants.name" })
+    .lean();
+  const hidden: any[] = [];
+  candidates.forEach((inv: any) => {
+    try {
+      const returns = returnsByInvoice.get(String(inv._id)) || [];
+      if (returns.length === 0) return;
+      const returnedByItem: Record<string, number> = {};
+      returns.forEach((ret: any) => {
+        (ret.productservice ?? []).forEach((line: any) => {
+          const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+          returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
+        });
+      });
+      const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
+        const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+        return (returnedByItem[key] || 0) >= (Number(line.qty) || 0);
+      });
+      if (allFullyReturned) hidden.push(inv._id);
+    } catch {
+      /* the list keeps a bill it cannot check */
+    }
+  });
+  return hidden;
+}
+
+/** "Name - Mobile - City" exactly as the list builds it from the populated party. */
+const partyLabelExpr = {
+  $reduce: {
+    input: {
+      $filter: {
+        input: [
+          { $trim: { input: { $toString: { $ifNull: ["$accountname", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$mobile", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$city", { $ifNull: ["$name", ""] }] } } } },
+        ],
+        cond: { $ne: ["$$this", ""] },
+      },
+    },
+    initialValue: "",
+    in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", " - ", "$$this"] }] },
+  },
+};
+
+/** Party column: label match, plus "N/A" rows (no party or an empty label). */
+async function partyClause(base: any, term: string): Promise<any> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  const partyIds = await PurchaseInvoice.distinct("partyacc", base);
+  const labels: any[] = partyIds.length
+    ? await Account.aggregate([{ $match: { _id: { $in: partyIds } } }, { $project: { label: partyLabelExpr } }])
+    : [];
+  const ids = labels.filter((a: any) => rx.test(a.label || "") || (!a.label && rx.test("N/A"))).map((a: any) => a._id);
+  if (!rx.test("N/A")) return { partyacc: { $in: ids } };
+  return { $or: [{ partyacc: { $in: ids } }, { partyacc: { $nin: labels.map((a: any) => a._id) } }] };
+}
+
+/** Purchase invoice list columns the server can filter. */
+const PURCHASE_INVOICE_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "createdByDisplay", "status",
+];
+
+/** One column filter, matched against the text that column shows in the list. */
+async function purchaseInvoiceColumnClause(key: string, term: string, base: any): Promise<any | null> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  switch (key) {
+    case "paymenttype":
+      return { paymenttype: rx };
+    case "partyacc":
+      return partyClause(base, term);
+    case "totalitem":
+      return textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term);
+    case "totalqty":
+      return textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term);
+    case "billdate":
+      return textMatch(dmyFromText("$billdate"), term);
+    case "billtype_billnumber":
+      return textMatch({ $concat: ["INV-", asText("$billnumber")] }, term);
+    case "totalamount":
+      return textMatch(asText("$totalamount"), term);
+    case "createdByDisplay":
+      return textMatch({ $cond: [{ $eq: [asText("$createdby_name"), ""] }, "N/A", asText("$createdby_name")] }, term);
+    case "status":
+      return textMatch({
+        $cond: [{ $eq: ["$cancelStatus", "cancelled"] }, "Cancelled", { $cond: ["$status", "Active", "Inactive"] }],
+      }, term);
+    default:
+      return null;
+  }
+}
+
 // ✅ GraphQL resolvers
 // Every line needs a unit. Without one the quantity cannot be converted to the
 // product's base unit, so stock moves by the wrong amount and the rate belongs
@@ -132,36 +282,7 @@ export const purchaseInvoiceResolvers = {
         console.log("   User Type:", context.user?.type);
         console.log("   Filter:", JSON.stringify(filter, null, 2));
 
-        const query: any = { status: true };
-        const { user } = context;
-
-        // ✅ Role-based filtering
-        if (user?.type === 'branch') {
-          query.$or = [
-            { createdby_type: 'branch', createdby_id: user?.id },
-            { branchid: user?.branch_id || user?.id }
-          ];
-        } else if (user?.type === 'staff' && !filter.partyacc) {
-          // Party-scoped (collecting/settling a party's bills) must show ALL of
-          // that party's invoices, like the admin panel — not just own-created.
-          query.createdby_id = user?.id;
-        }
-
-        if (filter.branchid) query.branchid = filter.branchid;
-        if (filter.adminid) query.adminid = filter.adminid;
-        if (filter.supplierid) query.supplierid = filter.supplierid;
-        if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-        if (filter.partyacc) query.partyacc = filter.partyacc;
-        if (filter.billtype) query.billtype = filter.billtype;
-        if (filter.invoicetype) query.invoicetype = filter.invoicetype;
-        if (filter.billdateFrom || filter.billdateTo) {
-          query.billdate = {};
-          // billdate is stored as text ("YYYY-MM-DD…"), so compare text with text —
-          // a Date here is cast to "Wed Nov 05 2026 …" and the range matched nothing.
-          // \uffff after the To day keeps every bill dated on that day.
-          if (filter.billdateFrom) query.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
-          if (filter.billdateTo) query.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
-        }
+        const query: any = buildPurchaseInvoiceQuery(filter, context);
 
         console.log("   Query:", JSON.stringify(query, null, 2));
 
@@ -244,8 +365,71 @@ export const purchaseInvoiceResolvers = {
       }
     },
 
+    getPurchaseInvoicesPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const base = buildPurchaseInvoiceQuery(filter || {}, context);
+      const clauses: any[] = [base];
+      // Cancelled bills only when asked, like usePurchaseInvoicesListQuery.
+      if (!filter?.includeCancelled) clauses.push({ cancelStatus: { $ne: "cancelled" } });
+
+      const hidden = await hiddenReturnedInvoiceIds(base);
+      if (hidden.length) clauses.push({ _id: { $nin: hidden } });
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of PURCHASE_INVOICE_FILTER_KEYS) {
+          const c = await purchaseInvoiceColumnClause(key, term, base);
+          if (c) any.push(c);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of columnFilters || []) {
+        const value = String(f?.value ?? "").trim();
+        if (!value) continue;
+        const c = await purchaseInvoiceColumnClause(String(f?.key || ""), value, base);
+        if (c) clauses.push(c);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        PurchaseInvoice.countDocuments(query),
+        PurchaseInvoice.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+
+      // Source order numbers in one query, as getPurchaseInvoices does.
+      const orderIds = Array.from(
+        new Set(rows.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String))
+      );
+      const orderNoById = new Map<string, string | null>();
+      if (orderIds.length) {
+        try {
+          const orders: any[] = await PurchaseOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
+          orders.forEach((o: any) => orderNoById.set(String(o._id), o.billnumber || null));
+        } catch (e) {
+          /* a label is never worth failing the list over */
+        }
+      }
+      const items = rows.map((inv: any) => {
+        const out: any = formatInvoice(inv);
+        const oid = refId(inv.sourceorderid);
+        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
+        return out;
+      });
+      return { items, total };
+    },
+
     getDeletedPurchaseInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering

@@ -95,6 +95,38 @@ export const GET_SALES_RETURNS_LIST = gql`
   }
 `;
 
+// Server-paged Sales Returns list: same fields as GET_SALES_RETURNS_LIST.
+export const GET_SALES_RETURNS_PAGE = gql`
+  query GetSalesReturnsPage(
+    $filter: SalesReturnFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getSalesReturnsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        sourceInvoiceId
+        sourceBillNumber
+        partyacc { id accountname mobile city }
+        returndate
+        billnumber
+        refundMode
+        totalamount
+        productservice {
+          qty
+        }
+        createdby_name
+        createdby_type
+        status
+        createdAt
+      }
+    }
+  }
+`;
+
 export const GET_DELETED_SALES_RETURNS = gql`
   query GetDeletedSalesReturns($filter: SalesReturnFilterInput) {
     getDeletedSalesReturns(filter: $filter) {

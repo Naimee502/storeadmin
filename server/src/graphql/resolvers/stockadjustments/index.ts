@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import { StockAdjustment } from "../../../models/stockadjustments";
 import { manageStock, StockAction, getStockDetails } from "../../../utils/stockmanager";
 import { ProductService } from "../../../models/products";
+import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
+import { dmyOrDash, fixed2, searchAndFilterClauses, textOr } from "../transactions/listtext";
 
 function normalizeId(value: any) {
   if (!value) return null;
@@ -109,31 +111,82 @@ async function reverseAndDeactivate(id: any) {
 }
 
 
+/** Filter scope shared by getStockAdjustments and its page query. */
+function buildStockAdjustmentQuery(filter: any): any {
+  const query: any = {};
+
+  // Only filter by status when explicitly passed
+  if (filter.status !== undefined) query.status = filter.status;
+  // Cleared entries never show in the deleted list again.
+  if (filter.status === false) Object.assign(query, notCleared);
+
+  if (filter.adminid) {
+    const aid = normalizeId(filter.adminid);
+    if (aid) query.adminid = aid;
+  }
+  if (filter.branchid) {
+    const bid = normalizeId(filter.branchid);
+    if (bid) query.branchid = bid;
+  }
+  if (filter.type) query.type = filter.type;
+  if (filter.vouchernumber) query.vouchernumber = { $regex: filter.vouchernumber, $options: "i" };
+
+  if (filter.createdFrom || filter.createdTo) {
+    query.adjustmentdate = {};
+    if (filter.createdFrom) query.adjustmentdate.$gte = new Date(filter.createdFrom);
+    if (filter.createdTo) query.adjustmentdate.$lte = new Date(filter.createdTo);
+  }
+  return query;
+}
+
+const formatAdjustment = (adj: any) => ({
+  ...adj,
+  id: adj._id?.toString(),
+  adminid: adj.adminid
+    ? { id: (adj.adminid as any)?._id?.toString(), name: (adj.adminid as any)?.name }
+    : null,
+  branchid: adj.branchid
+    ? { id: (adj.branchid as any)?._id?.toString(), branchname: (adj.branchid as any)?.branchname }
+    : null,
+  items: (adj.items || []).map((item: any) => {
+    const product = item.productid;
+    return {
+      ...item,
+      productid: product ? { id: product._id?.toString(), name: product.name } : null,
+      variantid: item.variantid?.toString()
+    };
+  })
+});
+
+// Columns of the Stock Adjustments list the server can search and filter.
+const ADJUSTMENT_TEXT_KEYS = ["adjustmentdate", "vouchernumber", "type", "reason", "totalamount", "createdByDisplay", "status"];
+
+/** Clause matching the text one Stock Adjustments list column shows. */
+async function adjustmentColumnClause(key: string, term: string): Promise<any | null> {
+  switch (key) {
+    case "adjustmentdate":
+      return textMatch(dmyOrDash("$adjustmentdate"), term);
+    case "vouchernumber":
+      return { vouchernumber: containsRx(term) };
+    case "type":
+      return { type: containsRx(term) };
+    case "reason":
+      return { reason: containsRx(term) };
+    case "totalamount":
+      return textMatch({ $concat: ["₹", fixed2("$totalamount")] }, term);
+    case "createdByDisplay":
+      return textMatch(textOr("$createdby_name", "N/A"), term);
+    case "status":
+      return textMatch({ $cond: ["$status", "Active", "Cancelled"] }, term);
+  }
+  return null;
+}
+
 export const stockAdjustmentResolvers = {
   Query: {
     getStockAdjustments: async (_: any, { filter = {}, limit = 0, offset = 0 }: any) => {
       try {
-        const query: any = {};
-
-        // Only filter by status when explicitly passed
-        if (filter.status !== undefined) query.status = filter.status;
-
-        if (filter.adminid) {
-          const aid = normalizeId(filter.adminid);
-          if (aid) query.adminid = aid;
-        }
-        if (filter.branchid) {
-          const bid = normalizeId(filter.branchid);
-          if (bid) query.branchid = bid;
-        }
-        if (filter.type) query.type = filter.type;
-        if (filter.vouchernumber) query.vouchernumber = { $regex: filter.vouchernumber, $options: "i" };
-
-        if (filter.createdFrom || filter.createdTo) {
-          query.adjustmentdate = {};
-          if (filter.createdFrom) query.adjustmentdate.$gte = new Date(filter.createdFrom);
-          if (filter.createdTo) query.adjustmentdate.$lte = new Date(filter.createdTo);
-        }
+        const query = buildStockAdjustmentQuery(filter);
 
         // List query: no client (client/, clientapp/, clientweb/) selects
         // items for getStockAdjustments, and the mapping below only reads the
@@ -151,28 +204,36 @@ export const stockAdjustmentResolvers = {
 
         const adjustments = await dbQuery.exec();
 
-        return adjustments.map((adj: any) => ({
-          ...adj,
-          id: adj._id?.toString(),
-          adminid: adj.adminid
-            ? { id: (adj.adminid as any)?._id?.toString(), name: (adj.adminid as any)?.name }
-            : null,
-          branchid: adj.branchid
-            ? { id: (adj.branchid as any)?._id?.toString(), branchname: (adj.branchid as any)?.branchname }
-            : null,
-          items: (adj.items || []).map((item: any) => {
-            const product = item.productid;
-            return {
-              ...item,
-              productid: product ? { id: product._id?.toString(), name: product.name } : null,
-              variantid: item.variantid?.toString()
-            };
-          })
-        }));
+        return adjustments.map(formatAdjustment);
       } catch (err) {
         console.error("Error in getStockAdjustments:", err);
         throw new Error("Failed to fetch stock adjustments");
       }
+    },
+
+    // One page of getStockAdjustments, newest first.
+    getStockAdjustmentsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }:
+        { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] }
+    ) => {
+      const clauses: any[] = [buildStockAdjustmentQuery(filter || {})];
+      clauses.push(...(await searchAndFilterClauses(search, columnFilters, ADJUSTMENT_TEXT_KEYS, adjustmentColumnClause)));
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+
+      const [total, rows] = await Promise.all([
+        StockAdjustment.countDocuments(query),
+        StockAdjustment.find(query)
+          .populate("adminid", "name")
+          .populate("branchid", "branchname")
+          .populate("items.productid", "name")
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
+      return { items: rows.map(formatAdjustment), total };
     },
 
 

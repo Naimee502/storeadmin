@@ -14,7 +14,8 @@ import {
   GET_PURCHASE_ORDERS,
   GET_PURCHASE_ORDERS_LIST,
   GET_PURCHASE_ORDER_BY_ID,
-  GET_DELETED_PURCHASE_ORDERS
+  GET_DELETED_PURCHASE_ORDERS,
+  GET_PURCHASE_ORDERS_PAGE
 } from '../../queries/purchaseorder';
 import { useAppSelector } from '../../../redux/hooks';
 
@@ -131,4 +132,49 @@ export const usePurchaseOrderByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+// One page of the Purchase Orders listing; search and column filters run on the server.
+export const usePurchaseOrdersPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid =
+    type === 'admin'
+      ? admin?.id
+      : type === 'branch'
+      ? branch?.admin?.id
+      : type === 'staff'
+      ? staff?.admin?.id
+      : undefined;
+  const branchid =
+    type === 'branch'
+      ? branch?.id
+      : type === 'staff'
+      ? staff?.branchid?.id
+      : selectedBranchId;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_ORDERS_PAGE, {
+    variables: { filter: { adminid, branchid }, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getPurchaseOrdersPage?.items ?? [],
+    total: data?.getPurchaseOrdersPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

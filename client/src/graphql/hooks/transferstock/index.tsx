@@ -8,6 +8,7 @@ import {
 import {
   GET_TRANSFER_STOCKS,
   GET_TRANSFER_STOCKS_LIST,
+  GET_TRANSFER_STOCKS_PAGE,
   GET_TRANSFER_STOCK_PRODUCTS,
   GET_TRANSFER_STOCK_BRANCHES,
   GET_TRANSFER_STOCK_BY_ID,
@@ -122,4 +123,37 @@ export const useTransferStockByIDQuery = (id: string) => {
   });
 
   return { data, loading, error };
+};
+
+// ----------------- Paged list (server-side paging, search and column filters) -----------------
+export const useTransferStocksPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const frombranchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_TRANSFER_STOCKS_PAGE, {
+    variables: { adminId, frombranchid, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getTransferStocksPage?.items ?? [],
+    total: data?.getTransferStocksPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 import { useAppSelector } from "../../../redux/hooks";
 import {
   GET_PRICE_LISTS,
+  GET_PRICE_LISTS_PAGE,
   GET_PRICE_LIST_BY_ID,
   GET_PRICE_ASSIGNMENTS,
   RESOLVE_PRICE,
@@ -29,6 +30,36 @@ export const usePriceListQuery = () => {
   });
 
   return { data, loading, error, refetch };
+};
+
+export const usePriceListsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { admin } = useAppSelector((state) => state.auth);
+  const adminid = admin?.id;
+
+  const { data, loading, error, refetch } = useQuery(GET_PRICE_LISTS_PAGE, {
+    variables: { adminid, page, pageSize, search, columnFilters },
+    skip: !adminid,
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getPriceListsPage?.items ?? [],
+    total: data?.getPriceListsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };
 
 export const useDeletedPriceListQuery = () => {

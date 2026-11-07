@@ -344,3 +344,44 @@ export const GET_SALES_ORDER_BY_ID = gql`
     }
   }
 `;
+
+// Server-paged Sales Orders list: same fields as GET_SALES_ORDERS_LIST.
+export const GET_SALES_ORDERS_PAGE = gql`
+  query GetSalesOrdersPage(
+    $filter: SalesOrderFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getSalesOrdersPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        paymenttype
+        partyacc {
+          id
+          accountname
+          mobile
+          city
+          state
+          gstnumber
+        }
+        billdate
+        billnumber
+        totalamount
+        productservice {
+          qty
+        }
+        createdby_name
+        createdby_type
+        deliveryStatus
+        isConverted
+        orderStatus
+        cancelStatus
+        status
+        createdAt
+      }
+    }
+  }
+`;

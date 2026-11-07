@@ -6,12 +6,14 @@ import { selectModuleActions } from "../../../redux/slices/permissions";
 import { useDeletedExpenseClaimsQuery, useExpenseClaimMutations } from "../../../graphql/hooks/expenseclaim";
 import { formatDateDMY } from "../../../utils/helper";
 import { CLAIM_CATEGORY_LABEL } from "../claims";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedExpenseClaims = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector((s) => selectModuleActions(s, "expensenote"));
-  const { data, loading } = useDeletedExpenseClaimsQuery();
+  const { data, loading, refetch } = useDeletedExpenseClaimsQuery();
+  const clear = useClearDeleted("expenseclaims", refetch, "claim", "expensenote");
   const { resetExpenseClaimMutation } = useExpenseClaimMutations();
 
   const rows = (data?.getDeletedExpenseClaims || []).map((c: any, i: number) => ({
@@ -37,6 +39,7 @@ const DeletedExpenseClaims = () => {
         { label: "Status", key: "statusLabel" },
       ]}
       data={rows}
+      {...clear}
       showView={false}
       showEdit={false}
       showDelete={false}

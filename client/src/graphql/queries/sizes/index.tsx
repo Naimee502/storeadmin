@@ -61,3 +61,24 @@ export const GET_SIZE_BY_ID = gql`
     }
   }
 `;
+
+// Sizes list page: one server page with search and column filters.
+export const GET_SIZES_PAGE = gql`
+  query GetSizesPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getSizesPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        sizecode
+        sizename
+        status
+      }
+    }
+  }
+`;

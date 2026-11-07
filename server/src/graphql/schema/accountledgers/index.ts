@@ -58,8 +58,14 @@ export const accountLedgerTypeDefs = gql`
     status: Boolean
   }
 
+  type AccountLedgerPage {
+    items: [AccountLedger!]!
+    total: Int!
+  }
+
   type Query {
     getAccountLedgers(adminId: ID): [AccountLedger!]!
+    getAccountLedgersPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): AccountLedgerPage!
     getDeletedAccountLedgers(adminId: ID): [AccountLedger!]!
     getAccountLedgerById(id: ID!, adminId: ID): AccountLedger
   }

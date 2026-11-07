@@ -10,6 +10,7 @@ import {
   GET_PURCHASE_RETURNS_LIST,
   GET_PURCHASE_RETURN_BY_ID,
   GET_DELETED_PURCHASE_RETURNS,
+  GET_PURCHASE_RETURNS_PAGE,
 } from "../../queries/purchasereturn";
 import { useAppSelector } from "../../../redux/hooks";
 import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
@@ -109,4 +110,35 @@ export const usePurchaseReturnByIDQuery = (id?: string) => {
     skip: !id,
   });
   return { data, loading, error };
+};
+
+// One page of the Purchase Returns listing; search and column filters run on the server.
+export const usePurchaseReturnsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_RETURNS_PAGE, {
+    variables: { filter: { adminid, branchid }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+  return {
+    items: data?.getPurchaseReturnsPage?.items ?? [],
+    total: data?.getPurchaseReturnsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

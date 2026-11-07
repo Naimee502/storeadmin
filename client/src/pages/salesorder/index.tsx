@@ -9,9 +9,10 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useSalesOrdersListQuery,
+  useSalesOrdersPageQuery,
   useSalesOrderMutations,
 } from "../../graphql/hooks/salesorder";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { GET_SALES_ORDER_PRINT } from "../../graphql/queries/salesorder";
 import { formatDateDMY } from "../../utils/helper";
 import PrintableInvoice from "../../components/printinvoice";
@@ -25,6 +26,12 @@ import { partyLabel } from "../../utils/partylabel";
 // proper display label for the printed document's Place of Supply.
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
+
+// Columns the server can filter (Seq Number is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "orderedByDisplay", "orderStatusCell", "activeStatus",
+];
 
 const SalesOrders = () => {
   const navigate = useNavigate();
@@ -41,7 +48,14 @@ const SalesOrders = () => {
 
   // Lite listing query — only the table columns. The full order is fetched by
   // id on Print / WhatsApp (see loadPrintable).
-  const { data, refetch } = useSalesOrdersListQuery();
+  const table = useServerTable("salesorder", SERVER_FILTER_KEYS);
+  const {
+    items: orderList,
+    total: orderTotal,
+    loading: ordersLoading,
+    refetch,
+  } = useSalesOrdersPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, orderTotal, ordersLoading);
   const {
     deleteSalesOrderMutation,
     cancelSalesOrderMutation,
@@ -98,7 +112,6 @@ const SalesOrders = () => {
       dispatch(showMessage({ message: e?.message || "Failed to update status.", type: "error" }));
     }
   };
-  const orderList = data?.getSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
   const { settings } = useAppSelector((state: any) => state.adminsettings);
   const auth = useAppSelector((state) => state.auth);
@@ -240,7 +253,7 @@ const SalesOrders = () => {
     const fetchOrders = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getSalesOrders?.length;
+      const blocking = !orderList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -313,7 +326,7 @@ const SalesOrders = () => {
     };
   };
 
-  const tableData = [...orderList].reverse().map(buildRow);
+  const tableData = orderList.map((order: any, i: number) => buildRow(order, table.offset + i));
 
   // Print / WhatsApp need the whole order (lines, charges, transport…), which
   // the lite listing doesn't carry — fetch it by id at click time.
@@ -336,6 +349,7 @@ const SalesOrders = () => {
           title="Manage Sales Orders"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           showPrint={actions.showPrint}
           onPrint={async (row) => {
             // Full order is fetched only on Print click — the listing query
@@ -372,7 +386,7 @@ const SalesOrders = () => {
           onShowDeleted={() => navigate("/salesorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={ordersLoading || isLoading}
         />
 
         {/* Hidden printable copy, parked offscreen so it stays mounted while

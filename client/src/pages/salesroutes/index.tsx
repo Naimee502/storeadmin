@@ -4,13 +4,17 @@ import HomeLayout from "../../layouts/home";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import {
-  useSalesRoutesQuery,
+  useSalesRoutesPageQuery,
   useDeleteSalesRoute,
   useUpdateSalesRouteStatus,
 } from "../../graphql/hooks/salesroutes";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter on.
+const SERVER_FILTER_KEYS = ["routecode", "routename", "salesman", "visitdays", "accounts", "status"];
 
 const DAY_SHORT: Record<string, string> = {
   mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
@@ -31,7 +35,9 @@ const SalesRoutes: React.FC = () => {
 
   const filter = { adminId, branchId };
 
-  const { data, loading, refetch } = useSalesRoutesQuery(filter);
+  const table = useServerTable("salesroutes", SERVER_FILTER_KEYS);
+  const { items: routes, total, loading, refetch } = useSalesRoutesPageQuery(filter, table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { deleteSalesRoute }           = useDeleteSalesRoute();
   const { updateSalesRouteStatus }     = useUpdateSalesRouteStatus();
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
@@ -49,8 +55,6 @@ const SalesRoutes: React.FC = () => {
     };
     fetchData();
   }, [dispatch, refetch]);
-
-  const routes = data?.getSalesRoutes || [];
 
   const columns = [
     { label: "Code",     key: "routecode" },
@@ -111,6 +115,7 @@ const SalesRoutes: React.FC = () => {
           onShowDeleted={() => navigate("/salesroutes/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
+          serverPaging={serverPaging}
           isLoading={isLoading || loading}
         />
       </div>

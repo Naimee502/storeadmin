@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedModels = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "models"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedModelsQuery();
+  const clear = useClearDeleted("models", refetch, "model");
   const { resetModelMutation } = useModelMutations();
   const modelList = data?.getDeletedModels || [];
 
@@ -42,6 +44,7 @@ const DeletedModels = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Models"
           columns={columns}
           data={tableData}

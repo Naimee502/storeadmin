@@ -9,6 +9,7 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedProducts = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const DeletedProducts = () => {
   const dispatch = useAppDispatch();
 
   const { data: deletedData, refetch } = useDeletedProductServicesQuery();
+  const clear = useClearDeleted("products", refetch, "product");
   const deletedList = deletedData?.getProductServices ?? [];
   const { resetProductServiceMutation } = useProductServiceMutations();
 
@@ -114,7 +116,7 @@ const DeletedProducts = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
-          
+          {...clear}
           onReset={async (row) => {
             const confirmed = window.confirm(
               `Are you sure you want to reset deleted item "${row.name}"?`

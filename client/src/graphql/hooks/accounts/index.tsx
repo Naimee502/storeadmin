@@ -11,6 +11,7 @@ import {
   GET_ACCOUNTS,
   GET_ACCOUNTS_LITE,
   GET_ACCOUNTS_LIST,
+  GET_ACCOUNTS_PAGE,
   GET_ACCOUNT_BY_ID,
   GET_PARTY_OUTSTANDING_SUMMARY,
 } from '../../queries/accounts';
@@ -62,6 +63,46 @@ export const useAccountsListQuery = (status: boolean = true, fetchPolicy?: Watch
   });
 
   return { data, loading, error, refetch };
+};
+
+/**
+ * Party Accounts list page: one page from the server. `listVariables` is the
+ * filter of the full list (as useAccountsListQuery) so Export can fetch every row.
+ */
+export const useAccountsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  directPartiesOnly = false,
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  directPartiesOnly?: boolean;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const filter = { admin: adminId, status: true };
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTS_PAGE, {
+    variables: { filter, page, pageSize, search, columnFilters, directPartiesOnly },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getAccountsPage?.items ?? [],
+    total: data?.getAccountsPage?.total ?? 0,
+    subPartyCount: data?.getAccountsPage?.subPartyCount ?? 0,
+    loading,
+    error,
+    refetch,
+    listVariables: { filter },
+  };
 };
 
 export const useAccountsQuery = (status: boolean = true, fetchPolicy?: WatchQueryFetchPolicy) => {

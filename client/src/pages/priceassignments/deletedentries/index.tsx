@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { regionOptions } from "../../../utils/constants";
 import { useNavigate } from "react-router";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedPriceAssignments = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const DeletedPriceAssignments = () => {
   const { data: channelData } = useChannelsQuery();
   const { data: accountData } = useAccountsQuery();
   const { resetPriceAssignment } = usePriceAssignmentMutations();
+  const clear = useClearDeleted("priceassignments", refetch, "assignment");
 
   const channels = channelData?.getChannels || [];
   const accounts = accountData?.getAccounts || [];
@@ -133,6 +135,7 @@ const DeletedPriceAssignments = () => {
           showReset={actions.canReset}
           
           onReset={handleReset}
+          {...clear}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
           isLoading={loading}

@@ -109,3 +109,35 @@ export const GET_PURCHASE_RETURN_BY_ID = gql`
     }
   }
 `;
+
+// One page of the Purchase Returns list (same columns as GET_PURCHASE_RETURNS_LIST).
+export const GET_PURCHASE_RETURNS_PAGE = gql`
+  query GetPurchaseReturnsPage(
+    $filter: PurchaseReturnFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getPurchaseReturnsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        sourceInvoiceId
+        sourceBillNumber
+        partyacc { id accountname mobile city }
+        returndate
+        billnumber
+        totalamount
+        refundMode
+        productservice {
+          qty
+        }
+        createdby_name
+        createdby_type
+        status
+        createdAt
+      }
+    }
+  }
+`;

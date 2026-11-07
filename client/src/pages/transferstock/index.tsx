@@ -8,25 +8,35 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import {
   useTransferStockMutations,
-  useTransferStocksListQuery,
+  useTransferStocksPageQuery,
   useTransferStockProductsQuery,
   useTransferStockBranchesQuery,
 } from "../../graphql/hooks/transferstock";
 import { formatDateDMY } from "../../utils/helper";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter. Product, Qty and Purchase Rate are built from
+// the product lookup on this page, so they have none (search still finds product names).
+const SERVER_FILTER_KEYS = [
+  "vouchernumber", "fromBranchName", "toBranchName", "totalamountDisplay",
+  "transferdate", "createdByDisplay", "status",
+];
 
 const TransferStock = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector((state) => selectModuleActions(state, "transferstock"));
 
-  const { data: transfersData, refetch } = useTransferStocksListQuery();
+  const table = useServerTable("transferstock", SERVER_FILTER_KEYS);
+  const { items: transferStocks, total, loading, refetch } = useTransferStocksPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const isLoading = useAppSelector((state) => state.loader.isLoading);
   const { data: branchesData } = useTransferStockBranchesQuery();
   const { data: productData } = useTransferStockProductsQuery(true, 500, 0);
   const { deleteTransferStockMutation } = useTransferStockMutations();
 
   const branches = branchesData?.getBranches || [];
   const allProducts = productData?.getProductServices || [];
-  const transferStocks = transfersData?.getTransferStocks || [];
 
   // Resolve a transfer line's product (+ variant) name and the unit label
   // picked for it (transferunitid points at one of that product variant's
@@ -60,7 +70,7 @@ const TransferStock = () => {
     const fetchData = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !transfersData?.getTransferStocks?.length;
+      const blocking = !transferStocks.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -136,6 +146,8 @@ const TransferStock = () => {
           title="Manage Transfer Stocks"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
+          isLoading={loading || isLoading}
           onAdd={() => navigate("/transferstock/add")}
           onEdit={(row: any) => navigate(`/transferstock/edit/${row.id}`)}
           onDelete={async (row: any) => {

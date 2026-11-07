@@ -71,6 +71,11 @@ export const transactionTypeDefs = gql`
     updatedAt: String
   }
 
+  type TransactionPage {
+    items: [Transaction!]!
+    total: Int!
+  }
+
   input TransactionInput {
     adminid: ID!
     branchid: ID!
@@ -110,6 +115,7 @@ export const transactionTypeDefs = gql`
 
   type Query {
     getTransactions(filter: TransactionFilterInput): [Transaction!]!
+    getTransactionsPage(filter: TransactionFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): TransactionPage!
     getDeletedTransactions(filter: TransactionFilterInput): [Transaction!]!
     getTransactionById(id: ID!, adminid: ID): Transaction
     previewInvoiceJournal(invoiceid: ID!, invoicemodel: String!): [JournalPreviewLine!]!

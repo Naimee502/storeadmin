@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedSubCategories = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "subcategories"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedSubCategoriesQuery();
+  const clear = useClearDeleted("subcategories", refetch, "sub category");
   const { resetSubCategoryMutation } = useSubCategoryMutations();
   const subCategoryList = data?.getDeletedSubCategories || [];
 
@@ -44,6 +46,7 @@ const DeletedSubCategories = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted SubCategories"
           columns={columns}
           data={tableData}

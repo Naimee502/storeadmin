@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useCallback, useEffect } from 'react';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client';
 import {
   ADD_ACCOUNTGROUP,
   DELETE_ACCOUNTGROUP,
@@ -8,6 +9,7 @@ import {
 import {
   GET_ACCOUNTGROUPS,
   GET_ACCOUNTGROUPS_LIST,
+  GET_ACCOUNTGROUPS_PAGE,
   GET_ACCOUNTGROUP_BY_ID,
   GET_DELETED_ACCOUNTGROUPS,
 } from '../../queries/accountgroups';
@@ -90,4 +92,64 @@ export const useAccountGroupByIDQuery = (id: string) => {
   });
 
   return { data, loading, error };
+};
+
+// Account Groups list page: one server page at a time.
+export const useAccountGroupsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const client = useApolloClient();
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  // Dropdowns elsewhere read the full getAccountGroups list from cache; drop it so they load fresh.
+  const dropFullList = useCallback(() => {
+    client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'getAccountGroups' });
+  }, [client]);
+  useEffect(() => {
+    dropFullList();
+  }, [dropFullList]);
+
+  const { data, loading, error, refetch } = useQuery(GET_ACCOUNTGROUPS_PAGE, {
+    variables: { adminId, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  const refetchPage = useCallback(() => {
+    dropFullList();
+    return refetch();
+  }, [dropFullList, refetch]);
+
+  return {
+    items: data?.getAccountGroupsPage?.items ?? [],
+    total: data?.getAccountGroupsPage?.total ?? 0,
+    loading,
+    error,
+    refetch: refetchPage,
+  };
+};
+
+// Full Account Groups list for Export, fetched fresh (the page holds only one page).
+export const useAccountGroupsExportList = () => {
+  const client = useApolloClient();
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  return useCallback(async (): Promise<any[]> => {
+    const { data } = await client.query({ query: GET_ACCOUNTGROUPS_LIST, variables: { adminId }, fetchPolicy: 'network-only' });
+    return data?.getAccountGroups || [];
+  }, [client, adminId]);
 };

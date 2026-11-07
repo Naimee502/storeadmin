@@ -28,8 +28,14 @@ export const unitTypeDefs = gql`
     admin: ID
   }
 
+  type UnitPage {
+    items: [Unit!]!
+    total: Int!
+  }
+
   type Query {
     getUnits(adminId: ID): [Unit!]!
+    getUnitsPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): UnitPage!
     getDeletedUnits(adminId: ID): [Unit!]!
     getUnitById(id: ID!, adminId: ID): Unit
   }

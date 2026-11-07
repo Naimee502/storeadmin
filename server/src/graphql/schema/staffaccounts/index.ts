@@ -104,8 +104,15 @@ export const staffAccountTypeDefs = gql`
     staff: StaffAccount!
   }
 
+  # One page of the Staff Accounts list.
+  type StaffAccountPage {
+    items: [StaffAccount!]!
+    total: Int!
+  }
+
   type Query {
     getStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
+    getStaffAccountsPage(filter: StaffFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): StaffAccountPage!
     getDeletedStaffAccounts(filter: StaffFilterInput): [StaffAccount!]!
     getStaffAccountById(id: ID!, adminId: ID): StaffAccount
   }

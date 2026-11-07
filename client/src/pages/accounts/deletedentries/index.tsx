@@ -12,6 +12,7 @@ import {
   usePartyOutstandingSummaryQuery,
 } from "../../../graphql/hooks/accounts";
 import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedAccounts = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const DeletedAccounts = () => {
 
   // ✅ Use unified query with status = false
   const { data, refetch } = useAccountsQuery(false);
+  const clear = useClearDeleted("accounts", refetch, "party account");
   const { data: ledgerData } = useAccountLedgersQuery();
   const { outstandingById } = usePartyOutstandingSummaryQuery(false);
   const { resetAccountMutation } = useAccountMutations();
@@ -91,6 +93,7 @@ const DeletedAccounts = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
+          {...clear}
           onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted account "${row.name}"?`)) {
               try {

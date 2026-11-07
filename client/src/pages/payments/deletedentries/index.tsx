@@ -10,6 +10,7 @@ import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { formatDateDMY } from "../../../utils/helper";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 import { paymentPartyLabel } from "../../../utils/partylabel";
 
 const DeletedPayments = () => {
@@ -17,6 +18,7 @@ const DeletedPayments = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "payments"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedPaymentsQuery();
+  const clear = useClearDeleted("payments", refetch, "payment");
   const { resetPaymentMutation } = usePaymentMutations();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -88,6 +90,7 @@ const DeletedPayments = () => {
           title="Deleted Payments"
           columns={columns}
           data={tableData}
+          {...clear}
           showView={false}
           showEdit={false}
           showDelete={false}

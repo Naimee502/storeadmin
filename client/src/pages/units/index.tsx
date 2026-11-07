@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useUnitsListQuery, useUnitMutations } from "../../graphql/hooks/units";
+import { useUnitsPageQuery, useUnitsExportList, useUnitMutations } from "../../graphql/hooks/units";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addUnits } from "../../redux/slices/units";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["unitcode", "unitname", "status"];
 
 const Units = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "units"));
@@ -18,10 +21,12 @@ const Units = () => {
   const fileInputRef = useRef(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  // Lite list query — grid columns + inline-form fields only.
-  const { data, refetch } = useUnitsListQuery();
+  // Server-paged list: one page of rows at a time.
+  const table = useServerTable("units", SERVER_FILTER_KEYS);
+  const { items: unitList, total, loading, refetch } = useUnitsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const fetchExportList = useUnitsExportList();
   const { addUnitMutation, editUnitMutation, deleteUnitMutation } = useUnitMutations();
-  const unitList = data?.getUnits || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({ unitname: "", status: true });
@@ -47,27 +52,6 @@ const Units = () => {
     setIsEditing(true);
     setEditingId(row.id);
   };
-
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      // Only block the page when there's nothing cached to show yet.
-      const blocking = !data?.getUnits?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getUnits) {
-          dispatch(addUnits(fresh.getUnits));
-        }
-      } catch (error) {
-        console.error("Error fetching units:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -112,14 +96,23 @@ const Units = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...unitList].reverse().map((unit, index) => ({
+  const tableData = unitList.map((unit, index) => ({
     ...unit,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     status: unit.status ? "Active" : "Inactive",
   }));
 
-  const handleExport = () => {
-    const exportData = [...unitList].reverse().map((unit, index) => ({
+  const handleExport = async () => {
+    // Export still covers every row, not just the page on screen.
+    let fullList: any[] = [];
+    try {
+      fullList = await fetchExportList();
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to export. Please try again.", type: "error" }));
+      return;
+    }
+    const exportData = [...fullList].reverse().map((unit, index) => ({
       ID: index + 1,
       UnitName: unit.unitname || "-",
       Status: unit.status ? "true" : "false",
@@ -176,6 +169,7 @@ const Units = () => {
           title="Manage Units"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button on this page.
           showAdd={false}
@@ -200,7 +194,7 @@ const Units = () => {
           onShowDeleted={() =>navigate("/units/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             { name: "unitname", label: "Unit Name", type: "text", placeholder: "Enter unit name" },
           ]}

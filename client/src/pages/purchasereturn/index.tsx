@@ -7,30 +7,37 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  usePurchaseReturnsListQuery,
+  usePurchaseReturnsPageQuery,
   usePurchaseReturnMutations,
 } from "../../graphql/hooks/purchasereturn";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
+
+// Columns the server can filter (Seq is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "billnumber", "sourceBillNumber", "returndate", "partyacc", "totalitem", "totalqty",
+  "totalamount", "refundLabel", "createdByDisplay", "statusLabel",
+];
 
 const PurchaseReturns = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "purchasereturn"));
   const dispatch = useAppDispatch();
   // Lite listing query — only the table columns.
-  const { data, refetch } = usePurchaseReturnsListQuery();
+  const table = useServerTable("purchasereturn", SERVER_FILTER_KEYS);
+  const { items: list, total, loading, refetch } = usePurchaseReturnsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { deletePurchaseReturnMutation } = usePurchaseReturnMutations();
   const isLoading = useAppSelector((s) => s.loader.isLoading);
-
-  const list = data?.getPurchaseReturns || [];
 
   useEffect(() => {
     const fetch = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getPurchaseReturns?.length;
+      const blocking = !list.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -56,9 +63,9 @@ const PurchaseReturns = () => {
     { label: "Status", key: "statusLabel" },
   ];
 
-  const tableData = [...list].reverse().map((r: any, i: number) => ({
+  const tableData = list.map((r: any, i: number) => ({
     ...r,
-    seqNo: i + 1,
+    seqNo: table.offset + i + 1,
     returndate: formatDateDMY(r.returndate),
     returndateRaw: r.returndate,
     partyacc: partyLabel(r.partyacc) || "N/A",
@@ -77,6 +84,7 @@ const PurchaseReturns = () => {
           title="Manage Purchase Returns (Debit Notes)"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           
           
           
@@ -99,7 +107,7 @@ const PurchaseReturns = () => {
           onShowDeleted={() => navigate("/purchasereturn/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

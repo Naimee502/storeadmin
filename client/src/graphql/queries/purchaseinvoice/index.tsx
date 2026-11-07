@@ -301,3 +301,41 @@ export const GET_PURCHASE_INVOICE_BY_ID = gql`
     }
   }
 `;
+
+// One page of the Purchase Invoices list (same columns as GET_PURCHASE_INVOICES_LIST).
+export const GET_PURCHASE_INVOICES_PAGE = gql`
+  query GetPurchaseInvoicesPage(
+    $filter: PurchaseInvoiceFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getPurchaseInvoicesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        paymenttype
+        partyacc {
+          id
+          accountname
+          mobile
+          city
+          state
+          gstnumber
+        }
+        billdate
+        billnumber
+        totalamount
+        productservice {
+          qty
+        }
+        createdby_name
+        createdby_type
+        cancelStatus
+        status
+        createdAt
+      }
+    }
+  }
+`;

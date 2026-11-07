@@ -1,4 +1,5 @@
 import { Channel } from "../../../models/channel";
+import { notCleared } from "../../../utils/listquery";
 
 export const channelResolvers = {
   Query: {
@@ -12,7 +13,7 @@ export const channelResolvers = {
       return await Channel.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin").populate("handlesChannels");
     },
     getDeletedChannels: async (_: any, { adminId }: { adminId?: string }) => {
-      const filter: any = { status: false };
+      const filter: any = { status: false, ...notCleared };
       if (adminId) filter.admin = adminId;
       return await Channel.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin").populate("handlesChannels");
     },

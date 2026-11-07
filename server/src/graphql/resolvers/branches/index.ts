@@ -1,6 +1,47 @@
 import { Branch } from "../../../models/branches";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import {
+  activeFilters,
+  containsRx,
+  notCleared,
+  pageWindow,
+  textMatch,
+  type ColumnFilter,
+} from "../../../utils/listquery";
+
+const branchStatusText = { $cond: ["$status", "Active", "Inactive"] };
+
+// List column key -> stored field, for column filters.
+const BRANCH_FILTER_FIELDS: Record<string, string> = {
+  branchcode: "branchcode",
+  name: "branchname",
+  email: "email",
+  mobile: "mobile",
+  location: "location",
+  address: "address",
+};
+
+/** Search plus column filters for the branches list. */
+function branchListClauses(search: string, filters?: ColumnFilter[] | null) {
+  const clauses: any[] = [];
+  const term = String(search || "").trim();
+  if (term) {
+    const rx = containsRx(term);
+    clauses.push({
+      $or: [
+        ...["branchcode", "branchname", "email", "mobile", "location", "address", "city", "pincode", "phone"]
+          .map((field) => ({ [field]: rx })),
+        textMatch(branchStatusText, term),
+      ],
+    });
+  }
+  for (const { key, value } of activeFilters(filters)) {
+    if (key === "status") clauses.push(textMatch(branchStatusText, value));
+    else if (BRANCH_FILTER_FIELDS[key]) clauses.push({ [BRANCH_FILTER_FIELDS[key]]: containsRx(value) });
+  }
+  return clauses;
+}
 
 export const branchResolvers = {
   Query: {
@@ -20,6 +61,29 @@ export const branchResolvers = {
         );
     },
 
+    // One page of the active branches list (same scope as getBranches).
+    getBranchesPage: async (
+      _: any,
+      { adminId, page = 1, pageSize = 10, search = "", columnFilters = [] }: any
+    ) => {
+      const filter: any = { status: true };
+      if (adminId) filter.admin = adminId;
+      const query = { $and: [filter, ...branchListClauses(search, columnFilters)] };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, items] = await Promise.all([
+        Branch.countDocuments(query),
+        Branch.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(
+            "admin",
+            "name email subscriptionType subscribed subscribedAt subscriptionEnd transactionId businesstype isMultibranch isChannelCustomers allowedmodules needsReview rejected"
+          ),
+      ]);
+      return { items, total };
+    },
+
     // Get one branch (optionally ensure admin owns it)
     getBranch: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {
       const filter: any = { _id: id };
@@ -30,7 +94,7 @@ export const branchResolvers = {
 
     // Get deleted branches (optionally filter by admin)
     getDeletedBranches: async (_: any, { adminId }: { adminId?: string }) => {
-      const filter: any = { status: false };
+      const filter: any = { status: false, ...notCleared };
       if (adminId) filter.admin = adminId;
 
       return await Branch.find(filter).sort({ createdAt: 1, _id: 1 }).populate("admin");

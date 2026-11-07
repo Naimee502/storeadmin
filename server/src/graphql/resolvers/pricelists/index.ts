@@ -3,6 +3,10 @@ import { PriceList } from "../../../models/pricelists";
 import { PriceAssignment } from "../../../models/priceassignments";
 import { ProductService } from "../../../models/products";
 import { Unit } from "../../../models/units";
+import { activeFilters, containsRx, notCleared, pageWindow } from "../../../utils/listquery";
+
+// Every listed price list is active, so the Status column always reads "Active".
+const showsActive = (term: string) => "active".includes(term.toLowerCase());
 
 export const priceListResolvers = {
   Query: {
@@ -10,7 +14,30 @@ export const priceListResolvers = {
       return await PriceList.find({ adminid, status: true }).sort({ createdAt: -1 });
     },
     getDeletedPriceLists: async (_: any, { adminid }: { adminid: string }) => {
-      return await PriceList.find({ adminid, status: false }).sort({ createdAt: -1 });
+      return await PriceList.find({ adminid, status: false, ...notCleared }).sort({ createdAt: -1 });
+    },
+    getPriceListsPage: async (
+      _: any,
+      { adminid, page, pageSize, search, columnFilters }: { adminid: string; page?: number; pageSize?: number; search?: string; columnFilters?: any[] }
+    ) => {
+      const clauses: any[] = [{ adminid, status: true }];
+      const term = String(search || "").trim();
+      if (term && !showsActive(term)) {
+        const rx = containsRx(term);
+        clauses.push({ $or: [{ name: rx }, { description: rx }] });
+      }
+      for (const f of activeFilters(columnFilters)) {
+        if (f.key === "name") clauses.push({ name: containsRx(f.value) });
+        else if (f.key === "description") clauses.push({ description: containsRx(f.value) });
+        else if (f.key === "status" && !showsActive(f.value)) clauses.push({ _id: { $exists: false } });
+      }
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, items] = await Promise.all([
+        PriceList.countDocuments(query),
+        PriceList.find(query).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit),
+      ]);
+      return { items, total };
     },
     getPriceListById: async (_: any, { id }: { id: string }) => {
       return await PriceList.findById(id).populate("items.productid").populate("items.unitid");
@@ -19,7 +46,7 @@ export const priceListResolvers = {
       return await PriceAssignment.find({ adminid, status: true }).sort({ createdAt: 1, _id: 1 }).populate("pricelistid");
     },
     getDeletedPriceAssignments: async (_: any, { adminid }: { adminid: string }) => {
-      return await PriceAssignment.find({ adminid, status: false }).sort({ createdAt: 1, _id: 1 }).populate("pricelistid");
+      return await PriceAssignment.find({ adminid, status: false, ...notCleared }).sort({ createdAt: 1, _id: 1 }).populate("pricelistid");
     },
     resolvePrice: async (_: any, { productid, variantid, unitid, adminid, accountid, channelid, region }: any, context: any) => {
       // Scope all lookups to the tenant's adminid when provided

@@ -11,6 +11,7 @@ import {
 import {
   GET_PAYMENTS,
   GET_PAYMENTS_LIST,
+  GET_PAYMENTS_PAGE,
   GET_PAYMENT_BY_ID,
   GET_DELETED_PAYMENTS,
   GET_PARTY_OUTSTANDING_BILLS,
@@ -47,7 +48,7 @@ export const usePaymentMutations = () => {
   // moment the form navigates back; any mounted list / outstanding / ledger
   // watcher still refreshes in the background by name.
   const refreshLists = {
-    refetchQueries: ["GetPaymentsList", ...PAYMENT_SIDE_EFFECT_QUERIES],
+    refetchQueries: ["GetPaymentsList", "GetPaymentsPage", ...PAYMENT_SIDE_EFFECT_QUERIES],
     awaitRefetchQueries: false,
   };
   const listVars = { filter: { adminid, branchid } };
@@ -158,4 +159,37 @@ export const usePaymentByIDQuery = (id?: string) => {
   });
 
   return { data, loading, error };
+};
+
+// ----------------- Paged list (server-side paging, search and column filters) -----------------
+export const usePaymentsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PAYMENTS_PAGE, {
+    variables: { filter: { adminid, branchid }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getPaymentsPage?.items ?? [],
+    total: data?.getPaymentsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

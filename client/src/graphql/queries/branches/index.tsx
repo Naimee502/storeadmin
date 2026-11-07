@@ -61,6 +61,36 @@ export const GET_BRANCHES_LIST = gql`
   }
 `;
 
+// One page of the Branches list page: same fields as GET_BRANCHES_LIST.
+export const GET_BRANCHES_PAGE = gql`
+  query GetBranchesPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getBranchesPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        branchcode
+        branchname
+        mobile
+        password
+        logo
+        location
+        address
+        city
+        pincode
+        phone
+        email
+        status
+      }
+    }
+  }
+`;
+
 export const GET_DELETED_BRANCHES = gql`
   query GetDeletedBranches($adminId: ID) {
     getDeletedBranches(adminId: $adminId) {

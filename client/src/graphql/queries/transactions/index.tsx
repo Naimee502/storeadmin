@@ -188,3 +188,31 @@ export const GET_LEDGER_MOVEMENTS = gql`
     }
   }
 `;
+
+// One page of the Transactions list (same columns as GET_TRANSACTIONS_LIST).
+export const GET_TRANSACTIONS_PAGE = gql`
+  query GetTransactionsPage(
+    $filter: TransactionFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getTransactionsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        transactioncode
+        entrytype
+        transactiondate
+        narration
+        totaldebit
+        totalcredit
+        createdby_name
+        createdby_type
+        status
+        createdAt
+      }
+    }
+  }
+`;

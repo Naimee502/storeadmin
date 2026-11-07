@@ -5,6 +5,7 @@ import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { showMessage } from "../../../redux/slices/message";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 import {
   useDeletedBranchesQuery,   // you need to create this hook similar to useDeletedAccountsQuery
   useBranchMutations
@@ -17,6 +18,7 @@ const DeletedBranches = () => {
 
   // Fetch deleted branches (status: false)
   const { data, refetch } = useDeletedBranchesQuery();
+  const clear = useClearDeleted("branches", refetch, "branch");
   const { resetBranchMutation } = useBranchMutations();
 
   const deletedBranches = data?.getDeletedBranches || [];
@@ -60,6 +62,7 @@ const DeletedBranches = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
+          {...clear}
           onReset={async (row: any) => {
             if (window.confirm(`Are you sure you want to reset deleted branch "${row.branchname}"?`)) {
               try {

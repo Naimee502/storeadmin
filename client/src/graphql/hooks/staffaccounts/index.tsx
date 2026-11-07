@@ -9,6 +9,7 @@ import {
 import {
   GET_STAFF,
   GET_STAFF_LIST,
+  GET_STAFF_PAGE,
   GET_STAFF_BY_ID,
   GET_DELETED_STAFF,
 } from '../../queries/staffaccounts';
@@ -50,6 +51,38 @@ export const useStaffListQuery = () => {
   });
 
   return { data, loading, error, refetch };
+};
+
+// Staff Accounts list page: one page from the server, same filter as useStaffListQuery.
+export const useStaffPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_STAFF_PAGE, {
+    variables: { filter: { adminId }, page, pageSize, search, columnFilters },
+    skip: !adminId,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getStaffAccountsPage?.items ?? [],
+    total: data?.getStaffAccountsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };
 
 export const useStaffQuery = () => {

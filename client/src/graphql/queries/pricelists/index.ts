@@ -12,6 +12,27 @@ export const GET_PRICE_LISTS = gql`
   }
 `;
 
+export const GET_PRICE_LISTS_PAGE = gql`
+  query GetPriceListsPage(
+    $adminid: ID!
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getPriceListsPage(adminid: $adminid, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        name
+        description
+        status
+        createdAt
+      }
+    }
+  }
+`;
+
 export const GET_DELETED_PRICE_LISTS = gql`
   query GetDeletedPriceLists($adminid: ID!) {
     getDeletedPriceLists(adminid: $adminid) {

@@ -12,6 +12,7 @@ import {
 } from "../../../graphql/hooks/purchaseorder";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedPurchaseOrders = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const DeletedPurchaseOrders = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
 
   const { data, refetch } = useDeletedPurchaseOrdersQuery();
+  const clear = useClearDeleted("purchaseorder", refetch, "order");
   const { resetPurchaseOrderMutation } = usePurchaseOrderMutations();
   const orderList = data?.getDeletedPurchaseOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -77,6 +79,9 @@ const DeletedPurchaseOrders = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...clear}
+          showClear={(row) => clear.showClear && !row.isConverted}
+          onClearAll={(rows) => clear.onClearAll(rows.filter((r) => !r.isConverted))}
           title="Deleted Purchase Orders"
           columns={columns}
           data={tableData}

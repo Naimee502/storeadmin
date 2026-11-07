@@ -123,3 +123,37 @@ export const GET_TRANSFER_STOCK_BY_ID = gql`
     }
   }
 `;
+
+// One page of the Transfer Stock list (same fields as GET_TRANSFER_STOCKS_LIST).
+export const GET_TRANSFER_STOCKS_PAGE = gql`
+  query GetTransferStocksPage(
+    $adminId: ID
+    $frombranchid: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getTransferStocksPage(adminId: $adminId, frombranchid: $frombranchid, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        vouchernumber
+        frombranchid
+        tobranchid
+        transferdate
+        narration
+        items {
+          productid
+          variantid
+          transferunitid
+          transferqty
+          rate
+        }
+        totalamount
+        status
+        createdby_name
+      }
+    }
+  }
+`;

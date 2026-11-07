@@ -68,6 +68,11 @@ export const expenseNoteTypeDefs = gql`
   # =====================
   # INPUTS
   # =====================
+  type ExpenseNotePage {
+    items: [ExpenseNote!]!
+    total: Int!
+  }
+
   input ExpenseNoteInput {
     adminid: ID!
     branchid: ID!
@@ -106,6 +111,7 @@ export const expenseNoteTypeDefs = gql`
   # =====================
   type Query {
     getExpenseNotes(filter: ExpenseNoteFilterInput): [ExpenseNote!]!
+    getExpenseNotesPage(filter: ExpenseNoteFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): ExpenseNotePage!
     getDeletedExpenseNotes(filter: ExpenseNoteFilterInput): [ExpenseNote!]!
     getExpenseNoteById(id: ID!, adminid: ID): ExpenseNote
     # Returns the canonical expense ledger for "tada" or "salary" — creates it

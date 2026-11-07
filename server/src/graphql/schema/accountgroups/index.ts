@@ -37,8 +37,14 @@ export const accountGroupTypeDefs = gql`
     admin: ID
   }
 
+  type AccountGroupPage {
+    items: [AccountGroup!]!
+    total: Int!
+  }
+
   type Query {
     getAccountGroups(adminId: ID): [AccountGroup!]!
+    getAccountGroupsPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): AccountGroupPage!
     getDeletedAccountGroups(adminId: ID): [AccountGroup!]!
     getAccountGroupById(id: ID!, adminId: ID): AccountGroup
   }

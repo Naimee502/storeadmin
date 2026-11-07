@@ -61,3 +61,24 @@ export const GET_MODEL_BY_ID = gql`
     }
   }
 `;
+
+// Models list page: one server page with search and column filters.
+export const GET_MODELS_PAGE = gql`
+  query GetModelsPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getModelsPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        modelcode
+        modelname
+        status
+      }
+    }
+  }
+`;

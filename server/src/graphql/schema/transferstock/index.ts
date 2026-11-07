@@ -50,6 +50,11 @@ export const transferStockTypeDefs = gql`
     createdby_type: String
   }
 
+  type TransferStockPage {
+    items: [TransferStock!]!
+    total: Int!
+  }
+
   input TransferStockInput {
     frombranchid: ID!
     tobranchid: ID!
@@ -66,6 +71,7 @@ export const transferStockTypeDefs = gql`
 
   type Query {
     getTransferStocks(adminId: ID, frombranchid: ID): [TransferStock!]!
+    getTransferStocksPage(adminId: ID, frombranchid: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): TransferStockPage!
     getDeletedTransferStocks(adminId: ID, frombranchid: ID): [TransferStock!]!
     getTransferStockById(id: ID!, adminId: ID): TransferStock
   }

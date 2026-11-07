@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedBrands = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "brands"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedBrandsQuery();
+  const clear = useClearDeleted("brands", refetch, "brand");
   const { resetBrandMutation } = useBrandMutations();
   const brandList = data?.getDeletedBrands || [];
 
@@ -42,6 +44,7 @@ const DeletedBrands = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Brands"
           columns={columns}
           data={tableData}

@@ -9,6 +9,7 @@ import {
 } from "../../../graphql/hooks/channels";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const ChannelDeletedEntries = () => {
   const dispatch = useAppDispatch();
@@ -18,6 +19,7 @@ const ChannelDeletedEntries = () => {
   
   const { data, refetch } = useDeletedChannelsQuery(adminId);
   const [resetChannel] = useResetChannelMutation();
+  const clear = useClearDeleted("channels", refetch, "channel");
   
   const deletedChannels = data?.getDeletedChannels || [];
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
@@ -81,6 +83,7 @@ const ChannelDeletedEntries = () => {
           showDeleted={false}
           showReset={actions.canReset}
           onReset={(row: any) => handleReset(row)}
+          {...clear}
           isLoading={isLoading}
         />
       </div>

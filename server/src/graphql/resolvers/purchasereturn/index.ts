@@ -4,6 +4,8 @@
 import { PurchaseReturn } from "../../../models/purchasereturn";
 import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { AdminSettings } from "../../../models/adminsettings";
+import { Account } from "../../../models/accounts";
+import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 const toSimpleRef = (doc: any, keys: string[] = ["name"]) => {
   if (!doc) return null;
@@ -127,37 +129,145 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
   return sourceInv;
 }
 
+/** Role and filter scoping shared by every purchase return list. */
+function buildPurchaseReturnQuery(filter: any, context: any): any {
+  const q: any = { status: true };
+  const { user } = context;
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    q.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    q.createdby_id = user?.id;
+  }
+
+  if (filter.adminid) q.adminid = filter.adminid;
+  if (filter.branchid) q.branchid = filter.branchid;
+  if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
+  if (filter.partyacc) q.partyacc = filter.partyacc;
+  if (filter.returndateFrom || filter.returndateTo) {
+    q.returndate = {};
+    if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
+    if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
+  }
+  return q;
+}
+
+/** "Name - Mobile - City" exactly as the list builds it (city has no name fallback here). */
+const partyLabelExpr = {
+  $reduce: {
+    input: {
+      $filter: {
+        input: [
+          { $trim: { input: { $toString: { $ifNull: ["$accountname", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$mobile", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$city", ""] } } } },
+        ],
+        cond: { $ne: ["$$this", ""] },
+      },
+    },
+    initialValue: "",
+    in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", " - ", "$$this"] }] },
+  },
+};
+
+/** Vendor column: label match, plus "N/A" rows (no party or an empty label). */
+async function partyClause(base: any, term: string): Promise<any> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  const partyIds = await PurchaseReturn.distinct("partyacc", base);
+  const labels: any[] = partyIds.length
+    ? await Account.aggregate([{ $match: { _id: { $in: partyIds } } }, { $project: { label: partyLabelExpr } }])
+    : [];
+  const ids = labels.filter((a: any) => rx.test(a.label || "") || (!a.label && rx.test("N/A"))).map((a: any) => a._id);
+  if (!rx.test("N/A")) return { partyacc: { $in: ids } };
+  return { $or: [{ partyacc: { $in: ids } }, { partyacc: { $nin: labels.map((a: any) => a._id) } }] };
+}
+
+/** Purchase return list columns the server can filter. */
+const PURCHASE_RETURN_FILTER_KEYS = [
+  "billnumber", "sourceBillNumber", "returndate", "partyacc", "totalitem", "totalqty",
+  "totalamount", "refundLabel", "createdByDisplay", "statusLabel",
+];
+
+/** One column filter, matched against the text that column shows in the list. */
+async function purchaseReturnColumnClause(key: string, term: string, base: any): Promise<any | null> {
+  switch (key) {
+    case "billnumber":
+      return textMatch(asText("$billnumber"), term);
+    case "sourceBillNumber":
+      return textMatch(asText("$sourceBillNumber"), term);
+    case "returndate":
+      return textMatch(dmyFromText("$returndate"), term);
+    case "partyacc":
+      return partyClause(base, term);
+    case "totalitem":
+      return textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term);
+    case "totalqty":
+      return textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term);
+    case "totalamount":
+      return textMatch(asText("$totalamount"), term);
+    case "refundLabel":
+      return textMatch(asText("$refundMode"), term);
+    case "createdByDisplay":
+      return textMatch({ $cond: [{ $eq: [asText("$createdby_name"), ""] }, "N/A", asText("$createdby_name")] }, term);
+    case "statusLabel":
+      return textMatch({ $cond: ["$status", "Active", "Inactive"] }, term);
+    default:
+      return null;
+  }
+}
+
 export const purchaseReturnResolvers = {
   Query: {
     getPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const q: any = { status: true };
-      const { user } = context;
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        q.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        q.createdby_id = user?.id;
-      }
-
-      if (filter.adminid) q.adminid = filter.adminid;
-      if (filter.branchid) q.branchid = filter.branchid;
-      if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
-      if (filter.partyacc) q.partyacc = filter.partyacc;
-      if (filter.returndateFrom || filter.returndateTo) {
-        q.returndate = {};
-        if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
-        if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
-      }
+      const q: any = buildPurchaseReturnQuery(filter, context);
       const rows = await PurchaseReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(listPopulateFields).lean();
       return rows.map(formatReturn);
     },
 
+    getPurchaseReturnsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const base = buildPurchaseReturnQuery(filter || {}, context);
+      const clauses: any[] = [base];
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of PURCHASE_RETURN_FILTER_KEYS) {
+          const c = await purchaseReturnColumnClause(key, term, base);
+          if (c) any.push(c);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of columnFilters || []) {
+        const value = String(f?.value ?? "").trim();
+        if (!value) continue;
+        const c = await purchaseReturnColumnClause(String(f?.key || ""), value, base);
+        if (c) clauses.push(c);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        PurchaseReturn.countDocuments(query),
+        PurchaseReturn.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+      return { items: rows.map(formatReturn), total };
+    },
+
     getDeletedPurchaseReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const q: any = { status: false };
+      const q: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering

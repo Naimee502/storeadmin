@@ -8,6 +8,7 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { requireBackofficeTenant } from "../../../utils/tenant";
 import { SalesOrder } from "../../../models/salesorder";
+import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 /** orderId → order billnumber, for invoices converted from a Sales Order. */
 async function orderNumbers(orderIds: any[]) {
@@ -183,6 +184,123 @@ async function validateReturnQuantities(input: any, excludeReturnId?: string) {
   return sourceInv;
 }
 
+/** Role and filter scoping shared by the sales return lists (moved out of getSalesReturns unchanged). */
+function buildReturnQuery(filter: any, context: any): any {
+  const q: any = { status: true };
+  const { user } = context;
+
+  // ✅ Role-based filtering
+  // Admin: see all | Branch: see their branch entries | Staff: see their own entries
+  if (user?.type === 'branch') {
+    q.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    q.createdby_id = user?.id;
+  }
+  // Admin sees all entries (no additional filter)
+
+  if (filter.adminid) q.adminid = filter.adminid;
+  if (filter.branchid) q.branchid = filter.branchid;
+  if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
+  if (filter.partyacc) q.partyacc = filter.partyacc;
+  if (filter.returndateFrom || filter.returndateTo) {
+    q.returndate = {};
+    if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
+    if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
+  }
+  return q;
+}
+
+// ---- Server-paged list: each expression rebuilds the text a list column shows ----
+
+/** Non-empty parts joined with a separator, like [..].filter(Boolean).join(sep). */
+const joinNonEmpty = (parts: any[], sep: string) => ({
+  $let: {
+    vars: { p: { $filter: { input: parts, as: "x", cond: { $ne: ["$$x", ""] } } } },
+    in: {
+      $reduce: {
+        input: "$$p",
+        initialValue: "",
+        in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", sep, "$$this"] }] },
+      },
+    },
+  },
+});
+
+/** Party label as partyLabel() builds it from formatReturn's partyacc (mobile falls back to the name there). */
+const returnPartyLabelExpr = joinNonEmpty(
+  [
+    { $trim: { input: asText("$name") } },
+    { $trim: { input: { $ifNull: [{ $toString: "$mobile" }, asText("$name")] } } },
+    { $trim: { input: asText("$city") } },
+  ],
+  " - "
+);
+
+/** Return ids whose party cell contains the term ("N/A" covers returns with no party). */
+async function returnPartyClause(term: string, adminid?: any): Promise<any> {
+  const scope: any = { ...textMatch(returnPartyLabelExpr, term) };
+  if (adminid) scope.admin = adminid;
+  const or: any[] = [{ partyacc: { $in: await Account.find(scope).distinct("_id") } }];
+  if (adminid && "n/a".includes(term.toLowerCase())) {
+    const known = await Account.find({ admin: adminid }).distinct("_id");
+    const blank = await Account.find({ admin: adminid, $expr: { $eq: [returnPartyLabelExpr, ""] } }).distinct("_id");
+    or.push({ partyacc: { $nin: known } }, { partyacc: { $in: blank } });
+  }
+  return or.length === 1 ? or[0] : { $or: or };
+}
+
+/** formatDateDMY on a text date: DD-MM-YYYY kept, YYYY-MM-DD flipped, empty shows "-". */
+const dmyCellExpr = (field: string) => ({
+  $let: {
+    vars: { s: { $trim: { input: asText(field) } } },
+    in: {
+      $switch: {
+        branches: [
+          { case: { $eq: ["$$s", ""] }, then: "-" },
+          { case: { $regexMatch: { input: "$$s", regex: "^\d{2}-\d{2}-\d{4}" } }, then: { $substrCP: ["$$s", 0, 10] } },
+        ],
+        default: dmyFromText(field),
+      },
+    },
+  },
+});
+
+/** Filter clause for one list column, matched against the text the column shows. */
+async function returnColumnClause(key: string, term: string, adminid?: any): Promise<any | null> {
+  switch (key) {
+    case "billnumber":
+      return textMatch(asText("$billnumber"), term);
+    case "sourceBillNumber":
+      return textMatch(asText("$sourceBillNumber"), term);
+    case "returndate":
+      return textMatch(dmyCellExpr("$returndate"), term);
+    case "partyacc":
+      return returnPartyClause(term, adminid);
+    case "totalitem":
+      return textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term);
+    case "totalqty":
+      return textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term);
+    case "totalamount":
+      return textMatch(asText("$totalamount"), term);
+    case "refundLabel":
+      return textMatch(asText("$refundMode"), term);
+    case "createdByDisplay":
+      return textMatch({ $cond: [{ $eq: [asText("$createdby_name"), ""] }, "N/A", asText("$createdby_name")] }, term);
+    case "statusLabel":
+      return textMatch({ $cond: ["$status", "Active", "Inactive"] }, term);
+    default:
+      return null;
+  }
+}
+
+const RETURN_COLUMN_KEYS = [
+  "billnumber", "sourceBillNumber", "returndate", "partyacc", "totalitem",
+  "totalqty", "totalamount", "refundLabel", "createdByDisplay", "statusLabel",
+];
+
 export const salesReturnResolvers = {
   Query: {
     // Invoices the signed-in user may book a return against, newest first:
@@ -317,36 +435,48 @@ export const salesReturnResolvers = {
     },
 
     getSalesReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const q: any = { status: true };
-      const { user } = context;
-
-      // ✅ Role-based filtering
-      // Admin: see all | Branch: see their branch entries | Staff: see their own entries
-      if (user?.type === 'branch') {
-        q.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        q.createdby_id = user?.id;
-      }
-      // Admin sees all entries (no additional filter)
-
-      if (filter.adminid) q.adminid = filter.adminid;
-      if (filter.branchid) q.branchid = filter.branchid;
-      if (filter.sourceInvoiceId) q.sourceInvoiceId = filter.sourceInvoiceId;
-      if (filter.partyacc) q.partyacc = filter.partyacc;
-      if (filter.returndateFrom || filter.returndateTo) {
-        q.returndate = {};
-        if (filter.returndateFrom) q.returndate.$gte = filter.returndateFrom;
-        if (filter.returndateTo) q.returndate.$lte = filter.returndateTo;
-      }
+      const q = buildReturnQuery(filter, context);
       const rows = await SalesReturn.find(q).sort({ createdAt: 1, _id: 1 }).populate(listPopulateFields).lean();
       return rows.map(formatReturn);
     },
 
+    getSalesReturnsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const clauses: any[] = [buildReturnQuery(filter, context)];
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of RETURN_COLUMN_KEYS) {
+          const clause = await returnColumnClause(key, term, filter.adminid);
+          if (clause) any.push(clause);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of activeFilters(columnFilters)) {
+        const clause = await returnColumnClause(f.key, f.value, filter.adminid);
+        if (clause) clauses.push(clause);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        SalesReturn.countDocuments(query),
+        SalesReturn.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+      return { items: rows.map(formatReturn), total };
+    },
+
     getDeletedSalesReturns: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const q: any = { status: false };
+      const q: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering (same logic as getSalesReturns)

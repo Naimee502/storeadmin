@@ -12,6 +12,7 @@ import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
 import { showMessage } from "../../../redux/slices/message";
 import { formatDateDMY } from "../../../utils/helper";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedTransferStocks = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const DeletedTransferStocks = () => {
   const actions = useAppSelector((state) => selectModuleActions(state, "transferstock"));
 
   const { data, refetch } = useDeletedTransferStocksQuery();
+  const clear = useClearDeleted("transferstock", refetch, "transfer");
   const { resetTransferStockMutation } = useTransferStockMutations();
   const { data: branchesData } = useBranchesQuery();
   const { data: productData } = useProductServicesQuery(true, 500, 0);
@@ -108,6 +110,7 @@ const DeletedTransferStocks = () => {
           title="Manage Deleted Transfer Stocks"
           columns={columns}
           data={tableData}
+          {...clear}
           showView={false}
           showEdit={false}
           showDelete={false}

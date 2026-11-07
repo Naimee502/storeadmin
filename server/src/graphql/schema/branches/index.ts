@@ -60,8 +60,15 @@ export const branchTypeDefs = gql`
     branch: Branch!
   }
 
+  # One page of the Branches list.
+  type BranchPage {
+    items: [Branch!]!
+    total: Int!
+  }
+
   type Query {
     getBranches(adminId: ID): [Branch!]!
+    getBranchesPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): BranchPage!
     getBranch(id: ID!, adminId: ID): Branch
     getDeletedBranches(adminId: ID): [Branch!]!
   }

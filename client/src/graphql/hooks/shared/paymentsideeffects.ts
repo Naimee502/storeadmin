@@ -18,4 +18,4 @@
 // variables, so a branch switch or a differently-filtered list can't slip
 // through. Queries that aren't mounted are covered by the `cache-and-network`
 // default on usePaymentsQuery / useTransactionsQuery.
-export const PAYMENT_SIDE_EFFECT_QUERIES = ["GetPayments", "GetTransactions", "GetTransactionsList"];
+export const PAYMENT_SIDE_EFFECT_QUERIES = ["GetPayments", "GetTransactions", "GetTransactionsList", "GetPaymentsPage", "GetTransactionsPage"];

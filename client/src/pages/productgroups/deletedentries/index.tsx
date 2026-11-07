@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedProductGroups = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "productgroups"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedProductGroupsQuery();
+  const clear = useClearDeleted("productgroups", refetch, "product group");
   const { resetProductGroupMutation } = useProductGroupMutations();
   const productGroupList = data?.getDeletedProductGroups || [];
 
@@ -42,6 +44,7 @@ const DeletedProductGroups = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Product Groups"
           columns={columns}
           data={tableData}

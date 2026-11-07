@@ -11,6 +11,7 @@ import { requireBackofficeTenant, TenantError, type TenantScope } from "../../..
 import { assertModuleOn } from "../../../utils/modulegate";
 import { isActionAllowed } from "../../../utils/permissiongate";
 import { ensureCategoryLedger } from "../expensenote";
+import { notCleared } from "../../../utils/listquery";
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -238,7 +239,7 @@ export const expenseClaimResolvers = {
 
     getDeletedExpenseClaims: async (_: any, { filter }: any, context: any) => {
       const tenant = await scopeFor(context);
-      return listAndFormat(applyFilter({ ...visibilityQuery(tenant), isactive: false }, filter, tenant));
+      return listAndFormat(applyFilter({ ...visibilityQuery(tenant), isactive: false, ...notCleared }, filter, tenant));
     },
 
     getMyExpenseClaims: async (_: any, __: any, context: any) => {

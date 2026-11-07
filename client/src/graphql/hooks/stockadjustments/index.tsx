@@ -3,6 +3,7 @@ import type { WatchQueryFetchPolicy } from "@apollo/client";
 import {
   GET_STOCK_ADJUSTMENTS,
   GET_STOCK_ADJUSTMENTS_LIST,
+  GET_STOCK_ADJUSTMENTS_PAGE,
   GET_STOCK_ADJUSTMENT_PRODUCTS,
   GET_STOCK_ADJUSTMENT_BY_ID,
 } from "../../queries/stockadjustments";
@@ -83,7 +84,7 @@ export const useGetStockAdjustmentById = (id: string, adminId?: string, branchId
 // Refetch whichever stock-adjustment lists are mounted, with their own
 // variables. `{ query: GET_STOCK_ADJUSTMENTS }` without variables fired an
 // extra request for every adjustment of every admin/branch.
-const STOCK_ADJUSTMENT_LIST_QUERIES = ["GetStockAdjustments", "GetStockAdjustmentsList"];
+const STOCK_ADJUSTMENT_LIST_QUERIES = ["GetStockAdjustments", "GetStockAdjustmentsList", "GetStockAdjustmentsPage"];
 
 export const useCreateStockAdjustment = () => {
   const [createStockAdjustment, { loading, error }] = useMutation(CREATE_STOCK_ADJUSTMENT, {
@@ -118,4 +119,33 @@ export const useResetStockAdjustment = () => {
     refetchQueries: STOCK_ADJUSTMENT_LIST_QUERIES,
   });
   return { resetStockAdjustment, loading, error };
+};
+
+// ----------------- Paged list (server-side paging, search and column filters) -----------------
+export const useStockAdjustmentsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  filter = {},
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  filter?: any;
+}) => {
+  const { data, loading, error, refetch } = useQuery(GET_STOCK_ADJUSTMENTS_PAGE, {
+    variables: { filter: { ...filter, status: true }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getStockAdjustmentsPage?.items ?? [],
+    total: data?.getStockAdjustmentsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

@@ -12,12 +12,14 @@ import {
 } from "../../../graphql/hooks/purchasereturn";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedPurchaseReturns = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector(state => selectModuleActions(state, "purchasereturn"));
   const { data, refetch } = useDeletedPurchaseReturnsQuery();
+  const clear = useClearDeleted("purchasereturn", refetch, "return");
   const { resetPurchaseReturnMutation } = usePurchaseReturnMutations();
 
   const list = data?.getDeletedPurchaseReturns || [];
@@ -56,6 +58,7 @@ const DeletedPurchaseReturns = () => {
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
+          {...clear}
           title="Deleted Purchase Returns"
           columns={columns}
           data={rows}

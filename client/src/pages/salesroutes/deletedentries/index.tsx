@@ -10,6 +10,7 @@ import {
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DAY_SHORT: Record<string, string> = {
   mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
@@ -32,6 +33,7 @@ const DeletedSalesRoutes: React.FC = () => {
 
   const { data, loading, refetch } = useDeletedSalesRoutesQuery(filter);
   const { resetSalesRoute }        = useResetSalesRoute();
+  const clear = useClearDeleted("salesroutes", refetch, "route");
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
   useEffect(() => {
@@ -107,6 +109,7 @@ const DeletedSalesRoutes: React.FC = () => {
           showAdd={false}
           showReset={actions.canReset}
           onReset={(row) => handleReset(row)}
+          {...clear}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={isLoading || loading}

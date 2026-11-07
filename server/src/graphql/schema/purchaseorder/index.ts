@@ -172,8 +172,14 @@ export const purchaseOrderTypeDefs = gql`
     status: Boolean
   }
 
+  type PurchaseOrderPage {
+    items: [PurchaseOrder!]!
+    total: Int!
+  }
+
   extend type Query {
     getPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
+    getPurchaseOrdersPage(filter: PurchaseOrderFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): PurchaseOrderPage!
     getDeletedPurchaseOrders(filter: PurchaseOrderFilterInput): [PurchaseOrder!]!
     getPurchaseOrderById(id: ID!): PurchaseOrder
   }

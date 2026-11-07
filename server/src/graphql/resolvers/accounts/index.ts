@@ -18,9 +18,189 @@ import { PartyStock } from "../../../models/partystock";
 import { ProductService } from "../../../models/products";
 import { Unit } from "../../../models/units";
 import { resolveTenant } from "../../../utils/tenant";
+import { AccountLedger } from "../../../models/accountledgers";
+import {
+  activeFilters,
+  containsRx,
+  notCleared,
+  pageWindow,
+  textMatch,
+  type ColumnFilter,
+} from "../../../utils/listquery";
 import { ApolloError } from "apollo-server-express";
 import { getPartyTotalDue, getPartiesTotalDue } from "../../../utils/allocation";
 import { isCustomerParty, isVendorParty, isBothParty, partyTypeQuery } from "../../../utils/partytype";
+
+/** Filter for the party lists (getAccounts and its paged form). */
+async function buildAccountsQuery(filter: any): Promise<any> {
+  const query: any = {};
+
+  if (filter?.admin) query.admin = filter.admin;
+  if (filter?.branchid) query.branchid = filter.branchid;
+  // "customer" means anyone we can sell to, which includes a both-party.
+  if (filter?.type) {
+    const want = String(filter.type).toLowerCase();
+    query.type =
+      want === "customer" || want === "vendor" ? partyTypeQuery(want as any) : filter.type;
+  }
+  if (filter?.channel) query.channel = filter.channel;
+  if (filter?.region) query.region = { $regex: filter.region, $options: "i" };
+
+  // NOTE: salesman parties are scoped explicitly via filter.salesmanid
+  // (the My Parties screen). We no longer force a channel restriction here,
+  // because it broke parent-party (upline channel) lookups and hid parties
+  // whose channel differs from the salesman's assigned channels.
+
+  // ✅ Changed accountgroupid → ledgerid
+  if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
+
+  if (filter?.accountcode) query.accountcode = filter.accountcode;
+  if (filter?.mobile) query.mobile = { $regex: filter.mobile, $options: "i" };
+  if (filter?.email) query.email = { $regex: filter.email, $options: "i" };
+  if (filter?.gstnumber) query.gstnumber = filter.gstnumber;
+  if (filter?.pan) query.pan = filter.pan;
+  if (filter?.city) query.city = { $regex: filter.city, $options: "i" };
+  if (filter?.state) query.state = { $regex: filter.state, $options: "i" };
+  if (filter?.country) query.country = filter.country;
+  if (filter?.pincode) query.pincode = filter.pincode;
+  if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
+  if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
+  if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
+  if (filter?.directOnly && filter?.admin && !filter?.assignaccountid) {
+    const st: any = await AdminSettings.findOne({ adminid: filter.admin })
+      .select("partyManagesDownline directPartyOrdersOnly").lean();
+    if (st?.partyManagesDownline && st?.directPartyOrdersOnly) {
+      query.assignaccountid = { $in: [null, undefined] };
+    }
+  }
+  // Salesman scoping: parties the salesman created (salesmanid on the
+  // account) + parties assigned to them via Sales Routes. Admin-created
+  // parties stay hidden until they're assigned to one of their routes.
+  if (filter?.salesmanid) {
+    const routes = await SalesRoute.find({ salesmanid: filter.salesmanid, status: true })
+      .select("accounts dayWiseAccounts")
+      .lean();
+    const routePartyIds = new Set<string>();
+    routes.forEach((r: any) => {
+      (r.accounts || []).forEach((id: any) => routePartyIds.add(String(id)));
+      (r.dayWiseAccounts || []).forEach((d: any) =>
+        (d.accounts || []).forEach((id: any) => routePartyIds.add(String(id)))
+      );
+    });
+    query.$or = [
+      { salesmanid: filter.salesmanid },
+      ...(routePartyIds.size ? [{ _id: { $in: [...routePartyIds] } }] : []),
+    ];
+  }
+  if (typeof filter?.duedays === "number") query.duedays = filter.duedays;
+  if (filter?.latitude) query.latitude = filter.latitude;
+  if (filter?.longitude) query.longitude = filter.longitude;
+  if (filter?.otp) query.otp = filter.otp;
+
+  query.status =
+    typeof filter?.status === "boolean" ? filter.status : true; // default only active
+
+  if (filter?.createdFrom || filter?.createdTo) {
+    query.createdAt = {};
+    if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+    if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+  }
+  // Entries hidden with Clear never show in the deleted list again.
+  if (query.status === false) Object.assign(query, notCleared);
+  return query;
+}
+
+// Populated refs carry only what any client asks for (id + label).
+// The full Admin / Ledger / Branch / Staff docs were loaded for every
+// party on every list fetch and then discarded by GraphQL.
+const withAccountListRefs = (q: any) => q
+  .populate({ path: "admin", select: "name email" })
+  .populate({ path: "accountgroupid", select: "accountgroupname" })
+  .populate({ path: "ledgerid", select: "ledgername openingbalance openingbalancetype" })
+  .populate({ path: "branchid", select: "branchname" })
+  .populate({ path: "assignaccountid", select: "name" })
+  .populate({ path: "salesmanid", select: "name" })
+  .populate({ path: "channel", select: "channelName" });
+
+/** Ids of parent parties that exist, i.e. the ones the list can show a name for. */
+async function existingParentIds(base: any) {
+  const parentIds = await Account.distinct("assignaccountid", base);
+  return Account.find({ _id: { $in: parentIds.filter(Boolean) } }).distinct("_id");
+}
+
+/** A referenced label column: contains match on the label, "-" when there is none. */
+async function refLabelClause(field: string, Model: any, label: string, term: string, admin?: any) {
+  const scope: any = admin ? { admin } : {};
+  const or: any[] = [{ [field]: { $in: await Model.find({ ...scope, [label]: containsRx(term) }).distinct("_id") } }];
+  if ("-".includes(term)) {
+    const labelled = await Model.find({ ...scope, [label]: { $nin: [null, ""] } }).distinct("_id");
+    or.push({ [field]: { $nin: labelled } });
+  }
+  return or.length === 1 ? or[0] : { $or: or };
+}
+
+/** Plain text column shown as the value or "-" when blank. */
+const textOrDash = (field: string, term: string) =>
+  "-".includes(term)
+    ? { $or: [{ [field]: containsRx(term) }, { [field]: { $in: [null, ""] } }] }
+    : { [field]: containsRx(term) };
+
+const accountStatusText = {
+  $cond: [{ $eq: ["$approvalstatus", "pending"] }, "Pending", { $cond: ["$status", "Active", "Inactive"] }],
+};
+
+/** Search across the party list's text columns and the details it keeps searchable. */
+async function accountSearchClause(term: string, admin?: any) {
+  const rx = containsRx(term);
+  const scope: any = admin ? { admin } : {};
+  const [ledgerIds, channelIds, parentIds] = await Promise.all([
+    AccountLedger.find({ ...scope, ledgername: rx }).distinct("_id"),
+    Channel.find({ ...scope, channelName: rx }).distinct("_id"),
+    Account.find({ ...scope, name: rx }).distinct("_id"),
+  ]);
+  return {
+    $or: [
+      ...["accountcode", "name", "mobile", "email", "gstnumber", "address", "city", "state", "pincode", "region", "type"]
+        .map((field) => ({ [field]: rx })),
+      { ledgerid: { $in: ledgerIds } },
+      { channel: { $in: channelIds } },
+      { assignaccountid: { $in: parentIds } },
+      textMatch(accountStatusText, term),
+    ],
+  };
+}
+
+/** Column filters, matched against the text each column shows in the list. */
+async function accountColumnFilterClauses(filters?: ColumnFilter[] | null, admin?: any) {
+  const clauses: any[] = [];
+  for (const { key, value } of activeFilters(filters)) {
+    const term = value.toLowerCase();
+    switch (key) {
+      case "accountcode":
+      case "name":
+      case "mobile":
+        clauses.push({ [key]: containsRx(value) });
+        break;
+      case "type":
+      case "city":
+        clauses.push(textOrDash(key, term));
+        break;
+      case "ledgername":
+        clauses.push(await refLabelClause("ledgerid", AccountLedger, "ledgername", term, admin));
+        break;
+      case "channelname":
+        clauses.push(await refLabelClause("channel", Channel, "channelName", term, admin));
+        break;
+      case "parentname":
+        clauses.push(await refLabelClause("assignaccountid", Account, "name", term, admin));
+        break;
+      case "status":
+        clauses.push(textMatch(accountStatusText, value));
+        break;
+    }
+  }
+  return clauses;
+}
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -407,78 +587,7 @@ export const accountResolvers = {
     },
 
     getAccounts: async (_: any, { filter }: { filter: any }, context: any) => {
-      const query: any = {};
-
-      if (filter?.admin) query.admin = filter.admin;
-      if (filter?.branchid) query.branchid = filter.branchid;
-      // "customer" means anyone we can sell to, which includes a both-party.
-      if (filter?.type) {
-        const want = String(filter.type).toLowerCase();
-        query.type =
-          want === "customer" || want === "vendor" ? partyTypeQuery(want as any) : filter.type;
-      }
-      if (filter?.channel) query.channel = filter.channel;
-      if (filter?.region) query.region = { $regex: filter.region, $options: "i" };
-
-      // NOTE: salesman parties are scoped explicitly via filter.salesmanid
-      // (the My Parties screen). We no longer force a channel restriction here,
-      // because it broke parent-party (upline channel) lookups and hid parties
-      // whose channel differs from the salesman's assigned channels.
-
-      // ✅ Changed accountgroupid → ledgerid
-      if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
-
-      if (filter?.accountcode) query.accountcode = filter.accountcode;
-      if (filter?.mobile) query.mobile = { $regex: filter.mobile, $options: "i" };
-      if (filter?.email) query.email = { $regex: filter.email, $options: "i" };
-      if (filter?.gstnumber) query.gstnumber = filter.gstnumber;
-      if (filter?.pan) query.pan = filter.pan;
-      if (filter?.city) query.city = { $regex: filter.city, $options: "i" };
-      if (filter?.state) query.state = { $regex: filter.state, $options: "i" };
-      if (filter?.country) query.country = filter.country;
-      if (filter?.pincode) query.pincode = filter.pincode;
-      if (filter?.billingcycle) query.billingcycle = filter.billingcycle;
-      if (filter?.openingbalancetype) query.openingbalancetype = filter.openingbalancetype;
-      if (filter?.assignaccountid) query.assignaccountid = filter.assignaccountid;
-      if (filter?.directOnly && filter?.admin && !filter?.assignaccountid) {
-        const st: any = await AdminSettings.findOne({ adminid: filter.admin })
-          .select("partyManagesDownline directPartyOrdersOnly").lean();
-        if (st?.partyManagesDownline && st?.directPartyOrdersOnly) {
-          query.assignaccountid = { $in: [null, undefined] };
-        }
-      }
-      // Salesman scoping: parties the salesman created (salesmanid on the
-      // account) + parties assigned to them via Sales Routes. Admin-created
-      // parties stay hidden until they're assigned to one of their routes.
-      if (filter?.salesmanid) {
-        const routes = await SalesRoute.find({ salesmanid: filter.salesmanid, status: true })
-          .select("accounts dayWiseAccounts")
-          .lean();
-        const routePartyIds = new Set<string>();
-        routes.forEach((r: any) => {
-          (r.accounts || []).forEach((id: any) => routePartyIds.add(String(id)));
-          (r.dayWiseAccounts || []).forEach((d: any) =>
-            (d.accounts || []).forEach((id: any) => routePartyIds.add(String(id)))
-          );
-        });
-        query.$or = [
-          { salesmanid: filter.salesmanid },
-          ...(routePartyIds.size ? [{ _id: { $in: [...routePartyIds] } }] : []),
-        ];
-      }
-      if (typeof filter?.duedays === "number") query.duedays = filter.duedays;
-      if (filter?.latitude) query.latitude = filter.latitude;
-      if (filter?.longitude) query.longitude = filter.longitude;
-      if (filter?.otp) query.otp = filter.otp;
-
-      query.status =
-        typeof filter?.status === "boolean" ? filter.status : true; // default only active
-
-      if (filter?.createdFrom || filter?.createdTo) {
-        query.createdAt = {};
-        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
-        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
-      }
+      const query = await buildAccountsQuery(filter);
 
       // ── TEMP DIAGNOSTIC ──────────────────────────────────────────────
       if (filter?.salesmanid) {
@@ -494,17 +603,29 @@ export const accountResolvers = {
           "| sample accounts having ANY salesmanid:", JSON.stringify(anySalesmen.map((a: any) => ({ name: a.name, salesmanid: String(a.salesmanid) }))));
       }
 
-      // Populated refs carry only what any client asks for (id + label).
-      // The full Admin / Ledger / Branch / Staff docs were loaded for every
-      // party on every list fetch and then discarded by GraphQL.
-      return await Account.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate({ path: "admin", select: "name email" })
-        .populate({ path: "accountgroupid", select: "accountgroupname" })
-        .populate({ path: "ledgerid", select: "ledgername openingbalance openingbalancetype" })
-        .populate({ path: "branchid", select: "branchname" })
-        .populate({ path: "assignaccountid", select: "name" })
-        .populate({ path: "salesmanid", select: "name" })
-        .populate({ path: "channel", select: "channelName" });
+      return await withAccountListRefs(Account.find(query).sort({ createdAt: 1, _id: 1 }));
+    },
+
+    getAccountsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [], directPartiesOnly = false }: any
+    ) => {
+      const base = await buildAccountsQuery(filter);
+      const parents = await existingParentIds(base);
+      const clauses: any[] = [base];
+      if (directPartiesOnly) clauses.push({ assignaccountid: { $nin: parents } });
+      const term = String(search || "").trim();
+      if (term) clauses.push(await accountSearchClause(term, filter?.admin));
+      clauses.push(...(await accountColumnFilterClauses(columnFilters, filter?.admin)));
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, subPartyCount, items] = await Promise.all([
+        Account.countDocuments(query),
+        Account.countDocuments({ $and: [base, { assignaccountid: { $in: parents } }] }),
+        withAccountListRefs(Account.find(query).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit)),
+      ]);
+      return { items, total, subPartyCount };
     },
 
     getAccountById: async (_: any, { id, adminId }: { id: string; adminId?: string }) => {

@@ -436,6 +436,50 @@ async function buildInvoiceQuery(filter: any, context: any): Promise<any | null>
   return query;
 }
 
+/**
+ * Bills getSalesInvoices leaves out as "fully returned". Repeats its check exactly
+ * (lines keyed on the populated product, as the list does) so paged totals match.
+ */
+async function hiddenReturnedInvoiceIds(base: any): Promise<any[]> {
+  const scopeIds = await SalesInvoice.distinct("_id", base);
+  if (!scopeIds.length) return [];
+  const allReturns: any[] = await SalesReturn.find({ sourceInvoiceId: { $in: scopeIds }, status: true })
+    .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
+    .lean();
+  if (!allReturns.length) return [];
+  const returnsByInvoice = new Map<string, any[]>();
+  allReturns.forEach((ret: any) => {
+    const key = String(ret.sourceInvoiceId);
+    const list = returnsByInvoice.get(key);
+    if (list) list.push(ret);
+    else returnsByInvoice.set(key, [ret]);
+  });
+  const candidates: any[] = await SalesInvoice.find({ _id: { $in: Array.from(returnsByInvoice.keys()) } })
+    .select("productservice.productserviceid productservice.variantid productservice.qty")
+    .populate({ path: "productservice.productserviceid", select: "name imageurl productvariants._id productvariants.name" })
+    .lean();
+  const hidden: any[] = [];
+  candidates.forEach((inv: any) => {
+    try {
+      const returnedByItem: Record<string, number> = {};
+      (returnsByInvoice.get(String(inv._id)) || []).forEach((ret: any) => {
+        (ret.productservice ?? []).forEach((line: any) => {
+          const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+          returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
+        });
+      });
+      const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
+        const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+        return (returnedByItem[key] || 0) >= (Number(line.qty) || 0);
+      });
+      if (allFullyReturned) hidden.push(inv._id);
+    } catch {
+      /* the list keeps a bill it cannot check */
+    }
+  });
+  return hidden;
+}
+
 /** Search across the columns shown in the invoice list. */
 async function invoiceSearchClause(term: string, adminid?: any): Promise<any> {
   const rx = new RegExp(escapeRegex(term), "i");
@@ -622,6 +666,9 @@ export const salesInvoiceResolvers = {
 
       const clauses: any[] = [base];
       if (!filter.includeCancelled) clauses.push({ cancelStatus: { $ne: "cancelled" } });
+
+      const hidden = await hiddenReturnedInvoiceIds(base);
+      if (hidden.length) clauses.push({ _id: { $nin: hidden } });
 
       const term = String(search || "").trim();
       if (term) clauses.push(await invoiceSearchClause(term, filter.adminid));

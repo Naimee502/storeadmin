@@ -13,7 +13,8 @@ import {
   GET_PURCHASE_INVOICES_SETTLE,
   GET_PURCHASE_INVOICES_LIST,
   GET_PURCHASE_INVOICE_BY_ID,
-  GET_DELETED_PURCHASE_INVOICES
+  GET_DELETED_PURCHASE_INVOICES,
+  GET_PURCHASE_INVOICES_PAGE
 } from '../../queries/purchaseinvoice';
 import { useAppSelector } from '../../../redux/hooks';
 import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
@@ -165,4 +166,40 @@ export const usePurchaseInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPoli
   }, [raw]);
 
   return { data, loading, error, refetch };
+};
+
+// ----------------- Purchase Invoices PAGE (server paging) -----------------
+// One page of the listing; search and column filters run on the server.
+export const usePurchaseInvoicesPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  includeCancelled = false,
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  includeCancelled?: boolean;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_PURCHASE_INVOICES_PAGE, {
+    variables: { filter: { adminid, branchid, includeCancelled }, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getPurchaseInvoicesPage?.items ?? [],
+    total: data?.getPurchaseInvoicesPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

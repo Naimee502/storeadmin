@@ -321,3 +321,41 @@ export const GET_PURCHASE_ORDER_BY_ID = gql`
     }
   }
 `;
+
+// One page of the Purchase Orders list (same columns as GET_PURCHASE_ORDERS_LIST).
+export const GET_PURCHASE_ORDERS_PAGE = gql`
+  query GetPurchaseOrdersPage(
+    $filter: PurchaseOrderFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getPurchaseOrdersPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        paymenttype
+        partyacc {
+          id
+          accountname
+          mobile
+          city
+        }
+        billdate
+        billnumber
+        totalamount
+        productservice {
+          qty
+        }
+        createdby_name
+        createdby_type
+        isConverted
+        orderStatus
+        cancelStatus
+        status
+        createdAt
+      }
+    }
+  }
+`;

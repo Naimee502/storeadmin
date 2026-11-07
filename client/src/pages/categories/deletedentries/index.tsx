@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedCategories = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "categories"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedCategoriesQuery();
+  const clear = useClearDeleted("categories", refetch, "category");
   const { resetCategoryMutation } = useCategoryMutations();
   const categoryList = data?.getDeletedCategories || [];
 
@@ -42,6 +44,7 @@ const DeletedCategories = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Categories"
           columns={columns}
           data={tableData}

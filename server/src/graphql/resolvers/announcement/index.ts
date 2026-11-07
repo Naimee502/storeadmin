@@ -10,6 +10,7 @@ import { resolveTenant, TenantError, type TenantScope } from "../../../utils/ten
 import { assertModuleOn } from "../../../utils/modulegate";
 import { isActionAllowed, isAnyActionAllowed } from "../../../utils/permissiongate";
 import { sendPushToToken } from "../../../utils/fcm";
+import { notCleared } from "../../../utils/listquery";
 
 /* ------------------------------------------------------------------ */
 /* Caller                                                              */
@@ -420,7 +421,7 @@ export const announcementResolvers = {
     getDeletedAnnouncements: async (_: any, __: any, context: any) => {
       const c = await callerOf(context);
       if (c.kind === "party") return [];
-      const rows = await Announcement.find({ ...manageQuery(c), isactive: false }).sort({ updatedAt: -1 }).lean();
+      const rows = await Announcement.find({ ...manageQuery(c), isactive: false, ...notCleared }).sort({ updatedAt: -1 }).lean();
       return withReadCounts(rows);
     },
 

@@ -1,4 +1,5 @@
 import { ChargeRule } from "../../../models/chargerule";
+import { notCleared } from "../../../utils/listquery";
 
 const populate = [{ path: "ledgerid", select: "ledgername" }];
 
@@ -24,7 +25,7 @@ export const chargeRuleResolvers = {
       return rules.map(formatRule);
     },
     getDeletedChargeRules: async (_: any, { adminid }: { adminid: string }) => {
-      const rules = await ChargeRule.find({ adminid, status: false })
+      const rules = await ChargeRule.find({ adminid, status: false, ...notCleared })
         .sort({ priority: 1, createdAt: 1 })
         .populate(populate)
         .lean();

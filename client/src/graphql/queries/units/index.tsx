@@ -62,3 +62,23 @@ export const GET_UNIT_BY_ID = gql`
   }
 `;
 
+// Units list page: one server page with search and column filters.
+export const GET_UNITS_PAGE = gql`
+  query GetUnitsPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getUnitsPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        unitcode
+        unitname
+        status
+      }
+    }
+  }
+`;

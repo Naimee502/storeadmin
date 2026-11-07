@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useBrandsListQuery, useBrandMutations } from "../../graphql/hooks/brands";
+import { useBrandsPageQuery, useBrandsExportList, useBrandMutations } from "../../graphql/hooks/brands";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addBrands } from "../../redux/slices/brands";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["brandcode", "brandname", "status"];
 
 const Brands = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "brands"));
@@ -18,10 +21,12 @@ const Brands = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  // Lite list query — grid columns + inline-form fields only.
-  const { data, refetch } = useBrandsListQuery();
+  // Server-paged list: one page of rows at a time.
+  const table = useServerTable("brands", SERVER_FILTER_KEYS);
+  const { items: brandList, total, loading, refetch } = useBrandsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const fetchExportList = useBrandsExportList();
   const { addBrandMutation, editBrandMutation, deleteBrandMutation } = useBrandMutations();
-  const brandList = data?.getBrands || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({ brandname: "", status: true });
@@ -47,27 +52,6 @@ const Brands = () => {
     setIsEditing(true);
     setEditingId(row.id);
   };
-
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      // Only block the UI when there is no cached list to show yet.
-      const blocking = !data?.getBrands?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getBrands) {
-          dispatch(addBrands(fresh.getBrands));
-        }
-      } catch (error) {
-        console.error("Error fetching brands:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -121,14 +105,23 @@ const Brands = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...brandList].reverse().map((brand: any, index: number) => ({
+  const tableData = brandList.map((brand: any, index: number) => ({
     ...brand,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     status: brand.status ? "Active" : "Inactive",
   }));
 
-  const handleExport = () => {
-    const exportData = [...brandList].reverse().map((brand: any, index: number) => ({
+  const handleExport = async () => {
+    // Export still covers every row, not just the page on screen.
+    let fullList: any[] = [];
+    try {
+      fullList = await fetchExportList();
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to export. Please try again.", type: "error" }));
+      return;
+    }
+    const exportData = [...fullList].reverse().map((brand: any, index: number) => ({
       ID: index + 1,
       BrandName: brand.brandname || "-",
       Status: brand.status ? "true" : "false",
@@ -186,6 +179,7 @@ const Brands = () => {
           title="Manage Brands"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button on this page.
           showAdd={false}
@@ -210,7 +204,7 @@ const Brands = () => {
           onShowDeleted={() =>navigate("/brands/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             { name: "brandname", label: "Brand Name", type: "text", placeholder: "Enter brand name" },
           ]}

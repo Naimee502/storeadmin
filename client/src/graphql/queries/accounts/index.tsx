@@ -75,6 +75,51 @@ export const GET_ACCOUNTS_LIST = gql`
   }
 `;
 
+// One page of the Party Accounts list page: same fields as GET_ACCOUNTS_LIST.
+export const GET_ACCOUNTS_PAGE = gql`
+  query GetAccountsPage(
+    $filter: AccountFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+    $directPartiesOnly: Boolean
+  ) {
+    getAccountsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters, directPartiesOnly: $directPartiesOnly) {
+      total
+      subPartyCount
+      items {
+        id
+        accountcode
+        approvalstatus
+        name
+        type
+        mobile
+        email
+        gstnumber
+        address
+        city
+        state
+        pincode
+        region
+        ledgerid {
+          id
+          ledgername
+        }
+        channel {
+          id
+          channelName
+        }
+        assignaccountid {
+          id
+          name
+        }
+        status
+      }
+    }
+  }
+`;
+
 export const GET_ACCOUNTS = gql`
   query GetAccounts($filter: AccountFilterInput) {
     getAccounts(filter: $filter) {

@@ -24,6 +24,7 @@ import {
   RESET_LEAVE_REQUEST,
   RESET_LEAVE_BALANCE,
 } from "../../../graphql/mutations/attendance";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const fmtDateTime = (iso?: string | null) => {
   if (!iso) return "-";
@@ -125,6 +126,9 @@ const DeletedAttendanceEntries: React.FC = () => {
     awaitRefetchQueries: true,
   });
 
+  // Clear covers the Daily Logs tab only (attendance logs are the module's clear target).
+  const clearLogs = useClearDeleted("attendance", logsQ.refetch, "attendance log");
+
   const notify = (msg: string, t: "success" | "error" = "success") =>
     dispatch(showMessage({ message: msg, type: t }));
 
@@ -222,6 +226,7 @@ const DeletedAttendanceEntries: React.FC = () => {
                   notify("Failed to restore log.", "error");
                 }
               }}
+              {...clearLogs}
               isLoading={logsQ.loading}
               defaultEntriesPerPage={10}
             />

@@ -8,9 +8,10 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  usePurchaseInvoicesListQuery,
+  usePurchaseInvoicesPageQuery,
   usePurchaseInvoiceMutations,
 } from "../../graphql/hooks/purchaseinvoice";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { GET_PURCHASE_INVOICE_BALANCE, GET_PURCHASE_INVOICE_BY_ID } from "../../graphql/queries/purchaseinvoice";
 import { usePurchaseReturnsListQuery } from "../../graphql/hooks/purchasereturn";
 import PrintableInvoice from "../../components/printinvoice";
@@ -26,6 +27,12 @@ import { partyLabel } from "../../utils/partylabel";
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
+// Columns the server can filter (Seq Number is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "createdByDisplay", "status",
+];
+
 const PurchaseInvoices = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseinvoice"));
@@ -33,13 +40,19 @@ const PurchaseInvoices = () => {
 
   // Lite listing query — only the table columns. The full bill is fetched by
   // id on Print / WhatsApp (see loadPrintable).
-  const { data, refetch } = usePurchaseInvoicesListQuery(undefined, { includeCancelled: true });
+  const table = useServerTable("purchaseinvoice", SERVER_FILTER_KEYS);
+  const {
+    items: invoiceList,
+    total: invoiceTotal,
+    loading: invoicesLoading,
+    refetch,
+  } = usePurchaseInvoicesPageQuery({ ...table.variables, includeCancelled: true });
+  const serverPaging = useServerPaging(table, invoiceTotal, invoicesLoading);
   const {
     deletePurchaseInvoiceMutation,
     cancelPurchaseInvoiceMutation,
     reopenPurchaseInvoiceMutation,
   } = usePurchaseInvoiceMutations();
-  const invoiceList = data?.getPurchaseInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Set of source-invoice ids that already have an active Purchase Return.
@@ -186,7 +199,7 @@ const PurchaseInvoices = () => {
     const fetchInvoices = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getPurchaseInvoices?.length;
+      const blocking = !invoiceList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -264,7 +277,7 @@ const PurchaseInvoices = () => {
     };
   };
 
-  const tableData = [...invoiceList].reverse().map(buildRow);
+  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
 
   // Print / WhatsApp need the whole bill (lines, charges, transport…), which
   // the lite listing doesn't carry — fetch it by id, plus the party balance
@@ -308,6 +321,7 @@ const PurchaseInvoices = () => {
           title="Manage Purchase Invoices"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           onWhatsApp={handleWhatsAppShare}
           // Combine the "no duplicate return" rule with the user's
           // permission to perform a return at all (Business Permissions →
@@ -398,7 +412,7 @@ const PurchaseInvoices = () => {
           }}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={invoicesLoading || isLoading}
         />
 
         {printInvoice && (

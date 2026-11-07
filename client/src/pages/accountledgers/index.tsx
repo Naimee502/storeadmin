@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountLedgersListQuery,
+  useAccountLedgersPageQuery,
   useAccountLedgerMutations,
 } from "../../graphql/hooks/accountledgers";
 import { useAccountGroupsListQuery } from "../../graphql/hooks/accountgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addAccountLedgers } from "../../redux/slices/accountledgers";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["ledgercode", "ledgername", "groupName", "ledgertype", "openingbalance", "openingbalancetype", "status"];
 
 const AccountLedgers = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accountledgers"));
@@ -21,8 +24,10 @@ const AccountLedgers = () => {
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
 
-  // Lite list queries — grid columns + inline-form fields only.
-  const { data, refetch } = useAccountLedgersListQuery();
+  // Server-paged list; account groups stay a full list for the form's picker.
+  const table = useServerTable("accountledgers", SERVER_FILTER_KEYS);
+  const { items: ledgerList, total, loading, refetch } = useAccountLedgersPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { data: accountGroupsData } = useAccountGroupsListQuery();
 
   const {
@@ -31,7 +36,6 @@ const AccountLedgers = () => {
     deleteAccountLedgerMutation,
   } = useAccountLedgerMutations();
 
-  const ledgerList = data?.getAccountLedgers || [];
   const accountGroupList = accountGroupsData?.getAccountGroups || [];
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -85,26 +89,6 @@ const AccountLedgers = () => {
     setIsEditing(true);
     setEditingId(row._id || row.id);
   };
-
-  // Mount only. Cached rows → refresh quietly without the blocking loader.
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      const blocking = !data?.getAccountLedgers?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getAccountLedgers) {
-          dispatch(addAccountLedgers(fresh.getAccountLedgers));
-        }
-      } catch (error) {
-        console.error("Error fetching account ledgers:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -161,9 +145,9 @@ const AccountLedgers = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...ledgerList].reverse().map((l: any, index: number) => ({
+  const tableData = ledgerList.map((l: any, index: number) => ({
     ...l,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     groupName: l.accountgroupid?.accountgroupname || "-",
     status: l.status ? "Active" : "Inactive",
   }));
@@ -175,6 +159,7 @@ const AccountLedgers = () => {
           title="Manage Account Ledgers"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button here.
           showAdd={false}
@@ -190,7 +175,7 @@ const AccountLedgers = () => {
           onShowDeleted={() => navigate("/accountledgers/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             { name: "ledgername", label: "Ledger Name", type: "text" },
             {

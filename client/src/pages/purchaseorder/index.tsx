@@ -9,9 +9,10 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  usePurchaseOrdersListQuery,
+  usePurchaseOrdersPageQuery,
   usePurchaseOrderMutations,
 } from "../../graphql/hooks/purchaseorder";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { GET_PURCHASE_ORDER_PRINT } from "../../graphql/queries/purchaseorder";
 import { formatDateDMY } from "../../utils/helper";
 import PrintableInvoice from "../../components/printinvoice";
@@ -26,6 +27,12 @@ import { partyLabel } from "../../utils/partylabel";
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
+// Columns the server can filter (Seq Number is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "createdby_name", "orderStatusCell", "activeStatus",
+];
+
 const PurchaseOrders = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "purchaseorder"));
@@ -39,7 +46,14 @@ const PurchaseOrders = () => {
 
   // Lite listing query — only the table columns. The full order is fetched
   // by id on Print / WhatsApp (see loadPrintable).
-  const { data, refetch } = usePurchaseOrdersListQuery();
+  const table = useServerTable("purchaseorder", SERVER_FILTER_KEYS);
+  const {
+    items: orderList,
+    total: orderTotal,
+    loading: ordersLoading,
+    refetch,
+  } = usePurchaseOrdersPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, orderTotal, ordersLoading);
   const apolloClient = useApolloClient();
   const {
     deletePurchaseOrderMutation,
@@ -95,7 +109,6 @@ const PurchaseOrders = () => {
     }
   };
 
-  const orderList = data?.getPurchaseOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
   const { settings } = useAppSelector((state: any) => state.adminsettings);
   const auth = useAppSelector((state) => state.auth);
@@ -236,7 +249,7 @@ const PurchaseOrders = () => {
     const fetchOrders = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getPurchaseOrders?.length;
+      const blocking = !orderList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -302,7 +315,7 @@ const PurchaseOrders = () => {
     };
   };
 
-  const tableData = [...orderList].reverse().map(buildRow);
+  const tableData = orderList.map((order: any, i: number) => buildRow(order, table.offset + i));
 
   // Print / WhatsApp need the whole order (lines, charges, transport, party
   // GSTIN/state…), which the lite listing doesn't carry — fetch it by id.
@@ -325,6 +338,7 @@ const PurchaseOrders = () => {
           title="Manage Purchase Orders"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           showPrint={actions.showPrint}
           onPrint={async (row) => {
             // Full order is fetched only on Print click — the listing query
@@ -361,7 +375,7 @@ const PurchaseOrders = () => {
           onShowDeleted={() => navigate("/purchaseorder/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={ordersLoading || isLoading}
         />
 
         {/* Hidden printable copy, parked offscreen so it stays mounted while

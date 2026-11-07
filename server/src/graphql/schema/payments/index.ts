@@ -116,6 +116,11 @@ export const paymentTypeDefs = gql`
   }
 
   # Payment Input
+  type PaymentPage {
+    items: [Payment!]!
+    total: Int!
+  }
+
   input PaymentInput {
     adminid: ID!
     branchid: ID!
@@ -160,6 +165,7 @@ export const paymentTypeDefs = gql`
   # Queries
   type Query {
     getPayments(filter: PaymentFilterInput): [Payment!]!
+    getPaymentsPage(filter: PaymentFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): PaymentPage!
     getDeletedPayments(filter: PaymentFilterInput): [Payment!]!
     getPaymentById(id: ID!, adminid: ID): Payment
 

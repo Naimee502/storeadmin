@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedUnits = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "units"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedUnitsQuery();
+  const clear = useClearDeleted("units", refetch, "unit");
   const { resetUnitMutation } = useUnitMutations();
   const unitList = data?.getDeletedUnits || [];
 
@@ -42,6 +44,7 @@ const DeletedUnits = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Units"
           columns={columns}
           data={tableData}

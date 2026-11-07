@@ -120,8 +120,14 @@ export const purchaseReturnTypeDefs = gql`
     status: Boolean
   }
 
+  type PurchaseReturnPage {
+    items: [PurchaseReturn!]!
+    total: Int!
+  }
+
   extend type Query {
     getPurchaseReturns(filter: PurchaseReturnFilterInput): [PurchaseReturn!]!
+    getPurchaseReturnsPage(filter: PurchaseReturnFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): PurchaseReturnPage!
     getDeletedPurchaseReturns(filter: PurchaseReturnFilterInput): [PurchaseReturn!]!
     getPurchaseReturnById(id: ID!, adminid: ID): PurchaseReturn
   }

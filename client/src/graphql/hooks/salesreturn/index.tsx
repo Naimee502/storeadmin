@@ -8,6 +8,7 @@ import {
 import {
   GET_SALES_RETURNS,
   GET_SALES_RETURNS_LIST,
+  GET_SALES_RETURNS_PAGE,
   GET_SALES_RETURN_BY_ID,
   GET_DELETED_SALES_RETURNS,
 } from "../../queries/salesreturn";
@@ -23,6 +24,7 @@ export const useSalesReturnMutations = () => {
   const [addSalesReturnMutation] = useMutation(ADD_SALES_RETURN, {
     refetchQueries: [
       "GetSalesReturnsList",
+      "GetSalesReturnsPage",
       "GetSalesReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
@@ -30,6 +32,7 @@ export const useSalesReturnMutations = () => {
   const [editSalesReturnMutation] = useMutation(EDIT_SALES_RETURN, {
     refetchQueries: [
       "GetSalesReturnsList",
+      "GetSalesReturnsPage",
       "GetSalesReturns",
       ...PAYMENT_SIDE_EFFECT_QUERIES,
     ],
@@ -37,6 +40,7 @@ export const useSalesReturnMutations = () => {
   const [deleteSalesReturnMutation] = useMutation(DELETE_SALES_RETURN, {
     refetchQueries: [
       "GetSalesReturnsList",
+      "GetSalesReturnsPage",
       "GetSalesReturns",
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
@@ -45,6 +49,7 @@ export const useSalesReturnMutations = () => {
   const [resetSalesReturnMutation] = useMutation(RESET_SALES_RETURN, {
     refetchQueries: [
       "GetSalesReturnsList",
+      "GetSalesReturnsPage",
       "GetSalesReturns",
       { query: GET_DELETED_SALES_RETURNS, variables: { filter: { adminid, branchid } } },
       ...PAYMENT_SIDE_EFFECT_QUERIES,
@@ -86,6 +91,39 @@ export const useSalesReturnsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "c
     fetchPolicy,
   });
   return { data, loading, error, refetch };
+};
+
+// Server-paged list for the Sales Returns page: same filter as useSalesReturnsListQuery.
+export const useSalesReturnsPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  ...extraFilter
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  [key: string]: any;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((s) => s.auth);
+  const selectedBranchId = useAppSelector((s) => s.selectedBranch.branchId);
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SALES_RETURNS_PAGE, {
+    variables: { filter: { adminid, branchid, ...extraFilter }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+  return {
+    items: data?.getSalesReturnsPage?.items ?? [],
+    total: data?.getSalesReturnsPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };
 
 export const useDeletedSalesReturnsQuery = () => {

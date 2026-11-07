@@ -1,4 +1,5 @@
 import { Category } from "../../../models/categories";
+import { notCleared } from "../../../utils/listquery";
 
 // Storefront order: explicit position first, then (for rows saved before
 // sortorder existed) creation time — the order they were already shown in.
@@ -30,7 +31,7 @@ export const categoryResolvers = {
     },
 
     getDeletedCategories: async (_: any, { adminId }: { adminId?: string }) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       if (adminId) query.admin = adminId;
 
       return await Category.find(query).sort({ createdAt: 1, _id: 1 }).populate("admin");

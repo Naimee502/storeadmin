@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useProductGroupsListQuery, useProductGroupMutations } from "../../graphql/hooks/productgroups";
+import { useProductGroupsPageQuery, useProductGroupsExportList, useProductGroupMutations } from "../../graphql/hooks/productgroups";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addProductGroups } from "../../redux/slices/productgroups";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["productgroupcode", "productgroupname", "status"];
 
 const ProductGroups = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "productgroups"));
@@ -18,10 +21,12 @@ const ProductGroups = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  // Lite list query — grid columns + inline-form fields only.
-  const { data, refetch } = useProductGroupsListQuery();
+  // Server-paged list: one page of rows at a time.
+  const table = useServerTable("productgroups", SERVER_FILTER_KEYS);
+  const { items: productGroupList, total, loading, refetch } = useProductGroupsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const fetchExportList = useProductGroupsExportList();
   const { addProductGroupMutation, editProductGroupMutation, deleteProductGroupMutation } = useProductGroupMutations();
-  const productGroupList = data?.getProductGroups || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
 
@@ -48,27 +53,6 @@ const ProductGroups = () => {
     setIsEditing(true);
     setEditingId(row.id);
   };
-
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      // Only block the page when there's nothing cached to show yet.
-      const blocking = !data?.getProductGroups?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getProductGroups) {
-          dispatch(addProductGroups(fresh.getProductGroups));
-        }
-      } catch (error) {
-        console.error("Error fetching product groups:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -122,14 +106,23 @@ const ProductGroups = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...productGroupList].reverse().map((pg: any, index: number) => ({
+  const tableData = productGroupList.map((pg: any, index: number) => ({
     ...pg,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     status: pg.status ? "Active" : "Inactive",
   }));
 
-  const handleExport = () => {
-    const exportData = [...productGroupList].reverse().map((pg: any, index: number) => ({
+  const handleExport = async () => {
+    // Export still covers every row, not just the page on screen.
+    let fullList: any[] = [];
+    try {
+      fullList = await fetchExportList();
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to export. Please try again.", type: "error" }));
+      return;
+    }
+    const exportData = [...fullList].reverse().map((pg: any, index: number) => ({
       ID: index + 1,
       ProductGroupName: pg.productgroupname || "-",
       Status: pg.status ? "true" : "false",
@@ -187,6 +180,7 @@ const ProductGroups = () => {
           title="Manage Product Groups"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button on this page.
           showAdd={false}
@@ -211,7 +205,7 @@ const ProductGroups = () => {
            onShowDeleted={() =>navigate("/productgroups/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             { name: "productgroupname", label: "Product Group Name", type: "text", placeholder: "Enter product group name" },
           ]}

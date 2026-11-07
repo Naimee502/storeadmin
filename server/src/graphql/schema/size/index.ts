@@ -28,8 +28,14 @@ export const sizeTypeDefs = gql`
     admin: ID
   }
 
+  type SizePage {
+    items: [Size!]!
+    total: Int!
+  }
+
   type Query {
     getSizes(adminId: ID): [Size!]!
+    getSizesPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): SizePage!
     getDeletedSizes(adminId: ID): [Size!]!
     getSizeById(id: ID!, adminId: ID): Size
   }

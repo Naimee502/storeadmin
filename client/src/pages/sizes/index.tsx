@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { useSizesListQuery, useSizeMutations } from "../../graphql/hooks/sizes";
+import { useSizesPageQuery, useSizesExportList, useSizeMutations } from "../../graphql/hooks/sizes";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addSizes } from "../../redux/slices/sizes";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { selectModuleActions } from "../../redux/slices/permissions";
+
+// Columns the server can filter (Seq Number is not one).
+const SERVER_FILTER_KEYS = ["sizecode", "sizename", "status"];
 
 const Sizes = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "sizes"));
@@ -18,10 +21,12 @@ const Sizes = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { type, admin, branch } = useAppSelector((state) => state.auth);
   const adminId = admin?.id;
-  // Lite list query — grid columns + inline-form fields only.
-  const { data, refetch } = useSizesListQuery();
+  // Server-paged list: one page of rows at a time.
+  const table = useServerTable("sizes", SERVER_FILTER_KEYS);
+  const { items: sizeList, total, loading, refetch } = useSizesPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const fetchExportList = useSizesExportList();
   const { addSizeMutation, editSizeMutation, deleteSizeMutation } = useSizeMutations();
-  const sizeList = data?.getSizes || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const [formValues, setFormValues] = useState({ sizename: "", status: true });
@@ -47,27 +52,6 @@ const Sizes = () => {
     setIsEditing(true);
     setEditingId(row.id);
   };
-
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      // Only block the UI when there is no cached list to show yet.
-      const blocking = !data?.getSizes?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getSizes) {
-          dispatch(addSizes(fresh.getSizes));
-        }
-      } catch (error) {
-        console.error("Error fetching sizes:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
@@ -121,14 +105,23 @@ const Sizes = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...sizeList].reverse().map((size: any, index: number) => ({
+  const tableData = sizeList.map((size: any, index: number) => ({
     ...size,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     status: size.status ? "Active" : "Inactive",
   }));
 
-  const handleExport = () => {
-    const exportData = [...sizeList].reverse().map((size: any, index: number) => ({
+  const handleExport = async () => {
+    // Export still covers every row, not just the page on screen.
+    let fullList: any[] = [];
+    try {
+      fullList = await fetchExportList();
+    } catch (error) {
+      console.error(error);
+      dispatch(showMessage({ message: "Failed to export. Please try again.", type: "error" }));
+      return;
+    }
+    const exportData = [...fullList].reverse().map((size: any, index: number) => ({
       ID: index + 1,
       SizeName: size.sizename || "-",
       Status: size.status ? "true" : "false",
@@ -186,6 +179,7 @@ const Sizes = () => {
           title="Manage Sizes"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           {...actions}
           // Inline form replaces the Add button on this page.
           showAdd={false}
@@ -210,7 +204,7 @@ const Sizes = () => {
           onShowDeleted={() =>navigate("/sizes/deletedentries")}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
           formFields={[
             { name: "sizename", label: "Size Name", type: "text", placeholder: "Enter size name" },
           ]}

@@ -28,8 +28,14 @@ export const brandTypeDefs = gql`
     admin: ID
 }
 
+  type BrandPage {
+    items: [Brand!]!
+    total: Int!
+  }
+
   type Query {
     getBrands(adminId: ID): [Brand!]!
+    getBrandsPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): BrandPage!
     getBrandById(id: ID!, adminId: ID): Brand
     getDeletedBrands(adminId: ID): [Brand!]!
   }

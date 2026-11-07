@@ -6,6 +6,7 @@ import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
 import { useDeletedChargeRulesQuery, useChargeRuleMutations } from "../../../graphql/hooks/chargerules";
 import { showMessage } from "../../../redux/slices/message";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const ChargeRuleDeletedEntries = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const ChargeRuleDeletedEntries = () => {
 
   const { data, refetch } = useDeletedChargeRulesQuery(adminId);
   const { resetChargeRule } = useChargeRuleMutations();
+  const clear = useClearDeleted("chargerules", refetch, "charge rule");
 
   const deleted = data?.getDeletedChargeRules || [];
 
@@ -75,6 +77,7 @@ const ChargeRuleDeletedEntries = () => {
               dispatch(showMessage({ message: e?.message || "Failed to restore.", type: "error" }));
             }
           }}
+          {...clear}
           entriesOptions={[5, 10, 25]}
           defaultEntriesPerPage={10}
         />

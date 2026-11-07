@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedSizes = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "sizes"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedSizesQuery();
+  const clear = useClearDeleted("sizes", refetch, "size");
   const { resetSizeMutation } = useSizeMutations();
   const sizeList = data?.getDeletedSizes || [];
 
@@ -42,6 +44,7 @@ const DeletedSizes = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Sizes"
           columns={columns}
           data={tableData}

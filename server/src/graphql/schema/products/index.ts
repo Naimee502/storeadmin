@@ -383,8 +383,15 @@ export const productServiceTypeDefs = gql`
     masters: [ProductImportMasterNamesInput]
   }
 
+  # One page of the products list. lowStock keeps products with a variant below its minimum stock.
+  type ProductServicePage {
+    items: [ProductService!]!
+    total: Int!
+  }
+
   type Query {
     getProductServices(filter: ProductServiceFilterInput, limit: Int, offset: Int): [ProductService]!
+    getProductServicesPage(filter: ProductServiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!], lowStock: Boolean): ProductServicePage!
     getProductServiceById(id: ID!, adminId: ID, branchId: ID): ProductService
     getProductImportMasters: ProductImportMasters!
   }

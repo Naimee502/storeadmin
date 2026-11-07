@@ -1,20 +1,24 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
+import { useApolloClient } from "@apollo/client";
 import { useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { addAccounts } from "../../redux/slices/accounts";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useAccountsListQuery,
+  useAccountsPageQuery,
   useAccountMutations,
   usePartyOutstandingSummaryQuery,
 } from "../../graphql/hooks/accounts";
-import { hideLoading, showLoading } from "../../redux/slices/loader";
+import { GET_ACCOUNTS_LIST } from "../../graphql/queries/accounts";
 import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions, selectIsModuleBusinessEnabled } from "../../redux/slices/permissions";
 import { formatINR, toTitleCase } from "../../utils/helper";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter (Outstanding comes from another query, Seq Number is per page).
+const SERVER_FILTER_KEYS = ["accountcode", "name", "mobile", "ledgername", "type", "channelname", "parentname", "city", "status"];
 
 const Accounts = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "accounts"));
@@ -38,32 +42,21 @@ const Accounts = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data, refetch } = useAccountsListQuery();
+  // One page from the server; direct-only is applied there when sub-parties are hidden.
+  const table = useServerTable("accounts", SERVER_FILTER_KEYS);
+  const {
+    items: visibleAccounts,
+    total,
+    subPartyCount,
+    loading,
+    refetch,
+    listVariables,
+  } = useAccountsPageQuery({ ...table.variables, directPartiesOnly: directOnlyOn && !showSubParties });
+  const serverPaging = useServerPaging(table, total, loading);
+  const apolloClient = useApolloClient();
   const { outstandingById } = usePartyOutstandingSummaryQuery();
   const { deleteAccountMutation, approveAccountMutation } = useAccountMutations();
-  const accountList = data?.getAccounts || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
-
-  useEffect(() => {
-    const fetchAndDispatch = async () => {
-      // Rows already in the cache → refresh quietly in the background instead
-      // of covering the table with the full-screen loader.
-      const blocking = !data?.getAccounts?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data } = await refetch();
-        if (data?.getAccounts) {
-          dispatch(addAccounts(data.getAccounts));
-        }
-      } catch (error) {
-        console.error("Error fetching accounts:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-    fetchAndDispatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   const columns = [
     { label: "Seq Number", key: "seqNo" },
@@ -80,12 +73,7 @@ const Accounts = () => {
     { label: "Status", key: "status" },
   ];
 
-  const visibleAccounts = directOnlyOn && !showSubParties
-    ? accountList.filter((acc: any) => !acc.assignaccountid?.id)
-    : accountList;
-  const subPartyCount = accountList.filter((acc: any) => !!acc.assignaccountid?.id).length;
-
-  const tableData = [...visibleAccounts].reverse().map((acc, index) => {
+  const tableData = visibleAccounts.map((acc: any, index: number) => {
     const ledgerName =
     typeof acc.ledgerid === "string"
       ? "-" // string — not populated
@@ -93,7 +81,7 @@ const Accounts = () => {
 
     return {
       ...acc,
-      seqNo: index + 1,
+      seqNo: table.offset + index + 1,
       ledgername: ledgerName,
       type: acc.type ? acc.type.charAt(0).toUpperCase() + acc.type.slice(1) : "-", // ✅ Format nicely
       channelname:
@@ -114,7 +102,20 @@ const Accounts = () => {
     };
   });
 
-  const handleExport = () => {
+  // Export still writes every party: the full list is fetched on click.
+  const handleExport = async () => {
+    let accountList: any[];
+    try {
+      const { data: full } = await apolloClient.query({
+        query: GET_ACCOUNTS_LIST,
+        variables: listVariables,
+        fetchPolicy: "network-only",
+      });
+      accountList = full?.getAccounts || [];
+    } catch (error: any) {
+      dispatch(showMessage({ message: error?.message || "Failed to export accounts.", type: "error" }));
+      return;
+    }
     const exportData = [...accountList].reverse().map((acc: any, index: number) => {
       // ledgerid comes populated ({ id, ledgername }) — same name the grid
       // shows, so the export no longer needs the whole ledger list fetched.
@@ -228,7 +229,8 @@ const Accounts = () => {
           onShowDeleted={() => navigate("/accounts/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          serverPaging={serverPaging}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

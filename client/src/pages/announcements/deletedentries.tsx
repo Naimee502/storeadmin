@@ -7,12 +7,14 @@ import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { GET_DELETED_ANNOUNCEMENTS, RESET_ANNOUNCEMENT } from "../../graphql/queries/announcement";
+import { useClearDeleted } from "../../graphql/hooks/common";
 
 const DeletedAnnouncements = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const actions = useAppSelector((s) => selectModuleActions(s, "announcements"));
-  const { data, loading } = useQuery(GET_DELETED_ANNOUNCEMENTS, { fetchPolicy: "cache-and-network" });
+  const { data, loading, refetch } = useQuery(GET_DELETED_ANNOUNCEMENTS, { fetchPolicy: "cache-and-network" });
+  const clear = useClearDeleted("announcements", refetch, "announcement");
   const [resetMut] = useMutation(RESET_ANNOUNCEMENT, { refetchQueries: ["GetAnnouncements", "GetAnnouncementsList", "GetDeletedAnnouncements"] });
 
   const rows = (data?.getDeletedAnnouncements || []).map((a: any, i: number) => ({
@@ -54,6 +56,7 @@ const DeletedAnnouncements = () => {
               dispatch(showMessage({ message: e?.message || "Failed to restore.", type: "error" }));
             }
           }}
+          {...clear}
           entriesOptions={[10, 25, 50]}
           defaultEntriesPerPage={10}
           isLoading={loading && rows.length === 0}

@@ -5,14 +5,20 @@ import { showMessage } from "../../redux/slices/message";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
-import { usePriceListQuery, usePriceListMutations } from "../../graphql/hooks/pricelists";
+import { usePriceListsPageQuery, usePriceListMutations } from "../../graphql/hooks/pricelists";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter on (Seq No is not filterable).
+const SERVER_FILTER_KEYS = ["name", "description", "status"];
 
 const PriceLists = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "pricelists"));
   const dispatch = useAppDispatch();
-  const { data, refetch, loading } = usePriceListQuery();
-  const priceLists = data?.getPriceLists ?? [];
+  const table = useServerTable("pricelists", SERVER_FILTER_KEYS);
+  const { items: priceLists, total, refetch, loading } = usePriceListsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
+  const isLoading = useAppSelector((state: any) => state.loader.isLoading);
   const { deletePriceList } = usePriceListMutations();
 
   useEffect(() => {
@@ -28,7 +34,7 @@ const PriceLists = () => {
 
   const tableData = priceLists.map((item: any, index: number) => ({
     ...item,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     status: item.status ? "Active" : "Inactive",
   }));
 
@@ -62,7 +68,8 @@ const PriceLists = () => {
           onAdd={() => navigate("/pricelists/addedit")}
           showDeleted={actions.showDeleted}
           onShowDeleted={() => navigate("/pricelists/deletedentries")}
-          isLoading={loading}
+          serverPaging={serverPaging}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

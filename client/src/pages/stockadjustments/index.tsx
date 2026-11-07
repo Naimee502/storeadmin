@@ -7,10 +7,16 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useStockAdjustmentsListQuery,
+  useStockAdjustmentsPageQuery,
   useDeleteStockAdjustment,
 } from "../../graphql/hooks/stockadjustments";
 import { formatDateDMY } from "../../utils/helper";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter (Seq No. is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "adjustmentdate", "vouchernumber", "type", "reason", "totalamount", "createdByDisplay", "status",
+];
 
 const StockAdjustmentsList: React.FC = () => {
   const navigate = useNavigate();
@@ -35,10 +41,12 @@ const StockAdjustmentsList: React.FC = () => {
 
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 
-  const { data, loading, refetch } = useStockAdjustmentsListQuery({
-    adminid: adminId,
-    branchid: branchId,
+  const table = useServerTable("stockadjustments", SERVER_FILTER_KEYS);
+  const { items: adjustmentList, total, loading, refetch } = useStockAdjustmentsPageQuery({
+    ...table.variables,
+    filter: { adminid: adminId, branchid: branchId },
   });
+  const serverPaging = useServerPaging(table, total, loading);
 
   const { deleteStockAdjustment } = useDeleteStockAdjustment();
 
@@ -46,7 +54,7 @@ const StockAdjustmentsList: React.FC = () => {
     const fetchData = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getStockAdjustments?.length;
+      const blocking = !adjustmentList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -59,8 +67,6 @@ const StockAdjustmentsList: React.FC = () => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, refetch]);
-
-  const adjustmentList = data?.getStockAdjustments || [];
 
   const columns = [
     { label: "Seq No.", key: "seqNo" },
@@ -75,7 +81,7 @@ const StockAdjustmentsList: React.FC = () => {
 
   const tableData = adjustmentList.map((item: any, index: number) => ({
     ...item,
-    seqNo: index + 1,
+    seqNo: table.offset + index + 1,
     adjustmentdate: item.adjustmentdate
       ? formatDateDMY(item.adjustmentdate)
       : "-",
@@ -121,9 +127,7 @@ const StockAdjustmentsList: React.FC = () => {
           title="Stock Adjustments"
           columns={columns}
           data={tableData}
-          
-          
-          
+          serverPaging={serverPaging}
           showReset={false}
           
           

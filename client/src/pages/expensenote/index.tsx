@@ -9,13 +9,20 @@ import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 
 import {
-  useExpenseNotesListQuery,
+  useExpenseNotesPageQuery,
   useExpenseNoteMutations,
 } from "../../graphql/hooks/expensenote";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import { formatDateDMY } from "../../utils/helper";
+
+// Columns the server can filter (Seq is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "expensenumber", "expensedate", "categoryLabel", "staffLabel", "ledgername",
+  "paymenttype", "narration", "totalamount", "totalgst", "createdByDisplay", "status",
+];
 
 const ExpenseNote = () => {
   const navigate = useNavigate();
@@ -34,10 +41,11 @@ const ExpenseNote = () => {
   const tab = claimsOn ? tabState : "notes";
   const pendingClaims = (claimsData?.getExpenseClaims || []).filter((c: any) => c.status === "pending").length;
 
-  const { data, refetch } = useExpenseNotesListQuery();
+  const table = useServerTable("expensenote", SERVER_FILTER_KEYS);
+  const { items: expenseList, total, loading, refetch } = useExpenseNotesPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { deleteExpenseNoteMutation } = useExpenseNoteMutations();
 
-  const expenseList = data?.getExpenseNotes || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   /* =========================
@@ -48,7 +56,7 @@ const ExpenseNote = () => {
     const fetchExpenseNotes = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getExpenseNotes?.length;
+      const blocking = !expenseList.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -115,7 +123,7 @@ const ExpenseNote = () => {
 
     return {
       ...exp,
-      seqNo: index + 1,
+      seqNo: table.offset + index + 1,
       expensedate: formattedDate,
       categoryLabel: CATEGORY_LABEL[exp.category || "general"] || "General",
       staffLabel,
@@ -168,12 +176,7 @@ const ExpenseNote = () => {
           title="Expense Notes"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
+          serverPaging={serverPaging}
           onEdit={(row) =>
             navigate(`/expensenote/addedit/${row.id}`)
           }
@@ -213,7 +216,7 @@ const ExpenseNote = () => {
           }
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
         />
           </TabsContent>
         </Tabs>

@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedAccountGroups = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "accountgroups"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedAccountGroupsQuery();
+  const clear = useClearDeleted("accountgroups", refetch, "account group");
   const { resetAccountGroupMutation } = useAccountGroupMutations();
   const accountGroupList = data?.getDeletedAccountGroups || [];
 
@@ -42,6 +44,7 @@ const DeletedAccountGroups = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Manage Deleted Account Groups"
           columns={columns}
           data={tableData}

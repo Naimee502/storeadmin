@@ -10,6 +10,7 @@ import {
   useDeletedSalesReturnsQuery,
   useSalesReturnMutations,
 } from "../../../graphql/hooks/salesreturn";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
 
@@ -18,6 +19,7 @@ const DeletedSalesReturns = () => {
   const dispatch = useAppDispatch();
   const actions = useAppSelector(state => selectModuleActions(state, "salesreturn"));
   const { data, refetch } = useDeletedSalesReturnsQuery();
+  const clear = useClearDeleted("salesreturn", refetch, "sales return");
   const { resetSalesReturnMutation } = useSalesReturnMutations();
 
   const list = data?.getDeletedSalesReturns || [];
@@ -67,6 +69,7 @@ const DeletedSalesReturns = () => {
           showExport={false}
           showReset={actions.canReset}
           showDeleted={false}
+          {...clear}
           onReset={async (row) => {
             if (!window.confirm(`Restore Sales Return ${row.billnumber}?`)) return;
             try {

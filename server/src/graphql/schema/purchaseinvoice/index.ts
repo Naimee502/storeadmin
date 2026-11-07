@@ -167,10 +167,18 @@ export const purchaseInvoiceTypeDefs = gql`
     billdateFrom: String
     billdateTo: String
     status: Boolean
+    # Paged list only: include cancelled bills (the management list does).
+    includeCancelled: Boolean
+  }
+
+  type PurchaseInvoicePage {
+    items: [PurchaseInvoice!]!
+    total: Int!
   }
 
   type Query {
     getPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
+    getPurchaseInvoicesPage(filter: PurchaseInvoiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): PurchaseInvoicePage!
     getDeletedPurchaseInvoices(filter: PurchaseInvoiceFilterInput): [PurchaseInvoice!]!
     getPurchaseInvoiceById(id: ID!, adminid: ID): PurchaseInvoice
   }

@@ -41,6 +41,11 @@ export const salesRouteSchema = gql`
     status: Boolean
   }
 
+  type SalesRoutePage {
+    items: [SalesRoute!]!
+    total: Int!
+  }
+
   input SalesRouteFilterInput {
     adminId: ID
     branchId: ID
@@ -52,6 +57,7 @@ export const salesRouteSchema = gql`
 
   extend type Query {
     getSalesRoutes(filter: SalesRouteFilterInput, limit: Int, offset: Int): [SalesRoute]
+    getSalesRoutesPage(filter: SalesRouteFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): SalesRoutePage!
     getSalesRouteById(id: ID!, adminId: ID, branchId: ID): SalesRoute
   }
 

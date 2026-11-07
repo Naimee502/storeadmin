@@ -182,10 +182,16 @@ export const salesReturnTypeDefs = gql`
     lines: [SalesReturnDraftLine!]!
   }
 
+  type SalesReturnPage {
+    items: [SalesReturn!]!
+    total: Int!
+  }
+
   extend type Query {
     getReturnableSalesInvoices(search: String): [ReturnableSalesInvoice!]!
     getSalesReturnDraft(sourceInvoiceId: ID!): SalesReturnDraft!
     getSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
+    getSalesReturnsPage(filter: SalesReturnFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): SalesReturnPage!
     getDeletedSalesReturns(filter: SalesReturnFilterInput): [SalesReturn!]!
     getSalesReturnById(id: ID!, adminid: ID): SalesReturn
   }

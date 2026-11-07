@@ -2,6 +2,15 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Account } from "../../../models/accounts";
 import { generateTokens, sendRefreshToken } from "../../../utils/auth";
 import { enforceLoginOtp } from "../../../utils/loginotp";
+import { AccountGroup } from "../../../models/accountgroups";
+import {
+  activeFilters,
+  containsRx,
+  notCleared,
+  pageWindow,
+  textMatch,
+  type ColumnFilter,
+} from "../../../utils/listquery";
 
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -17,56 +26,187 @@ async function assertStaffEmailFree(email: any, role: any, excludeId?: string) {
   }
 }
 
+/** Filter for the active staff lists (getStaffAccounts and its paged form). */
+function buildStaffQuery(filter: any): any {
+  const query: any = {};
+
+  if (filter?.adminId) query.admin = filter.adminId;
+  if (filter?.branchid) query.branchid = filter.branchid;
+
+  // Role filter (staff / salesman / deliveryboy)
+  if (filter?.role) query.role = filter.role;
+
+  // Default only ACTIVE accounts
+  query.status =
+    typeof filter?.status === "boolean" ? filter.status : true;
+
+  if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
+  if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
+
+  if (filter?.mobile)
+    query.mobile = { $regex: filter.mobile, $options: "i" };
+  if (filter?.email)
+    query.email = { $regex: filter.email, $options: "i" };
+
+  if (typeof filter?.salary === "number") query.salary = filter.salary;
+  if (typeof filter?.commission === "number") query.commission = filter.commission;
+
+  // Date filter
+  if (filter?.createdFrom || filter?.createdTo) {
+    query.createdAt = {};
+    if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
+    if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
+  }
+  return query;
+}
+
+// Populated refs carry only what any client asks for (id + label).
+const withStaffListRefs = (q: any) => q
+  .populate({ path: "admin", select: "name email" })
+  .populate({ path: "branchid", select: "branchname" })
+  .populate({ path: "accountgroupid", select: "accountgroupname" })
+  .populate({ path: "ledgerid", select: "ledgername" })
+  .populate({ path: "assignedChannels", select: "channelName" });
+
+/** A number as JS toFixed(2) prints it, "" when missing. */
+const fixed2Text = (field: string) => ({
+  $let: {
+    vars: { n: { $convert: { input: field, to: "double", onError: null, onNull: null } } },
+    in: {
+      $cond: [
+        { $eq: ["$$n", null] },
+        "",
+        {
+          $let: {
+            vars: {
+              sign: { $cond: [{ $lt: ["$$n", 0] }, "-", ""] },
+              digits: { $toString: { $toLong: { $floor: { $add: [{ $multiply: [{ $abs: "$$n" }, 100] }, 0.5] } } } },
+            },
+            in: {
+              $let: {
+                vars: {
+                  p: {
+                    $concat: [
+                      { $substrCP: ["00", 0, { $max: [0, { $subtract: [3, { $strLenCP: "$$digits" }] }] }] },
+                      "$$digits",
+                    ],
+                  },
+                },
+                in: {
+                  $concat: [
+                    "$$sign",
+                    { $substrCP: ["$$p", 0, { $subtract: [{ $strLenCP: "$$p" }, 2] }] },
+                    ".",
+                    { $substrCP: ["$$p", { $subtract: [{ $strLenCP: "$$p" }, 2] }, 2] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  },
+});
+
+const staffStatusText = { $cond: ["$status", "Active", "Inactive"] };
+
+/** Role column: stored role (shown capitalised), "Staff" when blank. */
+const staffRoleClause = (term: string) =>
+  "staff".includes(term.toLowerCase())
+    ? { $or: [{ role: containsRx(term) }, { role: { $in: [null, ""] } }] }
+    : { role: containsRx(term) };
+
+/** Account Group column: group name, "-" when there is none. */
+async function staffGroupClause(term: string, admin?: any) {
+  const scope: any = admin ? { admin } : {};
+  const or: any[] = [{ accountgroupid: { $in: await AccountGroup.find({ ...scope, accountgroupname: containsRx(term) }).distinct("_id") } }];
+  if ("-".includes(term)) {
+    const named = await AccountGroup.find({ ...scope, accountgroupname: { $nin: [null, ""] } }).distinct("_id");
+    or.push({ accountgroupid: { $nin: named } });
+  }
+  return or.length === 1 ? or[0] : { $or: or };
+}
+
+/** Search across the staff list's text columns. */
+async function staffSearchClause(term: string, admin?: any) {
+  const rx = containsRx(term);
+  return {
+    $or: [
+      ...["name", "mobile", "email", "staffcode", "address"].map((field) => ({ [field]: rx })),
+      textMatch(fixed2Text("$salary"), term),
+      textMatch(fixed2Text("$commission"), term),
+      textMatch(fixed2Text("$target"), term),
+      await staffGroupClause(term, admin),
+      staffRoleClause(term),
+      textMatch(staffStatusText, term),
+    ],
+  };
+}
+
+/** Column filters, matched against the text each column shows in the list. */
+async function staffColumnFilterClauses(filters?: ColumnFilter[] | null, admin?: any) {
+  const clauses: any[] = [];
+  for (const { key, value } of activeFilters(filters)) {
+    switch (key) {
+      case "name":
+      case "mobile":
+      case "email":
+        clauses.push({ [key]: containsRx(value) });
+        break;
+      case "salary":
+      case "commission":
+      case "target":
+        clauses.push(textMatch(fixed2Text(`$${key}`), value));
+        break;
+      case "accountgroupname":
+        clauses.push(await staffGroupClause(value, admin));
+        break;
+      case "role":
+        clauses.push(staffRoleClause(value));
+        break;
+      case "status":
+        clauses.push(textMatch(staffStatusText, value));
+        break;
+    }
+  }
+  return clauses;
+}
+
 export const staffAccountResolvers = {
   Query: {
     // ==========================================
     // ✅ Get Active Staff Accounts (any role)
     // ==========================================
     getStaffAccounts: async (_: any, { filter }: { filter?: any }) => {
-      const query: any = {};
+      const query = buildStaffQuery(filter);
 
-      if (filter?.adminId) query.admin = filter.adminId;
-      if (filter?.branchid) query.branchid = filter.branchid;
+      return await withStaffListRefs(StaffAccount.find(query).sort({ createdAt: 1, _id: 1 }));
+    },
 
-      // Role filter (staff / salesman / deliveryboy)
-      if (filter?.role) query.role = filter.role;
+    getStaffAccountsPage: async (
+      _: any,
+      { filter, page = 1, pageSize = 10, search = "", columnFilters = [] }: any
+    ) => {
+      const clauses: any[] = [buildStaffQuery(filter)];
+      const term = String(search || "").trim();
+      if (term) clauses.push(await staffSearchClause(term, filter?.adminId));
+      clauses.push(...(await staffColumnFilterClauses(columnFilters, filter?.adminId)));
 
-      // Default only ACTIVE accounts
-      query.status =
-        typeof filter?.status === "boolean" ? filter.status : true;
-
-      if (filter?.accountgroupid) query.accountgroupid = filter.accountgroupid;
-      if (filter?.ledgerid) query.ledgerid = filter.ledgerid;
-
-      if (filter?.mobile)
-        query.mobile = { $regex: filter.mobile, $options: "i" };
-      if (filter?.email)
-        query.email = { $regex: filter.email, $options: "i" };
-
-      if (typeof filter?.salary === "number") query.salary = filter.salary;
-      if (typeof filter?.commission === "number") query.commission = filter.commission;
-
-      // Date filter
-      if (filter?.createdFrom || filter?.createdTo) {
-        query.createdAt = {};
-        if (filter.createdFrom) query.createdAt.$gte = new Date(filter.createdFrom);
-        if (filter.createdTo) query.createdAt.$lte = new Date(filter.createdTo);
-      }
-
-      // Populated refs carry only what any client asks for (id + label).
-      return await StaffAccount.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate({ path: "admin", select: "name email" })
-        .populate({ path: "branchid", select: "branchname" })
-        .populate({ path: "accountgroupid", select: "accountgroupname" })
-        .populate({ path: "ledgerid", select: "ledgername" })
-        .populate({ path: "assignedChannels", select: "channelName" });
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, items] = await Promise.all([
+        StaffAccount.countDocuments(query),
+        withStaffListRefs(StaffAccount.find(query).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit)),
+      ]);
+      return { items, total };
     },
 
     // ==========================================
     // ✅ Get DELETED staff accounts
     // ==========================================
     getDeletedStaffAccounts: async (_: any, { filter }: { filter?: any }) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
 
       if (filter?.adminId) query.admin = filter.adminId;
       if (filter?.branchid) query.branchid = filter.branchid;

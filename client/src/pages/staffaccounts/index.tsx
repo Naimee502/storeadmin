@@ -4,12 +4,11 @@ import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
 import {
-  useStaffListQuery,
+  useStaffPageQuery,
   useStaffMutations,
 } from "../../graphql/hooks/staffaccounts";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addStaff } from "../../redux/slices/staffaccounts"; // reducer name unchanged
 import FormField from "../../components/formfiled";
 import { FormDensityContext } from "../../components/formpage/density";
 import FormSwitch from "../../components/formswitch";
@@ -30,6 +29,10 @@ import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
 import { useChannelsQuery } from "../../graphql/hooks/channels";
 import { selectModuleActions, selectIsFormFieldEnabled } from "../../redux/slices/permissions";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+
+// Columns the server can filter (Seq Number is per page).
+const SERVER_FILTER_KEYS = ["name", "mobile", "email", "salary", "commission", "target", "accountgroupname", "role", "status"];
 
 type FormValues = {
   branchid: string;
@@ -70,8 +73,10 @@ const StaffAccounts = () => {
     return staffFormPermissions[fieldId] !== false;
   };
 
-  // HOOKS UPDATED
-  const { data, refetch } = useStaffListQuery();
+  // One page from the server.
+  const table = useServerTable("staffaccounts", SERVER_FILTER_KEYS);
+  const { items: staffList, total, loading, refetch } = useStaffPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { addStaffMutation, editStaffMutation, deleteStaffMutation } =
     useStaffMutations();
 
@@ -81,8 +86,6 @@ const StaffAccounts = () => {
 
   const { data: channelData } = useChannelsQuery(adminId);
   const channelList = channelData?.getChannels || [];
-
-  const staffList = data?.getStaffAccounts || [];
 
   // Tally-style: auto-resolve "Staff Account" group (server also auto-creates it if missing)
   const staffAccountGroupId = useMemo(() => {
@@ -193,30 +196,6 @@ const StaffAccounts = () => {
       setFormValues((prev) => ({ ...prev, accountgroupid: staffAccountGroupId }));
     }
   }, [staffAccountGroupId, isEditing]);
-
-  // Mount only. It used to re-run on every change of the list, so the first
-  // load fetched twice (and flashed the full-screen loader twice) and every
-  // save/delete refetch triggered one more refetch. Cached rows → refresh
-  // quietly without the blocking loader.
-  useEffect(() => {
-    const fn = async () => {
-      const blocking = !data?.getStaffAccounts?.length;
-      if (blocking) dispatch(showLoading());
-      try {
-        const { data: fresh } = await refetch();
-        if (fresh?.getStaffAccounts) {
-          dispatch(addStaff(fresh.getStaffAccounts)); // reducer name unchanged
-        }
-      } catch (error) {
-        console.error("Error fetching staff:", error);
-      } finally {
-        if (blocking) dispatch(hideLoading());
-      }
-    };
-
-    fn();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, refetch]);
 
   // UPLOAD IMAGE
   const uploadProfilePicture = useCallback(async () => {
@@ -334,14 +313,14 @@ const StaffAccounts = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = [...staffList].reverse().map((s: any, i: number) => {
+  const tableData = staffList.map((s: any, i: number) => {
     const role = s.role
       ? s.role.charAt(0).toUpperCase() + s.role.slice(1)
       : "Staff";
 
     return {
       ...s,
-      seqNo: i + 1,
+      seqNo: table.offset + i + 1,
       salary: s.salary?.toFixed(2),
       commission: s.commission?.toFixed(2),
       target: s.target?.toFixed(2),
@@ -602,6 +581,8 @@ const StaffAccounts = () => {
           }}
           onShowDeleted={() => navigate("/staffaccounts/deletedentries")}
           onImport={() => fileInputRef.current?.click()}
+          serverPaging={serverPaging}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

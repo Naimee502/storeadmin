@@ -22,6 +22,11 @@ export const priceListTypeDefs = gql`
     updatedAt: Date
   }
 
+  type PriceListPage {
+    items: [PriceList!]!
+    total: Int!
+  }
+
   type PriceAssignment {
     id: ID!
     adminid: ID!
@@ -63,6 +68,7 @@ export const priceListTypeDefs = gql`
     getPriceLists(adminid: ID!): [PriceList]
     getPriceListById(id: ID!): PriceList
     getDeletedPriceLists(adminid: ID!): [PriceList]
+    getPriceListsPage(adminid: ID!, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): PriceListPage!
     getPriceAssignments(adminid: ID!): [PriceAssignment]
     getDeletedPriceAssignments(adminid: ID!): [PriceAssignment]
     resolvePrice(

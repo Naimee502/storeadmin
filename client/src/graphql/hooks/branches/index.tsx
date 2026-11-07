@@ -9,6 +9,7 @@ import {
   GET_BRANCH_BY_ID,
   GET_BRANCHES,
   GET_BRANCHES_LIST,
+  GET_BRANCHES_PAGE,
   GET_DELETED_BRANCHES,
 } from '../../queries/branches';
 import { LOGIN_BRANCH } from '../../mutations/branches';
@@ -54,6 +55,40 @@ export const useBranchesListQuery = () => {
   });
 
   return { data, loading, error, refetch };
+};
+
+/**
+ * Branches list page: one page from the server, same scope as useBranchesListQuery.
+ * `listVariables` lets Export fetch the full list.
+ */
+export const useBranchesPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const adminId = useAppSelector((state) => state.auth.admin?.id);
+  const listVariables = adminId ? { adminId } : {};
+
+  const { data, loading, error, refetch } = useQuery(GET_BRANCHES_PAGE, {
+    variables: { ...listVariables, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getBranchesPage?.items ?? [],
+    total: data?.getBranchesPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+    listVariables,
+  };
 };
 
 export const useDeletedBranchesQuery = () => {

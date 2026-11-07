@@ -37,6 +37,11 @@ export const stockAdjustmentTypeDefs = gql`
     updatedAt: Date
   }
 
+  type StockAdjustmentPage {
+    items: [StockAdjustment]!
+    total: Int!
+  }
+
   input StockAdjustmentItemInput {
     productid: ID!
     variantid: ID
@@ -71,6 +76,7 @@ export const stockAdjustmentTypeDefs = gql`
 
   extend type Query {
     getStockAdjustments(filter: StockAdjustmentFilterInput, limit: Int, offset: Int): [StockAdjustment]
+    getStockAdjustmentsPage(filter: StockAdjustmentFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): StockAdjustmentPage!
     getStockAdjustmentById(id: ID!, adminId: ID, branchId: ID): StockAdjustment
   }
 

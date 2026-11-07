@@ -14,6 +14,7 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { formatDateDMY } from "../../../utils/helper";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedExpenseNotes = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const DeletedExpenseNotes = () => {
   const showClaims = new URLSearchParams(location.search).get("tab") === "claims";
 
   const { data, refetch } = useDeletedExpenseNotesQuery();
+  const clear = useClearDeleted("expensenote", refetch, "expense note");
   const { resetExpenseNoteMutation } = useExpenseNoteMutations();
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -132,6 +134,7 @@ const DeletedExpenseNotes = () => {
           title="Deleted Expense Notes"
           columns={columns}
           data={tableData}
+          {...clear}
           showView={false}
           showEdit={false}
           showDelete={false}

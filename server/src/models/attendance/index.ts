@@ -45,6 +45,8 @@ const attendanceSchema = new mongoose.Schema(
     notes: { type: String },
     punches: { type: [punchSubSchema], default: [] },
     status_active: { type: Boolean, default: true },
+    // Set by "Clear" on a deleted log; reset whenever the log becomes active again.
+    cleared: { type: Boolean },
   },
   { timestamps: true }
 );

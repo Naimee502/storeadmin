@@ -28,8 +28,14 @@ export const productGroupTypeDefs = gql`
     admin: ID
   }
 
+  type ProductGroupPage {
+    items: [ProductGroup!]!
+    total: Int!
+  }
+
   type Query {
     getProductGroups(adminId: ID): [ProductGroup!]!
+    getProductGroupsPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): ProductGroupPage!
     getDeletedProductGroups(adminId: ID): [ProductGroup!]!
     getProductGroupById(id: ID!, adminId: ID): ProductGroup
   }

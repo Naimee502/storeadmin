@@ -63,3 +63,23 @@ export const GET_PRODUCTGROUP_BY_ID = gql`
   }
 `;
 
+// Product Groups list page: one server page with search and column filters.
+export const GET_PRODUCTGROUPS_PAGE = gql`
+  query GetProductGroupsPage(
+    $adminId: ID
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getProductGroupsPage(adminId: $adminId, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        productgroupcode
+        productgroupname
+        status
+      }
+    }
+  }
+`;

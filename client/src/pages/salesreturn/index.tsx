@@ -7,30 +7,37 @@ import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useSalesReturnsListQuery,
+  useSalesReturnsPageQuery,
   useSalesReturnMutations,
 } from "../../graphql/hooks/salesreturn";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
+
+// Columns the server can filter (Seq is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "billnumber", "sourceBillNumber", "returndate", "partyacc", "totalitem",
+  "totalqty", "totalamount", "refundLabel", "createdByDisplay", "statusLabel",
+];
 
 const SalesReturns = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "salesreturn"));
   const dispatch = useAppDispatch();
   // Lite listing query — only the table columns (edit loads the full return).
-  const { data, refetch } = useSalesReturnsListQuery();
+  const table = useServerTable("salesreturn", SERVER_FILTER_KEYS);
+  const { items: list, total, loading, refetch } = useSalesReturnsPageQuery(table.variables);
+  const serverPaging = useServerPaging(table, total, loading);
   const { deleteSalesReturnMutation } = useSalesReturnMutations();
   const isLoading = useAppSelector((s) => s.loader.isLoading);
-
-  const list = data?.getSalesReturns || [];
 
   useEffect(() => {
     const fetch = async () => {
       // Already have rows from the cache → refresh quietly in the background
       // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getSalesReturns?.length;
+      const blocking = !list.length;
       if (blocking) dispatch(showLoading());
       try {
         await refetch();
@@ -58,9 +65,9 @@ const SalesReturns = () => {
     { label: "Status", key: "statusLabel" },
   ];
 
-  const tableData = [...list].reverse().map((r: any, i: number) => ({
+  const tableData = list.map((r: any, i: number) => ({
     ...r,
-    seqNo: i + 1,
+    seqNo: table.offset + i + 1,
     returndate: formatDateDMY(r.returndate),
     returndateRaw: r.returndate,
     partyacc: partyLabel(r.partyacc) || "N/A",
@@ -79,6 +86,7 @@ const SalesReturns = () => {
           title="Manage Sales Returns (Credit Notes)"
           columns={columns}
           data={tableData}
+          serverPaging={serverPaging}
           
           
           
@@ -105,7 +113,7 @@ const SalesReturns = () => {
           onShowDeleted={() => navigate("/salesreturn/deletedentries")}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={loading || isLoading}
         />
       </div>
     </HomeLayout>

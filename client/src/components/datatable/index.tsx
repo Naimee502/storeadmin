@@ -155,7 +155,7 @@ interface DataTableProps {
     onAdd?: () => void;
     onReset?: (row: any) => void;
     /** Deleted pages: hide an entry for good (it stays in the database). */
-    showClear?: boolean;
+    showClear?: boolean | ((row: any) => boolean);
     onClear?: (row: any) => void;
     /** Clears every row currently shown by the filters. */
     onClearAll?: (rows: any[]) => void;
@@ -599,7 +599,7 @@ const DataTable: React.FC<DataTableProps> = ({
                                                     <FaUndo />
                                                 </button>
                                             )}
-                                            {showClear && (
+                                            {(typeof showClear === "function" ? showClear(row) : showClear) && (
                                                 <button onClick={() => onClear?.(row)} title="Clear (hide for good)" className="text-slate-500">
                                                     <FaEraser />
                                                 </button>

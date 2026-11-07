@@ -11,12 +11,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { formatDateDMY } from "../../../utils/helper";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedTransactions = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "transactions"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedTransactionsQuery();
+  const clear = useClearDeleted("transactions", refetch, "transaction");
   const { resetTransactionMutation } = useTransactionMutations();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
@@ -85,6 +87,7 @@ const DeletedTransactions = () => {
           title="Deleted Transactions"
           columns={columns}
           data={tableData}
+          {...clear}
           showView={false}
           showEdit={false}
           showDelete={false}

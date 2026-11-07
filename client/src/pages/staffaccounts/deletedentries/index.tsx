@@ -11,6 +11,7 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedStaffAccounts = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const DeletedStaffAccounts = () => {
   const dispatch = useAppDispatch();
 
   const { data, refetch } = useDeletedStaffQuery();
+  const clear = useClearDeleted("staffaccounts", refetch, "staff account");
   const { resetStaffMutation } = useStaffMutations();
 
   const staffList = data?.getDeletedStaffAccounts || [];
@@ -74,7 +76,7 @@ const DeletedStaffAccounts = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
-          
+          {...clear}
           onReset={async (row) => {
             if (
               window.confirm(

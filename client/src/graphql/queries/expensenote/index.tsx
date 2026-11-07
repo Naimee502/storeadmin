@@ -133,3 +133,38 @@ export const RESET_EXPENSE_NOTE = gql`
     resetExpenseNote(id: $id)
   }
 `;
+
+// One page of the Expense Notes list (same fields as GET_EXPENSE_NOTES_LIST).
+export const GET_EXPENSE_NOTES_PAGE = gql`
+  query GetExpenseNotesPage(
+    $filter: ExpenseNoteFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getExpenseNotesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        expensenumber
+        expensedate
+        paymenttype
+        ledgerid { id ledgername }
+        category
+        staffid {
+          id
+          name
+          staffcode
+        }
+        narration
+        totalamount
+        totalgst
+        createdby_name
+        createdby_type
+        status
+        createdAt
+      }
+    }
+  }
+`;

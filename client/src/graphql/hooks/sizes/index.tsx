@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from '@apollo/client';
+import { useCallback, useEffect } from 'react';
+import { useApolloClient, useMutation, useQuery } from '@apollo/client';
 import {
   ADD_SIZE,
   DELETE_SIZE,
@@ -8,6 +9,7 @@ import {
 import {
   GET_SIZES,
   GET_SIZES_LIST,
+  GET_SIZES_PAGE,
   GET_SIZE_BY_ID,
   GET_DELETED_SIZES,
 } from '../../queries/sizes';
@@ -89,4 +91,64 @@ export const useSizeByIDQuery = (id: string) => {
   });
 
   return { data, loading, error };
+};
+
+// Sizes list page: one server page at a time.
+export const useSizesPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+}) => {
+  const client = useApolloClient();
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  // Dropdowns elsewhere read the full getSizes list from cache; drop it so they load fresh.
+  const dropFullList = useCallback(() => {
+    client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'getSizes' });
+  }, [client]);
+  useEffect(() => {
+    dropFullList();
+  }, [dropFullList]);
+
+  const { data, loading, error, refetch } = useQuery(GET_SIZES_PAGE, {
+    variables: { adminId, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  const refetchPage = useCallback(() => {
+    dropFullList();
+    return refetch();
+  }, [dropFullList, refetch]);
+
+  return {
+    items: data?.getSizesPage?.items ?? [],
+    total: data?.getSizesPage?.total ?? 0,
+    loading,
+    error,
+    refetch: refetchPage,
+  };
+};
+
+// Full Sizes list for Export, fetched fresh (the page holds only one page).
+export const useSizesExportList = () => {
+  const client = useApolloClient();
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+
+  const adminId =
+    type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+
+  return useCallback(async (): Promise<any[]> => {
+    const { data } = await client.query({ query: GET_SIZES_LIST, variables: { adminId }, fetchPolicy: 'network-only' });
+    return data?.getSizes || [];
+  }, [client, adminId]);
 };

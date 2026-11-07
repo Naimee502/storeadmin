@@ -14,6 +14,7 @@ import {
 import {
   GET_SALES_ORDERS,
   GET_SALES_ORDERS_LIST,
+  GET_SALES_ORDERS_PAGE,
   GET_SALES_ORDER_BY_ID,
   GET_DELETED_SALES_ORDERS
 } from '../../queries/salesorder';
@@ -73,6 +74,41 @@ export const useSalesOrdersListQuery = (extraFilter: Record<string, any> = {}) =
   });
 
   return { data, loading, error, refetch };
+};
+
+// ----------------- Sales Orders PAGE (server-side paging, search, filters) -----------------
+export const useSalesOrdersPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  ...extraFilter
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  [key: string]: any;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
+  const branchid = type === 'admin' ? selectedBranchId : type === 'branch' ? branch?.id : type === 'staff' ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SALES_ORDERS_PAGE, {
+    variables: { filter: { adminid, branchid, ...extraFilter }, page, pageSize, search, columnFilters },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getSalesOrdersPage?.items ?? [],
+    total: data?.getSalesOrdersPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };
 
 // ----------------- Deleted Sales Orders Query -----------------

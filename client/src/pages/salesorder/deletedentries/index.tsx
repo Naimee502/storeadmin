@@ -10,6 +10,7 @@ import {
   useDeletedSalesOrdersQuery,
   useSalesOrderMutations,
 } from "../../../graphql/hooks/salesorder";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
 
@@ -19,6 +20,7 @@ const DeletedSalesOrders = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "salesorder"));
   
   const { data, refetch } = useDeletedSalesOrdersQuery();
+  const clear = useClearDeleted("salesorder", refetch, "order");
   const { resetSalesOrderMutation } = useSalesOrderMutations();
   const orderList = data?.getDeletedSalesOrders || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -91,6 +93,7 @@ const DeletedSalesOrders = () => {
           showExport={false}
           showAdd={false}
           showDeleted={false}
+          {...clear}
           onReset={async (row) => {
             if (
               window.confirm(

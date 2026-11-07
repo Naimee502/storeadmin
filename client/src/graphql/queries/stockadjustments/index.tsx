@@ -89,3 +89,28 @@ export const GET_STOCK_ADJUSTMENT_BY_ID = gql`
     }
   }
 `;
+
+// One page of the Stock Adjustments list (same fields as GET_STOCK_ADJUSTMENTS_LIST).
+export const GET_STOCK_ADJUSTMENTS_PAGE = gql`
+  query GetStockAdjustmentsPage(
+    $filter: StockAdjustmentFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getStockAdjustmentsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        vouchernumber
+        adjustmentdate
+        type
+        reason
+        totalamount
+        createdby_name
+        status
+      }
+    }
+  }
+`;

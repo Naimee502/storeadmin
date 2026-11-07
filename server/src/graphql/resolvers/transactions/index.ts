@@ -4,6 +4,86 @@ import { AccountLedger } from "../../../models/accountledgers";
 import { SalesInvoice, buildSalesInvoiceJournal } from "../../../models/salesinvoice";
 import { PurchaseInvoice, buildPurchaseInvoiceJournal } from "../../../models/purchaseinvoice";
 import { ExpenseNote, buildExpenseNoteJournal } from "../../../models/expensenote";
+import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
+import { activeText, dmyOrDash, fixed2, searchAndFilterClauses, textOr } from "./listtext";
+
+/** Role and filter scope of the transactions list (getTransactions and its page query). */
+function buildTransactionQuery(filter: any, context: any): any {
+  const query: any = { status: true };
+  const { user } = context;
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    query.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    query.createdby_id = user?.id;
+  }
+
+  if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
+  if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
+  if (filter.ledgerid)
+    query["entries.ledgerid"] = new mongoose.Types.ObjectId(filter.ledgerid);
+  if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
+  if (filter.entrytype) query.entrytype = filter.entrytype;
+  if (filter.transactioncode)
+    query.transactioncode = { $regex: filter.transactioncode, $options: "i" };
+  if (typeof filter.status === "boolean") query.status = filter.status;
+
+  // Date filter
+  if (filter.dateFrom || filter.dateTo) {
+    query.transactiondate = {};
+    if (filter.dateFrom) query.transactiondate.$gte = new Date(filter.dateFrom);
+    if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
+  }
+  return query;
+}
+
+const formatTransaction = (r: any) => ({
+  id: r._id.toString(),
+  ...r,
+  entries: r.entries.map((e: any) => ({
+    ledgerid: e.ledgerid
+      ? { id: e.ledgerid._id.toString(), ledgername: e.ledgerid.ledgername }
+      : null,
+    debit: e.debit,
+    credit: e.credit,
+    productserviceid: e.productserviceid,
+    variantid: e.variantid,
+    remarks: e.remarks,
+  })),
+});
+
+// Columns of the Transactions list the server can search and filter.
+const TRANSACTION_TEXT_KEYS = [
+  "transactioncode", "entrytype", "transactiondate", "narration",
+  "totaldebit", "totalcredit", "createdByDisplay", "status",
+];
+
+/** Clause matching the text one Transactions list column shows. */
+async function transactionColumnClause(key: string, term: string): Promise<any | null> {
+  switch (key) {
+    case "transactioncode":
+      return { transactioncode: containsRx(term) };
+    case "entrytype":
+      return textMatch(textOr("$entrytype", "-"), term);
+    case "transactiondate":
+      return textMatch(dmyOrDash("$transactiondate"), term);
+    case "narration":
+      return { narration: containsRx(term) };
+    case "totaldebit":
+      return textMatch(fixed2("$totaldebit"), term);
+    case "totalcredit":
+      return textMatch(fixed2("$totalcredit"), term);
+    case "createdByDisplay":
+      return textMatch(textOr("$createdby_name", "N/A"), term);
+    case "status":
+      return textMatch(activeText(), term);
+  }
+  return null;
+}
 
 export const transactionResolvers = {
   Query: {
@@ -45,60 +125,43 @@ export const transactionResolvers = {
     },
     getTransactions: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
-      const query: any = { status: true };
-      const { user } = context;
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
-      }
-
-      if (filter.adminid) query.adminid = new mongoose.Types.ObjectId(filter.adminid);
-      if (filter.branchid) query.branchid = new mongoose.Types.ObjectId(filter.branchid);
-      if (filter.ledgerid)
-        query["entries.ledgerid"] = new mongoose.Types.ObjectId(filter.ledgerid);
-      if (filter.partyid) query.partyid = new mongoose.Types.ObjectId(filter.partyid);
-      if (filter.entrytype) query.entrytype = filter.entrytype;
-      if (filter.transactioncode)
-        query.transactioncode = { $regex: filter.transactioncode, $options: "i" };
-      if (typeof filter.status === "boolean") query.status = filter.status;
-
-      // Date filter
-      if (filter.dateFrom || filter.dateTo) {
-        query.transactiondate = {};
-        if (filter.dateFrom) query.transactiondate.$gte = new Date(filter.dateFrom);
-        if (filter.dateTo) query.transactiondate.$lte = new Date(filter.dateTo);
-      }
+      const query = buildTransactionQuery(filter, context);
 
       // Only ledgername is read from the populated ledger (see the map below).
       const transactions = await Transaction.find(query).sort({ createdAt: 1, _id: 1 })
         .populate("entries.ledgerid", "ledgername")
         .lean();
 
-      return transactions.map((r: any) => ({
-        id: r._id.toString(),
-        ...r,
-        entries: r.entries.map((e: any) => ({
-          ledgerid: e.ledgerid
-            ? { id: e.ledgerid._id.toString(), ledgername: e.ledgerid.ledgername }
-            : null,
-          debit: e.debit,
-          credit: e.credit,
-          productserviceid: e.productserviceid,
-          variantid: e.variantid,
-          remarks: e.remarks,
-        })),
-      }));
+      return transactions.map(formatTransaction);
+    },
+
+    // One page of getTransactions, newest first (the list used to reverse it).
+    getTransactionsPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }:
+        { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const clauses: any[] = [buildTransactionQuery(filter || {}, context)];
+      clauses.push(...(await searchAndFilterClauses(search, columnFilters, TRANSACTION_TEXT_KEYS, transactionColumnClause)));
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+
+      const [total, rows] = await Promise.all([
+        Transaction.countDocuments(query),
+        Transaction.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("entries.ledgerid", "ledgername")
+          .lean(),
+      ]);
+      return { items: rows.map(formatTransaction), total };
     },
 
     getDeletedTransactions: async (_: any, args: { filter?: any }, context: any) => {
       const filter = args.filter || {};
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering

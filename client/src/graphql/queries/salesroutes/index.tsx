@@ -34,6 +34,37 @@ export const GET_SALES_ROUTES = gql`
   }
 `;
 
+export const GET_SALES_ROUTES_PAGE = gql`
+  query GetSalesRoutesPage(
+    $filter: SalesRouteFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getSalesRoutesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        routecode
+        routename
+        description
+        visitdays
+        status
+        salesmanid {
+          id
+          name
+          staffcode
+        }
+        accounts {
+          id
+        }
+        createdAt
+      }
+    }
+  }
+`;
+
 export const GET_SALES_ROUTE_BY_ID = gql`
   query GetSalesRouteById($id: ID!, $adminId: ID, $branchId: ID) {
     getSalesRouteById(id: $id, adminId: $adminId, branchId: $branchId) {

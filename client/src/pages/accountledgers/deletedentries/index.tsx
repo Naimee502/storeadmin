@@ -9,12 +9,14 @@ import {
 import { showMessage } from "../../../redux/slices/message";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedAccountLedgers = () => {
   const navigate = useNavigate();
   const actions = useAppSelector(state => selectModuleActions(state, "accountledgers"));
   const dispatch = useAppDispatch();
   const { data, refetch } = useDeletedAccountLedgersQuery();
+  const clear = useClearDeleted("accountledgers", refetch, "ledger");
   const { resetAccountLedgerMutation } = useAccountLedgerMutations();
   const ledgerList = data?.getDeletedAccountLedgers || [];
 
@@ -46,6 +48,7 @@ const DeletedAccountLedgers = () => {
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
         <DataTable
           {...actions}
+          {...clear}
           title="Deleted Account Ledgers"
           columns={columns}
           data={tableData}

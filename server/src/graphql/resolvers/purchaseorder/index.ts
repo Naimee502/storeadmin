@@ -2,6 +2,8 @@ import { PurchaseOrder } from "../../../models/purchaseorder";
 import { PurchaseInvoice } from "../../../models/purchaseinvoice";
 import { isPurchaseOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 import { getInvoiceOutstanding } from "../../../utils/allocation";
+import { Account } from "../../../models/accounts";
+import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 // Canonical status for a purchase order, deriving one for older records that
 // were written before orderStatus existed.
@@ -117,55 +119,177 @@ const formatOrder = (order: any) => ({
   }) ?? []
 });
 
+/** Role and filter scoping shared by every purchase order list. */
+async function buildPurchaseOrderQuery(filter: any, context: any): Promise<any> {
+  const query: any = { status: true };
+  const { user } = context;
+
+  // In purchase-order-only mode every confirmed order is converted behind
+  // the scenes, so the default "hide converted" filter would empty the list
+  // the admin actually works in.
+  const orderOnly = await isPurchaseOrderOnlyMode(
+    filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
+  );
+  if (filter.isConverted !== undefined) {
+    query.isConverted = filter.isConverted;
+  } else if (!filter.includeConverted && !orderOnly) {
+    query.isConverted = false;
+  }
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    query.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    query.createdby_id = user?.id;
+  }
+
+  if (filter.branchid) query.branchid = filter.branchid;
+  if (filter.adminid) query.adminid = filter.adminid;
+  if (filter.purchasemenid) query.purchasemenid = filter.purchasemenid;
+  if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+  if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
+  if (filter.billtype) query.billtype = filter.billtype;
+  if (filter.ordertype) query.ordertype = filter.ordertype;
+  if (filter.partyacc) query.partyacc = filter.partyacc;
+
+  if (filter.billdateFrom || filter.billdateTo) {
+    query.billdate = {};
+    if (filter.billdateFrom) query.billdate.$gte = filter.billdateFrom;
+    if (filter.billdateTo) query.billdate.$lte = filter.billdateTo;
+  }
+
+  return query;
+}
+
+/** "Name - Mobile - City" exactly as the list builds it from the populated party. */
+const partyLabelExpr = {
+  $reduce: {
+    input: {
+      $filter: {
+        input: [
+          { $trim: { input: { $toString: { $ifNull: ["$accountname", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$mobile", { $ifNull: ["$name", ""] }] } } } },
+          { $trim: { input: { $toString: { $ifNull: ["$city", { $ifNull: ["$name", ""] }] } } } },
+        ],
+        cond: { $ne: ["$$this", ""] },
+      },
+    },
+    initialValue: "",
+    in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", " - ", "$$this"] }] },
+  },
+};
+
+/** Party column: label match, plus "N/A" rows (no party or an empty label). */
+async function partyClause(base: any, term: string): Promise<any> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  const partyIds = await PurchaseOrder.distinct("partyacc", base);
+  const labels: any[] = partyIds.length
+    ? await Account.aggregate([{ $match: { _id: { $in: partyIds } } }, { $project: { label: partyLabelExpr } }])
+    : [];
+  const ids = labels.filter((a: any) => rx.test(a.label || "") || (!a.label && rx.test("N/A"))).map((a: any) => a._id);
+  if (!rx.test("N/A")) return { partyacc: { $in: ids } };
+  return { $or: [{ partyacc: { $in: ids } }, { partyacc: { $nin: labels.map((a: any) => a._id) } }] };
+}
+
+/** Same rule as deriveOrderStatus, as a Mongo expression. */
+const orderStatusExpr = {
+  $switch: {
+    branches: [
+      { case: { $ne: [asText("$orderStatus"), ""] }, then: asText("$orderStatus") },
+      { case: { $eq: ["$cancelStatus", "cancelled"] }, then: "cancelled" },
+      { case: { $eq: ["$isConverted", true] }, then: "confirmed" },
+    ],
+    default: "pending",
+  },
+};
+
+/** Purchase order list columns the server can filter. */
+const PURCHASE_ORDER_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "createdby_name", "orderStatusCell", "activeStatus",
+];
+
+/** One column filter, matched against the text that column shows in the list. */
+async function purchaseOrderColumnClause(key: string, term: string, base: any): Promise<any | null> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  switch (key) {
+    case "paymenttype":
+      return { paymenttype: rx };
+    case "partyacc":
+      return partyClause(base, term);
+    case "totalitem":
+      return textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term);
+    case "totalqty":
+      return textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term);
+    case "billdate":
+      return textMatch(dmyFromText("$billdate"), term);
+    case "billtype_billnumber":
+      return textMatch({ $concat: ["PO-", asText("$billnumber")] }, term);
+    case "totalamount":
+      return textMatch(asText("$totalamount"), term);
+    case "createdby_name":
+      return textMatch({ $cond: [{ $eq: [asText("$createdby_name"), ""] }, "N/A", asText("$createdby_name")] }, term);
+    case "orderStatusCell":
+      return textMatch(orderStatusExpr, term);
+    case "activeStatus":
+      return textMatch({ $cond: ["$status", "Active", "Inactive"] }, term);
+    default:
+      return null;
+  }
+}
+
 // ✅ GraphQL resolvers
 export const purchaseOrderResolvers = {
   Query: {
     getPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: true };
-      const { user } = context;
-
-      // In purchase-order-only mode every confirmed order is converted behind
-      // the scenes, so the default "hide converted" filter would empty the list
-      // the admin actually works in.
-      const orderOnly = await isPurchaseOrderOnlyMode(
-        filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
-      );
-      if (filter.isConverted !== undefined) {
-        query.isConverted = filter.isConverted;
-      } else if (!filter.includeConverted && !orderOnly) {
-        query.isConverted = false;
-      }
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
-      }
-
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-      if (filter.purchasemenid) query.purchasemenid = filter.purchasemenid;
-      if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-      if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
-      if (filter.billtype) query.billtype = filter.billtype;
-      if (filter.ordertype) query.ordertype = filter.ordertype;
-      if (filter.partyacc) query.partyacc = filter.partyacc;
-
-      if (filter.billdateFrom || filter.billdateTo) {
-        query.billdate = {};
-        if (filter.billdateFrom) query.billdate.$gte = filter.billdateFrom;
-        if (filter.billdateTo) query.billdate.$lte = filter.billdateTo;
-      }
+      const query: any = await buildPurchaseOrderQuery(filter, context);
 
       const orders = await PurchaseOrder.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(listPopulateFields)
         .lean();
 
       return orders.map(formatOrder);
+    },
+
+    getPurchaseOrdersPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const base = await buildPurchaseOrderQuery(filter || {}, context);
+      const clauses: any[] = [base];
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of PURCHASE_ORDER_FILTER_KEYS) {
+          const c = await purchaseOrderColumnClause(key, term, base);
+          if (c) any.push(c);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of columnFilters || []) {
+        const value = String(f?.value ?? "").trim();
+        if (!value) continue;
+        const c = await purchaseOrderColumnClause(String(f?.key || ""), value, base);
+        if (c) clauses.push(c);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        PurchaseOrder.countDocuments(query),
+        PurchaseOrder.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+      return { items: rows.map(formatOrder), total };
     },
 
     getDeletedPurchaseOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
@@ -178,8 +302,8 @@ export const purchaseOrderResolvers = {
         filter.adminid || user?.adminid || (user?.type === "admin" ? user?.id : null)
       );
       const query: any = orderOnly
-        ? { status: false }
-        : { $or: [{ status: false }, { isConverted: true }] };
+        ? { status: false, ...notCleared }
+        : { $or: [{ status: false }, { isConverted: true }], ...notCleared };
 
       // ✅ Role-based filtering
       if (user?.type === 'branch') {

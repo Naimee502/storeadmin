@@ -189,8 +189,14 @@ export const salesOrderTypeDefs = gql`
     unassignedDelivery: Boolean
   }
 
+  type SalesOrderPage {
+    items: [SalesOrder!]!
+    total: Int!
+  }
+
   extend type Query {
     getSalesOrders(filter: SalesOrderFilterInput): [SalesOrder!]!
+    getSalesOrdersPage(filter: SalesOrderFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): SalesOrderPage!
     getDeletedSalesOrders(filter: SalesOrderFilterInput): [SalesOrder!]!
     getSalesOrderById(id: ID!): SalesOrder
   }

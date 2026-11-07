@@ -1,4 +1,5 @@
 import { SubCategory } from "../../../models/subcategories";
+import { notCleared } from "../../../utils/listquery";
 
 // Display order: explicit position, then (rows saved before sortorder
 // existed) creation time — the order they already showed in.
@@ -35,7 +36,7 @@ export const subCategoryResolvers = {
     },
 
     getDeletedSubCategories: async (_: any, { adminId, categoryId }: { adminId?: string; categoryId?: string }) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       if (adminId) query.admin = adminId;
       if (categoryId) query.category = categoryId;
 

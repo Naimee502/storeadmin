@@ -5,6 +5,7 @@ import { StaffAccount } from "../../../models/staffaccounts";
 import { Branch } from "../../../models/branches";
 import { Admin } from "../../../models/admin";
 import { pushNotification } from "../../../models/notifications";
+import { activeFilters, notCleared, pageWindow } from "../../../utils/listquery";
 
 // Resolve the acting user into a display label. Staff tokens are resolved to
 // their real role (salesman/staff/deliveryboy) + name; branch/admin tokens
@@ -233,6 +234,29 @@ const populateAndFormat = async (doc: any): Promise<any> => {
   };
 };
 
+// ── Paged list ─────────────────────────────────────────────────────────────────
+
+const DAY_SHORT: Record<string, string> = {
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
+  fri: "Fri", sat: "Sat", sun: "Sun",
+};
+
+/** The text each Sales Routes list column shows (same as the admin page builds). */
+const routeCells = (r: any): Record<string, string> => ({
+  routecode: r.routecode || "—",
+  routename: String(r.routename ?? ""),
+  salesman: r.salesmanid ? `${r.salesmanid.name} (${r.salesmanid.staffcode})` : "—",
+  visitdays: r.visitdays?.length
+    ? r.visitdays.map((d: string) => DAY_SHORT[d] || String(d).toUpperCase()).join(", ")
+    : "—",
+  accounts: r.accounts
+    ? `${r.accounts.length} ${r.accounts.length === 1 ? "Party" : "Parties"}`
+    : "0 Parties",
+  status: r.status ? "Active" : "Inactive",
+});
+
+const hasText = (text: string, term: string) => text.toLowerCase().includes(term.toLowerCase());
+
 // ── Resolvers ──────────────────────────────────────────────────────────────────
 
 export const salesRouteResolvers = {
@@ -245,6 +269,7 @@ export const salesRouteResolvers = {
         if (filter?.salesmanId) query.salesmanid = filter.salesmanId;
         if (filter?.visitday)   query.visitdays  = filter.visitday;
         query.status = filter?.status !== undefined ? filter.status : true;
+        if (query.status === false) Object.assign(query, notCleared);
         if (filter?.search) {
           query.$or = [
             { routename:  { $regex: filter.search, $options: "i" } },
@@ -267,6 +292,55 @@ export const salesRouteResolvers = {
         );
       } catch (err) {
         console.error("getSalesRoutes error:", err);
+        throw err;
+      }
+    },
+
+    getSalesRoutesPage: async (_: any, { filter, page, pageSize, search, columnFilters }: any) => {
+      try {
+        const query: any = {};
+        if (filter?.adminId)  query.adminid   = filter.adminId;
+        if (filter?.branchId) query.branchid  = filter.branchId;
+        if (filter?.salesmanId) query.salesmanid = filter.salesmanId;
+        if (filter?.visitday)   query.visitdays  = filter.visitday;
+        query.status = filter?.status !== undefined ? filter.status : true;
+        if (query.status === false) Object.assign(query, notCleared);
+        if (filter?.search) {
+          query.$or = [
+            { routename:  { $regex: filter.search, $options: "i" } },
+            { routecode:  { $regex: filter.search, $options: "i" } },
+          ];
+        }
+
+        // Match on the text the list shows; routes per business are few, so a light load is fine.
+        const lite: any[] = await SalesRoute.find(query)
+          .select("routecode routename visitdays accounts salesmanid status createdAt")
+          .sort({ createdAt: -1, _id: -1 })
+          .populate({ path: "salesmanid", select: "name staffcode" })
+          .populate({ path: "accounts", select: "_id" })
+          .lean();
+
+        const term = String(search || "").trim();
+        const filters = activeFilters(columnFilters);
+        const matched = lite.filter((r) => {
+          const cells = routeCells(r);
+          if (term && !Object.values(cells).some((v) => hasText(v, term))) return false;
+          return filters.every((f) => cells[f.key] === undefined || hasText(cells[f.key], f.value));
+        });
+
+        const { skip, limit } = pageWindow(page, pageSize);
+        const ids = matched.slice(skip, skip + limit).map((r) => String(r._id));
+        const docs = ids.length ? await SalesRoute.find({ _id: { $in: ids } }) : [];
+        const byId = new Map(docs.map((d: any) => [String(d._id), d]));
+        const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+
+        const formatted = await Promise.all(ordered.map((r: any) => populateAndFormat(r)));
+        const items = await Promise.all(
+          formatted.map((r: any) => attachOutstanding(r, query.adminid ?? filter?.adminId)),
+        );
+        return { items, total: matched.length };
+      } catch (err) {
+        console.error("getSalesRoutesPage error:", err);
         throw err;
       }
     },

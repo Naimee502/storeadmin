@@ -28,8 +28,14 @@ export const modelTypeDefs = gql`
     admin: ID
   }
 
+  type ModelPage {
+    items: [Model!]!
+    total: Int!
+  }
+
   type Query {
     getModels(adminId: ID): [Model!]!
+    getModelsPage(adminId: ID, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): ModelPage!
     getDeletedModels(adminId: ID): [Model!]!
     getModelById(id: ID!, adminId: ID): Model
   }

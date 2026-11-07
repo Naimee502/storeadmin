@@ -271,3 +271,46 @@ export const PREVIEW_ALLOCATION = gql`
     }
   }
 `;
+
+// One page of the Payments list (same fields as GET_PAYMENTS_LIST).
+export const GET_PAYMENTS_PAGE = gql`
+  query GetPaymentsPage(
+    $filter: PaymentFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+  ) {
+    getPaymentsPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        paymentcode
+        paymentdate
+        type
+        mode
+        partyid {
+          id
+          name
+        }
+        ledgerid {
+          id
+          ledgername
+        }
+        counterledgerid {
+          id
+          ledgername
+        }
+        amount
+        unallocatedamount
+        allocationmode
+        transactionid
+        createdby_name
+        createdby_type
+        status
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;

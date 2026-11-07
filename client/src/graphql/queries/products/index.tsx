@@ -139,6 +139,51 @@ export const GET_PRODUCT_SERVICES_LIST = gql`
   }
 `;
 
+// One page of the Products list page: same fields as GET_PRODUCT_SERVICES_LIST.
+export const GET_PRODUCT_SERVICES_PAGE = gql`
+  query GetProductServicesPage(
+    $filter: ProductServiceFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [ColumnFilter!]
+    $lowStock: Boolean
+  ) {
+    getProductServicesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters, lowStock: $lowStock) {
+      total
+      items {
+        id
+        isservice
+        name
+        status
+        servicevariants {
+          id
+          name
+          servicecode
+          servicebarcode
+          servicerate
+          uom
+          locationType
+        }
+        productvariants {
+          id
+          productcode
+          currentstock
+          minimumstock
+          unitprices {
+            quantity
+            unitid { id unitname }
+            salesrate
+            discount
+            discounttype
+            productbarcode
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_PRODUCT_SERVICE_BY_ID = gql`
   query GetProductServiceById($id: ID!, $adminId: ID, $branchId: ID) {
     getProductServiceById(id: $id, adminId: $adminId, branchId: $branchId) {
