@@ -7,7 +7,7 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
+import { useSalesOrderByIDQuery, useSalesOrderMutations, useSalesOrdersListQuery, useSalesOrdersQuery } from "../../../graphql/hooks/salesorder";
 import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
@@ -88,9 +88,9 @@ const AddEditSalesOrder = () => {
 
   const { data } = useSalesOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const salesOrders = useAppSelector(
-    (state) => state.salesorder.orders
-  );
+  // Next order number comes from the order list (the redux copy was never filled).
+  const { data: numberSource } = useSalesOrdersListQuery();
+  const salesOrders: any[] = useMemo(() => numberSource?.getSalesOrders || [], [numberSource]);
 
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   const customerAccounts = accountData?.getAccounts?.filter((acc: any) => isCustomerParty(acc.type)) || [];

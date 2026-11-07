@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApolloClient } from "@apollo/client";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { addPurchaseInvoices } from "../../redux/slices/purchaseinvoice";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import DataTable from "../../components/datatable";
 import HomeLayout from "../../layouts/home";
@@ -190,10 +189,7 @@ const PurchaseInvoices = () => {
       const blocking = !data?.getPurchaseInvoices?.length;
       if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getPurchaseInvoices) {
-          dispatch(addPurchaseInvoices(data.getPurchaseInvoices));
-        }
+        await refetch();
       } catch (error) {
         console.error("Error fetching invoices:", error);
       } finally {

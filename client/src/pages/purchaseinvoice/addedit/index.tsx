@@ -8,7 +8,7 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
+import { usePurchaseInvoiceByIDQuery, usePurchaseInvoiceMutations, usePurchaseInvoicesListQuery, usePurchaseInvoicesQuery } from "../../../graphql/hooks/purchaseinvoice";
 import { getLastPartyDocRows } from "../../../utils/helper";
 import { usePurchaseOrderByIDQuery, usePurchaseOrderMutations } from "../../../graphql/hooks/purchaseorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
@@ -113,9 +113,9 @@ const AddEditPurchaseInvoice = () => {
     ? 0
     : Math.min(Math.max(Number(paid) || 0, 0), grandTotal);
   const balanceDue = parseFloat((grandTotal - paidNum).toFixed(2));
-  const purchaseInvoices = useAppSelector(
-    (state) => state.purchaseinvoice.invoices
-  );
+  // Bill numbers come from the same list (cancelled included) the old redux copy held.
+  const { data: numberSource } = usePurchaseInvoicesListQuery("cache-and-network", { includeCancelled: true });
+  const purchaseInvoices: any[] = useMemo(() => numberSource?.getPurchaseInvoices || [], [numberSource]);
 
   const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
   const [deliveryDate, setDeliveryDate] = useState("");

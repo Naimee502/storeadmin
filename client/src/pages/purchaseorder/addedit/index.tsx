@@ -11,6 +11,7 @@ import {
   usePurchaseOrderByIDQuery,
   usePurchaseOrderMutations,
   usePurchaseOrdersQuery,
+  usePurchaseOrdersListQuery,
 } from "../../../graphql/hooks/purchaseorder";
 import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
@@ -104,9 +105,10 @@ const AddEditPurchaseOrder = () => {
 
   const { data } = usePurchaseOrderByIDQuery(id || "");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const purchaseOrders = useAppSelector(
-    (state) => state.purchaseorder.orders
-  );
+  // Next PO number comes from the order list (the redux copy was never filled,
+  // so every new PO was proposed as 000001).
+  const { data: numberSource } = usePurchaseOrdersListQuery();
+  const purchaseOrders: any[] = useMemo(() => numberSource?.getPurchaseOrders || [], [numberSource]);
 
   const { data: accountData, refetch: accountRefetch } = useAccountsLiteQuery();
   // For Purchase Order, the party is a vendor / supplier
