@@ -18,6 +18,7 @@ import { useReactToPrint } from "react-to-print";
 import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { shareBlobOnWhatsApp, copyPartyNumberForPicker } from "../../utils/sharepdf";
+import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
@@ -34,25 +35,6 @@ const SERVER_FILTER_KEYS = [
   "billtype_billnumber", "totalamount", "orderedByDisplay", "deliveryDisplay", "status",
 ];
 
-function useSessionState<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = sessionStorage.getItem(key);
-      return raw === null ? initial : (JSON.parse(raw) as T);
-    } catch {
-      return initial;
-    }
-  });
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      /* storage full or blocked: keep working in memory */
-    }
-  }, [key, value]);
-  return [value, setValue] as const;
-}
-
 const SalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -61,53 +43,14 @@ const SalesInvoices = () => {
   
   // Lite listing query — only the table columns. The full bill is fetched by
   // id on Print / WhatsApp (see loadPrintable).
-  // Page, size and search survive a trip to edit and back (same tab only).
-  const [pageNo, setPageNo] = useSessionState("salesinvoice:page", 1);
-  const [pageSize, setPageSize] = useSessionState("salesinvoice:pageSize", 10);
-  const [searchInput, setSearchInput] = useSessionState("salesinvoice:search", "");
-  const [colFilters, setColFilters] = useSessionState<Record<string, string>>("salesinvoice:filters", {});
-  const toServerFilters = (f: Record<string, string>) =>
-    Object.entries(f)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => ({ key, value: value.trim() }));
-  const [search, setSearch] = useState(searchInput.trim());
-  const [appliedFilters, setAppliedFilters] = useState(() => toServerFilters(colFilters));
-  // Wait for a pause in typing before asking the server.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setAppliedFilters(toServerFilters(colFilters));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, colFilters]);
+  const table = useServerTable("salesinvoice", SERVER_FILTER_KEYS);
   const {
     items: invoiceList,
     total: invoiceTotal,
     loading: invoicesLoading,
     refetch,
-  } = useSalesInvoicesPageQuery({ page: pageNo, pageSize, search, columnFilters: appliedFilters, includeCancelled: true });
-  // A deleted row or a remembered page can point past the end: go to the last real page.
-  useEffect(() => {
-    const lastPage = Math.max(1, Math.ceil(invoiceTotal / pageSize));
-    if (!invoicesLoading && pageNo > lastPage) setPageNo(lastPage);
-  }, [invoiceTotal, pageSize, pageNo, invoicesLoading, setPageNo]);
-  const handleServerPaging = (next: { page?: number; pageSize?: number; search?: string; filters?: Record<string, string> }) => {
-    if (next.filters !== undefined) {
-      setColFilters(next.filters);
-      setPageNo(1);
-      return;
-    }
-    if (next.search !== undefined) {
-      setSearchInput(next.search);
-      setPageNo(1);
-      return;
-    }
-    if (next.pageSize !== undefined) {
-      setPageSize(next.pageSize);
-      setPageNo(1);
-    }
-    if (next.page !== undefined) setPageNo(next.page);
-  };
+  } = useSalesInvoicesPageQuery({ ...table.variables, includeCancelled: true });
+  const serverPaging = useServerPaging(table, invoiceTotal, invoicesLoading);
   const {
     deleteSalesInvoiceMutation,
     cancelSalesInvoiceMutation,
@@ -441,7 +384,7 @@ const SalesInvoices = () => {
     };
   };
 
-  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, (pageNo - 1) * pageSize + i));
+  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
 
   // Print / WhatsApp need the whole bill (lines, charges, transport…), which
   // the lite listing doesn't carry — fetch it by id, plus the party balance
@@ -485,15 +428,7 @@ const SalesInvoices = () => {
           title="Manage Sales Invoices"
           columns={columns}
           data={tableData}
-          serverPaging={{
-            page: pageNo,
-            pageSize,
-            total: invoiceTotal,
-            search: searchInput,
-            filters: colFilters,
-            filterKeys: SERVER_FILTER_KEYS,
-            onChange: handleServerPaging,
-          }}
+          serverPaging={serverPaging}
           {...actions}
           onWhatsApp={handleWhatsAppShare}
           // Combine the "no duplicate return" rule with the user's

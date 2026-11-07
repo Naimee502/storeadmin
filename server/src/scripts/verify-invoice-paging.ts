@@ -19,7 +19,7 @@ async function gql<T = any>(query: string, variables: Record<string, any> = {}):
 }
 
 const FULL = `query Full($filter: SalesInvoiceFilterInput) { getSalesInvoices(filter: $filter) { id billnumber billdate totalamount paymenttype cancelStatus deliveryStatus status productservice { qty } } }`;
-const PAGE = `query Page($filter: SalesInvoiceFilterInput, $page: Int, $pageSize: Int, $search: String, $columnFilters: [InvoiceColumnFilter!]) {
+const PAGE = `query Page($filter: SalesInvoiceFilterInput, $page: Int, $pageSize: Int, $search: String, $columnFilters: [ColumnFilter!]) {
   getSalesInvoicesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) { total items { id billnumber } }
 }`;
 

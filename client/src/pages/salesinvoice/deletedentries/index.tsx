@@ -11,6 +11,7 @@ import { useNavigate } from "react-router";
 import { useEffect } from "react";
 import { formatDateDMY } from "../../../utils/helper";
 import { partyLabel } from "../../../utils/partylabel";
+import { useClearDeleted } from "../../../graphql/hooks/common";
 
 const DeletedSalesInvoices = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const DeletedSalesInvoices = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "salesinvoice"));
 
   const { data, refetch } = useDeletedSalesInvoicesQuery();
+  const clear = useClearDeleted("salesinvoice", refetch, "invoice");
   const invoiceList = data?.getDeletedSalesInvoices || [];
   
   const { resetSalesInvoiceMutation } = useSalesInvoiceMutations();
@@ -81,6 +83,7 @@ const DeletedSalesInvoices = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
+          {...clear}
           onReset={async (row) => {
             if (
               window.confirm(

@@ -39,6 +39,7 @@ import { salesmanReportTypeDefs } from "./salesmanreport";
 import { locationPingTypeDefs } from "./locationping";
 import { notificationTypeDefs } from "./notifications";
 import { accountDeletionTypeDefs } from "./accountdeletionrequest";
+import { commonTypeDefs } from "./common";
 
 export const typeDefs = [
   branchTypeDefs,
@@ -82,4 +83,5 @@ export const typeDefs = [
   locationPingTypeDefs,
   notificationTypeDefs,
   accountDeletionTypeDefs,
+  commonTypeDefs,
 ];

@@ -175,6 +175,7 @@ export const selectModuleActions = (state: any, moduleId: string) => {
     showExportCsv: allow("exportcsv"),
     showExportPdf: allow("exportpdf"),
     canReset: allow("reset"),
+    canClear: allow("clear"),
     showRearrange: allow("rearrange"),
     showDeleted: allow("delete"),
     // Expense Notes → "Expense Claims" checkbox: claims tab + app claims screen.

@@ -9,6 +9,7 @@ import {
     FaFilter,
     FaTrashRestore,
     FaUndo,
+    FaEraser,
     FaPrint,
     FaBarcode,
     FaFileInvoice,
@@ -153,6 +154,11 @@ interface DataTableProps {
     onDelete?: (row: any) => void;
     onAdd?: () => void;
     onReset?: (row: any) => void;
+    /** Deleted pages: hide an entry for good (it stays in the database). */
+    showClear?: boolean;
+    onClear?: (row: any) => void;
+    /** Clears every row currently shown by the filters. */
+    onClearAll?: (rows: any[]) => void;
     onPrint?: (row: any) => void;
     onWhatsApp?: (row: any) => void;
     onBarcode?: (row: any) => void;
@@ -219,6 +225,9 @@ const DataTable: React.FC<DataTableProps> = ({
     onDelete,
     onAdd,
     onReset,
+    showClear = false,
+    onClear,
+    onClearAll,
     onPrint,
     onWhatsApp,
     onBarcode,
@@ -590,6 +599,11 @@ const DataTable: React.FC<DataTableProps> = ({
                                                     <FaUndo />
                                                 </button>
                                             )}
+                                            {showClear && (
+                                                <button onClick={() => onClear?.(row)} title="Clear (hide for good)" className="text-slate-500">
+                                                    <FaEraser />
+                                                </button>
+                                            )}
                                             {showPrint && (
                                                 <button onClick={() => onPrint?.(row)} title="Print" className="text-green-600">
                                                     <FaPrint />
@@ -696,6 +710,11 @@ const DataTable: React.FC<DataTableProps> = ({
                         {showDeleted && (
                             <button onClick={onShowDeleted} className={toolBtn} title="Deleted entries">
                                 <FaTrashRestore className="text-rose-500" /> Deleted
+                            </button>
+                        )}
+                        {showClear && onClearAll && filteredData.length > 0 && (
+                            <button onClick={() => onClearAll(filteredData)} className={toolBtn} title="Clear all entries shown">
+                                <FaEraser className="text-slate-500" /> Clear All
                             </button>
                         )}
                         {showAdd && (
@@ -937,6 +956,15 @@ const DataTable: React.FC<DataTableProps> = ({
                         >
                             <FaTrashRestore className="!text-white flex-shrink-0" />
                             <span className="!text-white font-bold">Deleted Entries</span>
+                        </button>
+                    )}
+                    {showClear && onClearAll && filteredData.length > 0 && (
+                        <button
+                            onClick={() => onClearAll(filteredData)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 !bg-slate-600 !text-white rounded-md hover:!bg-slate-700 text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer border border-slate-600"
+                        >
+                            <FaEraser className="!text-white flex-shrink-0" />
+                            <span className="!text-white font-bold">Clear All</span>
                         </button>
                     )}
                     {showAdd && (

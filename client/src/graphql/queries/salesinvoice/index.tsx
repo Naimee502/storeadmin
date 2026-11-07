@@ -344,7 +344,7 @@ export const GET_SALES_INVOICES_PAGE = gql`
     $page: Int
     $pageSize: Int
     $search: String
-    $columnFilters: [InvoiceColumnFilter!]
+    $columnFilters: [ColumnFilter!]
   ) {
     getSalesInvoicesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
       total

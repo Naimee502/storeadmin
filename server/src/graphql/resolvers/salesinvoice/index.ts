@@ -62,6 +62,7 @@ const resolveCreatedBy = async (user: any, input: any) => {
 };
 import { SalesOrder } from "../../../models/salesorder";
 import { refId } from "../../../utils/ordermode";
+import { asText, dmyFromText, escapeRegex, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
 
 // Sync the source Sales Order (the canonical lifecycle owner) when delivery is
 // updated on the invoice, so order + invoice always agree.
@@ -354,8 +355,6 @@ function assertLineUnits(input: any) {
   }
 }
 
-const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 /** Role, delivery and party filters shared by every sales invoice list. Returns null when nothing can match. */
 async function buildInvoiceQuery(filter: any, context: any): Promise<any | null> {
   const query: any = { status: true };
@@ -461,11 +460,6 @@ async function invoiceSearchClause(term: string, adminid?: any): Promise<any> {
   return { $or: or };
 }
 
-const textMatch = (input: any, term: string) => ({
-  $expr: { $regexMatch: { input, regex: escapeRegex(term), options: "i" } },
-});
-const asText = (field: string) => ({ $ifNull: [{ $toString: field }, ""] });
-
 /** Column filters, matched against the text each column shows in the list. */
 async function columnFilterClauses(filters: any[] = [], adminid?: any): Promise<any[]> {
   const clauses: any[] = [];
@@ -489,14 +483,9 @@ async function columnFilterClauses(filters: any[] = [], adminid?: any): Promise<
       case "totalqty":
         clauses.push(textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term));
         break;
-      case "billdate": {
-        // Stored YYYY-MM-DD…, shown DD-MM-YYYY.
-        const d = asText("$billdate");
-        clauses.push(textMatch({
-          $concat: [{ $substrCP: [d, 8, 2] }, "-", { $substrCP: [d, 5, 2] }, "-", { $substrCP: [d, 0, 4] }],
-        }, term));
+      case "billdate":
+        clauses.push(textMatch(dmyFromText("$billdate"), term));
         break;
-      }
       case "billtype_billnumber":
         clauses.push(textMatch({ $concat: ["INV-", asText("$billnumber")] }, term));
         break;
@@ -639,8 +628,7 @@ export const salesInvoiceResolvers = {
       clauses.push(...(await columnFilterClauses(columnFilters || [], filter.adminid)));
 
       const query = { $and: clauses };
-      const size = Math.min(Math.max(Number(pageSize) || 25, 1), 200);
-      const skip = (Math.max(Number(page) || 1, 1) - 1) * size;
+      const { skip, limit: size } = pageWindow(page, pageSize);
 
       const [total, rows] = await Promise.all([
         SalesInvoice.countDocuments(query),
@@ -663,7 +651,7 @@ export const salesInvoiceResolvers = {
     },
 
     getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: false };
+      const query: any = { status: false, ...notCleared };
       const { user } = context;
 
       // ✅ Role-based filtering

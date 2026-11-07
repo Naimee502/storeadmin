@@ -40,6 +40,7 @@ import { salesmanReportResolvers } from "./salesmanreport";
 import { locationPingResolvers } from "./locationping";
 import { notificationResolvers } from "./notifications";
 import { accountDeletionResolvers } from "./accountdeletionrequest";
+import { commonResolvers } from "./common";
 
 export const resolvers = [
   branchResolvers,
@@ -84,4 +85,5 @@ export const resolvers = [
   locationPingResolvers,
   notificationResolvers,
   accountDeletionResolvers,
+  commonResolvers,
 ];

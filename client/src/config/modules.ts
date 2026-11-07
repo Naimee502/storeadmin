@@ -26,6 +26,7 @@ export type ModuleAction =
   | "exportpdf"
   | "rearrange"
   | "reset"
+  | "clear"
   // Expense Notes only: field staff can file Expense Claims (app) and the
   // Expense Claims tab shows. Off for businesses that do not reimburse staff.
   | "claims";
@@ -47,6 +48,7 @@ export const ACTION_LABELS: Record<ModuleAction, string> = {
   exportpdf: "Export PDF",
   rearrange: "Rearrange",
   reset: "Reset",
+  clear: "Clear",
   claims: "Claims",
 };
 
@@ -103,7 +105,7 @@ export type ModuleSection =
   | "reports"
   | "system";
 
-export const MODULES: ModuleDef[] = [
+const MODULE_LIST: ModuleDef[] = [
   // ───────────── Master / Setup ─────────────
   // "rearrange" = the Rearrange button on Categories, which sets the order
   // categories show in on the client app and website.
@@ -189,6 +191,22 @@ export const MODULES: ModuleDef[] = [
   { id: "settings",      label: "Settings",        section: "system", actions: ["edit"], inAdminRegister: false },
   { id: "permissions",   label: "Permissions",     section: "system", actions: ["edit"], inAdminRegister: false },
 ];
+
+// Modules with a Deleted Entries page get "Clear": hide a deleted entry for good
+// (kept in the database, never shown in deleted lists or reports again).
+const CLEARABLE_MODULE_IDS = [
+  "categories", "subcategories", "brands", "models", "productgroups", "sizes", "units",
+  "products", "accountgroups", "accountledgers", "staffaccounts", "accounts", "branches",
+  "salesorder", "salesinvoice", "salesreturn", "purchaseorder", "purchaseinvoice", "purchasereturn",
+  "transferstock", "stockadjustments", "channels", "salesroutes", "pricelists", "priceassignments",
+  "chargerules", "transactions", "payments", "expensenote", "attendance", "announcements",
+];
+
+export const MODULES: ModuleDef[] = MODULE_LIST.map((m) =>
+  CLEARABLE_MODULE_IDS.includes(m.id) && !m.actions.includes("clear")
+    ? { ...m, actions: [...m.actions, "clear"] }
+    : m
+);
 
 export const SECTION_LABELS: Record<ModuleSection, string> = {
   master: "Master Setup",

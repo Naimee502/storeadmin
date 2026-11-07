@@ -169,11 +169,6 @@ export const salesInvoiceTypeDefs = gql`
     status: Boolean
   }
 
-  input InvoiceColumnFilter {
-    key: String!
-    value: String!
-  }
-
   type SalesInvoicePage {
     items: [SalesInvoice!]!
     total: Int!
@@ -199,7 +194,7 @@ export const salesInvoiceTypeDefs = gql`
 
   type Query {
     getSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
-    getSalesInvoicesPage(filter: SalesInvoiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [InvoiceColumnFilter!]): SalesInvoicePage!
+    getSalesInvoicesPage(filter: SalesInvoiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [ColumnFilter!]): SalesInvoicePage!
     getDeletedSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
     getSalesInvoiceById(id: ID!, adminid: ID): SalesInvoice
   }
