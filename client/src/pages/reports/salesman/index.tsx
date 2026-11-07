@@ -8,8 +8,9 @@ import { useStaffQuery } from "../../../graphql/hooks/staffaccounts";
 import { normalizeToYMD, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 
 const SalesmanReports: React.FC = () => {
-  const [filters, setFilters] = useState<{ [key: string]: any }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
+  // Start on the default range so the first fetch is already ranged, not all-time.
+  const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
+  const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
   // Same adminid/branchid scoping as useSalesInvoicesQuery.
   const { type, admin, branch, staff: authStaff } = useAppSelector((state) => state.auth);

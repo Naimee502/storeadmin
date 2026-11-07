@@ -34,6 +34,13 @@ const reportTabsObj = [
   { id: "Stock Adjustments", label: "Stock Adjustments", icon: <FaAdjust className="text-xs text-pink-600" /> },
 ];
 
+// "YYYY-MM-DD" shifted by N days on the local calendar.
+const shiftYMD = (ymd: string, days: number): string | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || "");
+  if (!m) return null;
+  return normalizeToYMD(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+};
+
 const ProductStatementReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState(reportTabsObj[0].id);
   const [filters, setFilters] = useState({});
@@ -71,13 +78,20 @@ const ProductStatementReport: React.FC = () => {
     variables: { filter: { adminid, branchid } },
     skip: !need("Purchase Invoices"),
   });
+  // Returns are ranged on the server by returndate text, a day wider each side; the exact range is still applied below.
+  const retFrom = appliedFilters.fromDate ? shiftYMD(appliedFilters.fromDate, -1) : null;
+  const retToDay = appliedFilters.toDate ? shiftYMD(appliedFilters.toDate, 1) : null;
+  const retRange = {
+    ...(retFrom ? { returndateFrom: retFrom } : {}),
+    ...(retToDay ? { returndateTo: `${retToDay}\uffff` } : {}),
+  };
   const { data: salesReturnData } = useQuery(PRODUCT_REPORT_SALES_RETURNS, {
-    variables: { filter: { adminid, branchid } },
+    variables: { filter: { adminid, branchid, ...retRange } },
     skip: !need("Sales Returns"),
     fetchPolicy: "cache-and-network",
   });
   const { data: purchaseReturnData } = useQuery(PRODUCT_REPORT_PURCHASE_RETURNS, {
-    variables: { filter: { adminid, branchid } },
+    variables: { filter: { adminid, branchid, ...retRange } },
     skip: !need("Purchase Returns"),
     fetchPolicy: "cache-and-network",
   });
@@ -136,43 +150,45 @@ const ProductStatementReport: React.FC = () => {
         return hasProduct;
       })
       .flatMap((inv: any) => {
-        const productItem = (inv.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
-        if (!productItem) return [];
-        const cancelled = inv.cancelStatus === "cancelled";
-        const rows = [{
-          transactionType: "Sales Invoice",
-          invoiceNo: inv.billnumber,
-          date: formatDateDMY(inv.billdate),
-          dateYMD: normalizeToYMD(inv.billdate),
-          party: partyLabel(inv.partyacc) || "-",
-          quantity: productItem.qty || 0,
-          rate: productItem.rate || 0,
-          amount: productItem.amount || 0,
-          variant: productItem.variantid?.name || "-",
-          remarks: cancelled ? "Cancelled — see reversal below" : "-",
-        }];
-        // The sale row stays, and the stock coming back gets a row of its own,
-        // dated when the cancellation happened rather than when the bill was
-        // written. Two rows, because that is what actually happened to the goods.
-        if (cancelled) {
-          // Negative, not positive: the column totals at the foot of this table
-          // add every row up, so a positive reversal would count the cancelled
-          // bill twice and inflate both qty and value. Signed, the pair nets to
-          // zero — which is exactly what the shelf and the books say.
-          rows.push({
-            transactionType: "Sales Invoice Cancelled",
+        // Every line of this product (one per variant), not only the first.
+        const productItems = (inv.productservice || []).filter((ps: any) => ps.productserviceid?.id === appliedFilters.product);
+        return productItems.flatMap((productItem: any) => {
+          const cancelled = inv.cancelStatus === "cancelled";
+          const rows = [{
+            transactionType: "Sales Invoice",
             invoiceNo: inv.billnumber,
-            date: formatDateDMY(inv.cancelledAt || inv.billdate),
-            dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+            date: formatDateDMY(inv.billdate),
+            dateYMD: normalizeToYMD(inv.billdate),
             party: partyLabel(inv.partyacc) || "-",
-            quantity: -(productItem.qty || 0),
+            quantity: productItem.qty || 0,
             rate: productItem.rate || 0,
-            amount: -(productItem.amount || 0),
+            amount: productItem.amount || 0,
             variant: productItem.variantid?.name || "-",
-            remarks: `Stock returned${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
-          });
-        }
-        return rows;
+            remarks: cancelled ? "Cancelled — see reversal below" : "-",
+          }];
+          // The sale row stays, and the stock coming back gets a row of its own,
+          // dated when the cancellation happened rather than when the bill was
+          // written. Two rows, because that is what actually happened to the goods.
+          if (cancelled) {
+            // Negative, not positive: the column totals at the foot of this table
+            // add every row up, so a positive reversal would count the cancelled
+            // bill twice and inflate both qty and value. Signed, the pair nets to
+            // zero — which is exactly what the shelf and the books say.
+            rows.push({
+              transactionType: "Sales Invoice Cancelled",
+              invoiceNo: inv.billnumber,
+              date: formatDateDMY(inv.cancelledAt || inv.billdate),
+              dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+              party: partyLabel(inv.partyacc) || "-",
+              quantity: -(productItem.qty || 0),
+              rate: productItem.rate || 0,
+              amount: -(productItem.amount || 0),
+              variant: productItem.variantid?.name || "-",
+              remarks: `Stock returned${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
+            });
+          }
+          return rows;
+        });
       });
   }, [salesInvoices, appliedFilters.product]);
 
@@ -184,40 +200,42 @@ const ProductStatementReport: React.FC = () => {
         return hasProduct;
       })
       .flatMap((inv: any) => {
-        const productItem = (inv.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
-        if (!productItem) return [];
-        const cancelled = inv.cancelStatus === "cancelled";
-        const rows = [{
-          transactionType: "Purchase Invoice",
-          invoiceNo: inv.billnumber,
-          date: formatDateDMY(inv.billdate),
-          dateYMD: normalizeToYMD(inv.billdate),
-          party: partyLabel(inv.partyacc) || "-",
-          quantity: productItem.qty || 0,
-          rate: productItem.rate || 0,
-          amount: productItem.amount || 0,
-          variant: productItem.variantid?.name || "-",
-          remarks: cancelled ? "Cancelled — see reversal below" : "-",
-        }];
-        // Same as the sales side, in the other direction: the goods that came in
-        // on this bill went back out when it was cancelled.
-        if (cancelled) {
-          // Signed for the same reason as the sales side — the pair must net to
-          // zero in the column totals.
-          rows.push({
-            transactionType: "Purchase Invoice Cancelled",
+        // Every line of this product (one per variant), not only the first.
+        const productItems = (inv.productservice || []).filter((ps: any) => ps.productserviceid?.id === appliedFilters.product);
+        return productItems.flatMap((productItem: any) => {
+          const cancelled = inv.cancelStatus === "cancelled";
+          const rows = [{
+            transactionType: "Purchase Invoice",
             invoiceNo: inv.billnumber,
-            date: formatDateDMY(inv.cancelledAt || inv.billdate),
-            dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+            date: formatDateDMY(inv.billdate),
+            dateYMD: normalizeToYMD(inv.billdate),
             party: partyLabel(inv.partyacc) || "-",
-            quantity: -(productItem.qty || 0),
+            quantity: productItem.qty || 0,
             rate: productItem.rate || 0,
-            amount: -(productItem.amount || 0),
+            amount: productItem.amount || 0,
             variant: productItem.variantid?.name || "-",
-            remarks: `Stock reversed${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
-          });
-        }
-        return rows;
+            remarks: cancelled ? "Cancelled — see reversal below" : "-",
+          }];
+          // Same as the sales side, in the other direction: the goods that came in
+          // on this bill went back out when it was cancelled.
+          if (cancelled) {
+            // Signed for the same reason as the sales side — the pair must net to
+            // zero in the column totals.
+            rows.push({
+              transactionType: "Purchase Invoice Cancelled",
+              invoiceNo: inv.billnumber,
+              date: formatDateDMY(inv.cancelledAt || inv.billdate),
+              dateYMD: normalizeToYMD(inv.cancelledAt || inv.billdate),
+              party: partyLabel(inv.partyacc) || "-",
+              quantity: -(productItem.qty || 0),
+              rate: productItem.rate || 0,
+              amount: -(productItem.amount || 0),
+              variant: productItem.variantid?.name || "-",
+              remarks: `Stock reversed${inv.cancelReason ? ` — ${inv.cancelReason}` : ""}`,
+            });
+          }
+          return rows;
+        });
       });
   }, [purchaseInvoices, appliedFilters.product]);
 
@@ -229,20 +247,22 @@ const ProductStatementReport: React.FC = () => {
         return hasProduct;
       })
       .flatMap((ret: any) => {
-        const productItem = (ret.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
-        if (!productItem) return [];
-        return [{
-          transactionType: "Sales Return",
-          invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
-          date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
-          dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
-          party: partyLabel(ret.partyacc) || "-",
-          quantity: productItem.qty || 0,
-          rate: productItem.rate || 0,
-          amount: productItem.amount || 0,
-          variant: productItem.variantid?.name || "-",
-          remarks: ret.remarks || ret.reason || "-",
-        }];
+        // Every line of this product (one per variant), not only the first.
+        const productItems = (ret.productservice || []).filter((ps: any) => ps.productserviceid?.id === appliedFilters.product);
+        return productItems.flatMap((productItem: any) => {
+          return [{
+            transactionType: "Sales Return",
+            invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
+            date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
+            dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
+            party: partyLabel(ret.partyacc) || "-",
+            quantity: productItem.qty || 0,
+            rate: productItem.rate || 0,
+            amount: productItem.amount || 0,
+            variant: productItem.variantid?.name || "-",
+            remarks: ret.remarks || ret.reason || "-",
+          }];
+        });
       });
   }, [salesReturns, appliedFilters.product]);
 
@@ -254,20 +274,22 @@ const ProductStatementReport: React.FC = () => {
         return hasProduct;
       })
       .flatMap((ret: any) => {
-        const productItem = (ret.productservice || []).find((ps: any) => ps.productserviceid?.id === appliedFilters.product);
-        if (!productItem) return [];
-        return [{
-          transactionType: "Purchase Return",
-          invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
-          date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
-          dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
-          party: partyLabel(ret.partyacc) || "-",
-          quantity: productItem.qty || 0,
-          rate: productItem.rate || 0,
-          amount: productItem.amount || 0,
-          variant: productItem.variantid?.name || "-",
-          remarks: ret.remarks || ret.reason || "-",
-        }];
+        // Every line of this product (one per variant), not only the first.
+        const productItems = (ret.productservice || []).filter((ps: any) => ps.productserviceid?.id === appliedFilters.product);
+        return productItems.flatMap((productItem: any) => {
+          return [{
+            transactionType: "Purchase Return",
+            invoiceNo: ret.returnNumber || ret.billnumber || ret.id,
+            date: formatDateDMY(ret.returnDate || ret.returndate || ret.createdAt),
+            dateYMD: normalizeToYMD(ret.returnDate || ret.returndate || ret.createdAt),
+            party: partyLabel(ret.partyacc) || "-",
+            quantity: productItem.qty || 0,
+            rate: productItem.rate || 0,
+            amount: productItem.amount || 0,
+            variant: productItem.variantid?.name || "-",
+            remarks: ret.remarks || ret.reason || "-",
+          }];
+        });
       });
   }, [purchaseReturns, appliedFilters.product]);
 

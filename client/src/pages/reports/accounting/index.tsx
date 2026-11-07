@@ -391,8 +391,12 @@ const AccountingFinanceReports: React.FC = () => {
 
         const incomeKeys = ["income", "sales", "output", "revenue"];
         const expenseKeys = ["expense", "purchase", "input", "cost"];
+        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
 
         transactions.forEach(tx => {
+            // Only the chosen period, like Transactions Summary.
+            const date = Number(tx.transactiondate);
+            if ((fromTimestamp && date < fromTimestamp) || (toTimestamp && date > toTimestamp)) return;
             tx.entries?.forEach(e => {
                 const l = ledgerMap[e.ledgerid.id];
                 if (!l) return;
@@ -415,13 +419,15 @@ const AccountingFinanceReports: React.FC = () => {
             { account: "Total Expense", amount: expense.toFixed(2) },
             { account: "Net Profit / Loss", amount: net.toFixed(2) },
         ];
-    }, [transactions, ledgers]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transactions, ledgers, appliedFilters]);
 
     // -------------------------------
     // Balance Sheet
     // -------------------------------
     const balanceSheetData = useMemo(() => {
-        const { fromTimestamp, toTimestamp } = getFilterTimestamps();
+        // A balance sheet is as on the To date: every entry up to it counts.
+        const { toTimestamp } = getFilterTimestamps();
 
         const balances: Record<string, number> = {};
 
@@ -432,7 +438,7 @@ const AccountingFinanceReports: React.FC = () => {
 
         transactions.forEach(tx => {
             const date = Number(tx.transactiondate);
-            if ((fromTimestamp && date < fromTimestamp) || (toTimestamp && date > toTimestamp)) return;
+            if (toTimestamp && date > toTimestamp) return;
 
             tx.entries?.forEach(e => {
                 const id = e.ledgerid?.id;
