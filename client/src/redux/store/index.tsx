@@ -20,7 +20,8 @@ const persistConfig = {
    * startup (see src/index.tsx) and written by setBranchId. Nothing can
    * silently overwrite it behind the user's back.
    */
-  blacklist: ['selectedBranch'],
+  // Invoice list is fetched per page now; persisting it overflowed localStorage.
+  blacklist: ['selectedBranch', 'salesinvoice'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

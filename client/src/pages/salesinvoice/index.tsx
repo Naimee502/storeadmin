@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApolloClient } from "@apollo/client";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { addSalesInvoices } from "../../redux/slices/salesinvoice";
 import DataTable from "../../components/datatable";
 import StatusDropdown from "../../components/statusdropdown";
 import HomeLayout from "../../layouts/home";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
 import {
-  useSalesInvoicesListQuery,
+  useSalesInvoicesPageQuery,
   useSalesInvoiceMutations,
 } from "../../graphql/hooks/salesinvoice";
 import { GET_SALES_INVOICE_BALANCE, GET_SALES_INVOICE_BY_ID } from "../../graphql/queries/salesinvoice";
@@ -29,6 +28,31 @@ const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
 
+// Columns the server can filter (Seq Number is per page, so it has none).
+const SERVER_FILTER_KEYS = [
+  "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
+  "billtype_billnumber", "totalamount", "orderedByDisplay", "deliveryDisplay", "status",
+];
+
+function useSessionState<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* storage full or blocked: keep working in memory */
+    }
+  }, [key, value]);
+  return [value, setValue] as const;
+}
+
 const SalesInvoices = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -37,7 +61,53 @@ const SalesInvoices = () => {
   
   // Lite listing query — only the table columns. The full bill is fetched by
   // id on Print / WhatsApp (see loadPrintable).
-  const { data, refetch } = useSalesInvoicesListQuery(undefined, { includeCancelled: true });
+  // Page, size and search survive a trip to edit and back (same tab only).
+  const [pageNo, setPageNo] = useSessionState("salesinvoice:page", 1);
+  const [pageSize, setPageSize] = useSessionState("salesinvoice:pageSize", 10);
+  const [searchInput, setSearchInput] = useSessionState("salesinvoice:search", "");
+  const [colFilters, setColFilters] = useSessionState<Record<string, string>>("salesinvoice:filters", {});
+  const toServerFilters = (f: Record<string, string>) =>
+    Object.entries(f)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => ({ key, value: value.trim() }));
+  const [search, setSearch] = useState(searchInput.trim());
+  const [appliedFilters, setAppliedFilters] = useState(() => toServerFilters(colFilters));
+  // Wait for a pause in typing before asking the server.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setAppliedFilters(toServerFilters(colFilters));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, colFilters]);
+  const {
+    items: invoiceList,
+    total: invoiceTotal,
+    loading: invoicesLoading,
+    refetch,
+  } = useSalesInvoicesPageQuery({ page: pageNo, pageSize, search, columnFilters: appliedFilters, includeCancelled: true });
+  // A deleted row or a remembered page can point past the end: go to the last real page.
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(invoiceTotal / pageSize));
+    if (!invoicesLoading && pageNo > lastPage) setPageNo(lastPage);
+  }, [invoiceTotal, pageSize, pageNo, invoicesLoading, setPageNo]);
+  const handleServerPaging = (next: { page?: number; pageSize?: number; search?: string; filters?: Record<string, string> }) => {
+    if (next.filters !== undefined) {
+      setColFilters(next.filters);
+      setPageNo(1);
+      return;
+    }
+    if (next.search !== undefined) {
+      setSearchInput(next.search);
+      setPageNo(1);
+      return;
+    }
+    if (next.pageSize !== undefined) {
+      setPageSize(next.pageSize);
+      setPageNo(1);
+    }
+    if (next.page !== undefined) setPageNo(next.page);
+  };
   const {
     deleteSalesInvoiceMutation,
     cancelSalesInvoiceMutation,
@@ -103,7 +173,6 @@ const SalesInvoices = () => {
       dispatch(showMessage({ message: e?.message || "Failed to re-open invoice.", type: "error" }));
     }
   };
-  const invoiceList = data?.getSalesInvoices || [];
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   // Build a Set of source-invoice ids that already have an active Sales
@@ -260,15 +329,11 @@ const SalesInvoices = () => {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      // Already have rows from the cache → refresh quietly in the background
-      // instead of covering the table with the full-screen loader.
-      const blocking = !data?.getSalesInvoices?.length;
+      // Rows already on screen → refresh quietly, no full-screen loader.
+      const blocking = invoiceList.length === 0;
       if (blocking) dispatch(showLoading());
       try {
-        const { data } = await refetch();
-        if (data?.getSalesInvoices) {
-          dispatch(addSalesInvoices(data.getSalesInvoices));
-        }
+        await refetch();
       } catch (error) {
         console.error("Error fetching invoices:", error);
       } finally {
@@ -376,7 +441,7 @@ const SalesInvoices = () => {
     };
   };
 
-  const tableData = [...invoiceList].reverse().map(buildRow);
+  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, (pageNo - 1) * pageSize + i));
 
   // Print / WhatsApp need the whole bill (lines, charges, transport…), which
   // the lite listing doesn't carry — fetch it by id, plus the party balance
@@ -420,6 +485,15 @@ const SalesInvoices = () => {
           title="Manage Sales Invoices"
           columns={columns}
           data={tableData}
+          serverPaging={{
+            page: pageNo,
+            pageSize,
+            total: invoiceTotal,
+            search: searchInput,
+            filters: colFilters,
+            filterKeys: SERVER_FILTER_KEYS,
+            onChange: handleServerPaging,
+          }}
           {...actions}
           onWhatsApp={handleWhatsAppShare}
           // Combine the "no duplicate return" rule with the user's
@@ -478,7 +552,7 @@ const SalesInvoices = () => {
           }}
           entriesOptions={[5, 10, 25, 50]}
           defaultEntriesPerPage={10}
-          isLoading={isLoading}
+          isLoading={invoicesLoading || isLoading}
         />
 
         {/* Hidden printable content, positioned offscreen to keep mounted */}

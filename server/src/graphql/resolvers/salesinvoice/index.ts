@@ -354,98 +354,198 @@ function assertLineUnits(input: any) {
   }
 }
 
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Role, delivery and party filters shared by every sales invoice list. Returns null when nothing can match. */
+async function buildInvoiceQuery(filter: any, context: any): Promise<any | null> {
+  const query: any = { status: true };
+  const { user } = context;
+
+  // ✅ Role-based filtering
+  if (user?.type === 'branch') {
+    query.$or = [
+      { createdby_type: 'branch', createdby_id: user?.id },
+      { branchid: user?.branch_id || user?.id }
+    ];
+  } else if (user?.type === 'staff') {
+    // Delivery views (pool / my deliveries) must NOT be restricted to
+    // invoices the user created — they're filtered by delivery assignment.
+    const isDeliveryView = !!(filter.unassignedDelivery || filter.deliveryboyid);
+    // Collecting payment / settling a specific party's bills: the staff must
+    // see ALL of that party's invoices (regardless of who created them),
+    // exactly like the admin panel. So a party-scoped query isn't restricted.
+    const isPartyScoped = !!filter.partyacc;
+    let isDeliveryBoy = false;
+    if (!isDeliveryView && !isPartyScoped) {
+      const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
+      isDeliveryBoy = staff?.role === 'deliveryboy';
+    }
+    if (!isDeliveryView && !isDeliveryBoy && !isPartyScoped) {
+      query.createdby_id = user?.id;
+    }
+  }
+
+  // ── Delivery filters ──────────────────────────────────────────────
+  if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
+  if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
+  if (filter.unassignedDelivery) {
+    // Available pool: invoices not yet picked up by a delivery boy.
+    query.deliveryboyid = { $in: [null, undefined] };
+    query.deliveryStatus = { $ne: 'delivered' };
+    // Salesman-taken orders are always salesman-fulfilled — the salesman
+    // who booked the order hands it over himself. So even after they become
+    // invoices they must NOT appear in the delivery-boy pool. Only
+    // end-user / party / website / counter orders reach the delivery boy.
+    query.orderedby_type = { $ne: 'salesman' };
+
+    // deliveryMode = 'deliveryboy'  → full pool (all qualifying invoices).
+    // deliveryMode = 'salesman'     → salesmen deliver their own parties'
+    // orders, BUT parties with NO linked salesman have nobody to deliver
+    // them — those still reach the delivery-boy pool.
+    const settings = filter.adminid ? await AdminSettings.getOrCreateForAdmin(filter.adminid) : null;
+    if (settings?.deliveryMode !== 'deliveryboy') {
+      const noSalesmanParties = await Account.find({
+        admin: filter.adminid,
+        status: true,
+        $or: [{ salesmanid: null }, { salesmanid: { $exists: false } }],
+      }).select('_id').lean();
+      if (!noSalesmanParties.length) return null;
+      query.partyacc = { $in: noSalesmanParties.map((p: any) => p._id) };
+    }
+  }
+
+  // Add filters if provided
+  if (filter.branchid) query.branchid = filter.branchid;
+  if (filter.adminid) query.adminid = filter.adminid;
+  if (filter.salesmenid) query.salesmenid = filter.salesmenid;
+  if (filter.paymenttype) query.paymenttype = filter.paymenttype;
+  if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
+  if (filter.billtype) query.billtype = filter.billtype;
+  if (filter.invoicetype) query.invoicetype = filter.invoicetype;
+  if (filter.salesunitid) query.salesunitid = filter.salesunitid;
+  if (filter.partyacc) query.partyacc = filter.partyacc;
+
+  // Bill date range filter
+  if (filter.billdateFrom || filter.billdateTo) {
+    query.billdate = {};
+    // billdate is stored as text ("YYYY-MM-DD…"), so compare text with text —
+    // a Date here is cast to "Wed Nov 05 2026 …" and the range matched nothing.
+    // \uffff after the To day keeps every bill dated on that day.
+    if (filter.billdateFrom) query.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
+    if (filter.billdateTo) query.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
+  }
+  return query;
+}
+
+/** Search across the columns shown in the invoice list. */
+async function invoiceSearchClause(term: string, adminid?: any): Promise<any> {
+  const rx = new RegExp(escapeRegex(term), "i");
+  const partyScope: any = { $or: [{ name: rx }, { mobile: rx }, { city: rx }] };
+  if (adminid) partyScope.admin = adminid;
+  const partyIds = await Account.find(partyScope).distinct("_id");
+
+  const or: any[] = [
+    { partyacc: { $in: partyIds } },
+    { billnumber: rx },
+    { paymenttype: rx },
+    { orderedby_name: rx },
+    { createdby_name: rx },
+  ];
+  const billNo = term.replace(/^inv-?/i, "");
+  if (billNo && billNo !== term) or.push({ billnumber: new RegExp(escapeRegex(billNo), "i") });
+  const amount = Number(term);
+  if (term !== "" && Number.isFinite(amount)) or.push({ totalamount: amount });
+  // List shows dates as DD-MM-YYYY; bills store YYYY-MM-DD text.
+  const dmy = term.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dmy) or.push({ billdate: new RegExp(`^${dmy[3]}-${dmy[2]}-${dmy[1]}`) });
+  return { $or: or };
+}
+
+const textMatch = (input: any, term: string) => ({
+  $expr: { $regexMatch: { input, regex: escapeRegex(term), options: "i" } },
+});
+const asText = (field: string) => ({ $ifNull: [{ $toString: field }, ""] });
+
+/** Column filters, matched against the text each column shows in the list. */
+async function columnFilterClauses(filters: any[] = [], adminid?: any): Promise<any[]> {
+  const clauses: any[] = [];
+  for (const f of filters) {
+    const term = String(f?.value ?? "").trim();
+    if (!term) continue;
+    const rx = new RegExp(escapeRegex(term), "i");
+    switch (f?.key) {
+      case "paymenttype":
+        clauses.push({ paymenttype: rx });
+        break;
+      case "partyacc": {
+        const scope: any = { $or: [{ name: rx }, { mobile: rx }, { city: rx }] };
+        if (adminid) scope.admin = adminid;
+        clauses.push({ partyacc: { $in: await Account.find(scope).distinct("_id") } });
+        break;
+      }
+      case "totalitem":
+        clauses.push(textMatch({ $toString: { $size: { $ifNull: ["$productservice", []] } } }, term));
+        break;
+      case "totalqty":
+        clauses.push(textMatch({ $toString: { $sum: { $ifNull: ["$productservice.qty", []] } } }, term));
+        break;
+      case "billdate": {
+        // Stored YYYY-MM-DD…, shown DD-MM-YYYY.
+        const d = asText("$billdate");
+        clauses.push(textMatch({
+          $concat: [{ $substrCP: [d, 8, 2] }, "-", { $substrCP: [d, 5, 2] }, "-", { $substrCP: [d, 0, 4] }],
+        }, term));
+        break;
+      }
+      case "billtype_billnumber":
+        clauses.push(textMatch({ $concat: ["INV-", asText("$billnumber")] }, term));
+        break;
+      case "totalamount":
+        clauses.push(textMatch(asText("$totalamount"), term));
+        break;
+      case "orderedByDisplay":
+        clauses.push({ $or: [{ orderedby_name: rx }, { orderedby_type: rx }] });
+        break;
+      case "deliveryDisplay":
+        clauses.push(textMatch({
+          $switch: {
+            branches: [
+              { case: { $eq: ["$cancelStatus", "cancelled"] }, then: "cancelled" },
+              { case: { $in: ["$deliveryStatus", ["dispatched", "delivered"]] }, then: "$deliveryStatus" },
+            ],
+            default: "confirmed",
+          },
+        }, term));
+        break;
+      case "status":
+        clauses.push(textMatch({
+          $cond: [{ $eq: ["$cancelStatus", "cancelled"] }, "Cancelled", { $cond: ["$status", "Active", "Inactive"] }],
+        }, term));
+        break;
+    }
+  }
+  return clauses;
+}
+
+/** Source order numbers for a set of invoices, fetched in one query. */
+async function sourceOrderNoMap(invoices: any[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  const orderIds = Array.from(new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String)));
+  if (!orderIds.length) return map;
+  try {
+    const orders: any[] = await SalesOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
+    orders.forEach((o: any) => map.set(String(o._id), o.billnumber || null));
+  } catch {
+    /* a label is never worth failing the list over */
+  }
+  return map;
+}
+
 export const salesInvoiceResolvers = {
   Query: {
     getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: true };
-      const { user } = context;
-      console.log("🧾 [getSalesInvoices] filter:", JSON.stringify(filter || {}), "| user:", user?.id, user?.type);
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        // Delivery views (pool / my deliveries) must NOT be restricted to
-        // invoices the user created — they're filtered by delivery assignment.
-        const isDeliveryView = !!(filter.unassignedDelivery || filter.deliveryboyid);
-        // Collecting payment / settling a specific party's bills: the staff must
-        // see ALL of that party's invoices (regardless of who created them),
-        // exactly like the admin panel. So a party-scoped query isn't restricted.
-        const isPartyScoped = !!filter.partyacc;
-        let isDeliveryBoy = false;
-        if (!isDeliveryView && !isPartyScoped) {
-          const staff = await StaffAccount.findById(user.id).select('role').lean() as any;
-          isDeliveryBoy = staff?.role === 'deliveryboy';
-        }
-        if (!isDeliveryView && !isDeliveryBoy && !isPartyScoped) {
-          query.createdby_id = user?.id;
-        }
-      }
-
-      // ── Delivery filters ──────────────────────────────────────────────
-      if (filter.deliveryboyid) query.deliveryboyid = filter.deliveryboyid;
-      if (filter.deliveryStatus) query.deliveryStatus = filter.deliveryStatus;
-      if (filter.unassignedDelivery) {
-        // Available pool: invoices not yet picked up by a delivery boy.
-        query.deliveryboyid = { $in: [null, undefined] };
-        query.deliveryStatus = { $ne: 'delivered' };
-        // Salesman-taken orders are always salesman-fulfilled — the salesman
-        // who booked the order hands it over himself. So even after they become
-        // invoices they must NOT appear in the delivery-boy pool. Only
-        // end-user / party / website / counter orders reach the delivery boy.
-        query.orderedby_type = { $ne: 'salesman' };
-
-        // deliveryMode = 'deliveryboy'  → full pool (all qualifying invoices).
-        // deliveryMode = 'salesman'     → salesmen deliver their own parties'
-        // orders, BUT parties with NO linked salesman have nobody to deliver
-        // them — those still reach the delivery-boy pool.
-        const settings = filter.adminid ? await AdminSettings.getOrCreateForAdmin(filter.adminid) : null;
-        if (settings?.deliveryMode !== 'deliveryboy') {
-          const noSalesmanParties = await Account.find({
-            admin: filter.adminid,
-            status: true,
-            $or: [{ salesmanid: null }, { salesmanid: { $exists: false } }],
-          }).select('_id').lean();
-          if (!noSalesmanParties.length) return [];
-          query.partyacc = { $in: noSalesmanParties.map((p: any) => p._id) };
-        }
-      }
-
-      // Add filters if provided
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-      if (filter.salesmenid) query.salesmenid = filter.salesmenid;
-      if (filter.paymenttype) query.paymenttype = filter.paymenttype;
-      if (filter.taxorsupplytype) query.taxorsupplytype = filter.taxorsupplytype;
-      if (filter.billtype) query.billtype = filter.billtype;
-      if (filter.invoicetype) query.invoicetype = filter.invoicetype;
-      if (filter.salesunitid) query.salesunitid = filter.salesunitid;
-      if (filter.partyacc) query.partyacc = filter.partyacc;
-
-      // Bill date range filter
-      if (filter.billdateFrom || filter.billdateTo) {
-        query.billdate = {};
-        // billdate is stored as text ("YYYY-MM-DD…"), so compare text with text —
-        // a Date here is cast to "Wed Nov 05 2026 …" and the range matched nothing.
-        // \uffff after the To day keeps every bill dated on that day.
-        if (filter.billdateFrom) query.billdate.$gte = String(filter.billdateFrom).slice(0, 10);
-        if (filter.billdateTo) query.billdate.$lte = `${String(filter.billdateTo).slice(0, 10)}\uffff`;
-      }
-
-      // ── TEMP DELIVERY DIAGNOSTIC ──────────────────────────────────────
-      if (filter.unassignedDelivery || filter.deliveryboyid) {
-        const anyUnassigned = await SalesInvoice.countDocuments({ status: true, deliveryboyid: { $in: [null, undefined] } });
-        const matchCount = await SalesInvoice.countDocuments(query);
-        console.log("🚚 [DELIVERY] user:", user?.id, user?.type,
-          "| filter.adminid:", filter.adminid,
-          "| query:", JSON.stringify(query),
-          "| matched:", matchCount,
-          "| total-unassigned(any admin):", anyUnassigned);
-      }
-      // ──────────────────────────────────────────────────────────────────
+      const query = await buildInvoiceQuery(filter, context);
+      if (!query) return [];
 
       const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
         .populate(listPopulateFields)
@@ -521,6 +621,45 @@ export const salesInvoiceResolvers = {
         return out;
       });
       return result;
+    },
+
+    getSalesInvoicesPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const base = await buildInvoiceQuery(filter, context);
+      if (!base) return { items: [], total: 0 };
+
+      const clauses: any[] = [base];
+      if (!filter.includeCancelled) clauses.push({ cancelStatus: { $ne: "cancelled" } });
+
+      const term = String(search || "").trim();
+      if (term) clauses.push(await invoiceSearchClause(term, filter.adminid));
+      clauses.push(...(await columnFilterClauses(columnFilters || [], filter.adminid)));
+
+      const query = { $and: clauses };
+      const size = Math.min(Math.max(Number(pageSize) || 25, 1), 200);
+      const skip = (Math.max(Number(page) || 1, 1) - 1) * size;
+
+      const [total, rows] = await Promise.all([
+        SalesInvoice.countDocuments(query),
+        SalesInvoice.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(size)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+
+      const orderNoById = await sourceOrderNoMap(rows);
+      const items = rows.map((inv: any) => {
+        const out: any = formatInvoice(inv);
+        const oid = refId(inv.sourceorderid);
+        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
+        return out;
+      });
+      return { items, total };
     },
 
     getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {

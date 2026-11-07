@@ -15,6 +15,7 @@ import {
   GET_SALES_INVOICES,
   GET_SALES_INVOICES_SETTLE,
   GET_SALES_INVOICES_LIST,
+  GET_SALES_INVOICES_PAGE,
   GET_SALES_INVOICE_BY_ID,
   GET_DELETED_SALES_INVOICES
 } from '../../queries/salesinvoice';
@@ -172,4 +173,39 @@ export const useSalesInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy)
   }, [raw]);
 
   return { data, loading, error, refetch };
+};
+
+// ----------------- Paged Sales Invoices (server-side pagination, search) -----------------
+export const useSalesInvoicesPageQuery = ({
+  page,
+  pageSize,
+  search,
+  columnFilters = [],
+  includeCancelled = false,
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  columnFilters?: { key: string; value: string }[];
+  includeCancelled?: boolean;
+}) => {
+  const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
+
+  const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
+  const branchid = type === "admin" ? selectedBranchId : type === "branch" ? branch?.id : type === "staff" ? staff?.branchid?.id : undefined;
+
+  const { data, loading, error, refetch } = useQuery(GET_SALES_INVOICES_PAGE, {
+    variables: { filter: { adminid, branchid, includeCancelled }, page, pageSize, search, columnFilters },
+    fetchPolicy: "cache-and-network",
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return {
+    items: data?.getSalesInvoicesPage?.items ?? [],
+    total: data?.getSalesInvoicesPage?.total ?? 0,
+    loading,
+    error,
+    refetch,
+  };
 };

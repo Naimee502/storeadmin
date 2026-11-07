@@ -169,6 +169,16 @@ export const salesInvoiceTypeDefs = gql`
     status: Boolean
   }
 
+  input InvoiceColumnFilter {
+    key: String!
+    value: String!
+  }
+
+  type SalesInvoicePage {
+    items: [SalesInvoice!]!
+    total: Int!
+  }
+
   input SalesInvoiceFilterInput {
     adminid: ID
     branchid: ID
@@ -184,10 +194,12 @@ export const salesInvoiceTypeDefs = gql`
     deliveryboyid: ID
     deliveryStatus: String
     unassignedDelivery: Boolean
+    includeCancelled: Boolean
   }
 
   type Query {
     getSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
+    getSalesInvoicesPage(filter: SalesInvoiceFilterInput, page: Int, pageSize: Int, search: String, columnFilters: [InvoiceColumnFilter!]): SalesInvoicePage!
     getDeletedSalesInvoices(filter: SalesInvoiceFilterInput): [SalesInvoice!]!
     getSalesInvoiceById(id: ID!, adminid: ID): SalesInvoice
   }

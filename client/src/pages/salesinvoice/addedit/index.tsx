@@ -8,7 +8,7 @@ import HomeLayout from "../../../layouts/home";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { useAccountsLiteQuery } from "../../../graphql/hooks/accounts";
 import { useProductServicesQuery } from "../../../graphql/hooks/products";
-import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
+import { useSalesInvoiceByIDQuery, useSalesInvoiceMutations, useSalesInvoicesListQuery, useSalesInvoicesQuery } from "../../../graphql/hooks/salesinvoice";
 import { formatDateDMY, todayYMD } from "../../../utils/helper";
 import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql/hooks/salesorder";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
@@ -114,9 +114,9 @@ const AddEditSalesInvoice = () => {
     ? 0
     : Math.min(Math.max(Number(received) || 0, 0), grandTotal);
   const balanceDue = parseFloat((grandTotal - receivedNum).toFixed(2));
-  const salesInvoices = useAppSelector(
-    (state) => state.salesinvoice.invoices
-  );
+  // Bill numbers come from the same list (cancelled included) the old redux copy held.
+  const { data: billSourceData } = useSalesInvoicesListQuery("cache-and-network", { includeCancelled: true });
+  const salesInvoices = useMemo(() => billSourceData?.getSalesInvoices || [], [billSourceData]);
 
   const [otherCharges, setOtherCharges] = useState<OtherCharge[]>([]);
   const [deliveryDate, setDeliveryDate] = useState("");

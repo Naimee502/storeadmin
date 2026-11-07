@@ -337,3 +337,43 @@ export const GET_SALES_INVOICE_BY_ID = gql`
     }
   }
 `;
+
+export const GET_SALES_INVOICES_PAGE = gql`
+  query GetSalesInvoicesPage(
+    $filter: SalesInvoiceFilterInput
+    $page: Int
+    $pageSize: Int
+    $search: String
+    $columnFilters: [InvoiceColumnFilter!]
+  ) {
+    getSalesInvoicesPage(filter: $filter, page: $page, pageSize: $pageSize, search: $search, columnFilters: $columnFilters) {
+      total
+      items {
+        id
+        paymenttype
+        partyacc {
+          id
+          accountname
+          mobile
+          city
+          state
+          gstnumber
+        }
+        billdate
+        billnumber
+        totalamount
+        productservice {
+          qty
+        }
+        orderedby_name
+        orderedby_type
+        createdby_name
+        createdby_type
+        deliveryStatus
+        cancelStatus
+        status
+        createdAt
+      }
+    }
+  }
+`;

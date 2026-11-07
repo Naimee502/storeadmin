@@ -22,7 +22,6 @@ import {
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { FormDensityContext } from "../formpage/density";
 import { isOverlayOpen } from "../formpage/overlay";
-import Loader from "../loader";
 import FormField from "../formfiled";
 import FormSwitch from "../formswitch";
 import Button from "../button";
@@ -39,6 +38,25 @@ import { splitPartyLabel } from "../../utils/partylabel";
  */
 const tableStateKey = (title: string) =>
   `datatable:${typeof window !== "undefined" ? window.location.pathname : ""}:${title}`;
+
+export interface ServerPaging {
+    page: number;
+    pageSize: number;
+    total: number;
+    search: string;
+    /** Column filter values, keyed by column key. */
+    filters?: { [key: string]: string };
+    /** Columns the server can filter; others get no filter box. */
+    filterKeys?: string[];
+    onChange: (next: { page?: number; pageSize?: number; search?: string; filters?: { [key: string]: string } }) => void;
+}
+
+/** Thin top bar shown while a list refreshes; the rows stay visible. */
+const TableProgress = () => (
+    <div className="pointer-events-none sticky top-0 left-0 z-20 h-0.5 w-full overflow-hidden bg-indigo-100">
+        <div className="h-full w-1/3 animate-[reportbar_1s_ease-in-out_infinite] bg-indigo-500" />
+    </div>
+);
 
 function useStickyTableState<T>(title: string, field: string, initial: T) {
   const key = `${tableStateKey(title)}:${field}`;
@@ -149,6 +167,8 @@ interface DataTableProps {
     onImport?: () => void;
     onExport?: () => void;
     isLoading?: boolean;
+    /** Server-driven paging: the parent fetches one page and owns page/size/search. */
+    serverPaging?: ServerPaging;
     formFields?: FormField[];
     formValues?: { [key: string]: any };
     formErrors?: { [key: string]: string };
@@ -213,6 +233,7 @@ const DataTable: React.FC<DataTableProps> = ({
     onImport,
     onExport,
     isLoading = false,
+    serverPaging,
     formFields,
     formValues,
     formErrors,
@@ -238,17 +259,33 @@ const DataTable: React.FC<DataTableProps> = ({
     const claimKeyboard = () => {
         activeTable = tableId;
     };
-    const [entriesPerPage, setEntriesPerPage] = useStickyTableState(title, "entriesPerPage", defaultEntriesPerPage);
-    const [currentPage, setCurrentPage] = useStickyTableState(title, "currentPage", 1);
-    const [globalSearch, setGlobalSearch] = useStickyTableState(title, "globalSearch", "");
+    const [localEntries, setLocalEntries] = useStickyTableState(title, "entriesPerPage", defaultEntriesPerPage);
+    const [localPage, setLocalPage] = useStickyTableState(title, "currentPage", 1);
+    const [localSearch, setLocalSearch] = useStickyTableState(title, "globalSearch", "");
     const [filters, setFilters] = useStickyTableState<{ [key: string]: string }>(title, "filters", {});
 
+    const entriesPerPage = serverPaging ? serverPaging.pageSize : localEntries;
+    const currentPage = serverPaging ? serverPaging.page : localPage;
+    const globalSearch = serverPaging ? serverPaging.search : localSearch;
+    const setEntriesPerPage = (size: number) => (serverPaging ? serverPaging.onChange({ pageSize: size }) : setLocalEntries(size));
+    const setGlobalSearch = (value: string) => (serverPaging ? serverPaging.onChange({ search: value }) : setLocalSearch(value));
+    const setCurrentPage = (page: number | ((prev: number) => number)) => {
+        if (!serverPaging) return setLocalPage(page);
+        serverPaging.onChange({ page: typeof page === "function" ? page(currentPage) : page });
+    };
+
+    const activeFilters = serverPaging ? serverPaging.filters ?? {} : filters;
+    const canFilter = (key: string) => !serverPaging?.filterKeys || serverPaging.filterKeys.includes(key);
     const handleFilterChange = (key: string, value: string) => {
+        if (serverPaging) {
+            serverPaging.onChange({ filters: { ...activeFilters, [key]: value } });
+            return;
+        }
         setFilters((prev) => ({ ...prev, [key]: value }));
         setCurrentPage(1);
     };
 
-    const filteredData = data
+    const localFiltered = data
         .filter((row) =>
             Object.entries(filters).every(([key, val]) => {
                 if (!val) return true;
@@ -261,17 +298,18 @@ const DataTable: React.FC<DataTableProps> = ({
             )
         );
 
-    const totalPages = Math.ceil(filteredData.length / entriesPerPage);
-    const paginatedData = filteredData.slice(
-        (currentPage - 1) * entriesPerPage,
-        currentPage * entriesPerPage
-    );
+    const filteredData = serverPaging ? data : localFiltered;
+    const totalCount = serverPaging ? serverPaging.total : localFiltered.length;
+    const totalPages = Math.ceil(totalCount / entriesPerPage);
+    const paginatedData = serverPaging
+        ? data
+        : localFiltered.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
     // A remembered page can point past the end of a list that has since shrunk —
     // deleted rows, or a filter typed before leaving. Showing an empty table in
     // that case looks like the data is gone, so fall back to the last real page.
     useEffect(() => {
-        if (totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
+        if (!serverPaging && totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
     }, [totalPages, currentPage, setCurrentPage]);
 
     const changePage = (direction: "prev" | "next") => {
@@ -611,8 +649,8 @@ const DataTable: React.FC<DataTableProps> = ({
     );
 
     if (compact) {
-        const from = filteredData.length ? (currentPage - 1) * entriesPerPage + 1 : 0;
-        const to = Math.min(currentPage * entriesPerPage, filteredData.length);
+        const from = totalCount ? (currentPage - 1) * entriesPerPage + 1 : 0;
+        const to = Math.min(currentPage * entriesPerPage, totalCount);
         const pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
             (p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1
         );
@@ -622,13 +660,12 @@ const DataTable: React.FC<DataTableProps> = ({
             "inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50";
         return (
             <div className="relative" onPointerDownCapture={claimKeyboard} onFocusCapture={claimKeyboard}>
-                {isLoading && <Loader fullScreen />}
                 <div className="flex flex-col gap-2 text-[13px]">
                     {/* One-line toolbar */}
                     <div className="flex flex-wrap items-center gap-2">
                         <h1 className="text-base font-semibold text-slate-900">{title}</h1>
                         <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                            {filteredData.length}
+                            {totalCount}
                         </span>
                         <div className="relative ml-auto w-full sm:w-64">
                             <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400" />
@@ -676,7 +713,8 @@ const DataTable: React.FC<DataTableProps> = ({
                     {compactInlineForm}
 
                     {/* Table — scrolls inside itself, header and Actions stay put */}
-                    <div className="max-h-[calc(100vh-178px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+                    <div className="relative max-h-[calc(100vh-178px)] overflow-auto rounded-lg border border-slate-200 bg-white">
+                        {isLoading && <TableProgress />}
                         <table className="min-w-full text-left text-[12.5px]">
                             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
                                 <tr>
@@ -694,13 +732,13 @@ const DataTable: React.FC<DataTableProps> = ({
                                 <tr className="border-b border-slate-200">
                                     {columns.map((col) => (
                                         <th key={col.key} className="px-1.5 pb-1.5">
-                                            <input
+                                            {canFilter(col.key) && <input
                                                 type="text"
-                                                value={filters[col.key] || ""}
+                                                value={activeFilters[col.key] || ""}
                                                 onChange={(e) => handleFilterChange(col.key, e.target.value)}
                                                 className="h-7 w-full min-w-[48px] rounded border border-slate-200 bg-white px-2 text-[12px] font-normal normal-case tracking-normal text-slate-700 outline-none focus:border-indigo-400"
                                                 placeholder="Filter"
-                                            />
+                                            />}
                                         </th>
                                     ))}
                                     {showActionsColumn && <th className="sticky right-0 bg-slate-50 shadow-[-6px_0_6px_-6px_rgba(15,23,42,0.15)]" />}
@@ -781,7 +819,7 @@ const DataTable: React.FC<DataTableProps> = ({
                     {/* Footer: count, page size, shortcuts, pages */}
                     <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-500">
                         <span>
-                            {from}–{to} of {filteredData.length}
+                            {from}–{to} of {totalCount}
                         </span>
                         <select
                             value={entriesPerPage}
@@ -835,7 +873,6 @@ const DataTable: React.FC<DataTableProps> = ({
 
     return (
         <div className="relative">
-            {isLoading && <Loader fullScreen />}
             <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm">
                 <h2 className="text-lg sm:text-2xl font-semibold">{title}</h2>
 
@@ -913,7 +950,8 @@ const DataTable: React.FC<DataTableProps> = ({
                     )}
                 </div>
 
-                <div className="overflow-auto border rounded">
+                <div className="relative overflow-auto border rounded">
+                    {isLoading && <TableProgress />}
                     <table className="min-w-full text-xs sm:text-sm text-left">
                         <thead className="bg-gray-100 text-gray-700">
                             <tr>
@@ -933,13 +971,13 @@ const DataTable: React.FC<DataTableProps> = ({
                             <tr>
                                 {columns.map((col) => (
                                     <th key={col.key} className="px-3 sm:px-4 py-1">
-                                        <input
+                                        {canFilter(col.key) && <input
                                             type="text"
-                                            value={filters[col.key] || ""}
+                                            value={activeFilters[col.key] || ""}
                                             onChange={(e) => handleFilterChange(col.key, e.target.value)}
                                             className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none"
                                             placeholder={`Search ${col.label}`}
-                                        />
+                                        />}
                                     </th>
                                 ))}
                                 {showActionsColumn && <th></th>}
