@@ -21,6 +21,7 @@ import { shareBlobOnWhatsApp, copyPartyNumberForPicker } from "../../utils/share
 import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
+import { OfflineListNote, useOfflineList } from "../../offline/listing";
 
 // Party state is a slug; map it to the label for Place of Supply.
 const stateLabel = (slug?: string) =>
@@ -50,6 +51,8 @@ const SalesOrders = () => {
     refetch,
   } = useSalesOrdersPageQuery(table.variables);
   const serverPaging = useServerPaging(table, orderTotal, ordersLoading);
+  // Offline mode only: unsynced orders on page 1 and badges for queued changes.
+  const offline = useOfflineList("salesorder", table.page);
   const {
     deleteSalesOrderMutation,
     cancelSalesOrderMutation,
@@ -61,6 +64,15 @@ const SalesOrders = () => {
 
   // Status options depend on invoicing and whether this order is already converted.
   const optionsFor = (order: any) => {
+    // Unsynced order: only convert, cancel and re-open can be queued.
+    if (order.isOffline) {
+      if (!actions.showConvert) return [];
+      if (order.cancelStatus === "cancelled") return [{ label: "Pending", value: "pending" }];
+      const opts: { label: string; value: string }[] = [];
+      if (salesInvoiceEnabled) opts.push({ label: "Convert to Invoice", value: "convert" });
+      opts.push({ label: "Cancelled", value: "cancelled" });
+      return opts;
+    }
     // "Pending" only reopens a cancelled order; a converted one has posted stock and ledger.
     const opts: { label: string; value: string }[] = order.isConverted
       ? []
@@ -142,7 +154,7 @@ const SalesOrders = () => {
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
   const handleWhatsAppShare = async (row: any) => {
-    const orig = orderList.find((o: any) => o.id === row.id);
+    const orig = [...offline.rows, ...orderList].find((o: any) => o.id === row.id);
     if (!orig) return;
 
     // Copy the party's number for WhatsApp's picker; keep the toast up long enough.
@@ -296,7 +308,10 @@ const SalesOrders = () => {
     };
   };
 
-  const tableData = orderList.map((order: any, i: number) => buildRow(order, table.offset + i));
+  const serverRows = orderList.map((order: any, i: number) => offline.decorate(buildRow(order, table.offset + i), "seqNo"));
+  const tableData = offline.rows.length
+    ? [...offline.rows.map((order: any) => offline.decorate(buildRow(order, -1), "seqNo")), ...serverRows]
+    : serverRows;
 
   // Print / WhatsApp need the full order; fetch it by id.
   const loadPrintable = async (row: any) => {
@@ -313,6 +328,7 @@ const SalesOrders = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           {...actions}
           title="Manage Sales Orders"

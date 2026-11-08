@@ -23,6 +23,7 @@ import { getBelowCostLines } from "../../../utils/rates";
 import { isCustomerParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { OfflineNumberNote, savedOffline as wasSavedOffline, useOfflineNumber, useOfflineStock } from "../../../offline/billing";
 
 const AddEditSalesInvoice = () => {
   const { id } = useParams<{ id?: string }>();
@@ -172,7 +173,9 @@ const AddEditSalesInvoice = () => {
 
   // Product List
   const { data: producData, refetch } = useProductServicesQuery();
-  const salesProductData = producData?.getProductServices ?? [];
+  // Offline mode adds unsynced stock moves; otherwise the list as fetched.
+  const salesProductData = useOfflineStock(producData?.getProductServices ?? [], branchId);
+  const { number: offlineNo, noDevice } = useOfflineNumber("salesinvoice", !isEdit);
 
   const { settings } = useAppSelector((state: any) => state.adminsettings);
 
@@ -308,7 +311,7 @@ const AddEditSalesInvoice = () => {
       setInvoiceType(order.ordertype || "retail");
       setNotes(order.notes || "");
       setIsService(order.isservice || false);
-      setBillNumber(""); // Allow auto-generate for the new invoice
+      setBillNumber(offlineNo || ""); // Allow auto-generate for the new invoice
 
       setOtherCharges(order.othercharges?.map((c: any) => ({
         ledgerid: c.ledgerid?.id || "",
@@ -347,6 +350,11 @@ const AddEditSalesInvoice = () => {
       setProducts(mappedProducts);
     } else if (!isEdit && !orderId) {
       // NEW INVOICE MODE - Auto-calculate next bill number
+      // Offline mode without network: this device's own series.
+      if (offlineNo || noDevice) {
+        setBillNumber(offlineNo || "");
+        return;
+      }
       if (salesInvoices.length > 0) {
         const billNumbers = salesInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -358,7 +366,7 @@ const AddEditSalesInvoice = () => {
         setBillNumber("000001");
       }
     }
-  }, [isEdit, data, orderId, orderData, salesInvoices]);
+  }, [isEdit, data, orderId, orderData, salesInvoices, offlineNo, noDevice]);
 
   useEffect(() => {
     let productsTotalCalc = 0;
@@ -545,8 +553,8 @@ const AddEditSalesInvoice = () => {
 
     try {
       if (isEdit && id) {
-        await editSalesInvoiceMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Invoice updated successfully", type: "success" }));
+        const r = await editSalesInvoiceMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.editSalesInvoice) ? OFFLINE_SAVED_MESSAGE : "Invoice updated successfully", type: "success" }));
       } else {
         const res = await addSalesInvoiceMutation({ variables: { input } });
         // Queued offline: the order update needs the server, so it is skipped.
@@ -767,6 +775,7 @@ const AddEditSalesInvoice = () => {
                 disabled={!isEdit && billNumber !== ""}
                 error={errors.billNumber}
               />}
+              <OfflineNumberNote show={!isEdit && noDevice} />
               {isFieldEnabled("billtype") && <FormField
                 label="Bill Type"
                 name="billType"

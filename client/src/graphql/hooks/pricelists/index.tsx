@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useLazyQuery } from "@apollo/client";
 import { useAppSelector } from "../../../redux/hooks";
 import {
@@ -19,6 +20,8 @@ import {
   RESET_PRICE_LIST,
   RESET_PRICE_ASSIGNMENT,
 } from "../../mutations/pricelists";
+import { isOfflineEnabled } from "../../../offline/settings";
+import { isNoNetworkError, resolvePriceLocally } from "../../../offline/localprice";
 
 export const usePriceListQuery = () => {
   const { admin } = useAppSelector((state) => state.auth);
@@ -108,20 +111,46 @@ export const useDeletedPriceAssignmentQuery = () => {
 };
 
 export const usePriceResolvers = () => {
-  const { admin } = useAppSelector((state) => state.auth);
+  const { admin, type } = useAppSelector((state) => state.auth);
+  const noStaffDiscount = useAppSelector((state: any) => state.adminsettings?.settings?.salesmanPriceListDiscount === false);
   const adminid = admin?.id;
   const [resolvePriceQuery] = useLazyQuery(RESOLVE_PRICE);
+  // Offline mode only: the last price could not be worked out without network.
+  const [offlinePrice, setOfflinePrice] = useState(false);
 
   const resolvePrice = async (variables: any) => {
-    // Tenant-scoped and network-only so a customer change re-evaluates the price list.
-    const { data } = await resolvePriceQuery({
-      variables: { adminid, ...variables },
-      fetchPolicy: "network-only",
-    });
-    return data?.resolvePrice;
+    if (!isOfflineEnabled()) {
+      // Tenant-scoped and network-only so a customer change re-evaluates the price list.
+      const { data } = await resolvePriceQuery({
+        variables: { adminid, ...variables },
+        fetchPolicy: "network-only",
+      });
+      return data?.resolvePrice;
+    }
+    let res: any;
+    let thrown: any = null;
+    try {
+      res = await resolvePriceQuery({ variables: { adminid, ...variables }, fetchPolicy: "network-only" });
+    } catch (e) {
+      thrown = e;
+    }
+    const err = thrown || res?.error;
+    if (!err || !isNoNetworkError(err)) {
+      if (thrown) throw thrown;
+      setOfflinePrice(false);
+      return res?.data?.resolvePrice;
+    }
+    // No network: same rules over the cached price lists.
+    const local = resolvePriceLocally({ adminid, ...variables, staff: type === "staff", noStaffDiscount });
+    if (local.status === "ok") {
+      setOfflinePrice(false);
+      return local.price;
+    }
+    setOfflinePrice(true);
+    return null;
   };
 
-  return { resolvePrice };
+  return { resolvePrice, offlinePrice };
 };
 
 export const usePriceListMutations = () => {

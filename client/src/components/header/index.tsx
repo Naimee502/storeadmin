@@ -11,6 +11,7 @@ import { WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAppSelector } from '../../redux/hooks';
 import NotificationBell from '../notificationbell';
+import OfflineHeaderStatus from '../../offline/OfflineHeaderStatus';
 
 interface Branch {
   id: string;
@@ -89,6 +90,9 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Right-side controls */}
       <div className="ml-auto flex items-center gap-2">
+        {/* Offline mode only: online/offline dot and pending count */}
+        <OfflineHeaderStatus />
+
         {/* System notifications */}
         <NotificationBell />
 

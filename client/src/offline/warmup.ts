@@ -6,7 +6,7 @@ import { GET_ACCOUNTS, GET_ACCOUNTS_LITE, GET_PARTY_OUTSTANDING_SUMMARY } from "
 import { GET_ACCOUNTLEDGERS } from "../graphql/queries/accountledgers";
 import { GET_BRANCHES } from "../graphql/queries/branches";
 import { GET_ADMIN_SETTINGS } from "../graphql/queries/adminsettings";
-import { GET_PRICE_ASSIGNMENTS, GET_PRICE_LISTS } from "../graphql/queries/pricelists";
+import { GET_PRICE_ASSIGNMENTS, GET_PRICE_LISTS, GET_PRICE_LIST_BY_ID } from "../graphql/queries/pricelists";
 import { GET_CHARGE_RULES } from "../graphql/queries/chargerules";
 import { GET_UNITS } from "../graphql/queries/units";
 import { GET_STAFF, GET_STAFF_LIST } from "../graphql/queries/staffaccounts";
@@ -116,6 +116,27 @@ const scopeKey = () => {
   return `${currentUserKey() || ""}|${s.adminid || ""}|${s.branchid || ""}`;
 };
 
+// Items of every assigned price list, so prices can be worked out without network.
+async function warmPriceLists(client: NonNullable<ReturnType<typeof getOfflineClient>>, failed: string[]) {
+  const { authAdminId } = scopeOf(store.getState());
+  if (!authAdminId) return;
+  let ids: string[] = [];
+  try {
+    const d: any = client.readQuery({ query: GET_PRICE_ASSIGNMENTS, variables: { adminid: authAdminId } });
+    ids = Array.from(new Set<string>((d?.getPriceAssignments || []).map((a: any) => a?.pricelistid?.id).filter(Boolean)));
+  } catch {
+    return;
+  }
+  for (const id of ids) {
+    if (navigator.onLine === false) break;
+    try {
+      await client.query({ query: GET_PRICE_LIST_BY_ID, variables: { id }, fetchPolicy: "network-only", context: { offlineNoFallback: true } });
+    } catch {
+      failed.push(`priceList:${id}`);
+    }
+  }
+}
+
 // Runs every warm-up query once (network-only). Never rejects.
 export async function runWarmup(): Promise<WarmupStatus> {
   const client = getOfflineClient();
@@ -143,6 +164,7 @@ export async function runWarmup(): Promise<WarmupStatus> {
       }
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    await warmPriceLists(client, failed);
     await heartbeat();
   } finally {
     status = { running: false, lastRunAt: Date.now(), failed };

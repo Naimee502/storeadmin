@@ -24,6 +24,10 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
+import { savedOffline as wasSavedOffline, useOfflineNumber, useOfflinePartyDelta } from "../../../offline/billing";
+import { OFFLINE_SAVED_MESSAGE } from "../../../offline/saved";
+import { isOfflineEnabled } from "../../../offline/settings";
+import { isNoNetworkError } from "../../../offline/localprice";
 
 type SettledInvoice = {
   invoiceid: string;
@@ -208,6 +212,8 @@ const AddEditPayment = () => {
   // Last "Allocate now" result, shown inline; nothing to apply to is normal, not an error.
   const [allocateNote, setAllocateNote] = useState("");
   const [saving, setSaving] = useState(false);
+  // Offline mode without network: this device's receipt/payment number (null otherwise).
+  const { number: offlineNo, noDevice } = useOfflineNumber("payment", !isEdit);
 
   // Bill clears = sum of settledamount (reduces outstanding).
   const totalSettled = parseFloat(
@@ -286,6 +292,8 @@ const AddEditPayment = () => {
     return String(src.openingbalancetype).toLowerCase() === "debit" ? amt : -amt;
   }, [accountsData, ledgerData, partyid, partyBalanceLive]);
   const partyHasOpening = partyOpening !== 0;
+  // Shown balance includes unsynced bills and receipts of this device (0 when offline mode is off).
+  const partyOpeningShown = partyOpening + useOfflinePartyDelta(isLedgerMode ? null : partyid);
   /** Party carries an opening, but this voucher moves it instead of clearing it. */
   const openingMovesNotClears = partyHasOpening && !hasSomethingToSettle;
   /** Label as carried-forward only when bills sit beside it; otherwise it is the current balance. */
@@ -889,15 +897,17 @@ const AddEditPayment = () => {
       createdby_name: creator.name,
       createdby_type: creator.type,
     };
+    // Offline mode without network only: the device number shown on the form.
+    if (!isEdit && offlineNo) input.paymentcode = offlineNo;
 
     setSaving(true);
     try {
       if (isEdit) {
-        await editPaymentMutation({ variables: { id, input } });
-        dispatch(showMessage({ message: "Payment updated", type: "success" }));
+        const r = await editPaymentMutation({ variables: { id, input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.editPayment) ? OFFLINE_SAVED_MESSAGE : "Payment updated", type: "success" }));
       } else {
-        await addPaymentMutation({ variables: { input } });
-        dispatch(showMessage({ message: "Payment saved", type: "success" }));
+        const r = await addPaymentMutation({ variables: { input } });
+        dispatch(showMessage({ message: wasSavedOffline(r?.data?.addPayment) ? OFFLINE_SAVED_MESSAGE : "Payment saved", type: "success" }));
         // New entries land on page 1, so reset the remembered list page.
         try {
           sessionStorage.removeItem("datatable:/payments:Manage Payments:currentPage");
@@ -1013,8 +1023,13 @@ const AddEditPayment = () => {
       // Keep the carried-forward opening balance; it is cleared before bills.
       setOpeningDue(p ? Number(p.openingdue) || 0 : 0);
     } catch (err: any) {
-      dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
-      return;
+      // Offline mode without network: no FIFO preview, so it is saved On Account.
+      if (isOfflineEnabled() && isNoNetworkError(err)) {
+        p = null;
+      } else {
+        dispatch(showMessage({ message: err?.message || "Could not work out the settlement", type: "error" }));
+        return;
+      }
     }
 
     // No open bills: the amount goes to the opening balance, then On Account.
@@ -1112,6 +1127,13 @@ const AddEditPayment = () => {
                   { label: "Other", value: "other" },
                 ]}
               />)}
+              {(offlineNo || noDevice) && (
+                <div className="flex flex-col justify-end text-[13px]">
+                  <span className="text-slate-500">Voucher No.</span>
+                  <span className="h-8 leading-8 font-mono font-semibold text-slate-800">{offlineNo || "—"}</span>
+                  {noDevice && <span className="text-[12px] text-amber-700">Offline: the number will be given when this syncs.</span>}
+                </div>
+              )}
               {payType !== "expense" ? (
                 // The other side of the voucher is a ledger, which may or may not be a party's.
                 isFieldEnabled("party") && (
@@ -1353,7 +1375,7 @@ const AddEditPayment = () => {
                         <span className="font-medium whitespace-nowrap">
                           {/* Show the full balance (matches the party statement), not just the settleable part. */}
                           {openingMovesNotClears || openingIsWholeBalance
-                            ? `₹${fmt(Math.abs(partyOpening))} (${partyOpening > 0 ? "Dr" : "Cr"})`
+                            ? `₹${fmt(Math.abs(partyOpeningShown))} (${partyOpeningShown > 0 ? "Dr" : "Cr"})`
                             : `₹${fmt(openingDueValue)}`}
                         </span>
                       </div>

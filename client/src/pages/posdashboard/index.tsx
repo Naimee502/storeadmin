@@ -42,6 +42,7 @@ import { partyLabel } from "../../utils/partylabel";
 import { isCustomerParty } from "../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../utils/branch";
 import { isOfflineSaved, OFFLINE_SAVED_MESSAGE } from "../../offline/saved";
+import { useOfflineNumber, useOfflineStock } from "../../offline/billing";
 
 /* Helpers */
 function getPriceFromUnitPrice(u: any) {
@@ -135,10 +136,6 @@ export default function POSDashboard() {
 
   const { data: psData, refetch: refetchProducts } = useProductServicesQuery();
   const productServiceList = psData?.getProductServices ?? [];
-  const PRODUCTS = useMemo(
-    () => mapProductServiceList(productServiceList),
-    [productServiceList]
-  );
 
   /* UI state */
   const [search, setSearch] = useState("");
@@ -159,7 +156,7 @@ export default function POSDashboard() {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const { resolvePrice } = usePriceResolvers();
+  const { resolvePrice, offlinePrice } = usePriceResolvers();
 
   /* Customer / accounts */
   const { data: accountData, refetch: refetchAccounts } = useAccountsQuery();
@@ -210,6 +207,13 @@ export default function POSDashboard() {
       ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
       : (selectedBranchId || storedBranchId);
 
+  // Offline mode adds unsynced stock moves; otherwise the list as fetched.
+  const stockedProductList = useOfflineStock(productServiceList, branchId);
+  const PRODUCTS = useMemo(
+    () => mapProductServiceList(stockedProductList),
+    [stockedProductList]
+  );
+
   const { addSalesInvoiceMutation } = useSalesInvoiceMutations();
   const { addSalesOrderMutation } = useSalesOrderMutations();
 
@@ -236,11 +240,18 @@ export default function POSDashboard() {
     if (type === "staff") setIsOrderMode(true);
   }, [type]);
 
+  // Offline mode without network: next number of this device's own series.
+  const { number: offlineNo, noDevice } = useOfflineNumber(isOrderMode ? "salesorder" : "salesinvoice");
+
   // Derive bill number from the actual server data based on current mode
   useEffect(() => {
+    if (offlineNo || noDevice) {
+      setBillNumber(offlineNo || "—");
+      return;
+    }
     const list = isOrderMode ? serverOrders : serverInvoices;
     setBillNumber(getNextBillNumber(list));
-  }, [isOrderMode, serverInvoices, serverOrders]);
+  }, [isOrderMode, serverInvoices, serverOrders, offlineNo, noDevice]);
 
   /* Keyboard shortcuts: F2 search, F3 barcode */
   useEffect(() => {
@@ -638,6 +649,8 @@ export default function POSDashboard() {
       totalamount: Number(total.toFixed(2)),
       isservice: false,
       status: true,
+      // Offline mode without network only: the device number shown above.
+      ...(offlineNo ? { billnumber: offlineNo } : {}),
       productservice: cart.map((i) => {
         const lineGross = (i.price ?? 0) * (i.qty ?? 0);
         const lineDiscountTotal = (i.discount ?? 0) * (i.qty ?? 0);
@@ -770,6 +783,7 @@ export default function POSDashboard() {
             <div>
               <span className="text-slate-500 mr-1.5">{isOrderMode ? "Order No." : "Bill No."}</span>
               <span className="font-mono font-bold">{billNumber}</span>
+              {noDevice && <span className="ml-1.5 text-amber-700">(given on sync)</span>}
             </div>
             <div>
               <span className="text-slate-500 mr-1.5">Date</span>
@@ -1084,6 +1098,11 @@ export default function POSDashboard() {
                 <span className="text-slate-500 font-normal">
                   ({cart.length} line{cart.length !== 1 ? "s" : ""} · {totalItemQty} qty)
                 </span>
+                {offlinePrice && (
+                  <span className="text-[11px] font-medium text-amber-700" title="Price list not available offline; the product's own rate is used.">
+                    Offline price
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-0.5">
                 <button

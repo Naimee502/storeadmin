@@ -13,6 +13,7 @@ import {
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { formatDateDMY } from "../../utils/helper";
 import { partyLabel } from "../../utils/partylabel";
+import { OfflineListNote, useOfflineList } from "../../offline/listing";
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
 
@@ -30,6 +31,8 @@ const SalesReturns = () => {
   const table = useServerTable("salesreturn", SERVER_FILTER_KEYS);
   const { items: list, total, loading, refetch } = useSalesReturnsPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
+  // Offline mode only: unsynced returns on page 1 and badges for queued changes.
+  const offline = useOfflineList("salesreturn", table.page);
   const { deleteSalesReturnMutation } = useSalesReturnMutations();
   const isLoading = useAppSelector((s) => s.loader.isLoading);
 
@@ -64,7 +67,7 @@ const SalesReturns = () => {
     { label: "Status", key: "statusLabel" },
   ];
 
-  const tableData = list.map((r: any, i: number) => ({
+  const buildRow = (r: any, i: number) => ({
     ...r,
     seqNo: table.offset + i + 1,
     returndate: formatDateDMY(r.returndate),
@@ -75,11 +78,16 @@ const SalesReturns = () => {
     refundLabel: cap(r.refundMode),
     createdByDisplay: r.createdby_name || "N/A",
     statusLabel: r.status ? "Active" : "Inactive",
-  }));
+  });
+  const serverRows = list.map((r: any, i: number) => offline.decorate(buildRow(r, i), "seqNo"));
+  const tableData = offline.rows.length
+    ? [...offline.rows.map((r: any) => offline.decorate(buildRow(r, -1), "seqNo")), ...serverRows]
+    : serverRows;
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           {...actions}
           title="Manage Sales Returns (Credit Notes)"

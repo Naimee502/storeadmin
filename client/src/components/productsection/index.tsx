@@ -255,7 +255,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     type === "sales" && !iservice && editingCell?.field === "rate"
       ? lineBelowCostError(products[editingCell.rowIndex], normalizedProducts, editingValue) || null
       : null;
-  const { resolvePrice } = usePriceResolvers();
+  const { resolvePrice, offlinePrice } = usePriceResolvers();
 
   useEffect(() => {
     onProductsChange?.(products);
@@ -796,6 +796,12 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }
             error={rateError ?? undefined}
           />
+        )}
+        {/* Offline mode only: price lists not on this device, so the product's own rate is used. */}
+        {offlinePrice && type === "sales" && (
+          <div className="self-end pb-2 text-[11px] font-medium text-amber-700" title="Price list not available offline; the product's own rate is used.">
+            Offline price
+          </div>
         )}
 
         {/* ✅ Discount */}

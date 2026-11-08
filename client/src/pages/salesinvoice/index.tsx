@@ -22,6 +22,7 @@ import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 import { useInvoicePdf } from "../../components/invoicepdf";
 import { stateOptions } from "../../utils/constants";
 import { partyLabel } from "../../utils/partylabel";
+import { OfflineListNote, useOfflineList } from "../../offline/listing";
 
 // Party state is a slug; map it to its label for print.
 const stateLabel = (slug?: string) =>
@@ -48,6 +49,8 @@ const SalesInvoices = () => {
     refetch,
   } = useSalesInvoicesPageQuery({ ...table.variables, includeCancelled: true });
   const serverPaging = useServerPaging(table, invoiceTotal, invoicesLoading);
+  // Offline mode only: unsynced bills on page 1 and badges for queued changes.
+  const offline = useOfflineList("salesinvoice", table.page);
   const {
     deleteSalesInvoiceMutation,
     cancelSalesInvoiceMutation,
@@ -58,6 +61,11 @@ const SalesInvoices = () => {
 
   // All bill actions, cancel included, live in one status dropdown.
   const statusOptionsFor = (invoice: any, canEdit: boolean) => {
+    // Unsynced bill: only cancel / re-open can be queued.
+    if (invoice.isOffline) {
+      if (!canEdit) return [];
+      return invoice.cancelStatus === "cancelled" ? [{ label: "Re-open", value: "reopen" }] : [{ label: "Cancel Invoice", value: "cancelled" }];
+    }
     if (invoice.cancelStatus === "cancelled") {
       return canEdit ? [{ label: "Re-open", value: "reopen" }] : [];
     }
@@ -148,7 +156,7 @@ const SalesInvoices = () => {
   const waMeta = useRef<{ phone: string; message: string; fileName: string } | null>(null);
 
   const handleWhatsAppShare = async (row: any) => {
-    const orig = invoiceList.find((inv: any) => inv.id === row.id);
+    const orig = [...offline.rows, ...invoiceList].find((inv: any) => inv.id === row.id);
     if (!orig) return;
 
     // WhatsApp can't preselect a recipient, so copy the number and keep the toast up longer.
@@ -348,7 +356,10 @@ const SalesInvoices = () => {
     };
   };
 
-  const tableData = invoiceList.map((inv: any, i: number) => buildRow(inv, table.offset + i));
+  const serverRows = invoiceList.map((inv: any, i: number) => offline.decorate(buildRow(inv, table.offset + i), "seqNo"));
+  const tableData = offline.rows.length
+    ? [...offline.rows.map((inv: any) => offline.decorate(buildRow(inv, -1), "seqNo")), ...serverRows]
+    : serverRows;
 
   // Fetch the full bill (and party balance if enabled) for Print / WhatsApp.
   const loadPrintable = async (row: any) => {
@@ -358,7 +369,8 @@ const SalesInvoices = () => {
         variables: { id: row.id, adminid },
         fetchPolicy: "network-only",
       }),
-      settings?.printShowPartyBalance
+      // An unsynced bill has no server balance yet.
+      settings?.printShowPartyBalance && !row.isOffline
         ? apolloClient
             .query({
               query: GET_SALES_INVOICE_BALANCE,
@@ -385,6 +397,7 @@ const SalesInvoices = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           title="Manage Sales Invoices"
           columns={columns}

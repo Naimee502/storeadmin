@@ -15,6 +15,7 @@ import { selectModuleActions } from "../../redux/slices/permissions";
 import { formatDateDMY } from "../../utils/helper";
 import { paymentPartyLabel } from "../../utils/partylabel";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
+import { OfflineListNote, useOfflineList } from "../../offline/listing";
 
 // Columns the server can filter (Seq is per page, so it has none).
 const SERVER_FILTER_KEYS = [
@@ -30,6 +31,8 @@ const Payment = () => {
   const table = useServerTable("payments", SERVER_FILTER_KEYS);
   const { items: paymentList, total, loading, refetch } = usePaymentsPageQuery(table.variables);
   const serverPaging = useServerPaging(table, total, loading);
+  // Offline mode only: unsynced vouchers on page 1 and badges for queued changes.
+  const offline = useOfflineList("payment", table.page);
   const { deletePaymentMutation } = usePaymentMutations();
 
   const isLoading = useAppSelector((state) => state.loader.isLoading);
@@ -87,13 +90,15 @@ const Payment = () => {
     { label: "Status", key: "status" },
   ];
 
-  const tableData = paymentList.map((pay: any, index: number) => {
+  const buildRow = (pay: any, index: number) => {
     // Format date
     let formattedDate = "-";
     if (pay.paymentdate) {
       const ts = Number(pay.paymentdate);
       const dt = new Date(ts);
       if (!isNaN(dt.getTime())) formattedDate = formatDateDMY(dt);
+      // Unsynced voucher: the date is still the form's YYYY-MM-DD text.
+      else if (pay.isOffline) formattedDate = formatDateDMY(pay.paymentdate);
     }
 
     // Capitalize first letter
@@ -121,11 +126,16 @@ const Payment = () => {
       createdByDisplay: pay.createdby_name || "N/A",
       status: pay.status ? "Active" : "Inactive",
     };
-  });
+  };
+  const serverRows = paymentList.map((pay: any, i: number) => offline.decorate(buildRow(pay, i), "seqNo"));
+  const tableData = offline.rows.length
+    ? [...offline.rows.map((pay: any) => offline.decorate(buildRow(pay, -1), "seqNo")), ...serverRows]
+    : serverRows;
 
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
+        <OfflineListNote show={offline.on && !offline.online} />
         <DataTable requireBranchForAdd={true}
           title="Manage Payments"
           columns={columns}
