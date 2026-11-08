@@ -232,3 +232,20 @@ export function withOfflineWrites(resolvers: any, w: OfflineWrites) {
   if (w.isoUpdatedAt) out[w.typename] = { ...resolvers[w.typename], updatedAt: (d: any) => isoOf(d.updatedAt) };
   return out;
 }
+
+/** expectedUpdatedAt on status actions (confirm, dispatch, deliver, assign) queued offline. */
+export function withOfflineActions(resolvers: any, model: any, names: string[]) {
+  const m = { ...resolvers.Mutation };
+  for (const name of names) {
+    const run = m[name];
+    m[name] = async (p: any, args: any, ctx: any, info: any) => {
+      const expected = parseExpectedUpdatedAt(args?.expectedUpdatedAt);
+      if (expected) {
+        const stored: any = await model.findById(args.id).select("updatedAt").lean();
+        if (stored) await assertFresh(stored.updatedAt, expected, () => model.findById(args.id).lean().then((d: any) => d && { ...d, id: String(d._id) }));
+      }
+      return run(p, args, ctx, info);
+    };
+  }
+  return { ...resolvers, Mutation: m };
+}

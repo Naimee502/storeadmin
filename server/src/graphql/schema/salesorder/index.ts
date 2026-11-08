@@ -214,9 +214,9 @@ export const salesOrderTypeDefs = gql`
     cancelSalesOrder(id: ID!, reason: String, expectedUpdatedAt: String): SalesOrder!
     reopenSalesOrder(id: ID!, expectedUpdatedAt: String): SalesOrder!
     # Fulfilment transitions
-    confirmSalesOrder(id: ID!): SalesOrder!
-    markSalesOrderDispatched(id: ID!, deliveryboyid: ID): SalesOrder!
-    markSalesOrderDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesOrder!
-    assignOrderDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesOrder!
+    confirmSalesOrder(id: ID!, expectedUpdatedAt: String): SalesOrder!
+    markSalesOrderDispatched(id: ID!, deliveryboyid: ID, expectedUpdatedAt: String): SalesOrder!
+    markSalesOrderDelivered(id: ID!, byId: ID, byName: String, byType: String, expectedUpdatedAt: String): SalesOrder!
+    assignOrderDeliveryBoy(id: ID!, deliveryboyid: ID!, expectedUpdatedAt: String): SalesOrder!
   }
 `;

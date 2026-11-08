@@ -196,7 +196,7 @@ export const purchaseOrderTypeDefs = gql`
     resetPurchaseOrder(id: ID!): Boolean!
     cancelPurchaseOrder(id: ID!, reason: String, expectedUpdatedAt: String): PurchaseOrder!
     reopenPurchaseOrder(id: ID!, expectedUpdatedAt: String): PurchaseOrder!
-    confirmPurchaseOrder(id: ID!): PurchaseOrder!
-    markPurchaseOrderReceived(id: ID!, byId: ID, byName: String, byType: String): PurchaseOrder!
+    confirmPurchaseOrder(id: ID!, expectedUpdatedAt: String): PurchaseOrder!
+    markPurchaseOrderReceived(id: ID!, byId: ID, byName: String, byType: String, expectedUpdatedAt: String): PurchaseOrder!
   }
 `;

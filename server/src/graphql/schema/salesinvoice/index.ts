@@ -212,8 +212,8 @@ export const salesInvoiceTypeDefs = gql`
     resetSalesInvoice(id: ID!): Boolean!
     cancelSalesInvoice(id: ID!, reason: String, expectedUpdatedAt: String): SalesInvoice
     reopenSalesInvoice(id: ID!, expectedUpdatedAt: String): SalesInvoice
-    markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID): SalesInvoice!
-    markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String): SalesInvoice!
-    assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!): SalesInvoice!
+    markSalesInvoiceDispatched(id: ID!, deliveryboyid: ID, expectedUpdatedAt: String): SalesInvoice!
+    markSalesInvoiceDelivered(id: ID!, byId: ID, byName: String, byType: String, expectedUpdatedAt: String): SalesInvoice!
+    assignInvoiceDeliveryBoy(id: ID!, deliveryboyid: ID!, expectedUpdatedAt: String): SalesInvoice!
   }
 `;

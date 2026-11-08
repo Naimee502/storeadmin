@@ -27,6 +27,10 @@ export const visitTypeDefs = gql`
   }
 
   input VisitInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID
     branchid: ID
     salesmanid: ID!
@@ -67,7 +71,7 @@ export const visitTypeDefs = gql`
 
   extend type Mutation {
     addVisit(input: VisitInput!): Visit!
-    editVisit(id: ID!, input: VisitInput!): Visit!
-    deleteVisit(id: ID!): Boolean!
+    editVisit(id: ID!, input: VisitInput!, expectedUpdatedAt: String): Visit!
+    deleteVisit(id: ID!, expectedUpdatedAt: String): Boolean!
   }
 `;

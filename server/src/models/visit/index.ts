@@ -49,4 +49,8 @@ const visitSchema = new mongoose.Schema(
 
 visitSchema.index({ adminid: 1, branchid: 1, salesmanid: 1, visitdate: 1 });
 
+// Offline sync: one document per request id; only rows that carry one are indexed.
+visitSchema.add({ clientRequestId: { type: String } });
+visitSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const Visit = mongoose.model("Visit", visitSchema);

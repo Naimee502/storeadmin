@@ -44,7 +44,10 @@ import { commonResolvers } from "./common";
 import { offlineDeviceResolvers } from "./offlinedevice";
 import { syncResolvers } from "./sync";
 
-import { withOfflineWrites } from "../../utils/offlinesync";
+import { withOfflineActions, withOfflineWrites } from "../../utils/offlinesync";
+import { SalesOrder } from "../../models/salesorder";
+import { SalesInvoice } from "../../models/salesinvoice";
+import { PurchaseOrder } from "../../models/purchaseorder";
 import { Unit } from "../../models/units";
 import { Category } from "../../models/categories";
 import { SubCategory } from "../../models/subcategories";
@@ -58,6 +61,7 @@ import { AccountLedger } from "../../models/accountledgers";
 import { ExpenseNote } from "../../models/expensenote";
 import { Transaction } from "../../models/transactions";
 import { ExpenseClaim } from "../../models/expenseclaim";
+import { Visit } from "../../models/visit";
 
 export const resolvers = [
   branchResolvers,
@@ -75,7 +79,7 @@ export const resolvers = [
   uploadResolvers,
   withOfflineWrites(productServiceResolvers, { model: ProductService, typename: "ProductService", tenant: "adminid", add: "addProductService", edit: "updateProductService", del: "deleteProductService" }),
   productImportResolvers,
-  salesInvoiceResolvers,
+  withOfflineActions(salesInvoiceResolvers, SalesInvoice, ["markSalesInvoiceDispatched", "markSalesInvoiceDelivered", "assignInvoiceDeliveryBoy"]),
   purchaseInvoiceResolvers,
   transferStockResolvers,
   adminResolvers,
@@ -88,8 +92,8 @@ export const resolvers = [
   stockAdjustmentResolvers,
   salesRouteResolvers,
   priceListResolvers,
-  salesOrderResolvers,
-  purchaseOrderResolvers,
+  withOfflineActions(salesOrderResolvers, SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
+  withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"]),
   attendanceResolvers,
   salesReturnResolvers,
   geocodeResolvers,
@@ -97,7 +101,7 @@ export const resolvers = [
   adminSettingsResolvers,
   permissionsResolvers,
   chargeRuleResolvers,
-  visitResolvers,
+  withOfflineWrites(visitResolvers, { model: Visit, typename: "Visit", tenant: "adminid", add: "addVisit", edit: "editVisit", del: "deleteVisit" }),
   salesmanReportResolvers,
   locationPingResolvers,
   notificationResolvers,
