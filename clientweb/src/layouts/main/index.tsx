@@ -1,4 +1,6 @@
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Outlet, useLocation } from "react-router";
+import { offline } from "../../graphql/client";
 import Header from "../../components/header";
 import Footer from "../../components/footer";
 import MobileBottomNav from "../../components/mobilebottomnav";
@@ -11,6 +13,20 @@ import ScreenWatermark from "../../components/screenwatermark";
 import ScrollToTop from "../../components/scrolltotop";
 import OrderForBanner from "../../components/orderforbanner";
 import WhatsAppChat from "../../components/whatsappchat";
+
+// Offline orders and payments: shown until they sync.
+function OfflineBanner() {
+  const { online, pending, message } = useSyncExternalStore(offline.subscribe, offline.getState);
+  const [shown, setShown] = useState("");
+  useEffect(() => {
+    setShown(message);
+    const t = setTimeout(() => setShown(""), 6000);
+    return () => clearTimeout(t);
+  }, [message]);
+  const text = shown || (!online ? "You are offline. Orders and payments will sync later." : pending ? `${pending} offline ${pending === 1 ? "entry" : "entries"} waiting to sync.` : "");
+  if (!text) return null;
+  return <div className="bg-amber-50 px-4 py-2 text-center text-[13px] text-amber-800">{text}</div>;
+}
 
 export default function MainLayout() {
   const tenant = useTenant();
@@ -29,6 +45,7 @@ export default function MainLayout() {
           <ScrollToTop />
           <Header />
           <OrderForBanner />
+          <OfflineBanner />
           <main className="flex-1 pb-16 lg:pb-0">
             <Outlet />
           </main>

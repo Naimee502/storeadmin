@@ -1,7 +1,11 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client/core';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Observable } from 'rxjs';
+import { Snackbar } from 'react-native-snackbar';
 import { API_CONFIG } from '../config';
+import { createOffline } from './offline';
 
 let _getToken: (() => string | null) | null = null;
 
@@ -11,6 +15,13 @@ export const setTokenGetter = (fn: () => string | null) => {
 
 /** The signed-in user's access token — for the few calls made outside Apollo (file uploads). */
 export const getAuthToken = (): string | null => (_getToken ? _getToken() : null);
+
+export const offline = createOffline({
+  Observable,
+  storage: AsyncStorage,
+  getToken: () => (_getToken ? _getToken() : null),
+  notify: (text) => Snackbar.show({ text, duration: Snackbar.LENGTH_LONG }),
+});
 
 const httpLink = createHttpLink({
   uri: API_CONFIG.GRAPHQL_URL,
@@ -38,7 +49,7 @@ const errorLink = onError(({ graphQLErrors, networkError }: any) => {
 });
 
 export const apolloClient = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]),
+  link: from([offline.link, errorLink, authLink, httpLink]),
   cache: new InMemoryCache({
     typePolicies: {
       Query: {
@@ -106,3 +117,5 @@ export const apolloClient = new ApolloClient({
     query: { fetchPolicy: 'network-only' },
   },
 });
+
+offline.attach(apolloClient);

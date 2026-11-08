@@ -1,0 +1,345 @@
+// Offline sales for clientapp and clientweb (OFFLINE.md, "Apps"). Keep both copies identical.
+import { ApolloLink } from '@apollo/client/core';
+import { parse, print } from 'graphql';
+
+export type OfflineStorage = {
+  getItem(key: string): Promise<string | null> | string | null;
+  setItem(key: string, value: string): Promise<void> | void;
+};
+export type OfflineState = { online: boolean; pending: number; message: string };
+
+// Creates carry clientRequestId, so a retry or a timed-out request never saves twice.
+const CREATES: Record<string, string> = { AddSalesOrder: 'SalesOrder', AddPayment: 'Payment', AddSalesReturn: 'SalesReturn' };
+const QUEUED = new Set([...Object.keys(CREATES), 'EditSalesOrder', 'MarkSalesInvoiceDelivered', 'MarkSalesOrderDelivered', 'MarkVisit']);
+// List queries that show pending creates on top of the last synced rows.
+const LISTS: Record<string, string> = { getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn' };
+const PENDING_NUMBER = 'Pending sync';
+const TEMP = 'offline-';
+const QUEUE_KEY = 'offline:queue';
+const CHUNK = 1_000_000;
+const CACHE_LIMIT = 3_500_000;
+const CREATE_TIMEOUT_MS = 3000;
+const RETRY_MS = 30_000;
+
+type Item = { id: string; uid: string; name: string; query: string; variables: any; at: string };
+
+const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+const opDef = (doc: any) => doc.definitions.find((d: any) => d.kind === 'OperationDefinition');
+const rootField = (doc: any) => opDef(doc).selectionSet.selections[0];
+const keyOf = (f: any) => f.alias?.value || f.name.value;
+const hasTemp = (v: any) => JSON.stringify(v ?? null).includes(`"${TEMP}`);
+const swapId = (v: any, from: string, to: string) => JSON.parse(JSON.stringify(v).split(from).join(to));
+
+// User id from the JWT, so one user's queue and cache are never used by another.
+const uidOf = (token: string | null) => {
+  if (!token) return '';
+  try {
+    const p = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return String(JSON.parse((globalThis as any).atob(p + '==='.slice((p.length + 3) % 4))).id || '');
+  } catch {
+    return '';
+  }
+};
+
+// No response at all (or a gateway error): the device is treated as offline.
+const isNetworkError = (e: any) => {
+  const status = e?.statusCode ?? e?.response?.status;
+  return !e?.graphQLErrors?.length && !e?.errors?.length && (!status || status >= 502);
+};
+
+// Object shaped like a selection; ids and cache refs are resolved from the saved entities.
+function fill(set: any, src: any, entities: Record<string, any>, byId: Map<string, any>): any {
+  const out: any = {};
+  for (const s of set.selections) {
+    if (s.kind === 'InlineFragment') Object.assign(out, fill(s.selectionSet, src, entities, byId));
+    if (s.kind !== 'Field') continue;
+    const v = src?.[s.name.value];
+    const obj = (x: any) => {
+      const e = x?.__ref ? entities[x.__ref] : typeof x === 'string' ? byId.get(x) : x;
+      return e && typeof e === 'object' ? fill(s.selectionSet, e, entities, byId) : null;
+    };
+    out[keyOf(s)] = s.selectionSet ? (Array.isArray(v) ? v.map(obj) : obj(v)) : v ?? null;
+  }
+  return out;
+}
+
+const indexById = (entities: Record<string, any>) => {
+  const map = new Map<string, any>();
+  for (const k of Object.keys(entities)) if (entities[k]?.id) map.set(String(entities[k].id), entities[k]);
+  return map;
+};
+
+export function createOffline(opts: {
+  Observable: any;
+  storage: OfflineStorage;
+  getToken: () => string | null;
+  notify?: (message: string) => void;
+}) {
+  const { Observable, storage, getToken, notify } = opts;
+  let client: any = null;
+  let queue: Item[] = [];
+  let state: OfflineState = { online: true, pending: 0, message: '' };
+  let saved: { uid: string; data: any } = { uid: '', data: null };
+  let scratch: { version: number; cache: any } | null = null;
+  let version = 0;
+  let saveTimer: any = null;
+  let flushing = false;
+  const listeners = new Set<() => void>();
+
+  const uid = () => uidOf(getToken());
+  const mine = () => queue.filter((i) => i.uid === uid());
+  const set = (next: Partial<OfflineState>) => {
+    state = { ...state, ...next, pending: mine().length };
+    if (next.message) notify?.(next.message);
+    listeners.forEach((l) => l());
+  };
+  const cacheKey = (u: string) => `offline:cache:${u}`;
+  // Saved and current entities, so pending rows show party, product and ledger names.
+  const entitiesNow = () => ({ ...(saved.uid === uid() ? saved.data : null), ...client.cache.extract() });
+  const saveQueue = () => Promise.resolve(storage.setItem(QUEUE_KEY, JSON.stringify(queue))).catch(() => undefined);
+  const loaded = Promise.resolve(storage.getItem(QUEUE_KEY))
+    .then((raw) => { queue = raw ? JSON.parse(raw) : []; set({}); })
+    .catch(() => undefined);
+
+  // Last saved cache of this user, split in parts: Android AsyncStorage rows hold about 2 MB.
+  async function savedData() {
+    const u = uid();
+    if (saved.uid !== u) {
+      saved = { uid: u, data: null };
+      try {
+        const count = Number(await storage.getItem(cacheKey(u))) || 0;
+        let raw = '';
+        for (let i = 0; i < count; i += 1) raw += (await storage.getItem(`${cacheKey(u)}:${i}`)) || '';
+        saved.data = raw ? JSON.parse(raw) : null;
+      } catch { /* a bad saved cache only means fewer offline reads */ }
+    }
+    return saved.data;
+  }
+
+  // Saved rows plus this session's rows; the live cache never gets old rows, so online reads stay fresh.
+  async function snapshot() {
+    const old = (await savedData()) || {};
+    const now = client.cache.extract();
+    return { ...old, ...now, ROOT_QUERY: { ...old.ROOT_QUERY, ...now.ROOT_QUERY } };
+  }
+
+  function saveSoon() {
+    version += 1;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const u = uid();
+      if (!client || !u) return;
+      try {
+        const data = await snapshot();
+        const raw = JSON.stringify(data);
+        if (raw.length > CACHE_LIMIT) return;
+        const parts = Math.ceil(raw.length / CHUNK);
+        for (let i = 0; i < parts; i += 1) await storage.setItem(`${cacheKey(u)}:${i}`, raw.slice(i * CHUNK, (i + 1) * CHUNK));
+        await storage.setItem(cacheKey(u), String(parts));
+        saved = { uid: u, data };
+      } catch { /* storage full: keep the last saved copy */ }
+    }, 2000);
+  }
+
+  async function fromCache(op: any) {
+    if (!scratch || scratch.version !== version || saved.uid !== uid()) {
+      const { typePolicies, possibleTypes } = client.cache.config || {};
+      const cache = new client.cache.constructor({ typePolicies, possibleTypes });
+      cache.restore(await snapshot());
+      scratch = { version, cache };
+    }
+    const data = scratch.cache.readQuery({ query: op.query, variables: op.variables });
+    return data ? { data } : null;
+  }
+
+  // Pending create as the document the server would return.
+  const pendingDoc = (item: Item) => ({
+    ...item.variables.input,
+    __typename: CREATES[item.name],
+    id: `${TEMP}${item.id}`,
+    billnumber: PENDING_NUMBER,
+    paymentcode: PENDING_NUMBER,
+    status: true,
+    cancelStatus: false,
+    createdAt: item.at,
+    updatedAt: item.at,
+  });
+
+  // Adds pending creates to list results and answers by-id reads of a pending document.
+  function overlay(op: any, result: any) {
+    if (!result?.data) return result;
+    const entities = entitiesNow();
+    const byId = indexById(entities);
+    const pending = mine().filter((i) => CREATES[i.name]);
+    const data = { ...result.data };
+    for (const f of opDef(op.query).selectionSet.selections) {
+      if (f.kind !== 'Field') continue;
+      const key = keyOf(f);
+      const create = LISTS[f.name.value];
+      if (create && Array.isArray(data[key])) {
+        const vars = op.variables || {};
+        const rows = pending
+          .filter((i) => i.name === create)
+          .filter((i) => Object.entries(vars).every(([k, v]) => v == null || typeof v === 'object' || !(k in i.variables.input) || String(i.variables.input[k]) === String(v)))
+          .map((i) => fill(f.selectionSet, pendingDoc(i), entities, byId));
+        // Old pending rows (saved in the cache) are replaced by the current queue.
+        data[key] = [...rows, ...data[key].filter((r: any) => !String(r?.id || '').startsWith(TEMP))];
+      }
+    }
+    return { ...result, data };
+  }
+
+  function answerTemp(op: any) {
+    const entities = entitiesNow();
+    const byId = indexById(entities);
+    const docs = new Map(mine().filter((i) => CREATES[i.name]).map((i) => [`${TEMP}${i.id}`, pendingDoc(i)]));
+    const data: any = {};
+    for (const f of opDef(op.query).selectionSet.selections) {
+      if (f.kind !== 'Field') continue;
+      const id = Object.values(op.variables || {}).find((v) => typeof v === 'string' && docs.has(v)) as string | undefined;
+      data[keyOf(f)] = id && f.selectionSet ? fill(f.selectionSet, docs.get(id), entities, byId) : null;
+    }
+    return { data };
+  }
+
+  // Lists are read again through the link, so they show (or stop showing) pending rows.
+  const dropLists = () => {
+    for (const fieldName of Object.keys(LISTS)) client.cache.evict({ id: 'ROOT_QUERY', fieldName });
+    client.cache.gc();
+  };
+
+  async function enqueue(op: any, offlineNow: boolean) {
+    const field = rootField(op.query);
+    const item: Item = { id: op.variables?.input?.clientRequestId || newId(), uid: uid(), name: op.operationName, query: print(op.query), variables: op.variables, at: new Date().toISOString() };
+    await loaded;
+    queue.push(item);
+    await saveQueue();
+    if (CREATES[item.name]) dropLists();
+    set({ ...(offlineNow ? { online: false } : {}), message: 'Saved on this device. It will sync when the connection is back.' });
+    if (!field.selectionSet) return { data: { [keyOf(field)]: true } };
+    const src = CREATES[item.name] ? pendingDoc(item) : { ...op.variables?.input, ...op.variables };
+    const entities = entitiesNow();
+    return { data: { [keyOf(field)]: fill(field.selectionSet, src, entities, indexById(entities)) } };
+  }
+
+  // Edit or delete of a document that has not synced yet changes the queued create instead.
+  async function changePending(op: any) {
+    await loaded;
+    const field = rootField(op.query);
+    const temp = String(op.variables?.id || '');
+    const item = mine().find((i) => CREATES[i.name] && `${TEMP}${i.id}` === temp);
+    if (!item || !(/^Delete/.test(op.operationName) || op.variables?.input)) return enqueue(op, !state.online);
+    if (/^Delete/.test(op.operationName)) queue = queue.filter((i) => i !== item);
+    else item.variables = { ...item.variables, input: { ...op.variables.input, clientRequestId: item.id } };
+    await saveQueue();
+    dropLists();
+    set({});
+    if (!field.selectionSet) return { data: { [keyOf(field)]: true } };
+    const entities = entitiesNow();
+    return { data: { [keyOf(field)]: fill(field.selectionSet, pendingDoc(item), entities, indexById(entities)) } };
+  }
+
+  async function flush() {
+    if (flushing || !client) return;
+    flushing = true;
+    let synced = 0;
+    try {
+      await loaded;
+      for (const id of mine().map((i) => i.id)) {
+        const item = queue.find((i) => i.id === id);
+        if (!item) continue;
+        try {
+          const res = await client.mutate({ mutation: parse(item.query), variables: item.variables, context: { offlineReplay: true } });
+          queue = queue.filter((i) => i.id !== id);
+          synced += 1;
+          // Later entries that point at this offline document get its server id.
+          const savedId = (Object.values(res?.data || {})[0] as any)?.id;
+          if (CREATES[item.name] && savedId) queue = queue.map((i) => ({ ...i, variables: swapId(i.variables, `${TEMP}${item.id}`, String(savedId)) }));
+        } catch (e: any) {
+          if (isNetworkError(e?.networkError ?? e)) break;
+          queue = queue.filter((i) => i.id !== id);
+          set({ message: `An offline entry could not be saved: ${e?.message || 'unknown error'}` });
+        }
+        await saveQueue();
+      }
+    } finally {
+      flushing = false;
+    }
+    if (synced) {
+      dropLists();
+      set({ online: true, message: `${synced} offline ${synced === 1 ? 'entry' : 'entries'} synced.` });
+      Promise.resolve(client.refetchQueries({ include: 'active' })).catch(() => undefined);
+    } else set({});
+  }
+
+  const link = new ApolloLink((op: any, forward: any) => {
+    const kind = opDef(op.query)?.operation;
+    const replay = op.getContext?.().offlineReplay;
+    const name = op.operationName;
+    if (kind === 'mutation' && CREATES[name] && op.variables?.input && !op.variables.input.clientRequestId) {
+      op.variables = { ...op.variables, input: { ...op.variables.input, clientRequestId: newId() } };
+    }
+    return new Observable((observer: any) => {
+      let done = false;
+      let sub: any = null;
+      let timer: any = null;
+      const answer = (p: Promise<any>, e?: any) => {
+        done = true;
+        clearTimeout(timer);
+        p.then((r) => {
+          if (!r) return observer.error(e);
+          observer.next(r);
+          observer.complete();
+        }, () => observer.error(e));
+      };
+      // A document that exists only on this device never goes to the server.
+      if (!replay && hasTemp(op.variables)) {
+        answer(Promise.resolve().then(() => (kind === 'query' ? answerTemp(op) : op.variables?.id?.startsWith?.(TEMP) ? changePending(op) : enqueue(op, !state.online))));
+        return () => undefined;
+      }
+      if (!replay && kind === 'mutation' && CREATES[name]) {
+        // No answer in time: keep it on the device; the request id makes a late save harmless.
+        timer = setTimeout(() => {
+          if (done) return;
+          sub?.unsubscribe();
+          answer(enqueue(op, false));
+        }, CREATE_TIMEOUT_MS);
+      }
+      sub = forward(op).subscribe({
+        next: (r: any) => {
+          if (done) return;
+          clearTimeout(timer);
+          if (!state.online) set({ online: true });
+          if (kind === 'query') saveSoon();
+          if (queue.length && !replay) flush();
+          observer.next(kind === 'query' && !replay ? overlay(op, r) : r);
+        },
+        error: (e: any) => {
+          if (done) return;
+          clearTimeout(timer);
+          if (replay || !isNetworkError(e)) return observer.error(e);
+          if (state.online) set({ online: false });
+          const local = kind === 'query' ? fromCache(op).then((r) => r && overlay(op, r)) : kind === 'mutation' && QUEUED.has(name) ? enqueue(op, true) : Promise.resolve(null);
+          answer(local, e);
+        },
+        complete: () => { if (!done) observer.complete(); },
+      });
+      return () => { clearTimeout(timer); sub?.unsubscribe(); };
+    });
+  });
+
+  return {
+    link,
+    flush,
+    attach(c: any) {
+      client = c;
+      setInterval(() => { if (mine().length) flush(); }, RETRY_MS);
+      loaded.then(flush);
+    },
+    getState: () => state,
+    subscribe(l: () => void) {
+      listeners.add(l);
+      return () => { listeners.delete(l); };
+    },
+  };
+}

@@ -22,6 +22,16 @@ Goal: work like Vyapar. Every write is saved on the device first and synced to t
 - Collections: `salesinvoice, salesorder, salesreturn, payment, product, account, ledger, unit, category, subcategory, brand, model, size, productgroup, branch, staff, pricelist, priceassignment, chargerule, adminsettings`; later `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction`.
 - Creates accept `clientRequestId`; a device number sent as `billnumber`/`paymentcode` is moved to `offlineNumber` and the main series numbers the document. Edits accept `expectedUpdatedAt` (`CONFLICT` with `current`).
 
+## Apps (`clientapp`, `clientweb`)
+One file, identical in both: `clientapp/src/apollo/offline.ts` = `clientweb/src/graphql/offline.ts` (edit one, copy to the other). It is an Apollo link; screens need no change.
+- Writes: `AddSalesOrder`, `AddPayment`, `AddSalesReturn` get a `clientRequestId`. No answer within 3 s or no network: saved in the device queue (per user) and synced later; the number shows `Pending sync` until the server numbers it in the main series. `EditSalesOrder`, `MarkSalesOrderDelivered`, `MarkSalesInvoiceDelivered`, `MarkVisit` are queued only when offline.
+- Pending documents: shown at the top of `getSalesOrders`, `getPayments`, `getMySalesReturns` (only in lists whose party/salesman filter matches) and open by id (`offline-<id>`). Edit or delete of a pending document changes the queued create. After a create syncs, later queued entries get its server id.
+- Reads: queries are saved per user (AsyncStorage / localStorage, max 3.5 MB). Offline, a query is answered from the saved copy; online reads never use it.
+- Sync: on any successful request, every 30 s, and on the browser `online` event. Server errors drop the entry with a message; network errors keep it.
+- Status: app Snackbar messages; website banner under the header (`layouts/main`).
+- Not offline in the apps (by design): stock and outstanding are the last synced values; new parties, catalogue and masters need the network.
+- Test: `node test.js` style check with a fake server (offline create, list/detail of pending, edit merge, id swap, 3 s timeout, no duplicate) passes on Apollo 3 (web) and 4 (app).
+
 ## Deploy
 Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
@@ -37,4 +47,11 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
 3. Masters and expenses edited offline.
 4. Reports from local data.
-5. `clientapp` on the same contract.
+5. Apps: sales (order, payment, sales return, delivery, visit) done in `clientapp` and `clientweb`.
+
+## Status (handoff: read this first)
+Branch `feature/server-paging-clear-offline`. One commit per finished step; never commit `.DS_Store`, builds, `dist`, notes or test scripts.
+- Done and committed: Phase 1 (admin client + server), Phase 2 contract, Apps sales.
+- Phase 2 in progress, NOT committed (26 files): server models/schemas/resolvers for purchase invoice/order/return, stock adjustment, transfer stock, `offlinedevice`, `utils/offlinesync.ts`; client `offline/core, docs, localdb, offlinelink, OfflineStatusBar` and purchase invoice/order/return addedit pages. Server `tsc` 0 errors. Next: client stock adjustment and transfer screens, local stock/vendor balance rules above, API tests, then commit.
+- Next cleanup: `client/src/offline` has 19 files; merge the small ones (`network`, `saved`, `userkey`, `OfflineHeaderStatus`, `sw`) into their callers after Phase 2 is committed, so no two changes touch the same files.
+- Checks: `vite build` needs the Mac (node_modules are macOS binaries); run it there before deploy.

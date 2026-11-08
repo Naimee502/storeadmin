@@ -1,6 +1,7 @@
-import { ApolloClient, InMemoryCache, HttpLink, from } from "@apollo/client";
+import { ApolloClient, InMemoryCache, HttpLink, Observable, from } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { API_CONFIG } from "../config/apiconfig";
+import { createOffline } from "./offline";
 
 // Anonymous storefront browsing (catalog, storefront info, OTP request)
 // doesn't need this — but once a party account logs in (sendOTP/verifyOTP),
@@ -17,6 +18,12 @@ export const setTokenGetter = (fn: () => string | null) => {
 /** The signed-in party's token — for the one call made outside Apollo (image upload). */
 export const getAuthToken = (): string | null => (_getToken ? _getToken() : null);
 
+export const offline = createOffline({
+  Observable,
+  storage: localStorage,
+  getToken: () => (_getToken ? _getToken() : null),
+});
+
 // dev → local, build → live (see config/apiconfig.ts)
 const httpLink = new HttpLink({ uri: API_CONFIG.GRAPHQL_URL });
 
@@ -31,8 +38,11 @@ const authLink = setContext((_, { headers }) => {
 });
 
 const apolloClient = new ApolloClient({
-  link: from([authLink, httpLink]),
+  link: from([offline.link, authLink, httpLink]),
   cache: new InMemoryCache(),
 });
+
+offline.attach(apolloClient);
+window.addEventListener("online", () => offline.flush());
 
 export default apolloClient;
