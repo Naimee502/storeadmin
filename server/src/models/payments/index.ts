@@ -147,4 +147,10 @@ paymentSchema.index({ "autosource.docid": 1, "autosource.docmodel": 1 });
 paymentSchema.index({ "invoices.invoiceid": 1 });
 paymentSchema.index({ adminid: 1, partyid: 1, status: 1 });
 
+// One document per offline request id; only rows that carry one are indexed.
+paymentSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
+
 export const Payment = mongoose.model("Payment", paymentSchema);

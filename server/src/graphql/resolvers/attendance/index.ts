@@ -708,7 +708,7 @@ export const attendanceResolvers = {
       return formatLeaveRequest(populated);
     },
     deleteLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: false })),
-    resetAttendanceLog: async (_: any, { id }: { id: string }) => !!(await Attendance.findByIdAndUpdate(id, { status_active: true })),
+    resetAttendanceLog: async (_: any, { id }: { id: string }) => !!(await Attendance.findByIdAndUpdate(id, { status_active: true, cleared: false })),
     resetHoliday: async (_: any, { id }: { id: string }) => !!(await Holiday.findByIdAndUpdate(id, { status: true })),
     resetLeaveType: async (_: any, { id }: { id: string }) => !!(await LeaveType.findByIdAndUpdate(id, { status: true })),
     resetLeaveRequest: async (_: any, { id }: { id: string }) => !!(await LeaveRequest.findByIdAndUpdate(id, { status_active: true })),

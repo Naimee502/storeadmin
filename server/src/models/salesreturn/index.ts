@@ -530,4 +530,10 @@ interface SalesReturnModel extends mongoose.Model<any> {
   adjustStockAndTransactions(oldDoc: any, newDoc: any, userContext?: any): Promise<void>;
 }
 
+// One document per offline request id; only rows that carry one are indexed.
+salesReturnSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
+
 export const SalesReturn = mongoose.model<any, SalesReturnModel>("SalesReturn", salesReturnSchema);

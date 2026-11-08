@@ -95,6 +95,7 @@ export const commonResolvers = {
         _id: { $in: validIds },
         [target.tenant]: tenantId,
         ...(target.deleted || { status: false }),
+        cleared: { $ne: true },
       };
       const res = await Model.updateMany(
         filter,

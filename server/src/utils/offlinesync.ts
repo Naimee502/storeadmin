@@ -1,5 +1,6 @@
 import { ApolloError } from "apollo-server-express";
 import { OfflineDevice } from "../models/offlinedevice";
+import { resolveTenant } from "./tenant";
 
 // Offline billing support: device-series numbers and edit-conflict checks.
 
@@ -43,6 +44,11 @@ export function deviceCodeIndex(code: string): number {
   let n = 0;
   for (const ch of code) n = n * 26 + (ch.charCodeAt(0) - 64);
   return n - 1;
+}
+
+// Edits never take a device number; the main-series number stays.
+export function dropDeviceNumber(type: OfflineDocType, input: any, field = "billnumber") {
+  if (parseDeviceNumber(type, input?.[field])) delete input[field];
 }
 
 // Device numbers are provisional: kept in offlineNumber, the main series numbers the doc.
@@ -118,3 +124,39 @@ export const updateByIdGuarded = (model: any, id: any, guardAt: Date | null, upd
   guardAt
     ? model.findOneAndUpdate({ _id: id, updatedAt: guardAt }, update, options)
     : model.findByIdAndUpdate(id, update, options);
+
+// Business of the signed-in user: admin = itself, everyone else = their admin.
+export const tenantOf = async (context: any): Promise<{ adminid: string; branchid?: string }> => {
+  const user = context?.user;
+  if (!user?.id) throw new ApolloError("Please sign in again.", "UNAUTHENTICATED");
+  if (user.type === "admin") return { adminid: String(user.id) };
+  if (user.adminid) return { adminid: String(user.adminid), branchid: user.branchid ? String(user.branchid) : undefined };
+  // Older tokens carry no adminid.
+  const scope = await resolveTenant(context);
+  return { adminid: String(scope.adminid), branchid: scope.branchid ? String(scope.branchid) : undefined };
+};
+
+const inFlight = new Map<string, Promise<unknown>>();
+
+// Creates once per clientRequestId: a repeat or a concurrent retry gets the saved document.
+export async function createOnce<T>(
+  context: any,
+  input: any,
+  find: (adminid: string, requestId: string) => Promise<T | null>,
+  create: () => Promise<T>
+): Promise<T> {
+  const requestId = input?.clientRequestId ? String(input.clientRequestId) : "";
+  if (!requestId) return create();
+  const { adminid } = await tenantOf(context);
+  const key = `${adminid}:${requestId}`;
+  while (inFlight.has(key)) await inFlight.get(key)!.catch(() => undefined);
+  const existing = await find(adminid, requestId);
+  if (existing) return existing;
+  const run = create();
+  inFlight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    inFlight.delete(key);
+  }
+}

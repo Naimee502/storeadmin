@@ -16,7 +16,7 @@ import {
   type InvoiceModel,
 } from "../../../utils/allocation";
 import { containsRx, pageWindow, textMatch, notCleared } from "../../../utils/listquery";
-import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 import { activeText, dmyOrDash, fixed2, num, searchAndFilterClauses, textOr } from "../transactions/listtext";
 
 // Recursively collect party ids under a root party (assignaccountid chain),
@@ -387,6 +387,166 @@ const paymentColumnClause = (adminid?: any) => async (key: string, term: string)
   return null;
 };
 
+// Saved payment for an offline retry, looked up in the caller's own business.
+const findPaymentByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await Payment.findOne({ adminid, clientRequestId: requestId })
+    .populate("ledgerid").populate("counterledgerid").populate("partyid")
+    .lean();
+  return doc ? formatPayment(doc) : null;
+};
+
+async function addPaymentNow(_: any, { input }: any, context: any) {
+      // A device number ("#PAY-A/000012") is provisional: moved to offlineNumber; the server numbers the receipt.
+      const deviceNo = takeDeviceNumber("payment", input, "paymentcode");
+      delete input.paymentcode;
+      const { user } = context;
+      const createdbyData = {
+        createdby_id: user?.id,
+        createdby_name: input.createdby_name || user?.name || user?.email,
+        createdby_type: user?.type || input.createdby_type || "admin",
+      };
+      // Staff token → resolve the real role (salesman/staff/deliveryboy) + name.
+      if (user?.type === "staff") {
+        try {
+          const staff: any = await StaffAccount.findById(user.id).select("role name").lean();
+          if (staff) {
+            createdbyData.createdby_type = staff.role || "staff";
+            createdbyData.createdby_name = createdbyData.createdby_name || staff.name;
+          }
+        } catch (e) { /* best-effort */ }
+      }
+      // Unidentifiable actor (expired/missing token, no input fallback): don't
+      // assume "admin" — that would wrongly skip the admin notification.
+      if (!user && !input.createdby_type && !input.createdby_name) {
+        createdbyData.createdby_type = "unknown";
+        createdbyData.createdby_name = "Unknown user";
+      }
+
+      const prepared = await prepareAllocation(input);
+      const created = await Payment.create({ ...prepared, ...createdbyData });
+      await raiseDeviceSeq(input.adminid, deviceNo);
+
+      // ✅ Create journal entry. Party-based payment/receipt when a party + its
+      // ledger exist; otherwise fall back to an expense-note settlement journal
+      // (no party account required).
+      let built: { entries: any[]; totaldebit: number; totalcredit: number } | null = null;
+      if (input.partyid && input.ledgerid) {
+        const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
+        if (partyAccount?.ledgerid) {
+          built = await buildPaymentEntries(input, partyAccount);
+        }
+      }
+      if (!built && input.ledgerid) {
+        built = await buildExpenseSettlementEntries(input);
+      }
+      // No party and no expense note — the other side is a plain ledger
+      // (Capital, Loan, Rent, Salary, Interest, a bank charge).
+      if (!built) {
+        built = await buildLedgerEntries(input);
+      }
+      built = applyUserRemark(built, input);
+      if (built) {
+        const trx = await Transaction.create({
+          adminid: input.adminid,
+          branchid: input.branchid,
+          entrytype: "manual",
+          source: { docmodel: "Payment", docid: created._id },
+          transactiondate: input.paymentdate || new Date(),
+          narration: `Payment ${created.paymentcode || ""}`,
+          entries: built.entries,
+          totaldebit: built.totaldebit,
+          totalcredit: built.totalcredit,
+          ...createdbyData,
+        });
+        await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
+      }
+
+      const populated = await Payment.findById(created._id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
+      if (!populated) throw new Error("Payment not found after creation");
+
+      // ── Notifications ──────────────────────────────────────────
+      // Actor ≠ admin → tell admin. Always tell the party's linked salesman and
+      // the party — skipping whoever recorded the payment themselves.
+      try {
+        const p: any = populated;
+        const partyName = p?.partyid?.name || "Party";
+        const amount = Number(p?.amount || 0).toFixed(2);
+        const isReceipt = String(p?.type || "").toLowerCase() === "receipt";
+        const verb = isReceipt ? "collected from" : "paid to";
+        const actorLabel = `${createdbyData.createdby_name || "Unknown user"} (${createdbyData.createdby_type})`;
+        const detail = `${p?.paymentcode || ""} • ${p?.mode || ""} • by ${actorLabel}`;
+
+        if (createdbyData.createdby_type !== "admin") {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "admin",
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            webpath: "/payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // Party's linked salesman (skip if the salesman recorded it himself).
+        const salesmanId = p?.partyid?.salesmanid || null;
+        if (salesmanId && String(salesmanId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "staff",
+            targetid: salesmanId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // The party (skip if the party recorded it themselves).
+        const partyId = p?.partyid?._id;
+        if (partyId && String(partyId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "party",
+            targetid: partyId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${isReceipt ? "received" : "made"}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+
+        // Channel downline: the parent (upline) party also hears about its
+        // child party's payments (partyid is populated, so assignaccountid is
+        // available directly).
+        const parentId = p?.partyid?.assignaccountid;
+        if (parentId && String(parentId) !== String(createdbyData.createdby_id || "")) {
+          await pushNotification({
+            adminid: input.adminid,
+            branchid: input.branchid,
+            targettype: "party",
+            targetid: parentId,
+            ntype: "payment",
+            title: `Payment ₹${amount} ${verb} ${partyName}`,
+            message: detail,
+            appscreen: "Payments",
+            docmodel: "Payment",
+            docid: created._id,
+          });
+        }
+      } catch (e) { /* notifications are best-effort */ }
+
+      return formatPayment(populated);
+    }
+
 export const paymentResolvers = {
   Query: {
     getPayments: async (_: any, args: { filter?: any }, context: any) => {
@@ -548,164 +708,8 @@ export const paymentResolvers = {
   },
 
   Mutation: {
-    addPayment: async (_: any, { input }: any, context: any) => {
-      // An offline sync retry carries the same id: return the payment already saved.
-      if (input?.clientRequestId) {
-        const existing: any = await Payment.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
-          .populate("ledgerid").populate("counterledgerid").populate("partyid")
-          .lean();
-        if (existing) return formatPayment(existing);
-      }
-      // Only a registered device's own series code ("#PAY-A/000012") is kept; the server numbers everything else.
-      const deviceNo = takeDeviceNumber("payment", input, "paymentcode");
-      delete input.paymentcode;
-      const { user } = context;
-      const createdbyData = {
-        createdby_id: user?.id,
-        createdby_name: input.createdby_name || user?.name || user?.email,
-        createdby_type: user?.type || input.createdby_type || "admin",
-      };
-      // Staff token → resolve the real role (salesman/staff/deliveryboy) + name.
-      if (user?.type === "staff") {
-        try {
-          const staff: any = await StaffAccount.findById(user.id).select("role name").lean();
-          if (staff) {
-            createdbyData.createdby_type = staff.role || "staff";
-            createdbyData.createdby_name = createdbyData.createdby_name || staff.name;
-          }
-        } catch (e) { /* best-effort */ }
-      }
-      // Unidentifiable actor (expired/missing token, no input fallback): don't
-      // assume "admin" — that would wrongly skip the admin notification.
-      if (!user && !input.createdby_type && !input.createdby_name) {
-        createdbyData.createdby_type = "unknown";
-        createdbyData.createdby_name = "Unknown user";
-      }
-
-      const prepared = await prepareAllocation(input);
-      const created = await Payment.create({ ...prepared, ...createdbyData });
-      await raiseDeviceSeq(input.adminid, deviceNo);
-
-      // ✅ Create journal entry. Party-based payment/receipt when a party + its
-      // ledger exist; otherwise fall back to an expense-note settlement journal
-      // (no party account required).
-      let built: { entries: any[]; totaldebit: number; totalcredit: number } | null = null;
-      if (input.partyid && input.ledgerid) {
-        const partyAccount = await Account.findById(input.partyid).select("ledgerid name").lean();
-        if (partyAccount?.ledgerid) {
-          built = await buildPaymentEntries(input, partyAccount);
-        }
-      }
-      if (!built && input.ledgerid) {
-        built = await buildExpenseSettlementEntries(input);
-      }
-      // No party and no expense note — the other side is a plain ledger
-      // (Capital, Loan, Rent, Salary, Interest, a bank charge).
-      if (!built) {
-        built = await buildLedgerEntries(input);
-      }
-      built = applyUserRemark(built, input);
-      if (built) {
-        const trx = await Transaction.create({
-          adminid: input.adminid,
-          branchid: input.branchid,
-          entrytype: "manual",
-          source: { docmodel: "Payment", docid: created._id },
-          transactiondate: input.paymentdate || new Date(),
-          narration: `Payment ${created.paymentcode || ""}`,
-          entries: built.entries,
-          totaldebit: built.totaldebit,
-          totalcredit: built.totalcredit,
-          ...createdbyData,
-        });
-        await Payment.findByIdAndUpdate(created._id, { transactionid: trx._id });
-      }
-
-      const populated = await Payment.findById(created._id).populate("ledgerid").populate("counterledgerid").populate("partyid").lean();
-      if (!populated) throw new Error("Payment not found after creation");
-
-      // ── Notifications ──────────────────────────────────────────
-      // Actor ≠ admin → tell admin. Always tell the party's linked salesman and
-      // the party — skipping whoever recorded the payment themselves.
-      try {
-        const p: any = populated;
-        const partyName = p?.partyid?.name || "Party";
-        const amount = Number(p?.amount || 0).toFixed(2);
-        const isReceipt = String(p?.type || "").toLowerCase() === "receipt";
-        const verb = isReceipt ? "collected from" : "paid to";
-        const actorLabel = `${createdbyData.createdby_name || "Unknown user"} (${createdbyData.createdby_type})`;
-        const detail = `${p?.paymentcode || ""} • ${p?.mode || ""} • by ${actorLabel}`;
-
-        if (createdbyData.createdby_type !== "admin") {
-          await pushNotification({
-            adminid: input.adminid,
-            branchid: input.branchid,
-            targettype: "admin",
-            ntype: "payment",
-            title: `Payment ₹${amount} ${verb} ${partyName}`,
-            message: detail,
-            webpath: "/payments",
-            docmodel: "Payment",
-            docid: created._id,
-          });
-        }
-
-        // Party's linked salesman (skip if the salesman recorded it himself).
-        const salesmanId = p?.partyid?.salesmanid || null;
-        if (salesmanId && String(salesmanId) !== String(createdbyData.createdby_id || "")) {
-          await pushNotification({
-            adminid: input.adminid,
-            branchid: input.branchid,
-            targettype: "staff",
-            targetid: salesmanId,
-            ntype: "payment",
-            title: `Payment ₹${amount} ${verb} ${partyName}`,
-            message: detail,
-            appscreen: "Payments",
-            docmodel: "Payment",
-            docid: created._id,
-          });
-        }
-
-        // The party (skip if the party recorded it themselves).
-        const partyId = p?.partyid?._id;
-        if (partyId && String(partyId) !== String(createdbyData.createdby_id || "")) {
-          await pushNotification({
-            adminid: input.adminid,
-            branchid: input.branchid,
-            targettype: "party",
-            targetid: partyId,
-            ntype: "payment",
-            title: `Payment ₹${amount} ${isReceipt ? "received" : "made"}`,
-            message: detail,
-            appscreen: "Payments",
-            docmodel: "Payment",
-            docid: created._id,
-          });
-        }
-
-        // Channel downline: the parent (upline) party also hears about its
-        // child party's payments (partyid is populated, so assignaccountid is
-        // available directly).
-        const parentId = p?.partyid?.assignaccountid;
-        if (parentId && String(parentId) !== String(createdbyData.createdby_id || "")) {
-          await pushNotification({
-            adminid: input.adminid,
-            branchid: input.branchid,
-            targettype: "party",
-            targetid: parentId,
-            ntype: "payment",
-            title: `Payment ₹${amount} ${verb} ${partyName}`,
-            message: detail,
-            appscreen: "Payments",
-            docmodel: "Payment",
-            docid: created._id,
-          });
-        }
-      } catch (e) { /* notifications are best-effort */ }
-
-      return formatPayment(populated);
-    },
+    addPayment: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findPaymentByRequest, () => addPaymentNow(_, args, context)),
 
     editPayment: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);

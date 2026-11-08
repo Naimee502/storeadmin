@@ -8,7 +8,7 @@ import { Transaction } from "../../../models/transactions";
 import { pushNotification } from "../../../models/notifications";
 import { isSalesOrderOnlyMode, adminIdOf } from "../../../utils/ordermode";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
-import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: local settled-amount helper removed — see utils/allocation.
 
@@ -757,95 +757,14 @@ export async function buildOrderQuery(filter: any, context: any): Promise<any> {
 }
 
 // ✅ GraphQL resolvers
-export const salesOrderResolvers = {
-  Query: {
-    getSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query = await buildOrderQuery(filter, context);
+// Saved order for an offline retry, looked up in the caller's own business.
+const findOrderByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await SalesOrder.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatOrder(doc) : null;
+};
 
-      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(listPopulateFields)
-        .lean();
-
-      return orders.map(formatOrder);
-    },
-
-    getSalesOrdersPage: async (
-      _: any,
-      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
-      context: any
-    ) => {
-      const clauses: any[] = [await buildOrderQuery(filter, context)];
-
-      const term = String(search || "").trim();
-      if (term) {
-        const any: any[] = [];
-        for (const key of ORDER_COLUMN_KEYS) {
-          const clause = await orderColumnClause(key, term, filter.adminid);
-          if (clause) any.push(clause);
-        }
-        clauses.push({ $or: any });
-      }
-      for (const f of activeFilters(columnFilters)) {
-        const clause = await orderColumnClause(f.key, f.value, filter.adminid);
-        if (clause) clauses.push(clause);
-      }
-
-      const query = { $and: clauses };
-      const { skip, limit } = pageWindow(page, pageSize);
-      const [total, rows] = await Promise.all([
-        SalesOrder.countDocuments(query),
-        SalesOrder.find(query)
-          .sort({ createdAt: -1, _id: -1 })
-          .skip(skip)
-          .limit(limit)
-          .populate(listPopulateFields)
-          .lean(),
-      ]);
-      return { items: rows.map(formatOrder), total };
-    },
-
-    getDeletedSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: false, ...notCleared };
-      const { user } = context;
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
-      }
-
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-
-      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populateFields)
-        .lean();
-
-      return orders.map(formatOrder);
-    },
-
-    getSalesOrderById: async (_: any, { id }: { id: string }) => {
-      const order = await SalesOrder.findById(id)
-        .populate(populateFields)
-        .lean();
-      return order ? formatOrder(order) : null;
-    },
-  },
-
-  Mutation: {
-    addSalesOrder: async (_: any, { input }: any, context: any) => {
+async function addSalesOrderNow(_: any, { input }: any, context: any) {
       try {
-        // An offline sync retry carries the same id: return the order already saved.
-        if (input?.clientRequestId) {
-          const existing: any = await SalesOrder.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
-            .populate(populateFields)
-            .lean();
-          if (existing) return formatOrder(existing);
-        }
         // ✅ Extract user info from context and populate createdby fields
         // (staff → real role salesman/staff/deliveryboy + name; party → account name)
         const { user } = context;
@@ -1051,9 +970,93 @@ export const salesOrderResolvers = {
         console.error("Full error:", error);
         throw error;
       }
+    }
+
+export const salesOrderResolvers = {
+  Query: {
+    getSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
+      const query = await buildOrderQuery(filter, context);
+
+      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
+        .populate(listPopulateFields)
+        .lean();
+
+      return orders.map(formatOrder);
     },
 
+    getSalesOrdersPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 10, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const clauses: any[] = [await buildOrderQuery(filter, context)];
+
+      const term = String(search || "").trim();
+      if (term) {
+        const any: any[] = [];
+        for (const key of ORDER_COLUMN_KEYS) {
+          const clause = await orderColumnClause(key, term, filter.adminid);
+          if (clause) any.push(clause);
+        }
+        clauses.push({ $or: any });
+      }
+      for (const f of activeFilters(columnFilters)) {
+        const clause = await orderColumnClause(f.key, f.value, filter.adminid);
+        if (clause) clauses.push(clause);
+      }
+
+      const query = { $and: clauses };
+      const { skip, limit } = pageWindow(page, pageSize);
+      const [total, rows] = await Promise.all([
+        SalesOrder.countDocuments(query),
+        SalesOrder.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+      return { items: rows.map(formatOrder), total };
+    },
+
+    getDeletedSalesOrders: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
+      const query: any = { status: false, ...notCleared };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
+
+      if (filter.branchid) query.branchid = filter.branchid;
+      if (filter.adminid) query.adminid = filter.adminid;
+
+      const orders = await SalesOrder.find(query).sort({ createdAt: 1, _id: 1 })
+        .populate(populateFields)
+        .lean();
+
+      return orders.map(formatOrder);
+    },
+
+    getSalesOrderById: async (_: any, { id }: { id: string }) => {
+      const order = await SalesOrder.findById(id)
+        .populate(populateFields)
+        .lean();
+      return order ? formatOrder(order) : null;
+    },
+  },
+
+  Mutation: {
+    addSalesOrder: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findOrderByRequest, () => addSalesOrderNow(_, args, context)),
+
     editSalesOrder: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      dropDeviceNumber("salesorder", input);
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       let guardAt: Date | null = null;
       if (expected) {

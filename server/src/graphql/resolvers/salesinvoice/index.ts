@@ -15,7 +15,7 @@ import { partyStockEnabled, sellerPartyOf, assertPartyStockAvailable } from "../
 import { assertSalesStockAvailable } from "../../../utils/stockguard";
 import { SalesReturn } from "../../../models/salesreturn";
 import { assertInvoiceCancellable, assertInvoiceReopenable } from "../../../utils/invoicecancel";
-import { assertFresh, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
+import { assertFresh, createOnce, dropDeviceNumber, takeDeviceNumber, conflictError, isoOf, parseExpectedUpdatedAt, raiseDeviceSeq, updateByIdGuarded } from "../../../utils/offlinesync";
 
 // NOTE: the local per-invoice settled-amount helper was removed. Outstanding
 // now comes from utils/allocation, so the admin panel, the mobile app, the
@@ -544,7 +544,8 @@ async function columnFilterClauses(filters: any[] = [], adminid?: any): Promise<
         clauses.push(textMatch(asText("$totalamount"), term));
         break;
       case "orderedByDisplay":
-        clauses.push({ $or: [{ orderedby_name: rx }, { orderedby_type: rx }] });
+        // Rows without an orderer show "—".
+        clauses.push({ $or: [{ orderedby_name: rx }, { orderedby_type: rx }, ...("—".includes(term) ? [{ orderedby_name: { $in: [null, ""] } }] : [])] });
         break;
       case "deliveryDisplay":
         clauses.push(textMatch({
@@ -581,178 +582,15 @@ export async function sourceOrderNoMap(invoices: any[]): Promise<Map<string, str
   return map;
 }
 
-export const salesInvoiceResolvers = {
-  Query: {
-    getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query = await buildInvoiceQuery(filter, context);
-      if (!query) return [];
+// Saved bill for an offline retry, looked up in the caller's own business.
+const findInvoiceByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await SalesInvoice.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatInvoice(doc) : null;
+};
 
-      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(listPopulateFields)
-        .lean();
-
-      // ✅ Filter out invoices that have been fully returned.
-      // All returns for the listed invoices are fetched in ONE query and
-      // grouped in memory — previously this ran one query per invoice, which on
-      // an account with ~2000 bills meant ~2000 round trips on every load.
-      const invoiceIds = invoices.map((inv: any) => inv._id);
-      const allReturns: any[] = invoiceIds.length
-        ? await SalesReturn.find({ sourceInvoiceId: { $in: invoiceIds }, status: true })
-            .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
-            .lean()
-        : [];
-      const returnsByInvoice = new Map<string, any[]>();
-      allReturns.forEach((ret: any) => {
-        const key = String(ret.sourceInvoiceId);
-        const list = returnsByInvoice.get(key);
-        if (list) list.push(ret);
-        else returnsByInvoice.set(key, [ret]);
-      });
-
-      // Source order numbers, also in one query (was one query per invoice via
-      // the `sourceorderno` field resolver).
-      const orderIds = Array.from(
-        new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String))
-      );
-      const orderNoById = new Map<string, string | null>();
-      if (orderIds.length) {
-        try {
-          const orders: any[] = await SalesOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
-          orders.forEach((o: any) => orderNoById.set(String(o._id), o.billnumber || null));
-        } catch (e) {
-          /* a label is never worth failing the list over */
-        }
-      }
-
-      const filteredInvoices = invoices.map((inv: any) => {
-        try {
-          const returns = returnsByInvoice.get(String(inv._id)) || [];
-          if (returns.length === 0) return inv;
-
-          // Calculate returned quantities per item
-          const returnedByItem: Record<string, number> = {};
-          returns.forEach((ret: any) => {
-            (ret.productservice ?? []).forEach((line: any) => {
-              const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
-              returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
-            });
-          });
-
-          // Check if ALL items are fully returned
-          const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
-            // Key built exactly as before this refactor (behaviour unchanged).
-            const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
-            return (returnedByItem[key] || 0) >= (Number(line.qty) || 0);
-          });
-
-          // Return invoice only if NOT all items are fully returned
-          return !allFullyReturned ? inv : null;
-        } catch (error: any) {
-          console.error(`❌ Error filtering invoice ${inv.billnumber}:`, error.message);
-          return inv; // Include on error (safe fallback)
-        }
-      });
-
-      // Filter out null values
-      const result = filteredInvoices.filter(Boolean).map((inv: any) => {
-        const out: any = formatInvoice(inv);
-        const oid = refId(inv.sourceorderid);
-        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
-        return out;
-      });
-      return result;
-    },
-
-    getSalesInvoicesPage: async (
-      _: any,
-      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
-      context: any
-    ) => {
-      const base = await buildInvoiceQuery(filter, context);
-      if (!base) return { items: [], total: 0 };
-
-      const clauses: any[] = [base];
-      if (!filter.includeCancelled) clauses.push({ cancelStatus: { $ne: "cancelled" } });
-
-      const hidden = await hiddenReturnedInvoiceIds(base);
-      if (hidden.length) clauses.push({ _id: { $nin: hidden } });
-
-      const term = String(search || "").trim();
-      if (term) clauses.push(await invoiceSearchClause(term, filter.adminid));
-      clauses.push(...(await columnFilterClauses(columnFilters || [], filter.adminid)));
-
-      const query = { $and: clauses };
-      const { skip, limit: size } = pageWindow(page, pageSize);
-
-      const [total, rows] = await Promise.all([
-        SalesInvoice.countDocuments(query),
-        SalesInvoice.find(query)
-          .sort({ createdAt: -1, _id: -1 })
-          .skip(skip)
-          .limit(size)
-          .populate(listPopulateFields)
-          .lean(),
-      ]);
-
-      const orderNoById = await sourceOrderNoMap(rows);
-      const items = rows.map((inv: any) => {
-        const out: any = formatInvoice(inv);
-        const oid = refId(inv.sourceorderid);
-        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
-        return out;
-      });
-      return { items, total };
-    },
-
-    getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
-      const query: any = { status: false, ...notCleared };
-      const { user } = context;
-
-      // ✅ Role-based filtering
-      if (user?.type === 'branch') {
-        query.$or = [
-          { createdby_type: 'branch', createdby_id: user?.id },
-          { branchid: user?.branch_id || user?.id }
-        ];
-      } else if (user?.type === 'staff') {
-        query.createdby_id = user?.id;
-      }
-
-      if (filter.branchid) query.branchid = filter.branchid;
-      if (filter.adminid) query.adminid = filter.adminid;
-      if (filter.salesmenid) query.salesmenid = filter.salesmenid;
-
-      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
-        .populate(populateFields)
-        .lean();
-
-      return invoices.map(formatInvoice);
-    },
-
-    getSalesInvoiceById: async (_: any, { id }: { id: string }) => {
-      const inv = await SalesInvoice.findById(id)
-        .populate(populateFields)
-        .lean();
-      return inv ? formatInvoice(inv) : null;
-    },
-  },
-
-  Mutation: {
-    // `autoPayment` is an INTERNAL arg (not in the schema). Passing false stops
-    // adjustStockAndTransactions from posting the automatic receipt, which it
-    // otherwise does for every non-credit payment type. The order-only flow
-    // needs that: the bill must stay open so the money can be collected on the
-    // Payments screen, exactly like a Sales Invoice raised by hand.
-    addSalesInvoice: async (_: any, { input, autoPayment }: any, context: any) => {
-      // An offline sync retry carries the same id: return the bill already saved.
-      if (input?.clientRequestId) {
-        const existing: any = await SalesInvoice.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
-          .populate(populateFields)
-          .lean();
-        if (existing) return formatInvoice(existing);
-      }
+async function addSalesInvoiceNow(_: any, { input, autoPayment }: any, context: any) {
       assertLineUnits(input);
-      // Offline device-series number: must be a registered device and unused.
+      // A device number is provisional: moved to offlineNumber.
       const deviceNo = takeDeviceNumber("salesinvoice", input);
       // ✅ Extract user info from context and populate createdby fields
       // (resolves staff → real role + name, party → account name).
@@ -1036,7 +874,172 @@ export const salesInvoiceResolvers = {
       })();
 
       return formatInvoice(doc);
+    }
+
+export const salesInvoiceResolvers = {
+  Query: {
+    getSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
+      const query = await buildInvoiceQuery(filter, context);
+      if (!query) return [];
+
+      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
+        .populate(listPopulateFields)
+        .lean();
+
+      // ✅ Filter out invoices that have been fully returned.
+      // All returns for the listed invoices are fetched in ONE query and
+      // grouped in memory — previously this ran one query per invoice, which on
+      // an account with ~2000 bills meant ~2000 round trips on every load.
+      const invoiceIds = invoices.map((inv: any) => inv._id);
+      const allReturns: any[] = invoiceIds.length
+        ? await SalesReturn.find({ sourceInvoiceId: { $in: invoiceIds }, status: true })
+            .select("sourceInvoiceId productservice.productserviceid productservice.variantid productservice.qty")
+            .lean()
+        : [];
+      const returnsByInvoice = new Map<string, any[]>();
+      allReturns.forEach((ret: any) => {
+        const key = String(ret.sourceInvoiceId);
+        const list = returnsByInvoice.get(key);
+        if (list) list.push(ret);
+        else returnsByInvoice.set(key, [ret]);
+      });
+
+      // Source order numbers, also in one query (was one query per invoice via
+      // the `sourceorderno` field resolver).
+      const orderIds = Array.from(
+        new Set(invoices.map((inv: any) => refId(inv.sourceorderid)).filter(Boolean).map(String))
+      );
+      const orderNoById = new Map<string, string | null>();
+      if (orderIds.length) {
+        try {
+          const orders: any[] = await SalesOrder.find({ _id: { $in: orderIds } }).select("billnumber").lean();
+          orders.forEach((o: any) => orderNoById.set(String(o._id), o.billnumber || null));
+        } catch (e) {
+          /* a label is never worth failing the list over */
+        }
+      }
+
+      const filteredInvoices = invoices.map((inv: any) => {
+        try {
+          const returns = returnsByInvoice.get(String(inv._id)) || [];
+          if (returns.length === 0) return inv;
+
+          // Calculate returned quantities per item
+          const returnedByItem: Record<string, number> = {};
+          returns.forEach((ret: any) => {
+            (ret.productservice ?? []).forEach((line: any) => {
+              const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+              returnedByItem[key] = (returnedByItem[key] || 0) + (Number(line.qty) || 0);
+            });
+          });
+
+          // Check if ALL items are fully returned
+          const allFullyReturned = (inv.productservice ?? []).every((line: any) => {
+            // Key built exactly as before this refactor (behaviour unchanged).
+            const key = `${String(line.productserviceid || "")}_${String(line.variantid || "")}`;
+            return (returnedByItem[key] || 0) >= (Number(line.qty) || 0);
+          });
+
+          // Return invoice only if NOT all items are fully returned
+          return !allFullyReturned ? inv : null;
+        } catch (error: any) {
+          console.error(`❌ Error filtering invoice ${inv.billnumber}:`, error.message);
+          return inv; // Include on error (safe fallback)
+        }
+      });
+
+      // Filter out null values
+      const result = filteredInvoices.filter(Boolean).map((inv: any) => {
+        const out: any = formatInvoice(inv);
+        const oid = refId(inv.sourceorderid);
+        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
+        return out;
+      });
+      return result;
     },
+
+    getSalesInvoicesPage: async (
+      _: any,
+      { filter = {}, page = 1, pageSize = 25, search = "", columnFilters = [] }: { filter?: any; page?: number; pageSize?: number; search?: string; columnFilters?: any[] },
+      context: any
+    ) => {
+      const base = await buildInvoiceQuery(filter, context);
+      if (!base) return { items: [], total: 0 };
+
+      const clauses: any[] = [base];
+      if (!filter.includeCancelled) clauses.push({ cancelStatus: { $ne: "cancelled" } });
+
+      const hidden = await hiddenReturnedInvoiceIds(base);
+      if (hidden.length) clauses.push({ _id: { $nin: hidden } });
+
+      const term = String(search || "").trim();
+      if (term) clauses.push(await invoiceSearchClause(term, filter.adminid));
+      clauses.push(...(await columnFilterClauses(columnFilters || [], filter.adminid)));
+
+      const query = { $and: clauses };
+      const { skip, limit: size } = pageWindow(page, pageSize);
+
+      const [total, rows] = await Promise.all([
+        SalesInvoice.countDocuments(query),
+        SalesInvoice.find(query)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(size)
+          .populate(listPopulateFields)
+          .lean(),
+      ]);
+
+      const orderNoById = await sourceOrderNoMap(rows);
+      const items = rows.map((inv: any) => {
+        const out: any = formatInvoice(inv);
+        const oid = refId(inv.sourceorderid);
+        out.__sourceorderno = oid ? orderNoById.get(String(oid)) ?? null : null;
+        return out;
+      });
+      return { items, total };
+    },
+
+    getDeletedSalesInvoices: async (_: any, { filter = {} }: { filter?: any }, context: any) => {
+      const query: any = { status: false, ...notCleared };
+      const { user } = context;
+
+      // ✅ Role-based filtering
+      if (user?.type === 'branch') {
+        query.$or = [
+          { createdby_type: 'branch', createdby_id: user?.id },
+          { branchid: user?.branch_id || user?.id }
+        ];
+      } else if (user?.type === 'staff') {
+        query.createdby_id = user?.id;
+      }
+
+      if (filter.branchid) query.branchid = filter.branchid;
+      if (filter.adminid) query.adminid = filter.adminid;
+      if (filter.salesmenid) query.salesmenid = filter.salesmenid;
+
+      const invoices = await SalesInvoice.find(query).sort({ createdAt: 1, _id: 1 })
+        .populate(populateFields)
+        .lean();
+
+      return invoices.map(formatInvoice);
+    },
+
+    getSalesInvoiceById: async (_: any, { id }: { id: string }) => {
+      const inv = await SalesInvoice.findById(id)
+        .populate(populateFields)
+        .lean();
+      return inv ? formatInvoice(inv) : null;
+    },
+  },
+
+  Mutation: {
+    // `autoPayment` is an INTERNAL arg (not in the schema). Passing false stops
+    // adjustStockAndTransactions from posting the automatic receipt, which it
+    // otherwise does for every non-credit payment type. The order-only flow
+    // needs that: the bill must stay open so the money can be collected on the
+    // Payments screen, exactly like a Sales Invoice raised by hand.
+    addSalesInvoice: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findInvoiceByRequest, () => addSalesInvoiceNow(_, args, context)),
 
     // One-tap convert (used by the mobile app, which has no invoice form).
     // Builds the invoice input from the source order and reuses addSalesInvoice
@@ -1112,6 +1115,7 @@ export const salesInvoiceResolvers = {
     },
 
     editSalesInvoice: async (_: any, { id, input, expectedUpdatedAt }: any, context: any) => {
+      dropDeviceNumber("salesinvoice", input);
       const expected = parseExpectedUpdatedAt(expectedUpdatedAt);
       assertLineUnits(input);
       const { user } = context;

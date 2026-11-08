@@ -127,4 +127,10 @@ salesOrderSchema.pre("save", async function (next) {
   next();
 });
 
+// One document per offline request id; only rows that carry one are indexed.
+salesOrderSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
+
 export const SalesOrder = mongoose.model("SalesOrder", salesOrderSchema);

@@ -9,7 +9,7 @@ import { Account } from "../../../models/accounts";
 import { requireBackofficeTenant } from "../../../utils/tenant";
 import { SalesOrder } from "../../../models/salesorder";
 import { activeFilters, asText, dmyFromText, notCleared, pageWindow, textMatch } from "../../../utils/listquery";
-import { takeDeviceNumber, raiseDeviceSeq } from "../../../utils/offlinesync";
+import { createOnce, takeDeviceNumber, raiseDeviceSeq } from "../../../utils/offlinesync";
 
 /** orderId → order billnumber, for invoices converted from a Sales Order. */
 async function orderNumbers(orderIds: any[]) {
@@ -261,7 +261,7 @@ const dmyCellExpr = (field: string) => ({
       $switch: {
         branches: [
           { case: { $eq: ["$$s", ""] }, then: "-" },
-          { case: { $regexMatch: { input: "$$s", regex: "^\d{2}-\d{2}-\d{4}" } }, then: { $substrCP: ["$$s", 0, 10] } },
+          { case: { $regexMatch: { input: "$$s", regex: "^\\d{2}-\\d{2}-\\d{4}" } }, then: { $substrCP: ["$$s", 0, 10] } },
         ],
         default: dmyFromText(field),
       },
@@ -301,6 +301,66 @@ const RETURN_COLUMN_KEYS = [
   "billnumber", "sourceBillNumber", "returndate", "partyacc", "totalitem",
   "totalqty", "totalamount", "refundLabel", "createdByDisplay", "statusLabel",
 ];
+
+// Saved return for an offline retry, looked up in the caller's own business.
+const findReturnByRequest = async (adminid: string, requestId: string) => {
+  const doc: any = await SalesReturn.findOne({ adminid, clientRequestId: requestId }).populate(populateFields).lean();
+  return doc ? formatReturn(doc) : null;
+};
+
+async function addSalesReturnNow(_: any, { input }: any, context: any) {
+      try {
+        // A device number ("CN-A/000012") is provisional: moved to offlineNumber.
+        const deviceNo = takeDeviceNumber("salesreturn", input);
+        const sourceInv = await validateReturnQuantities(input);
+        // Stamp source bill number for friendly display
+        if (sourceInv?.billnumber && !input.sourceBillNumber) {
+          input.sourceBillNumber = sourceInv.billnumber;
+        }
+
+        // The goods go back to the branch that shipped them, never to whichever
+        // branch happens to be selected in the header when the credit note is
+        // written. Sending them elsewhere left the selling branch permanently
+        // short (its stock was deducted by the invoice and restored to another
+        // branch's row), so the source invoice decides.
+        if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
+
+        // ✅ Extract user info from context and populate createdby fields
+        const { user } = context;
+        const createdbyData = {
+          createdby_id: user?.id,
+          createdby_name: input.createdby_name || user?.name || user?.email,
+          createdby_type: user?.type || input.createdby_type || 'admin',
+        };
+
+        // ✅ Set autocreate flag from AdminSettings
+        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
+        const autoCreateData = {
+          autocreate: {
+            stock: settings?.autoCreateStockOnSalesReturn ?? true,
+          },
+        };
+
+        const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
+        await raiseDeviceSeq(input.adminid, deviceNo);
+
+        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
+        // (ensures Transaction/Payment Created By is never N/A)
+        await SalesReturn.adjustStockAndTransactions(null, created, createdbyData);
+
+        console.log("=== Sales Return Created Successfully ===");
+        console.log("Bill Number:", created.billnumber);
+        console.log("CreatedBy:", createdbyData);
+
+        const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
+        return formatReturn(fresh);
+      } catch (error: any) {
+        console.error("=== ERROR Creating Sales Return ===");
+        console.error("Error message:", error.message);
+        console.error("Full error:", error);
+        throw error;
+      }
+    }
 
 export const salesReturnResolvers = {
   Query: {
@@ -503,66 +563,8 @@ export const salesReturnResolvers = {
   },
 
   Mutation: {
-    addSalesReturn: async (_: any, { input }: any, context: any) => {
-      try {
-        // An offline sync retry carries the same id: return the return already saved.
-        if (input?.clientRequestId) {
-          const existing: any = await SalesReturn.findOne({ adminid: input.adminid, clientRequestId: String(input.clientRequestId) })
-            .populate(populateFields)
-            .lean();
-          if (existing) return formatReturn(existing);
-        }
-        // Offline device-series number ("CN-A/000012"): registered device, unused.
-        const deviceNo = takeDeviceNumber("salesreturn", input);
-        const sourceInv = await validateReturnQuantities(input);
-        // Stamp source bill number for friendly display
-        if (sourceInv?.billnumber && !input.sourceBillNumber) {
-          input.sourceBillNumber = sourceInv.billnumber;
-        }
-
-        // The goods go back to the branch that shipped them, never to whichever
-        // branch happens to be selected in the header when the credit note is
-        // written. Sending them elsewhere left the selling branch permanently
-        // short (its stock was deducted by the invoice and restored to another
-        // branch's row), so the source invoice decides.
-        if (sourceInv?.branchid) input.branchid = sourceInv.branchid;
-
-        // ✅ Extract user info from context and populate createdby fields
-        const { user } = context;
-        const createdbyData = {
-          createdby_id: user?.id,
-          createdby_name: input.createdby_name || user?.name || user?.email,
-          createdby_type: user?.type || input.createdby_type || 'admin',
-        };
-
-        // ✅ Set autocreate flag from AdminSettings
-        const settings = await AdminSettings.getOrCreateForAdmin(input.adminid);
-        const autoCreateData = {
-          autocreate: {
-            stock: settings?.autoCreateStockOnSalesReturn ?? true,
-          },
-        };
-
-        const created = await SalesReturn.create({ ...input, ...createdbyData, ...autoCreateData });
-        await raiseDeviceSeq(input.adminid, deviceNo);
-
-        // ✅ Explicitly call adjustStockAndTransactions WITH userContext
-        // (ensures Transaction/Payment Created By is never N/A)
-        await SalesReturn.adjustStockAndTransactions(null, created, createdbyData);
-
-        console.log("=== Sales Return Created Successfully ===");
-        console.log("Bill Number:", created.billnumber);
-        console.log("CreatedBy:", createdbyData);
-
-        const fresh = await SalesReturn.findById(created._id).populate(populateFields).lean();
-        return formatReturn(fresh);
-      } catch (error: any) {
-        console.error("=== ERROR Creating Sales Return ===");
-        console.error("Error message:", error.message);
-        console.error("Full error:", error);
-        throw error;
-      }
-    },
+    addSalesReturn: (_: any, args: any, context: any) =>
+      createOnce(context, args?.input, findReturnByRequest, () => addSalesReturnNow(_, args, context)),
 
     editSalesReturn: async (_: any, { id, input }: any, context: any) => {
       const sourceInv: any = await validateReturnQuantities(input, id);

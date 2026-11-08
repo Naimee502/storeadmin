@@ -1208,4 +1208,10 @@ salesInvoiceSchema.index({ adminid: 1, createdAt: -1 });
 salesInvoiceSchema.index({ adminid: 1, branchid: 1, status: 1 });
 salesInvoiceSchema.index({ partyacc: 1, status: 1 });
 
+// One document per offline request id; only rows that carry one are indexed.
+salesInvoiceSchema.index(
+  { adminid: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } }
+);
+
 export const SalesInvoice = mongoose.model<any, SalesInvoiceModel>("SalesInvoice", salesInvoiceSchema);

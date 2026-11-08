@@ -1,18 +1,8 @@
 import { ApolloError } from "apollo-server-express";
 import { OfflineDevice } from "../../../models/offlinedevice";
-import { resolveTenant } from "../../../utils/tenant";
-import { DEVICE_CODE_RX, OFFLINE_DOC_TYPES, deviceCodeFromIndex, deviceCodeIndex, isoOf } from "../../../utils/offlinesync";
+import { DEVICE_CODE_RX, OFFLINE_DOC_TYPES, deviceCodeFromIndex, deviceCodeIndex, isoOf, tenantOf } from "../../../utils/offlinesync";
 
-// Business of the signed-in user: admin = itself, everyone else = their admin.
-export const tenantOf = async (context: any): Promise<{ adminid: string; branchid?: string }> => {
-  const user = context?.user;
-  if (!user?.id) throw new ApolloError("Please sign in again.", "UNAUTHENTICATED");
-  if (user.type === "admin") return { adminid: String(user.id) };
-  if (user.adminid) return { adminid: String(user.adminid), branchid: user.branchid ? String(user.branchid) : undefined };
-  // Older tokens carry no adminid.
-  const scope = await resolveTenant(context);
-  return { adminid: String(scope.adminid), branchid: scope.branchid ? String(scope.branchid) : undefined };
-};
+export { tenantOf } from "../../../utils/offlinesync";
 
 const formatDevice = (d: any) =>
   d && {
