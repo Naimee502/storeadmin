@@ -18,7 +18,10 @@ const QUEUED = new Set([
   'punch', 'EditExpenseClaim', 'CancelExpenseClaim', 'MarkAnnouncementRead', 'addLeaveRequest', 'cancelLeaveRequest',
   'EditAccount', 'ConfirmSalesOrder', 'CancelSalesOrder', 'DeleteSalesOrder', 'MarkSalesOrderDispatched', 'MarkSalesInvoiceDispatched',
   'AssignOrderDeliveryBoy', 'AssignInvoiceDeliveryBoy', 'ConvertSalesOrderToInvoice', 'MarkNotificationRead', 'MarkAllNotificationsRead', 'UpdateSalesRoute',
+  'AddLocationPings',
 ]);
+// Background entries: kept and synced like the rest, but not counted or announced (route points).
+const SILENT = new Set(['AddLocationPings']);
 // List queries that show pending creates on top of the last synced rows.
 const LISTS: Record<string, string> = {
   getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim', getAccounts: 'AddAccount',
@@ -124,7 +127,7 @@ export function createOffline(opts: {
   const uid = () => uidOf(getToken());
   const mine = () => queue.filter((i) => i.uid === uid());
   const set = (next: Partial<OfflineState>) => {
-    state = { ...state, ...next, pending: mine().length };
+    state = { ...state, ...next, pending: mine().filter((i) => !SILENT.has(i.name)).length };
     if (next.message) notify?.(next.message);
     listeners.forEach((l) => l());
   };
@@ -265,7 +268,7 @@ export function createOffline(opts: {
     queue.push(item);
     await saveQueue();
     if (CREATES[item.name]) dropLists();
-    set({ ...(offlineNow ? { online: false } : {}), message: 'Saved on this device. It will sync when the connection is back.' });
+    set({ ...(offlineNow ? { online: false } : {}), ...(SILENT.has(item.name) ? {} : { message: 'Saved on this device. It will sync when the connection is back.' }) });
     if (!field.selectionSet) return { data: { [keyOf(field)]: true } };
     const src = CREATES[item.name] ? pendingDoc(item) : { ...op.variables?.input, ...op.variables };
     const entities = entitiesNow();
@@ -293,6 +296,7 @@ export function createOffline(opts: {
     if (flushing || !client) return;
     flushing = true;
     let synced = 0;
+    let shown = 0;
     try {
       await loaded;
       for (const id of mine().map((i) => i.id)) {
@@ -307,6 +311,7 @@ export function createOffline(opts: {
           const res = await client.mutate({ mutation: parse(item.query), variables: item.variables, context: { offlineReplay: true } });
           queue = queue.filter((i) => i.id !== id);
           synced += 1;
+          if (!SILENT.has(item.name)) shown += 1;
           // Later entries that point at this offline document get its server id.
           const savedId = (Object.values(res?.data || {})[0] as any)?.id;
           if (CREATES[item.name] && savedId) queue = queue.map((i) => ({ ...i, variables: swapId(i.variables, `${TEMP}${item.id}`, String(savedId)) }));
@@ -322,7 +327,7 @@ export function createOffline(opts: {
     }
     if (synced) {
       dropLists();
-      set({ online: true, message: `${synced} offline ${synced === 1 ? 'entry' : 'entries'} synced.` });
+      set({ online: true, ...(shown ? { message: `${shown} offline ${shown === 1 ? 'entry' : 'entries'} synced.` } : {}) });
       Promise.resolve(client.refetchQueries({ include: 'active' })).catch(() => undefined);
     } else set({});
   }
