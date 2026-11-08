@@ -34,10 +34,10 @@ import { offline } from "../../graphql/client";
 function SyncPill() {
   const { online, pending } = useSyncExternalStore(offline.subscribe, offline.getState);
   return (
-    <span className="flex items-center gap-1.5 font-medium text-slate-200">
-      <span className={`h-2 w-2 rounded-full ${!online ? "bg-red-500" : pending ? "bg-indigo-400" : "bg-emerald-400"}`} />
+    <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[12px] font-medium text-slate-700">
+      <span className={`h-2 w-2 rounded-full ${!online ? "bg-red-600" : pending ? "bg-indigo-600" : "bg-emerald-500"}`} />
       {!online ? "Offline" : pending ? "Syncing" : "Online"}
-      {pending > 0 && <span className="rounded bg-white/10 px-1.5 text-slate-200">{pending} pending</span>}
+      {pending > 0 && <span className="rounded bg-slate-100 px-1.5 text-slate-600">{pending} pending</span>}
     </span>
   );
 }
