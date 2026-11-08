@@ -9,12 +9,12 @@ import { GET_PURCHASE_ORDERS_PAGE } from "../graphql/queries/purchaseorder";
 import { GET_PURCHASE_RETURNS_PAGE } from "../graphql/queries/purchasereturn";
 import { GET_STOCK_ADJUSTMENTS_PAGE } from "../graphql/queries/stockadjustments";
 import { GET_TRANSFER_STOCKS_PAGE } from "../graphql/queries/transferstock";
-import { byAge, docId, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
+import { byAge, docId, isMasterType, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
 import { localDoc, localDocs } from "./localdb";
 
-const PAGE: Record<DocType, DocumentNode> = {
+const PAGE: Partial<Record<DocType, DocumentNode>> = {
   salesinvoice: GET_SALES_INVOICES_PAGE,
   salesorder: GET_SALES_ORDERS_PAGE,
   salesreturn: GET_SALES_RETURNS_PAGE,
@@ -26,7 +26,7 @@ const PAGE: Record<DocType, DocumentNode> = {
   transferstock: GET_TRANSFER_STOCKS_PAGE,
 };
 
-const LINE_TYPENAME: Record<DocType, string> = {
+const LINE_TYPENAME: Partial<Record<DocType, string>> = {
   salesinvoice: "SalesInvoiceProductService",
   salesorder: "SalesOrderProductService",
   salesreturn: "SalesReturnProductService",
@@ -148,6 +148,10 @@ export function buildRichDoc(
     offlineItemId: item.id,
     offlineError: item.lastError,
   };
+  // A master is its input as sent; bare ids are filled in when the row is shaped.
+  if (isMasterType(item.docType)) {
+    return { ...input, __typename: item.typename, id, status: input.status ?? true, createdAt: created, updatedAt: created, ...meta };
+  }
   if (item.docType === "payment") {
     return {
       ...scalars(input),
@@ -259,7 +263,9 @@ const metaOf = (d: any): OfflineDocMeta => ({
 
 // Unsynced documents of a type, newest first, shaped like page rows plus offline flags.
 export function listOfflineDocs(type: DocType, source: OutboxItem[] = items()): any[] {
-  const sel = selectionAt(PAGE[type], ["items"]);
+  const page = PAGE[type];
+  if (!page) return [];
+  const sel = selectionAt(page, ["items"]);
   const data = cacheData();
   return liveCreates(source, ["pending", "failed", "review"])
     .filter(({ item }) => item.docType === type)

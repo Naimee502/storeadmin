@@ -68,13 +68,14 @@ export function withExpectedUpdatedAt(doc: DocumentNode, opts: { arg: boolean; s
 }
 
 // Shapes a source object by a selection set; "null" fills missing fields, "omit" leaves them out.
-export function shapeBySelection(sel: SelectionSetNode | undefined, src: any, mode: "null" | "omit" = "null"): any {
+// `ref`: finds the record behind a bare id where an object is selected (offline masters only).
+export function shapeBySelection(sel: SelectionSetNode | undefined, src: any, mode: "null" | "omit" = "null", ref?: (id: string) => any): any {
   if (src == null || typeof src !== "object") return src ?? null;
   const out: Record<string, any> = {};
   if (!sel) return out;
   for (const s of sel.selections) {
     if (s.kind === Kind.INLINE_FRAGMENT) {
-      Object.assign(out, shapeBySelection(s.selectionSet, src, mode));
+      Object.assign(out, shapeBySelection(s.selectionSet, src, mode, ref));
       continue;
     }
     if (s.kind !== Kind.FIELD) continue;
@@ -86,8 +87,9 @@ export function shapeBySelection(sel: SelectionSetNode | undefined, src: any, mo
       continue;
     }
     if (s.selectionSet) {
-      if (Array.isArray(v)) out[key] = v.map((x) => shapeBySelection(s.selectionSet, x, mode));
-      else if (v && typeof v === "object") out[key] = shapeBySelection(s.selectionSet, v, mode);
+      if (Array.isArray(v)) out[key] = v.map((x) => (typeof x === "string" && ref ? shapeBySelection(s.selectionSet, ref(x) ?? { id: x }, mode, ref) : shapeBySelection(s.selectionSet, x, mode, ref)));
+      else if (v && typeof v === "object") out[key] = shapeBySelection(s.selectionSet, v, mode, ref);
+      else if (typeof v === "string" && v && ref) out[key] = shapeBySelection(s.selectionSet, ref(v) ?? { id: v }, mode, ref);
       else out[key] = null;
     } else if (v === null || ["string", "number", "boolean"].includes(typeof v)) {
       out[key] = v;

@@ -9,6 +9,7 @@ import {
   collectOfflineIds,
   docId,
   findQueuedCreate,
+  isMasterType,
   isOfflineId,
   liveCreates,
   newestFirst,
@@ -122,6 +123,26 @@ const LOCAL_QUERIES: Record<string, LocalSpec> = {
   ...doc("purchasereturn", "PurchaseReturn", "getPurchaseReturns", "getPurchaseReturnsPage", "getPurchaseReturnById"),
   ...doc("stockadjustment", "StockAdjustment", "getStockAdjustments", "getStockAdjustmentsPage", "getStockAdjustmentById"),
   ...doc("transferstock", "TransferStock", "getTransferStocks", "getTransferStocksPage", "getTransferStockById"),
+  ...doc("expensenote", "ExpenseNote", "getExpenseNotes", "getExpenseNotesPage", "getExpenseNoteById"),
+  ...doc("transaction", "Transaction", "getTransactions", "getTransactionsPage", "getTransactionById"),
+  getProductServicesPage: { c: "product", kind: "page", typename: "ProductService", page: "ProductServicePage" },
+  getAccountsPage: { c: "account", kind: "page", typename: "Account", page: "AccountPage" },
+  getAccountLedgersPage: { c: "ledger", kind: "page", typename: "AccountLedger", page: "AccountLedgerPage" },
+  getUnitsPage: { c: "unit", kind: "page", typename: "Unit", page: "UnitPage" },
+  getBrandsPage: { c: "brand", kind: "page", typename: "Brand", page: "BrandPage" },
+  getModelsPage: { c: "model", kind: "page", typename: "Model", page: "ModelPage" },
+  getSizesPage: { c: "size", kind: "page", typename: "Size", page: "SizePage" },
+  getProductGroupsPage: { c: "productgroup", kind: "page", typename: "ProductGroup", page: "ProductGroupPage" },
+  getProductServiceById: { c: "product", kind: "byId", typename: "ProductService" },
+  getAccountById: { c: "account", kind: "byId", typename: "Account" },
+  getAccountLedgerById: { c: "ledger", kind: "byId", typename: "AccountLedger" },
+  getUnitById: { c: "unit", kind: "byId", typename: "Unit" },
+  getCategoryById: { c: "category", kind: "byId", typename: "Category" },
+  getSubCategoryById: { c: "subcategory", kind: "byId", typename: "SubCategory" },
+  getBrandById: { c: "brand", kind: "byId", typename: "Brand" },
+  getModelById: { c: "model", kind: "byId", typename: "Model" },
+  getSizeById: { c: "size", kind: "byId", typename: "Size" },
+  getProductGroupById: { c: "productgroup", kind: "byId", typename: "ProductGroup" },
   getProductServices: list("product", "ProductService"),
   getAccounts: list("account", "Account"),
   getAccountLedgers: list("ledger", "AccountLedger"),
@@ -146,8 +167,16 @@ export const isLocalQuery = (doc: DocumentNode) => !!LOCAL_QUERIES[rootField(doc
 const idOf = (v: any): string => (!v ? "" : typeof v === "string" ? v : String(v.id ?? v._id ?? ""));
 
 // Same scoping the screens send: branch, party and category; soft-deleted documents never show.
-function matches(d: any, vars: any, isDoc: boolean): boolean {
+// Filter fields a master list compares by value (party/vendor type, branch, group, category, channel).
+const MASTER_FILTER_KEYS = ["type", "branchid", "accountgroupid", "category", "categoryid", "channel"];
+const same = (a: any, b: any) => idOf(a).toLowerCase() === String(b).toLowerCase();
+
+function matches(d: any, vars: any, isDoc: boolean, master = false): boolean {
   const f = vars?.filter || {};
+  if (master) {
+    if (typeof f.status !== "boolean" && d?.status === false) return false;
+    for (const k of MASTER_FILTER_KEYS) if (f[k] && d?.[k] !== undefined && d[k] !== null && !same(d[k], f[k])) return false;
+  }
   if (isDoc && d?.status === false) return false;
   if (typeof f.status === "boolean" && d?.status !== undefined && d.status !== f.status) return false;
   for (const k of ["branchid", "partyacc", "partyid"]) {
@@ -161,22 +190,37 @@ function matches(d: any, vars: any, isDoc: boolean): boolean {
   return true;
 }
 
-const shape = (sel: any, d: any, typename: string) => ({ ...shapeBySelection(sel, d, "null"), __typename: d?.__typename || typename });
+// Collections a bare id on an offline master can point at.
+const REF_COLLECTIONS = ["unit", "category", "subcategory", "brand", "model", "size", "productgroup", "ledger", "account", "branch", "staff", "product"];
+function refById(id: string): any {
+  for (const c of REF_COLLECTIONS) {
+    const d = localDoc(c, id);
+    if (d) return d;
+  }
+  const create = isOfflineId(id) ? findQueuedCreate(offlineStore.getSnapshot().items, id) : null;
+  return create ? buildRichDoc(create) : null;
+}
+
+const shapeRow = (sel: any, d: any, typename: string, ref?: (id: string) => any) => ({ ...shapeBySelection(sel, d, "null", ref), __typename: d?.__typename || typename });
 
 function localResult(field: FieldNode, spec: LocalSpec, vars: any): any {
   const all = localDocs(spec.c);
   if (!all) return null;
   const key = field.alias?.value ?? field.name.value;
   const isDoc = (DOC_TYPES as string[]).includes(spec.c);
+  const master = isMasterType(spec.c);
+  const queued = isDoc || master;
   const source = offlineStore.getSnapshot().items;
   const rows = (creates: boolean) => {
-    const own = all.filter((d) => matches(d, vars, isDoc));
-    return isDoc ? withQueued(spec.c as DocType, own, source, creates) : own;
+    const own = queued ? withQueued(spec.c as DocType, all, source, creates) : all;
+    return own.filter((d) => matches(d, vars, isDoc, master));
   };
+  const ref = master ? refById : undefined;
+  const shape = (sel: any, d: any, typename: string) => shapeRow(sel, d, typename, ref);
   if (spec.kind === "one") return all[0] ? { [key]: shape(field.selectionSet, all[0], spec.typename) } : null;
   if (spec.kind === "byId") {
     const id = String(vars?.id ?? "");
-    const d = isDoc ? rows(true).find((x) => docId(x) === id) : localDoc(spec.c, id);
+    const d = queued ? withQueued(spec.c as DocType, all, source, true).find((x) => docId(x) === id) : localDoc(spec.c, id);
     return d ? { [key]: shape(field.selectionSet, d, spec.typename) } : null;
   }
   if (spec.kind === "page") {
@@ -409,10 +453,10 @@ async function createLocalFirst(operation: Operation, field: FieldNode, spec: Op
   const unresolved = collectOfflineIds(variables).size > 0;
   const push = isOnline() && !unresolved && !existing;
   let number: string | null = existing?.number ?? null;
-  if (!push && !number) number = await deviceNumber(spec, input[nf]);
+  if (nf && !push && !number) number = await deviceNumber(spec, input[nf]);
   // No device code yet: the server numbers it on sync.
-  if (number) input[nf] = number;
-  else if (!push) delete input[nf];
+  if (nf && number) input[nf] = number;
+  else if (nf && !push) delete input[nf];
   const item = makeItem({
     spec,
     operation,
@@ -437,7 +481,8 @@ async function createLocalFirst(operation: Operation, field: FieldNode, spec: Op
   const source = numberSource(true, outcome.kind);
   if (source === "server") return { data: { [resultKey(field)]: (outcome as Extract<PushOutcome, { kind: "answered" }>).data } };
   if (source === "error") return rejected(item, (outcome as Extract<PushOutcome, { kind: "rejected" }>).error);
-  // No answer in time: the bill takes the device series and stays queued.
+  // No answer in time: a master stays queued as it is; a bill takes the device series.
+  if (!nf) return syntheticCreate(field, item);
   const numbered = await setCreateNumber(item.id, nf, await deviceNumber(spec, input[nf]));
   if (numbered) return syntheticCreate(field, numbered);
   // Synced while the number was being set: use the server's answer.
@@ -559,7 +604,8 @@ async function handleChange(
   const queuedForTarget = items.some((i) => i.kind !== "create" && i.targetId === target);
 
   const push = online && !unresolved && !queuedForTarget;
-  const docNumber = knownField(spec.typename, target, NUMBER_FIELD[spec.docType]);
+  const nf = NUMBER_FIELD[spec.docType];
+  const docNumber = nf ? knownField(spec.typename, target, nf) : null;
   const base = makeItem({
     spec,
     operation,

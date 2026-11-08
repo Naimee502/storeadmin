@@ -9,7 +9,26 @@ export type DocType =
   | "purchaseorder"
   | "purchasereturn"
   | "stockadjustment"
-  | "transferstock";
+  | "transferstock"
+  | MasterType;
+// Masters and expenses (Phase 3): no device numbers; named after their localdb collections.
+export type MasterType =
+  | "product"
+  | "account"
+  | "ledger"
+  | "unit"
+  | "category"
+  | "subcategory"
+  | "brand"
+  | "model"
+  | "size"
+  | "productgroup"
+  | "expensenote"
+  | "transaction";
+export const MASTER_TYPES: MasterType[] = [
+  "product", "account", "ledger", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "expensenote", "transaction",
+];
+export const isMasterType = (t: string): t is MasterType => (MASTER_TYPES as string[]).includes(t);
 export type OpKind = "create" | "edit" | "cancel" | "reopen" | "delete";
 export type OutboxStatus = "pending" | "failed" | "review";
 
@@ -84,6 +103,42 @@ export const OP_SPECS: Record<string, OpSpec> = {
   addTransferStock: spec("addTransferStock", "create", "transferstock", "TransferStock", "Transfer Stock"),
   editTransferStock: spec("editTransferStock", "edit", "transferstock", "TransferStock", "Transfer Stock"),
   deleteTransferStock: spec("deleteTransferStock", "delete", "transferstock", "TransferStock", "Transfer Stock"),
+  addProductService: spec("addProductService", "create", "product", "ProductService", "Product"),
+  updateProductService: spec("updateProductService", "edit", "product", "ProductService", "Product"),
+  deleteProductService: spec("deleteProductService", "delete", "product", "ProductService", "Product"),
+  addAccount: spec("addAccount", "create", "account", "Account", "Account"),
+  editAccount: spec("editAccount", "edit", "account", "Account", "Account"),
+  deleteAccount: spec("deleteAccount", "delete", "account", "Account", "Account"),
+  addAccountLedger: spec("addAccountLedger", "create", "ledger", "AccountLedger", "Ledger"),
+  editAccountLedger: spec("editAccountLedger", "edit", "ledger", "AccountLedger", "Ledger"),
+  deleteAccountLedger: spec("deleteAccountLedger", "delete", "ledger", "AccountLedger", "Ledger"),
+  addUnit: spec("addUnit", "create", "unit", "Unit", "Unit"),
+  editUnit: spec("editUnit", "edit", "unit", "Unit", "Unit"),
+  deleteUnit: spec("deleteUnit", "delete", "unit", "Unit", "Unit"),
+  addCategory: spec("addCategory", "create", "category", "Category", "Category"),
+  editCategory: spec("editCategory", "edit", "category", "Category", "Category"),
+  deleteCategory: spec("deleteCategory", "delete", "category", "Category", "Category"),
+  addSubCategory: spec("addSubCategory", "create", "subcategory", "SubCategory", "Sub Category"),
+  editSubCategory: spec("editSubCategory", "edit", "subcategory", "SubCategory", "Sub Category"),
+  deleteSubCategory: spec("deleteSubCategory", "delete", "subcategory", "SubCategory", "Sub Category"),
+  addBrand: spec("addBrand", "create", "brand", "Brand", "Brand"),
+  editBrand: spec("editBrand", "edit", "brand", "Brand", "Brand"),
+  deleteBrand: spec("deleteBrand", "delete", "brand", "Brand", "Brand"),
+  addModel: spec("addModel", "create", "model", "Model", "Model"),
+  editModel: spec("editModel", "edit", "model", "Model", "Model"),
+  deleteModel: spec("deleteModel", "delete", "model", "Model", "Model"),
+  addSize: spec("addSize", "create", "size", "Size", "Size"),
+  editSize: spec("editSize", "edit", "size", "Size", "Size"),
+  deleteSize: spec("deleteSize", "delete", "size", "Size", "Size"),
+  addProductGroup: spec("addProductGroup", "create", "productgroup", "ProductGroup", "Product Group"),
+  editProductGroup: spec("editProductGroup", "edit", "productgroup", "ProductGroup", "Product Group"),
+  deleteProductGroup: spec("deleteProductGroup", "delete", "productgroup", "ProductGroup", "Product Group"),
+  addExpenseNote: spec("addExpenseNote", "create", "expensenote", "ExpenseNote", "Expense Note"),
+  editExpenseNote: spec("editExpenseNote", "edit", "expensenote", "ExpenseNote", "Expense Note"),
+  deleteExpenseNote: spec("deleteExpenseNote", "delete", "expensenote", "ExpenseNote", "Expense Note"),
+  addTransaction: spec("addTransaction", "create", "transaction", "Transaction", "Transaction"),
+  editTransaction: spec("editTransaction", "edit", "transaction", "Transaction", "Transaction"),
+  deleteTransaction: spec("deleteTransaction", "delete", "transaction", "Transaction", "Transaction"),
 };
 
 // Old (v1) items only stored the operation name.
@@ -92,7 +147,7 @@ export const FIELD_BY_OPERATION: Record<string, string> = {
   AddSalesOrder: "addSalesOrder",
 };
 
-export const NUMBER_FIELD: Record<DocType, "billnumber" | "paymentcode" | "vouchernumber"> = {
+export const NUMBER_FIELD: Partial<Record<DocType, "billnumber" | "paymentcode" | "vouchernumber">> = {
   salesinvoice: "billnumber",
   salesorder: "billnumber",
   salesreturn: "billnumber",
@@ -110,7 +165,7 @@ const PARTIAL_EDIT: DocType[] = ["stockadjustment"];
 export const isOrderType = (t: DocType) => t === "salesorder" || t === "purchaseorder";
 
 // Same patterns the server accepts (server/src/utils/offlinesync.ts).
-const DEVICE_NUMBER_RX: Record<DocType, RegExp> = {
+const DEVICE_NUMBER_RX: Partial<Record<DocType, RegExp>> = {
   salesinvoice: /^([A-Z]{1,3})\/(\d{6})$/,
   salesorder: /^([A-Z]{1,3})\/(\d{6})$/,
   salesreturn: /^CN-([A-Z]{1,3})\/(\d{6})$/,
@@ -122,7 +177,7 @@ const DEVICE_NUMBER_RX: Record<DocType, RegExp> = {
   transferstock: /^TR-([A-Z]{1,3})\/(\d{6})$/,
 };
 
-const PREFIX: Record<DocType, string> = {
+const PREFIX: Partial<Record<DocType, string>> = {
   salesinvoice: "",
   salesorder: "",
   salesreturn: "CN-",
@@ -138,13 +193,13 @@ export const MAX_SEQ = 999999;
 
 // A/000123, CN-A/000012, #PAY-A/000012, DN-, SA-, TR-; null when the sequence does not fit 6 digits.
 export function formatDeviceNumber(type: DocType, code: string, seq: number): string | null {
-  if (!/^[A-Z]{1,3}$/.test(code) || !Number.isInteger(seq) || seq < 1 || seq > MAX_SEQ) return null;
+  if (PREFIX[type] === undefined || !/^[A-Z]{1,3}$/.test(code) || !Number.isInteger(seq) || seq < 1 || seq > MAX_SEQ) return null;
   return `${PREFIX[type]}${code}/${String(seq).padStart(6, "0")}`;
 }
 
 export function parseDeviceNumber(type: DocType, value: unknown): { code: string; seq: number } | null {
   if (typeof value !== "string") return null;
-  const m = DEVICE_NUMBER_RX[type].exec(value);
+  const m = DEVICE_NUMBER_RX[type]?.exec(value);
   return m ? { code: m[1], seq: parseInt(m[2], 10) } : null;
 }
 
@@ -299,8 +354,8 @@ export function planChange(items: OutboxItem[], incoming: OutboxItem): Plan {
       const nf = NUMBER_FIELD[create.docType];
       const base = PARTIAL_EDIT.includes(create.docType) ? create.variables?.input : {};
       const input = { ...base, ...(incoming.variables?.input || {}), clientRequestId: create.clientRequestId };
-      if (num) input[nf] = num;
-      else delete input[nf];
+      if (nf && num) input[nf] = num;
+      else if (nf) delete input[nf];
       const merged: OutboxItem = {
         ...create,
         variables: { ...create.variables, input },

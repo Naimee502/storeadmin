@@ -37,6 +37,8 @@ export const COLLECTIONS = [
   "purchasereturn",
   "stockadjustment",
   "transferstock",
+  "expensenote",
+  "transaction",
 ];
 
 const SYNC_PULL = gql`
