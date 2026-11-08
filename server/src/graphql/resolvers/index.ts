@@ -57,6 +57,7 @@ import { Account } from "../../models/accounts";
 import { AccountLedger } from "../../models/accountledgers";
 import { ExpenseNote } from "../../models/expensenote";
 import { Transaction } from "../../models/transactions";
+import { ExpenseClaim } from "../../models/expenseclaim";
 
 export const resolvers = [
   branchResolvers,
@@ -81,7 +82,7 @@ export const resolvers = [
   withOfflineWrites(transactionResolvers, { model: Transaction, typename: "Transaction", tenant: "adminid", add: "addTransaction", edit: "editTransaction", del: "deleteTransaction" }),
   paymentResolvers,
   withOfflineWrites(expenseNoteResolvers, { model: ExpenseNote, typename: "ExpenseNote", tenant: "adminid", add: "addExpenseNote", edit: "editExpenseNote", del: "deleteExpenseNote" }),
-  expenseClaimResolvers,
+  withOfflineWrites(expenseClaimResolvers, { model: ExpenseClaim, typename: "ExpenseClaim", tenant: "adminid", add: "addExpenseClaim", edit: "editExpenseClaim", del: "deleteExpenseClaim" }),
   announcementResolvers,
   channelResolvers,
   stockAdjustmentResolvers,

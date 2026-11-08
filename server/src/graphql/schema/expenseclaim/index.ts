@@ -42,6 +42,8 @@ export const expenseClaimTypeDefs = gql`
   }
 
   input ExpenseClaimInput {
+    "Set by offline sync so a retried save returns the same document."
+    clientRequestId: String
     # Back-office users filing on a staff member's behalf pass staffid.
     # A staff login always files for itself and this is ignored.
     staffid: ID
@@ -71,11 +73,11 @@ export const expenseClaimTypeDefs = gql`
 
   type Mutation {
     addExpenseClaim(input: ExpenseClaimInput!): ExpenseClaim!
-    editExpenseClaim(id: ID!, input: ExpenseClaimInput!): ExpenseClaim!
+    editExpenseClaim(id: ID!, input: ExpenseClaimInput!, expectedUpdatedAt: String): ExpenseClaim!
     cancelExpenseClaim(id: ID!): ExpenseClaim!
     approveExpenseClaim(id: ID!, approvedamount: Float, expenseledgerid: ID, remarks: String): ExpenseClaim!
     rejectExpenseClaim(id: ID!, reason: String!): ExpenseClaim!
-    deleteExpenseClaim(id: ID!): Boolean!
+    deleteExpenseClaim(id: ID!, expectedUpdatedAt: String): Boolean!
     resetExpenseClaim(id: ID!): Boolean!
   }
 `;

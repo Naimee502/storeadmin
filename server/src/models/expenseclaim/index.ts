@@ -83,4 +83,8 @@ expenseClaimSchema.pre("save", async function (next) {
   next();
 });
 
+// Offline sync: one document per request id; only rows that carry one are indexed.
+expenseClaimSchema.add({ clientRequestId: { type: String } });
+expenseClaimSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const ExpenseClaim = mongoose.model("ExpenseClaim", expenseClaimSchema);

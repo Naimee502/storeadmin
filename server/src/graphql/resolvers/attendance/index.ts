@@ -371,6 +371,7 @@ export const attendanceResolvers = {
         address: input.address, routeid: input.routeid || undefined,
         source: input.source || "web", selfieUrl: input.selfieUrl,
         deviceInfo: input.deviceInfo, ipAddress: ctx?.req?.ip, remarks: input.remarks,
+        ...(input.offline ? { offline: true } : {}),
       };
       log.punches.push(punch);
       recomputeAttendanceTotals(log);

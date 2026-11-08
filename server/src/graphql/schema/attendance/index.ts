@@ -12,6 +12,7 @@ export const attendanceTypeDefs = gql`
 
   type AttendancePunch {
     id: ID!
+    offline: Boolean
     type: String!
     timestamp: String!
     latitude: Float
@@ -66,6 +67,8 @@ export const attendanceTypeDefs = gql`
     selfieUrl: String
     deviceInfo: String
     remarks: String
+    "Saved on the device without network and synced later; the time is the phone's clock."
+    offline: Boolean
   }
 
   input ManualAttendanceInput {

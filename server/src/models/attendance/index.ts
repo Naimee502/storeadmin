@@ -11,6 +11,7 @@ const punchSubSchema = new mongoose.Schema(
     routeid: { type: mongoose.Schema.Types.ObjectId, ref: "SalesRoute" },
     source: { type: String, enum: ["web", "mobile", "biometric", "kiosk", "manual", "auto"], default: "web" },
     selfieUrl: { type: String },
+    offline: { type: Boolean }, // punched without network; time from the phone
     deviceInfo: { type: String },
     ipAddress: { type: String },
     remarks: { type: String },
