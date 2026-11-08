@@ -30,6 +30,10 @@ export const salesRouteSchema = gql`
   }
 
   input SalesRouteInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID
     branchid: ID
     routename: String!
@@ -63,8 +67,8 @@ export const salesRouteSchema = gql`
 
   extend type Mutation {
     createSalesRoute(input: SalesRouteInput!): SalesRoute
-    updateSalesRoute(id: ID!, input: SalesRouteInput!): SalesRoute
-    deleteSalesRoute(id: ID!): Boolean
+    updateSalesRoute(id: ID!, input: SalesRouteInput!, expectedUpdatedAt: String): SalesRoute
+    deleteSalesRoute(id: ID!, expectedUpdatedAt: String): Boolean
     updateSalesRouteStatus(id: ID!, status: Boolean!): SalesRoute
     resetSalesRoute(id: ID!): Boolean
   }

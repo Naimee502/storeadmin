@@ -14,6 +14,10 @@ export const channelTypeDefs = gql`
   }
 
   input CreateChannelInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     channelName: String!
     admin: ID!
     isDefault: Boolean
@@ -36,8 +40,8 @@ export const channelTypeDefs = gql`
 
   type Mutation {
     createChannel(input: CreateChannelInput!): Channel!
-    updateChannel(id: ID!, input: UpdateChannelInput!): Channel!
-    deleteChannel(id: ID!): Boolean!
+    updateChannel(id: ID!, input: UpdateChannelInput!, expectedUpdatedAt: String): Channel!
+    deleteChannel(id: ID!, expectedUpdatedAt: String): Boolean!
     resetChannel(id: ID!): Boolean!
   }
 `;

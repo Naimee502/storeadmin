@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IPriceAssignment extends Document {
+  clientRequestId?: string;
   adminid: Types.ObjectId;
   pricelistid: Types.ObjectId;
   targettype: "customer" | "channel" | "region" | "route" | "channel_region";
@@ -26,5 +27,9 @@ const priceAssignmentSchema = new Schema<IPriceAssignment>(
 );
 
 priceAssignmentSchema.index({ adminid: 1, targettype: 1, targetid: 1 });
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+priceAssignmentSchema.add({ clientRequestId: { type: String } });
+priceAssignmentSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 
 export const PriceAssignment = mongoose.model<IPriceAssignment>("PriceAssignment", priceAssignmentSchema);

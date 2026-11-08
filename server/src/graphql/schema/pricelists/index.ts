@@ -49,6 +49,10 @@ export const priceListTypeDefs = gql`
   }
 
   input PriceListInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID
     name: String!
     description: String
@@ -57,6 +61,10 @@ export const priceListTypeDefs = gql`
   }
 
   input PriceAssignmentInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID
     pricelistid: ID!
     targettype: String!
@@ -84,12 +92,12 @@ export const priceListTypeDefs = gql`
 
   extend type Mutation {
     createPriceList(input: PriceListInput!): PriceList
-    updatePriceList(id: ID!, input: PriceListInput!): PriceList
-    deletePriceList(id: ID!): Boolean
+    updatePriceList(id: ID!, input: PriceListInput!, expectedUpdatedAt: String): PriceList
+    deletePriceList(id: ID!, expectedUpdatedAt: String): Boolean
     resetPriceList(id: ID!): Boolean
     createPriceAssignment(input: PriceAssignmentInput!): PriceAssignment
-    updatePriceAssignment(id: ID!, input: PriceAssignmentInput!): PriceAssignment
-    deletePriceAssignment(id: ID!): Boolean
+    updatePriceAssignment(id: ID!, input: PriceAssignmentInput!, expectedUpdatedAt: String): PriceAssignment
+    deletePriceAssignment(id: ID!, expectedUpdatedAt: String): Boolean
     resetPriceAssignment(id: ID!): Boolean
   }
 `;

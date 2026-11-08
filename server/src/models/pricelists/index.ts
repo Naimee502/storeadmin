@@ -11,6 +11,7 @@ export interface IPriceListItem {
 }
 
 export interface IPriceList extends Document {
+  clientRequestId?: string;
   adminid: Types.ObjectId;
   name: string;
   description?: string;
@@ -42,5 +43,9 @@ const priceListSchema = new Schema<IPriceList>(
 );
 
 priceListSchema.index({ adminid: 1, name: 1 });
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+priceListSchema.add({ clientRequestId: { type: String } });
+priceListSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 
 export const PriceList = mongoose.model<IPriceList>("PriceList", priceListSchema);

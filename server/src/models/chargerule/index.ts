@@ -52,4 +52,8 @@ const chargeRuleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Offline sync: one document per request id; only rows that carry one are indexed.
+chargeRuleSchema.add({ clientRequestId: { type: String } });
+chargeRuleSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const ChargeRule = mongoose.model("ChargeRule", chargeRuleSchema);

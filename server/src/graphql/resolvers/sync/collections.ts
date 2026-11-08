@@ -34,6 +34,10 @@ import { StockAdjustment } from "../../../models/stockadjustments";
 import { TransferStock } from "../../../models/transferstock";
 import { ExpenseNote } from "../../../models/expensenote";
 import { Transaction } from "../../../models/transactions";
+import { AccountGroup } from "../../../models/accountgroups";
+import { Channel } from "../../../models/channel";
+import { SalesRoute } from "../../../models/salesroutes";
+import { Holiday, LeaveType } from "../../../models/attendance";
 import { buildPurchaseInvoiceQuery, formatInvoice as formatPurchaseInvoice, listPopulateFields as purchaseInvoiceRefs } from "../purchaseinvoice";
 import { buildPurchaseOrderQuery, formatOrder as formatPurchaseOrder, listPopulateFields as purchaseOrderRefs } from "../purchaseorder";
 import { buildPurchaseReturnQuery, formatReturn as formatPurchaseReturn, listPopulateFields as purchaseReturnRefs } from "../purchasereturn";
@@ -80,6 +84,9 @@ const master = (model: any, extra: any[] = []): SyncCollection => ({
   tenant: "admin",
   find: (f) => model.find(f).populate([ADMIN_REF, ...extra]).lean(),
 });
+
+// Settings records keyed by adminid, read as stored.
+const plain = (model: any): SyncCollection => ({ model, tenant: "adminid", find: (f) => model.find(f).lean() });
 
 export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
   salesinvoice: {
@@ -203,6 +210,11 @@ export const SYNC_COLLECTIONS: Record<string, SyncCollection> = {
   model: master(Model),
   size: master(Size),
   productgroup: master(ProductGroup),
+  accountgroup: master(AccountGroup),
+  channel: master(Channel),
+  salesroute: plain(SalesRoute),
+  holiday: plain(Holiday),
+  leavetype: plain(LeaveType),
   branch: {
     model: Branch,
     tenant: "admin",

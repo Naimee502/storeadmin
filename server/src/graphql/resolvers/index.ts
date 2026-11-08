@@ -62,6 +62,13 @@ import { ExpenseNote } from "../../models/expensenote";
 import { Transaction } from "../../models/transactions";
 import { ExpenseClaim } from "../../models/expenseclaim";
 import { Visit } from "../../models/visit";
+import { AccountGroup } from "../../models/accountgroups";
+import { Channel } from "../../models/channel";
+import { ChargeRule } from "../../models/chargerule";
+import { PriceList } from "../../models/pricelists";
+import { PriceAssignment } from "../../models/priceassignments";
+import { SalesRoute } from "../../models/salesroutes";
+import { Holiday, LeaveType } from "../../models/attendance";
 
 export const resolvers = [
   branchResolvers,
@@ -71,7 +78,7 @@ export const resolvers = [
   withOfflineWrites(brandResolvers, { model: Brand, typename: "Brand", tenant: "admin", add: "addBrand", edit: "editBrand", del: "deleteBrand", isoUpdatedAt: true }),
   withOfflineWrites(modelResolvers, { model: Model, typename: "Model", tenant: "admin", add: "addModel", edit: "editModel", del: "deleteModel", isoUpdatedAt: true }),
   withOfflineWrites(productGroupResolvers, { model: ProductGroup, typename: "ProductGroup", tenant: "admin", add: "addProductGroup", edit: "editProductGroup", del: "deleteProductGroup", isoUpdatedAt: true }),
-  accountGroupResolvers,
+  withOfflineWrites(accountGroupResolvers, { model: AccountGroup, typename: "AccountGroup", tenant: "admin", add: "addAccountGroup", edit: "editAccountGroup", del: "deleteAccountGroup", isoUpdatedAt: true }),
   withOfflineWrites(accountLedgerResolvers, { model: AccountLedger, typename: "AccountLedger", tenant: "admin", add: "addAccountLedger", edit: "editAccountLedger", del: "deleteAccountLedger" }),
   withOfflineWrites(accountResolvers, { model: Account, typename: "Account", tenant: "admin", add: "addAccount", edit: "editAccount", del: "deleteAccount" }),
   withOfflineWrites(unitResolvers, { model: Unit, typename: "Unit", tenant: "admin", add: "addUnit", edit: "editUnit", del: "deleteUnit", isoUpdatedAt: true }),
@@ -88,19 +95,25 @@ export const resolvers = [
   withOfflineWrites(expenseNoteResolvers, { model: ExpenseNote, typename: "ExpenseNote", tenant: "adminid", add: "addExpenseNote", edit: "editExpenseNote", del: "deleteExpenseNote" }),
   withOfflineWrites(expenseClaimResolvers, { model: ExpenseClaim, typename: "ExpenseClaim", tenant: "adminid", add: "addExpenseClaim", edit: "editExpenseClaim", del: "deleteExpenseClaim" }),
   announcementResolvers,
-  channelResolvers,
+  withOfflineWrites(channelResolvers, { model: Channel, typename: "Channel", tenant: "admin", add: "createChannel", edit: "updateChannel", del: "deleteChannel" }),
   stockAdjustmentResolvers,
-  salesRouteResolvers,
-  priceListResolvers,
+  withOfflineWrites(salesRouteResolvers, { model: SalesRoute, typename: "SalesRoute", tenant: "adminid", add: "createSalesRoute", edit: "updateSalesRoute", del: "deleteSalesRoute" }),
+  withOfflineWrites(
+    withOfflineWrites(priceListResolvers, { model: PriceList, typename: "PriceList", tenant: "adminid", add: "createPriceList", edit: "updatePriceList", del: "deletePriceList" }),
+    { model: PriceAssignment, typename: "PriceAssignment", tenant: "adminid", add: "createPriceAssignment", edit: "updatePriceAssignment", del: "deletePriceAssignment" }
+  ),
   withOfflineActions(salesOrderResolvers, SalesOrder, ["confirmSalesOrder", "markSalesOrderDispatched", "markSalesOrderDelivered", "assignOrderDeliveryBoy"]),
   withOfflineActions(purchaseOrderResolvers, PurchaseOrder, ["confirmPurchaseOrder", "markPurchaseOrderReceived"]),
-  attendanceResolvers,
+  withOfflineWrites(
+    withOfflineWrites(attendanceResolvers, { model: Holiday, typename: "Holiday", tenant: "adminid", add: "addHoliday", edit: "editHoliday", del: "deleteHoliday" }),
+    { model: LeaveType, typename: "LeaveType", tenant: "adminid", add: "addLeaveType", edit: "editLeaveType", del: "deleteLeaveType" }
+  ),
   salesReturnResolvers,
   geocodeResolvers,
   purchaseReturnResolvers,
   adminSettingsResolvers,
   permissionsResolvers,
-  chargeRuleResolvers,
+  withOfflineWrites(chargeRuleResolvers, { model: ChargeRule, typename: "ChargeRule", tenant: "adminid", add: "addChargeRule", edit: "editChargeRule", del: "deleteChargeRule" }),
   withOfflineWrites(visitResolvers, { model: Visit, typename: "Visit", tenant: "adminid", add: "addVisit", edit: "editVisit", del: "deleteVisit" }),
   salesmanReportResolvers,
   locationPingResolvers,

@@ -22,6 +22,10 @@ export const chargeRuleTypeDefs = gql`
   }
 
   input ChargeRuleInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID!
     name: String!
     ledgerid: ID
@@ -46,8 +50,8 @@ export const chargeRuleTypeDefs = gql`
 
   extend type Mutation {
     addChargeRule(input: ChargeRuleInput!): ChargeRule!
-    editChargeRule(id: ID!, input: ChargeRuleInput!): ChargeRule!
-    deleteChargeRule(id: ID!): Boolean!
+    editChargeRule(id: ID!, input: ChargeRuleInput!, expectedUpdatedAt: String): ChargeRule!
+    deleteChargeRule(id: ID!, expectedUpdatedAt: String): Boolean!
     resetChargeRule(id: ID!): Boolean!
   }
 `;

@@ -67,6 +67,10 @@ const holidaySchema = new mongoose.Schema(
   { timestamps: true }
 );
 holidaySchema.index({ adminid: 1, date: 1 });
+// Offline sync: one document per request id; only rows that carry one are indexed.
+holidaySchema.add({ clientRequestId: { type: String } });
+holidaySchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const Holiday = mongoose.model("Holiday", holidaySchema);
 
 const leaveTypeSchema = new mongoose.Schema(
@@ -89,6 +93,10 @@ const leaveTypeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 leaveTypeSchema.index({ adminid: 1, code: 1 }, { unique: true });
+// Offline sync: one document per request id; only rows that carry one are indexed.
+leaveTypeSchema.add({ clientRequestId: { type: String } });
+leaveTypeSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const LeaveType = mongoose.model("LeaveType", leaveTypeSchema);
 
 const leaveRequestSchema = new mongoose.Schema(

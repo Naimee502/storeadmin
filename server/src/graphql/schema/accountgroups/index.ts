@@ -22,6 +22,10 @@ export const accountGroupTypeDefs = gql`
   }
 
   type AccountGroup {
+
+    "ISO date"
+
+    updatedAt: String
     id: ID!
     accountgroupcode: String!
     accountgroupname: String!
@@ -31,6 +35,10 @@ export const accountGroupTypeDefs = gql`
   }
 
   input AccountGroupInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     accountgroupname: String!
     category: AccountCategory!
     status: Boolean!
@@ -51,8 +59,8 @@ export const accountGroupTypeDefs = gql`
 
   type Mutation {
     addAccountGroup(input: AccountGroupInput!): AccountGroup!
-    editAccountGroup(id: ID!, input: AccountGroupInput!): AccountGroup!
-    deleteAccountGroup(id: ID!): Boolean!
+    editAccountGroup(id: ID!, input: AccountGroupInput!, expectedUpdatedAt: String): AccountGroup!
+    deleteAccountGroup(id: ID!, expectedUpdatedAt: String): Boolean!
     resetAccountGroup(id: ID!): Boolean!
   }
 `;

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IChannel extends Document {
+  clientRequestId?: string;
   channelCode: string;
   channelName: string;
   admin: mongoose.Types.ObjectId;
@@ -41,5 +42,9 @@ ChannelSchema.pre("save", async function (next) {
   }
   next();
 });
+
+// Offline sync: one document per request id; only rows that carry one are indexed.
+ChannelSchema.add({ clientRequestId: { type: String } });
+ChannelSchema.index({ admin: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
 
 export const Channel = mongoose.model<IChannel>("Channel", ChannelSchema);

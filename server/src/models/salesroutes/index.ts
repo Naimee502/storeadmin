@@ -32,4 +32,8 @@ const salesRouteSchema = new mongoose.Schema(
 
 salesRouteSchema.index({ adminid: 1, branchid: 1, routename: 1 }, { unique: true });
 
+// Offline sync: one document per request id; only rows that carry one are indexed.
+salesRouteSchema.add({ clientRequestId: { type: String } });
+salesRouteSchema.index({ adminid: 1, clientRequestId: 1 }, { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } });
+
 export const SalesRoute = mongoose.model("SalesRoute", salesRouteSchema);

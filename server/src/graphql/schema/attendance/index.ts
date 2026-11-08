@@ -131,6 +131,10 @@ export const attendanceTypeDefs = gql`
   }
 
   input HolidayInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID!
     branchid: ID
     date: String!
@@ -169,6 +173,10 @@ export const attendanceTypeDefs = gql`
   }
 
   input LeaveTypeInput {
+
+    "Set by offline sync so a retried save returns the same document."
+
+    clientRequestId: String
     adminid: ID!
     name: String!
     code: String!
@@ -299,11 +307,11 @@ export const attendanceTypeDefs = gql`
     deleteAttendanceLog(id: ID!): Boolean!
     deletePunch(logid: ID!, punchid: ID!): AttendanceLog!
     addHoliday(input: HolidayInput!): Holiday!
-    editHoliday(id: ID!, input: HolidayInput!): Holiday!
-    deleteHoliday(id: ID!): Boolean!
+    editHoliday(id: ID!, input: HolidayInput!, expectedUpdatedAt: String): Holiday!
+    deleteHoliday(id: ID!, expectedUpdatedAt: String): Boolean!
     addLeaveType(input: LeaveTypeInput!): LeaveType!
-    editLeaveType(id: ID!, input: LeaveTypeInput!): LeaveType!
-    deleteLeaveType(id: ID!): Boolean!
+    editLeaveType(id: ID!, input: LeaveTypeInput!, expectedUpdatedAt: String): LeaveType!
+    deleteLeaveType(id: ID!, expectedUpdatedAt: String): Boolean!
     addLeaveRequest(input: LeaveRequestInput!): LeaveRequest!
     editLeaveRequest(id: ID!, input: LeaveRequestInput!): LeaveRequest!
     approveLeaveRequest(id: ID!, approverid: ID, approverName: String, approverType: String): LeaveRequest!
