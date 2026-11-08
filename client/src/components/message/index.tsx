@@ -20,7 +20,7 @@ const Message: React.FC = () => {
 
   return (
     <div
-      className={`fixed top-18 right-6 px-4 py-2 rounded-lg shadow-md text-white z-50 max-w-sm text-sm whitespace-pre-line break-words ${
+      className={`fixed top-18 right-6 px-4 py-2 rounded-lg shadow-md text-white z-[80] max-w-sm text-sm whitespace-pre-line break-words ${
         type === 'success' ? 'bg-green-500' : 'bg-red-500'
       }`}
     >

@@ -171,7 +171,7 @@ export default function PosAddCustomer({
     if (variant === "pos") {
         return (
             <div
-                className={`fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-3 transition ${
+                className={`fixed inset-0 z-[70] bg-slate-900/50 flex items-center justify-center p-3 transition ${
                     open ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
             >
@@ -276,7 +276,7 @@ export default function PosAddCustomer({
 
     return (
         <div
-            className={`fixed inset-0 z-50 bg-black/40 flex items-center justify-center transition ${
+            className={`fixed inset-0 z-[70] bg-black/40 flex items-center justify-center transition ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
         >
