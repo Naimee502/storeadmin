@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from './src/navigation';
 import { Provider, useSelector } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store/store';
-import { apolloClient, setTokenGetter } from './src/apollo/client';
+import { apolloClient, offline, setTokenGetter, warmupFor } from './src/apollo/client';
 import { useBrandingSync } from './src/apollo/hooks/adminsettings';
 import FieldServices from './src/hooks/fieldservices';
 import useScreenGuard from './src/hooks/usescreenguard';
@@ -86,9 +86,17 @@ function RootNavigator() {
   const { isAuthenticated, isSplashDone, isIntroDone, isActivated, isLoading } = useAuth();
   const token = useSelector((state: RootState) => state.auth.token);
 
+  const user = useSelector((state: RootState) => state.auth.user);
+  const tenantAdmin = useSelector((state: RootState) => state.tenant.adminId);
+
   React.useEffect(() => {
     setTokenGetter(() => token);
   }, [token]);
+
+  // Keeps this user's data on the device (offline-first); restarts when the user changes.
+  React.useEffect(() => {
+    if (token && user) offline.warmup(warmupFor(user, tenantAdmin || user.adminId || null));
+  }, [token, user?.id, tenantAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) return null;
 

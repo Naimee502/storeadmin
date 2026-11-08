@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { setTokenGetter } from "../graphql/client";
+import { offline, setTokenGetter, warmupFor } from "../graphql/client";
+import { useTenant } from "./tenant";
 
 export interface AuthAccount {
   id: string;
@@ -53,6 +54,13 @@ export function AuthProvider({ storeSlug, children }: { storeSlug: string; child
   useEffect(() => {
     setTokenGetter(() => tokenRef.current);
   }, []);
+
+  // Keeps this party's data on the browser (offline-first); restarts when the party changes.
+  const { adminid } = useTenant();
+  const partyId = session?.account?.id ?? null;
+  useEffect(() => {
+    if (partyId && adminid) offline.warmup(warmupFor(partyId, adminid));
+  }, [partyId, adminid]);
 
   useEffect(() => {
     try {

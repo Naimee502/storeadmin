@@ -34,7 +34,9 @@ const PENDING_NUMBER = 'Pending sync';
 const TEMP = 'offline-';
 const QUEUE_KEY = 'offline:queue';
 const CHUNK = 1_000_000;
-const CACHE_LIMIT = 3_500_000;
+const WARM_MS = 15 * 60_000;
+// Arguments that page or sort a list; an offline read of a saved list applies offset/limit itself.
+const PAGING = new Set(['limit', 'offset', 'instockfirst', 'includeDownline', 'directOnly', 'includeConverted']);
 const CREATE_TIMEOUT_MS = 3000;
 const RETRY_MS = 30_000;
 
@@ -99,6 +101,25 @@ function fill(set: any, src: any, entities: Record<string, any>, byId: Map<strin
   return out;
 }
 
+// A field's argument values with variables filled in.
+const valueOf = (n: any, vars: any): any => {
+  if (n.kind === 'Variable') return vars?.[n.name.value];
+  if (n.kind === 'ObjectValue') return Object.fromEntries(n.fields.map((f: any) => [f.name.value, valueOf(f.value, vars)]));
+  if (n.kind === 'ListValue') return n.values.map((x: any) => valueOf(x, vars));
+  if (n.kind === 'NullValue') return null;
+  if (n.kind === 'IntValue' || n.kind === 'FloatValue') return Number(n.value);
+  return n.value;
+};
+const argsOf = (f: any, vars: any) => Object.fromEntries((f.arguments || []).map((a: any) => [a.name.value, valueOf(a.value, vars)]));
+// Nested arguments as one level ({ filter: { partyacc } } -> { partyacc }).
+const flat = (o: any, out: Record<string, any> = {}): Record<string, any> => {
+  for (const [k, v] of Object.entries(o || {})) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, out);
+    else if (v !== undefined) out[k] = v;
+  }
+  return out;
+};
+
 const indexById = (entities: Record<string, any>) => {
   const map = new Map<string, any>();
   for (const k of Object.keys(entities)) if (entities[k]?.id) map.set(String(entities[k].id), entities[k]);
@@ -112,8 +133,14 @@ export function createOffline(opts: {
   notify?: (message: string) => void;
   // Uploads an offline photo marker and returns its URL (app only).
   upload?: (marker: string) => Promise<string>;
+  // Largest saved cache in characters (the store's size limit).
+  cacheLimit?: number;
 }) {
   const { Observable, storage, getToken, notify, upload } = opts;
+  const cacheLimit = opts.cacheLimit ?? 3_500_000;
+  let warmOps: Array<{ query: any; variables?: any }> = [];
+  let warmTimer: any = null;
+  let restoredFor = '';
   let client: any = null;
   let queue: Item[] = [];
   let state: OfflineState = { online: true, pending: 0, message: '' };
@@ -170,13 +197,13 @@ export function createOffline(opts: {
       try {
         const data = await snapshot();
         const raw = JSON.stringify(data);
-        if (raw.length > CACHE_LIMIT) return;
+        if (raw.length > cacheLimit) return;
         const parts = Math.ceil(raw.length / CHUNK);
         for (let i = 0; i < parts; i += 1) await storage.setItem(`${cacheKey(u)}:${i}`, raw.slice(i * CHUNK, (i + 1) * CHUNK));
         await storage.setItem(cacheKey(u), String(parts));
         saved = { uid: u, data };
       } catch { /* storage full: keep the last saved copy */ }
-    }, 2000);
+    }, 5000);
   }
 
   async function fromCache(op: any) {
@@ -186,8 +213,78 @@ export function createOffline(opts: {
       cache.restore(await snapshot());
       scratch = { version, cache };
     }
-    const data = scratch.cache.readQuery({ query: op.query, variables: op.variables });
-    return data ? { data } : null;
+    let data: any = null;
+    try {
+      data = scratch.cache.readQuery({ query: op.query, variables: op.variables });
+    } catch { /* not saved with these arguments */ }
+    return data ? { data } : fromSavedList(op, scratch.cache.extract());
+  }
+
+  // Offline read with other arguments: the broadest saved list of the field, filtered here like the server.
+  function fromSavedList(op: any, snap: any) {
+    const root = snap.ROOT_QUERY || {};
+    const byId = indexById(snap);
+    const data: any = {};
+    for (const f of opDef(op.query).selectionSet.selections) {
+      if (f.kind !== 'Field') return null;
+      const name = f.name.value;
+      const want = flat(argsOf(f, op.variables));
+      let best: string | null = null;
+      let bestScore = -1;
+      for (const k of Object.keys(root)) {
+        if (k !== name && !k.startsWith(`${name}(`)) continue;
+        let have: any = {};
+        try { have = k === name ? {} : flat(JSON.parse(k.slice(name.length + 1, -1))); } catch { continue; }
+        // A saved list narrower than the request cannot answer it.
+        if (Object.keys(have).some((a) => !PAGING.has(a) && have[a] != null && String(have[a]) !== String(want[a] ?? ''))) continue;
+        const score = Object.keys(have).filter((a) => have[a] != null).length;
+        if (score > bestScore) { best = k; bestScore = score; }
+      }
+      if (!best) return null;
+      const have = best === name ? {} : flat(JSON.parse(best.slice(name.length + 1, -1)));
+      const v = root[best];
+      if (!Array.isArray(v)) {
+        data[keyOf(f)] = v && typeof v === 'object' ? fill(f.selectionSet, v.__ref ? snap[v.__ref] : v, snap, byId) : v ?? null;
+        continue;
+      }
+      let rows = v.map((x: any) => (x && typeof x === 'object' ? fill(f.selectionSet, x.__ref ? snap[x.__ref] : x, snap, byId) : x));
+      for (const [a, val] of Object.entries(want)) {
+        if (PAGING.has(a) || val == null || have[a] != null) continue;
+        if (a === 'name_contains' || a === 'search') {
+          const t = String(val).toLowerCase();
+          rows = rows.filter((r: any) => JSON.stringify(r).toLowerCase().includes(t));
+          continue;
+        }
+        rows = rows.filter((r: any) => r?.[a] === undefined || String(r[a]?.id ?? r[a]) === String(val));
+      }
+      const offset = Number(want.offset) || 0;
+      const limit = Number(want.limit) || 0;
+      data[keyOf(f)] = limit > 0 ? rows.slice(offset, offset + limit) : rows.slice(offset);
+    }
+    return { data };
+  }
+
+  // Saved data into the live cache at start, so screens show it at once and refresh from the server.
+  async function restore() {
+    const u = uid();
+    if (!client || !u || restoredFor === u) return;
+    restoredFor = u;
+    try {
+      client.cache.restore(await snapshot());
+      client.cache.broadcastWatches?.();
+    } catch { /* screens load from the server as before */ }
+  }
+
+  // Fills the cache with what this user's screens read, so they work offline from the first visit.
+  async function warm() {
+    if (!client || !uid() || flushing) return;
+    for (const o of warmOps) {
+      try {
+        await client.query({ query: o.query, variables: o.variables, fetchPolicy: 'network-only' });
+      } catch (e: any) {
+        if (isNetworkError(e?.networkError ?? e)) return;
+      }
+    }
   }
 
   // Pending create as the document the server would return.
@@ -400,6 +497,14 @@ export function createOffline(opts: {
       client = c;
       setInterval(() => { if (mine().length) flush(); }, RETRY_MS);
       loaded.then(flush);
+    },
+    restore,
+    // Queries to keep on the device for the signed-in user; refreshed every 15 minutes while online.
+    warmup(ops: Array<{ query: any; variables?: any }>) {
+      warmOps = ops;
+      clearInterval(warmTimer);
+      warmTimer = setInterval(warm, WARM_MS);
+      restore().then(warm);
     },
     getState: () => state,
     subscribe(l: () => void) {

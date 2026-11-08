@@ -6,6 +6,16 @@ import { Observable } from 'rxjs';
 import { Snackbar } from 'react-native-snackbar';
 import { API_CONFIG } from '../config';
 import { createOffline } from './offline';
+import {
+  GET_ACCOUNT, GET_ACCOUNTS, GET_ACCOUNT_GROUPS, GET_ACCOUNT_LEDGERS, GET_ADMIN_SETTINGS, GET_CHANNELS, GET_DELIVERY_POOL,
+  GET_DOWNLINE_PARTY_BALANCES, GET_MY_DELIVERIES, GET_PARTY_SALES_INVOICES, GET_PARTY_STOCK, GET_PAYMENTS, GET_PRODUCTS, GET_SALES_ORDERS,
+} from './queries/accounts';
+import { GET_CATEGORIES, GET_SUBCATEGORIES } from './queries/categories';
+import { GET_STAFF_ACCOUNT } from './queries/staffaccounts';
+import { GET_OPEN_PUNCH } from './queries/attendance';
+import { GET_MY_EXPENSE_CLAIMS } from './queries/expenseclaims';
+import { GET_MY_SALES_RETURNS } from './queries/salesreturn';
+import { GET_MY_ANNOUNCEMENTS } from './queries/announcements';
 
 let _getToken: (() => string | null) | null = null;
 
@@ -23,6 +33,8 @@ export const offline = createOffline({
   notify: (text) => Snackbar.show({ text, duration: Snackbar.LENGTH_LONG }),
   // Loaded on use: uploadimage imports this file.
   upload: (marker) => require('../utils/uploadimage').uploadPendingPhoto(marker),
+  // About 25 MB of saved data (android/gradle.properties raises AsyncStorage to match).
+  cacheLimit: 25_000_000,
 });
 
 const httpLink = createHttpLink({
@@ -121,3 +133,52 @@ export const apolloClient = new ApolloClient({
 });
 
 offline.attach(apolloClient);
+
+// What each role's screens read, kept on the device so the app works offline like Vyapar (OFFLINE.md, "Apps").
+export function warmupFor(user: { id: string; role: string } | null, adminid: string | null) {
+  if (!user?.id || !adminid) return [];
+  const id = user.id;
+  const common = [
+    { query: GET_ADMIN_SETTINGS, variables: { adminid } },
+    { query: GET_PRODUCTS, variables: { adminid, limit: 5000, offset: 0 } },
+    { query: GET_CATEGORIES, variables: { adminId: adminid } },
+    { query: GET_SUBCATEGORIES, variables: { adminId: adminid } },
+    { query: GET_ACCOUNT_LEDGERS, variables: { adminId: adminid } },
+    { query: GET_MY_ANNOUNCEMENTS },
+  ];
+  if (user.role === 'party') {
+    return [
+      { query: GET_ACCOUNT, variables: { id, adminId: adminid } },
+      { query: GET_SALES_ORDERS, variables: { adminid, partyacc: id } },
+      { query: GET_PAYMENTS, variables: { adminid, partyid: id } },
+      { query: GET_PARTY_SALES_INVOICES, variables: { adminid, partyacc: id } },
+      { query: GET_PARTY_STOCK, variables: { partyid: id } },
+      { query: GET_DOWNLINE_PARTY_BALANCES, variables: { partyid: id } },
+      { query: GET_MY_SALES_RETURNS, variables: { adminid } },
+      ...common,
+    ];
+  }
+  const staff = [
+    { query: GET_STAFF_ACCOUNT, variables: { id, adminId: adminid } },
+    { query: GET_OPEN_PUNCH, variables: { staffid: id } },
+    { query: GET_MY_EXPENSE_CLAIMS },
+    { query: GET_PAYMENTS, variables: { adminid } },
+  ];
+  if (user.role === 'deliveryboy') {
+    return [
+      { query: GET_MY_DELIVERIES, variables: { filter: { adminid, deliveryboyid: id } } },
+      { query: GET_DELIVERY_POOL, variables: { filter: { adminid, unassignedDelivery: true } } },
+      ...staff,
+      ...common,
+    ];
+  }
+  return [
+    { query: GET_ACCOUNTS, variables: user.role === 'salesman' ? { admin: adminid, salesmanid: id } : { admin: adminid } },
+    { query: GET_SALES_ORDERS, variables: user.role === 'salesman' ? { adminid, salesmenid: id } : { adminid } },
+    { query: GET_MY_SALES_RETURNS, variables: { adminid } },
+    { query: GET_CHANNELS, variables: { adminId: adminid } },
+    { query: GET_ACCOUNT_GROUPS, variables: { adminId: adminid } },
+    ...staff,
+    ...common,
+  ];
+}
