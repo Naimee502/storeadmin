@@ -1,7 +1,6 @@
 import FormField from "../formfiled";
 import BarcodeImage from "../barcode";
 import { useAppSelector } from "../../redux/hooks";
-import { selectIsFormFieldEnabled } from "../../redux/slices/permissions";
 
 export type UnitsQuery = {
     getUnits: Array<{
@@ -142,7 +141,7 @@ export const ProductVariants: React.FC<ProductVariantsProps> = ({
                             ].includes(field)
                                 ? "number"
                                 : ["manufacturedate", "expirydate"].includes(field)
-                                    ? "date"        // ✅ calendar input
+                                    ? "date"        // calendar input
                                     : "text"}
                             value={variant[field]}
                             onChange={handleChange}

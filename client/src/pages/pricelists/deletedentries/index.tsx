@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";

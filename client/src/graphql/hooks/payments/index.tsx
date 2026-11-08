@@ -21,7 +21,7 @@ import {
 import { useAppSelector } from "../../../redux/hooks";
 import { PAYMENT_SIDE_EFFECT_QUERIES } from "../shared/paymentsideeffects";
 
-// ----------------- Mutations -----------------
+// Mutations
 // Every payment write refreshes the Payments list BEFORE the mutation resolves.
 //
 // The visible bug: save a payment, land back on Payments, and the new entry
@@ -83,7 +83,7 @@ export const usePaymentMutations = () => {
   };
 };
 
-// ----------------- Allocation preview (lazy) -----------------
+// Allocation preview (lazy)
 // "network-only": the whole point is a fresh, race-free view of what the
 // party still owes at the moment the user presses Save.
 export const usePreviewAllocationLazy = () => {
@@ -96,7 +96,7 @@ export const usePartyOutstandingBillsLazy = () => {
   return run;
 };
 
-// ----------------- Payments Query -----------------
+// Payments Query
 // Defaults to "cache-and-network": payments are created as a SERVER-side side
 // effect of sales/purchase invoices, returns and expense notes, so Apollo's
 // cache goes stale without the client ever issuing a payment mutation. The
@@ -133,7 +133,7 @@ export const usePaymentsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and
   return { data, loading, error, refetch };
 };
 
-// ----------------- Deleted Payments Query -----------------
+// Deleted Payments Query
 export const useDeletedPaymentsQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -148,7 +148,7 @@ export const useDeletedPaymentsQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Payment by ID Query -----------------
+// Payment by ID Query
 export const usePaymentByIDQuery = (id?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
@@ -161,7 +161,7 @@ export const usePaymentByIDQuery = (id?: string) => {
   return { data, loading, error };
 };
 
-// ----------------- Paged list (server-side paging, search and column filters) -----------------
+// Paged list (server-side paging, search and column filters)
 export const usePaymentsPageQuery = ({
   page,
   pageSize,

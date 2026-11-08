@@ -47,7 +47,7 @@ const AddEditPurchaseInvoice = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -172,10 +172,10 @@ const AddEditPurchaseInvoice = () => {
 
   useEffect(() => {
     if (isEdit && data?.getPurchaseInvoiceById) {
-      // --- EDIT MODE
+      // EDIT MODE
       const invoice = data.getPurchaseInvoiceById;
 
-      // --- Header fields
+      // Header fields
       setPaymentType(invoice.paymenttype || "");
       setPaid(invoice.paid ? String(invoice.paid) : "");
       setPartyAccount({
@@ -214,7 +214,7 @@ const AddEditPurchaseInvoice = () => {
       setInvoiceDiscount(invoice.invoicediscount || "");
       setInvoiceDiscountType(invoice.invoicediscounttype || "amount");
 
-      // --- Products
+      // Products
       const mappedProducts = invoice.productservice.map((p: any) => {
         const productName = `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""
           }`;
@@ -251,7 +251,7 @@ const AddEditPurchaseInvoice = () => {
 
       setProducts(mappedProducts);
     } else if (orderData?.getPurchaseOrderById) {
-      // --- CONVERT FROM PURCHASE ORDER MODE
+      // CONVERT FROM PURCHASE ORDER MODE
       const order = orderData.getPurchaseOrderById;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
@@ -287,7 +287,7 @@ const AddEditPurchaseInvoice = () => {
       }));
       setProducts(mappedProducts);
     } else if (!isEdit && !orderId) {
-      // --- NEW INVOICE MODE - Auto-calculate next bill number
+      // NEW INVOICE MODE - Auto-calculate next bill number
       if (purchaseInvoices.length > 0) {
         const billNumbers = purchaseInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -361,7 +361,7 @@ const AddEditPurchaseInvoice = () => {
     return newErrors;
   };
 
-  /** ✅ Safely convert unit value (string | object | null) → string | null */
+  /* * Safely convert unit value (string | object | null) → string | null */
   const getUnitId = (value: any): string | null => {
     if (!value) return null;
     if (typeof value === "string") return value;

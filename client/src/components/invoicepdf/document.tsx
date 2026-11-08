@@ -44,7 +44,7 @@ const s = StyleSheet.create({
   },
   box: { borderWidth: px(1.5), borderColor: BLACK },
 
-  /* ---- header ---- */
+  /* header */
   company: { textAlign: "center", paddingTop: px(14), paddingHorizontal: px(16), paddingBottom: px(4) },
   companyName: { fontSize: px(22), fontFamily: "Helvetica-Bold", letterSpacing: px(0.5) },
   companyAddr: { fontSize: px(11.5), color: "#333333", marginTop: px(4), paddingBottom: px(10) },
@@ -62,7 +62,7 @@ const s = StyleSheet.create({
     backgroundColor: HEAD_BG,
   },
 
-  /* ---- meta grid ---- */
+  /* meta grid */
   meta: { flexDirection: "row", flexWrap: "wrap", borderBottomWidth: px(1), borderColor: BLACK },
   metaCell: {
     width: "33.333%",
@@ -81,7 +81,7 @@ const s = StyleSheet.create({
   },
   metaValue: { fontSize: px(12), fontFamily: "Helvetica-Bold" },
 
-  /* ---- items ---- */
+  /* items */
   th: {
     flexDirection: "row",
     backgroundColor: HEAD_BG,
@@ -108,7 +108,7 @@ const s = StyleSheet.create({
   },
   noRight: { borderRightWidth: 0 },
 
-  /* ---- totals ---- */
+  /* totals */
   totals: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -138,7 +138,7 @@ const s = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
 
-  /* ---- words / footer ---- */
+  /* words / footer */
   words: { borderTopWidth: px(1), borderColor: BLACK, paddingVertical: px(9), paddingHorizontal: px(12) },
   footer: { flexDirection: "row", borderTopWidth: px(1), borderColor: BLACK },
   terms: {
@@ -158,7 +158,7 @@ const s = StyleSheet.create({
     textAlign: "right",
     minHeight: px(90),
   },
-  // With Terms hidden, the signature must not stretch across the whole row —
+  // With Terms hidden, the signature must not stretch across the whole row
   // it becomes a normal right-aligned block, as it does in the printed copy.
   signStandalone: { width: px(260), marginLeft: "auto" },
   bold: { fontFamily: "Helvetica-Bold" },

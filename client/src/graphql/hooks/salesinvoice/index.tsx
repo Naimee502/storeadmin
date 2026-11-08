@@ -22,7 +22,7 @@ import {
 import { useAppSelector } from '../../../redux/hooks';
 import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
-// ----------------- Mutations -----------------
+// Mutations
 // A sales invoice auto-creates / updates / removes a Payment + Transaction on
 // the server (SalesInvoice.adjustStockAndTransactions). Refetch those caches or
 // Payments ▸ Add will keep showing the invoice as outstanding.
@@ -62,7 +62,7 @@ export const useSalesInvoiceMutations = () => {
   };
 };
 
-// ----------------- Sales Invoices Query -----------------
+// Sales Invoices Query
 /**
  * Active salesinvoices.
  *
@@ -97,7 +97,7 @@ export const useSalesInvoicesQuery = (
   return { data, loading, error, refetch };
 };
 
-// ----------------- Sales Invoices LIST (lite) -----------------
+// Sales Invoices LIST (lite)
 // Same filter as useSalesInvoicesQuery, but only the listing columns.
 export const useSalesInvoicesListQuery = (
   fetchPolicy?: WatchQueryFetchPolicy,
@@ -124,7 +124,7 @@ export const useSalesInvoicesListQuery = (
   return { data, loading, error, refetch };
 };
 
-// ----------------- Deleted Sales Invoices Query -----------------
+// Deleted Sales Invoices Query
 export const useDeletedSalesInvoicesQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -139,7 +139,7 @@ export const useDeletedSalesInvoicesQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Sales Invoice by ID Query -----------------
+// Sales Invoice by ID Query
 export const useSalesInvoiceByIDQuery = (id?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -152,7 +152,7 @@ export const useSalesInvoiceByIDQuery = (id?: string) => {
   return { data, loading, error };
 };
 
-// ----------------- Sales Invoices (settlement-lite, Payment form) -----------------
+// Sales Invoices (settlement-lite, Payment form)
 export const useSalesInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -175,7 +175,7 @@ export const useSalesInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy)
   return { data, loading, error, refetch };
 };
 
-// ----------------- Paged Sales Invoices (server-side pagination, search) -----------------
+// Paged Sales Invoices (server-side pagination, search)
 export const useSalesInvoicesPageQuery = ({
   page,
   pageSize,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import LoginLayout from "../../../layouts/login";
@@ -18,7 +18,7 @@ const AdminList = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "adminregister"));
   const { data, refetch } = useAdminsQuery();
   const [updateAdminMutation] = useUpdateAdminMutation();
-  const [deleteAdminMutation] = useDeleteAdminMutation(); 
+  const [deleteAdminMutation] = useDeleteAdminMutation();
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   let adminList = data?.getAdmins || [];
@@ -68,7 +68,7 @@ const AdminList = () => {
           dispatch(hideLoading());
         }
       };
-  
+
       fetchAndDispatch();
     }, [dispatch, refetch]);
 

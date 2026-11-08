@@ -107,7 +107,7 @@ const SubCategories = () => {
       return;
     }
 
-    // The preview's ✕ clears the image.
+    // The preview's clears the image.
     if (name === "image" && value === "") {
       setSelectedFile(null);
       setFormValues((prev) => {

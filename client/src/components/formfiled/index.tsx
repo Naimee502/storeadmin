@@ -22,7 +22,7 @@ export type InputType =
   | 'email'
   | 'password'
   | 'date'
-  | 'datetime-local'  
+  | 'datetime-local'
   | 'time'
   | 'number'
   | 'tel'
@@ -114,7 +114,7 @@ const HistoryTable = ({ headers, rows, emptyText }: { headers?: string[]; rows?:
   )
 );
 
-// History icon shown in the select control (next to clear ✕ and dropdown arrow)
+// History icon shown in the select control (next to clear and dropdown arrow)
 const IndicatorsWithHistory = (props: any) => {
   const { historyTitle, onHistoryToggle, menuIsOpen } = props.selectProps as {
     historyTitle?: string;
@@ -238,7 +238,7 @@ const FormField: React.FC<FormFieldProps> = ({
           }
           onChange={(selected: MultiValue<Option> | SingleValue<Option>) => {
           if (isMultiSelect) {
-            const selectedArray = selected as MultiValue<Option>; 
+            const selectedArray = selected as MultiValue<Option>;
             onChange({
               target: {
                 name,
@@ -404,7 +404,7 @@ const FormField: React.FC<FormFieldProps> = ({
     // A native date input always renders in the BROWSER's locale — on a US
     // Chrome that is MM/DD/YYYY, and no attribute changes it (lang="en-GB" was
     // tried and ignored). So keep the real <input type="date"> — the calendar,
-    // keyboard entry and the YYYY-MM-DD value all stay exactly as they were —
+    // keyboard entry and the YYYY-MM-DD value all stay exactly as they were
     // but paint its text transparent and lay a DD/MM/YYYY label over it.
     if (type === 'date') {
       const raw = value ?? '';

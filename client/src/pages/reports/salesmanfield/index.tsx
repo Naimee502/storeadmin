@@ -13,16 +13,14 @@ import { useAppSelector } from "../../../redux/hooks";
 import { formatDateDMY, formatDateTimeDMY, todayYMD, shiftDaysYMD } from "../../../utils/helper";
 import { FaChartBar, FaListAlt, FaBullseye, FaBoxes, FaMapMarkedAlt } from "react-icons/fa";
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Salesman Field Report. All figures come from the server
 // (getSalesmanPerformance / getSalesmanCallLog / getSalesmanProductSales),
-// which applies one rule set for calls:
-//   Productive   = visited and an order booked
+// which applies one rule set for calls
+// Productive = visited and an order booked
 //   Unproductive = visited, no order (with the salesman's reason)
-//   Missed       = on the route for that day, never visited (past days)
-//   Pending      = on today's route, not visited yet
+// Missed = on the route for that day, never visited (past days)
+// Pending = on today's route, not visited yet
 // The salesman app dashboard uses the same server code, so both always agree.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: "overview", label: "Overview", icon: <FaChartBar className="text-[12px] text-amber-500" /> },

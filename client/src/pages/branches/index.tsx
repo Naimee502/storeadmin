@@ -46,7 +46,7 @@ const Branches = () => {
     status: branch.status ? "Active" : "Inactive",
   }));
 
-  // 📤 Export branches to .xlsx file
+  // Export branches to .xlsx file
   const handleExport = async () => {
     let allBranches: any[];
     try {
@@ -85,7 +85,7 @@ const Branches = () => {
     saveAs(dataBlob, "branches.xlsx");
   };
 
-  // 📥 Import branches from .xlsx file
+  // Import branches from .xlsx file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -148,11 +148,11 @@ const Branches = () => {
               try {
                 await deleteBranchMutation({ variables: { id: row.id } });
                 await refetch();
-                // ✅ Show success message
+                // Show success message
                 dispatch(showMessage({ message: 'Branch deleted successfully.', type: 'success' }));
               } catch (error) {
                 console.error("Delete error:", error);
-                // ✅ Show error message
+                // Show error message
                 dispatch(showMessage({ message: 'Failed to delete branch.', type: 'error' }));
               }
             }

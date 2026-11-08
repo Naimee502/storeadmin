@@ -10,7 +10,7 @@ const toDate = (date: Date | string | number | null | undefined): Date => {
   return new Date(s);
 };
 
-// ✅ converts Date or string to DD/MM/YYYY
+// converts Date or string to DD/MM/YYYY
 export const normalizeToDMY = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
   const d = toDate(date);
@@ -18,7 +18,7 @@ export const normalizeToDMY = (date: Date | string | null | undefined): string |
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 };
 
-// ✅ converts Date or string to YYYY-MM-DD
+// converts Date or string to YYYY-MM-DD
 export const normalizeToYMD = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
   const d = toDate(date);
@@ -46,7 +46,7 @@ export const shiftDaysYMD = (days: number, from: Date = new Date()): string =>
     new Date(from.getFullYear(), from.getMonth(), from.getDate() + days)
   )!;
 
-// ✅ converts Date or string to DD-MM-YYYY (display format used in listings & prints)
+// converts Date or string to DD-MM-YYYY (display format used in listings & prints)
 // Also safely accepts an already-formatted "DD-MM-YYYY" string (returned as-is).
 export const formatDateDMY = (date: Date | string | number | null | undefined): string => {
   if (!date) return "-";
@@ -58,7 +58,7 @@ export const formatDateDMY = (date: Date | string | number | null | undefined): 
   return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
-// ✅ DD-MM-YYYY hh:mm AM/PM — date comes from `date`; the time-of-day comes from
+// DD-MM-YYYY hh:mm AM/PM — date comes from `date`; the time-of-day comes from
 // `timeSource` (e.g. createdAt) because bill dates are stored without a time.
 export const formatDateTimeDMY = (
   date: Date | string | number | null | undefined,
@@ -74,7 +74,7 @@ export const formatDateTimeDMY = (
   return `${datePart} ${String(h).padStart(2, "0")}:${m} ${ampm}`;
 };
 
-// ✅ converts Date or string to MM/DD/YYYY
+// converts Date or string to MM/DD/YYYY
 export const normalizeToMDY = (date: Date | string | null | undefined): string | null => {
   if (!date) return null;
   const d = new Date(date);
@@ -82,7 +82,7 @@ export const normalizeToMDY = (date: Date | string | null | undefined): string |
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 };
 
-// ✅ Date Shortcut (still returns DMY format unless you change)
+// Date Shortcut (still returns DMY format unless you change)
 export const applyDateShortcut = (
   type: "daily" | "weekly" | "monthly" | "yearly"
 ): { from: string | null; to: string | null } => {
@@ -105,7 +105,7 @@ export const applyDateShortcut = (
   return { from, to };
 };
 
-// ✅ Last 5 documents (orders/invoices) of a party as history rows:
+// Last 5 documents (orders/invoices) of a party as history rows
 // [DocNo, Date, Qty, Disc, Total] — used by the dropdown history feature
 export const getLastPartyDocRows = (
   docs: any[],
@@ -138,7 +138,7 @@ export const getLastPartyDocRows = (
     });
 };
 
-// ✅ Indian financial year (1 Apr – 31 Mar) for a given date
+// Indian financial year (1 Apr – 31 Mar) for a given date
 export const getFinancialYear = (d: Date = new Date()) => {
   const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
   const start = new Date(startYear, 3, 1);
@@ -169,7 +169,7 @@ export const getBaseQuantity = (
   );
 
   const factor = Number(conversion?.factor ?? 1);
-  return qty * factor; // 🔥 base unit qty
+  return qty * factor; // base unit qty
 };
 
 export const getCartItemBaseQty = (item, variant) => {
@@ -216,7 +216,6 @@ export const toTitleCase = (value: string | null | undefined): string =>
   String(value ?? "")
     .toLowerCase()
     .replace(/(^|[\s/-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
-
 
 /**
  * A date as a sortable number, whichever shape it arrives in — an epoch-ms

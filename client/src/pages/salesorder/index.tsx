@@ -39,11 +39,11 @@ const SalesOrders = () => {
   // When invoicing is enabled, an order is "confirmed" by converting it to an
   // invoice — so the status dropdown offers "Convert to Invoice" instead of a
   // separate "Confirmed". Order-only businesses keep plain "Confirmed".
-  // Business-level check (not staff-restricted) so every role at a branch —
+  // Business-level check (not staff-restricted) so every role at a branch
   // staff included — sees the same order→invoice workflow as the branch does.
   const salesInvoiceEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "salesinvoice"));
   const dispatch = useAppDispatch();
-  
+
   const apolloClient = useApolloClient();
 
   // Lite listing query — only the table columns. The full order is fetched by

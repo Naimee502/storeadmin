@@ -1,8 +1,6 @@
 import { gql } from "@apollo/client";
 
-/* ------------------------------------------------------------------ */
 /* Attendance                                                         */
-/* ------------------------------------------------------------------ */
 
 export const GET_ATTENDANCE_LOGS = gql`
   query GetAttendanceLogs($filter: AttendanceFilterInput) {
@@ -155,9 +153,7 @@ export const GET_OPEN_PUNCH = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* Holiday                                                            */
-/* ------------------------------------------------------------------ */
 
 export const GET_HOLIDAYS = gql`
   query GetHolidays($filter: HolidayFilterInput) {
@@ -188,9 +184,7 @@ export const GET_HOLIDAY_BY_ID = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveType                                                          */
-/* ------------------------------------------------------------------ */
 
 export const GET_LEAVE_TYPES = gql`
   query GetLeaveTypes($adminid: ID) {
@@ -234,9 +228,7 @@ export const GET_LEAVE_TYPE_BY_ID = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveRequest                                                       */
-/* ------------------------------------------------------------------ */
 
 export const GET_LEAVE_REQUESTS = gql`
   query GetLeaveRequests($filter: LeaveFilterInput) {
@@ -316,9 +308,7 @@ export const GET_MY_LEAVE_REQUESTS = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveBalance                                                       */
-/* ------------------------------------------------------------------ */
 
 export const GET_LEAVE_BALANCES = gql`
   query GetLeaveBalances($filter: LeaveBalanceFilterInput) {
@@ -365,9 +355,7 @@ export const GET_MY_LEAVE_BALANCES = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* Deleted (soft-deleted) views                                       */
-/* ------------------------------------------------------------------ */
 
 export const GET_DELETED_ATTENDANCE_LOGS = gql`
   query GetDeletedAttendanceLogs($filter: AttendanceFilterInput) {

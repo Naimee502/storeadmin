@@ -1,9 +1,9 @@
 // Single source of truth for module ids, labels, and the action set each
-// module supports. Consumed by:
-//   - components/sidebar     (which links to render)
-//   - pages/adminregister    (which checkboxes to show)
-//   - pages/settings         (Permissions matrix and Modules tab)
-//   - hooks/usePermission    (enumerating actions)
+// module supports. Consumed by
+// components/sidebar (which links to render)
+// pages/adminregister (which checkboxes to show)
+// pages/settings (Permissions matrix and Modules tab)
+// hooks/usePermission (enumerating actions)
 //
 // Adding a new module here makes it appear everywhere automatically.
 // Removing a module is safe — anything referring to a missing key falls
@@ -106,7 +106,7 @@ export type ModuleSection =
   | "system";
 
 const MODULE_LIST: ModuleDef[] = [
-  // ───────────── Master / Setup ─────────────
+  // Master / Setup
   // "rearrange" = the Rearrange button on Categories, which sets the order
   // categories show in on the client app and website.
   { id: "categories",     label: "Categories",      section: "master", actions: [...CRUD_ACTIONS, "rearrange"], inAdminRegister: true },
@@ -120,7 +120,7 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "units",          label: "Units",           section: "master", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "products",       label: "Products",        section: "master", actions: CRUD_WITH_IMPORT_EXPORT_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Accounts ─────────────
+  // Accounts
   { id: "accountgroups",  label: "Account Groups",  section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "accountledgers", label: "Account Ledgers", section: "accounts", actions: CRUD_ACTIONS, inAdminRegister: true },
   // "view" = the View button on the list: a staff member's parties and the
@@ -129,50 +129,50 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "staffaccounts",  label: "Staff Accounts",  section: "accounts", actions: ["view", ...CRUD_ACTIONS], inAdminRegister: true },
   { id: "accounts",       label: "Party Accounts",  section: "accounts", actions: ["view", ...CRUD_WITH_IMPORT_EXPORT_ACTIONS], inAdminRegister: true },
 
-  // ───────────── Sales pipeline ─────────────
+  // Sales pipeline
   { id: "salesorder",     label: "Sales Orders",    section: "sales", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "salesinvoice",   label: "Sales Invoices",  section: "sales", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
   { id: "salesreturn",    label: "Sales Returns",   section: "sales", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Point of Sale ─────────────
+  // Point of Sale
   { id: "posdashboard",   label: "POS Dashboard",   section: "pos", actions: ["view"], inAdminRegister: true },
 
-  // ───────────── Purchase pipeline ─────────────
+  // Purchase pipeline
   { id: "purchaseorder",   label: "Purchase Orders",   section: "purchase", actions: ORDER_ACTIONS, inAdminRegister: true },
   { id: "purchaseinvoice", label: "Purchase Invoices", section: "purchase", actions: FULL_TXN_ACTIONS, inAdminRegister: true },
   { id: "purchasereturn",  label: "Purchase Returns",  section: "purchase", actions: RETURN_TXN_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Inventory operations ─────────────
+  // Inventory operations
   { id: "transferstock",     label: "Transfer Stock",     section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "stockadjustments",  label: "Stock Adjustments",  section: "inventory", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Distribution ─────────────
+  // Distribution
   { id: "channels",       label: "Channels",        section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "salesroutes",    label: "Sales Routes",    section: "distribution", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Pricing ─────────────
+  // Pricing
   { id: "pricelists",       label: "Price Lists",        section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "priceassignments", label: "Price Assignments",  section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "chargerules",      label: "Charge Rules",       section: "pricing", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Accounting / cross-cutting ─────────────
+  // Accounting / cross-cutting
   { id: "transactions",  label: "Transactions",  section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "payments",      label: "Payments",      section: "accounting", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "expensenote",   label: "Expense Notes", section: "accounting", actions: [...CRUD_ACTIONS, "claims"], inAdminRegister: true },
 
-  // ───────────── HR & Staff ─────────────
+  // HR & Staff
   { id: "attendance",    label: "Attendance & Leave", section: "hr", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Communication ─────────────
+  // Communication
   // Announcements to staff and parties. Opt-in: NOT in DEFAULT_ON_MODULE_IDS,
   // so a business only sees it (admin panel, app, website) once it is enabled.
   { id: "announcements", label: "Announcements", section: "communication", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Manufacturing (BOM / Production) ─────────────
+  // Manufacturing (BOM / Production)
   { id: "bom",         label: "Bill of Materials", section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
   { id: "production",  label: "Production",         section: "manufacturing", actions: CRUD_ACTIONS, inAdminRegister: true },
 
-  // ───────────── Reports — sub-divided so each can be granted/denied ─────────────
+  // Reports — sub-divided so each can be granted/denied
   { id: "reports.sales",      label: "Sales Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.purchase",   label: "Purchase Reports",    section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.stock",      label: "Stock Reports",       section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
@@ -186,7 +186,7 @@ const MODULE_LIST: ModuleDef[] = [
   { id: "reports.analytical", label: "Analytical Reports",  section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
   { id: "reports.attendance", label: "Attendance & Leave Reports", section: "reports", actions: REPORT_ACTIONS, inAdminRegister: true },
 
-  // ───────────── System (always granted, never gated by allowedmodules) ─────────────
+  // System (always granted, never gated by allowedmodules)
   { id: "branches",      label: "Branches",        section: "system", actions: CRUD_ACTIONS, inAdminRegister: false },
   { id: "settings",      label: "Settings",        section: "system", actions: ["edit"], inAdminRegister: false },
   { id: "permissions",   label: "Permissions",     section: "system", actions: ["edit"], inAdminRegister: false },

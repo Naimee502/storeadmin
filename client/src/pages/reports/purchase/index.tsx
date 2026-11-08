@@ -62,13 +62,12 @@ const cap = (val: any): string => {
 };
 
 const PurchaseReports: React.FC = () => {
-
   // Default last 30 days — set up front so the first fetch is already ranged.
   const [activeTab, setActiveTab] = useState(reportTabs[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>(() => ({ fromDate: shiftDaysYMD(-30), toDate: todayYMD() }));
 
-  // -- Scope (same derivation as the purchase hooks)
+  // Scope (same derivation as the purchase hooks)
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -89,7 +88,7 @@ const PurchaseReports: React.FC = () => {
   const isOrderTab = activeTab === "Purchase Order";
   const isReturnTab = activeTab === "Purchase Return (DN)";
 
-  // -- Data (only the active tab's documents are fetched)
+  // Data (only the active tab's documents are fetched)
   // Active invoices are ranged on the server too (resolver now compares text).
   const { data: activeData, loading: activeLoading } = useQuery(GET_PURCHASE_INVOICES_REPORT, {
     variables: {

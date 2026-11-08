@@ -19,7 +19,7 @@ import {
 } from "../../../graphql/hooks/transferstock";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface Variant {
   id: string;
@@ -64,7 +64,7 @@ const emptyItem = (): TransferItem => ({
   _variants: [],
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// Component
 
 const TransferStockAddEdit: React.FC = () => {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ const TransferStockAddEdit: React.FC = () => {
     : (admin?.id || storedAdminId);
 
   const { data: branchesData } = useTransferStockBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -107,19 +107,19 @@ const TransferStockAddEdit: React.FC = () => {
   const { addTransferStockMutation, editTransferStockMutation } = useTransferStockMutations();
   const { data: editData, loading: editLoading } = useTransferStockByIDQuery(id || "");
 
-  // ── Header state ──────────────────────────────────────────────────────────
+  // ── Header state
   const [tobranchid, setTobranchid] = useState("");
   const [transferdate, setTransferdate] = useState(todayYMD());
   const [narration, setNarration] = useState("");
 
-  // ── Items state ───────────────────────────────────────────────────────────
+  // ── Items state
   const [items, setItems] = useState<TransferItem[]>([emptyItem()]);
 
-  // ── Totals ────────────────────────────────────────────────────────────────
+  // ── Totals
   const totalAmount = items.reduce((s, i) => s + i.amount, 0);
   const totalQty = items.reduce((s, i) => s + i.transferqty, 0);
 
-  // ── Load edit data ────────────────────────────────────────────────────────
+  // ── Load edit data
   // Hydrate once per voucher. The product lookup is cache-and-network, so it
   // emits a second (new) array when the network answer lands after the cached
   // one; re-running this effect then wiped whatever the user had already typed.
@@ -158,7 +158,7 @@ const TransferStockAddEdit: React.FC = () => {
     setItems(mapped.length > 0 ? mapped : [emptyItem()]);
   }, [isEdit, id, editData, allProducts]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers
 
   const buildUnitOptions = (variant?: Variant): { label: string; value: string }[] => {
     if (!variant) return [];
@@ -251,7 +251,7 @@ const TransferStockAddEdit: React.FC = () => {
       return next.length === 0 ? [emptyItem()] : next;
     });
 
-  // ── Validation ────────────────────────────────────────────────────────────
+  // ── Validation
   const validate = (): string | null => {
     // Source branch comes from the header; on "All Branches" there is none.
     if (!fromBranchId) return BRANCH_REQUIRED;
@@ -304,7 +304,7 @@ const TransferStockAddEdit: React.FC = () => {
     return null;
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validate();
@@ -355,7 +355,7 @@ const TransferStockAddEdit: React.FC = () => {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // Render
   if (isEdit && editLoading) {
     return (
       <HomeLayout>

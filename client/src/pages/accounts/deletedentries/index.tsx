@@ -23,7 +23,7 @@ const DeletedAccounts = () => {
   // which is exactly what you want to see before deciding whether to reset it.
   const channelsEnabled = useAppSelector(state => selectIsModuleBusinessEnabled(state, "channels"));
 
-  // ✅ Use unified query with status = false
+  // Use unified query with status = false
   const { data, refetch } = useAccountsQuery(false);
   const clear = useClearDeleted("accounts", refetch, "party account");
   const { data: ledgerData } = useAccountLedgersQuery();
@@ -56,7 +56,7 @@ const DeletedAccounts = () => {
     const ledgerName =
     typeof account.ledgerid === "string"
       ? "-" // string — not populated
-      : account.ledgerid?.ledgername || "-"; 
+      : account.ledgerid?.ledgername || "-";
 
     return {
       ...account,
@@ -76,7 +76,7 @@ const DeletedAccounts = () => {
       status: account.status ? "Active" : "Inactive",
     };
   });
-  
+
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">

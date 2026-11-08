@@ -138,9 +138,8 @@ const PartyReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  // -----------------------------
   // Fetch data
-  // -----------------------------
+
   const { data: accountsData } = useAccountsQuery();
   const { data: paymentsData } = usePaymentsQuery();
   const { data: ledgerData } = useAccountLedgersQuery();
@@ -201,9 +200,8 @@ const PartyReports: React.FC = () => {
     [purchaseInvData]
   );
 
-  // -----------------------------
   // Default filters = last 30 days
-  // -----------------------------
+
   // Every other report opens on the last 30 days, and so does this page's own
   // Reset button — only the initial load used the financial-year start, so the
   // range silently changed the first time anyone hit Reset.
@@ -225,11 +223,10 @@ const PartyReports: React.FC = () => {
     return { fromTimestamp, toTimestamp };
   };
 
-  // -----------------------------
   // Per-invoice settled amounts (from payments)
-  // -----------------------------
+
   // Single source of truth for what a bill still owes, shared with the payment
-  // screen and BillAllocation:
+  // screen and BillAllocation
   //
   //   outstanding = total − payments − journal settlements − un-refunded returns
   //
@@ -239,9 +236,8 @@ const PartyReports: React.FC = () => {
   // off the bill — a discount only lowers the CASH received — so adding it
   // again over-settled every discounted bill.
 
-  // -----------------------------
   // Opening balance of a party's ledger
-  // -----------------------------
+
   // How much of each party's opening balance has already been cleared by a
   // payment. Without this the report would keep charging them for an opening
   // that an advance has since settled — and "Unallocated" on the payments list
@@ -296,7 +292,6 @@ const PartyReports: React.FC = () => {
     return parseFloat((isVendor ? -remaining : remaining).toFixed(2));
   };
 
-  // -----------------------------
   // Bill-wise outstanding.
   //
   // Previously this was computed ledger-wise (opening + every journal entry
@@ -307,7 +302,7 @@ const PartyReports: React.FC = () => {
   // fine while paying parties drifted negative.
   //
   // Bill-wise is the number the user can actually verify — it matches the
-  // Bill Settlement list on the Add Payment screen and the aging buckets:
+  // Bill Settlement list on the Add Payment screen and the aging buckets
   //   opening + unpaid bills − payments not allocated to any bill
   // On-account (unallocated) receipts are subtracted so advances still reduce
   // the balance even though they don't belong to a specific invoice.
@@ -357,9 +352,8 @@ const PartyReports: React.FC = () => {
     return balance;
   };
 
-  // -----------------------------
   // Bill-wise info for a party: unpaid bills, next due date, overdue
-  // -----------------------------
+
   const getBillInfo = (account: any, invoices: any[]) => {
     const { fromTimestamp, toTimestamp } = getFilterTimestamps();
     const today = new Date();
@@ -414,9 +408,8 @@ const PartyReports: React.FC = () => {
     return { billedInPeriod, pendingBills, billOutstanding, nextDue, maxOverdueDays, aging };
   };
 
-  // -----------------------------
   // Payments received/made to a party in period
-  // -----------------------------
+
   const getPaidInPeriod = (account: any) => {
     const { fromTimestamp, toTimestamp } = getFilterTimestamps();
     return payments
@@ -430,11 +423,10 @@ const PartyReports: React.FC = () => {
       .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
   };
 
-  // -----------------------------
   // Last payment of a party (flag-gated columns on the outstanding tabs)
-  // -----------------------------
+
   // Customer tab → last payment RECEIVED from them (receipt).
-  // Vendor tab   → last payment we MADE to them.
+  // Vendor tab → last payment we MADE to them.
   // A party that is both gets the matching side on each tab.
   const getLastPayment = (a: any, received: boolean) => {
     const latest = payments
@@ -464,17 +456,16 @@ const PartyReports: React.FC = () => {
     };
   };
 
-  // -----------------------------
   // Tally-style outstanding row for one party
-  // -----------------------------
+
   const buildOutstandingRow = (a: any, invoices: any[], received: boolean) => {
     // Show the opening at FACE VALUE, not the un-cleared remainder.
     //
     // It looks like it should be the remainder, but the face value is what
-    // makes the row read as plain arithmetic:
+    // makes the row read as plain arithmetic
     //
     //     Opening + Billed − Received = Outstanding
-    //     100     + 100    − 250      = (50)
+    // 100 + 100 − 250 = (50)
     //
     // That identity holds because whatever a payment took off the opening is
     // already inside "Received". Printing the remainder here would show
@@ -534,9 +525,8 @@ const PartyReports: React.FC = () => {
     };
   };
 
-  // -----------------------------
   // Customer / Vendor Outstanding
-  // -----------------------------
+
   const customerOutstandingData = useMemo(() => {
     return accounts
       // A both-party appears on this list for its SALES side and on the vendor
@@ -554,9 +544,8 @@ const PartyReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
-  // -----------------------------
   // Receivable / Payable Aging (bill-wise buckets)
-  // -----------------------------
+
   const agingData = useMemo(() => {
     return accounts
       .filter((a: any) => isCustomerParty(a.type) || isVendorParty(a.type))
@@ -597,9 +586,8 @@ const PartyReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, payments, ledgers, salesInvoices, purchaseInvoices, outstandingOf, excessCreditOf, appliedFilters]);
 
-  // -----------------------------
   // Party Statement — one party's ledger, transaction by transaction
-  // -----------------------------
+
   /** Every party that can have a statement, for the picker. */
   const statementPartyOptions = useMemo(
     () =>
@@ -823,9 +811,8 @@ const PartyReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statementParty, salesInvoices, purchaseInvoices, salesReturns, purchaseReturns, payments, ledgers, appliedFilters]);
 
-  // -----------------------------
   // Table Switcher
-  // -----------------------------
+
   let tableData: any[] = [];
   let columns: any[] = [];
   const filterFields: ReportFilterField[] = [

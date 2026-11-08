@@ -16,7 +16,7 @@ import {
 } from '../../queries/transferstock';
 import { useAppSelector } from '../../../redux/hooks';
 
-// ✅ Mutations
+// Mutations
 export const useTransferStockMutations = () => {
   const [addTransferStockMutation] = useMutation(ADD_TRANSFER_STOCK);
   const [editTransferStockMutation] = useMutation(EDIT_TRANSFER_STOCK);
@@ -31,7 +31,7 @@ export const useTransferStockMutations = () => {
   };
 };
 
-// ✅ Transfer Stocks Query (Active)
+// Transfer Stocks Query (Active)
 export const useTransferStocksQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -46,7 +46,7 @@ export const useTransferStocksQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ✅ Transfer Stocks LIST (lite) — list page only. Same scope/variables as
+// Transfer Stocks LIST (lite) — list page only. Same scope/variables as
 // useTransferStocksQuery, GET_TRANSFER_STOCKS_LIST selection.
 export const useTransferStocksListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -62,7 +62,7 @@ export const useTransferStocksListQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ✅ Product lookup for the list + add/edit form. Same scope/variables as
+// Product lookup for the list + add/edit form. Same scope/variables as
 // useProductServicesQuery (products hook); result is under getProductServices.
 export const useTransferStockProductsQuery = (
   status: boolean = true,
@@ -85,7 +85,7 @@ export const useTransferStockProductsQuery = (
   return { data, loading, error, refetch };
 };
 
-// ✅ Branch names for the list columns and the destination picker. Same
+// Branch names for the list columns and the destination picker. Same
 // variables as useBranchesQuery; result is under getBranches.
 export const useTransferStockBranchesQuery = () => {
   const adminId = useAppSelector((state) => state.auth.admin?.id);
@@ -97,7 +97,7 @@ export const useTransferStockBranchesQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ✅ Deleted Transfer Stocks Query
+// Deleted Transfer Stocks Query
 export const useDeletedTransferStocksQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -112,7 +112,7 @@ export const useDeletedTransferStocksQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ✅ Get Transfer Stock by ID
+// Get Transfer Stock by ID
 export const useTransferStockByIDQuery = (id: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminId = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -125,7 +125,7 @@ export const useTransferStockByIDQuery = (id: string) => {
   return { data, loading, error };
 };
 
-// ----------------- Paged list (server-side paging, search and column filters) -----------------
+// Paged list (server-side paging, search and column filters)
 export const useTransferStocksPageQuery = ({
   page,
   pageSize,

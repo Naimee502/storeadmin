@@ -19,9 +19,8 @@ import { useAppSelector } from '../../../redux/hooks';
 
 export const useLoginStaffMutation = () => useMutation(LOGIN_STAFF);
 
-// ---------------------------------------------
 // MUTATIONS
-// ---------------------------------------------
+
 export const useStaffMutations = () => {
   const [addStaffMutation] = useMutation(ADD_STAFF);
   const [editStaffMutation] = useMutation(EDIT_STAFF);
@@ -36,9 +35,8 @@ export const useStaffMutations = () => {
   };
 };
 
-// ---------------------------------------------
 // STAFF LIST QUERY
-// ---------------------------------------------
+
 // Staff Accounts list page only — same filter as useStaffQuery, fewer fields.
 export const useStaffListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -103,9 +101,8 @@ export const useStaffQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ---------------------------------------------
 // DELETED STAFF QUERY
-// ---------------------------------------------
+
 export const useDeletedStaffQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -124,9 +121,8 @@ export const useDeletedStaffQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ---------------------------------------------
 // GET STAFF BY ID
-// ---------------------------------------------
+
 export const useStaffByIDQuery = (id: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

@@ -16,7 +16,7 @@ import { FaTrash } from "react-icons/fa";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
+// Layout
 // Header and every row share this template so the columns stay aligned.
 // Boxes match the compact FormField controls used inside FormPage (32px).
 // Written out in full (not built at runtime) so Tailwind generates the class.
@@ -25,7 +25,7 @@ const ROW_GRID_SM =
 const BOX = "flex items-center h-8 rounded-md border bg-white px-2.5 text-[13px]";
 const MOBILE_LABEL = "sm:hidden block mb-0.5 text-[12px] font-medium text-slate-600";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface Variant {
   id: string;
@@ -80,7 +80,7 @@ const emptyItem = (): AdjItem => ({
   _variants: [],
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// Component
 
 const StockAdjustmentAddEdit: React.FC = () => {
   const navigate = useNavigate();
@@ -93,7 +93,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
   const storedBranchId = localStorage.getItem("branchid") || "";
   const storedAdminId = localStorage.getItem("adminid") || "";
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -113,36 +113,36 @@ const StockAdjustmentAddEdit: React.FC = () => {
     : type === "staff" ? (staff?.branchid?.id || selectedBranchId || storedBranchId || firstBranchId)
     : (selectedBranchId || storedBranchId);
 
-  // ── Header state ──────────────────────────────────────────────────────────
+  // ── Header state
   const [adjDate, setAdjDate] = useState(todayYMD());
   const [adjType, setAdjType] = useState<"Shortage" | "Excess">("Shortage");
   const [reason, setReason] = useState("");
 
-  // ── Items state ───────────────────────────────────────────────────────────
+  // ── Items state
   const [items, setItems] = useState<AdjItem[]>([emptyItem()]);
 
-  // ── Product data ──────────────────────────────────────────────────────────
+  // ── Product data
   // Lite picker query: id/name + variant id/name/currentstock/purchaserate only.
   const { data: productData } = useStockAdjustmentProductsQuery(true, 500, 0);
   const allProducts: Product[] = productData?.getProductServices ?? [];
 
-  // ── Fetch existing record for edit ────────────────────────────────────────
+  // ── Fetch existing record for edit
   const { data: editData, loading: editLoading } = useGetStockAdjustmentById(
     id || "",
     adminId,
     branchId
   );
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Mutations
   const { createStockAdjustment, loading: creating } = useCreateStockAdjustment();
   const { updateStockAdjustment, loading: updating } = useUpdateStockAdjustment();
   const saving = creating || updating;
 
-  // ── Derived totals ────────────────────────────────────────────────────────
+  // ── Derived totals
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
   const totalAmount = items.reduce((s, i) => s + i.amount, 0);
 
-  // ── Pre-populate form when editing ───────────────────────────────────────
+  // ── Pre-populate form when editing
   useEffect(() => {
     if (!isEdit || !editData?.getStockAdjustmentById || allProducts.length === 0) return;
 
@@ -180,7 +180,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
     setItems(mappedItems.length > 0 ? mappedItems : [emptyItem()]);
   }, [isEdit, editData, allProducts]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers
 
   const productOptions = allProducts.map((p) => ({
     label:
@@ -237,7 +237,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
       return next.length === 0 ? [emptyItem()] : next;
     });
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -306,7 +306,7 @@ const StockAdjustmentAddEdit: React.FC = () => {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // Render
   if (isEdit && editLoading) {
     return (
       <HomeLayout>

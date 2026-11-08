@@ -67,7 +67,7 @@ export const selectIsModuleAllowed = (state: any, moduleId: string): boolean => 
   return isModuleInAllowed(state, moduleId);
 };
 
-// Business-level "is this module part of how the company works" check —
+// Business-level "is this module part of how the company works" check
 // business + branch allowance only, deliberately SKIPPING the staff-level
 // restriction (Level 3 above). Use this for workflow decisions that must
 // look the same for every role at a branch (e.g. "does this business
@@ -185,14 +185,14 @@ export const selectModuleActions = (state: any, moduleId: string) => {
 export const selectIsFormFieldEnabled = (state: any, moduleId: string, fieldId: string): boolean => {
   const { permissions } = state.permissions;
   if (!permissions || !permissions.formPermissions) return true;
-  
+
   const modulePerms = permissions.formPermissions[moduleId];
   if (!modulePerms) return true;
-  
+
   if (modulePerms[fieldId] !== undefined) {
     return !!modulePerms[fieldId];
   }
-  
+
   return true;
 };
 

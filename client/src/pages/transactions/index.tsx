@@ -61,7 +61,7 @@ const Transaction = () => {
   ];
 
   const tableData = transactionList.map((txn: any, index: number) => {
-    // 🔹 Convert string timestamp to number and format
+    // Convert string timestamp to number and format
     let formattedDate = "-";
     if (txn.transactiondate) {
       const ts = Number(txn.transactiondate);
@@ -73,7 +73,7 @@ const Transaction = () => {
       }
     }
 
-    // 🔹 Capitalize first letter
+    // Capitalize first letter
     const capitalizeFirstLetter = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 

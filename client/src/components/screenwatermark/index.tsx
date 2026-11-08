@@ -47,7 +47,7 @@ const ScreenWatermark = () => {
     return () => clearInterval(t);
   }, [enabled]);
 
-  // ── Desktop build: the part that is actually enforced ────────────────────
+  // ── Desktop build: the part that is actually enforced
   // In the Electron shell, preload.js exposes this bridge and the main process
   // calls BrowserWindow.setContentProtection(). On Windows 10 2004+ that hands
   // the window to SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE) and it

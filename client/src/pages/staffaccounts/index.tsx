@@ -24,11 +24,10 @@ import {
 } from "react-icons/fa";
 
 import { useImageUpload } from "../../graphql/hooks/uploads";
-import { useAccountLedgersQuery } from "../../graphql/hooks/accountledgers";
 import { useAccountGroupsQuery } from "../../graphql/hooks/accountgroups";
 
 import { useChannelsQuery } from "../../graphql/hooks/channels";
-import { selectModuleActions, selectIsFormFieldEnabled } from "../../redux/slices/permissions";
+import { selectModuleActions } from "../../redux/slices/permissions";
 import { useServerTable, useServerPaging } from "../../hooks/useservertable";
 
 // Columns the server can filter (Seq Number is per page).
@@ -48,7 +47,7 @@ type FormValues = {
   commission: number | "";
   target: number | "";
   status: boolean;
-  role: string; 
+  role: string;
   assignedChannels: string[];
 };
 
@@ -117,7 +116,7 @@ const StaffAccounts = () => {
     commission: "",
     target: "",
     status: true,
-    role: "staff", 
+    role: "staff",
     assignedChannels: [],
   });
 
@@ -139,7 +138,7 @@ const StaffAccounts = () => {
     }));
   }, []);
 
-  // ===== VALIDATION (PASSWORD NOT REQUIRED WHILE EDITING) =====
+  // VALIDATION (PASSWORD NOT REQUIRED WHILE EDITING)
   const validateForm = useCallback(() => {
     const errors: any = {};
 
@@ -239,7 +238,7 @@ const StaffAccounts = () => {
       assignedChannels: formValues.role === 'salesman' ? formValues.assignedChannels : [],
     };
 
-    // 🔥 Password only included if user typed something
+    // Password only included if user typed something
     if (!isEditing && formValues.password.trim() !== "") {
       payload.password = formValues.password;
     } else if (isEditing && formValues.password.trim() !== "") {
@@ -309,7 +308,7 @@ const StaffAccounts = () => {
     { label: "Commission", key: "commission" },
     { label: "Target", key: "target" },
     { label: "Account Group", key: "accountgroupname" },
-    { label: "Role", key: "role" }, 
+    { label: "Role", key: "role" },
     { label: "Status", key: "status" },
   ];
 

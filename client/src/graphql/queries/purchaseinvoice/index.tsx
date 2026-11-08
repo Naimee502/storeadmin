@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 
-// 🔹 Queries
+// Queries
 // Bill-settlement query for the Payment form — no line items.
 export const GET_PURCHASE_INVOICES_SETTLE = gql`
   query GetPurchaseInvoicesSettle($filter: PurchaseInvoiceFilterInput) {

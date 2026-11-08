@@ -58,8 +58,8 @@ const FormPermissionsTab: React.FC<{
         formPermissions: draft,
       };
       const response = await setPermissions({ variables: { scope, scopeid, permissions: fullPermissions } });
-      
-      // Update Redux state immediately so changes reflect without reloading —
+
+      // Update Redux state immediately so changes reflect without reloading
       // only for the business's own settings. Saving a branch / staff member
       // must not replace the logged-in user's permissions.
       if (scope !== "admin") {
@@ -100,13 +100,13 @@ const FormPermissionsTab: React.FC<{
   const isAllSelected = (moduleId: string, sectionId?: string) => {
     const config = FORM_PERMISSIONS_CONFIG.find((c) => c.moduleId === moduleId);
     if (!config) return false;
-    
+
     if (sectionId) {
       const section = config.sections.find(s => s.id === sectionId);
       if (!section) return false;
       return section.fields.filter((f) => !parentOff(moduleId, f.id)).every((f) => isSelected(moduleId, f.id));
     }
-    
+
     // Check module level
     return config.sections.every(s => s.fields.filter((f) => !parentOff(moduleId, f.id)).every(f => isSelected(moduleId, f.id)));
   };
@@ -115,9 +115,9 @@ const FormPermissionsTab: React.FC<{
     setDirty(true);
     const config = FORM_PERMISSIONS_CONFIG.find((c) => c.moduleId === moduleId);
     if (!config) return;
-    
+
     const newModuleDraft = { ...(draft[moduleId] || {}) };
-    
+
     if (sectionId) {
       const section = config.sections.find(s => s.id === sectionId);
       if (section) {
@@ -132,7 +132,7 @@ const FormPermissionsTab: React.FC<{
         });
       });
     }
-    
+
     setDraft((prev: any) => ({
       ...prev,
       [moduleId]: newModuleDraft,

@@ -32,7 +32,7 @@ export const useActiveStockAdjustments = (filter: any = {}) =>
 export const useDeletedStockAdjustments = (filter: any = {}) =>
   useGetStockAdjustments({ ...filter, status: false });
 
-// ----------------- Stock Adjustments LIST (lite) -----------------
+// Stock Adjustments LIST (lite)
 // Active entries for the list page only — same filter as
 // useActiveStockAdjustments, but the GET_STOCK_ADJUSTMENTS_LIST selection and
 // the default (cache-first) policy so a return visit paints from cache while
@@ -48,7 +48,7 @@ export const useStockAdjustmentsListQuery = (
   return { data, loading, error, refetch };
 };
 
-// ----------------- Product picker for the add/edit form -----------------
+// Product picker for the add/edit form
 // Same scope/variables as useProductServicesQuery (products hook), lite
 // GET_STOCK_ADJUSTMENT_PRODUCTS selection. Result is under getProductServices.
 export const useStockAdjustmentProductsQuery = (
@@ -121,7 +121,7 @@ export const useResetStockAdjustment = () => {
   return { resetStockAdjustment, loading, error };
 };
 
-// ----------------- Paged list (server-side paging, search and column filters) -----------------
+// Paged list (server-side paging, search and column filters)
 export const useStockAdjustmentsPageQuery = ({
   page,
   pageSize,

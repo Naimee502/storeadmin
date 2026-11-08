@@ -1,6 +1,6 @@
 // Settings — central control plane for the admin/branch.
 //
-// KEY DESIGN:
+// KEY DESIGN
 //  1. A single global dropdown at the top selects the target
 //     (Branch for Admin, Staff for Branch). All child-management tabs share it.
 //  2. When admin is logged in AND the SaaS flags are enabled, business-level
@@ -156,7 +156,7 @@ const Settings = () => {
   }, [selectedTargetId, parentAllowed, isAdmin, manageStaff, targetKind, branchesData, staffData]);
 
   // ── Build visible tabs ──
-  // Business tabs: shown to admin when SaaS flags allow (hide ONLY if flag === false)
+  // Business tabs: shown to admin when SaaS flags allow (hide ONLY if flag false)
   // Child tabs: Branch Modules + Branch Access for admin, Staff Modules + Staff Access for branch
   const visibleTabs: Array<[TabKey, string]> = useMemo(() => {
     const tabs: Array<[TabKey, string]> = [];
@@ -341,9 +341,6 @@ const PRODUCT_IMAGE_RATIO_OPTIONS = [
   { label: "Landscape (4:3)", value: "4:3" },
   { label: "Wide (16:9)", value: "16:9" },
 ];
-
-
-
 
 const PRODUCT_IMAGE_RATIO_FIELDS: { key: string; label: string; help: string }[] = [
   { key: "appProductImageRatio", label: "App — Home & Shop", help: "The product cards in the mobile app." },
@@ -1224,7 +1221,7 @@ const HeroBannerSlidesEditor: React.FC<{
    pattern as the banner slide editors, just without the image upload.
    ===================================================================== */
 
-// The Home page renders these in a fixed 4-column strip (sm:grid-cols-4) —
+// The Home page renders these in a fixed 4-column strip (sm:grid-cols-4)
 // a 5th tile would just wrap awkwardly, so the editor caps it here instead
 // of letting the admin add more than the layout can actually show.
 const MAX_BUSINESS_STATS = 4;

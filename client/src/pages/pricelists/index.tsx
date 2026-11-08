@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { showMessage } from "../../redux/slices/message";
@@ -46,12 +46,7 @@ const PriceLists = () => {
           title="Price List Master"
           columns={columns}
           data={tableData}
-          
-          
-          
-          
-          
-          
+
           onEdit={(row) => navigate(`/pricelists/addedit/${row.id}`)}
           onDelete={async (row) => {
             if (window.confirm(`Are you sure you want to delete "${row.name}"?`)) {

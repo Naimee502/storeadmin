@@ -33,7 +33,7 @@ import {
 import { GET_STAFF } from "../../graphql/queries/staffaccounts";
 import { formatDateDMY } from "../../utils/helper";
 
-/* ─── helpers ─────────────────────────────────────────────────────── */
+/* helpers */
 
 const pad  = (n: number) => String(n).padStart(2, "0");
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
@@ -47,7 +47,7 @@ const daysBetween = (from: string, to: string) => {
   return Math.max(1, Math.round((t.getTime() - f.getTime()) / 86400000) + 1);
 };
 
-/* ─── Status badges ────────────────────────────────────────────────── */
+/* Status badges */
 
 const STATUS_COLORS: Record<string, string> = {
   present:   "bg-green-100 text-green-800",
@@ -71,7 +71,7 @@ const StatusBadge: React.FC<{ value: string }> = ({ value }) => {
   );
 };
 
-/* ─── Stat card ────────────────────────────────────────────────────── */
+/* Stat card */
 
 const StatCard: React.FC<{ label: string; value: number | string; color: string; icon?: React.ReactNode }> = ({ label, value, color, icon }) => (
   <div className={`rounded-md border border-slate-200 bg-white px-3 py-2 flex items-center gap-2.5`}>
@@ -83,7 +83,7 @@ const StatCard: React.FC<{ label: string; value: number | string; color: string;
   </div>
 );
 
-/* ─── Leave Balance progress card ──────────────────────────────────── */
+/* Leave Balance progress card */
 
 const BalanceCard: React.FC<{ type: any; allocated: number; used: number; pending: number; balance: number; carried: number }> = ({ type, allocated, used, pending, balance, carried }) => {
   const total = allocated + carried;
@@ -114,9 +114,7 @@ const BalanceCard: React.FC<{ type: any; allocated: number; used: number; pendin
   );
 };
 
-/* ═══════════════════════════════════════════════════════════════════ */
 /* Page                                                               */
-/* ═══════════════════════════════════════════════════════════════════ */
 
 const Attendance: React.FC = () => {
   const navigate  = useNavigate();
@@ -168,7 +166,7 @@ const Attendance: React.FC = () => {
   const [printIds, setPrintIds] = useState<string[] | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ─── Queries ─────────────────────────────────────────────────── */
+  /* Queries */
   const logVars = {
     filter: {
       adminid:  adminId,
@@ -218,7 +216,7 @@ const Attendance: React.FC = () => {
       label: `${lt.name} (${lt.code})`,
     })), [leaveTypesQ.data]);
 
-  /* ─── Mutations ───────────────────────────────────────────────── */
+  /* Mutations */
   const refetchAll = async () => {
     await Promise.all([
       logsQ.refetch(), punchesQ.refetch(), summaryQ.refetch(), todaySummaryQ.refetch(),
@@ -249,7 +247,7 @@ const Attendance: React.FC = () => {
   const notify = (msg: string, t: "success" | "error" = "success") =>
     dispatch(showMessage({ message: msg, type: t }));
 
-  /* ─── Modal state ─────────────────────────────────────────────── */
+  /* Modal state */
   type ModalKind = null |"punch"|"manualAttendance"|"editLog"|"holiday"|"leaveType"|"leaveRequest"|"rejectLeave"|"leaveBalance";
 
   const [modal, setModal]           = useState<ModalKind>(null);
@@ -285,7 +283,7 @@ const Attendance: React.FC = () => {
     setFormErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
   };
 
-  /* ─── Validation ──────────────────────────────────────────────── */
+  /* Validation */
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     const req = (key: string, label: string) => {
@@ -313,7 +311,7 @@ const Attendance: React.FC = () => {
     return true;
   };
 
-  /* ─── Approve / Reject / Cancel helpers ───────────────────────── */
+  /* Approve / Reject / Cancel helpers */
   const handleApprove = async (row: any) => {
     try {
       await approveLeaveReqMut({
@@ -338,7 +336,7 @@ const Attendance: React.FC = () => {
     } catch { notify("Failed to cancel.", "error"); }
   };
 
-  /* ─── Scan-to-punch ────────────────────────────────────────────── */
+  /* Scan-to-punch */
   useEffect(() => { if (scanOpen && scanInputRef.current) scanInputRef.current.focus(); }, [scanOpen]);
 
   const handleScanSubmit = async (raw: string) => {
@@ -361,7 +359,7 @@ const Attendance: React.FC = () => {
     }
   };
 
-  /* ─── Card printing ────────────────────────────────────────────── */
+  /* Card printing */
   const handlePrintCards = (ids: string[]) => {
     setPrintIds(ids);
     setTimeout(() => {
@@ -432,9 +430,8 @@ const Attendance: React.FC = () => {
     );
   };
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Overview                                                  */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const todayS   = todaySummaryQ.data?.getAttendanceSummary;
   const allReqs  = leaveRequestsQ.data?.getLeaveRequests ?? [];
   const pendReqs = allReqs.filter((r: any) => r.status === "pending");
@@ -539,9 +536,8 @@ const Attendance: React.FC = () => {
     </div>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Daily Attendance                                          */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const summary = summaryQ.data?.getAttendanceSummary;
 
   const logRows = (logsQ.data?.getAttendanceLogs ?? []).map((l: any, i: number) => ({
@@ -652,9 +648,7 @@ const Attendance: React.FC = () => {
     </div>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Leave Requests                                            */
-  /* ═══════════════════════════════════════════════════════════════ */
 
   /* Available balance for the selected leave type (for new request form) */
   const selectedBalance = useMemo(() => {
@@ -781,9 +775,8 @@ const Attendance: React.FC = () => {
     </div>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Leave Balances                                            */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const balanceRows = [...(leaveBalancesQ.data?.getLeaveBalances ?? [])].reverse().map((b: any, i: number) => ({
     ...b, seqNo: i+1,
     staffName: b.staffid?.name ?? "-",
@@ -879,9 +872,8 @@ const Attendance: React.FC = () => {
     </div>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Holidays                                                  */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const holidayRows = [...(holidaysQ.data?.getHolidays ?? [])].reverse().map((h: any, i: number) => ({
     ...h, seqNo: i+1, dateLabel: formatDateDMY(h.date), nameLabel: h.name, typeLabel: cap(h.type), descriptionLabel: h.description ?? "-",
   }));
@@ -919,9 +911,8 @@ const Attendance: React.FC = () => {
     />
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Leave Types                                               */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const leaveTypeRows = (leaveTypesQ.data?.getLeaveTypes ?? []).map((lt: any, i: number) => ({
     ...lt, seqNo: i+1, paidLabel: lt.isPaid ? "Paid" : "Unpaid", accrualLabel: cap(lt.accrualType),
   }));
@@ -973,9 +964,8 @@ const Attendance: React.FC = () => {
     />
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Punches                                                   */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const punchRows = (punchesQ.data?.getAttendancePunches ?? []).map((p: any, i: number) => ({
     ...p, seqNo: i+1, typeLabel: cap(p.type), sourceLabel: cap(p.source), address: p.address ?? "-", remarks: p.remarks ?? "-", when: fmtDate(p.timestamp) + " " + fmtTime(p.timestamp),
   })).map((r: any) => ({ ...r, selfieCell: <SelfieThumb url={r.selfieUrl} caption={`${r.typeLabel} · ${r.when}`} /> }));
@@ -1001,9 +991,8 @@ const Attendance: React.FC = () => {
     />
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* TAB: Staff Cards                                               */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const staffList = staffQ.data?.getStaffAccounts ?? [];
   const renderCardsTab = () => (
     <>
@@ -1033,9 +1022,8 @@ const Attendance: React.FC = () => {
     </>
   );
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* Modal submit handlers                                          */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const submitPunch = async () => {
     if (!validateForm()) return;
     try {
@@ -1106,9 +1094,8 @@ const Attendance: React.FC = () => {
     } catch (e: any) { notify(e?.message || "Failed.", "error"); }
   };
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* Modal content                                                  */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   const Buttons: React.FC<{ onSubmit: () => void }> = ({ onSubmit }) => (
     <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 mt-3">
       <Button variant="outline" onClick={closeModal}>Cancel</Button>
@@ -1253,9 +1240,8 @@ const Attendance: React.FC = () => {
     leaveBalance: editing ? "Edit Balance" : "Set Leave Balance",
   };
 
-  /* ═══════════════════════════════════════════════════════════════ */
   /* Render                                                         */
-  /* ═══════════════════════════════════════════════════════════════ */
+
   return (
     <HomeLayout>
       <div className="w-full p-4">

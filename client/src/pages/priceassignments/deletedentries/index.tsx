@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import HomeLayout from "../../../layouts/home";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
@@ -55,7 +55,7 @@ const DeletedPriceAssignments = () => {
   const tableData = [...assignments].reverse().map((item: any, index: number) => {
     const targetType = item.targettype;
     const targetId = item.targetid;
-    
+
     let channelName = "-";
     let regionName = "-";
     let customerName = "-";
@@ -72,8 +72,8 @@ const DeletedPriceAssignments = () => {
       regionName = regionOptions.find((r: any) => r.value === reg)?.label || reg;
     }
 
-    const displayType = targetType === "channel_region" 
-      ? "Channel + Region" 
+    const displayType = targetType === "channel_region"
+      ? "Channel + Region"
       : targetType.charAt(0).toUpperCase() + targetType.slice(1).replace('_', ' ');
 
     return {
@@ -133,7 +133,7 @@ const DeletedPriceAssignments = () => {
           showExport={false}
           showAdd={false}
           showReset={actions.canReset}
-          
+
           onReset={handleReset}
           {...clear}
           entriesOptions={[5, 10, 25]}

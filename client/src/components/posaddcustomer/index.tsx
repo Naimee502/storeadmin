@@ -10,7 +10,7 @@ type ErrorState = {
     mobile?: string;
 };
 
-/* ---------- REGION LIST ---------- */
+/* REGION LIST */
 export const regionOptions: any[] = [
     { value: "andhra_pradesh", label: "Andhra Pradesh" },
     { value: "arunachal_pradesh", label: "Arunachal Pradesh" },
@@ -63,7 +63,7 @@ export default function PosAddCustomer({
     open: boolean;
     onClose: () => void;
     onCreated: (id: string) => void;
-    mode?: "customer" | "vendor"; // ⭐ NEW PROP
+    mode?: "customer" | "vendor"; // NEW PROP
     variant?: "default" | "pos";
 }) {
     const { admin, branch, staff, type } = useAppSelector((s) => s.auth);
@@ -110,7 +110,6 @@ export default function PosAddCustomer({
             )?.id || ""
         );
     }, [accountGroupData, mode]);
-
 
     const validate = () => {
         const err: ErrorState = {};
@@ -352,7 +351,7 @@ export default function PosAddCustomer({
                         placeholder="Select account type"
                     />
                 )}
-                
+
                 <button
                     type="button"
                     className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg border disabled:opacity-60"

@@ -20,7 +20,7 @@ import {
 } from '../../queries/salesorder';
 import { useAppSelector } from '../../../redux/hooks';
 
-// ----------------- Mutations -----------------
+// Mutations
 export const useSalesOrderMutations = () => {
   const [addSalesOrderMutation] = useMutation(ADD_SALES_ORDER);
   const [editSalesOrderMutation] = useMutation(EDIT_SALES_ORDER);
@@ -45,7 +45,7 @@ export const useSalesOrderMutations = () => {
   };
 };
 
-// ----------------- Sales Orders Query -----------------
+// Sales Orders Query
 export const useSalesOrdersQuery = (extraFilter: Record<string, any> = {}) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -60,7 +60,7 @@ export const useSalesOrdersQuery = (extraFilter: Record<string, any> = {}) => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Sales Orders LIST (lite) -----------------
+// Sales Orders LIST (lite)
 // Same filter as useSalesOrdersQuery, but only the listing columns.
 export const useSalesOrdersListQuery = (extraFilter: Record<string, any> = {}) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -76,7 +76,7 @@ export const useSalesOrdersListQuery = (extraFilter: Record<string, any> = {}) =
   return { data, loading, error, refetch };
 };
 
-// ----------------- Sales Orders PAGE (server-side paging, search, filters) -----------------
+// Sales Orders PAGE (server-side paging, search, filters)
 export const useSalesOrdersPageQuery = ({
   page,
   pageSize,
@@ -111,7 +111,7 @@ export const useSalesOrdersPageQuery = ({
   };
 };
 
-// ----------------- Deleted Sales Orders Query -----------------
+// Deleted Sales Orders Query
 export const useDeletedSalesOrdersQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -126,7 +126,7 @@ export const useDeletedSalesOrdersQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Sales Order by ID Query -----------------
+// Sales Order by ID Query
 export const useSalesOrderByIDQuery = (id?: string) => {
   const { data, loading, error } = useQuery(GET_SALES_ORDER_BY_ID, {
     variables: { id },

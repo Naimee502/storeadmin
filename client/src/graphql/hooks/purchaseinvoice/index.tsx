@@ -19,7 +19,7 @@ import {
 import { useAppSelector } from '../../../redux/hooks';
 import { PAYMENT_SIDE_EFFECT_QUERIES } from '../shared/paymentsideeffects';
 
-// ----------------- Mutations -----------------
+// Mutations
 // A purchase invoice auto-creates / updates / removes a Payment + Transaction
 // on the server (PurchaseInvoice.adjustStockAndTransactions). Refetch those
 // caches or Payments ▸ Add will keep showing the bill as outstanding.
@@ -55,7 +55,7 @@ export const usePurchaseInvoiceMutations = () => {
   };
 };
 
-// ----------------- Purchase Invoices Query -----------------
+// Purchase Invoices Query
 /**
  * Active purchase invoices.
  *
@@ -90,7 +90,7 @@ export const usePurchaseInvoicesQuery = (
   return { data, loading, error, refetch };
 };
 
-// ----------------- Deleted Purchase Invoices Query -----------------
+// Deleted Purchase Invoices Query
 export const useDeletedPurchaseInvoicesQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -105,7 +105,7 @@ export const useDeletedPurchaseInvoicesQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Purchase Invoice by ID Query -----------------
+// Purchase Invoice by ID Query
 export const usePurchaseInvoiceByIDQuery = (id?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminid = type === 'admin' ? admin?.id : type === 'branch' ? branch?.admin?.id : type === 'staff' ? staff?.admin?.id : undefined;
@@ -118,7 +118,7 @@ export const usePurchaseInvoiceByIDQuery = (id?: string) => {
   return { data, loading, error };
 };
 
-// ----------------- Purchase Invoices LIST (lite) -----------------
+// Purchase Invoices LIST (lite)
 // Same filter as usePurchaseInvoicesQuery, but only the listing columns.
 export const usePurchaseInvoicesListQuery = (
   fetchPolicy?: WatchQueryFetchPolicy,
@@ -145,7 +145,7 @@ export const usePurchaseInvoicesListQuery = (
   return { data, loading, error, refetch };
 };
 
-// ----------------- Purchase Invoices (settlement-lite, Payment form) -----------------
+// Purchase Invoices (settlement-lite, Payment form)
 export const usePurchaseInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPolicy) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -168,7 +168,7 @@ export const usePurchaseInvoicesSettleQuery = (fetchPolicy?: WatchQueryFetchPoli
   return { data, loading, error, refetch };
 };
 
-// ----------------- Purchase Invoices PAGE (server paging) -----------------
+// Purchase Invoices PAGE (server paging)
 // One page of the listing; search and column filters run on the server.
 export const usePurchaseInvoicesPageQuery = ({
   page,

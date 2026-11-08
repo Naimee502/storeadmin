@@ -12,7 +12,6 @@ import { getLastPartyDocRows } from "../../../utils/helper";
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
 import { isCustomerParty } from "../../../utils/partytype";
@@ -33,7 +32,7 @@ const AddEditSalesOrder = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -151,7 +150,7 @@ const AddEditSalesOrder = () => {
       }));
       setProducts(mappedProducts);
     } else if (!isEdit) {
-      // --- NEW ORDER MODE - Auto-calculate next bill number
+      // NEW ORDER MODE - Auto-calculate next bill number
       if (salesOrders.length > 0) {
         const billNumbers = salesOrders.map((order) => order.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();

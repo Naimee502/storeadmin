@@ -1,7 +1,7 @@
 // Accounting-style Retail POS (Tally-inspired)
-// - Voucher header, item-selection ledger table, itemised voucher cart
-// - Totals block with Sub Total / Discount / GST / Total, function-key action bar
-// - Staff/Branch/Admin can take orders or generate invoices
+// Voucher header, item-selection ledger table, itemised voucher cart
+// Totals block with Sub Total / Discount / GST / Total, function-key action bar
+// Staff/Branch/Admin can take orders or generate invoices
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import HomeLayout from "../../layouts/home";
@@ -45,7 +45,7 @@ import { partyLabel } from "../../utils/partylabel";
 import { isCustomerParty } from "../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../utils/branch";
 
-/* ---------------- Helpers ---------------- */
+/* Helpers */
 function getPriceFromUnitPrice(u: any) {
   return u?.offerprice ?? u?.salesrate ?? u?.mrp ?? 0;
 }
@@ -120,7 +120,7 @@ function mapProductServiceList(list: any[] = []) {
 export default function POSDashboard() {
   const dispatch = useAppDispatch();
 
-  /* ---------- Fetch master data ---------- */
+  /* Fetch master data */
   const { data: catData } = useCategoriesQuery();
   const categoryList = catData?.getCategories || [];
 
@@ -142,7 +142,7 @@ export default function POSDashboard() {
     [productServiceList]
   );
 
-  /* ---------- UI state ---------- */
+  /* UI state */
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
@@ -163,12 +163,12 @@ export default function POSDashboard() {
 
   const { resolvePrice } = usePriceResolvers();
 
-  /* ---------- Customer / accounts ---------- */
+  /* Customer / accounts */
   const { data: accountData, refetch: refetchAccounts } = useAccountsQuery();
   const accounts = accountData?.getAccounts || [];
   const customerOptions = accounts.filter((a: any) => isCustomerParty(a.type));
 
-  /* ---------- Auth context ---------- */
+  /* Auth context */
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const creatorInfo = useMemo(() => {
     if (type === "admin" && admin)
@@ -192,7 +192,7 @@ export default function POSDashboard() {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -249,7 +249,7 @@ export default function POSDashboard() {
     setBillNumber(getNextBillNumber(list));
   }, [isOrderMode, serverInvoices, serverOrders]);
 
-  /* ---------- Keyboard shortcuts: F2 search, F3 barcode ---------- */
+  /* Keyboard shortcuts: F2 search, F3 barcode */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "F2") {
@@ -266,7 +266,7 @@ export default function POSDashboard() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /* ---------- Filtered subcategories ---------- */
+  /* Filtered subcategories */
   const subcategoriesForActive = useMemo(() => {
     if (!activeCategory) return subCategoryList;
     return subCategoryList.filter(
@@ -274,7 +274,7 @@ export default function POSDashboard() {
     );
   }, [activeCategory, subCategoryList]);
 
-  /* ---------- Filtered products ---------- */
+  /* Filtered products */
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return PRODUCTS.filter((p) => {
@@ -295,7 +295,7 @@ export default function POSDashboard() {
     });
   }, [PRODUCTS, search, activeCategory, activeSubcategory, activeBrand]);
 
-  /* ---------- Add to cart ---------- */
+  /* Add to cart */
   const addToCart = (
     product: any,
     variantId: string | null = null,
@@ -470,7 +470,7 @@ export default function POSDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedParty?.id]);
 
-  /* ---------- Barcode submit ---------- */
+  /* Barcode submit */
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim()) return;
@@ -499,7 +499,7 @@ export default function POSDashboard() {
     }
   };
 
-  /* ---------- Qty / remove ---------- */
+  /* Qty / remove */
   const updateQty = (cartId: string, qty: number) => {
     if (qty < 1) {
       setCart((prev) => prev.filter((c) => c.cartId !== cartId));
@@ -554,7 +554,7 @@ export default function POSDashboard() {
     }));
   };
 
-  /* ---------- Hold / Recall / Clear ---------- */
+  /* Hold / Recall / Clear */
   const holdCart = () => {
     if (cart.length === 0) {
       dispatch(showMessage({ message: "Cart is empty", type: "error" }));
@@ -581,7 +581,7 @@ export default function POSDashboard() {
     if (confirm("Clear all items from cart?")) setCart([]);
   };
 
-  /* ---------- Totals ---------- */
+  /* Totals */
   const subtotal = cart.reduce(
     (s, i) => s + (i.price ?? 0) * (i.qty ?? 0),
     0
@@ -604,7 +604,7 @@ export default function POSDashboard() {
     return null;
   };
 
-  /* ---------- Submit / Save ---------- */
+  /* Submit / Save */
   const handlePaymentComplete = async ({ paymentType }: any) => {
     // Customer is selected in the cart (selectedParty), NOT in the drawer.
     // The drawer only returns paymentType / paidAmount / balance now to
@@ -710,13 +710,13 @@ export default function POSDashboard() {
     }
   };
 
-  /* ---------- Customer pick ---------- */
+  /* Customer pick */
   const onPickCustomer = (id: string) => {
     const acc = customerOptions.find((c: any) => c.id === id);
     setSelectedParty(acc || null);
   };
 
-  /* ---------- Render ---------- */
+  /* Render */
   const fmt = (n: any) =>
     Number(n || 0).toLocaleString("en-IN", {
       minimumFractionDigits: 2,

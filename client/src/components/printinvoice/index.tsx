@@ -3,7 +3,7 @@ import { toWords } from "number-to-words";
 import { useAppSelector } from "../../redux/hooks";
 import { formatDateTimeDMY, formatDateDMY } from "../../utils/helper";
 
-/* ================= TYPES ================= */
+/* TYPES */
 interface Product {
   productserviceid: { name: string };
   variantid?: { name: string };
@@ -73,7 +73,7 @@ const DEFAULT_TERMS =
   '3. Our risk and responsibility ceases as soon as the goods leave our premises.\n' +
   '4. "Subject to RAJKOT Jurisdiction only. E.&.O.E"';
 
-/* ================= COMPONENT ================= */
+/* COMPONENT */
 const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
   ({ invoice, title = "TAX INVOICE", docNoLabel = "Invoice No.", memoLabel = "Online Memo" }, ref) => {
     const localRef = useRef<HTMLDivElement>(null);
@@ -100,7 +100,7 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
     const products = invoice.productservice || [];
 
-    /* ================= CALCULATIONS ================= */
+    /* CALCULATIONS */
     const productsTotal = products.reduce(
       (sum, p) => sum + p.qty * p.rate,
       0
@@ -400,8 +400,8 @@ const PrintableInvoice = forwardRef<HTMLDivElement, PrintableInvoiceProps>(
 
               const lastRowStartIndex = Math.floor((cells.length - 1) / 3) * 3;
               return cells.map((cell, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`inv-meta-cell ${idx % 3 === 2 ? 'no-right-border' : ''} ${idx >= lastRowStartIndex ? 'no-bottom-border' : ''}`}
                 >
                   <div className="inv-meta-label">{cell.label}</div>

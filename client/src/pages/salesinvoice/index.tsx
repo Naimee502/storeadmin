@@ -28,7 +28,6 @@ import { partyLabel } from "../../utils/partylabel";
 const stateLabel = (slug?: string) =>
   stateOptions.find((s) => s.value === slug)?.label || "";
 
-
 // Columns the server can filter (Seq Number is per page, so it has none).
 const SERVER_FILTER_KEYS = [
   "paymenttype", "partyacc", "totalitem", "totalqty", "billdate",
@@ -40,7 +39,7 @@ const SalesInvoices = () => {
   const dispatch = useAppDispatch();
   const M = "salesinvoice";
   const actions = useAppSelector(state => selectModuleActions(state, M));
-  
+
   // Lite listing query — only the table columns. The full bill is fetched by
   // id on Print / WhatsApp (see loadPrintable).
   const table = useServerTable("salesinvoice", SERVER_FILTER_KEYS);
@@ -59,7 +58,7 @@ const SalesInvoices = () => {
     deliverSalesInvoiceMutation,
   } = useSalesInvoiceMutations();
 
-  // Everything that can happen to a bill from the list sits in one dropdown:
+  // Everything that can happen to a bill from the list sits in one dropdown
   // where it is in delivery, and whether it stands at all. Cancelling is not a
   // separate little icon — it is a state this bill is in, so it belongs on the
   // same control that shows the state.
@@ -419,7 +418,6 @@ const SalesInvoices = () => {
     }
     return printable;
   };
-
 
   return (
     <HomeLayout>

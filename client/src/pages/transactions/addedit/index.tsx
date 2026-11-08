@@ -17,7 +17,6 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 
-
 const AddEditTransaction = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -72,7 +71,7 @@ const AddEditTransaction = () => {
     [expenseNotesData, recordedExpenseNoteIds]
   );
 
-  // ── Tally-style bill allocation (Agst Ref) ─────────────────────────────
+  // ── Tally-style bill allocation (Agst Ref)
   const [partyid, setPartyid] = useState("");
   const [settleSide, setSettleSide] = useState<"SalesInvoice" | "PurchaseInvoice" | "ExpenseNote">("SalesInvoice");
   const [allocations, setAllocations] = useState<Allocation[]>([]);
@@ -160,7 +159,7 @@ const AddEditTransaction = () => {
     narration: "",
     entrytype: "manual",
     entries: [
-      { ledgerid: "", debit: "", credit: "", remarks: "" } 
+      { ledgerid: "", debit: "", credit: "", remarks: "" }
     ],
     status: true,
     adminid: adminId || "",
@@ -181,7 +180,7 @@ const AddEditTransaction = () => {
       entrytype: t.entrytype || "manual",
       entries: t.entries?.map((e: any) => ({
         ledgerid: e.ledgerid.id,
-        debit: e.debit !== undefined ? e.debit : "",   
+        debit: e.debit !== undefined ? e.debit : "",
         credit: e.credit !== undefined ? e.credit : "",
         remarks: e.remarks || "",
       })) || [],
@@ -353,7 +352,6 @@ const formatTransactionDate = (date: any) => normalizeToYMD(date) || todayYMD();
             />)}
         </div>
         </fieldset>
-
 
           {/* Bill Allocation (Tally "Agst Ref") — optional */}
           {isFieldEnabled("record_journal_section") && (

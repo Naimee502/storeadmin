@@ -5,7 +5,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatINR } from "../../utils/helper";
 
-// ── dates ───────────────────────────────────────────────────────────────
+// ── dates
 export const parseServerDate = (d: any): Date | null => {
   if (d === null || d === undefined || d === "") return null;
   const dt = /^\d+$/.test(String(d).trim()) ? new Date(Number(d)) : new Date(d);
@@ -73,7 +73,7 @@ const useDateFilter = () => {
   return { bounds, ui };
 };
 
-// ── order status (same derivation as the apps) ─────────────────────────────
+// ── order status (same derivation as the apps)
 export const orderStatus = (o: any): string => {
   if (o?.cancelStatus === "cancelled") return "cancelled";
   if (o?.deliveryStatus === "delivered") return "delivered";
@@ -98,7 +98,7 @@ export const billNo = (o: any) => {
 };
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// ── layout pieces ──────────────────────────────────────────────────────────
+// ── layout pieces
 export const InfoRow: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) => (
   <div className="flex justify-between gap-3 border-b border-slate-100 py-1.5 text-[13px] last:border-0">
     <span className="text-slate-500">{label}</span>
@@ -144,7 +144,7 @@ const Search: React.FC<{ value: string; onChange: (v: string) => void; placehold
   />
 );
 
-// ── Orders table ───────────────────────────────────────────────────────────
+// ── Orders table
 export const OrdersTable: React.FC<{
   orders: any[];
   loading?: boolean;
@@ -240,7 +240,7 @@ export const OrdersTable: React.FC<{
   );
 };
 
-// ── Payments table ─────────────────────────────────────────────────────────
+// ── Payments table
 export const PaymentsTable: React.FC<{ payments: any[]; loading?: boolean }> = ({ payments, loading }) => {
   const navigate = useNavigate();
   const { bounds, ui } = useDateFilter();
@@ -298,7 +298,7 @@ export const PaymentsTable: React.FC<{ payments: any[]; loading?: boolean }> = (
   );
 };
 
-// ── Parties table ──────────────────────────────────────────────────────────
+// ── Parties table
 export const PartiesTable: React.FC<{
   parties: any[];
   outstandingById: Record<string, number>;
@@ -353,7 +353,7 @@ export const PartiesTable: React.FC<{
   );
 };
 
-// ── Deliveries table (delivery boy) ────────────────────────────────────────
+// ── Deliveries table (delivery boy)
 const invNo = (i: any) => `INV-${String(parseInt(i?.billnumber, 10) || i?.billnumber || 0).padStart(6, "0")}`;
 export const DeliveriesTable: React.FC<{ invoices: any[]; loading?: boolean }> = ({ invoices, loading }) => {
   const navigate = useNavigate();
@@ -436,7 +436,7 @@ export const DeliveriesTable: React.FC<{ invoices: any[]; loading?: boolean }> =
   );
 };
 
-// ── Party stock table ──────────────────────────────────────────────────────
+// ── Party stock table
 export const PartyStockTable: React.FC<{ rows: any[]; loading?: boolean }> = ({ rows, loading }) => {
   const [q, setQ] = useState("");
   const list = useMemo(() => {

@@ -84,7 +84,7 @@ const DeletedExpenseNotes = () => {
     let formattedDate = "-";
 
     if (exp.expensedate) {
-      const timestamp = Number(exp.expensedate); // 🔥 FIX
+      const timestamp = Number(exp.expensedate); // FIX
       const dt = new Date(timestamp);
 
       if (!isNaN(dt.getTime())) {
@@ -142,7 +142,7 @@ const DeletedExpenseNotes = () => {
           showReset={actions.canReset}
           showImport={false}
           showExport={false}
-          
+
           onReset={async (row: any) => {
             if (
               window.confirm(

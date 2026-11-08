@@ -10,7 +10,7 @@ import { useAppSelector } from "../../redux/hooks";
 import { usePriceResolvers } from "../../graphql/hooks/pricelists";
 import { getStockShortfalls } from "../../utils/products/stockcheck";
 
-/** ✅ Invoice line type */
+/* * Invoice line type */
 export type InvoiceProduct = {
   productserviceid: string;
   variantid?: string | null;
@@ -53,7 +53,7 @@ type ProductSectionProps = {
   originalProducts?: InvoiceProduct[];
 };
 
-/** ✅ Safely convert unit value (string | object | null) → string | null */
+/* * Safely convert unit value (string | object | null) → string | null */
 const getUnitId = (value: any): string | null => {
   if (!value) return null;
   if (typeof value === "string") return value;
@@ -74,7 +74,7 @@ const unitNameFor = (variant: any, unitid?: string | null): string => {
   return fromConv?.unitname || "";
 };
 
-/** ✅ Normalize backend product */
+/* * Normalize backend product */
 const normalizeProduct = (product: any) => ({
   ...product,
   productvariants: product.productvariants?.map((v: any) => ({
@@ -248,7 +248,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
   const [qtyError, setQtyError] = useState<string | null>(null);
 
-  // Selling below cost is blocked on sales lines. Purchase lines are exempt —
+  // Selling below cost is blocked on sales lines. Purchase lines are exempt
   // there the entered rate IS the purchase rate, so there is nothing to
   // compare it against. Rates are normalised per base unit before comparing,
   // so a Piece line and a Dozen line are both judged correctly.
@@ -291,7 +291,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     setSelectedProduct({});
   }, [partyAccount]);
 
-  /** ✅ Calculate line total */
+  /* * Calculate line total */
   const calculateLineTotal = () => {
     const qty = selectedProduct.quantity || 0;
     const rate = selectedProduct.rate || 0;
@@ -304,7 +304,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     return subtotal + gstAmount;
   };
 
-  // ✅ Handle auto-save on blur for inline editing
+  // Handle auto-save on blur for inline editing
   // Changing a row's unit re-prices that row: a different pack size carries its
   // own rate and discount, so keeping the old ones would leave the line showing
   // a price that belongs to a unit it no longer uses.
@@ -461,7 +461,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     };
   }, [inlineHistoryOpen, closeInlineHistory]);
 
-  /** ✅ Handle inline product change in Products List table */
+  /* * Handle inline product change in Products List table */
   const handleProductChange = (rowIndex: number, newValue: string) => {
     if (!newValue) {
       setEditingCell(null);
@@ -498,7 +498,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     setEditingValue("");
   };
 
-  /** ✅ Add or update product line */
+  /* * Add or update product line */
   const handleAddOrUpdateProduct = () => {
     if (!selectedProduct.productserviceid) return alert("Please select a product");
     // A line without a unit cannot be priced or converted to base quantity, so
@@ -533,7 +533,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
       const newBaseQty = getBaseQuantity(qty, selectedUnitId!, variant);
 
-      // 🔥 TOTAL USED STOCK (exclude editing row)
+      // TOTAL USED STOCK (exclude editing row)
       const usedBaseQty = products
         .filter((_, i) => i !== editIndex)
         .filter(p => p.variantid === selectedProduct.variantid)
@@ -543,7 +543,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       // originalProducts. On a new invoice this is 0 and nothing changes.
       const effectiveStock = currentStock + reservedBaseQtyFor(variant);
 
-      // ❌ FINAL SALES VALIDATION
+      // FINAL SALES VALIDATION
       if (type === "sales" && usedBaseQty + newBaseQty > effectiveStock) {
         setQtyError(
           `Sales quantity exceeds available stock (${effectiveStock} in base units)`
@@ -551,7 +551,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         return;
       }
 
-      // ✅ clear error
+      // clear error
       setQtyError(null);
 
     const total = calculateLineTotal();
@@ -584,7 +584,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     setEditIndex(null);
   };
 
-  /** ✅ Edit row safely */
+  /* * Edit row safely */
   const editProduct = (i: number) => {
     const prod = products[i];
 
@@ -593,7 +593,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       purchaseunitid: getUnitId(prod.purchaseunitid),
       salesunitid: getUnitId(prod.salesunitid),
 
-      // ✅ Needed to show selected unit on edit
+      // Needed to show selected unit on edit
       selectedUnitValue:
         prod.salesunitid && prod.unitquantity
           ? `${prod.salesunitid}--${prod.unitquantity}`
@@ -603,7 +603,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
     setEditIndex(i);
   };
 
-  /** ✅ Remove */
+  /* * Remove */
   const removeProduct = (i: number) => {
     setProducts((prev) => prev.filter((_, idx) => idx !== i));
     if (editIndex === i) setEditIndex(null);
@@ -631,7 +631,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
             }
             onChange={(e) => {
               if (!e.target.value) {
-                setSelectedProduct({}); // ✕ clear → unselect product
+                setSelectedProduct({}); // clear → unselect product
                 return;
               }
               const [pid, vid] = e.target.value.split("--");
@@ -703,7 +703,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
 
               if (!variant) return;
 
-              // --- NEW RESOLUTION LOGIC ---
+              // NEW RESOLUTION LOGIC
               let resolvedPrice = null;
               try {
                 resolvedPrice = await resolvePrice({
@@ -809,7 +809,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
               const currentStock =
                 Number(variant.currentstock ?? 0) + reservedBaseQtyFor(variant);
 
-              // ✅ SALES ONLY validation
+              // SALES ONLY validation
               if (type === "sales" && baseQty > currentStock) {
                 setQtyError(
                   `Available stock (${currentStock} in base units)`

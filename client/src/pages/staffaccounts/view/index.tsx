@@ -70,7 +70,7 @@ const StaffView = () => {
   );
   const deliveredCount = deliveries.filter((d: any) => d.deliveryStatus === "delivered").length;
   const collected = collections.filter((p: any) => p.status !== false).reduce((a: number, p: any) => a + (Number(p.amount) || 0), 0);
-  // Parties — the same list the staff member works with in the app:
+  // Parties — the same list the staff member works with in the app
   //  • Salesman: parties linked to him + parties on his Sales Routes (the
   //    server's salesmanid filter, exactly what "My Parties" shows).
   //  • Other staff: every party of the business, as in the staff app.

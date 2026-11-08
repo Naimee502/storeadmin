@@ -13,7 +13,7 @@
 // because `paidByInvoice` was built from the stale cache. A hard refresh
 // "fixed" it, which is the tell-tale sign of a cache problem.
 //
-// Referenced by operation NAME (not query document + variables) on purpose:
+// Referenced by operation NAME (not query document + variables) on purpose
 // Apollo then refetches every ACTIVE query with that name whatever its
 // variables, so a branch switch or a differently-filtered list can't slip
 // through. Queries that aren't mounted are covered by the `cache-and-network`

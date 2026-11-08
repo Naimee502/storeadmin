@@ -1,9 +1,9 @@
 // Add / Edit a Sales Return (Credit Note).
 //
-// Modes:
-//   - ?fromInvoice=<id>  →  load that invoice; the user ticks the lines being returned
-//   - /:id (existing)    →  load existing return for editing
-//   - bare /addedit      →  user must pick a source invoice from the dropdown
+// Modes
+// ?fromInvoice=<id> → load that invoice; the user ticks the lines being returned
+// /:id (existing) → load existing return for editing
+// bare /addedit → user must pick a source invoice from the dropdown
 //
 // Quantity validation runs both client-side (immediate UX) and server-side
 // (authoritative — reads existing returns to compute remaining returnable qty).
@@ -201,7 +201,7 @@ const AddEditSalesReturn: React.FC = () => {
     setInvoiceType(ret.invoicetype || "retail");
     setIsService(!!ret.isservice);
     setSalesmenid(ret.salesmenid?.id);
-    
+
     setOtherCharges(ret.othercharges?.map((c: any) => ({
       ledgerid: c.ledgerid?.id || "",
       ledgername: c.ledgerid?.ledgername || c.ledgername || "",
@@ -343,8 +343,6 @@ const AddEditSalesReturn: React.FC = () => {
         )
     );
   }, [isEdit, sourceInvData, salesReturns, sourceInvoiceId]);
-
-
 
   // Totals
   // Set the return qty of several lines in one go (row tick, header tick,

@@ -286,7 +286,7 @@ const writeDataSheet = (
     if (def.type === "ref" && def.master) {
       const nameRange = masterNameRange(def.master);
       const label = MASTER_LABELS[def.master];
-      // Category, Brand, Unit... accept a typed name that is not in the list —
+      // Category, Brand, Unit... accept a typed name that is not in the list
       // the import creates it. The dropdown stays, but no popup: Excel can't
       // remember an accepted value (the list lives on the hidden master sheet),
       // so it would ask again on every cell. The import review lists every

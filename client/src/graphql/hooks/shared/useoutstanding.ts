@@ -45,7 +45,7 @@ export const useOutstanding = ({ excludePaymentId, excludeTransactionId }: Optio
   const { data: salesReturnsData } = useSalesReturnsQuery();
   const { data: purchaseReturnsData } = usePurchaseReturnsQuery();
 
-  // ── Settled per invoice: Payments + "Agst Ref" journal transactions ──────
+  // ── Settled per invoice: Payments + "Agst Ref" journal transactions
   const paidByInvoice = useMemo(() => {
     const map: Record<string, number> = {};
 
@@ -82,7 +82,7 @@ export const useOutstanding = ({ excludePaymentId, excludeTransactionId }: Optio
     return s;
   }, [paymentsData]);
 
-  // ── Credit-note value still sitting against each source invoice ──────────
+  // ── Credit-note value still sitting against each source invoice
   const returnsByInvoice = useMemo(() => {
     const map: Record<string, number> = {};
 

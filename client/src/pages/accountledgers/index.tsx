@@ -57,7 +57,7 @@ const AccountLedgers = () => {
     if (name === "openingbalance") value = Number(value);
 
     if (name === "status") {
-      value = value === "true" || value === true; // ✅ convert select value to boolean
+      value = value === "true" || value === true; // convert select value to boolean
     }
 
     setFormValues((prev) => ({ ...prev, [name]: value }));
@@ -72,7 +72,7 @@ const AccountLedgers = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // ✅ While editing convert API string ("Active") → boolean
+  // While editing convert API string ("Active") → boolean
   const handleEdit = (row: any) => {
     setFormValues({
       ledgername: row.ledgername,
@@ -99,7 +99,7 @@ const AccountLedgers = () => {
         ...formValues,
         admin: adminId,
         openingbalance: Number(formValues.openingbalance),
-        status: formValues.status === true, 
+        status: formValues.status === true,
       };
 
       if (isEditing && editingId) {

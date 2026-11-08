@@ -39,7 +39,7 @@ const AddEditPurchaseOrder = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -173,7 +173,7 @@ const AddEditPurchaseOrder = () => {
       }));
       setProducts(mappedProducts);
     } else if (!isEdit) {
-      // --- NEW ORDER MODE - Auto-calculate next bill number
+      // NEW ORDER MODE - Auto-calculate next bill number
       if (purchaseOrders.length > 0) {
         const billNumbers = purchaseOrders.map((order) => order.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();

@@ -149,7 +149,7 @@ export const useProductImportExport = (
     [branchid, disabledFields]
   );
 
-  /* ---------------- downloads ---------------- */
+  /* downloads */
 
   const downloadTemplate = useCallback(
     async (format: "xlsx" | "csv") => {
@@ -215,7 +215,7 @@ export const useProductImportExport = (
     [products, permissions, ensureMasters, metaFor, adminid, dispatch]
   );
 
-  /* ---------------- upload + dry run ---------------- */
+  /* upload + dry run */
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -385,7 +385,7 @@ export const useProductImportExport = (
     [ensureMasters, permissions, adminid, branchid, mode, runImport, uploadImageMutation, dispatch, pickedImages]
   );
 
-  /* ---------------- picked images ---------------- */
+  /* picked images */
 
   const addImages = useCallback((files: FileList | File[] | null) => {
     const list = Array.from(files ?? []);
@@ -408,7 +408,7 @@ export const useProductImportExport = (
     if (originalFile.current) handleFile(originalFile.current);
   }, [handleFile]);
 
-  /* ---------------- commit ---------------- */
+  /* commit */
 
   const confirmImport = useCallback(
     async (onFinished?: () => void) => {

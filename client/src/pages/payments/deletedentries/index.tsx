@@ -23,7 +23,7 @@ const DeletedPayments = () => {
   const isLoading = useAppSelector((state) => state.loader.isLoading);
 
   const deletedPayments = data?.getDeletedPayments || [];
-  
+
   const { data: accountsData, refetch: accountsDataRefetch } = useAccountsLiteQuery();
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const DeletedPayments = () => {
   return (
     <HomeLayout>
       <div className="w-full px-2 sm:px-6 pt-4 pb-6">
-        <DataTable          
+        <DataTable
           {...actions}
           title="Deleted Payments"
           columns={columns}
@@ -96,7 +96,7 @@ const DeletedPayments = () => {
           showDelete={false}
           showAdd={false}
           showReset={actions.canReset}
-           // ✅ Reset action
+           // Reset action
           onReset={async (row: any) => {
             if (
               window.confirm(

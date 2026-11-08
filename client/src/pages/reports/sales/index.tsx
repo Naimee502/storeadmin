@@ -61,12 +61,11 @@ const cap = (val: any): string => {
 };
 
 const SalesReports: React.FC = () => {
-
   const [activeTab, setActiveTab] = useState(reportTabs[0].id);
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  // -- Scope (same derivation as the graphql/hooks sales* hooks)
+  // Scope (same derivation as the graphql/hooks sales* hooks)
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
@@ -83,7 +82,7 @@ const SalesReports: React.FC = () => {
   const needActiveInvoices = isInvoiceTab && appliedFilters.status !== "Inactive";
   const needDeletedInvoices = isInvoiceTab && appliedFilters.status !== "Active";
 
-  // -- Data: only the active tab's lite query runs.
+  // Data: only the active tab's lite query runs.
   // NOTE: invoices are NOT date-filtered on the server — getSalesInvoices /
   // getDeletedSalesInvoices compare the String `billdate` against
   // `new Date(...)`, which Mongoose casts to "Tue Oct 06 2026 …" and so would

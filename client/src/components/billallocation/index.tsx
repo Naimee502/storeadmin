@@ -60,7 +60,7 @@ const BillAllocation: React.FC<Props> = ({
   // Payments + journal settlements + un-refunded returns, all in one place.
   const { outstandingOf } = useOutstanding({ excludePaymentId, excludeTransactionId });
 
-  // ── Invoices that already have a journal recorded against them ─────────
+  // ── Invoices that already have a journal recorded against them
   // In "record" mode an invoice's full journal is recorded exactly once, so any
   // invoice already linked to a transaction is hidden from the picker.
   const recordedInvoiceIds = useMemo(() => {
@@ -74,7 +74,7 @@ const BillAllocation: React.FC<Props> = ({
     return s;
   }, [transactionsData, excludeTransactionId]);
 
-  // ── All invoices for the chosen side ───────────────────────────────────
+  // ── All invoices for the chosen side
   const allInvoices = useMemo(() => {
     const src =
       invoicemodel === "SalesInvoice"
@@ -83,7 +83,7 @@ const BillAllocation: React.FC<Props> = ({
     return src.map((inv: any) => ({ ...inv, invoicemodel }));
   }, [invoicemodel, salesInvData, purchaseInvData]);
 
-  // ── Outstanding invoices for this party ────────────────────────────────
+  // ── Outstanding invoices for this party
   const outstandingInvoices = useMemo(() => {
     if (!partyid) return [];
     return allInvoices

@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+
 // Rate comparison across units.
 //
 // A product is bought in one unit and sold in several (Piece, Dozen, Box...),
@@ -7,14 +7,13 @@
 // converted to the BASE unit first using the variant's unit conversion
 // factors, and only then compared.
 //
-//   Purchase: Dozen @ ₹2400, Dozen factor 12  →  2400 / 12 = ₹200 per piece
-//   Sales:    Piece @ ₹200,  Piece factor 1   →   200 / 1  = ₹200 per piece
+// Purchase: Dozen @ ₹2400, Dozen factor 12 → 2400 / 12 = ₹200 per piece
+// Sales: Piece @ ₹200, Piece factor 1 → 200 / 1 = ₹200 per piece
 //
 // Every function returns null when the data needed for a reliable comparison
 // is missing (no purchase rate, no conversion row for the unit). Callers must
 // treat null as "cannot validate" and let the value through — a half-filled
 // form should never be blocked by a check that can't actually be performed.
-// ---------------------------------------------------------------------------
 
 // Ids arrive either as a raw string or a populated { id } object depending on
 // whether the data came from the form state or from GraphQL.

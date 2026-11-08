@@ -51,7 +51,7 @@ const DeletedTransactions = () => {
   ];
 
   const tableData = [...deletedTransactions].reverse().map((txn: any, index: number) => {
-    // 🔹 Convert string timestamp to number and format
+    // Convert string timestamp to number and format
     let formattedDate = "-";
     if (txn.transactiondate) {
       const ts = Number(txn.transactiondate);
@@ -63,7 +63,7 @@ const DeletedTransactions = () => {
       }
     }
 
-    // 🔹 Capitalize first letter
+    // Capitalize first letter
     const capitalizeFirstLetter = (str?: string) =>
       str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "-";
 
@@ -93,7 +93,7 @@ const DeletedTransactions = () => {
           showDelete={false}
           showAdd={false}
           showReset={actions.canReset}
-           // ✅ Reset action
+           // Reset action
           onReset={async (row: any) => {
             if (
               window.confirm(

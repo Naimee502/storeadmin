@@ -35,7 +35,7 @@ const Accounts = () => {
   // only (no parent party); sub-parties stay one click away for editing.
   const directOnlyOn = useAppSelector((s: any) => !!s.adminsettings?.settings?.directPartyOrdersOnly) && manageDownline;
   const [showSubParties, setShowSubParties] = useState(false);
-  // Parent Party column: only when sub-parties are actually in the list —
+  // Parent Party column: only when sub-parties are actually in the list
   // downline on, and either the direct-only filter is off or "Show
   // sub-parties" is pressed. A business without party-under-party never sees it.
   const showParentColumn = manageDownline && (!directOnlyOn || showSubParties);

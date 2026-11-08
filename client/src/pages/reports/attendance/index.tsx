@@ -1,9 +1,9 @@
 // Attendance & Leave Reports
 //
-// Tabs:
-//   - Daily Logs     → per-day attendance per staff
-//   - Punch Trail    → individual punch records
-//   - Leave Summary  → leave balances per staff
+// Tabs
+// Daily Logs → per-day attendance per staff
+// Punch Trail → individual punch records
+// Leave Summary → leave balances per staff
 
 import React, { useEffect, useMemo, useState } from "react";
 import HomeLayout from "../../../layouts/home";

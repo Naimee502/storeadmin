@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import HomeLayout from "../../../layouts/home";
 import FormField from "../../../components/formfiled";
@@ -24,7 +24,6 @@ import { partyLabel } from "../../../utils/partylabel";
 import { todayYMD, normalizeToYMD } from "../../../utils/helper";
 import { isCustomerParty, isVendorParty } from "../../../utils/partytype";
 import { BRANCH_REQUIRED } from "../../../utils/branch";
-
 
 type SettledInvoice = {
   invoiceid: string;
@@ -130,7 +129,7 @@ const AddEditPayment = () => {
     return { id: "", name: "Unknown", type: "unknown" };
   }, [type, admin, branch, staff]);
 
-  // ── Data fetching ──────────────────────────────────────────────────────
+  // ── Data fetching
   const paymentFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.payments || {});
   const isFieldEnabled = (fieldId: string) => paymentFormPermissions[fieldId] !== false;
 
@@ -191,7 +190,7 @@ const AddEditPayment = () => {
   const runPreview = usePreviewAllocationLazy();
   const runLedgerMovements = useLedgerMovementsLazy();
 
-  // ── Form state ─────────────────────────────────────────────────────────
+  // ── Form state
   const [paymentdate, setPaymentdate] = useState(todayYMD());
   const [payType, setPayType] = useState<"receipt" | "payment" | "expense">("receipt");
   const [mode, setMode] = useState("cash");
@@ -274,7 +273,7 @@ const AddEditPayment = () => {
   // Is the Direct / On Account flow actually driving this screen? (Expense
   // notes are always settled note-wise, and without a party there is nothing
   // to spread an amount over.)
-  // ── Outstanding invoices for the selected party ────────────────────────
+  // ── Outstanding invoices for the selected party
   // Show ALL invoices for this party (any payment type) that still have
   // outstanding balance — Tally allows settling any invoice regardless of
   // how it was originally recorded (cash, credit, bank).
@@ -433,10 +432,10 @@ const AddEditPayment = () => {
   // How much cash this payment represents.
   //
   //  • New + Invoice-wise → the ticked rows ARE the amount (tick ₹100, receive ₹100).
-  //  • Direct             → same formula, one figure instead of many rows:
+  // • Direct → same formula, one figure instead of many rows
   //                         settle ₹100 with ₹5 discount and ₹20 commission and
   //                         ₹115 is the cash — identical to ticking that bill.
-  //  • Editing            → the amount is a FACT that already happened. Un-ticking a
+  // • Editing → the amount is a FACT that already happened. Un-ticking a
   //                         bill re-allocates it; it does not mean the party handed
   //                         over less money. Deriving it from rows here rewrote a
   //                         ₹250 receipt as ₹100 the moment you opened it invoice-wise.
@@ -464,7 +463,6 @@ const AddEditPayment = () => {
     : settledInvoices.length > 0
     ? parseFloat((totalSettled - totalDiscount + totalCommission).toFixed(2))
     : parseFloat(manualAmount) || 0;
-
 
   /**
    * Is the Invoice-wise / Direct choice on screen? (Same condition the radios
@@ -604,7 +602,7 @@ const AddEditPayment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counterledgerid, isLedgerMode, payType, adminId, id, ledgerData]);
 
-  // ── Load existing payment for edit ─────────────────────────────────────
+  // ── Load existing payment for edit
   useEffect(() => {
     if (!isEdit || !existingData?.getPaymentById) return;
     const p = existingData.getPaymentById;
@@ -722,13 +720,13 @@ const AddEditPayment = () => {
   // which toISOString() did not.
   const formatDate = (date: any) => normalizeToYMD(date) || todayYMD();
 
-  // ── Dropdown options ───────────────────────────────────────────────────
+  // ── Dropdown options
   const partyOptions = useMemo(() => {
     const accounts = accountsData?.getAccounts || [];
 
     if (payType === "expense") {
       // Show only parties (any type) whose ledger has an outstanding CREDIT
-      // expense note — matches expense.ledgerid === account.ledgerid.
+      // expense note — matches expense.ledgerid account.ledgerid.
       const expenseLedgerIds = new Set(
         (expenseNotesData?.getExpenseNotes || [])
           .filter((e: any) => e.status && e.paymenttype === "credit" && e.ledgerid?.id)
@@ -790,7 +788,7 @@ const AddEditPayment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyid, mode, ledgerData]);
 
-  // ── Invoice settlement helpers ─────────────────────────────────────────
+  // ── Invoice settlement helpers
   const isSelected = (invId: string) => settledInvoices.some(s => s.invoiceid === invId);
 
   const toggleInvoice = (inv: any) => {
@@ -821,7 +819,7 @@ const AddEditPayment = () => {
     }
   };
 
-  // "Pay" on an approved Expense Claim lands here with ?expensenote=<id>:
+  // "Pay" on an approved Expense Claim lands here with ?expensenote=<id>
   // open in Expense mode with that note already ticked. Done once, and only
   // for a new payment, so the user can still untick it or change anything.
   const location = useLocation();
@@ -852,7 +850,7 @@ const AddEditPayment = () => {
     );
   };
 
-  // ── Validation & Submit ────────────────────────────────────────────────
+  // ── Validation & Submit
   const validate = () => {
     const e: Record<string, string> = {};
     if (!ledgerid) e.ledgerid = "Select a cash / bank ledger";
@@ -865,7 +863,7 @@ const AddEditPayment = () => {
       return e;
     }
     // Ledger mode has no party to fall back on, so the counter leg is required
-    // — without it the voucher would have only one side.
+    // without it the voucher would have only one side.
     if (isLedgerMode) {
       if (!counterledgerid) e.counterledgerid = "Select the ledger this is against";
       if (counterledgerid && counterledgerid === ledgerid) {
@@ -1302,7 +1300,7 @@ const AddEditPayment = () => {
     setProposal(p);
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render
   // Direct-mode concessions are spread across the proposed bills; show that
   // split in the confirm dialog so nobody has to trust it blind.
   const showConcessionSplit =

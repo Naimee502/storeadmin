@@ -64,7 +64,7 @@ export const copyPartyNumberForPicker = (phone?: string | null): string | null =
 
 // Send an already-built PDF on WhatsApp — as a file, never as a picture.
 //
-// ── Why the party's chat is NOT opened first ────────────────────────────
+// ── Why the party's chat is NOT opened first
 // It is the obvious idea, and it was tried: fire "whatsapp://send?phone=..."
 // so the customer sits at the top of WhatsApp's "Send message to" list. It
 // breaks the share outright. Launching an external protocol makes Chrome put
@@ -86,12 +86,12 @@ export const copyPartyNumberForPicker = (phone?: string | null): string | null =
 // sheet does list WhatsApp once the app is installed. Skipping the call on
 // every desktop meant Windows never got the one path that works for it.
 //
-// The sheet needs two things to appear at all:
-//   - a secure context (https://, or localhost) — plain http over the LAN
+// The sheet needs two things to appear at all
+// a secure context (https://, or localhost) — plain http over the LAN
 //     will not do, the API is simply absent there;
-//   - the click that started this to still be recent. The browser only
+// the click that started this to still be recent. The browser only
 //     honours share() while the user's gesture is fresh, which is the other
-//     reason the PDF is now built from data instead of from a screenshot:
+// reason the PDF is now built from data instead of from a screenshot
 //     there is no offscreen render and no rasterising to wait through.
 //
 // When the sheet is unavailable or the browser refuses it, the fallback is
@@ -149,7 +149,7 @@ export const shareBlobOnWhatsApp = async (opts: {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 
   // The text is prefilled so only the file itself has to be attached. wa.me
-  // opens the desktop app when it is installed and WhatsApp Web otherwise —
+  // opens the desktop app when it is installed and WhatsApp Web otherwise
   // and now on the party's own number, not an empty "pick someone" screen.
   const query = message ? `?text=${encodeURIComponent(message)}` : "";
   const wa = number ? `https://wa.me/${number}${query}` : `https://wa.me/${query}`;

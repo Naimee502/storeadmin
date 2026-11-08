@@ -11,7 +11,6 @@ import { FaSort } from "react-icons/fa";
 import { useImageUpload } from "../../graphql/hooks/uploads";
 import { showLoading, hideLoading } from "../../redux/slices/loader";
 import { showMessage } from "../../redux/slices/message";
-import { addCategories } from "../../redux/slices/categories";
 import { selectModuleActions } from "../../redux/slices/permissions";
 
 const Categories = () => {
@@ -75,7 +74,7 @@ const Categories = () => {
       return;
     }
 
-    // The preview's ✕ clears the image. Whatever file was picked but not yet
+    // The preview's clears the image. Whatever file was picked but not yet
     // uploaded goes with it; the previously saved one is deleted on Save.
     if (name === "image" && value === "") {
       setSelectedFile(null);

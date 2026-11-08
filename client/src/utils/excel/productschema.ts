@@ -94,7 +94,7 @@ export const LEGACY_PRODUCT_IMAGE_HEADERS = ["Image URLs", "Image Files"];
 export const INTERNAL_LINK_KEY = "__link";
 
 const ALL_COLUMNS: ColumnDef[] = [
-  /* ---------------- Products ---------------- */
+  /* Products */
   {
     header: PRODUCT_CODE_HEADER, key: "productref", sheet: "Products", type: "text",
     structural: true, width: 16,
@@ -140,7 +140,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { header: "Purchase Account", key: "purchaseaccountid", sheet: "Products", type: "ref", master: "ledgers", permissionId: "purchaseaccount", required: true, width: 24,
     hint: "Pick from the list, or type a new name — it is created under the \"Purchase Account\" group." },
 
-  /* ---------------- Variants ---------------- */
+  /* Variants */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "Variants", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   {
@@ -169,7 +169,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { header: "Purchase Unit", key: "purchaseunitid", sheet: "Variants", type: "ref", master: "units", permissionId: "purchaseunitid", required: true, width: 18 },
   { header: "Purchase Rate", key: "purchaserate", sheet: "Variants", type: "number", permissionId: "purchaserate", required: true, width: 15 },
 
-  /* ---------------- Unit Conversions ---------------- */
+  /* Unit Conversions */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitConversions", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   { header: VARIANT_CODE_HEADER, key: "variantref", sheet: "UnitConversions", type: "text", structural: true, width: 16,
@@ -181,7 +181,7 @@ const ALL_COLUMNS: ColumnDef[] = [
     hint: "How many base units this unit contains. Base unit itself is 1.",
   },
 
-  /* ---------------- Unit Prices ---------------- */
+  /* Unit Prices */
   { header: PRODUCT_LINK_HEADER, key: "productref", sheet: "UnitPrices", type: "text", structural: true, width: 22,
     hint: "Pick the product from the list — it shows every Product Code on the Products sheet (or the Name, for a product whose code is left blank). A code you type there appears here straight away." },
   { header: VARIANT_CODE_HEADER, key: "variantref", sheet: "UnitPrices", type: "text", structural: true, width: 16,

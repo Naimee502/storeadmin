@@ -44,7 +44,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
       dispatch(setPermissions(permData.getEffectivePermissions.permissions || {}));
     }
   }, [permData, dispatch]);
-  
+
   const { data: settingsData } = useAdminSettingsQuery();
   useEffect(() => {
     if (settingsData?.getAdminSettings) {
@@ -103,7 +103,7 @@ const HomeLayout: React.FC<{ children: React.ReactNode; hideNav?: boolean }> = (
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
   const handleLogout = () => {
-    // clearBranchId wipes the Redux value AND the "branchid" key together —
+    // clearBranchId wipes the Redux value AND the "branchid" key together
     // removing the key by hand used to leave the two out of step for whoever
     // logged in next.
     dispatch(clearBranchId());

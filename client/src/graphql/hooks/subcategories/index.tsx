@@ -15,7 +15,7 @@ import {
 
 import { useAppSelector } from '../../../redux/hooks';
 
-// 🔹 SubCategory Mutations
+// SubCategory Mutations
 export const useSubCategoryMutations = () => {
   const [addSubCategoryMutation] = useMutation(ADD_SUBCATEGORY);
   const [editSubCategoryMutation] = useMutation(EDIT_SUBCATEGORY);
@@ -30,7 +30,7 @@ export const useSubCategoryMutations = () => {
   };
 };
 
-// 🔹 Fetch all active SubCategories (optional filter by categoryId)
+// Fetch all active SubCategories (optional filter by categoryId)
 export const useSubCategoriesQuery = (categoryId?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
@@ -65,7 +65,7 @@ export const useSubCategoriesListQuery = (categoryId?: string) => {
   return { data, loading, error, refetch };
 };
 
-// 🔹 Fetch all deleted SubCategories (optional filter by categoryId)
+// Fetch all deleted SubCategories (optional filter by categoryId)
 export const useDeletedSubCategoriesQuery = (categoryId?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 
@@ -85,7 +85,7 @@ export const useDeletedSubCategoriesQuery = (categoryId?: string) => {
   return { data, loading, error, refetch };
 };
 
-// 🔹 Fetch a single SubCategory by ID
+// Fetch a single SubCategory by ID
 export const useSubCategoryByIDQuery = (id: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
 

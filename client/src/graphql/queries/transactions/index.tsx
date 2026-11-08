@@ -1,7 +1,7 @@
 // src/graphql/transactions.ts
 import { gql } from "@apollo/client";
 
-// 🔹 Queries
+// Queries
 export const GET_TRANSACTIONS = gql`
   query GetTransactions($filter: TransactionFilterInput) {
     getTransactions(filter: $filter) {

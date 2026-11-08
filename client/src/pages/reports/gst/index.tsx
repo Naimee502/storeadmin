@@ -129,9 +129,8 @@ const GSTReports: React.FC = () => {
     setAppliedFilters({ fromDate: from, toDate: to });
   }, []);
 
-  // --------------------------------------------
   // GST From Transactions
-  // --------------------------------------------
+
   const gstFromTransactions = useMemo(() => {
     const map: any = {};
 
@@ -159,9 +158,8 @@ const GSTReports: React.FC = () => {
     return map;
   }, [transactionsData]);
 
-  // --------------------------------------------
   // Product Mapping (Correct)
-  // --------------------------------------------
+
   const mapInvoiceProducts = (
     invProducts: any[],
     trxGST: any,
@@ -190,9 +188,8 @@ const GSTReports: React.FC = () => {
     });
   };
 
-  // --------------------------------------------
   // GST Sales Report
-  // --------------------------------------------
+
   const gstSalesReport = useMemo(() => {
     return salesInvoices
       .filter((inv: any) => {
@@ -244,9 +241,8 @@ const GSTReports: React.FC = () => {
       });
   }, [salesInvoices, appliedFilters, gstFromTransactions, products]);
 
-  // --------------------------------------------
   // GST Purchase Report
-  // --------------------------------------------
+
   const gstPurchaseReport = useMemo(() => {
     return purchaseInvoices
       .filter((inv: any) => {
@@ -297,9 +293,8 @@ const GSTReports: React.FC = () => {
       });
   }, [purchaseInvoices, appliedFilters, gstFromTransactions, products]);
 
-  // --------------------------------------------
   // GSTR-1
-  // --------------------------------------------
+
   const gstr1 = useMemo(() => gstSalesReport.map((r: any) => ({
     invoiceNo: r.invoiceNo,
     invoiceDate: r.invoiceDate,
@@ -313,9 +308,8 @@ const GSTReports: React.FC = () => {
     invoiceAmount: r.totalAmount,
   })), [gstSalesReport]);
 
-  // --------------------------------------------
   // GSTR-2
-  // --------------------------------------------
+
   const gstr2 = useMemo(() => gstPurchaseReport.map((r: any) => ({
     invoiceNo: r.invoiceNo,
     invoiceDate: r.invoiceDate,
@@ -329,9 +323,8 @@ const GSTReports: React.FC = () => {
     invoiceAmount: r.totalAmount,
   })), [gstPurchaseReport]);
 
-  // --------------------------------------------
   // Filter Dropdown Options (FIXED)
-  // --------------------------------------------
+
   const customerOptions = accounts
     .filter((a) => isCustomerParty(a.type))
     .map((a) => ({
@@ -351,9 +344,8 @@ const GSTReports: React.FC = () => {
     value: p.id, // FIXED
   }));
 
-  // --------------------------------------------
   // Table Data
-  // --------------------------------------------
+
   let tableData: any[] = [];
   let columns: any[] = [];
   let filterFields: ReportFilterField[] = [];

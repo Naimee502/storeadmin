@@ -1,4 +1,4 @@
-// ---------------------------------------------------------------------------
+
 // What side of the books a party sits on.
 //
 // Most parties are one thing: someone you sell to, or someone you buy from.
@@ -7,15 +7,14 @@
 // never meet, so nobody can answer "at the end of it, who owes whom?".
 //
 // So "both" is its own party type, and every screen that used to ask
-// `type === "customer"` asks isCustomerParty() instead. A both-party then shows
-// up wherever a customer shows up AND wherever a vendor shows up, on one ledger:
+// `type "customer"` asks isCustomerParty() instead. A both-party then shows
+// up wherever a customer shows up AND wherever a vendor shows up, on one ledger
 // a debit balance means they owe us, a credit balance means we owe them. That is
 // the same convention every accounting package uses for a party on both sides,
 // and it is why there is one ledger rather than two.
 //
 // Kept as one tiny module so the admin panel, the salesman app and the server
 // cannot drift into three different ideas of what a customer is.
-// ---------------------------------------------------------------------------
 
 export type PartyType = "customer" | "vendor" | "both" | "expense" | "bank" | "other";
 

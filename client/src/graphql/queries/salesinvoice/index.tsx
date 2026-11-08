@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 
-// 🔹 Queries
+// Queries
 export const GET_SALES_INVOICES = gql`
   query GetSalesInvoices($filter: SalesInvoiceFilterInput) {
     getSalesInvoices(filter: $filter) {

@@ -31,9 +31,8 @@ const AccountingFinanceReports: React.FC = () => {
     const [filters, setFilters] = useState<{ [key: string]: any }>({});
     const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-    // -----------------------------
     // Fetch all data
-    // -----------------------------
+
     const { data: accountsData } = useAccountsQuery();
     const { data: accountsGroupData } = useAccountGroupsQuery();
     const { data: accountLedgerData } = useAccountLedgersQuery();
@@ -89,9 +88,8 @@ const AccountingFinanceReports: React.FC = () => {
     // back to the single Amount column it always had.
     const dcEnabled = !!adminSettingsData?.getAdminSettings?.enablePaymentDiscountCommission;
 
-    // -----------------------------
     // Default date filter = last 30 days
-    // -----------------------------
+
     useEffect(() => {
         const to = todayYMD();
         const from = shiftDaysYMD(-30);
@@ -111,9 +109,8 @@ const AccountingFinanceReports: React.FC = () => {
         return { fromTimestamp, toTimestamp };
     };
 
-    // -----------------------------
     // Ledger Data (FIXED)
-    // -----------------------------
+
     const ledgerData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
 
@@ -167,16 +164,15 @@ const AccountingFinanceReports: React.FC = () => {
             });
     }, [transactions, accounts, payments, expenseNotes, appliedFilters]);
 
-    // -----------------------------
-    // Ledger Statement  (built from PAYMENTS, not Transactions)
-    // -----------------------------
+    // Ledger Statement (built from PAYMENTS, not Transactions)
+
     // One LEDGER read as a running statement — the same shape as the Party
     // Statement, but for any ledger at all (Cash, Bank, Discount Allowed,
     // Commission Received, a party's own ledger) and sourced from the payment
     // documents rather than the posted Transactions.
     //
     // Each payment is expanded into its journal legs exactly as the server
-    // posts them (resolvers/payments — buildPaymentEntries / buildLedgerEntries):
+    // posts them (resolvers/payments — buildPaymentEntries / buildLedgerEntries)
     //
     //   Receipt : Dr Cash + Dr Discount Allowed
     //               Cr Party/Ledger + Cr Commission Received
@@ -375,9 +371,8 @@ const AccountingFinanceReports: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statementLedger, payments, accounts, ledgers, appliedFilters]);
 
-    // -------------------------------
     // Profit & Loss
-    // -------------------------------
+
     const profitLossData = useMemo(() => {
         if (!transactions || !ledgers) return [];
 
@@ -422,9 +417,8 @@ const AccountingFinanceReports: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [transactions, ledgers, appliedFilters]);
 
-    // -------------------------------
     // Balance Sheet
-    // -------------------------------
+
     const balanceSheetData = useMemo(() => {
         // A balance sheet is as on the To date: every entry up to it counts.
         const { toTimestamp } = getFilterTimestamps();
@@ -481,9 +475,8 @@ const AccountingFinanceReports: React.FC = () => {
         ];
     }, [transactions, ledgers, accountsGroup, appliedFilters]);
 
-    // -------------------------------
     // Cash Flow
-    // -------------------------------
+
     const cashFlowData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
 
@@ -510,9 +503,8 @@ const AccountingFinanceReports: React.FC = () => {
         ];
     }, [payments, appliedFilters]);
 
-    // -------------------------------
     // Transactions Summary
-    // -------------------------------
+
     const transactionsSummaryData = useMemo(() => {
         const { fromTimestamp, toTimestamp } = getFilterTimestamps();
 
@@ -538,16 +530,15 @@ const AccountingFinanceReports: React.FC = () => {
         ];
     }, [transactions, appliedFilters]);
 
-    // -------------------------------
     // Payments Report
-    // -------------------------------
+
     const paymentsLedger = useMemo(
         () => ledgers.find((l: any) => l.id === appliedFilters.paymentledger) || null,
         [ledgers, appliedFilters.paymentledger]
     );
 
     // Filtered by LEDGER, not by party. A payment keeps its counter leg in one
-    // of two places -- partyid (party mode) or counterledgerid (ledger mode) --
+    // of two places -- partyid (party mode) or counterledgerid (ledger mode)
     // and a party filter can only ever see the first, so every ledger-mode
     // receipt fell out of this report entirely. The ledger is what both modes
     // have in common: a party posts to its own ledger anyway.
@@ -650,9 +641,8 @@ const AccountingFinanceReports: React.FC = () => {
             }));
     }, [payments, accounts, appliedFilters]);
 
-    // -------------------------------
     // Filters + Table Setup (FIXED)
-    // -------------------------------
+
     const ledgerOptions = ledgers.map(l => ({
         label: l.ledgername,
         value: l.id,

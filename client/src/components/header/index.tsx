@@ -5,7 +5,6 @@ import {
   FaCashRegister,
   FaChevronDown,
   FaSignOutAlt,
-  FaTachometerAlt,
 } from 'react-icons/fa';
 import { Menu } from '@headlessui/react';
 import { useNavigate } from 'react-router';

@@ -19,7 +19,7 @@ import {
 
 import { useAppSelector } from "../../../redux/hooks";
 
-// ----------------- Mutations -----------------
+// Mutations
 export const useTransactionMutations = () => {
   const [addTransactionMutation] = useMutation(ADD_TRANSACTION);
   const [editTransactionMutation] = useMutation(EDIT_TRANSACTION);
@@ -34,7 +34,7 @@ export const useTransactionMutations = () => {
   };
 };
 
-// ----------------- Invoice Journal Preview (lazy) -----------------
+// Invoice Journal Preview (lazy)
 export const usePreviewInvoiceJournalLazy = () => {
   const [fetchPreview] = useLazyQuery(PREVIEW_INVOICE_JOURNAL, {
     fetchPolicy: "network-only",
@@ -42,7 +42,7 @@ export const usePreviewInvoiceJournalLazy = () => {
   return fetchPreview;
 };
 
-// ----------------- Ledger movements (lazy) -----------------
+// Ledger movements (lazy)
 // "network-only": the balance is a running journal total, so a cached one is
 // stale the moment any other voucher touches the ledger.
 export const useLedgerMovementsLazy = () => {
@@ -50,8 +50,8 @@ export const useLedgerMovementsLazy = () => {
   return run;
 };
 
-// ----------------- Transactions Query -----------------
-// Defaults to "cache-and-network" for the same reason as usePaymentsQuery:
+// Transactions Query
+// Defaults to "cache-and-network" for the same reason as usePaymentsQuery
 // invoices/returns/expense notes create journal entries server-side, and the
 // outstanding-invoice calculation counts "Agst Ref" transaction settlements.
 export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
@@ -69,7 +69,7 @@ export const useTransactionsQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache
   return { data, loading, error, refetch };
 };
 
-// ----------------- Transactions LIST (lite) -----------------
+// Transactions LIST (lite)
 // Same filter as useTransactionsQuery, but only the listing columns (no
 // entries[]). Used by the Transactions list page only.
 export const useTransactionsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "cache-and-network") => {
@@ -87,7 +87,7 @@ export const useTransactionsListQuery = (fetchPolicy: WatchQueryFetchPolicy = "c
   return { data, loading, error, refetch };
 };
 
-// ----------------- Deleted Transactions Query -----------------
+// Deleted Transactions Query
 export const useDeletedTransactionsQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -102,7 +102,7 @@ export const useDeletedTransactionsQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Transaction by ID Query -----------------
+// Transaction by ID Query
 export const useTransactionByIDQuery = (id?: string) => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const adminid = type === "admin" ? admin?.id : type === "branch" ? branch?.admin?.id : type === "staff" ? staff?.admin?.id : undefined;
@@ -115,7 +115,7 @@ export const useTransactionByIDQuery = (id?: string) => {
   return { data, loading, error };
 };
 
-// ----------------- Paged list (server-side paging, search and column filters) -----------------
+// Paged list (server-side paging, search and column filters)
 export const useTransactionsPageQuery = ({
   page,
   pageSize,

@@ -14,7 +14,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
 import { isCustomerParty } from "../../../utils/partytype";
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
+// Constants
 
 const ALL_DAYS = [
   { key: "mon", label: "Monday",    short: "Mon" },
@@ -36,7 +36,7 @@ const DAY_COLORS: Record<string, { bg: string; border: string; text: string; bad
   sun: { bg: "bg-gray-50",   border: "border-gray-300",  text: "text-gray-700",  badge: "bg-gray-100 text-gray-700" },
 };
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
+// Types
 
 interface DayWiseEntry {
   day: string;
@@ -44,7 +44,7 @@ interface DayWiseEntry {
   visitorder: number;
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+// Component
 
 const SalesRouteAddEdit: React.FC = () => {
   const navigate  = useNavigate();
@@ -58,7 +58,7 @@ const SalesRouteAddEdit: React.FC = () => {
   const adminId  = type === "admin" ? admin?.id : branch?.admin?.id;
   const branchId = selectedBranchId || branch?.id;
 
-  // ── Form state ────────────────────────────────────────────────────────────────
+  // ── Form state
   const [routename,     setRouteName]     = useState("");
   const [description,   setDescription]   = useState("");
   const [salesmanid,    setSalesmanId]    = useState("");
@@ -67,7 +67,7 @@ const SalesRouteAddEdit: React.FC = () => {
   const [expandedDay,   setExpandedDay]   = useState<string | null>(null);
   const [partySearch,   setPartySearch]   = useState<Record<string, string>>({});
 
-  // ── Data fetching ─────────────────────────────────────────────────────────────
+  // ── Data fetching
   const { data: staffData }  = useStaffQuery();
   const { data: accountsData } = useAccountsQuery(true);
   const { data: editData, loading: loadingEdit } = useGetSalesRouteById(id || "", adminId, branchId);
@@ -85,7 +85,7 @@ const SalesRouteAddEdit: React.FC = () => {
     [accountsData]
   );
 
-  // ── Populate on edit ──────────────────────────────────────────────────────────
+  // ── Populate on edit
   useEffect(() => {
     if (isEdit && editData?.getSalesRouteById) {
       const route = editData.getSalesRouteById;
@@ -110,7 +110,7 @@ const SalesRouteAddEdit: React.FC = () => {
     }
   }, [isEdit, editData]);
 
-  // ── Day toggle ────────────────────────────────────────────────────────────────
+  // ── Day toggle
   const toggleDay = (day: string) => {
     setVisitdays((prev) => {
       const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
@@ -174,7 +174,7 @@ const SalesRouteAddEdit: React.FC = () => {
     });
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
+  // ── Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!routename.trim()) {
@@ -224,7 +224,7 @@ const SalesRouteAddEdit: React.FC = () => {
     }
   };
 
-  // ── Total parties ─────────────────────────────────────────────────────────────
+  // ── Total parties
   const totalUniqueParties = useMemo(
     () => new Set(dayWiseAccounts.flatMap((e) => e.accounts)).size,
     [dayWiseAccounts]

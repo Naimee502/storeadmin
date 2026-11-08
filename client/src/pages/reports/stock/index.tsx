@@ -61,9 +61,8 @@ const StockReports: React.FC = () => {
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [appliedFilters, setAppliedFilters] = useState<{ [key: string]: any }>({});
 
-  // -----------------------------
   // Initialize date filter
-  // -----------------------------
+
   useEffect(() => {
     const to = todayYMD();
     const from = shiftDaysYMD(-30);
@@ -75,9 +74,8 @@ const StockReports: React.FC = () => {
     .filter((p: any) => !p.isservice)
     .map((p: any) => ({ label: p.name, value: p.id }));
 
-  // -----------------------------
   // Prepare stock tables
-  // -----------------------------
+
   const allProducts = useMemo(() => [...products, ...deletedProducts], [products, deletedProducts]);
   const currentStock = useMemo(() => {
     const deletedIds = new Set(deletedProducts.map((dp: any) => dp.id));
@@ -129,9 +127,8 @@ const StockReports: React.FC = () => {
 
   const handleApplyFilters = () => setAppliedFilters({ ...filters });
 
-  // -----------------------------
   // Columns and filters
-  // -----------------------------
+
   let tableData: any[] = [];
   let columns: any[] = [];
   let filterFields: ReportFilterField[] = [];

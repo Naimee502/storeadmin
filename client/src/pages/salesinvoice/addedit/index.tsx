@@ -14,7 +14,7 @@ import { useSalesOrderByIDQuery, useSalesOrderMutations } from "../../../graphql
 import { useBranchesQuery } from "../../../graphql/hooks/branches";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { selectIsFormFieldEnabled, selectModuleActions } from "../../../redux/slices/permissions";
+import { selectModuleActions } from "../../../redux/slices/permissions";
 import FormSwitch from "../../../components/formswitch";
 import PosAddCustomer from "../../../components/posaddcustomer";
 import { partyLabel } from "../../../utils/partylabel";
@@ -49,7 +49,7 @@ const AddEditSalesInvoice = () => {
 
   // Fetch branches to auto-detect when staff has no branch assigned
   const { data: branchesData } = useBranchesQuery();
-  // firstBranchId is the rescue for a STAFF account with no branch assigned —
+  // firstBranchId is the rescue for a STAFF account with no branch assigned
   // that is all it was ever meant for. It used to sit on the admin arm too,
   // which meant an admin on "All Branches" silently filed the document under
   // whichever branch happened to come back first: no error, wrong branch, and
@@ -189,7 +189,7 @@ const AddEditSalesInvoice = () => {
   // Lines pre-filled from a Sales Order (app/website orders in particular,
   // where the catalogue never caps quantity at the stock on hand) skip the Add
   // Products box and its stock check. Re-run the check over the finished list
-  // so the shortfall is visible here instead of surfacing as a server error —
+  // so the shortfall is visible here instead of surfacing as a server error
   // or, worse, as silently negative stock.
   //
   // On an EDIT the saved lines are netted off first. The bill's own stock is
@@ -243,10 +243,10 @@ const AddEditSalesInvoice = () => {
 
   useEffect(() => {
     if (isEdit && data?.getSalesInvoiceById) {
-      // --- EDIT MODE
+      // EDIT MODE
       const invoice = data.getSalesInvoiceById;
 
-      // --- Header fields
+      // Header fields
       setPaymentType(invoice.paymenttype || "");
       setReceived(invoice.received ? String(invoice.received) : "");
       setPartyAccount({
@@ -285,7 +285,7 @@ const AddEditSalesInvoice = () => {
       setInvoiceDiscount(invoice.invoicediscount || "");
       setInvoiceDiscountType(invoice.invoicediscounttype || "amount");
 
-      // --- Products
+      // Products
       const mappedProducts = invoice.productservice.map((p: any) => {
         const productName = `${p.productserviceid?.name || ""}${p.variantid?.name ? ` - ${p.variantid.name}` : ""
           }`;
@@ -322,7 +322,7 @@ const AddEditSalesInvoice = () => {
 
       setProducts(mappedProducts);
     } else if (orderData?.getSalesOrderById) {
-      // --- CONVERT FROM ORDER MODE
+      // CONVERT FROM ORDER MODE
       const order = orderData.getSalesOrderById;
       setPaymentType(order.paymenttype || "");
       setPartyAccount({
@@ -374,7 +374,7 @@ const AddEditSalesInvoice = () => {
       }));
       setProducts(mappedProducts);
     } else if (!isEdit && !orderId) {
-      // --- NEW INVOICE MODE - Auto-calculate next bill number
+      // NEW INVOICE MODE - Auto-calculate next bill number
       if (salesInvoices.length > 0) {
         const billNumbers = salesInvoices.map((inv) => inv.billnumber);
         const lastBillNumber = [...billNumbers].sort().pop();
@@ -429,7 +429,6 @@ const AddEditSalesInvoice = () => {
     setTaxAmount(totalGSTAmount);
     setGrandTotal(finalGrandTotal);
   }, [products, otherCharges, roundOff, invoiceDiscount, invoiceDiscountType]);
-
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -738,7 +737,7 @@ const AddEditSalesInvoice = () => {
                   onChange={(e) => {
                     const selectedId = e.target.value;
                     if (!selectedId) {
-                      setPartyAccount(null); // ✕ clear → unselect party
+                      setPartyAccount(null); // clear → unselect party
                       return;
                     }
                     const acc = customerAccounts.find(a => a.id === selectedId);

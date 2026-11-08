@@ -36,7 +36,7 @@ export const useRejectSubscriptionMutation = () => useMutation(REJECT_SUBSCRIPTI
 // Query: Get Pending Subscriptions
 export const usePendingSubscriptionsQuery = () => useQuery(GET_PENDING_SUBSCRIPTIONS);
 
-// ✅ Query: Get All Admins
+// Query: Get All Admins
 export const useAdminsQuery = () => {
   const { data, loading, error, refetch } = useQuery(GET_ADMINS);
 
@@ -48,7 +48,7 @@ export const useAdminsQuery = () => {
   };
 };
 
-// ✅ Query: Get Deleted Admins
+// Query: Get Deleted Admins
 export const useGetDeletedAdminsQuery = (adminId?: string) =>
   useQuery(GET_DELETED_ADMINS, {
     variables: adminId ? { adminId } : {},
@@ -56,5 +56,4 @@ export const useGetDeletedAdminsQuery = (adminId?: string) =>
 
 //
 export const useResetAdminMutation = () => useMutation(RESET_ADMIN);
-
 

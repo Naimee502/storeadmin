@@ -380,7 +380,7 @@ export const parseProductWorkbook = async (args: ParseArgs): Promise<ParsedImpor
   const warnings: string[] = [];
   const imageFiles = new Map<string, string[]>();
 
-  /* ---- meta sheet ---- */
+  /* meta sheet */
   const meta: Record<string, string> = {};
   const metaSheet = workbook.getWorksheet(META_SHEET);
   if (metaSheet) {
@@ -400,7 +400,7 @@ export const parseProductWorkbook = async (args: ParseArgs): Promise<ParsedImpor
     );
   }
 
-  /* ---- missing sheets ---- */
+  /* missing sheets */
   for (const sheetId of SHEET_ORDER) {
     if (!workbook.getWorksheet(sheetId)) {
       errors.push({
@@ -427,7 +427,7 @@ export const parseProductWorkbook = async (args: ParseArgs): Promise<ParsedImpor
     };
   }
 
-  /* ---- read the four sheets ---- */
+  /* read the four sheets */
   const sheets = Object.fromEntries(
     SHEET_ORDER.map((id) => [id, readSheet(workbook, id)])
   ) as Record<SheetId, { rows: RawRow[]; headers: string[]; columnOf: Map<string, number> }>;
@@ -474,7 +474,7 @@ const assembleProducts = (
   const counts: Record<string, number> = {};
   for (const id of SHEET_ORDER) counts[id] = sheets[id].rows.length;
 
-  /* ---- columns present in the file but switched off in settings ---- */
+  /* columns present in the file but switched off in settings */
   for (const sheetDef of schema.sheets) {
     const known = new Set(
       sheetDef.columns.flatMap((c) =>
@@ -492,7 +492,7 @@ const assembleProducts = (
     }
   }
 
-  /* ---- helper to read one row against a sheet's schema ---- */
+  /* helper to read one row against a sheet's schema */
   const readRow = (
     sheetId: SheetId,
     raw: RawRow,
@@ -569,7 +569,7 @@ const assembleProducts = (
     return out;
   };
 
-  /* ---- how rows find their product and variant ---- */
+  /* how rows find their product and variant */
   //
   // Products sheet: "Product Code" (may be blank → next #PRD) and Name.
   // Other sheets: "Product" = that code, or the Name when the code is blank;
@@ -726,7 +726,7 @@ const assembleProducts = (
     }
   }
 
-  /* ---- assemble ---- */
+  /* assemble */
   const products: any[] = [];
   const refs: string[] = [];
   const masterNames: Record<string, any>[] = [];
@@ -776,7 +776,7 @@ const assembleProducts = (
 
     const fields = readRow("Products", productRow, ref);
 
-    /* ---- pictures placed inside this row's image cells ---- */
+    /* pictures placed inside this row's image cells */
     // A picture in the cell wins over any text there: it is exactly what the
     // person chose. Each gets a generated file name and joins the same upload
     // path as picked / zipped images.
@@ -800,7 +800,7 @@ const assembleProducts = (
       if (picture) fields[key] = picture;
     }
 
-    /* ---- typed master names (for find-or-create on the server) ---- */
+    /* typed master names (for find-or-create on the server) */
     const names: Record<string, any> = {};
     for (const col of creatableCols) {
       const nameKey = NAME_KEY_BY_FIELD[col.key];
@@ -808,7 +808,7 @@ const assembleProducts = (
       if (nameKey && typed) names[nameKey] = typed;
     }
 
-    /* ---- a new ledger is either a Sales or a Purchase account ---- */
+    /* a new ledger is either a Sales or a Purchase account */
     for (const [field, role] of [["salesaccountid", "Sales"], ["purchaseaccountid", "Purchase"]] as const) {
       const col = creatableCols.find((c) => c.key === field);
       const typed = names[NAME_KEY_BY_FIELD[field]];
@@ -836,7 +836,7 @@ const assembleProducts = (
       else masterImageFiles.set(`${products.length}:${field}`, [imageFileName(value)]);
     }
 
-    /* ---- Category ↔ Sub Category must agree ---- */
+    /* Category ↔ Sub Category must agree */
     if (subCategoryCol && names.subcategoryname) {
       const subName = names.subcategoryname;
       const catName = names.categoryname ?? "";

@@ -1,11 +1,11 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectModuleActions } from "../../../redux/slices/permissions";
 import DataTable from "../../../components/datatable";
 import HomeLayout from "../../../layouts/home";
-import { 
-  useDeletedChannelsQuery, 
-  useResetChannelMutation 
+import {
+  useDeletedChannelsQuery,
+  useResetChannelMutation
 } from "../../../graphql/hooks/channels";
 import { showLoading, hideLoading } from "../../../redux/slices/loader";
 import { showMessage } from "../../../redux/slices/message";
@@ -16,11 +16,11 @@ const ChannelDeletedEntries = () => {
   const actions = useAppSelector(state => selectModuleActions(state, "channels"));
   const { type, admin, branch } = useAppSelector((state: any) => state.auth);
   const adminId = admin?.id;
-  
+
   const { data, refetch } = useDeletedChannelsQuery(adminId);
   const [resetChannel] = useResetChannelMutation();
   const clear = useClearDeleted("channels", refetch, "channel");
-  
+
   const deletedChannels = data?.getDeletedChannels || [];
   const isLoading = useAppSelector((state: any) => state.loader.isLoading);
 

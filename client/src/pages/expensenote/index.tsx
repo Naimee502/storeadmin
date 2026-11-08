@@ -106,7 +106,7 @@ const ExpenseNote = () => {
     let formattedDate = "-";
 
     if (exp.expensedate) {
-      const timestamp = Number(exp.expensedate); // 🔥 FIX
+      const timestamp = Number(exp.expensedate); // FIX
       const dt = new Date(timestamp);
 
       if (!isNaN(dt.getTime())) {

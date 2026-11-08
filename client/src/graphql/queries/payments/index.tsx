@@ -1,6 +1,6 @@
 import { gql } from "@apollo/client";
 
-// 🔹 Queries
+// Queries
 
 // Listing-only query for the Payments table — no allocation lines, no audit
 // fields. Edit loads the full payment by id. Mutations return the same fields

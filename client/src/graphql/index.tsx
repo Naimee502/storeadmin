@@ -1,5 +1,5 @@
 // client/apolloClient.ts
-import { ApolloClient, InMemoryCache, ApolloLink, from, Observable } from '@apollo/client';
+import { ApolloClient, InMemoryCache, from, Observable } from '@apollo/client';
 import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
@@ -14,7 +14,7 @@ const httpLink = createUploadLink({
 const authLink = setContext((_, { headers }) => {
   const branchid = localStorage.getItem('branchid');
   const accessToken = localStorage.getItem('accessToken');
-  
+
   return {
     headers: {
       ...headers,
@@ -37,7 +37,7 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
             .then(data => {
               if (data.ok && data.accessToken) {
                 localStorage.setItem("accessToken", data.accessToken);
-                
+
                 // Retry the failed operation
                 const oldHeaders = operation.getContext().headers;
                 operation.setContext({

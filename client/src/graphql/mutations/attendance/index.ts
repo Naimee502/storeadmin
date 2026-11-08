@@ -1,8 +1,6 @@
 import { gql } from "@apollo/client";
 
-/* ------------------------------------------------------------------ */
 /* Attendance                                                         */
-/* ------------------------------------------------------------------ */
 
 export const PUNCH = gql`
   mutation Punch($input: PunchInput!) {
@@ -78,9 +76,7 @@ export const DELETE_PUNCH = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* Holiday                                                            */
-/* ------------------------------------------------------------------ */
 
 export const ADD_HOLIDAY = gql`
   mutation AddHoliday($input: HolidayInput!) {
@@ -110,9 +106,7 @@ export const DELETE_HOLIDAY = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveType                                                          */
-/* ------------------------------------------------------------------ */
 
 export const ADD_LEAVE_TYPE = gql`
   mutation AddLeaveType($input: LeaveTypeInput!) {
@@ -140,9 +134,7 @@ export const DELETE_LEAVE_TYPE = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveRequest                                                       */
-/* ------------------------------------------------------------------ */
 
 export const ADD_LEAVE_REQUEST = gql`
   mutation AddLeaveRequest($input: LeaveRequestInput!) {
@@ -222,9 +214,7 @@ export const DELETE_LEAVE_REQUEST = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* LeaveBalance                                                       */
-/* ------------------------------------------------------------------ */
 
 export const UPSERT_LEAVE_BALANCE = gql`
   mutation UpsertLeaveBalance($input: LeaveBalanceInput!) {
@@ -246,9 +236,7 @@ export const DELETE_LEAVE_BALANCE = gql`
   }
 `;
 
-/* ------------------------------------------------------------------ */
 /* Reset (restore from soft delete)                                   */
-/* ------------------------------------------------------------------ */
 
 export const RESET_ATTENDANCE_LOG = gql`
   mutation ResetAttendanceLog($id: ID!) {

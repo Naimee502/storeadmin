@@ -180,7 +180,7 @@ const DeliveryBoyReport: React.FC = () => {
     [payments, appliedFilters]
   );
 
-  // ── Summary: one row per delivery boy ───────────────────────────────
+  // ── Summary: one row per delivery boy
   const summaryData = useMemo(() => {
     const list = appliedFilters.deliveryboyid ? deliveryBoys.filter((s: any) => s.id === appliedFilters.deliveryboyid) : deliveryBoys;
     return list.map((s: any, idx: number) => {
@@ -208,7 +208,7 @@ const DeliveryBoyReport: React.FC = () => {
     });
   }, [fOrders, fPayments, deliveryBoys, appliedFilters, rangeTravel]);
 
-  // ── Detail: one row per delivery boy + day ──────────────────────────
+  // ── Detail: one row per delivery boy + day
   const detailData = useMemo(() => {
     const groups: Record<string, any> = {};
     fOrders.forEach((o: any) => {

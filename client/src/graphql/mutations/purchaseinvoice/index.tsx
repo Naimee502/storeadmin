@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 
-// 🔹 Add Purchase Invoice
+// Add Purchase Invoice
 export const ADD_PURCHASE_INVOICE = gql`
   mutation AddPurchaseInvoice($input: PurchaseInvoiceInput!) {
     addPurchaseInvoice(input: $input) {
@@ -83,7 +83,7 @@ export const ADD_PURCHASE_INVOICE = gql`
   }
 `;
 
-// 🔹 Edit Purchase Invoice
+// Edit Purchase Invoice
 export const EDIT_PURCHASE_INVOICE = gql`
   mutation EditPurchaseInvoice($id: ID!, $input: PurchaseInvoiceInput!) {
     editPurchaseInvoice(id: $id, input: $input) {
@@ -166,21 +166,21 @@ export const EDIT_PURCHASE_INVOICE = gql`
   }
 `;
 
-// 🔹 Delete Purchase Invoice
+// Delete Purchase Invoice
 export const DELETE_PURCHASE_INVOICE = gql`
   mutation DeletePurchaseInvoice($id: ID!) {
     deletePurchaseInvoice(id: $id)
   }
 `;
 
-// 🔹 Reset Purchase Invoice
+// Reset Purchase Invoice
 export const RESET_PURCHASE_INVOICE = gql`
   mutation ResetPurchaseInvoice($id: ID!) {
     resetPurchaseInvoice(id: $id)
   }
 `;
 
-// Cancel reverses the bill's stock, its journal and the receipt it raised —
+// Cancel reverses the bill's stock, its journal and the receipt it raised
 // the document itself stays, so the bill-number series keeps no gaps.
 export const CANCEL_PURCHASE_INVOICE = gql`
   mutation CancelPurchaseInvoice($id: ID!, $reason: String) {

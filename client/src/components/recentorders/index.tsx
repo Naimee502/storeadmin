@@ -415,7 +415,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           partyacc: partyLabel(r.partyacc) || "N/A",
           totalitem: r.productservice?.length || 0,
           totalqty: r.productservice?.reduce((s: number, p: any) => s + (p.qty || 0), 0) || 0,
-          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,  
+          totalamountFormatted: `₹${Number(r.totalamount ?? 0).toFixed(2)}`,
           refundLabel: capitalizeFirst(r.refundMode),
           createdby_name: r.createdby_name || "N/A",
           statusLabel: r.status ? "Active" : "Inactive",
@@ -453,7 +453,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Created By", key: "createdby_name" },
           { label: "Status", key: "statusLabel" },
         ];
-        // Server already returns these newest-first (sort createdAt:-1) —
+        // Server already returns these newest-first (sort createdAt:-1)
         // don't re-reverse, or the dashboard ends up oldest-first instead.
         const data = transferStocks.map((stock: any, idx: number) => {
           const fromBranch = branches.find((b: any) => b.id === stock.frombranchid);
@@ -634,7 +634,7 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({
           { label: "Status", key: "status" },
           { label: "Reason", key: "reason" },
         ];
-        // Server already returns these newest-first (sort createdAt:-1) —
+        // Server already returns these newest-first (sort createdAt:-1)
         // don't re-reverse.
         const data = leaveRequests.map((r: any, idx: number) => ({
           ...r,

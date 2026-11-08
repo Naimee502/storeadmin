@@ -130,7 +130,7 @@ export const useExpenseCategoryLedgerLazy = () => {
   return useLazyQuery(GET_EXPENSE_CATEGORY_LEDGER);
 };
 
-// ----------------- Paged list (server-side paging, search and column filters) -----------------
+// Paged list (server-side paging, search and column filters)
 export const useExpenseNotesPageQuery = ({
   page,
   pageSize,

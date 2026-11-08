@@ -1,16 +1,16 @@
 // Add / Edit an Expense Note (voucher).
 //
-// Tally-style multi-line journal voucher with three smart presets:
-//   - "general" — ad-hoc expenses (existing behaviour)
-//   - "tada"    — Travelling/Daily Allowance for a salesman or staff
-//   - "salary"  — monthly salary entry for a staff member
+// Tally-style multi-line journal voucher with three smart presets
+// "general" — ad-hoc expenses (existing behaviour)
+// "tada" — Travelling/Daily Allowance for a salesman or staff
+// "salary" — monthly salary entry for a staff member
 //
-// When the user picks "tada" or "salary":
+// When the user picks "tada" or "salary"
 //   1. We lazy-fetch (and create-if-missing) the canonical expense ledger
 //      ("TA/DA Expense" or "Staff Salary") and pin it into line 1.
-//   2. A staff selector appears. Selecting a staff:
-//        - For salary: pre-fills line 1 amount from staff.salary
-//        - For credit payment type: pins the staff's personal ledger as
+// 2. A staff selector appears. Selecting a staff
+// For salary: pre-fills line 1 amount from staff.salary
+// For credit payment type: pins the staff's personal ledger as
 //          the party ledger (the credit side of the voucher).
 //   3. A salary-period field shows up for category=salary so the server
 //      can prevent paying the same staff twice for the same month.

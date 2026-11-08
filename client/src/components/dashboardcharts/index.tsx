@@ -86,9 +86,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
     return new Map(staff.map((s: any) => [s.id, s.name]));
   }, [staff]);
 
-  // -------------------------------------------------------------
   // Tab 3: Orders & Returns Chart Calculations
-  // -------------------------------------------------------------
+
   const soPending = salesOrders.filter((o) => !o.isConverted && o.status !== false).length;
   const soConverted = salesOrders.filter((o) => o.isConverted).length;
   const poPending = purchaseOrders.filter((o) => !o.isConverted && o.status !== false).length;
@@ -203,9 +202,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
     },
   };
 
-  // -------------------------------------------------------------
   // Tab 4: HR & Attendance Chart Calculations
-  // -------------------------------------------------------------
+
   const present = attendanceSummary?.presentDays ?? 0;
   const absent = attendanceSummary?.absentDays ?? 0;
   const halfDay = attendanceSummary?.halfDays ?? 0;

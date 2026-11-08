@@ -36,12 +36,12 @@ export const toWhatsAppNumber = (
   // A bare national number — and ONLY here does the country code go on.
   //
   // The test is LENGTH, never "does it already start with 91", and that is
-  // deliberate in both directions:
-  //   - 9198765432 is an ordinary ten-digit Indian mobile. Refusing to
+  // deliberate in both directions
+  // 9198765432 is an ordinary ten-digit Indian mobile. Refusing to
   //     prefix it because of its first two digits would send the bill to a
   //     number two digits short.
-  //   - 919586400821 is already twelve digits, so it never reaches this
-  //     line. "91" cannot end up on twice, whatever shape it arrived in —
+  // 919586400821 is already twelve digits, so it never reaches this
+  // line. "91" cannot end up on twice, whatever shape it arrived in
   //     "+91…", "91-…", "0091…" all collapse to the same twelve digits.
   if (digits.length === 10) digits = `${countryCode}${digits}`;
 

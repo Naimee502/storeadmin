@@ -19,7 +19,7 @@ import {
 } from '../../queries/purchaseorder';
 import { useAppSelector } from '../../../redux/hooks';
 
-// ----------------- Mutations -----------------
+// Mutations
 export const usePurchaseOrderMutations = () => {
   const [addPurchaseOrderMutation] = useMutation(ADD_PURCHASE_ORDER);
   const [editPurchaseOrderMutation] = useMutation(EDIT_PURCHASE_ORDER);
@@ -42,7 +42,7 @@ export const usePurchaseOrderMutations = () => {
   };
 };
 
-// ----------------- Purchase Orders Query -----------------
+// Purchase Orders Query
 export const usePurchaseOrdersQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -69,7 +69,7 @@ export const usePurchaseOrdersQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Purchase Orders LIST (lite) -----------------
+// Purchase Orders LIST (lite)
 // Same filter as usePurchaseOrdersQuery, but only the listing columns.
 export const usePurchaseOrdersListQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
@@ -97,7 +97,7 @@ export const usePurchaseOrdersListQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Deleted Purchase Orders Query -----------------
+// Deleted Purchase Orders Query
 export const useDeletedPurchaseOrdersQuery = () => {
   const { type, admin, branch, staff } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.selectedBranch.branchId);
@@ -124,7 +124,7 @@ export const useDeletedPurchaseOrdersQuery = () => {
   return { data, loading, error, refetch };
 };
 
-// ----------------- Purchase Order by ID Query -----------------
+// Purchase Order by ID Query
 export const usePurchaseOrderByIDQuery = (id?: string) => {
   const { data, loading, error } = useQuery(GET_PURCHASE_ORDER_BY_ID, {
     variables: { id },

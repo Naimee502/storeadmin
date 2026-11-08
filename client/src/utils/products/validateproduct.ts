@@ -80,7 +80,7 @@ export const validateProduct = (
     issue: Omit<ValidationIssue, "scope"> & { scope: ValidationIssue["scope"] }
   ) => issues.push(issue);
 
-  /* ------------------------- product level ------------------------- */
+  /* product level */
 
   if (on("name") && !String(product?.name ?? "").trim()) {
     errors.name = "Product name is required";
@@ -102,7 +102,7 @@ export const validateProduct = (
     push({ path: "purchaseaccountid", field: "purchaseaccount", message: errors.purchaseaccountid, scope: "product" });
   }
 
-  /* ------------------------- variants ------------------------- */
+  /* variants */
 
   if (product?.isservice) {
     return { valid: isEmptyDeep(errors), errors, issues };
@@ -167,7 +167,7 @@ export const validateProduct = (
       }
     });
 
-    /* ---- unit conversions ---- */
+    /* unit conversions */
     const conversions: any[] = Array.isArray(variant?.unitconversions) ? variant.unitconversions : [];
 
     if (!conversions.length) {
@@ -193,7 +193,7 @@ export const validateProduct = (
       if (convErrorsArr.filter(Boolean).length) variantErrors.unitconversions = convErrorsArr;
     }
 
-    /* ---- unit prices ---- */
+    /* unit prices */
     const prices: any[] = Array.isArray(variant?.unitprices) ? variant.unitprices : [];
 
     if (!prices.length) {

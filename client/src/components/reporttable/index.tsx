@@ -90,7 +90,7 @@ interface ReportTableProps {
    Helpers
 ────────────────────────────────────────────────────────────────── */
 // Accounting reports render negatives in brackets — "(25000.00)" means
-// -25000. Number("(25000.00)") is NaN, so a plain Number() check silently
+// 25000. Number("(25000.00)") is NaN, so a plain Number() check silently
 // dropped every negative row from the totals (a vendor sheet full of
 // payables added up to 0). Strip the brackets and restore the sign.
 const toNumericVal = (v: any): number | null => {
@@ -241,7 +241,7 @@ const printReportAsPDF = (
 
   const win = window.open("", "_blank");
   if (!win) return;
-  const subtitleHtml = pdfSubtitle && pdfSubtitle.length > 0 
+  const subtitleHtml = pdfSubtitle && pdfSubtitle.length > 0
     ? `<div style="text-align:left;font-size:12px;font-weight:bold;margin-bottom:15px;line-height:1.5;">${pdfSubtitle.join("<br/>")}</div>`
     : "";
 
@@ -442,13 +442,13 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleExcelExport = () => {
     if (onExport) { onExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
-    
+
     const headerRows = [
       [title],
       [`Financial Year: ${fyInfo()}`],
       [`Generated on: ${formatDateDMY(new Date())}`],
     ];
-    
+
     if (pdfSubtitle && pdfSubtitle.length > 0) {
       pdfSubtitle.forEach(sub => headerRows.push([sub]));
     }
@@ -464,12 +464,12 @@ const ReportTable: React.FC<ReportTableProps> = ({
   const handleCsvExport = () => {
     if (onCsvExport) { onCsvExport(); return; }
     const rows = filteredData.map((r) => buildExportRow(r, exportColumns));
-    
+
     let header =
       `${title}\r\n` +
       `Financial Year: ${fyInfo()}\r\n` +
       `Generated on: ${formatDateDMY(new Date())}\r\n`;
-      
+
     if (pdfSubtitle && pdfSubtitle.length > 0) {
       header += pdfSubtitle.join("\r\n") + "\r\n";
     }
@@ -656,7 +656,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
 
           {/* Right: global search */}
           <div className="flex items-center gap-2">
-            
+
             <div className="relative">
               <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400" />
               <input
@@ -688,7 +688,7 @@ const ReportTable: React.FC<ReportTableProps> = ({
                   >
                     <div className={`flex items-center gap-1 ${col.numeric ? "justify-end" : ""}`}>
                       {col.label}
-                      
+
                     </div>
                   </th>
                 ))}

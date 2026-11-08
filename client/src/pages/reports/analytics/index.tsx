@@ -46,7 +46,7 @@ const AnalyticalReports: React.FC = () => {
     fetchPolicy: "cache-and-network",
   });
 
-  // Purchase rates are only read by "Profit Margin Analysis". No status filter:
+  // Purchase rates are only read by "Profit Margin Analysis". No status filter
   // a product deactivated since it was sold still needs its cost.
   const { data: costData } = useQuery(ANALYTICS_REPORT_PRODUCT_COSTS, {
     variables: { filter: { adminid, branchid }, limit: 0, offset: 0 },

@@ -93,7 +93,6 @@ function useStickyTableState<T>(title: string, field: string, initial: T) {
 const mountedTables: string[] = [];
 let activeTable: string | null = null;
 
-
 // Columns whose value is a partyLabel() string ("Name - Mobile - City").
 const PARTY_COLUMN_KEYS = new Set(["partyacc", "partyDisplay"]);
 
@@ -314,7 +313,7 @@ const DataTable: React.FC<DataTableProps> = ({
         ? data
         : localFiltered.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
-    // A remembered page can point past the end of a list that has since shrunk —
+    // A remembered page can point past the end of a list that has since shrunk
     // deleted rows, or a filter typed before leaving. Showing an empty table in
     // that case looks like the data is gone, so fall back to the last real page.
     useEffect(() => {
@@ -342,7 +341,7 @@ const DataTable: React.FC<DataTableProps> = ({
 
     const canEdit = (row: any) => (typeof showEdit === "function" ? showEdit(row) : showEdit);
 
-    // ---- Keyboard control (compact screens only) ----------------------------
+    // Keyboard control (compact screens only)
     const [selectedIdx, setSelectedIdx] = useState(-1);
     const searchRef = useRef<HTMLInputElement>(null);
     const tbodyRef = useRef<HTMLTableSectionElement>(null);

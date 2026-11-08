@@ -6,7 +6,7 @@ import FormSwitch from "../../../components/formswitch";
 import FormPage from "../../../components/formpage";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { showMessage } from "../../../redux/slices/message";
-import { selectIsModuleBusinessEnabled, selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
+import { selectIsFormFieldEnabled } from "../../../redux/slices/permissions";
 import {
   useProductServiceByIDQuery,
   useProductServiceMutations,
@@ -18,7 +18,6 @@ import { useProductGroupsQuery } from "../../../graphql/hooks/productgroups";
 import { useModelsQuery } from "../../../graphql/hooks/models";
 import { useSizesQuery } from "../../../graphql/hooks/sizes";
 import { useUnitsQuery } from "../../../graphql/hooks/units";
-import BarcodeImage from "../../../components/barcode";
 import { useSubCategoriesQuery } from "../../../graphql/hooks/subcategories";
 import { v4 as uuidv4 } from 'uuid';
 import { ServiceVariants } from "../../../components/servicevariants";
@@ -29,7 +28,6 @@ import { useAccountLedgersQuery } from "../../../graphql/hooks/accountledgers";
 import Modal from "../../../components/modal";
 import { normalizeToYMD } from "../../../utils/helper";
 
-
 const AddEditProductService = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
@@ -38,7 +36,6 @@ const AddEditProductService = () => {
   const { admin, branch, type } = useAppSelector((state) => state.auth);
   const branchId = useAppSelector((state) => state.selectedBranch.branchId);
   const adminId = admin?.id;
-
 
   const isAddVariantEnabled = useAppSelector(state => selectIsFormFieldEnabled(state, "products", "add_product_variant"));
   const productFormPermissions = useAppSelector(state => state.permissions.permissions?.formPermissions?.products || {});
@@ -62,7 +59,6 @@ const AddEditProductService = () => {
     fieldPath: "",
     parentId: ""
   });
-
 
   // Tally-style: auto-resolve standard account ledgers by name pattern
   const ledgers = useMemo(() => ledgerData?.getAccountLedgers || [], [ledgerData]);
@@ -152,16 +148,16 @@ const AddEditProductService = () => {
       expirydate: "",
       baseunitid: "",
       purchaseunitid: "",
-      purchaserate: "",          
+      purchaserate: "",
       unitconversions: [
         {
           unitid: "",
-          factor: "",            
+          factor: "",
         },
       ],
-      gst: "",                    
+      gst: "",
       hsncode: "",
-      openingstock: "",           
+      openingstock: "",
       openingstockamount: "",
       currentstock: "",
       currentstockamount: "",
@@ -201,10 +197,10 @@ const AddEditProductService = () => {
       name: "",
       servicecode: "",
       servicebarcode: "",
-      servicerate: "",          
+      servicerate: "",
       uom: "",
       duration: {
-        amount: "",            
+        amount: "",
         unit: "hours",
       },
       requiresappointment: true,
@@ -219,7 +215,7 @@ const AddEditProductService = () => {
       isRecurring: false,
       recurrence: {
         interval: "monthly",
-        count: "",             
+        count: "",
       },
       servicelikecount: 0,
       remarks: "",
@@ -618,7 +614,6 @@ const AddEditProductService = () => {
 
     const keys = name.split(".");
 
-    
     // Update formData
     setFormData((prev) => {
       const updated = { ...prev };
@@ -695,7 +690,7 @@ const AddEditProductService = () => {
     });
   };
 
-  // === Handlers for nested updates ===
+  // Handlers for nested updates
   const addProductVariant = () => {
     setFormData(prev => {
       const newVariant = prev.productvariants.length
@@ -734,7 +729,7 @@ const AddEditProductService = () => {
     }));
   };
 
-  // === Add/Remove for nested arrays ===
+  // Add/Remove for nested arrays
   const addUnitConversion = (variantIndex: number) => {
     setFormData(prev => {
       const variants = prev.productvariants.map((variant, i) =>
@@ -1084,7 +1079,7 @@ const AddEditProductService = () => {
     if (obj && typeof obj === "object") {
       const result: any = {};
       for (const key in obj) {
-        // ❌ Skip GraphQL-internal + frontend-only keys
+        // Skip GraphQL-internal + frontend-only keys
         if (["__typename", "tempid"].includes(key)) continue;
 
         result[key] = deepClean(obj[key]);
@@ -1093,8 +1088,6 @@ const AddEditProductService = () => {
     }
     return obj;
   };
-
-  
 
   const handleSubmit = async () => {
     // Never save an edit form that has not received the product yet.
@@ -1200,7 +1193,6 @@ const AddEditProductService = () => {
       } as any);
     }
   };
-
 
   const subcategoryOptions =
     formData.categoryid && subCategoryDate?.getSubCategories

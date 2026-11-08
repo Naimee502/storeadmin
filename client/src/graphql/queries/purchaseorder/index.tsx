@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 
-// 🔹 Queries
+// Queries
 export const GET_PURCHASE_ORDERS = gql`
   query GetPurchaseOrders($filter: PurchaseOrderFilterInput) {
     getPurchaseOrders(filter: $filter) {

@@ -146,7 +146,7 @@ export const buildInvoicePdfModel = (
     return "0.00";
   };
 
-  /* ---- meta grid ---- */
+  /* meta grid */
   const metaCells: { label: string; value: string }[] = [
     { label: "M/S.", value: invoice.partyname || "---" },
     { label: opts.docNoLabel || "Invoice No.", value: invoice.billtype_billnumber },
@@ -179,7 +179,7 @@ export const buildInvoicePdfModel = (
   });
   metaCells.push({ label: "Party A/c", value: invoice.partyacc });
 
-  /* ---- items ---- */
+  /* items */
   const showHsn = settings?.printShowHsnColumn !== false;
   const showGst = settings?.printShowGstColumn !== false;
   let nameWidth = 34;
@@ -208,7 +208,7 @@ export const buildInvoicePdfModel = (
     };
   });
 
-  /* ---- totals ---- */
+  /* totals */
   const totals: InvoicePdfModel["totals"] = [
     { label: "Sub Total", value: money(productsTotal) },
     { label: "Total Discount", value: money(totalDiscount) },

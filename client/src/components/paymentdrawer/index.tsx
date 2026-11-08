@@ -3,7 +3,7 @@
 // Right-side drawer that completes a POS sale. Handles the LAST mile of the
 // transaction only: payment mode + paid amount + change due. The customer is
 // already chosen in the cart (POS Dashboard) and arrives via `onComplete`'s
-// caller, so we deliberately do NOT show another customer picker here —
+// caller, so we deliberately do NOT show another customer picker here
 // having two pickers leads to duplicate selection and inconsistent state.
 
 import { X } from "lucide-react";
@@ -84,7 +84,7 @@ export default function PaymentDrawer({
     });
   };
 
-  /* ----- POS keypad helpers (keypad + keyboard feed the same amount) ----- */
+  /* POS keypad helpers (keypad + keyboard feed the same amount) */
   const setAmount = (n: number) => {
     setAmountText(String(n));
     setPaidAmount(n);

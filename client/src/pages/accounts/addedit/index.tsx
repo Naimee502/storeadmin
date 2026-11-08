@@ -36,7 +36,6 @@ const TYPE_GROUP_MAP: Record<string, { names: string[]; category: string }> = {
   other:    { names: ["miscellaneous", "suspense", "other"],                         category: "liabilities" },
 };
 
-
 // "lat, lng" or any Google Maps link (…/@23.02,72.57,… or ?q=23.02,72.57).
 const parseLatLng = (text: string): { lat: number; lng: number } | null => {
   const m = String(text || "").match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
@@ -203,7 +202,7 @@ const AddEditAccount = () => {
   // "Assign parent party" only when downline management is on.
   const partyManagesDownline = useAppSelector((s: any) => !!s.adminsettings?.settings?.partyManagesDownline);
 
-  const isFieldEnabled = (fieldId: string) => 
+  const isFieldEnabled = (fieldId: string) =>
     useAppSelector(state => selectIsFormFieldEnabled(state, "accounts", fieldId));
 
   const { data: existingData } = useAccountByIDQuery(id || "");
@@ -392,7 +391,7 @@ const AddEditAccount = () => {
   const handleTypeChange = (value: string) => {
     const resolved = resolveAccountGroup(value);
     // Accounting convention: customer = receivable (debit), vendor = payable (credit).
-    // A both-party starts on the debit side, but it is only a starting point —
+    // A both-party starts on the debit side, but it is only a starting point
     // which way they actually stand is whatever their bills add up to, and the
     // user can flip it here if the opening balance says otherwise.
     const autoBalType =
