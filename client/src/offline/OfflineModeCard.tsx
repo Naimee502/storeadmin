@@ -51,7 +51,7 @@ export default function OfflineModeCard() {
         <div className="min-w-0">
           <div className="font-medium text-slate-800">Offline mode (this device)</div>
           <div className="text-[12px] text-slate-500">
-            Keeps the app and recently viewed data on this browser and saves new sales invoices and orders while offline, syncing them when the internet is back.
+            Keeps the app and recently viewed data on this browser and saves sales invoices, orders, returns and receipts made while offline, syncing them when the internet is back.
           </div>
           {note && <div className="mt-1 text-[12px] text-rose-600">{note}</div>}
         </div>

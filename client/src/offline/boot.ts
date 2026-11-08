@@ -4,6 +4,8 @@ import { isOfflineEnabled } from "./settings";
 import { clearCacheOnLogout, flushCacheSave, restoreCache } from "./persist";
 import { refreshOutbox, startOutbox } from "./outbox";
 import { registerServiceWorker, unregisterServiceWorker } from "./sw";
+import { startDevice } from "./device";
+import { startWarmup } from "./warmup";
 
 // Restores the cache (bounded wait), starts sync and the service worker. Never rejects.
 export async function bootOffline(client: ApolloClient<NormalizedCacheObject>): Promise<void> {
@@ -14,6 +16,8 @@ export async function bootOffline(client: ApolloClient<NormalizedCacheObject>): 
   }
   try {
     startOutbox(client);
+    startDevice();
+    startWarmup();
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") flushCacheSave();
     });

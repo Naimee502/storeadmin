@@ -366,6 +366,8 @@ export const GET_SALES_INVOICES_PAGE = gql`
         cancelStatus
         status
         createdAt
+        # Version for offline edit-conflict checks.
+        updatedAt
       }
     }
   }

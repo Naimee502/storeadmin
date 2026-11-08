@@ -375,6 +375,8 @@ export const GET_SALES_ORDERS_PAGE = gql`
         cancelStatus
         status
         createdAt
+        # Version for offline edit-conflict checks.
+        updatedAt
       }
     }
   }
