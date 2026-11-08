@@ -520,6 +520,8 @@ function syntheticChange(
       const rich = buildRichDoc(item, { id: target, input });
       src = pick(rich, Object.keys(input).filter((k) => k !== "clientRequestId"));
     }
+  } else if (kind === "action") {
+    src = { __typename: spec.typename, id: target, ...(spec.patch?.(variables) || {}) };
   } else if (kind === "cancel") {
     src = { __typename: spec.typename, id: target, cancelStatus: "cancelled", cancelReason: variables.reason ?? "", cancelledAt: now };
     if (isOrderType(spec.docType)) src.orderStatus = "cancelled";

@@ -32,6 +32,7 @@ const KIND_LABEL: Record<OutboxItem["kind"], string> = {
   cancel: "Cancel",
   reopen: "Re-open",
   delete: "Delete",
+  action: "Status",
 };
 
 const fmtAmount = (n: number | null) =>

@@ -29,7 +29,8 @@ export const MASTER_TYPES: MasterType[] = [
   "product", "account", "ledger", "unit", "category", "subcategory", "brand", "model", "size", "productgroup", "expensenote", "transaction",
 ];
 export const isMasterType = (t: string): t is MasterType => (MASTER_TYPES as string[]).includes(t);
-export type OpKind = "create" | "edit" | "cancel" | "reopen" | "delete";
+// "action": a status change (confirm, dispatch, deliver, assign) whose local effect is `patch`.
+export type OpKind = "create" | "edit" | "cancel" | "reopen" | "delete" | "action";
 export type OutboxStatus = "pending" | "failed" | "review";
 
 export const DOC_TYPES: DocType[] = [
@@ -53,6 +54,8 @@ export interface OpSpec {
   label: string;
   // False: the server has no expectedUpdatedAt for it, so it is only handled for offline docs.
   conflictCheck: boolean;
+  // Fields an action sets on the document, from its variables.
+  patch?: (vars: any) => Record<string, any>;
 }
 
 const spec = (field: string, kind: OpKind, docType: DocType, typename: string, label: string, conflictCheck = true): OpSpec => ({
@@ -64,6 +67,12 @@ const spec = (field: string, kind: OpKind, docType: DocType, typename: string, l
   conflictCheck,
 });
 
+const action = (field: string, docType: DocType, typename: string, label: string, patch: (vars: any) => Record<string, any>): OpSpec => ({
+  ...spec(field, "action", docType, typename, label),
+  patch,
+});
+const boy = (v: any) => ({ deliveryboyid: v?.deliveryboyid ?? null });
+
 // Root mutation fields the engine handles, keyed by field name.
 export const OP_SPECS: Record<string, OpSpec> = {
   addSalesInvoice: spec("addSalesInvoice", "create", "salesinvoice", "SalesInvoice", "Sales Invoice"),
@@ -72,6 +81,15 @@ export const OP_SPECS: Record<string, OpSpec> = {
   reopenSalesInvoice: spec("reopenSalesInvoice", "reopen", "salesinvoice", "SalesInvoice", "Sales Invoice"),
   deleteSalesInvoice: spec("deleteSalesInvoice", "delete", "salesinvoice", "SalesInvoice", "Sales Invoice"),
   addSalesOrder: spec("addSalesOrder", "create", "salesorder", "SalesOrder", "Sales Order"),
+  confirmSalesOrder: action("confirmSalesOrder", "salesorder", "SalesOrder", "Sales Order", () => ({ orderStatus: "confirmed" })),
+  markSalesOrderDispatched: action("markSalesOrderDispatched", "salesorder", "SalesOrder", "Sales Order", (v) => ({ orderStatus: "dispatched", deliveryStatus: "dispatched", ...(v?.deliveryboyid ? boy(v) : {}) })),
+  markSalesOrderDelivered: action("markSalesOrderDelivered", "salesorder", "SalesOrder", "Sales Order", () => ({ orderStatus: "delivered", deliveryStatus: "delivered" })),
+  assignOrderDeliveryBoy: action("assignOrderDeliveryBoy", "salesorder", "SalesOrder", "Sales Order", boy),
+  markSalesInvoiceDispatched: action("markSalesInvoiceDispatched", "salesinvoice", "SalesInvoice", "Sales Invoice", (v) => ({ deliveryStatus: "dispatched", ...(v?.deliveryboyid ? boy(v) : {}) })),
+  markSalesInvoiceDelivered: action("markSalesInvoiceDelivered", "salesinvoice", "SalesInvoice", "Sales Invoice", () => ({ deliveryStatus: "delivered" })),
+  assignInvoiceDeliveryBoy: action("assignInvoiceDeliveryBoy", "salesinvoice", "SalesInvoice", "Sales Invoice", boy),
+  confirmPurchaseOrder: action("confirmPurchaseOrder", "purchaseorder", "PurchaseOrder", "Purchase Order", () => ({ orderStatus: "confirmed" })),
+  markPurchaseOrderReceived: action("markPurchaseOrderReceived", "purchaseorder", "PurchaseOrder", "Purchase Order", () => ({ orderStatus: "received" })),
   editSalesOrder: spec("editSalesOrder", "edit", "salesorder", "SalesOrder", "Sales Order"),
   cancelSalesOrder: spec("cancelSalesOrder", "cancel", "salesorder", "SalesOrder", "Sales Order"),
   reopenSalesOrder: spec("reopenSalesOrder", "reopen", "salesorder", "SalesOrder", "Sales Order"),

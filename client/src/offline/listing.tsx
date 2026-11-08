@@ -16,6 +16,7 @@ const KIND_LABEL: Record<string, string> = {
   edit: "Edited offline",
   cancel: "Cancel pending",
   reopen: "Re-open pending",
+  action: "Status pending",
   delete: "Delete pending",
 };
 

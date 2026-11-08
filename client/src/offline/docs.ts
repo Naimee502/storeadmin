@@ -9,7 +9,7 @@ import { GET_PURCHASE_ORDERS_PAGE } from "../graphql/queries/purchaseorder";
 import { GET_PURCHASE_RETURNS_PAGE } from "../graphql/queries/purchasereturn";
 import { GET_STOCK_ADJUSTMENTS_PAGE } from "../graphql/queries/stockadjustments";
 import { GET_TRANSFER_STOCKS_PAGE } from "../graphql/queries/transferstock";
-import { byAge, docId, isMasterType, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
+import { OP_SPECS, byAge, docId, isMasterType, isOrderType, liveCreates, offlineIdFor, type DocType, type OutboxItem, type OutboxStatus } from "./core";
 import { selectionAt, shapeBySelection } from "./gql";
 import { getOfflineClient, offlineStore } from "./outbox";
 import { localDoc, localDocs } from "./localdb";
@@ -292,6 +292,7 @@ function applyOp(doc: any, op: OutboxItem): any {
     for (const k of Object.keys(input)) if (k !== "clientRequestId" && rich[k] !== undefined) patch[k] = rich[k];
     return { ...doc, ...patch };
   }
+  if (op.kind === "action") return { ...doc, ...(OP_SPECS[op.field]?.patch?.(op.variables) || {}) };
   const cancelled = op.kind === "cancel";
   if (!cancelled && op.kind !== "reopen") return doc;
   const out = { ...doc, cancelStatus: cancelled ? "cancelled" : "open" };
