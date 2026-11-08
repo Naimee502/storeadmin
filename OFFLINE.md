@@ -34,6 +34,12 @@ One file, identical in both: `clientapp/src/apollo/offline.ts` = `clientweb/src/
 - Not offline in the apps (by design): stock and outstanding are the last synced values; new parties, catalogue and masters need the network.
 - Test: `node test.js` style check with a fake server (offline create, list/detail of pending, edit merge, id swap, 3 s timeout, no duplicate) passes on Apollo 3 (web) and 4 (app).
 
+## Phase 3 contract (masters and expenses)
+- Server: `withOfflineWrites` (utils/offlinesync.ts), applied in `graphql/resolvers/index.ts`, gives units, categories, sub categories, brands, models, sizes, product groups, products, accounts, ledgers, expense notes and transactions one create per `clientRequestId` and `expectedUpdatedAt` on edit/delete (`CONFLICT` with `current`). Types that had no `updatedAt` serve it as ISO.
+- `syncPull` also serves `purchaseinvoice, purchaseorder, purchasereturn, stockadjustment, transferstock, expensenote, transaction`.
+- Client: masters are queued like bills but take no device number (`MASTER_TYPES` in `core`). Offline lists, pages and by-id reads include pending masters; a bare id on a pending master shows the name from local records (`refById`). A bill that uses an offline party or product waits for it to sync, then gets its server id.
+- Payment collection in the apps: `AddPayment` is queued. Offline the allocation preview is unavailable, so an on-account receipt is saved (settling bills always needs the user to see and approve the split); invoice-wise receipts use the bills last loaded online.
+
 ## Deploy
 Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 
@@ -47,14 +53,14 @@ Server first, then client (the client asks for `offlineBilling` and `syncPull`).
 ## Phases
 1. Foundation: business switch, `syncPull`, `localdb`, local reads, hybrid numbers, disconnect alert, dashboard offline. Billing screens (invoice, order, POS, return, receipt).
 2. Purchase and stock: purchase invoice/order/return, stock adjustment, transfer.
-3. Masters and expenses edited offline.
+3. Masters and expenses edited offline: done.
 4. Reports from local data.
 5. Apps: sales (order, payment, sales return, delivery, visit) done in `clientapp` and `clientweb`.
 
 ## Status (handoff: read this first)
 Branch `feature/server-paging-clear-offline`. One commit per finished step; never commit `.DS_Store`, builds, `dist`, notes or test scripts.
-- Done and committed: Phase 1 (admin client + server), Phase 2 (purchase invoice/order/return, stock adjustment, transfer: server, client queue, local stock, vendor balance, device numbers, Pending sync badges in lists), Apps sales (`clientapp`, `clientweb`).
+- Done and committed: Phase 1, Phase 2 (purchase and stock, including their `syncPull` collections), Phase 3 (masters, expense notes, transactions), Apps sales and payment collection (`clientapp`, `clientweb`).
 - `client/src/offline` files: `core` (rules: doc types, numbers, local stock and balance), `outbox` (queue and push), `localdb` (IndexedDB and pull), `offlinelink` (Apollo link, local reads), `docs` + `gql` (collections and their queries), `device` (device code and numbers), `settings` (on/off), `boot` (start/stop and service worker), `billing` (screen hooks and helpers), `listing` (list badges), `localprice`, `userkey`, and the UI (`OfflineStatusBar`, `OfflineHeaderStatus`, `OfflineModeCard`). Add to these; do not add new files.
-- Next: Phase 3 (masters and expenses edited offline: product, account/ledger, unit, category, subcategory, brand, model, size, productgroup, expensenote) on the same pattern: server `createOnce` + `expectedUpdatedAt`, `OP_SPECS` in `core`, list badges with `useOfflineList`.
+- Next: Phase 4 (reports from local data). Open points: master add/edit forms show their usual success message offline (the header pill shows the pending count); pending masters appear in lists only offline (online they save at once).
 - Checks: server `tsc` + `check-schema`; client `tsc` (many old errors in untouched pages; only touched files must be clean); `vite build` needs the Mac (node_modules are macOS binaries).
 - Local testing: the server runs on the same Mac, so turning Wi-Fi off does not make the apps offline. Stop the server or use DevTools > Network > Offline.
