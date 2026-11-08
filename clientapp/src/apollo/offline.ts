@@ -9,13 +9,20 @@ export type OfflineStorage = {
 export type OfflineState = { online: boolean; pending: number; message: string };
 
 // Creates carry clientRequestId, so a retry or a timed-out request never saves twice.
-const CREATES: Record<string, string> = { AddSalesOrder: 'SalesOrder', AddPayment: 'Payment', AddSalesReturn: 'SalesReturn', AddExpenseClaim: 'ExpenseClaim' };
+const CREATES: Record<string, string> = {
+  AddSalesOrder: 'SalesOrder', AddPayment: 'Payment', AddSalesReturn: 'SalesReturn', AddExpenseClaim: 'ExpenseClaim',
+  AddAccount: 'Account', AddVisit: 'Visit', AddTransaction: 'Transaction',
+};
 const QUEUED = new Set([
   ...Object.keys(CREATES), 'EditSalesOrder', 'MarkSalesInvoiceDelivered', 'MarkSalesOrderDelivered', 'MarkVisit',
   'punch', 'EditExpenseClaim', 'CancelExpenseClaim', 'MarkAnnouncementRead', 'addLeaveRequest', 'cancelLeaveRequest',
+  'EditAccount', 'ConfirmSalesOrder', 'CancelSalesOrder', 'DeleteSalesOrder', 'MarkSalesOrderDispatched', 'MarkSalesInvoiceDispatched',
+  'AssignOrderDeliveryBoy', 'AssignInvoiceDeliveryBoy', 'ConvertSalesOrderToInvoice', 'MarkNotificationRead', 'MarkAllNotificationsRead', 'UpdateSalesRoute',
 ]);
 // List queries that show pending creates on top of the last synced rows.
-const LISTS: Record<string, string> = { getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim' };
+const LISTS: Record<string, string> = {
+  getSalesOrders: 'AddSalesOrder', getPayments: 'AddPayment', getMySalesReturns: 'AddSalesReturn', getMyExpenseClaims: 'AddExpenseClaim', getAccounts: 'AddAccount',
+};
 // Status of a pending create when the type's status is not a plain flag.
 const PENDING_STATUS: Record<string, string> = { ExpenseClaim: 'pending' };
 // A photo taken offline: uploaded on sync before the entry that uses it (apps' uploadImage makes it).
@@ -188,6 +195,8 @@ export function createOffline(opts: {
     billnumber: PENDING_NUMBER,
     paymentcode: PENDING_NUMBER,
     claimnumber: PENDING_NUMBER,
+    accountcode: PENDING_NUMBER,
+    transactioncode: PENDING_NUMBER,
     status: item.variables.input?.status ?? PENDING_STATUS[CREATES[item.name]] ?? true,
     cancelStatus: false,
     createdAt: item.at,
